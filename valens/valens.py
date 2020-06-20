@@ -6,19 +6,19 @@ import pathlib
 import re
 import statistics
 import sys
-from typing import Dict, Sequence, Tuple, Union
+from typing import Dict, Tuple, Union
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
 
-CONFIG_FILE = pathlib.Path.home() / ".config/wolog/wolog.yml"
+CONFIG_FILE = pathlib.Path.home() / ".config/valens/valens.yml"
 
 
 config = {}
 
 
-def main(argv: Sequence[str]) -> Union[int, str]:
+def main() -> Union[int, str]:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subcommand")
 
@@ -39,7 +39,7 @@ def main(argv: Sequence[str]) -> Union[int, str]:
     parser_list.add_argument("--short", action="store_true", help="list only excercise names")
     parser_list.set_defaults(func=list_exercises)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args(sys.argv[1:])
 
     if not args.subcommand:
         parser.print_usage()
@@ -199,4 +199,4 @@ def parse_set(set_string: str) -> Dict[str, str]:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    sys.exit(main())

@@ -1,9 +1,9 @@
 import re
 
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup  # type: ignore
 
 with open("valens/__init__.py") as f:
-    version = re.search(r'__version__ = "(.*?)"', f.read()).group(1)
+    version = re.search(r'__version__ = "(.*?)"', f.read()).group(1)  # type: ignore
 
 setup(
     name="valens",

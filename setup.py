@@ -12,5 +12,5 @@ setup(
     packages=find_packages(where="valens"),
     python_requires=">=3.6, <4",
     install_requires=["matplotlib", "pandas"],
-    entry_points={"console_scripts": ["valens=valens.valens:main"]},
+    entry_points={"console_scripts": ["valens=valens.cli:main"]},
 )

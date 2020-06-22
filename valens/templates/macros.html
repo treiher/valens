@@ -1,0 +1,14 @@
+{% macro diagram(name, periods, current, previous, next) %}
+<div id="diagram" class="container">
+    <div class="container has-text-centered">
+        <a href="{{ name }}?first={{ previous.first }}&last={{ previous.last }}" class="button is-small">&lt;&lt;</a>
+        {% for period_name, period_first, period_last in periods %}
+            <a href="{{ name }}?first={{ period_first }}&last={{ period_last }}" class="button is-small">{{ period_name }}</a>
+        {% endfor %}
+        <a href="{{ name }}?first={{ next.first }}&last={{ next.last }}" class="button is-small">&gt;&gt;</a>
+    </div>
+    <div class="container has-text-centered">
+        <img src="image/{{ name }}?first={{ current.first }}&last={{ current.last }}" />
+    </div>
+</div>
+{% endmacro %}

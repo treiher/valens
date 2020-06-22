@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "macros.html" import diagram with context %}.
+{% block title %}{{ exercise }} - Exercise{% endblock %}
+{% block content_title %}{{ exercise }}{% endblock %}
+{% block head %}
+    {{ super() }}
+{% endblock %}
+{% block content %}
+    {{ diagram("exercise/" + exercise, periods, current, previous, next) }}
+{% endblock %}

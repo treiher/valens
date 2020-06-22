@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Exercises{% endblock %}
+{% block content_title %}Exercises{% endblock %}
+{% block head %}
+    {{ super() }}
+{% endblock %}
+{% block content %}
+    <div class="container has-text-centered">
+    {% for name in exercise_list %}
+        <div class="column"><a class="button" href="exercise/{{ name }}">{{ name }}</a></div>
+    {% endfor %}
+    </div>
+{% endblock %}

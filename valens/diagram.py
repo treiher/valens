@@ -43,8 +43,10 @@ def workouts(first: date = None, last: date = None) -> Figure:
         .plot(secondary_y=True, style=".-", label="volume (right)")
     )
     ax2.set(ylim=(0, None))
+    ax2.grid(None)
 
     plot.set(xlabel=None)
+    plot.grid()
 
     fig = plot.get_figure()
     _common_layout(fig)

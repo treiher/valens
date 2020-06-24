@@ -4,8 +4,8 @@
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="static/css/style.css">
-    <link rel="stylesheet" href="static/css/bulma.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bulma.css') }}">
     <title>{% block title %}{% endblock %} - Valens</title>
     {% endblock %}
 </head>
@@ -16,7 +16,7 @@
                 <h1 class="title">{% block content_title %}{% endblock %}</h1>
             </div>
             <div class="column is-2">
-                <a href="index" class="title">&#8962;</a>
+                <a href="{{ url_for('index') }}" class="title">&#8962;</a>
             </div>
         </div>
     </section>

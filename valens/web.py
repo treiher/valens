@@ -16,7 +16,6 @@ class Period:
 
 
 @app.route("/")
-@app.route("/index")
 def index() -> str:
     return render_template(
         "index.html",
@@ -88,16 +87,16 @@ def workouts() -> str:
     )
 
 
-@app.route("/image/<path:name>")
-def image(name: str) -> Response:
+@app.route("/image/<image_type>")
+def image(image_type: str) -> Response:
     period = parse_period_args()
-    if name == "bodyweight":
+    if image_type == "bodyweight":
         fig = diagram.bodyweight(period.first, period.last)
-    elif name == "workouts":
+    elif image_type == "workouts":
         fig = diagram.workouts(period.first, period.last)
-    elif name.startswith("exercise"):
-        exercise_name = name.split("/")[1]
-        fig = diagram.exercise(exercise_name, period.first, period.last)
+    elif image_type.startswith("exercise"):
+        name = request.args.get("name", "")
+        fig = diagram.exercise(name, period.first, period.last)
     else:
         return make_response("", 404)
     return Response(diagram.plot_svg(fig), mimetype="image/svg+xml")

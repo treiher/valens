@@ -7,7 +7,7 @@
 {% block content %}
     <div class="container has-text-centered">
     {% for name in exercise_list %}
-        <div class="column"><a class="button" href="exercise/{{ name }}">{{ name }}</a></div>
+        <div class="column"><a class="button" href="{{ url_for('exercise', name=name) }}">{{ name }}</a></div>
     {% endfor %}
     </div>
 {% endblock %}

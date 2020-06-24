@@ -1,14 +1,15 @@
-{% macro diagram(name, periods, current, previous, next) %}
+{% macro diagram(endpoint, periods, current, previous, next, name='') %}
+{% set args = {'name': name} if name else {} %}
 <div id="diagram" class="container">
     <div class="container has-text-centered">
-        <a href="{{ name }}?first={{ previous.first }}&last={{ previous.last }}" class="button is-small">&lt;&lt;</a>
+        <a href="{{ url_for(endpoint, first=previous.first, last=previous.last, **args) }}" class="button is-small">&lt;&lt;</a>
         {% for period_name, period_first, period_last in periods %}
-            <a href="{{ name }}?first={{ period_first }}&last={{ period_last }}" class="button is-small">{{ period_name }}</a>
+            <a href="{{ url_for(endpoint, first=period_first, last=period_last, **args) }}" class="button is-small">{{ period_name }}</a>
         {% endfor %}
-        <a href="{{ name }}?first={{ next.first }}&last={{ next.last }}" class="button is-small">&gt;&gt;</a>
+        <a href="{{ url_for(endpoint, first=next.first, last=next.last, **args) }}" class="button is-small">&gt;&gt;</a>
     </div>
     <div class="container has-text-centered">
-        <img src="image/{{ name }}?first={{ current.first }}&last={{ current.last }}" />
+        <img src="{{ url_for('image', image_type=endpoint, first=current.first, last=current.last, **args) }}" />
     </div>
 </div>
 {% endmacro %}

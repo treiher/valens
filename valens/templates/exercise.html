@@ -6,5 +6,5 @@
     {{ super() }}
 {% endblock %}
 {% block content %}
-    {{ diagram("exercise/" + exercise, periods, current, previous, next) }}
+    {{ diagram('exercise', periods, current, previous, next, exercise) }}
 {% endblock %}

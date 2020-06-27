@@ -4,7 +4,6 @@ from datetime import date
 import matplotlib
 import matplotlib.style
 import pandas as pd
-from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
 
@@ -14,12 +13,6 @@ matplotlib.style.use("seaborn-whitegrid")
 
 matplotlib.rc("font", family="Roboto", size=12)
 matplotlib.rc("legend", handletextpad=0.5, columnspacing=0.5, handlelength=1)
-
-
-def plot_png(fig: Figure) -> bytes:
-    output = io.BytesIO()
-    FigureCanvasAgg(fig).print_png(output)
-    return output.getvalue()
 
 
 def plot_svg(fig: Figure) -> bytes:

@@ -1,7 +1,7 @@
 VERBOSE ?= @
 export MYPYPATH = $(PWD)/stubs
 
-python-packages := valens setup.py
+python-packages := valens tests setup.py
 
 .PHONY: all check check_black check_isort check_flake8 check_pylint check_mypy format \
 	test test_optimized test_coverage
@@ -30,10 +30,4 @@ format:
 	isort -rc $(python-packages)
 
 test:
-	python3 -m pytest -vv
-
-test_optimized:
-	python3 -O -m pytest -vv
-
-test_coverage:
-	coverage run --branch --source=rflx -m pytest -vv
+	pytest -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing tests

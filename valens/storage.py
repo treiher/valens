@@ -25,7 +25,7 @@ def read_workouts() -> pd.DataFrame:
         for date, exercises in log.items():
             for exercise, sets in exercises.items():
                 for s in sets:
-                    for k, v in _parse_set(str(s)).items():
+                    for k, v in parse_set(str(s)).items():
                         if k in ["weight", "rpe"]:
                             cols[k].append(float(v) if v else None)
                         else:
@@ -55,7 +55,7 @@ def write_bodyweight(date: datetime.date, weight: float) -> None:
         f.write(yaml.dump(log, default_flow_style=False))
 
 
-def _parse_set(set_string: str) -> Dict[str, str]:
+def parse_set(set_string: str) -> Dict[str, str]:
     m = re.match(
         r"^(?P<reps>\d+)?"
         r"(?:(?:^|x)(?P<time>\d+)s)?"

@@ -99,7 +99,3 @@ def show_bodyweight(args: argparse.Namespace) -> None:
     # pylint: disable=unused-argument
     diagram.bodyweight()
     plt.show()
-
-
-if __name__ == "__main__":
-    sys.exit(main())

@@ -23,7 +23,7 @@ def main() -> Union[int, str]:
     sp_show_ex = sp_show.add_parser("ex", help="show exercise")
     sp_show_ex.add_argument("exercise", metavar="NAME", type=str, help="exercise")
     sp_show_ex.set_defaults(func=show_exercise)
-    sp_show_bw = sp_show.add_parser("bw", help="show bodyweight show")
+    sp_show_bw = sp_show.add_parser("bw", help="show bodyweight")
     sp_show_bw.set_defaults(func=show_bodyweight)
 
     parser_list = subparsers.add_parser("list", help="list exercises")

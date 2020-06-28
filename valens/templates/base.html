@@ -1,35 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    {% block head %}
-    <meta charset="utf-8">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bulma.css') }}">
-    <title>{% block title %}{% endblock %} - Valens</title>
-    {% endblock %}
-</head>
-<body>
-    <section class="hero is-small is-success">
-        <div class="hero-body columns is-mobile">
-            <div class="column">
-                <h1 class="title">{% block content_title %}{% endblock %}</h1>
+    <head>
+        <meta charset="utf-8">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bulma.css') }}">
+        <title>{% block title %}{% endblock %} - Valens</title>
+    </head>
+    <body>
+        <section class="hero is-small is-success">
+            <div class="hero-body columns is-mobile">
+                <div class="column">
+                    <h1 class="title">{% block content_title %}{% endblock %}</h1>
+                </div>
+                <div class="column is-2">
+                    <a href="{{ url_for('index') }}" class="title">&#8962;</a>
+                </div>
             </div>
-            <div class="column is-2">
-                <a href="{{ url_for('index') }}" class="title">&#8962;</a>
+        </section>
+        <section class="section">
+            <div class="container" style="max-width: 600px">
+                {% if notification %}
+                <div class="notification">{{ notification }}</div>
+                {% endif %}
+                {% block content %}{% endblock %}
             </div>
-        </div>
-    </section>
-    <section class="section">
-        <div class="container" style="max-width: 600px">
-        {% if notification %}
-            <div class="notification">{{ notification }}</div>
-        {% endif %}
-            {% block content %}{% endblock %}
-        </div>
-    </section>
-</body>
+        </section>
+    </body>
 </html>

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
+
 {% block title %}Index{% endblock %}
+
 {% block content_title %}Index{% endblock %}
-{% block head %}
-    {{ super() }}
-{% endblock %}
+
 {% block content %}
-    <div class="container has-text-centered">
+<div class="container has-text-centered">
     {% for href, caption in navigation %}
-        <div class="column"><a class="button" href="{{ href }}">{{ caption }}</a></div>
+    <div class="column"><a class="button" href="{{ href }}">{{ caption }}</a></div>
     {% endfor %}
-    </div>
+</div>
 {% endblock %}

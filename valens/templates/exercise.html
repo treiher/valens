@@ -8,4 +8,30 @@
 
 {% block content %}
 {{ diagram('exercise', periods, current, previous, next, exercise) }}
+<div class="table-container mt-4">
+    <table class="table is-fullwidth is-narrow is-striped has-text-centered">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th><abbr title="Average repetitions">Reps</abbr></th>
+                <th><abbr title="Average time">Time</abbr></th>
+                <th><abbr title="Average weight">Weight</abbr></th>
+                <th><abbr title="Average rating of perceived exertion">RPE</abbr></th>
+                <th><abbr title="Average reps + reps in Reserve">Reps+RIR</abbr></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for date, reps, time, weight, rpe, reps_rir in workouts %}
+            <tr>
+                <td>{{ date }}</td>
+                <td>{{ reps }}</td>
+                <td>{{ time }}</td>
+                <td>{{ weight }}</td>
+                <td>{{ rpe }}</td>
+                <td>{{ reps_rir }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

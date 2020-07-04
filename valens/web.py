@@ -77,6 +77,23 @@ def exercises() -> str:
 @app.route("/exercise/<name>")
 def exercise(name: str) -> str:
     period = parse_period_args()
+    df = storage.read_workouts()
+    df["reps+rir"] = df["reps"] + df["rir"]
+    df = df.loc[lambda x: x["exercise"] == name].groupby(["date"]).mean()
+    df = df[period.first : period.last]  # type: ignore
+
+    workouts_list: deque = deque()
+    for wo_date, reps, time, weight, rpe, _, reps_rir in df.itertuples():
+        workouts_list.appendleft(
+            (
+                wo_date,
+                utils.format_number(reps),
+                utils.format_number(time),
+                utils.format_number(weight),
+                utils.format_number(rpe),
+                utils.format_number(reps_rir),
+            )
+        )
 
     return render_template(
         "exercise.html",
@@ -85,6 +102,7 @@ def exercise(name: str) -> str:
         periods=periods(),
         previous=prev_period(period),
         next=next_period(period),
+        workouts=workouts_list,
         today=date.today(),
     )
 

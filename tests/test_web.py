@@ -83,6 +83,18 @@ def test_bodyweight_add(client: Client, monkeypatch: Any) -> None:
     assert args["weight"] == 42
 
 
+def test_exercise(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        for date, exercises in tests.data.WORKOUTS.items():
+            for exercise in exercises:
+                resp = client.get(f"/exercise/{exercise}?first=2002-02-01&last=2002-03-01")
+                assert resp.status_code == 200
+                assert str(date) in resp.data.decode("utf-8")
+
+
 def test_workouts(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)

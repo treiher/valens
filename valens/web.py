@@ -43,6 +43,16 @@ def bodyweight() -> str:
         notification = f"Added weight of {w} kg on {d}"
 
     period = parse_period_args()
+    bw = storage.read_bodyweight()
+    df = pd.DataFrame({"weight": list(bw.values())}, index=list(bw.keys()))
+    df["avg_weight"] = df.rolling(window=9, center=True).mean()["weight"]
+    df = df[period.first : period.last]  # type: ignore
+
+    bodyweight_list: deque = deque()
+    for bw_date, weight, avg_weight in df.itertuples():
+        bodyweight_list.appendleft(
+            (bw_date, utils.format_number(weight), utils.format_number(avg_weight))
+        )
 
     return render_template(
         "bodyweight.html",
@@ -51,6 +61,7 @@ def bodyweight() -> str:
         previous=prev_period(period),
         next=next_period(period),
         today=date.today(),
+        bodyweight=bodyweight_list,
         notification=notification,
     )
 

@@ -15,4 +15,24 @@
         <input class="button is-success" style="width: 25%" type="submit" value="Submit" />
     </form>
 </div>
+<div class="table-container mt-4">
+    <table class="table is-fullwidth is-narrow is-striped has-text-centered">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th><abbr title="Weight in kg">Weight</abbr></th>
+                <th><abbr title="Central moving average of 9 values">Avg. Weight</abbr></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for date, weight, avg_weight in bodyweight %}
+            <tr>
+                <td>{{ date }}</td>
+                <td>{{ weight }}</td>
+                <td>{{ avg_weight }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

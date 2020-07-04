@@ -62,6 +62,17 @@ def test_non_availability(client: Client, url: str) -> None:
 
 
 def test_bodyweight(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        resp = client.get("/bodyweight?first=2002-02-01&last=2002-03-01")
+        assert resp.status_code == 200
+        for d in tests.data.BODYWEIGHT:
+            assert str(d) in resp.data.decode("utf-8")
+
+
+def test_bodyweight_add(client: Client, monkeypatch: Any) -> None:
     args = {}
     monkeypatch.setattr(
         web.storage, "write_bodyweight", lambda x, y: args.update({"date": x, "weight": y})

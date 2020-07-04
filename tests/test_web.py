@@ -3,12 +3,15 @@ import re
 import tempfile
 from typing import Any
 
-import pytest  # type: ignore
+import pandas as pd
+import pytest
+from werkzeug.datastructures import MultiDict
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.test import Client
 from werkzeug.wrappers import BaseResponse
 
-from tests import utils
+import tests.data
+import tests.utils
 from valens import web
 
 
@@ -35,13 +38,14 @@ def assert_resources_available(client: Client, data: bytes) -> None:
         "/image/exercise",
         "/image/workouts",
         "/workouts",
+        "/workout/2002-02-20",
     ],
 )
 @pytest.mark.parametrize("path", ["", "/test"])
 def test_availability(client: Client, path: str, route: str, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
-        utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: utils.config(tmp_dir))
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
 
         url = path + route
         resp = client.get(url)
@@ -66,3 +70,96 @@ def test_bodyweight(client: Client, monkeypatch: Any) -> None:
     assert resp.status_code == 200
     assert args["date"] == datetime.date.fromisoformat("2002-02-20")
     assert args["weight"] == 42
+
+
+def test_workouts(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
+        assert resp.status_code == 200
+        for d in tests.data.WORKOUTS:
+            assert str(d) in resp.data.decode("utf-8")
+
+
+def test_workouts_add(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
+        resp = client.post("/workouts", data={"date": "2002-02-24", "template": "T1"})
+        assert resp.status_code == 302
+
+        templates_df = tests.data.TEMPLATES_DF["T1"].copy()
+        templates_df["date"] = [datetime.date(2002, 2, 24)] * len(templates_df)
+        assert args["df"].equals(pd.concat([tests.data.WORKOUTS_DF, templates_df]))
+
+
+def test_workouts_add_existing(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
+        resp = client.post("/workouts", data={"date": "2002-02-20", "template": "T1"})
+        assert resp.status_code == 200
+        assert "df" not in args
+
+
+def test_workout_delete(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
+        resp = client.post("/workout/2002-02-22", data={"delete": ""})
+        assert resp.status_code == 302
+        assert args["df"].equals(
+            tests.data.WORKOUTS_DF[tests.data.WORKOUTS_DF["date"] != datetime.date(2002, 2, 22)]
+        )
+
+
+def test_workout_save(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
+        resp = client.post("/workout/2002-02-22")
+        assert resp.status_code == 200
+        assert args["df"].equals(
+            tests.data.WORKOUTS_DF[tests.data.WORKOUTS_DF["date"] != datetime.date(2002, 2, 22)]
+        )
+
+        resp = client.post(
+            "/workout/2002-02-22",
+            data=MultiDict(
+                [
+                    (k, e)
+                    for k, v in tests.data.WORKOUTS[datetime.date(2002, 2, 22)].items()
+                    for e in v
+                ]
+            ),
+        )
+        assert resp.status_code == 200
+        assert args["df"][["date", "exercise", "reps", "time", "weight", "rpe"]].equals(
+            tests.data.WORKOUTS_DF[["date", "exercise", "reps", "time", "weight", "rpe"]]
+        )
+
+
+def test_workout_save_error(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
+        resp = client.post("/workout/2002-02-22", data={"E4": "error"})
+        assert resp.status_code == 200
+        assert "df" not in args

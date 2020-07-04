@@ -1,11 +1,35 @@
 import datetime
-import re
-from typing import Dict
+from collections import defaultdict
+from typing import Dict, List
 
 import pandas as pd
 import yaml
 
 from valens import utils
+
+
+def read_templates() -> pd.DataFrame:
+    config = utils.parse_config()
+    templates: Dict[str, pd.DataFrame] = {}
+
+    with open(config["template_file"]) as f:
+        yml = yaml.safe_load(f)
+        for template_name, exercises in yml.items():
+            cols: Dict[str, list] = {
+                "exercise": [],
+                "reps": [],
+                "time": [],
+                "weight": [],
+                "rpe": [],
+            }
+            for exercise, sets in exercises.items():
+                for s in sets:
+                    for k, v in utils.parse_set(s).items():
+                        cols[k].append(v if v else float("nan"))
+                    cols["exercise"].append(exercise)
+            templates[template_name] = pd.DataFrame(cols)
+
+    return templates
 
 
 def read_workouts() -> pd.DataFrame:
@@ -25,11 +49,8 @@ def read_workouts() -> pd.DataFrame:
         for date, exercises in log.items():
             for exercise, sets in exercises.items():
                 for s in sets:
-                    for k, v in parse_set(str(s)).items():
-                        if k in ["weight", "rpe"]:
-                            cols[k].append(float(v) if v else None)
-                        else:
-                            cols[k].append(int(v) if v else None)
+                    for k, v in utils.parse_set(str(s)).items():
+                        cols[k].append(v if v else float("nan"))
                     cols["date"].append(date)
                     cols["exercise"].append(exercise)
 
@@ -37,6 +58,21 @@ def read_workouts() -> pd.DataFrame:
     df["rir"] = 10 - df["rpe"]
 
     return df
+
+
+def write_workouts(df: pd.DataFrame) -> None:
+    config = utils.parse_config()
+    workouts: Dict[datetime.date, Dict[str, List[str]]] = defaultdict(dict)
+
+    for date, workout in df.groupby("date", sort=False):
+        for exercise, sets in workout.groupby("exercise", sort=False):
+            workouts[date][exercise] = [
+                utils.format_set(set_tuple[1:])
+                for set_tuple in sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
+            ]
+
+    with open(config["workout_file"], "w") as f:
+        f.write(yaml.dump(dict(workouts), default_flow_style=False, sort_keys=False))
 
 
 def read_bodyweight() -> Dict[datetime.date, float]:
@@ -53,16 +89,3 @@ def write_bodyweight(date: datetime.date, weight: float) -> None:
 
     with open(config["bodyweight_file"], "w") as f:
         f.write(yaml.dump(log, default_flow_style=False))
-
-
-def parse_set(set_string: str) -> Dict[str, str]:
-    m = re.match(
-        r"^(?P<reps>\d+)?"
-        r"(?:(?:^|x)(?P<time>\d+)s)?"
-        r"(?:(?:^|x)(?P<weight>\d+(?:\.\d+)?)kg)?"
-        r"(?:@(?P<rpe>\d+(?:\.\d+)?))?$",
-        set_string,
-    )
-    if not m:
-        raise Exception(f"unexpected format for set '{set_string}'")
-    return m.groupdict()

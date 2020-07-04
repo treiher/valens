@@ -8,4 +8,45 @@
 
 {% block content %}
 {{ diagram("workouts", periods, current, previous, next) }}
+<div class="container has-text-centered">
+    <form action="{{ url_for('workouts') }}" method="post">
+        <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />
+        <div class="select" style="width: 30%">
+            <select name="template">
+                {% for name in templates %}
+                <option>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <input class="button is-success" style="width: 25%" type="submit" value="Create" />
+    </form>
+</div>
+<div class="table-container mt-4">
+    <table class="table is-fullwidth is-narrow is-striped has-text-centered">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th><abbr title="Average repetitions">Reps</abbr></th>
+                <th><abbr title="Average time">Time</abbr></th>
+                <th><abbr title="Average weight">Weight</abbr></th>
+                <th><abbr title="Average rating of perceived exertion">RPE</abbr></th>
+                <th><abbr title="Average reps + reps in Reserve">Reps+RIR</abbr></th>
+                <th><abbr title="Total of reps">Volume</abbr></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for date, reps, time, weight, rpe, reps_rir, volume in workouts %}
+            <tr>
+                <td><a href="{{ url_for('workout', workout_date=date) }}">{{ date }}</a></td>
+                <td>{{ reps }}</td>
+                <td>{{ time }}</td>
+                <td>{{ weight }}</td>
+                <td>{{ rpe }}</td>
+                <td>{{ reps_rir }}</td>
+                <td>{{ volume }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

@@ -2,10 +2,9 @@
 
 import argparse
 import sys
-from typing import Tuple, Union
+from typing import Union
 
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from valens import diagram, storage, utils
 
@@ -60,28 +59,10 @@ def list_exercises(args: argparse.Namespace) -> None:
             print(
                 f"- {date}: "
                 + "-".join(
-                    format_set(set_tuple)
+                    utils.format_set(set_tuple[1:])
                     for set_tuple in sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
                 )
             )
-
-
-def format_set(set_tuple: Tuple[int, float, float, float, float]) -> str:
-    _, reps, time, weight, rpe = set_tuple
-    result = ""
-    if not pd.isna(reps):
-        result += f"{reps:.0f}"
-    if not pd.isna(time):
-        if result:
-            result += "x"
-        result += f"{time:.0f}s"
-    if not pd.isna(weight):
-        if result:
-            result += "x"
-        result += f"{weight:.1f}kg"
-    if not pd.isna(rpe):
-        result += f"@{rpe}"
-    return result
 
 
 def show_workouts(args: argparse.Namespace) -> None:

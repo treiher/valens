@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% from "macros.html" import diagram with context %}
+
+{% block title %}Workout on {{ date }}{% endblock %}
+
+{% block content_title %}Workout on {{ date }}{% endblock %}
+
+{% block content %}
+<form action="{{ url_for('workout', workout_date=date) }}" method="post">
+    {% for exercise, sets in workout %}
+    <div class="field">
+        <label class="label"><a href="{{ url_for('exercise', name=exercise) }}">{{ exercise }}</a></label>
+        <div class="field-body is-grouped">
+            {% for current, previous in sets %}
+            <div class="field">
+                <input class="input" type="text" name="{{ exercise }}" value="{{ current }}" placeholder="{{ previous }}" />
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    <div class="columns is-mobile mt-4">
+        <div class="column">
+            <input class="button is-success" style="width: 50%" type="submit" value="Save" />
+        </div>
+        <div class="column has-text-right">
+            <span class="tag is-medium is-danger mt-1">
+                <label class="checkbox">
+                    <input type="checkbox" name="delete" /> Delete
+                </label>
+            </span>
+        </div>
+    </div>
+</form>
+{% endblock %}

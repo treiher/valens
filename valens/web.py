@@ -1,10 +1,12 @@
+from collections import deque
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, Union
 
-from flask import Flask, Response, make_response, render_template, request, url_for
+import pandas as pd
+from flask import Flask, Response, make_response, redirect, render_template, request, url_for
 
-from valens import diagram, storage
+from valens import diagram, storage, utils
 
 app = Flask(__name__)
 
@@ -76,9 +78,45 @@ def exercise(name: str) -> str:
     )
 
 
-@app.route("/workouts")
-def workouts() -> str:
+@app.route("/workouts", methods=["GET", "POST"])
+def workouts() -> Union[str, Response]:
+    notification = ""
+    templates = storage.read_templates()
+    df = storage.read_workouts()
+
+    if request.method == "POST":
+        date_ = date.fromisoformat(request.form["date"])
+        template = templates[request.form["template"]]
+        template["date"] = date_
+
+        if len(df[df["date"] == date_]) == 0:
+            df = pd.concat([df[df["date"] != date_], template])
+            storage.write_workouts(df)
+            return redirect(
+                url_for("workout", workout_date=request.form["date"]), Response=Response
+            )
+
+        notification = f"Workout on {date_} already exists"
+
     period = parse_period_args()
+    df["reps+rir"] = df["reps"] + df["rir"]
+    df = df[(df["date"] >= period.first) & (df["date"] <= period.last)].drop("rir", 1)
+    wo = df.groupby(["date"]).mean()
+    wo["volume"] = df.groupby(["date"]).sum()["reps"]
+
+    workouts_list: deque = deque()
+    for wo_date, reps, time, weight, rpe, reps_rir, volume in wo.itertuples():
+        workouts_list.appendleft(
+            (
+                wo_date,
+                utils.format_number(reps),
+                utils.format_number(time),
+                utils.format_number(weight),
+                utils.format_number(rpe),
+                utils.format_number(reps_rir),
+                utils.format_number(volume),
+            )
+        )
 
     return render_template(
         "workouts.html",
@@ -87,6 +125,56 @@ def workouts() -> str:
         previous=prev_period(period),
         next=next_period(period),
         today=date.today(),
+        templates=templates.keys(),
+        workouts=workouts_list,
+        notification=notification,
+    )
+
+
+@app.route("/workout/<workout_date>", methods=["GET", "POST"])
+def workout(workout_date: str) -> Union[str, Response]:
+    notification = ""
+    date_ = date.fromisoformat(workout_date)
+    df = storage.read_workouts()
+
+    if request.method == "POST":
+        df_new = df[df["date"] != date_]
+
+        if "delete" in request.form:
+            df = df[df["date"] != date_]
+            storage.write_workouts(df)
+            return redirect(url_for("workouts"), Response=Response)
+
+        try:
+            for ex, sets in request.form.lists():
+                for set_str in sets:
+                    df_new = df_new.append(
+                        {"date": date_, "exercise": ex, **utils.parse_set(set_str)},
+                        ignore_index=True,
+                    )
+            df = df_new
+            storage.write_workouts(df)
+        except ValueError as e:
+            notification = str(e)
+
+    df_cur = df[df["date"] == date_].groupby("exercise", sort=False)
+    workout_data = []
+    for ex, sets in df_cur:
+        current = [
+            utils.format_set(set_tuple[1:])
+            for set_tuple in sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
+        ]
+        previous_date = df[(df["date"] < date_) & (df["exercise"] == ex)]["date"].max()
+        previous_sets = df.loc[(df["date"] == previous_date) & (df["exercise"] == ex)]
+        previous = [
+            utils.format_set(set_tuple[1:])
+            for set_tuple in previous_sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
+        ]
+        previous = previous + [""] * (len(current) - len(previous))
+        workout_data.append((ex, zip(current, previous)))
+
+    return render_template(
+        "workout.html", date=date_, workout=workout_data, notification=notification
     )
 
 

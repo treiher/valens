@@ -28,7 +28,10 @@ def workouts(first: date = None, last: date = None) -> Figure:
     df = df.drop("rir", 1)
     r = df.groupby(["date"]).mean()
 
-    plot = r.plot(style=".-", xlim=(first, last), ylim=(0, None), legend=False)
+    r_interval = r[first:last]  # type: ignore  # ISSUE: python/typing#159
+    ymax = max(10, int(max(list(r_interval.max()))) + 1 if not r_interval.empty else 0)
+
+    plot = r_interval.plot(style=".-", xlim=(first, last), ylim=(0, ymax), legend=False)
 
     ax2 = (
         df.groupby(["date"])
@@ -52,7 +55,10 @@ def exercise(name: str, first: date = None, last: date = None) -> Figure:
     df_ex = df.loc[lambda x: x["exercise"] == name]
     r = df_ex.loc[:, ["date", "reps", "reps+rir", "weight", "time"]].groupby(["date"]).mean()
 
-    plot = r.plot(style=".-", xlim=(first, last), ylim=(0, None), legend=False)
+    r_interval = r[first:last]  # type: ignore  # ISSUE: python/typing#159
+    ymax = max(10, int(max(list(r_interval.max()))) + 1 if not r_interval.empty else 0)
+
+    plot = r.plot(style=".-", xlim=(first, last), ylim=(0, ymax), legend=False)
     plot.set(xlabel=None)
 
     fig = plot.get_figure()
@@ -64,7 +70,11 @@ def bodyweight(first: date = None, last: date = None) -> Figure:
     bw = storage.read_bodyweight()
     df = pd.DataFrame({"weight": list(bw.values())}, index=list(bw.keys()))
 
-    plot = df.plot(style=".-", xlim=(first, last), legend=False)
+    df_interval = df.loc[first:last]  # type: ignore  # ISSUE: python/typing#159
+    ymin = int(df_interval.min()) if not df_interval.empty else None
+    ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
+
+    plot = df_interval.plot(style=".-", xlim=(first, last), ylim=(ymin, ymax), legend=False)
     df.rolling(window=9, center=True).mean()["weight"].plot(style="-")
 
     fig = plot.get_figure()

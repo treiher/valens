@@ -11,10 +11,10 @@ all: check test
 check: check_black check_isort check_flake8 check_pylint check_mypy
 
 check_black:
-	black -l 100 --check $(python-packages)
+	black --check --diff --line-length 100 $(python-packages)
 
 check_isort:
-	isort -rc -c $(python-packages)
+	isort --check --diff $(python-packages)
 
 check_flake8:
 	flake8 $(python-packages)
@@ -23,11 +23,11 @@ check_pylint:
 	pylint $(python-packages)
 
 check_mypy:
-	mypy $(python-packages)
+	mypy --pretty $(python-packages)
 
 format:
 	black -l 100 $(python-packages)
-	isort -rc $(python-packages)
+	isort $(python-packages)
 
 test:
 	pytest -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing tests

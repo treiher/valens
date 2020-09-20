@@ -5,14 +5,13 @@ from typing import Dict, List
 import pandas as pd
 import yaml
 
-from valens import utils
+from valens import config, utils
 
 
 def read_templates() -> pd.DataFrame:
-    config = utils.parse_config()
     templates: Dict[str, pd.DataFrame] = {}
 
-    with open(config["template_file"]) as f:
+    with open(config.DATA_DIRECTORY / "template.yml") as f:
         yml = yaml.safe_load(f)
         for template_name, exercises in yml.items():
             cols: Dict[str, list] = {
@@ -33,7 +32,6 @@ def read_templates() -> pd.DataFrame:
 
 
 def read_workouts() -> pd.DataFrame:
-    config = utils.parse_config()
     cols: Dict[str, list] = {
         "date": [],
         "exercise": [],
@@ -43,7 +41,7 @@ def read_workouts() -> pd.DataFrame:
         "rpe": [],
     }
 
-    with open(config["workout_file"]) as log_file:
+    with open(config.DATA_DIRECTORY / "workout.yml") as log_file:
         log = yaml.safe_load(log_file)
 
         for date, exercises in log.items():
@@ -61,7 +59,6 @@ def read_workouts() -> pd.DataFrame:
 
 
 def write_workouts(df: pd.DataFrame) -> None:
-    config = utils.parse_config()
     workouts: Dict[datetime.date, Dict[str, List[str]]] = defaultdict(dict)
 
     for date, workout in df.groupby("date", sort=False):
@@ -71,21 +68,18 @@ def write_workouts(df: pd.DataFrame) -> None:
                 for set_tuple in sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
             ]
 
-    with open(config["workout_file"], "w") as f:
+    with open(config.DATA_DIRECTORY / "workout.yml", "w") as f:
         f.write(yaml.dump(dict(workouts), default_flow_style=False, sort_keys=False))
 
 
 def read_bodyweight() -> Dict[datetime.date, float]:
-    config = utils.parse_config()
-
-    with open(config["bodyweight_file"]) as f:
+    with open(config.DATA_DIRECTORY / "bodyweight.yml") as f:
         return yaml.safe_load(f)
 
 
 def write_bodyweight(date: datetime.date, weight: float) -> None:
-    config = utils.parse_config()
     log = read_bodyweight()
     log[date] = weight
 
-    with open(config["bodyweight_file"], "w") as f:
+    with open(config.DATA_DIRECTORY / "bodyweight.yml", "w") as f:
         f.write(yaml.dump(log, default_flow_style=False))

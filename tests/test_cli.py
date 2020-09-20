@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pytest
 
 import tests.utils
-from valens import cli, storage
+from valens import cli, config
 
 
 def test_main_noarg(monkeypatch: Any) -> None:
@@ -28,7 +28,7 @@ def test_main_noarg(monkeypatch: Any) -> None:
 def test_main(monkeypatch: Any, args: Sequence[str]) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         monkeypatch.setattr(sys, "argv", ["valens", *args])
         monkeypatch.setattr(plt, "show", lambda: None)

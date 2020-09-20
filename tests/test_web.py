@@ -12,7 +12,7 @@ from werkzeug.wrappers import BaseResponse
 
 import tests.data
 import tests.utils
-from valens import web
+from valens import config, web
 
 
 @pytest.fixture(name="client", scope="module")
@@ -45,7 +45,7 @@ def assert_resources_available(client: Client, data: bytes) -> None:
 def test_availability(client: Client, path: str, route: str, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         url = path + route
         resp = client.get(url)
@@ -64,7 +64,7 @@ def test_non_availability(client: Client, url: str) -> None:
 def test_bodyweight(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         resp = client.get("/bodyweight?first=2002-02-01&last=2002-03-01")
         assert resp.status_code == 200
@@ -86,7 +86,7 @@ def test_bodyweight_add(client: Client, monkeypatch: Any) -> None:
 def test_exercise(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         for date, exercises in tests.data.WORKOUTS.items():
             for exercise in exercises:
@@ -98,7 +98,7 @@ def test_exercise(client: Client, monkeypatch: Any) -> None:
 def test_workouts(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
         assert resp.status_code == 200
@@ -109,7 +109,7 @@ def test_workouts(client: Client, monkeypatch: Any) -> None:
 def test_workouts_add(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         args = {}
         monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
@@ -124,7 +124,7 @@ def test_workouts_add(client: Client, monkeypatch: Any) -> None:
 def test_workouts_add_existing(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         args = {}
         monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
@@ -136,7 +136,7 @@ def test_workouts_add_existing(client: Client, monkeypatch: Any) -> None:
 def test_workout_delete(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         args = {}
         monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
@@ -150,7 +150,7 @@ def test_workout_delete(client: Client, monkeypatch: Any) -> None:
 def test_workout_save(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         args = {}
         monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
@@ -179,7 +179,7 @@ def test_workout_save(client: Client, monkeypatch: Any) -> None:
 def test_workout_save_error(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(web.storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         args = {}
         monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))

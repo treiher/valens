@@ -4,13 +4,13 @@ from typing import Any
 
 import tests.data
 import tests.utils
-from valens import storage
+from valens import config, storage
 
 
 def test_templates(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         templates = storage.read_templates()
         for (actual_index, actual_df), (expected_index, expected_df) in zip(
@@ -23,7 +23,7 @@ def test_templates(monkeypatch: Any) -> None:
 def test_workouts(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         workouts = storage.read_workouts()
         assert workouts.equals(tests.data.WORKOUTS_DF)
@@ -35,7 +35,7 @@ def test_workouts(monkeypatch: Any) -> None:
 def test_bodyweight(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(storage.utils, "parse_config", lambda: tests.utils.config(tmp_dir))
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
         bodyweight = storage.read_bodyweight()
         assert bodyweight == tests.data.BODYWEIGHT

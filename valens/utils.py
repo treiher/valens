@@ -1,17 +1,8 @@
-import pathlib
 import re
 from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import yaml
-
-CONFIG_FILE = pathlib.Path.home() / ".config/valens/valens.yml"
-
-
-def parse_config() -> Dict[str, str]:
-    with open(CONFIG_FILE) as f:
-        return yaml.safe_load(f)
 
 
 def parse_set(set_string: Optional[str]) -> Dict[str, Optional[float]]:

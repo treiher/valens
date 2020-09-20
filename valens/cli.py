@@ -8,8 +8,6 @@ import matplotlib.pyplot as plt
 
 from valens import diagram, storage, utils
 
-config = {}
-
 
 def main() -> Union[int, str]:
     parser = argparse.ArgumentParser()
@@ -38,7 +36,6 @@ def main() -> Union[int, str]:
         parser.print_usage()
         return 2
 
-    config.update(utils.parse_config())
     args.func(args)
 
     return 0

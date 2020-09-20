@@ -56,7 +56,7 @@ def exercise(name: str, first: date = None, last: date = None) -> Figure:
     r = df_ex.loc[:, ["date", "reps", "reps+rir", "weight", "time"]].groupby(["date"]).mean()
 
     r_interval = r[first:last]  # type: ignore  # ISSUE: python/typing#159
-    ymax = max(10, int(max(list(r_interval.max()))) + 1 if not r_interval.empty else 0)
+    ymax = int(max([v for v in r_interval.max() if not pd.isna(v)] + [9])) + 1
 
     plot = r.plot(style=".-", xlim=(first, last), ylim=(0, ymax), legend=False)
     plot.set(xlabel=None)

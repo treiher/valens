@@ -95,6 +95,96 @@ def test_exercise(client: Client, monkeypatch: Any) -> None:
                 assert str(date) in resp.data.decode("utf-8")
 
 
+def test_routines(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.get("/routines")
+        assert resp.status_code == 200
+        for routine_name in tests.data.ROUTINES:
+            assert routine_name in resp.data.decode("utf-8")
+
+
+def test_routines_add(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/routines", data={"name": "Test"})
+        assert resp.status_code == 302
+        assert "Test" in resp.data.decode("utf-8")
+
+
+def test_routine(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        for routine_name, exercises in tests.data.ROUTINES.items():
+            resp = client.get(f"/routine/{routine_name}")
+            assert resp.status_code == 200
+            assert routine_name in resp.data.decode("utf-8")
+            for exercise in exercises:
+                assert exercise in resp.data.decode("utf-8")
+
+
+def test_routine_delete(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_routines", lambda x: args.update({"df": x}))
+        resp = client.post("/routine/T1", data={"delete": ""})
+        assert resp.status_code == 302
+        assert args["df"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T1"])
+
+
+def test_routine_save(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_routines", lambda x: args.update({"df": x}))
+        resp = client.post("/routine/T2")
+        assert resp.status_code == 200
+        assert args["df"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+
+        resp = client.post(
+            "/routine/T2",
+            data={
+                "exercise": list(tests.data.ROUTINES["T2"].keys()),
+                "set_count": [len(v) for v in tests.data.ROUTINES["T2"].values()],
+            },
+        )
+        assert resp.status_code == 200
+        assert args["df"].equals(tests.data.ROUTINES_DF)
+
+
+def test_routine_save_remove_exercise(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_routines", lambda x: args.update({"df": x}))
+        resp = client.post("/routine/T2")
+        assert resp.status_code == 200
+        assert args["df"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+
+        resp = client.post(
+            "/routine/T2",
+            data={
+                "exercise": [""] * len(tests.data.ROUTINES["T2"]),
+                "set_count": [len(v) for v in tests.data.ROUTINES["T2"].values()],
+            },
+        )
+        assert resp.status_code == 200
+        assert args["df"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+
+
 def test_workouts(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
@@ -113,12 +203,14 @@ def test_workouts_add(client: Client, monkeypatch: Any) -> None:
 
         args = {}
         monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
-        resp = client.post("/workouts", data={"date": "2002-02-24", "template": "T1"})
+        resp = client.post("/workouts", data={"date": "2002-02-24", "routine": "T1"})
         assert resp.status_code == 302
 
-        templates_df = tests.data.TEMPLATES_DF["T1"].copy()
-        templates_df["date"] = [datetime.date(2002, 2, 24)] * len(templates_df)
-        assert args["df"].equals(pd.concat([tests.data.WORKOUTS_DF, templates_df]))
+        routines_df = tests.data.ROUTINES_DF.loc[
+            tests.data.ROUTINES_DF["routine"] == "T1", tests.data.ROUTINES_DF.columns != "routine"
+        ].copy()
+        routines_df["date"] = [datetime.date(2002, 2, 24)] * len(routines_df)
+        assert args["df"].equals(pd.concat([tests.data.WORKOUTS_DF, routines_df]))
 
 
 def test_workouts_add_existing(client: Client, monkeypatch: Any) -> None:
@@ -128,7 +220,7 @@ def test_workouts_add_existing(client: Client, monkeypatch: Any) -> None:
 
         args = {}
         monkeypatch.setattr(web.storage, "write_workouts", lambda x: args.update({"df": x}))
-        resp = client.post("/workouts", data={"date": "2002-02-20", "template": "T1"})
+        resp = client.post("/workouts", data={"date": "2002-02-20", "routine": "T1"})
         assert resp.status_code == 200
         assert "df" not in args
 

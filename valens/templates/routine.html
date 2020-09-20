@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% from "macros.html" import diagram with context %}
+
+{% block title %}{{ name }} - Routine{% endblock %}
+
+{% block content_title %}{{ name }}{% endblock %}
+
+{% block content %}
+<form action="{{ url_for('routine_route', name=name) }}" method="post">
+    {% for i, exercise, set_count in routine %}
+    <div class="field">
+        <label class="label">E{{ i }}</label>
+        <div class="field-body is-grouped">
+            <div class="field">
+                <input class="input" type="text" name="exercise" value="{{ exercise }}" placeholder="{{ exercise }}" />
+            </div>
+            <div class="field">
+                <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="{{ set_count }}" min="0" />
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    <div class="field">
+        <label class="label">Add exercise</label>
+        <div class="field-body is-grouped">
+            <div class="field">
+                <input class="input" type="text" name="exercise" value="{{ exercise }}" placeholder="Exercise name" />
+            </div>
+            <div class="field">
+                <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="Number of sets" min="0" />
+            </div>
+        </div>
+    </div>
+    <div class="columns is-mobile mt-4">
+        <div class="column">
+            <input class="button is-success" style="width: 50%" type="submit" value="Save" />
+        </div>
+        <div class="column has-text-right">
+            <span class="tag is-medium is-danger mt-1">
+                <label class="checkbox">
+                    <input type="checkbox" name="delete" /> Delete
+                </label>
+            </span>
+        </div>
+    </div>
+</form>
+{% endblock %}

@@ -7,17 +7,16 @@ import tests.utils
 from valens import config, storage
 
 
-def test_templates(monkeypatch: Any) -> None:
+def test_routines(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
-        templates = storage.read_templates()
-        for (actual_index, actual_df), (expected_index, expected_df) in zip(
-            templates.items(), tests.data.TEMPLATES_DF.items()
-        ):
-            assert actual_index == expected_index
-            assert actual_df.equals(expected_df)
+        routines = storage.read_routines()
+        assert routines.equals(tests.data.ROUTINES_DF)
+
+        storage.write_routines(routines)
+        assert storage.read_routines().equals(routines)
 
 
 def test_workouts(monkeypatch: Any) -> None:

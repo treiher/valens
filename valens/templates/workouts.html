@@ -12,8 +12,8 @@
     <form action="{{ url_for('workouts') }}" method="post">
         <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />
         <div class="select" style="width: 30%">
-            <select name="template">
-                {% for name in templates %}
+            <select name="routine">
+                {% for name in routines %}
                 <option>{{ name }}</option>
                 {% endfor %}
             </select>

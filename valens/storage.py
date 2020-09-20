@@ -8,27 +8,38 @@ import yaml
 from valens import config, utils
 
 
-def read_templates() -> pd.DataFrame:
-    templates: Dict[str, pd.DataFrame] = {}
+def read_routines() -> pd.DataFrame:
+    cols: Dict[str, list] = {
+        "routine": [],
+        "exercise": [],
+        "reps": [],
+        "time": [],
+        "weight": [],
+        "rpe": [],
+    }
 
-    with open(config.DATA_DIRECTORY / "template.yml") as f:
+    with open(config.DATA_DIRECTORY / "routine.yml") as f:
         yml = yaml.safe_load(f)
-        for template_name, exercises in yml.items():
-            cols: Dict[str, list] = {
-                "exercise": [],
-                "reps": [],
-                "time": [],
-                "weight": [],
-                "rpe": [],
-            }
+        for routine_name, exercises in yml.items():
             for exercise, sets in exercises.items():
                 for s in sets:
                     for k, v in utils.parse_set(s).items():
                         cols[k].append(v if v else float("nan"))
                     cols["exercise"].append(exercise)
-            templates[template_name] = pd.DataFrame(cols)
+                    cols["routine"].append(routine_name)
 
-    return templates
+    return pd.DataFrame(cols)
+
+
+def write_routines(df: pd.DataFrame) -> None:
+    routines: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
+
+    for name, routine in df.groupby("routine", sort=False):
+        for exercise, sets in routine.groupby("exercise", sort=False):
+            routines[name][exercise] = [""] * sets["exercise"].count()
+
+    with open(config.DATA_DIRECTORY / "routine.yml", "w") as f:
+        f.write(yaml.dump(dict(routines), default_flow_style=False, sort_keys=False))
 
 
 def read_workouts() -> pd.DataFrame:

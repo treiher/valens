@@ -26,28 +26,18 @@ BODYWEIGHT_DF: Final = pd.DataFrame(
     {"date": [datetime.date(2002, 2, 20), datetime.date(2002, 2, 22)], "weight": [81.2, 82.4]}
 )
 
-TEMPLATES: Final = {
-    "T2": {"E4": [None, None, None], "E3": [None, None]},
+ROUTINES: Final = {
     "T1": {"E1": [None, None, None], "E2": [None, None]},
+    "T2": {"E4": [None, None, None], "E3": [None, None]},
 }
 
-TEMPLATES_DF: Final = {
-    "T2": pd.DataFrame(
-        {
-            "exercise": ["E4", "E4", "E4", "E3", "E3"],
-            "reps": [float("nan")] * 5,
-            "time": [float("nan")] * 5,
-            "weight": [float("nan")] * 5,
-            "rpe": [float("nan")] * 5,
-        }
-    ),
-    "T1": pd.DataFrame(
-        {
-            "exercise": ["E1", "E1", "E1", "E2", "E2"],
-            "reps": [float("nan")] * 5,
-            "time": [float("nan")] * 5,
-            "weight": [float("nan")] * 5,
-            "rpe": [float("nan")] * 5,
-        }
-    ),
-}
+ROUTINES_DF: Final = pd.DataFrame(
+    {
+        "routine": ["T1"] * 5 + ["T2"] * 5,
+        "exercise": ["E1", "E1", "E1", "E2", "E2", "E4", "E4", "E4", "E3", "E3"],
+        "reps": [float("nan")] * 10,
+        "time": [float("nan")] * 10,
+        "weight": [float("nan")] * 10,
+        "rpe": [float("nan")] * 10,
+    }
+)

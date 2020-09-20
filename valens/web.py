@@ -26,6 +26,7 @@ def index() -> str:
         "index.html",
         navigation=[
             (url_for("workouts"), "Workouts"),
+            (url_for("routines_route"), "Routines"),
             (url_for("exercises"), "Exercises"),
             (url_for("bodyweight"), "Bodyweight"),
         ],
@@ -107,19 +108,66 @@ def exercise(name: str) -> str:
     )
 
 
+@app.route("/routines", methods=["GET", "POST"])
+def routines_route() -> Union[str, Response]:
+    if request.method == "POST":
+        return redirect(url_for("routine_route", name=request.form["name"]), Response=Response)
+
+    df = storage.read_routines()
+    routines = df.sort_index(ascending=False).loc[:, "routine"].unique()
+
+    return render_template("routines.html", routines=routines)
+
+
+@app.route("/routine/<name>", methods=["GET", "POST"])
+def routine_route(name: str) -> Union[str, Response]:
+    df = storage.read_routines()
+
+    if request.method == "POST":
+        df_new = df.loc[df["routine"] != name]
+
+        if "delete" in request.form:
+            storage.write_routines(df_new)
+            return redirect(url_for("routines_route"), Response=Response)
+
+        for ex, set_count in zip(
+            request.form.getlist("exercise"), request.form.getlist("set_count")
+        ):
+            if ex and set_count:
+                set_count = int(set_count)
+                df_new = df_new.append(
+                    pd.DataFrame({"routine": [name] * set_count, "exercise": [ex] * set_count}),
+                    ignore_index=True,
+                )
+        df = df_new
+        storage.write_routines(df)
+
+    df = df.loc[df["routine"] == name, df.columns != "routine"]
+    routine = [
+        (i + 1, exercise, sets["exercise"].count())
+        for i, (exercise, sets) in enumerate(df.groupby("exercise", sort=False))
+    ]
+
+    return render_template("routine.html", name=name, routine=routine)
+
+
 @app.route("/workouts", methods=["GET", "POST"])
 def workouts() -> Union[str, Response]:
+    # pylint: disable=too-many-locals
+
     notification = ""
-    templates = storage.read_templates()
+    df_routines = storage.read_routines()
     df = storage.read_workouts()
 
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
-        template = templates[request.form["template"]]
-        template["date"] = date_
+        df_routine = df_routines.loc[
+            df_routines["routine"] == request.form["routine"], df_routines.columns != "routine"
+        ]
+        df_routine["date"] = date_
 
         if len(df[df["date"] == date_]) == 0:
-            df = pd.concat([df[df["date"] != date_], template])
+            df = pd.concat([df[df["date"] != date_], df_routine])
             storage.write_workouts(df)
             return redirect(
                 url_for("workout", workout_date=request.form["date"]), Response=Response
@@ -147,6 +195,8 @@ def workouts() -> Union[str, Response]:
             )
         )
 
+    routines = reversed([r for r, _ in df_routines.groupby("routine", sort=False)])
+
     return render_template(
         "workouts.html",
         current=period,
@@ -154,7 +204,7 @@ def workouts() -> Union[str, Response]:
         previous=prev_period(period),
         next=next_period(period),
         today=date.today(),
-        templates=templates.keys(),
+        routines=routines,
         workouts=workouts_list,
         notification=notification,
     )

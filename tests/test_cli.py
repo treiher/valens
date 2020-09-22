@@ -36,7 +36,12 @@ def test_main(monkeypatch: Any, args: Sequence[str]) -> None:
 
 
 @pytest.mark.parametrize(
-    "args", [["-h"], ["list", "-h"], ["show", "-h"]],
+    "args",
+    [
+        ["-h"],
+        ["list", "-h"],
+        ["show", "-h"],
+    ],
 )
 def test_main_help(monkeypatch: Any, args: Sequence[str]) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", *args])

@@ -67,8 +67,7 @@ def exercise(name: str, first: date = None, last: date = None) -> Figure:
 
 
 def bodyweight(first: date = None, last: date = None) -> Figure:
-    bw = storage.read_bodyweight()
-    df = pd.DataFrame({"weight": list(bw.values())}, index=list(bw.keys()))
+    df = storage.read_bodyweight().set_index("date")
 
     df_interval = df.loc[first:last]  # type: ignore  # ISSUE: python/typing#159
     ymin = int(df_interval.min()) if not df_interval.empty else None

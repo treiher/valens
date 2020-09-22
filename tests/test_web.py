@@ -54,7 +54,8 @@ def test_availability(client: Client, path: str, route: str, monkeypatch: Any) -
 
 
 @pytest.mark.parametrize(
-    "url", ["/image/foo"],
+    "url",
+    ["/image/foo"],
 )
 def test_non_availability(client: Client, url: str) -> None:
     resp = client.get(url)
@@ -73,14 +74,27 @@ def test_bodyweight(client: Client, monkeypatch: Any) -> None:
 
 
 def test_bodyweight_add(client: Client, monkeypatch: Any) -> None:
-    args = {}
-    monkeypatch.setattr(
-        web.storage, "write_bodyweight", lambda x, y: args.update({"date": x, "weight": y})
-    )
-    resp = client.post("/bodyweight", data={"date": "2002-02-20", "weight": "42"})
-    assert resp.status_code == 200
-    assert args["date"] == datetime.date.fromisoformat("2002-02-20")
-    assert args["weight"] == 42
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_bodyweight", lambda x: args.update({"df": x}))
+        resp = client.post("/bodyweight", data={"date": "2002-02-24", "weight": "42"})
+        assert resp.status_code == 200
+        assert len(args["df"]) == 3
+
+
+def test_bodyweight_remove(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_bodyweight", lambda x: args.update({"df": x}))
+        resp = client.post("/bodyweight", data={"date": "2002-02-20", "weight": "0"})
+        assert resp.status_code == 200
+        assert len(args["df"]) == 1
 
 
 def test_exercise(client: Client, monkeypatch: Any) -> None:

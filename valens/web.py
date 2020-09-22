@@ -35,17 +35,19 @@ def index() -> str:
 
 @app.route("/bodyweight", methods=["GET", "POST"])
 def bodyweight() -> str:
-    notification = ""
-
     if request.method == "POST":
-        d = date.fromisoformat(request.form["date"])
-        w = float(request.form["weight"])
-        storage.write_bodyweight(d, w)
-        notification = f"Added weight of {w} kg on {d}"
+        date_ = date.fromisoformat(request.form["date"])
+        weight = float(request.form["weight"])
+
+        df = storage.read_bodyweight().set_index("date")
+        if weight > 0:
+            df.loc[date_] = weight
+        else:
+            df = df.drop(date_)
+        storage.write_bodyweight(df.reset_index())
 
     period = parse_period_args()
-    bw = storage.read_bodyweight()
-    df = pd.DataFrame({"weight": list(bw.values())}, index=list(bw.keys()))
+    df = storage.read_bodyweight().set_index("date")
     df["avg_weight"] = df.rolling(window=9, center=True).mean()["weight"]
     df = df[period.first : period.last]  # type: ignore
 
@@ -63,7 +65,6 @@ def bodyweight() -> str:
         next=next_period(period),
         today=date.today(),
         bodyweight=bodyweight_list,
-        notification=notification,
     )
 
 

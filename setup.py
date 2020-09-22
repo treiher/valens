@@ -11,7 +11,7 @@ setup(
     license="AGPL-3.0",
     packages=find_packages(where="valens"),
     python_requires=">=3.6, <4",
-    install_requires=["flask", "matplotlib", "pandas", "pyyaml"],
+    install_requires=["flask", "matplotlib", "pandas", "pyarrow"],
     extras_require={
         "devel": [
             "black ==20.8b1",

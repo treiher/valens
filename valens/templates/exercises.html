@@ -7,9 +7,9 @@
 {% block content %}
 <div class="container has-text-centered">
     {% for name in exercise_list %}
-    <div class="column"><a class="button" href="{{ url_for('exercise', name=name) }}">{{ name }}</a></div>
+    <div class="column"><a class="button" href="{{ url_for('exercise_view', name=name) }}">{{ name }}</a></div>
     {% endfor %}
 </div>
 {% endblock %}
 
-{% set parent_page = 'index' %}
+{% set parent_page = 'index_view' %}

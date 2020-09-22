@@ -9,7 +9,7 @@
 {% block content %}
 {{ diagram("workouts", periods, current, previous, next) }}
 <div class="container has-text-centered">
-    <form action="{{ url_for('workouts') }}" method="post">
+    <form action="{{ url_for('workouts_view') }}" method="post">
         <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />
         <div class="select" style="width: 30%">
             <select name="routine">
@@ -37,7 +37,7 @@
         <tbody>
             {% for date, reps, time, weight, rpe, reps_rir, volume in workouts %}
             <tr>
-                <td><a href="{{ url_for('workout', workout_date=date) }}">{{ date }}</a></td>
+                <td><a href="{{ url_for('workout_view', workout_date=date) }}">{{ date }}</a></td>
                 <td>{{ reps }}</td>
                 <td>{{ time }}</td>
                 <td>{{ weight }}</td>
@@ -51,4 +51,4 @@
 </div>
 {% endblock %}
 
-{% set parent_page = 'index' %}
+{% set parent_page = 'index_view' %}

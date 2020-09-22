@@ -21,20 +21,20 @@ class Period:
 
 
 @app.route("/")
-def index() -> str:
+def index_view() -> str:
     return render_template(
         "index.html",
         navigation=[
-            (url_for("workouts"), "Workouts"),
-            (url_for("routines_route"), "Routines"),
-            (url_for("exercises"), "Exercises"),
-            (url_for("bodyweight"), "Bodyweight"),
+            (url_for("workouts_view"), "Workouts"),
+            (url_for("routines_view"), "Routines"),
+            (url_for("exercises_view"), "Exercises"),
+            (url_for("bodyweight_view"), "Bodyweight"),
         ],
     )
 
 
 @app.route("/bodyweight", methods=["GET", "POST"])
-def bodyweight() -> str:
+def bodyweight_view() -> str:
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         weight = float(request.form["weight"])
@@ -69,7 +69,7 @@ def bodyweight() -> str:
 
 
 @app.route("/exercises")
-def exercises() -> str:
+def exercises_view() -> str:
     df = storage.read_workouts()
     exercise_list = df.sort_index(ascending=False).loc[:, "exercise"].unique()
 
@@ -77,7 +77,7 @@ def exercises() -> str:
 
 
 @app.route("/exercise/<name>")
-def exercise(name: str) -> str:
+def exercise_view(name: str) -> str:
     period = parse_period_args()
     df = storage.read_workouts()
     df["reps+rir"] = df["reps"] + df["rir"]
@@ -110,9 +110,9 @@ def exercise(name: str) -> str:
 
 
 @app.route("/routines", methods=["GET", "POST"])
-def routines_route() -> Union[str, Response]:
+def routines_view() -> Union[str, Response]:
     if request.method == "POST":
-        return redirect(url_for("routine_route", name=request.form["name"]), Response=Response)
+        return redirect(url_for("routine_view", name=request.form["name"]), Response=Response)
 
     df = storage.read_routines()
     routines = df.sort_index(ascending=False).loc[:, "routine"].unique()
@@ -121,7 +121,7 @@ def routines_route() -> Union[str, Response]:
 
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
-def routine_route(name: str) -> Union[str, Response]:
+def routine_view(name: str) -> Union[str, Response]:
     df = storage.read_routines()
 
     if request.method == "POST":
@@ -129,7 +129,7 @@ def routine_route(name: str) -> Union[str, Response]:
 
         if "delete" in request.form:
             storage.write_routines(df_new)
-            return redirect(url_for("routines_route"), Response=Response)
+            return redirect(url_for("routines_view"), Response=Response)
 
         for ex, set_count in zip(
             request.form.getlist("exercise"), request.form.getlist("set_count")
@@ -153,7 +153,7 @@ def routine_route(name: str) -> Union[str, Response]:
 
 
 @app.route("/workouts", methods=["GET", "POST"])
-def workouts() -> Union[str, Response]:
+def workouts_view() -> Union[str, Response]:
     # pylint: disable=too-many-locals
 
     notification = ""
@@ -171,7 +171,7 @@ def workouts() -> Union[str, Response]:
             df = pd.concat([df[df["date"] != date_], df_routine])
             storage.write_workouts(df)
             return redirect(
-                url_for("workout", workout_date=request.form["date"]), Response=Response
+                url_for("workout_view", workout_date=request.form["date"]), Response=Response
             )
 
         notification = f"Workout on {date_} already exists"
@@ -212,7 +212,7 @@ def workouts() -> Union[str, Response]:
 
 
 @app.route("/workout/<workout_date>", methods=["GET", "POST"])
-def workout(workout_date: str) -> Union[str, Response]:
+def workout_view(workout_date: str) -> Union[str, Response]:
     notification = ""
     date_ = date.fromisoformat(workout_date)
     df = storage.read_workouts()
@@ -223,7 +223,7 @@ def workout(workout_date: str) -> Union[str, Response]:
         if "delete" in request.form:
             df = df[df["date"] != date_]
             storage.write_workouts(df)
-            return redirect(url_for("workouts"), Response=Response)
+            return redirect(url_for("workouts_view"), Response=Response)
 
         try:
             for ex, sets in request.form.lists():
@@ -259,7 +259,7 @@ def workout(workout_date: str) -> Union[str, Response]:
 
 
 @app.route("/image/<image_type>")
-def image(image_type: str) -> Response:
+def image_view(image_type: str) -> Response:
     period = parse_period_args()
     if image_type == "bodyweight":
         fig = diagram.bodyweight(period.first, period.last)

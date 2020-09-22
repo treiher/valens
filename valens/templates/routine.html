@@ -1,13 +1,11 @@
 {% extends "base.html" %}
 
-{% from "macros.html" import diagram with context %}
-
 {% block title %}{{ name }} - Routine{% endblock %}
 
 {% block content_title %}{{ name }}{% endblock %}
 
 {% block content %}
-<form action="{{ url_for('routine_route', name=name) }}" method="post">
+<form action="{{ url_for('routine_view', name=name) }}" method="post">
     {% for i, exercise, set_count in routine %}
     <div class="field">
         <label class="label">E{{ i }}</label>
@@ -47,4 +45,4 @@
 </form>
 {% endblock %}
 
-{% set parent_page = 'routines_route' %}
+{% set parent_page = 'routines_view' %}

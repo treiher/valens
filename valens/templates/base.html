@@ -16,11 +16,13 @@
     <body>
         <section class="hero is-small is-success">
             <div class="hero-body columns is-mobile">
+                <div class="column is-2">
+                    {% if parent_page is defined %}
+                    <a href="{{ url_for(parent_page) }}" class="title">&#10094;</a>
+                    {% endif %}
+                </div>
                 <div class="column">
                     <h1 class="title">{% block content_title %}{% endblock %}</h1>
-                </div>
-                <div class="column is-2">
-                    <a href="{{ url_for('index') }}" class="title">&#8962;</a>
                 </div>
             </div>
         </section>

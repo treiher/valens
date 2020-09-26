@@ -47,14 +47,30 @@ def bodyweight_view() -> str:
         storage.write_bodyweight(df.reset_index())
 
     period = parse_period_args()
-    df = storage.read_bodyweight().set_index("date")
+    df = storage.read_bodyweight()
+    df["date"] = pd.to_datetime(df["date"])
+    ts_df = pd.DataFrame({"date": pd.date_range(df.iloc[0, 0], df.iloc[-1, 0])}).set_index("date")
+    df = df.set_index("date")
+
     df["avg_weight"] = df.rolling(window=9, center=True).mean()["weight"]
+
+    df = df.join(
+        ts_df.join(df["avg_weight"]).interpolate().pct_change(periods=7, fill_method=None).mul(100),
+        rsuffix="_change",
+    )
+    df["avg_weight_change"] = df["avg_weight_change"].iloc[0:-4]
+
     df = df[period.first : period.last]  # type: ignore
 
     bodyweight_list: deque = deque()
-    for bw_date, weight, avg_weight in df.itertuples():
+    for bw_date, weight, avg_weight, avg_weight_change in df.itertuples():
         bodyweight_list.appendleft(
-            (bw_date, utils.format_number(weight), utils.format_number(avg_weight))
+            (
+                bw_date,
+                utils.format_number(weight),
+                utils.format_number(avg_weight),
+                utils.format_number(avg_weight_change),
+            )
         )
 
     return render_template(

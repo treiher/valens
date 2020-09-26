@@ -22,14 +22,16 @@
                 <th>Date</th>
                 <th><abbr title="Weight in kg">Weight</abbr></th>
                 <th><abbr title="Central moving average of 9 values">Avg. Weight</abbr></th>
+                <th><abbr title="Interpolated average weight change within the last 7 days in percent">Avg. Change</abbr></th>
             </tr>
         </thead>
         <tbody>
-            {% for date, weight, avg_weight in bodyweight %}
+            {% for datetime, weight, avg_weight, avg_weight_change in bodyweight %}
             <tr>
-                <td>{{ date }}</td>
+                <td>{{ datetime.date() }}</td>
                 <td>{{ weight }}</td>
                 <td>{{ avg_weight }}</td>
+                <td>{{ avg_weight_change }}</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -1,4 +1,5 @@
 import datetime
+import pathlib
 import re
 import tempfile
 from typing import Any
@@ -73,6 +74,15 @@ def test_bodyweight(client: Client, monkeypatch: Any) -> None:
             assert str(d) in resp.data.decode("utf-8")
 
 
+def test_bodyweight_empty(client: Client, monkeypatch: Any, tmp_path: pathlib.Path) -> None:
+    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
+
+    web.storage.initialize()
+
+    resp = client.get("/bodyweight?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+
+
 def test_bodyweight_add(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
@@ -118,6 +128,15 @@ def test_routines(client: Client, monkeypatch: Any) -> None:
         assert resp.status_code == 200
         for routine_name in tests.data.ROUTINE_SETS:
             assert routine_name in resp.data.decode("utf-8")
+
+
+def test_routines_empty(client: Client, monkeypatch: Any, tmp_path: pathlib.Path) -> None:
+    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
+
+    web.storage.initialize()
+
+    resp = client.get("/routines")
+    assert resp.status_code == 200
 
 
 def test_routines_add(client: Client, monkeypatch: Any) -> None:
@@ -261,6 +280,15 @@ def test_workouts(client: Client, monkeypatch: Any) -> None:
         assert resp.status_code == 200
         for d in tests.data.SETS:
             assert str(d) in resp.data.decode("utf-8")
+
+
+def test_workouts_empty(client: Client, monkeypatch: Any, tmp_path: pathlib.Path) -> None:
+    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
+
+    web.storage.initialize()
+
+    resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
 
 
 def test_workouts_add(client: Client, monkeypatch: Any) -> None:

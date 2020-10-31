@@ -17,6 +17,7 @@ def test_main_noarg(monkeypatch: Any) -> None:
 @pytest.mark.parametrize(
     "args",
     [
+        ["init"],
         ["list"],
         ["list", "--short"],
         ["list", "--last"],
@@ -39,6 +40,7 @@ def test_main(monkeypatch: Any, args: Sequence[str]) -> None:
     "args",
     [
         ["-h"],
+        ["init", "-h"],
         ["list", "-h"],
         ["show", "-h"],
     ],

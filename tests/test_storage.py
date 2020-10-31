@@ -1,9 +1,37 @@
+import pathlib
 import tempfile
 from typing import Any
+
+import _pytest.capture
 
 import tests.data
 import tests.utils
 from valens import storage
+
+
+def test_initialization(
+    monkeypatch: Any, tmp_path: pathlib.Path, capsys: _pytest.capture.CaptureFixture
+) -> None:
+    monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tmp_path)
+
+    assert not (tmp_path / storage.ROUTINES_FILE).exists()
+    assert not (tmp_path / storage.ROUTINE_SETS_FILE).exists()
+    assert not (tmp_path / storage.WORKOUTS_FILE).exists()
+    assert not (tmp_path / storage.SETS_FILE).exists()
+    assert not (tmp_path / storage.BODYWEIGHT_FILE).exists()
+
+    storage.initialize()
+
+    assert (tmp_path / storage.ROUTINES_FILE).is_file()
+    assert (tmp_path / storage.ROUTINE_SETS_FILE).is_file()
+    assert (tmp_path / storage.WORKOUTS_FILE).is_file()
+    assert (tmp_path / storage.SETS_FILE).is_file()
+    assert (tmp_path / storage.BODYWEIGHT_FILE).is_file()
+    assert not capsys.readouterr().out
+
+    storage.initialize()
+
+    assert capsys.readouterr().out.count("warning") == 5
 
 
 def test_routines(monkeypatch: Any) -> None:

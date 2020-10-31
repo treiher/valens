@@ -13,6 +13,9 @@ def main() -> Union[int, str]:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="subcommand")
 
+    parser_init = subparsers.add_parser("init", help="initialize data storage")
+    parser_init.set_defaults(func=init)
+
     parser_show = subparsers.add_parser("show", help="show exercise")
     sp_show = parser_show.add_subparsers(dest="subcommand")
     sp_show_wo = sp_show.add_parser("wo", help="show workouts")
@@ -39,6 +42,10 @@ def main() -> Union[int, str]:
     args.func(args)
 
     return 0
+
+
+def init(args: argparse.Namespace) -> None:  # pylint: disable=unused-argument
+    storage.initialize()
 
 
 def list_exercises(args: argparse.Namespace) -> None:

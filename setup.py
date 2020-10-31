@@ -3,14 +3,16 @@ import re
 from setuptools import find_packages, setup  # type: ignore
 
 with open("valens/__init__.py") as f:
-    version = re.search(r'__version__ = "(.*?)"', f.read()).group(1)  # type: ignore
+    match = re.search(r'__version__ = "(.*?)"', f.read())
+    assert match
+    version = match.group(1)
 
 setup(
     name="valens",
     version=version,
     license="AGPL-3.0",
-    packages=find_packages(where="valens"),
-    python_requires=">=3.6, <4",
+    packages=find_packages(include=["valens"]),
+    python_requires=">=3.8",
     install_requires=["flask", "matplotlib", "pandas", "pyarrow"],
     extras_require={
         "devel": [

@@ -44,6 +44,7 @@ def bodyweight_view() -> str:
             df.loc[date_] = weight
         else:
             df = df.drop(date_)
+        df = df.sort_index()
         storage.write_bodyweight(df.reset_index())
 
     period = parse_period_args()

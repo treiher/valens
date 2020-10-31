@@ -86,7 +86,7 @@ def bodyweight_view() -> str:
 
 @app.route("/exercises")
 def exercises_view() -> str:
-    df = storage.read_workouts()
+    df = storage.read_sets()
     exercise_list = df.sort_index(ascending=False).loc[:, "exercise"].unique()
 
     return render_template("exercises.html", exercise_list=exercise_list)
@@ -95,7 +95,7 @@ def exercises_view() -> str:
 @app.route("/exercise/<name>")
 def exercise_view(name: str) -> str:
     period = parse_period_args()
-    df = storage.read_workouts()
+    df = storage.read_sets()
     df["reps+rir"] = df["reps"] + df["rir"]
     df = df.loc[lambda x: x["exercise"] == name].groupby(["date"]).mean()
     df = df[period.first : period.last]  # type: ignore
@@ -130,7 +130,7 @@ def routines_view() -> Union[str, Response]:
     if request.method == "POST":
         return redirect(url_for("routine_view", name=request.form["name"]), Response=Response)
 
-    df = storage.read_routines()
+    df = storage.read_routine_sets()
     routines = df.sort_index(ascending=False).loc[:, "routine"].unique()
 
     return render_template("routines.html", routines=routines)
@@ -138,13 +138,16 @@ def routines_view() -> Union[str, Response]:
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
 def routine_view(name: str) -> Union[str, Response]:
-    df = storage.read_routines()
+    df_s = storage.read_routine_sets()
+    df_r = storage.read_routines()
 
     if request.method == "POST":
-        df_new = df.loc[df["routine"] != name]
+        df_s = df_s.loc[df_s["routine"] != name]
+        df_r = df_r.loc[df_r["routine"] != name]
 
         if "delete" in request.form:
-            storage.write_routines(df_new)
+            storage.write_routine_sets(df_s)
+            storage.write_routines(df_r)
             return redirect(url_for("routines_view"), Response=Response)
 
         for ex, set_count in zip(
@@ -152,20 +155,33 @@ def routine_view(name: str) -> Union[str, Response]:
         ):
             if ex and set_count:
                 set_count = int(set_count)
-                df_new = df_new.append(
+                df_s = df_s.append(
                     pd.DataFrame({"routine": [name] * set_count, "exercise": [ex] * set_count}),
                     ignore_index=True,
                 )
-        df = df_new
-        storage.write_routines(df)
 
-    df = df.loc[df["routine"] == name, df.columns != "routine"]
+        if "notes" in request.form:
+            notes = request.form["notes"]
+            if notes:
+                df_r = df_r.append(
+                    {"routine": name, "notes": notes},
+                    ignore_index=True,
+                )
+
+        storage.write_routine_sets(df_s)
+        storage.write_routines(df_r)
+
+    df_s = df_s.loc[df_s["routine"] == name, df_s.columns != "routine"]
     routine = [
         (i + 1, exercise, sets["exercise"].count())
-        for i, (exercise, sets) in enumerate(df.groupby("exercise", sort=False))
+        for i, (exercise, sets) in enumerate(df_s.groupby("exercise", sort=False))
     ]
 
-    return render_template("routine.html", name=name, routine=routine)
+    df_r = df_r[df_r["routine"] == name]
+    assert 0 <= len(df_r) <= 1
+    notes = df_r.iat[0, 1] if len(df_r) == 1 else ""
+
+    return render_template("routine.html", name=name, routine=routine, notes=notes)
 
 
 @app.route("/workouts", methods=["GET", "POST"])
@@ -173,30 +189,44 @@ def workouts_view() -> Union[str, Response]:
     # pylint: disable=too-many-locals
 
     notification = ""
-    df_routines = storage.read_routines()
-    df = storage.read_workouts()
+    df_rs = storage.read_routine_sets()
+    df_r = storage.read_routines()
+    df_s = storage.read_sets()
+    df_w = storage.read_workouts()
 
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
-        df_routine = df_routines.loc[
-            df_routines["routine"] == request.form["routine"], df_routines.columns != "routine"
-        ]
-        df_routine["date"] = date_
+        routine = request.form["routine"]
+        df_routine = df_rs.loc[df_rs["routine"] == routine, df_rs.columns != "routine"]
 
-        if len(df[df["date"] == date_]) == 0:
-            df = pd.concat([df[df["date"] != date_], df_routine])
-            storage.write_workouts(df)
-            return redirect(
-                url_for("workout_view", workout_date=request.form["date"]), Response=Response
-            )
+        if not df_routine.empty:
+            df_routine["date"] = date_
 
-        notification = f"Workout on {date_} already exists"
+            if len(df_s[df_s["date"] == date_]) == 0:
+                df_s = pd.concat([df_s[df_s["date"] != date_], df_routine])
+                storage.write_sets(df_s)
+
+                df_r = df_r.loc[df_r["routine"] == routine]
+                assert 0 <= len(df_r) <= 1
+                if len(df_r) == 1:
+                    df_w = df_w.loc[df_w["date"] != date_]
+                    df_w = df_w.append({"date": date_, "notes": df_r.iat[0, 1]}, ignore_index=True)
+                    storage.write_workouts(df_w)
+
+                return redirect(
+                    url_for("workout_view", workout_date=request.form["date"]), Response=Response
+                )
+
+            notification = f"Workout on {date_} already exists"
+
+        else:
+            notification = f"Routine {routine} undefined"
 
     period = parse_period_args()
-    df["reps+rir"] = df["reps"] + df["rir"]
-    df = df[(df["date"] >= period.first) & (df["date"] <= period.last)].drop("rir", 1)
-    wo = df.groupby(["date"]).mean()
-    wo["volume"] = df.groupby(["date"]).sum()["reps"]
+    df_s["reps+rir"] = df_s["reps"] + df_s["rir"]
+    df_s = df_s[(df_s["date"] >= period.first) & (df_s["date"] <= period.last)].drop("rir", 1)
+    wo = df_s.groupby(["date"]).mean()
+    wo["volume"] = df_s.groupby(["date"]).sum()["reps"]
 
     workouts_list: deque = deque()
     for wo_date, reps, time, weight, rpe, reps_rir, volume in wo.itertuples():
@@ -212,7 +242,7 @@ def workouts_view() -> Union[str, Response]:
             )
         )
 
-    routines = reversed([r for r, _ in df_routines.groupby("routine", sort=False)])
+    routines = reversed([r for r, _ in df_rs.groupby("routine", sort=False)])
 
     return render_template(
         "workouts.html",
@@ -229,39 +259,54 @@ def workouts_view() -> Union[str, Response]:
 
 @app.route("/workout/<workout_date>", methods=["GET", "POST"])
 def workout_view(workout_date: str) -> Union[str, Response]:
+    # pylint: disable=too-many-locals
+
     notification = ""
     date_ = date.fromisoformat(workout_date)
-    df = storage.read_workouts()
+    df_s = storage.read_sets()
+    df_w = storage.read_workouts()
 
     if request.method == "POST":
-        df_new = df[df["date"] != date_]
+        df_s = df_s.loc[df_s["date"] != date_]
+        df_w = df_w.loc[df_w["date"] != date_]
 
         if "delete" in request.form:
-            df = df[df["date"] != date_]
-            storage.write_workouts(df)
+            storage.write_sets(df_s)
+            storage.write_workouts(df_w)
             return redirect(url_for("workouts_view"), Response=Response)
 
         try:
-            for ex, sets in request.form.lists():
-                for set_str in sets:
-                    df_new = df_new.append(
-                        {"date": date_, "exercise": ex, **utils.parse_set(set_str)},
+            for name, values in request.form.lists():
+                if name.startswith("exercise:"):
+                    for set_str in values:
+                        df_s = df_s.append(
+                            {
+                                "date": date_,
+                                "exercise": name.split(":")[1],
+                                **utils.parse_set(set_str),
+                            },
+                            ignore_index=True,
+                        )
+                elif name == "notes" and values[0]:
+                    df_w = df_w.append(
+                        {"date": date_, "notes": values[0]},
                         ignore_index=True,
                     )
-            df = df_new
-            storage.write_workouts(df)
+
+            storage.write_sets(df_s)
+            storage.write_workouts(df_w)
         except ValueError as e:
             notification = str(e)
 
-    df_cur = df[df["date"] == date_].groupby("exercise", sort=False)
+    df_cur = df_s[df_s["date"] == date_].groupby("exercise", sort=False)
     workout_data = []
     for ex, sets in df_cur:
         current = [
             utils.format_set(set_tuple[1:])
             for set_tuple in sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
         ]
-        previous_date = df[(df["date"] < date_) & (df["exercise"] == ex)]["date"].max()
-        previous_sets = df.loc[(df["date"] == previous_date) & (df["exercise"] == ex)]
+        previous_date = df_s[(df_s["date"] < date_) & (df_s["exercise"] == ex)]["date"].max()
+        previous_sets = df_s.loc[(df_s["date"] == previous_date) & (df_s["exercise"] == ex)]
         previous = [
             utils.format_set(set_tuple[1:])
             for set_tuple in previous_sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
@@ -269,8 +314,16 @@ def workout_view(workout_date: str) -> Union[str, Response]:
         previous = previous + [""] * (len(current) - len(previous))
         workout_data.append((ex, zip(current, previous)))
 
+    df_w = df_w[df_w["date"] == date_]
+    assert 0 <= len(df_w) <= 1
+    notes = df_w.iat[0, 1] if len(df_w) == 1 else ""
+
     return render_template(
-        "workout.html", date=date_, workout=workout_data, notification=notification
+        "workout.html",
+        date=date_,
+        workout=workout_data,
+        notes=notes,
+        notification=notification,
     )
 
 

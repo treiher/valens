@@ -42,7 +42,7 @@ def main() -> Union[int, str]:
 
 
 def list_exercises(args: argparse.Namespace) -> None:
-    df = storage.read_workouts()
+    df = storage.read_sets()
 
     if args.last:
         last_exercises = list(

@@ -12,12 +12,16 @@
         <div class="field-body is-grouped">
             {% for current, previous in sets %}
             <div class="field">
-                <input class="input" type="text" name="{{ exercise }}" value="{{ current }}" placeholder="{{ previous }}" />
+                <input class="input" type="text" name="exercise:{{ exercise }}" value="{{ current }}" placeholder="{{ previous }}" />
             </div>
             {% endfor %}
         </div>
     </div>
     {% endfor %}
+    <div class="field">
+        <label class="label">Notes</label>
+        <textarea class="textarea" name="notes">{{ notes }}</textarea>
+    </div>
     <div class="columns is-mobile mt-4">
         <div class="column">
             <input class="button is-success" style="width: 50%" type="submit" value="Save" />

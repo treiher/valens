@@ -23,7 +23,7 @@ def plot_svg(fig: Figure) -> bytes:
 
 
 def workouts(first: date = None, last: date = None) -> Figure:
-    df = storage.read_workouts()
+    df = storage.read_sets()
     df["reps+rir"] = df["reps"] + df["rir"]
     df = df.drop("rir", 1)
     r = df.groupby(["date"]).mean()
@@ -50,7 +50,7 @@ def workouts(first: date = None, last: date = None) -> Figure:
 
 
 def exercise(name: str, first: date = None, last: date = None) -> Figure:
-    df = storage.read_workouts()
+    df = storage.read_sets()
     df["reps+rir"] = df["reps"] + df["rir"]
     df_ex = df.loc[lambda x: x["exercise"] == name]
     r = df_ex.loc[:, ["date", "reps", "reps+rir", "weight", "time"]].groupby(["date"]).mean()

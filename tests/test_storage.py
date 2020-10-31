@@ -11,23 +11,23 @@ def test_routines(monkeypatch: Any) -> None:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
-        routines = storage.read_routines()
-        assert routines.equals(tests.data.ROUTINES_DF)
+        routines = storage.read_routine_sets()
+        assert routines.equals(tests.data.ROUTINE_SETS_DF)
 
-        storage.write_routines(routines)
-        assert storage.read_routines().equals(routines)
+        storage.write_routine_sets(routines)
+        assert storage.read_routine_sets().equals(routines)
 
 
-def test_workouts(monkeypatch: Any) -> None:
+def test_sets(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
-        workouts = storage.read_workouts()
-        assert workouts.equals(tests.data.WORKOUTS_DF)
+        sets = storage.read_sets()
+        assert sets.equals(tests.data.SETS_DF)
 
-        storage.write_workouts(workouts)
-        assert storage.read_workouts().equals(workouts)
+        storage.write_sets(sets)
+        assert storage.read_sets().equals(sets)
 
 
 def test_bodyweight(monkeypatch: Any) -> None:

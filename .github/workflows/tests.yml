@@ -59,7 +59,7 @@ jobs:
     - name: Install
       run: |
         python setup.py sdist
-        pip install valens --user --no-deps --no-index --find-links dist/*
+        pip install valens --user --no-deps --no-index --find-links dist/
 
   Tests:
     runs-on: ubuntu-20.04

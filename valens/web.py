@@ -4,7 +4,16 @@ from datetime import date, timedelta
 from typing import Sequence, Tuple, Union
 
 import pandas as pd
-from flask import Flask, Response, make_response, redirect, render_template, request, url_for
+from flask import (
+    Flask,
+    Response,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from valens import diagram, storage, utils
 
@@ -13,6 +22,8 @@ app = Flask(__name__)
 app.jinja_env.lstrip_blocks = True
 app.jinja_env.trim_blocks = True
 
+app.secret_key = b"Q|6s:@}cC{>v:$,#"
+
 
 @dataclass
 class Period:
@@ -20,8 +31,15 @@ class Period:
     last: date
 
 
+def is_logged_in() -> bool:
+    return "username" in session and "user_id" in session
+
+
 @app.route("/")
-def index_view() -> str:
+def index_view() -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
     return render_template(
         "index.html",
         navigation=[
@@ -29,26 +47,79 @@ def index_view() -> str:
             (url_for("routines_view"), "Routines"),
             (url_for("exercises_view"), "Exercises"),
             (url_for("bodyweight_view"), "Bodyweight"),
+            (url_for("users_view"), "Users"),
+            (url_for("logout_view"), "Logout"),
         ],
     )
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login_view() -> Union[str, Response]:
+    if request.method == "POST":
+        for user_id, username in storage.read_users().set_index("user_id").itertuples():
+            if username == request.form["username"]:
+                session["user_id"] = int(user_id)
+                session["username"] = username
+        return redirect(url_for("index_view"), Response=Response)
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout_view() -> Response:
+    session.pop("username", None)
+    return redirect(url_for("login_view"), Response=Response)
+
+
+@app.route("/users", methods=["GET", "POST"])
+def users_view() -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
+    df = storage.read_users().set_index("user_id")
+
+    if request.method == "POST":
+        form_user_ids = [int(i) for i in request.form.getlist("user_id")]
+        assert len(form_user_ids) == len(set(form_user_ids)), "duplicate user id"
+        form_usernames = request.form.getlist("username")
+        assert len([n for n in form_usernames if n]) == len(
+            {n for n in form_usernames if n}
+        ), "duplicate username"
+        next_user_id = max(form_user_ids) + 1 if len(form_user_ids) > 0 else 1
+        users = [
+            (user_id if user_id > 0 else next_user_id, name)
+            for user_id, name in zip(form_user_ids, form_usernames)
+            if name
+        ]
+        user_ids, usernames = zip(*users) if users else ([], [])
+        df = pd.DataFrame({"user_id": user_ids, "name": usernames}).set_index("user_id")
+        storage.write_users(df.reset_index())
+
+    return render_template(
+        "users.html",
+        users=df.itertuples(),
+    )
+
+
 @app.route("/bodyweight", methods=["GET", "POST"])
-def bodyweight_view() -> str:
+def bodyweight_view() -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         weight = float(request.form["weight"])
 
-        df = storage.read_bodyweight().set_index("date")
+        df = storage.read_bodyweight(session["user_id"]).set_index("date")
         if weight > 0:
             df.loc[date_] = weight
         else:
             df = df.drop(date_)
         df = df.sort_index()
-        storage.write_bodyweight(df.reset_index())
+        storage.write_bodyweight(df.reset_index(), session["user_id"])
 
     period = parse_period_args()
-    df = storage.read_bodyweight()
+    df = storage.read_bodyweight(session["user_id"])
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"])
         ts_df = pd.DataFrame({"date": pd.date_range(df.iloc[0, 0], df.iloc[-1, 0])}).set_index(
@@ -92,17 +163,23 @@ def bodyweight_view() -> str:
 
 
 @app.route("/exercises")
-def exercises_view() -> str:
-    df = storage.read_sets()
+def exercises_view() -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
+    df = storage.read_sets(session["user_id"])
     exercise_list = df.sort_index(ascending=False).loc[:, "exercise"].unique()
 
     return render_template("exercises.html", exercise_list=exercise_list)
 
 
 @app.route("/exercise/<name>")
-def exercise_view(name: str) -> str:
+def exercise_view(name: str) -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
     period = parse_period_args()
-    df = storage.read_sets()
+    df = storage.read_sets(session["user_id"])
     df["reps+rir"] = df["reps"] + df["rir"]
     df = df.loc[lambda x: x["exercise"] == name].groupby(["date"]).mean()
     df = df[period.first : period.last]  # type: ignore
@@ -134,10 +211,13 @@ def exercise_view(name: str) -> str:
 
 @app.route("/routines", methods=["GET", "POST"])
 def routines_view() -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
     if request.method == "POST":
         return redirect(url_for("routine_view", name=request.form["name"]), Response=Response)
 
-    df = storage.read_routine_sets()
+    df = storage.read_routine_sets(session["user_id"])
     routines = df.sort_index(ascending=False).loc[:, "routine"].unique()
 
     return render_template("routines.html", routines=routines)
@@ -145,16 +225,19 @@ def routines_view() -> Union[str, Response]:
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
 def routine_view(name: str) -> Union[str, Response]:
-    df_s = storage.read_routine_sets()
-    df_r = storage.read_routines()
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
+    df_s = storage.read_routine_sets(session["user_id"])
+    df_r = storage.read_routines(session["user_id"])
 
     if request.method == "POST":
         df_s = df_s.loc[df_s["routine"] != name]
         df_r = df_r.loc[df_r["routine"] != name]
 
         if "delete" in request.form:
-            storage.write_routine_sets(df_s)
-            storage.write_routines(df_r)
+            storage.write_routine_sets(df_s, session["user_id"])
+            storage.write_routines(df_r, session["user_id"])
             return redirect(url_for("routines_view"), Response=Response)
 
         for ex, set_count in zip(
@@ -175,8 +258,8 @@ def routine_view(name: str) -> Union[str, Response]:
                     ignore_index=True,
                 )
 
-        storage.write_routine_sets(df_s)
-        storage.write_routines(df_r)
+        storage.write_routine_sets(df_s, session["user_id"])
+        storage.write_routines(df_r, session["user_id"])
 
     df_s = df_s.loc[df_s["routine"] == name, df_s.columns != "routine"]
     routine = [
@@ -195,11 +278,14 @@ def routine_view(name: str) -> Union[str, Response]:
 def workouts_view() -> Union[str, Response]:
     # pylint: disable=too-many-locals
 
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
     notification = ""
-    df_rs = storage.read_routine_sets()
-    df_r = storage.read_routines()
-    df_s = storage.read_sets()
-    df_w = storage.read_workouts()
+    df_rs = storage.read_routine_sets(session["user_id"])
+    df_r = storage.read_routines(session["user_id"])
+    df_s = storage.read_sets(session["user_id"])
+    df_w = storage.read_workouts(session["user_id"])
 
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
@@ -211,14 +297,14 @@ def workouts_view() -> Union[str, Response]:
 
             if len(df_s[df_s["date"] == date_]) == 0:
                 df_s = pd.concat([df_s[df_s["date"] != date_], df_routine])
-                storage.write_sets(df_s)
+                storage.write_sets(df_s, session["user_id"])
 
                 df_r = df_r.loc[df_r["routine"] == routine]
                 assert 0 <= len(df_r) <= 1
                 if len(df_r) == 1:
                     df_w = df_w.loc[df_w["date"] != date_]
                     df_w = df_w.append({"date": date_, "notes": df_r.iat[0, 1]}, ignore_index=True)
-                    storage.write_workouts(df_w)
+                    storage.write_workouts(df_w, session["user_id"])
 
                 return redirect(
                     url_for("workout_view", workout_date=request.form["date"]), Response=Response
@@ -268,18 +354,21 @@ def workouts_view() -> Union[str, Response]:
 def workout_view(workout_date: str) -> Union[str, Response]:
     # pylint: disable=too-many-locals
 
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
     notification = ""
     date_ = date.fromisoformat(workout_date)
-    df_s = storage.read_sets()
-    df_w = storage.read_workouts()
+    df_s = storage.read_sets(session["user_id"])
+    df_w = storage.read_workouts(session["user_id"])
 
     if request.method == "POST":
         df_s = df_s.loc[df_s["date"] != date_]
         df_w = df_w.loc[df_w["date"] != date_]
 
         if "delete" in request.form:
-            storage.write_sets(df_s)
-            storage.write_workouts(df_w)
+            storage.write_sets(df_s, session["user_id"])
+            storage.write_workouts(df_w, session["user_id"])
             return redirect(url_for("workouts_view"), Response=Response)
 
         try:
@@ -300,8 +389,8 @@ def workout_view(workout_date: str) -> Union[str, Response]:
                         ignore_index=True,
                     )
 
-            storage.write_sets(df_s)
-            storage.write_workouts(df_w)
+            storage.write_sets(df_s, session["user_id"])
+            storage.write_workouts(df_w, session["user_id"])
         except ValueError as e:
             notification = str(e)
 
@@ -336,14 +425,17 @@ def workout_view(workout_date: str) -> Union[str, Response]:
 
 @app.route("/image/<image_type>")
 def image_view(image_type: str) -> Response:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
     period = parse_period_args()
     if image_type == "bodyweight":
-        fig = diagram.bodyweight(period.first, period.last)
+        fig = diagram.bodyweight(session["user_id"], period.first, period.last)
     elif image_type == "workouts":
-        fig = diagram.workouts(period.first, period.last)
+        fig = diagram.workouts(session["user_id"], period.first, period.last)
     elif image_type.startswith("exercise"):
         name = request.args.get("name", "")
-        fig = diagram.exercise(name, period.first, period.last)
+        fig = diagram.exercise(session["user_id"], name, period.first, period.last)
     else:
         return make_response("", 404)
     return Response(diagram.plot_svg(fig), mimetype="image/svg+xml")

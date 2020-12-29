@@ -14,24 +14,37 @@ def test_initialization(
 ) -> None:
     monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tmp_path)
 
-    assert not (tmp_path / storage.ROUTINES_FILE).exists()
-    assert not (tmp_path / storage.ROUTINE_SETS_FILE).exists()
-    assert not (tmp_path / storage.WORKOUTS_FILE).exists()
-    assert not (tmp_path / storage.SETS_FILE).exists()
-    assert not (tmp_path / storage.BODYWEIGHT_FILE).exists()
+    files = [
+        storage.USERS_FILE,
+        storage.ROUTINES_FILE,
+        storage.ROUTINE_SETS_FILE,
+        storage.WORKOUTS_FILE,
+        storage.SETS_FILE,
+        storage.BODYWEIGHT_FILE,
+    ]
+
+    assert all(not (tmp_path / f).exists() for f in files)
 
     storage.initialize()
 
-    assert (tmp_path / storage.ROUTINES_FILE).is_file()
-    assert (tmp_path / storage.ROUTINE_SETS_FILE).is_file()
-    assert (tmp_path / storage.WORKOUTS_FILE).is_file()
-    assert (tmp_path / storage.SETS_FILE).is_file()
-    assert (tmp_path / storage.BODYWEIGHT_FILE).is_file()
+    assert all((tmp_path / f).is_file() for f in files)
     assert not capsys.readouterr().out
 
     storage.initialize()
 
-    assert capsys.readouterr().out.count("warning") == 5
+    assert capsys.readouterr().out.count("warning") == len(files)
+
+
+def test_users(monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        users = storage.read_users()
+        assert users.equals(tests.data.USERS_DF)
+
+        storage.write_users(users)
+        assert storage.read_users().equals(users)
 
 
 def test_routines(monkeypatch: Any) -> None:
@@ -39,11 +52,11 @@ def test_routines(monkeypatch: Any) -> None:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
-        routines = storage.read_routine_sets()
+        routines = storage.read_routine_sets(1)
         assert routines.equals(tests.data.ROUTINE_SETS_DF)
 
-        storage.write_routine_sets(routines)
-        assert storage.read_routine_sets().equals(routines)
+        storage.write_routine_sets(routines, 1)
+        assert storage.read_routine_sets(1).equals(routines)
 
 
 def test_sets(monkeypatch: Any) -> None:
@@ -51,11 +64,11 @@ def test_sets(monkeypatch: Any) -> None:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
-        sets = storage.read_sets()
+        sets = storage.read_sets(1)
         assert sets.equals(tests.data.SETS_DF)
 
-        storage.write_sets(sets)
-        assert storage.read_sets().equals(sets)
+        storage.write_sets(sets, 1)
+        assert storage.read_sets(1).equals(sets)
 
 
 def test_bodyweight(monkeypatch: Any) -> None:
@@ -63,8 +76,8 @@ def test_bodyweight(monkeypatch: Any) -> None:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
-        bodyweight = storage.read_bodyweight()
+        bodyweight = storage.read_bodyweight(1)
         assert bodyweight.equals(tests.data.BODYWEIGHT_DF)
 
-        storage.write_bodyweight(bodyweight)
-        assert storage.read_bodyweight().equals(bodyweight)
+        storage.write_bodyweight(bodyweight, 1)
+        assert storage.read_bodyweight(1).equals(bodyweight)

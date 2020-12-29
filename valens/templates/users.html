@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Users{% endblock %}
+
+{% block content_title %}Users{% endblock %}
+
+{% block content %}
+<form action="users" method="post">
+    <div class="table-container mt-4">
+        <table class="table is-fullwidth is-narrow is-striped has-text-centered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user_id, name in users %}
+                <tr>
+                    <td>{{ user_id }}<input type="hidden" name="user_id" value="{{ user_id }}"/></td>
+                    <td><input class="input" style="width: 50%" type="text" name="username" value="{{ name }}" /></td>
+                </tr>
+                {% endfor %}
+                <tr>
+                    <td><input type="hidden" name="user_id" value="0"/></td>
+                    <td><input class="input" style="width: 50%" type="text" name="username" value="" /></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <input class="button is-success" style="width: 25%" type="submit" value="Save" />
+</form>
+{% endblock %}
+
+{% set parent_page = 'index_view' %}

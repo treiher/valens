@@ -3,6 +3,19 @@ from typing import Final
 
 import pandas as pd
 
+USERS: Final = {
+    1: "U1",
+    2: "U2",
+}
+
+
+USERS_DF: Final = pd.DataFrame(
+    {
+        "user_id": [1, 2],
+        "name": ["U1", "U2"],
+    }
+)
+
 SETS: Final = {
     datetime.date(2002, 2, 20): {"E1": ["12@8", "11@8", "10@8"], "E2": ["9@9", "8@9"]},
     datetime.date(2002, 2, 22): {"E4": ["7@8", "6@8", "5@8"], "E3": ["40s@9", "30s@9"]},
@@ -35,7 +48,10 @@ WORKOUTS_DF: Final = pd.DataFrame(
 BODYWEIGHT: Final = {datetime.date(2002, 2, 20): 81.2, datetime.date(2002, 2, 22): 82.4}
 
 BODYWEIGHT_DF: Final = pd.DataFrame(
-    {"date": [datetime.date(2002, 2, 20), datetime.date(2002, 2, 22)], "weight": [81.2, 82.4]}
+    {
+        "date": [datetime.date(2002, 2, 20), datetime.date(2002, 2, 22)],
+        "weight": [81.2, 82.4],
+    }
 )
 
 ROUTINE_SETS: Final = {

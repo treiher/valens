@@ -22,8 +22,8 @@ def plot_svg(fig: Figure) -> bytes:
     return output.getvalue()
 
 
-def workouts(first: date = None, last: date = None) -> Figure:
-    df = storage.read_sets()
+def workouts(user_id: int, first: date = None, last: date = None) -> Figure:
+    df = storage.read_sets(user_id)
     df["reps+rir"] = df["reps"] + df["rir"]
     df = df.drop("rir", 1)
     r = df.groupby(["date"]).mean()
@@ -49,8 +49,8 @@ def workouts(first: date = None, last: date = None) -> Figure:
     return fig
 
 
-def exercise(name: str, first: date = None, last: date = None) -> Figure:
-    df = storage.read_sets()
+def exercise(user_id: int, name: str, first: date = None, last: date = None) -> Figure:
+    df = storage.read_sets(user_id)
     df["reps+rir"] = df["reps"] + df["rir"]
     df_ex = df.loc[lambda x: x["exercise"] == name]
     r = df_ex.loc[:, ["date", "reps", "reps+rir", "weight", "time"]].groupby(["date"]).mean()
@@ -66,8 +66,8 @@ def exercise(name: str, first: date = None, last: date = None) -> Figure:
     return fig
 
 
-def bodyweight(first: date = None, last: date = None) -> Figure:
-    df = storage.read_bodyweight().set_index("date")
+def bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
+    df = storage.read_bodyweight(user_id).set_index("date")
 
     df_interval = df.loc[first:last]  # type: ignore  # ISSUE: python/typing#159
     ymin = int(df_interval.min()) if not df_interval.empty else None

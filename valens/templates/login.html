@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content_title %}Valens{% endblock %}
+
+{% block content %}
+<div class="container has-text-centered">
+    <form action="login" method="post">
+        <input class="input" style="width: 40%" type="text" name="username" required="required" />
+        <input class="button is-success" style="width: 25%" type="submit" value="Login" />
+    </form>
+</div>
+{% endblock %}

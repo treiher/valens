@@ -49,7 +49,7 @@ def init(args: argparse.Namespace) -> None:  # pylint: disable=unused-argument
 
 
 def list_exercises(args: argparse.Namespace) -> None:
-    df = storage.read_sets()
+    df = storage.read_sets(1)
 
     if args.last:
         last_exercises = list(
@@ -71,16 +71,16 @@ def list_exercises(args: argparse.Namespace) -> None:
 
 def show_workouts(args: argparse.Namespace) -> None:
     # pylint: disable=unused-argument
-    diagram.workouts()
+    diagram.workouts(1)
     plt.show()
 
 
 def show_exercise(args: argparse.Namespace) -> None:
-    diagram.exercise(args.exercise)
+    diagram.exercise(1, args.exercise)
     plt.show()
 
 
 def show_bodyweight(args: argparse.Namespace) -> None:
     # pylint: disable=unused-argument
-    diagram.bodyweight()
+    diagram.bodyweight(1)
     plt.show()

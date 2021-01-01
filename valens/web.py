@@ -55,14 +55,16 @@ def index_view() -> Union[str, Response]:
 
 @app.route("/login", methods=["GET", "POST"])
 def login_view() -> Union[str, Response]:
+    users = storage.read_users().set_index("user_id").itertuples()
+
     if request.method == "POST":
-        for user_id, username in storage.read_users().set_index("user_id").itertuples():
+        for user_id, username in users:
             if username == request.form["username"]:
                 session["user_id"] = int(user_id)
                 session["username"] = username
         return redirect(url_for("index_view"), Response=Response)
 
-    return render_template("login.html")
+    return render_template("login.html", usernames=[n for _, n in users])
 
 
 @app.route("/logout")

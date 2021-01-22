@@ -89,7 +89,7 @@ def users_view() -> Union[str, Response]:
         ), "duplicate username"
         next_user_id = max(form_user_ids) + 1 if len(form_user_ids) > 0 else 1
         users = [
-            (user_id if user_id > 0 else next_user_id, name)
+            (user_id if user_id > 0 else next_user_id, name.strip())
             for user_id, name in zip(form_user_ids, form_usernames)
             if name
         ]
@@ -217,7 +217,9 @@ def routines_view() -> Union[str, Response]:
         return redirect(url_for("login_view"), Response=Response)
 
     if request.method == "POST":
-        return redirect(url_for("routine_view", name=request.form["name"]), Response=Response)
+        return redirect(
+            url_for("routine_view", name=request.form["name"].strip()), Response=Response
+        )
 
     df = storage.read_routine_sets(session["user_id"])
     routines = df.sort_index(ascending=False).loc[:, "routine"].unique()
@@ -227,6 +229,8 @@ def routines_view() -> Union[str, Response]:
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
 def routine_view(name: str) -> Union[str, Response]:
+    name = name.strip()
+
     if not is_logged_in():
         return redirect(url_for("login_view"), Response=Response)
 
@@ -245,6 +249,8 @@ def routine_view(name: str) -> Union[str, Response]:
         for ex, set_count in zip(
             request.form.getlist("exercise"), request.form.getlist("set_count")
         ):
+            ex = ex.strip()
+
             if ex and set_count:
                 set_count = int(set_count)
                 df_s = df_s.append(

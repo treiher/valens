@@ -175,13 +175,26 @@ def exercises_view() -> Union[str, Response]:
     return render_template("exercises.html", exercise_list=exercise_list)
 
 
-@app.route("/exercise/<name>")
+@app.route("/exercise/<name>", methods=["GET", "POST"])
 def exercise_view(name: str) -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"), Response=Response)
 
     period = parse_period_args()
     df = storage.read_sets(session["user_id"])
+
+    if request.method == "POST":
+        new_name = request.form["new_name"]
+        storage.write_sets(df.replace(to_replace=name, value=new_name), session["user_id"])
+        storage.write_routine_sets(
+            storage.read_routine_sets(session["user_id"]).replace(to_replace=name, value=new_name),
+            session["user_id"],
+        )
+        return redirect(
+            url_for("exercise_view", name=new_name, first=period.first, last=period.last),
+            Response=Response,
+        )
+
     df["reps+rir"] = df["reps"] + df["rir"]
     df = df.loc[lambda x: x["exercise"] == name].groupby(["date"]).mean()
     df = df[period.first : period.last]  # type: ignore

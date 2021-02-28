@@ -241,6 +241,36 @@ def test_exercise(client: Client, monkeypatch: Any) -> None:
                 assert str(date) in resp.data.decode("utf-8")
 
 
+def test_exercise_rename(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        args_sets = {}
+        args_routines = {}
+        monkeypatch.setattr(
+            web.storage, "write_sets", lambda x, y: args_sets.update({"df": x, "user_id": y})
+        )
+        monkeypatch.setattr(
+            web.storage,
+            "write_routine_sets",
+            lambda x, y: args_routines.update({"df": x, "user_id": y}),
+        )
+        resp = client.post("/exercise/E1", data={"new_name": "NEW"})
+        assert resp.status_code == 302
+        assert args_sets["user_id"] == 1
+        assert len(args_sets["df"]) == len(tests.data.SETS_DF)
+        assert "NEW" in str(args_sets["df"])
+        assert "E1" not in str(args_sets["df"])
+        assert args_routines["user_id"] == 1
+        assert len(args_routines["df"]) == len(tests.data.ROUTINE_SETS_DF)
+        assert "NEW" in str(args_routines["df"])
+        assert "E1" not in str(args_routines["df"])
+
+
 def test_routines(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)

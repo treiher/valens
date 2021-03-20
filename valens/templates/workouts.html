@@ -30,12 +30,13 @@
                 <th><abbr title="Average time">Time</abbr></th>
                 <th><abbr title="Average weight">Weight</abbr></th>
                 <th><abbr title="Average rating of perceived exertion">RPE</abbr></th>
-                <th><abbr title="Average reps + reps in Reserve">Reps+RIR</abbr></th>
+                <th><abbr title="Average reps + reps in reserve">Reps+RIR</abbr></th>
                 <th><abbr title="Total of reps">Volume</abbr></th>
+                <th><abbr title="Total time under tension">TUT</abbr></th>
             </tr>
         </thead>
         <tbody>
-            {% for date, reps, time, weight, rpe, reps_rir, volume in workouts %}
+            {% for date, reps, time, weight, rpe, reps_rir, tut, volume in workouts %}
             <tr>
                 <td><a href="{{ url_for('workout_view', workout_date=date) }}">{{ date }}</a></td>
                 <td>{{ reps }}</td>
@@ -43,7 +44,8 @@
                 <td>{{ weight }}</td>
                 <td>{{ rpe }}</td>
                 <td>{{ reps_rir }}</td>
-                <td>{{ volume }}</td>
+                <td>{{ volume|int }}</td>
+                <td>{{ tut|int }}</td>
             </tr>
             {% endfor %}
         </tbody>

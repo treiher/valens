@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Sequence, Tuple, Union
 
+import numpy as np
 import pandas as pd
 from flask import (
     Flask,
@@ -176,7 +177,7 @@ def exercises_view() -> Union[str, Response]:
 
 
 @app.route("/exercise/<name>", methods=["GET", "POST"])
-def exercise_view(name: str) -> Union[str, Response]:
+def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-many-locals
     if not is_logged_in():
         return redirect(url_for("login_view"), Response=Response)
 
@@ -196,11 +197,16 @@ def exercise_view(name: str) -> Union[str, Response]:
         )
 
     df["reps+rir"] = df["reps"] + df["rir"]
-    df = df.loc[lambda x: x["exercise"] == name].groupby(["date"]).mean()
-    df = df[period.first : period.last]  # type: ignore
+    df = df.loc[lambda x: x["exercise"] == name]
+    df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
+    df_sum = df.groupby(["date"]).sum()
+    wo = df.groupby(["date"]).mean()
+    wo["tut"] = df_sum["tut"]
+    wo["volume"] = df_sum["reps"]
+    wo = wo[period.first : period.last]  # type: ignore
 
     workouts_list: deque = deque()
-    for wo_date, reps, time, weight, rpe, _, reps_rir in df.itertuples():
+    for wo_date, reps, time, weight, rpe, _, reps_rir, tut, volume in wo.itertuples():
         workouts_list.appendleft(
             (
                 wo_date,
@@ -209,6 +215,8 @@ def exercise_view(name: str) -> Union[str, Response]:
                 utils.format_number(weight),
                 utils.format_number(rpe),
                 utils.format_number(reps_rir),
+                utils.format_number(tut),
+                utils.format_number(volume),
             )
         )
 
@@ -340,10 +348,13 @@ def workouts_view() -> Union[str, Response]:
     df_s["reps+rir"] = df_s["reps"] + df_s["rir"]
     df_s = df_s[(df_s["date"] >= period.first) & (df_s["date"] <= period.last)].drop("rir", 1)
     wo = df_s.groupby(["date"]).mean()
-    wo["volume"] = df_s.groupby(["date"]).sum()["reps"]
+    df_s["tut"] = df_s["reps"].replace(np.nan, 1) * df_s["time"]
+    df_sum = df_s.groupby(["date"]).sum()
+    wo["tut"] = df_sum["tut"]
+    wo["volume"] = df_sum["reps"]
 
     workouts_list: deque = deque()
-    for wo_date, reps, time, weight, rpe, reps_rir, volume in wo.itertuples():
+    for wo_date, reps, time, weight, rpe, reps_rir, tut, volume in wo.itertuples():
         workouts_list.appendleft(
             (
                 wo_date,
@@ -352,6 +363,7 @@ def workouts_view() -> Union[str, Response]:
                 utils.format_number(weight),
                 utils.format_number(rpe),
                 utils.format_number(reps_rir),
+                utils.format_number(tut),
                 utils.format_number(volume),
             )
         )

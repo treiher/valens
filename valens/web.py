@@ -115,9 +115,8 @@ def bodyweight_view() -> Union[str, Response]:
         weight = float(request.form["weight"])
 
         df = storage.read_bodyweight(session["user_id"]).set_index("date")
-        if weight > 0:
-            df.loc[date_] = weight
-        else:
+        df.loc[date_] = weight
+        if weight <= 0:
             df = df.drop(date_)
         df = df.sort_index()
         storage.write_bodyweight(df.reset_index(), session["user_id"])
@@ -183,9 +182,8 @@ def period_view() -> Union[str, Response]:
             notification = f"Invalid intensity value {request.form['intensity']}"
         else:
             df = storage.read_period(session["user_id"]).set_index("date")
-            if intensity > 0:
-                df.loc[date_] = intensity
-            else:
+            df.loc[date_] = intensity
+            if intensity == 0:
                 df = df.drop(date_)
             df = df.sort_index()
             storage.write_period(df.reset_index(), session["user_id"])

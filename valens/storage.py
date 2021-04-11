@@ -11,6 +11,7 @@ ROUTINE_SETS_FILE = "routine_sets.feather"
 WORKOUTS_FILE = "workouts.feather"
 SETS_FILE = "sets.feather"
 BODYWEIGHT_FILE = "bodyweight.feather"
+PERIOD_FILE = "period.feather"
 
 USERS_COLS = ["user_id", "name"]
 ROUTINES_COLS = ["user_id", "routine", "notes"]
@@ -18,6 +19,7 @@ ROUTINE_SETS_COLS = ["user_id", "routine", "exercise", "reps", "time", "weight",
 WORKOUTS_COLS = ["user_id", "date", "notes"]
 SETS_COLS = ["user_id", "date", "exercise", "reps", "time", "weight", "rpe"]
 BODYWEIGHT_COLS = ["user_id", "date", "weight"]
+PERIOD_COLS = ["user_id", "date", "intensity"]
 
 
 def initialize() -> None:
@@ -28,6 +30,7 @@ def initialize() -> None:
         (WORKOUTS_FILE, WORKOUTS_COLS),
         (SETS_FILE, SETS_COLS),
         (BODYWEIGHT_FILE, BODYWEIGHT_COLS),
+        (PERIOD_FILE, PERIOD_COLS),
     ]:
         if not (config.DATA_DIRECTORY / f).exists():
             pd.DataFrame({k: [] for k in c}).to_feather(config.DATA_DIRECTORY / f)
@@ -100,6 +103,17 @@ def write_bodyweight(df: pd.DataFrame, user_id: int) -> None:
     df.insert(0, "user_id", len(df) * [user_id])
     df = df.loc[:, BODYWEIGHT_COLS]
     write_user_part(config.DATA_DIRECTORY / BODYWEIGHT_FILE, df, user_id)
+
+
+def read_period(user_id: int) -> pd.DataFrame:
+    return read_user_part(config.DATA_DIRECTORY / PERIOD_FILE, PERIOD_COLS, user_id)
+
+
+def write_period(df: pd.DataFrame, user_id: int) -> None:
+    df = df.reset_index()
+    df.insert(0, "user_id", len(df) * [user_id])
+    df = df.loc[:, PERIOD_COLS]
+    write_user_part(config.DATA_DIRECTORY / PERIOD_FILE, df, user_id)
 
 
 def read_user_part(storage_file: Path, columns: Sequence[str], user_id: int) -> pd.DataFrame:

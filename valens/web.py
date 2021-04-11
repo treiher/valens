@@ -48,6 +48,7 @@ def index_view() -> Union[str, Response]:
             (url_for("routines_view"), "Routines"),
             (url_for("exercises_view"), "Exercises"),
             (url_for("bodyweight_view"), "Bodyweight"),
+            (url_for("period_view"), "Period"),
             (url_for("users_view"), "Users"),
             (url_for("logout_view"), "Logout"),
         ],
@@ -162,6 +163,58 @@ def bodyweight_view() -> Union[str, Response]:
         next=next_period(period),
         today=date.today(),
         bodyweight=bodyweight_list,
+    )
+
+
+@app.route("/period", methods=["GET", "POST"])
+def period_view() -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
+    notification = ""
+
+    if request.method == "POST":
+        date_ = date.fromisoformat(request.form["date"])
+        try:
+            intensity = int(request.form["intensity"])
+            if not 0 <= intensity <= 4:
+                raise ValueError()
+        except ValueError:
+            notification = f"Invalid intensity value {request.form['intensity']}"
+        else:
+            df = storage.read_period(session["user_id"]).set_index("date")
+            if intensity > 0:
+                df.loc[date_] = intensity
+            else:
+                df = df.drop(date_)
+            df = df.sort_index()
+            storage.write_period(df.reset_index(), session["user_id"])
+
+    period = parse_period_args()
+    df = storage.read_period(session["user_id"])
+    if not df.empty:
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date")
+        df = df[period.first : period.last]  # type: ignore
+
+    period_list: deque = deque()
+    for date_, intensity in df.itertuples():
+        period_list.appendleft(
+            (
+                date_,
+                int(intensity),
+            )
+        )
+
+    return render_template(
+        "period.html",
+        current=period,
+        periods=periods(),
+        previous=prev_period(period),
+        next=next_period(period),
+        today=date.today(),
+        period=period_list,
+        notification=notification,
     )
 
 
@@ -464,6 +517,8 @@ def image_view(image_type: str) -> Response:
     period = parse_period_args()
     if image_type == "bodyweight":
         fig = diagram.bodyweight(session["user_id"], period.first, period.last)
+    elif image_type == "period":
+        fig = diagram.period(session["user_id"], period.first, period.last)
     elif image_type == "workouts":
         fig = diagram.workouts(session["user_id"], period.first, period.last)
     elif image_type.startswith("exercise"):

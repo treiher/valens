@@ -54,6 +54,7 @@ def test_login(client: Client, path: str, monkeypatch: Any) -> None:
     [
         "/",
         "/bodyweight",
+        "/period",
         "/exercise/foo",
         "/exercises",
         "/image/bodyweight",
@@ -222,6 +223,74 @@ def test_bodyweight_remove(client: Client, monkeypatch: Any) -> None:
         args = {}
         monkeypatch.setattr(web.storage, "write_bodyweight", lambda x, y: args.update({"df": x}))
         resp = client.post("/bodyweight", data={"date": "2002-02-20", "weight": "0"})
+        assert resp.status_code == 200
+        assert len(args["df"]) == 1
+
+
+def test_period(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        resp = client.get("/period?first=2002-02-01&last=2002-03-01")
+        assert resp.status_code == 200
+        for d in tests.data.PERIOD:
+            assert str(d) in resp.data.decode("utf-8")
+
+
+def test_period_empty(client: Client, monkeypatch: Any, tmp_path: pathlib.Path) -> None:
+    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
+
+    web.storage.initialize()
+
+    resp = client.get("/period?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+
+
+def test_period_add(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_period", lambda x, y: args.update({"df": x}))
+        resp = client.post("/period", data={"date": "2002-02-24", "intensity": "1"})
+        assert resp.status_code == 200
+        assert len(args["df"]) == 3
+
+
+def test_period_add_invalid(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_period", lambda x, y: args.update({"df": x}))
+        resp = client.post("/period", data={"date": "2002-02-24", "intensity": "42"})
+        assert resp.status_code == 200
+        assert "Invalid intensity value 42" in resp.data.decode("utf-8")
+
+
+def test_period_remove(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_period", lambda x, y: args.update({"df": x}))
+        resp = client.post("/period", data={"date": "2002-02-20", "intensity": "0"})
         assert resp.status_code == 200
         assert len(args["df"]) == 1
 

@@ -19,6 +19,7 @@ matplotlib.rc("legend", handletextpad=0.5, columnspacing=0.5, handlelength=1)
 STYLE = ".-"
 COLOR = {
     "avg. weight": "#FAA43A",
+    "intensity": "#F15854",
     "reps": "#5DA5DA",
     "reps+rir": "#FAA43A",
     "rpe": "#F17CB0",
@@ -112,6 +113,51 @@ def bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
     ).set(xlabel=None)
 
     fig = plot.get_figure()
+    _common_layout(fig)
+    fig.set_size_inches(5, 4)
+    return fig
+
+
+def period(user_id: int, first: date = None, last: date = None) -> Figure:
+    fig, ax1 = plt.subplots(1, 1)
+
+    df = storage.read_period(user_id).set_index("date")
+
+    interval_first = first - timedelta(days=30) if first else None
+
+    df.loc[interval_first] = 0
+    df = df.sort_index()
+    df_interval = df.loc[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
+    df_interval.plot.bar(
+        ax=ax1,
+        style=STYLE,
+        color=COLOR,
+        width=1,
+        xlim=(first, last),
+        ylim=(0, 4),
+        yticks=[0, 1, 2, 3, 4],
+        legend=False,
+    ).set(xlabel=None)
+
+    ax2 = ax1.twinx()
+
+    df = storage.read_bodyweight(user_id).set_index("date")
+
+    df_interval = df.loc[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
+    ymin = int(df_interval.min()) if not df_interval.empty else None
+    ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
+
+    df_interval.plot(
+        ax=ax2,
+        style=STYLE,
+        color=COLOR,
+        xlim=(first, last),
+        ylim=(ymin, ymax),
+        legend=False,
+    )
+
+    ax2.grid(None)
+
     _common_layout(fig)
     fig.set_size_inches(5, 4)
     return fig

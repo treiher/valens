@@ -14,6 +14,7 @@ def initialize_data(tmp_dir: str) -> pathlib.Path:
     add_user_id(tests.data.SETS_DF).to_feather(tmp_path / storage.SETS_FILE)
     add_user_id(tests.data.WORKOUTS_DF).to_feather(tmp_path / storage.WORKOUTS_FILE)
     add_user_id(tests.data.BODYWEIGHT_DF).to_feather(tmp_path / storage.BODYWEIGHT_FILE)
+    add_user_id(tests.data.PERIOD_DF).to_feather(tmp_path / storage.PERIOD_FILE)
     return tmp_path
 
 

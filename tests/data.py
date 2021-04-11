@@ -54,6 +54,15 @@ BODYWEIGHT_DF: Final = pd.DataFrame(
     }
 )
 
+PERIOD: Final = {datetime.date(2002, 2, 20): 81.2, datetime.date(2002, 2, 22): 82.4}
+
+PERIOD_DF: Final = pd.DataFrame(
+    {
+        "date": [datetime.date(2002, 2, 20), datetime.date(2002, 2, 22)],
+        "intensity": [2, 3],
+    }
+)
+
 ROUTINE_SETS: Final = {
     "T1": {"E1": [None, None, None], "E2": [None, None]},
     "T2": {"E4": [None, None, None], "E3": [None, None]},

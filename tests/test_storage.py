@@ -21,6 +21,7 @@ def test_initialization(
         storage.WORKOUTS_FILE,
         storage.SETS_FILE,
         storage.BODYWEIGHT_FILE,
+        storage.PERIOD_FILE,
     ]
 
     assert all(not (tmp_path / f).exists() for f in files)
@@ -81,3 +82,15 @@ def test_bodyweight(monkeypatch: Any) -> None:
 
         storage.write_bodyweight(bodyweight, 1)
         assert storage.read_bodyweight(1).equals(bodyweight)
+
+
+def test_period(monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        period = storage.read_period(1)
+        assert period.equals(tests.data.PERIOD_DF)
+
+        storage.write_period(period, 1)
+        assert storage.read_period(1).equals(period)

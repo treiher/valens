@@ -125,14 +125,12 @@ def period(user_id: int, first: date = None, last: date = None) -> Figure:
 
     interval_first = first - timedelta(days=30) if first else None
 
-    df.loc[interval_first] = 0
-    df = df.sort_index()
     df_interval = df.loc[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
-    df_interval.plot.bar(
+    idx = pd.date_range(first, last)
+    df_interval.reindex(idx, fill_value=0).plot(
         ax=ax1,
         style=STYLE,
         color=COLOR,
-        width=1,
         xlim=(first, last),
         ylim=(0, 4),
         yticks=[0, 1, 2, 3, 4],
@@ -147,7 +145,7 @@ def period(user_id: int, first: date = None, last: date = None) -> Figure:
     ymin = int(df_interval.min()) if not df_interval.empty else None
     ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
 
-    df_interval.plot(
+    df_interval.reindex(idx).ffill().plot(
         ax=ax2,
         style=STYLE,
         color=COLOR,

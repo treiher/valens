@@ -165,7 +165,7 @@ def bodyweight_view() -> Union[str, Response]:
         periods=periods(),
         previous=prev_period(period),
         next=next_period(period),
-        today=date.today(),
+        today=request.form.get("date", date.today()),
         bodyweight=bodyweight_list,
     )
 
@@ -281,7 +281,7 @@ def period_view() -> Union[str, Response]:
         periods=periods(),
         previous=prev_period(period),
         next=next_period(period),
-        today=date.today(),
+        today=request.form.get("date", date.today()),
         period=period_list,
         notification=notification,
     )
@@ -350,7 +350,7 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
         previous=prev_period(period),
         next=next_period(period),
         workouts=workouts_list,
-        today=date.today(),
+        today=request.form.get("date", date.today()),
     )
 
 
@@ -498,7 +498,7 @@ def workouts_view() -> Union[str, Response]:
         periods=periods(),
         previous=prev_period(period),
         next=next_period(period),
-        today=date.today(),
+        today=request.form.get("date", date.today()),
         routines=routines,
         workouts=workouts_list,
         notification=notification,

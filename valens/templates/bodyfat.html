@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% from "macros.html" import diagram with context %}
+
+{% block title %}Body fat{% endblock %}
+
+{% block content_title %}Body fat{% endblock %}
+
+{% block content %}
+{{ diagram("bodyfat", intervals, current, previous, next) }}
+<div class="container is-half has-text-centered">
+    <form action="bodyfat" method="post">
+        <div class="field">
+            <div class="control">
+                <input class="input" type="date" name="date" value="{{ today }}" required="required" />
+            </div>
+        </div>
+        <label class="label">3-Site Caliper Method</label>
+        {% for name in sites_3 %}
+        <div class="field">
+            <div class="control">
+                <input class="input" type="number" min="0" max="99" name="{{ name }}" step="1" placeholder="{{ name|capitalize }}" />
+            </div>
+        </div>
+        {% endfor %}
+        <label class="label">Additionally for 7-Site Caliper Method</label>
+        {% for name in additional_sites_7 %}
+        <div class="field">
+            <div class="control">
+                <input class="input" type="number" min="0" max="99" name="{{ name }}" step="1" placeholder="{{ name|capitalize }}" />
+            </div>
+        </div>
+        {% endfor %}
+        <div class="field">
+            <div class="control">
+                <input class="button is-success" style="width: 25%" type="submit" value="Submit" />
+            </div>
+        </div>
+    </form>
+</div>
+<div class="table-container mt-4">
+    <table class="table is-fullwidth is-narrow is-striped has-text-centered">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th><abbr title="Body fat percentage using Jackson-Pollock 3-site skinfold formula">Body fat (3)</abbr></th>
+                <th><abbr title="Body fat percentage using Jackson-Pollock 7-site skinfold formula">Body fat (7)</abbr></th>
+                <th><abbr title="Diagonal fold, halfway between armpit and nipple">Chest</abbr></th>
+                <th><abbr title="Vertical fold, 2 cm to the right of navel">Abdominal</abbr></th>
+                <th><abbr title="Vertical fold, halfway between hipbone and kneecap">Tigh</abbr></th>
+                <th><abbr title="Vertical fold, halfway between shoulder and elbow">Tricep</abbr></th>
+                <th><abbr title="Diagonal fold, directly below shoulder blade">Subscapular</abbr></th>
+                <th><abbr title="Diagonal fold, directly above hip bone">Suprailiac</abbr></th>
+                <th><abbr title="Vertical fold, directly below armpit">Midaxillary</abbr></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for datetime, chest, abdominal, tigh, tricep, subscapular, suprailiac, midaxillary, fat3, fat7 in bodyfat %}
+            <tr>
+                <td>{{ datetime.date() }}</td>
+                <td>{{ fat3|round(2)|replace('nan', '-') }}</td>
+                <td>{{ fat7|round(2)|replace('nan', '-') }}</td>
+                <td>{{ chest|int }}</td>
+                <td>{{ abdominal|int }}</td>
+                <td>{{ tigh|int }}</td>
+                <td>{{ tricep|int }}</td>
+                <td>{{ subscapular|int }}</td>
+                <td>{{ suprailiac|int }}</td>
+                <td>{{ midaxillary|int }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% set parent_page = 'index_view' %}

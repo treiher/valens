@@ -21,6 +21,7 @@ def test_initialization(
         storage.WORKOUTS_FILE,
         storage.SETS_FILE,
         storage.BODYWEIGHT_FILE,
+        storage.BODYFAT_FILE,
         storage.PERIOD_FILE,
     ]
 
@@ -53,11 +54,27 @@ def test_routines(monkeypatch: Any) -> None:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
 
-        routines = storage.read_routine_sets(1)
-        assert routines.equals(tests.data.ROUTINE_SETS_DF)
+        routines = storage.read_routines(1)
+        assert routines.equals(tests.data.ROUTINES_DF)
 
-        storage.write_routine_sets(routines, 1)
-        assert storage.read_routine_sets(1).equals(routines)
+        storage.write_routines(routines, 1)
+        assert storage.read_routines(1).set_index("routine").equals(routines.set_index("routine"))
+
+
+def test_routine_sets(monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        routine_sets = storage.read_routine_sets(1)
+        assert routine_sets.equals(tests.data.ROUTINE_SETS_DF)
+
+        storage.write_routine_sets(routine_sets, 1)
+        assert (
+            storage.read_routine_sets(1)
+            .set_index("routine")
+            .equals(routine_sets.set_index("routine"))
+        )
 
 
 def test_sets(monkeypatch: Any) -> None:
@@ -69,7 +86,7 @@ def test_sets(monkeypatch: Any) -> None:
         assert sets.equals(tests.data.SETS_DF)
 
         storage.write_sets(sets, 1)
-        assert storage.read_sets(1).equals(sets)
+        assert storage.read_sets(1).set_index("date").equals(sets.set_index("date"))
 
 
 def test_bodyweight(monkeypatch: Any) -> None:
@@ -81,7 +98,19 @@ def test_bodyweight(monkeypatch: Any) -> None:
         assert bodyweight.equals(tests.data.BODYWEIGHT_DF)
 
         storage.write_bodyweight(bodyweight, 1)
-        assert storage.read_bodyweight(1).equals(bodyweight)
+        assert storage.read_bodyweight(1).set_index("date").equals(bodyweight.set_index("date"))
+
+
+def test_bodyfat(monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(storage.config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        bodyfat = storage.read_bodyfat(1)
+        assert bodyfat.equals(tests.data.BODYFAT_DF)
+
+        storage.write_bodyfat(bodyfat, 1)
+        assert storage.read_bodyfat(1).set_index("date").equals(bodyfat.set_index("date"))
 
 
 def test_period(monkeypatch: Any) -> None:
@@ -93,4 +122,4 @@ def test_period(monkeypatch: Any) -> None:
         assert period.equals(tests.data.PERIOD_DF)
 
         storage.write_period(period, 1)
-        assert storage.read_period(1).equals(period)
+        assert storage.read_period(1).set_index("date").equals(period.set_index("date"))

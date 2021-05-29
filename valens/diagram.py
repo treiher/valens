@@ -6,10 +6,11 @@ import matplotlib.pyplot as plt
 import matplotlib.style
 import numpy as np
 import pandas as pd
+from flask import session
 from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
 
-from valens import storage
+from valens import storage, utils
 
 matplotlib.style.use("seaborn-whitegrid")
 
@@ -27,6 +28,8 @@ COLOR = {
     "tut": "#F15854",
     "volume": "#4D4D4D",
     "weight": "#60BD68",
+    "fat3": "#FAA43A",
+    "fat7": "#F15854",
 }
 
 
@@ -113,6 +116,68 @@ def bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
     ).set(xlabel=None)
 
     fig = plot.get_figure()
+    _common_layout(fig)
+    fig.set_size_inches(5, 4)
+    return fig
+
+
+def bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
+    fig, ax1 = plt.subplots(1, 1)
+
+    interval_first = first - timedelta(days=90) if first else None
+    interval_last = last + timedelta(days=90) if last else None
+
+    df = storage.read_bodyfat(user_id).set_index("date")
+    df_interval = df.loc[interval_first:interval_last]  # type: ignore  # ISSUE: python/typing#159
+    df_diagram = pd.DataFrame(
+        {
+            "fat3": (
+                utils.jackson_pollock_3_female(df_interval)
+                if session["sex"] == utils.Sex.FEMALE
+                else utils.jackson_pollock_3_male(df_interval)
+            ),
+            "fat7": (
+                utils.jackson_pollock_7_female(df_interval)
+                if session["sex"] == utils.Sex.FEMALE
+                else utils.jackson_pollock_7_male(df_interval)
+            ),
+        }
+    )
+
+    ymin = int(df_diagram.min().min()) if not df_diagram.empty else None
+    ymax = int(df_diagram.max().max()) + 1 if not df_diagram.empty else None
+
+    for col in ["fat3", "fat7"]:
+        df_diagram[col].dropna().plot(
+            ax=ax1,
+            style=STYLE,
+            color=COLOR,
+            xlim=(first, last),
+            ylim=(ymin, ymax),
+            legend=False,
+        ).set(xlabel=None)
+
+    ax2 = ax1.twinx()
+    ax1.set_zorder(1)  # plot ax1 above ax2
+    ax1.patch.set_visible(False)  # prevent hiding of ax2
+
+    df = storage.read_bodyweight(user_id).set_index("date")
+
+    df_interval = df.loc[interval_first:interval_last]  # type: ignore  # ISSUE: python/typing#159
+    ymin = int(df_interval.min()) if not df_interval.empty else None
+    ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
+
+    df_interval.plot(
+        ax=ax2,
+        style=STYLE,
+        color=COLOR,
+        xlim=(first, last),
+        ylim=(ymin, ymax),
+        legend=False,
+    )
+
+    ax2.grid(None)
+
     _common_layout(fig)
     fig.set_size_inches(5, 4)
     return fig

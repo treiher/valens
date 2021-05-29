@@ -54,10 +54,12 @@ def test_login(client: Client, path: str, monkeypatch: Any) -> None:
     [
         "/",
         "/bodyweight",
+        "/bodyfat",
         "/period",
         "/exercise/foo",
         "/exercises",
         "/image/bodyweight",
+        "/image/bodyfat",
         "/image/exercise",
         "/image/workouts",
         "/routine/foo",
@@ -228,6 +230,102 @@ def test_bodyweight_remove(client: Client, monkeypatch: Any) -> None:
         args = {}
         monkeypatch.setattr(web.storage, "write_bodyweight", lambda x, y: args.update({"df": x}))
         resp = client.post("/bodyweight", data={"date": "2002-02-20", "weight": "0"})
+        assert resp.status_code == 200
+        assert len(args["df"]) == 1
+
+
+def test_bodyfat_female(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
+        assert resp.status_code == 200
+        for date, values in tests.data.BODYFAT.items():
+            assert str(date) in resp.data.decode("utf-8")
+            for v in values:
+                assert str(v) in resp.data.decode("utf-8")
+
+
+def test_bodyfat_male(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U2"})
+        assert resp.status_code == 302
+
+        resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
+        assert resp.status_code == 200
+        for date, values in tests.data.BODYFAT.items():
+            assert str(date) in resp.data.decode("utf-8")
+            for v in values:
+                assert str(v) in resp.data.decode("utf-8")
+
+
+def test_bodyfat_empty(client: Client, monkeypatch: Any, tmp_path: pathlib.Path) -> None:
+    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
+
+    web.storage.initialize()
+
+    resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+
+
+def test_bodyfat_add(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        data = {
+            "date": "2002-02-24",
+            "chest": 25,
+            "abdominal": 26,
+            "tigh": 27,
+            "tricep": 28,
+            "subscapular": 29,
+            "suprailiac": 30,
+            "midaxillary": 31,
+        }
+        args = {}
+        monkeypatch.setattr(web.storage, "write_bodyfat", lambda x, y: args.update({"df": x}))
+        resp = client.post(
+            "/bodyfat",
+            data=data,
+        )
+        assert resp.status_code == 200
+        assert len(args["df"]) == 3
+
+
+def test_bodyfat_remove(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        args = {}
+        monkeypatch.setattr(web.storage, "write_bodyfat", lambda x, y: args.update({"df": x}))
+        resp = client.post(
+            "/bodyfat",
+            data={
+                "date": "2002-02-20",
+                "chest": "",
+                "abdominal": "",
+                "tigh": "",
+                "tricep": "",
+                "subscapular": "",
+                "suprailiac": "",
+                "midaxillary": "",
+            },
+        )
         assert resp.status_code == 200
         assert len(args["df"]) == 1
 

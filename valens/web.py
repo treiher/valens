@@ -48,6 +48,7 @@ def index_view() -> Union[str, Response]:
             (url_for("routines_view"), "Routines"),
             (url_for("exercises_view"), "Exercises"),
             (url_for("bodyweight_view"), "Bodyweight"),
+            (url_for("bodyfat_view"), "Body fat"),
             (url_for("period_view"), "Period"),
             (url_for("users_view"), "Users"),
             (url_for("logout_view"), "Logout"),
@@ -166,6 +167,72 @@ def bodyweight_view() -> Union[str, Response]:
         next=next_period(period),
         today=date.today(),
         bodyweight=bodyweight_list,
+    )
+
+
+@app.route("/bodyfat", methods=["GET", "POST"])
+def bodyfat_view() -> Union[str, Response]:
+    if not is_logged_in():
+        return redirect(url_for("login_view"), Response=Response)
+
+    notification = ""
+
+    if request.method == "POST":
+        date_ = date.fromisoformat(request.form["date"])
+        chest = request.form["chest"]
+        abdominal = request.form["abdominal"]
+        tigh = request.form["tigh"]
+        tricep = request.form["tricep"]
+        subscapular = request.form["subscapular"]
+        suprailiac = request.form["suprailiac"]
+        midaxillary = request.form["midaxillary"]
+        df = storage.read_bodyfat(session["user_id"]).set_index("date")
+        df.loc[date_] = (
+            int(chest) if chest else np.nan,
+            int(abdominal) if abdominal else np.nan,
+            int(tigh) if tigh else np.nan,
+            int(tricep) if tricep else np.nan,
+            int(subscapular) if subscapular else np.nan,
+            int(suprailiac) if suprailiac else np.nan,
+            int(midaxillary) if midaxillary else np.nan,
+        )
+        if not (chest or abdominal or tigh or tricep or subscapular or suprailiac or midaxillary):
+            df = df.drop(date_)
+        df = df.sort_index()
+        storage.write_bodyfat(df.reset_index(), session["user_id"])
+
+    period = parse_period_args()
+    df = storage.read_bodyfat(session["user_id"])
+    if not df.empty:
+        df["date"] = pd.to_datetime(df["date"])
+        df = df.set_index("date")
+        df = df[period.first : period.last]  # type: ignore
+        df["fat3"] = (
+            utils.jackson_pollock_3_female(df)
+            if session["sex"] == utils.Sex.FEMALE
+            else utils.jackson_pollock_3_male(df)
+        )
+        df["fat7"] = (
+            utils.jackson_pollock_7_female(df)
+            if session["sex"] == utils.Sex.FEMALE
+            else utils.jackson_pollock_7_male(df)
+        )
+
+    return render_template(
+        "bodyfat.html",
+        current=period,
+        periods=periods(),
+        previous=prev_period(period),
+        next=next_period(period),
+        today=request.form.get("date", date.today()),
+        bodyfat=df.iloc[::-1].itertuples(),
+        sites_3=["tricep", "suprailiac", "tigh"]
+        if session["sex"] == utils.Sex.FEMALE
+        else ["chest", "abdominal", "tigh"],
+        additional_sites_7=["chest", "abdominal", "subscapular", "midaxillary"]
+        if session["sex"] == utils.Sex.FEMALE
+        else ["tricep", "subscapular", "suprailiac", "midaxillary"],
+        notification=notification,
     )
 
 
@@ -519,6 +586,8 @@ def image_view(image_type: str) -> Response:
     period = parse_period_args()
     if image_type == "bodyweight":
         fig = diagram.bodyweight(session["user_id"], period.first, period.last)
+    elif image_type == "bodyfat":
+        fig = diagram.bodyfat(session["user_id"], period.first, period.last)
     elif image_type == "period":
         fig = diagram.period(session["user_id"], period.first, period.last)
     elif image_type == "workouts":

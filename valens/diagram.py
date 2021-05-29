@@ -57,10 +57,11 @@ def exercise(user_id: int, name: str, first: date = None, last: date = None) -> 
 def _workouts_exercise(df: pd.DataFrame, first: date = None, last: date = None) -> Figure:
     fig, axs = plt.subplots(4)
 
-    interval_first = first - timedelta(days=30) if first else None
+    margin_first = first - timedelta(days=90) if first else None
+    margin_last = last + timedelta(days=90) if last else None
 
     df_mean = df.loc[:, ["date", "reps", "reps+rir", "weight", "time"]].groupby(["date"]).mean()
-    df_mean_interval = df_mean[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
+    df_mean_interval = df_mean[margin_first:margin_last]  # type: ignore  # ISSUE: python/typing#159
 
     for i, cols in enumerate([["reps", "reps+rir"], ["weight"], ["time"]]):
         d = df_mean_interval.loc[:, cols]
@@ -78,7 +79,7 @@ def _workouts_exercise(df: pd.DataFrame, first: date = None, last: date = None) 
         )
 
     df_sum = df.loc[:, ["date", "reps", "tut"]].groupby(["date"]).sum()
-    df_sum_interval = df_sum[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
+    df_sum_interval = df_sum[margin_first:margin_last]  # type: ignore  # ISSUE: python/typing#159
     df_sum_interval.columns = ["volume", "tut"]
     df_sum_interval.plot(
         ax=axs[3],
@@ -98,9 +99,10 @@ def _workouts_exercise(df: pd.DataFrame, first: date = None, last: date = None) 
 def bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
     df = storage.read_bodyweight(user_id).set_index("date")
 
-    interval_first = first - timedelta(days=30) if first else None
+    margin_first = first - timedelta(days=90) if first else None
+    margin_last = last + timedelta(days=90) if last else None
 
-    df_interval = df.loc[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
+    df_interval = df.loc[margin_first:margin_last]  # type: ignore  # ISSUE: python/typing#159
     ymin = int(df_interval.min()) if not df_interval.empty else None
     ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
 
@@ -124,11 +126,11 @@ def bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
 def bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
     fig, ax1 = plt.subplots(1, 1)
 
-    interval_first = first - timedelta(days=90) if first else None
-    interval_last = last + timedelta(days=90) if last else None
+    margin_first = first - timedelta(days=90) if first else None
+    margin_last = last + timedelta(days=90) if last else None
 
     df = storage.read_bodyfat(user_id).set_index("date")
-    df_interval = df.loc[interval_first:interval_last]  # type: ignore  # ISSUE: python/typing#159
+    df_interval = df.loc[margin_first:margin_last]  # type: ignore  # ISSUE: python/typing#159
     df_diagram = pd.DataFrame(
         {
             "fat3": (
@@ -163,7 +165,7 @@ def bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
 
     df = storage.read_bodyweight(user_id).set_index("date")
 
-    df_interval = df.loc[interval_first:interval_last]  # type: ignore  # ISSUE: python/typing#159
+    df_interval = df.loc[margin_first:margin_last]  # type: ignore  # ISSUE: python/typing#159
     ymin = int(df_interval.min()) if not df_interval.empty else None
     ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
 
@@ -188,10 +190,11 @@ def period(user_id: int, first: date = None, last: date = None) -> Figure:
 
     df = storage.read_period(user_id).set_index("date")
 
-    interval_first = first - timedelta(days=30) if first else None
+    margin_first = first - timedelta(days=90) if first else None
+    margin_last = last + timedelta(days=90) if last else None
 
-    df_interval = df.loc[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
-    idx = pd.date_range(first, last)
+    df_interval = df.loc[margin_first:margin_last]  # type: ignore  # ISSUE: python/typing#159
+    idx = pd.date_range(margin_first, margin_last)
     df_interval.reindex(idx, fill_value=0).plot(
         ax=ax1,
         style=STYLE,
@@ -206,18 +209,21 @@ def period(user_id: int, first: date = None, last: date = None) -> Figure:
 
     df = storage.read_bodyweight(user_id).set_index("date")
 
-    df_interval = df.loc[interval_first:last]  # type: ignore  # ISSUE: python/typing#159
+    df_interval = df.loc[margin_first:margin_last]  # type: ignore  # ISSUE: python/typing#159
     ymin = int(df_interval.min()) if not df_interval.empty else None
     ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
 
-    df_interval.reindex(idx).ffill().plot(
-        ax=ax2,
-        style=STYLE,
-        color=COLOR,
-        xlim=(first, last),
-        ylim=(ymin, ymax),
-        legend=False,
-    )
+    df_interval = df_interval.reindex(idx).dropna()
+
+    if not df_interval.empty:
+        df_interval.plot(
+            ax=ax2,
+            style=STYLE,
+            color=COLOR,
+            xlim=(first, last),
+            ylim=(ymin, ymax),
+            legend=False,
+        )
 
     ax2.grid(None)
 

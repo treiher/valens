@@ -54,12 +54,16 @@ def test_login(client: Client, path: str, monkeypatch: Any) -> None:
     [
         "/",
         "/bodyweight",
+        "/bodyweight?first=2002-01-01&last=2002-12-31",
         "/bodyfat",
+        "/bodyfat?first=2002-01-01&last=2002-12-31",
         "/period",
+        "/period?first=2002-01-01&last=2002-12-31",
         "/exercise/foo",
         "/exercises",
         "/image/bodyweight",
         "/image/bodyfat",
+        "/image/period",
         "/image/exercise",
         "/image/workouts",
         "/routine/foo",
@@ -67,6 +71,7 @@ def test_login(client: Client, path: str, monkeypatch: Any) -> None:
         "/users",
         "/workout/2002-02-20",
         "/workouts",
+        "/workouts?first=2002-01-01&last=2002-12-31",
     ],
 )
 @pytest.mark.parametrize("path", ["", "/test"])

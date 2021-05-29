@@ -49,7 +49,7 @@ def index_view() -> Union[str, Response]:
             (url_for("exercises_view"), "Exercises"),
             (url_for("bodyweight_view"), "Bodyweight"),
             (url_for("bodyfat_view"), "Body fat"),
-            (url_for("period_view"), "Period"),
+            *([(url_for("period_view"), "Period")] if session["sex"] == utils.Sex.FEMALE else []),
             (url_for("users_view"), "Users"),
             (url_for("logout_view"), "Logout"),
         ],

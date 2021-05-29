@@ -33,7 +33,7 @@ class Period:
 
 
 def is_logged_in() -> bool:
-    return "username" in session and "user_id" in session
+    return "username" in session and "user_id" in session and "sex" in session
 
 
 @app.route("/")
@@ -60,13 +60,14 @@ def login_view() -> Union[str, Response]:
     users = storage.read_users().set_index("user_id").itertuples()
 
     if request.method == "POST":
-        for user_id, username in users:
+        for user_id, username, sex in users:
             if username == request.form["username"]:
                 session["user_id"] = int(user_id)
                 session["username"] = username
+                session["sex"] = utils.Sex(sex)
         return redirect(url_for("index_view"), Response=Response)
 
-    return render_template("login.html", usernames=[n for _, n in users])
+    return render_template("login.html", usernames=[n for _, n, _ in users])
 
 
 @app.route("/logout")
@@ -89,14 +90,17 @@ def users_view() -> Union[str, Response]:
         assert len([n for n in form_usernames if n]) == len(
             {n for n in form_usernames if n}
         ), "duplicate username"
+        form_sexes = [int(i) for i in request.form.getlist("sex")]
         next_user_id = max(form_user_ids) + 1 if len(form_user_ids) > 0 else 1
         users = [
-            (user_id if user_id > 0 else next_user_id, name.strip())
-            for user_id, name in zip(form_user_ids, form_usernames)
+            (user_id if user_id > 0 else next_user_id, name.strip(), sex)
+            for user_id, name, sex in zip(form_user_ids, form_usernames, form_sexes)
             if name
         ]
-        user_ids, usernames = zip(*users) if users else ([], [])
-        df = pd.DataFrame({"user_id": user_ids, "name": usernames}).set_index("user_id")
+        user_ids, usernames, sexes = zip(*users) if users else ([], [], [])
+        df = pd.DataFrame({"user_id": user_ids, "name": usernames, "sex": sexes}).set_index(
+            "user_id"
+        )
         storage.write_users(df.reset_index())
 
     return render_template(

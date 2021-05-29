@@ -115,7 +115,7 @@ def test_users(client: Client, monkeypatch: Any) -> None:
         resp = client.get("/users")
         assert resp.status_code == 200
         for user in tests.data.USERS.values():
-            assert user in resp.data.decode("utf-8")
+            assert user["name"] in resp.data.decode("utf-8")
 
 
 def test_users_empty(client: Client, monkeypatch: Any, tmp_path: pathlib.Path) -> None:
@@ -142,13 +142,17 @@ def test_users_add(client: Client, monkeypatch: Any) -> None:
             data=MultiDict(
                 [
                     *[("user_id", user_id) for user_id in tests.data.USERS],
-                    *[("username", name) for name in tests.data.USERS.values()],
-                    *[("user_id", 3), ("username", "U3")],
+                    *[("username", user["name"]) for user in tests.data.USERS.values()],
+                    *[("sex", user["sex"]) for user in tests.data.USERS.values()],
+                    *[("user_id", 3), ("username", "U3"), ("sex", 0)],
                 ]
             ),
         )
         assert resp.status_code == 200
         assert len(args["df"]) == 3
+        for user in tests.data.USERS.values():
+            assert user["name"] in resp.data.decode("utf-8")
+        assert "U3" in resp.data.decode("utf-8")
 
 
 def test_users_remove(client: Client, monkeypatch: Any) -> None:
@@ -166,7 +170,8 @@ def test_users_remove(client: Client, monkeypatch: Any) -> None:
             data=MultiDict(
                 [
                     *[("user_id", user_id) for user_id in tests.data.USERS][1:],
-                    *[("username", name) for name in tests.data.USERS.values()][1:],
+                    *[("username", user["name"]) for user in tests.data.USERS.values()][1:],
+                    *[("sex", user["sex"]) for user in tests.data.USERS.values()][1:],
                 ]
             ),
         )

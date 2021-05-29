@@ -13,7 +13,7 @@ SETS_FILE = "sets.feather"
 BODYWEIGHT_FILE = "bodyweight.feather"
 PERIOD_FILE = "period.feather"
 
-USERS_COLS = ["user_id", "name"]
+USERS_COLS = ["user_id", "name", "sex"]
 ROUTINES_COLS = ["user_id", "routine", "notes"]
 ROUTINE_SETS_COLS = ["user_id", "routine", "exercise", "reps", "time", "weight", "rpe"]
 WORKOUTS_COLS = ["user_id", "date", "notes"]

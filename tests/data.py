@@ -4,8 +4,8 @@ from typing import Final
 import pandas as pd
 
 USERS: Final = {
-    1: "U1",
-    2: "U2",
+    1: {"name": "U1", "sex": 0},
+    2: {"name": "U2", "sex": 1},
 }
 
 
@@ -13,6 +13,7 @@ USERS_DF: Final = pd.DataFrame(
     {
         "user_id": [1, 2],
         "name": ["U1", "U2"],
+        "sex": [0, 1],
     }
 )
 

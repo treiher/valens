@@ -9,7 +9,7 @@ import pytest
 from werkzeug.datastructures import MultiDict
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from werkzeug.test import Client
-from werkzeug.wrappers import BaseResponse
+from werkzeug.wrappers import Response
 
 import tests.data
 import tests.utils
@@ -20,7 +20,7 @@ from valens import config, web
 def fixture_client() -> Client:
     web.app.config["TESTING"] = True
     app = DispatcherMiddleware(web.app, {"/test": web.app})
-    return Client(app, BaseResponse)
+    return Client(app, Response)
 
 
 def assert_resources_available(client: Client, data: bytes) -> None:

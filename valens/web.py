@@ -24,6 +24,7 @@ app.jinja_env.lstrip_blocks = True
 app.jinja_env.trim_blocks = True
 
 app.secret_key = b"Q|6s:@}cC{>v:$,#"
+app.permanent_session_lifetime = timedelta(weeks=52)
 
 
 @dataclass
@@ -66,6 +67,7 @@ def login_view() -> Union[str, Response]:
                 session["user_id"] = int(user_id)
                 session["username"] = username
                 session["sex"] = utils.Sex(sex)
+                session.permanent = True
         return redirect(url_for("index_view"), Response=Response)
 
     return render_template("login.html", usernames=[n for _, n, _ in users])

@@ -52,6 +52,34 @@ def test_login(client: Client, path: str, monkeypatch: Any) -> None:
 @pytest.mark.parametrize(
     "route",
     [
+        "/login",
+        "/users",
+    ],
+)
+@pytest.mark.parametrize("path", ["", "/test"])
+def test_availability_wihout_login(client: Client, path: str, route: str, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        url = path + route
+        resp = client.get(url)
+        assert resp.status_code == 200
+
+        resp = client.post(f"{path}/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        resp = client.get(url)
+        assert resp.status_code == 200, f"{url} not found"
+        assert_resources_available(client, resp.data)
+
+        resp = client.get(f"{path}/logout")
+        assert resp.status_code == 302
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
         "/",
         "/bodyweight",
         "/bodyweight?first=2002-01-01&last=2002-12-31",
@@ -68,14 +96,13 @@ def test_login(client: Client, path: str, monkeypatch: Any) -> None:
         "/image/workouts",
         "/routine/foo",
         "/routines",
-        "/users",
         "/workout/2002-02-20",
         "/workouts",
         "/workouts?first=2002-01-01&last=2002-12-31",
     ],
 )
 @pytest.mark.parametrize("path", ["", "/test"])
-def test_availability(client: Client, path: str, route: str, monkeypatch: Any) -> None:
+def test_availability_with_login(client: Client, path: str, route: str, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
         monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))

@@ -51,8 +51,7 @@ def index_view() -> Union[str, Response]:
             (url_for("bodyweight_view"), "Bodyweight"),
             (url_for("bodyfat_view"), "Body fat"),
             *([(url_for("period_view"), "Period")] if session["sex"] == utils.Sex.FEMALE else []),
-            (url_for("users_view"), "Users"),
-            (url_for("logout_view"), "Logout"),
+            (url_for("logout_view"), "Switch user"),
         ],
     )
 
@@ -81,9 +80,6 @@ def logout_view() -> Response:
 
 @app.route("/users", methods=["GET", "POST"])
 def users_view() -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"), Response=Response)
-
     df = storage.read_users().set_index("user_id")
 
     if request.method == "POST":

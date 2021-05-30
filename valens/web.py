@@ -28,7 +28,7 @@ app.permanent_session_lifetime = timedelta(weeks=52)
 
 
 @dataclass
-class Period:
+class Interval:
     first: date
     last: date
 
@@ -124,7 +124,7 @@ def bodyweight_view() -> Union[str, Response]:
         df = df.sort_index()
         storage.write_bodyweight(df.reset_index(), session["user_id"])
 
-    period = parse_period_args()
+    interval = parse_interval_args()
     df = storage.read_bodyweight(session["user_id"])
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"])
@@ -144,7 +144,7 @@ def bodyweight_view() -> Union[str, Response]:
         )
         df["avg_weight_change"] = df["avg_weight_change"].iloc[0:-4]
 
-        df = df[period.first : period.last]  # type: ignore
+        df = df[interval.first : interval.last]  # type: ignore
 
     bodyweight_list: deque = deque()
     for bw_date, weight, avg_weight, avg_weight_change in df.itertuples():
@@ -159,10 +159,10 @@ def bodyweight_view() -> Union[str, Response]:
 
     return render_template(
         "bodyweight.html",
-        current=period,
-        periods=periods(),
-        previous=prev_period(period),
-        next=next_period(period),
+        current=interval,
+        intervals=intervals(),
+        previous=prev_interval(interval),
+        next=next_interval(interval),
         today=request.form.get("date", date.today()),
         bodyweight=bodyweight_list,
     )
@@ -199,12 +199,12 @@ def bodyfat_view() -> Union[str, Response]:
         df = df.sort_index()
         storage.write_bodyfat(df.reset_index(), session["user_id"])
 
-    period = parse_period_args()
+    interval = parse_interval_args()
     df = storage.read_bodyfat(session["user_id"])
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"])
         df = df.set_index("date")
-        df = df[period.first : period.last]  # type: ignore
+        df = df[interval.first : interval.last]  # type: ignore
         df["fat3"] = (
             utils.jackson_pollock_3_female(df)
             if session["sex"] == utils.Sex.FEMALE
@@ -218,10 +218,10 @@ def bodyfat_view() -> Union[str, Response]:
 
     return render_template(
         "bodyfat.html",
-        current=period,
-        periods=periods(),
-        previous=prev_period(period),
-        next=next_period(period),
+        current=interval,
+        intervals=intervals(),
+        previous=prev_interval(interval),
+        next=next_interval(interval),
         today=request.form.get("date", date.today()),
         bodyfat=df.iloc[::-1].itertuples(),
         sites_3=["tricep", "suprailiac", "tigh"]
@@ -257,12 +257,12 @@ def period_view() -> Union[str, Response]:
             df = df.sort_index()
             storage.write_period(df.reset_index(), session["user_id"])
 
-    period = parse_period_args()
+    interval = parse_interval_args()
     df = storage.read_period(session["user_id"])
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"])
         df = df.set_index("date")
-        df = df[period.first : period.last]  # type: ignore
+        df = df[interval.first : interval.last]  # type: ignore
 
     period_list: deque = deque()
     for date_, intensity in df.itertuples():
@@ -275,10 +275,10 @@ def period_view() -> Union[str, Response]:
 
     return render_template(
         "period.html",
-        current=period,
-        periods=periods(),
-        previous=prev_period(period),
-        next=next_period(period),
+        current=interval,
+        intervals=intervals(),
+        previous=prev_interval(interval),
+        next=next_interval(interval),
         today=request.form.get("date", date.today()),
         period=period_list,
         notification=notification,
@@ -301,7 +301,7 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
     if not is_logged_in():
         return redirect(url_for("login_view"), Response=Response)
 
-    period = parse_period_args()
+    interval = parse_interval_args()
     df = storage.read_sets(session["user_id"])
 
     if request.method == "POST":
@@ -312,7 +312,7 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
             session["user_id"],
         )
         return redirect(
-            url_for("exercise_view", name=new_name, first=period.first, last=period.last),
+            url_for("exercise_view", name=new_name, first=interval.first, last=interval.last),
             Response=Response,
         )
 
@@ -323,7 +323,7 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
     wo = df.groupby(["date"]).mean()
     wo["tut"] = df_sum["tut"]
     wo["volume"] = df_sum["reps"]
-    wo = wo[period.first : period.last]  # type: ignore
+    wo = wo[interval.first : interval.last]  # type: ignore
 
     workouts_list: deque = deque()
     for wo_date, reps, time, weight, rpe, _, reps_rir, tut, volume in wo.itertuples():
@@ -343,10 +343,10 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
     return render_template(
         "exercise.html",
         exercise=name,
-        current=period,
-        periods=periods(),
-        previous=prev_period(period),
-        next=next_period(period),
+        current=interval,
+        intervals=intervals(),
+        previous=prev_interval(interval),
+        next=next_interval(interval),
         workouts=workouts_list,
         today=request.form.get("date", date.today()),
     )
@@ -464,9 +464,9 @@ def workouts_view() -> Union[str, Response]:
         else:
             notification = f"Routine {routine} undefined"
 
-    period = parse_period_args()
+    interval = parse_interval_args()
     df_s["reps+rir"] = df_s["reps"] + df_s["rir"]
-    df_s = df_s[(df_s["date"] >= period.first) & (df_s["date"] <= period.last)].drop("rir", 1)
+    df_s = df_s[(df_s["date"] >= interval.first) & (df_s["date"] <= interval.last)].drop("rir", 1)
     wo = df_s.groupby(["date"]).mean()
     df_s["tut"] = df_s["reps"].replace(np.nan, 1) * df_s["time"]
     df_sum = df_s.groupby(["date"]).sum()
@@ -492,10 +492,10 @@ def workouts_view() -> Union[str, Response]:
 
     return render_template(
         "workouts.html",
-        current=period,
-        periods=periods(),
-        previous=prev_period(period),
-        next=next_period(period),
+        current=interval,
+        intervals=intervals(),
+        previous=prev_interval(interval),
+        next=next_interval(interval),
         today=request.form.get("date", date.today()),
         routines=routines,
         workouts=workouts_list,
@@ -581,32 +581,32 @@ def image_view(image_type: str) -> Response:
     if not is_logged_in():
         return redirect(url_for("login_view"), Response=Response)
 
-    period = parse_period_args()
+    interval = parse_interval_args()
     if image_type == "bodyweight":
-        fig = diagram.bodyweight(session["user_id"], period.first, period.last)
+        fig = diagram.bodyweight(session["user_id"], interval.first, interval.last)
     elif image_type == "bodyfat":
-        fig = diagram.bodyfat(session["user_id"], period.first, period.last)
+        fig = diagram.bodyfat(session["user_id"], interval.first, interval.last)
     elif image_type == "period":
-        fig = diagram.period(session["user_id"], period.first, period.last)
+        fig = diagram.period(session["user_id"], interval.first, interval.last)
     elif image_type == "workouts":
-        fig = diagram.workouts(session["user_id"], period.first, period.last)
+        fig = diagram.workouts(session["user_id"], interval.first, interval.last)
     elif image_type.startswith("exercise"):
         name = request.args.get("name", "")
-        fig = diagram.exercise(session["user_id"], name, period.first, period.last)
+        fig = diagram.exercise(session["user_id"], name, interval.first, interval.last)
     else:
         return make_response("", 404)
     return Response(diagram.plot_svg(fig), mimetype="image/svg+xml")
 
 
-def parse_period_args() -> Period:
+def parse_interval_args() -> Interval:
     args_first = request.args.get("first", "")
     args_last = request.args.get("last", "")
     first = date.fromisoformat(args_first) if args_first else date.today() - timedelta(days=30)
     last = date.fromisoformat(args_last) if args_last else date.today()
-    return Period(first, last)
+    return Interval(first, last)
 
 
-def periods() -> Sequence[Tuple[str, date, date]]:
+def intervals() -> Sequence[Tuple[str, date, date]]:
     today = date.today()
     return [
         ("12M", today - timedelta(weeks=52), today),
@@ -616,13 +616,13 @@ def periods() -> Sequence[Tuple[str, date, date]]:
     ]
 
 
-def prev_period(current: Period) -> Period:
+def prev_interval(current: Interval) -> Interval:
     prev_last = current.first - timedelta(days=1)
     prev_first = prev_last - (current.last - current.first)
-    return Period(prev_first, prev_last)
+    return Interval(prev_first, prev_last)
 
 
-def next_period(current: Period) -> Period:
+def next_interval(current: Interval) -> Interval:
     next_first = current.last + timedelta(days=1)
     next_last = next_first + (current.last - current.first)
-    return Period(next_first, next_last)
+    return Interval(next_first, next_last)

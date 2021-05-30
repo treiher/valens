@@ -1,10 +1,10 @@
-{% macro diagram(endpoint, periods, current, previous, next, name='') %}
+{% macro diagram(endpoint, intervals, current, previous, next, name='') %}
 {% set args = {'name': name} if name else {} %}
 <div id="diagram" class="container">
     <div class="container has-text-centered">
         <a class="button is-small" href="{{ url_for(endpoint + '_view', first=previous.first, last=previous.last, **args) }}">&lt;&lt;</a>
-        {% for period_name, period_first, period_last in periods %}
-        <a class="button is-small" href="{{ url_for(endpoint + '_view', first=period_first, last=period_last, **args) }}">{{ period_name }}</a>
+        {% for interval_name, interval_first, interval_last in intervals %}
+        <a class="button is-small" href="{{ url_for(endpoint + '_view', first=interval_first, last=interval_last, **args) }}">{{ interval_name }}</a>
         {% endfor %}
         <a class="button is-small" href="{{ url_for(endpoint + '_view', first=next.first, last=next.last, **args) }}">&gt;&gt;</a>
     </div>

@@ -16,7 +16,7 @@ from flask import (
     url_for,
 )
 
-from valens import diagram, storage, utils
+from valens import bodyfat, bodyweight, diagram, storage, utils
 
 app = Flask(__name__)
 
@@ -42,16 +42,54 @@ def index_view() -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"), Response=Response)
 
+    bw = bodyweight.analyze(storage.read_bodyweight(session["user_id"]))
+    bf = bodyfat.analyze(storage.read_bodyfat(session["user_id"]))
+
     return render_template(
         "index.html",
         navigation=[
-            (url_for("workouts_view"), "Workouts"),
-            (url_for("routines_view"), "Routines"),
-            (url_for("exercises_view"), "Exercises"),
-            (url_for("bodyweight_view"), "Bodyweight"),
-            (url_for("bodyfat_view"), "Body fat"),
-            *([(url_for("period_view"), "Period")] if session["sex"] == utils.Sex.FEMALE else []),
-            (url_for("logout_view"), "Switch user"),
+            (
+                url_for("workouts_view"),
+                "Workouts",
+                "",
+                "",
+            ),
+            (
+                url_for("routines_view"),
+                "Routines",
+                "",
+                "",
+            ),
+            (
+                url_for("exercises_view"),
+                "Exercises",
+                "",
+                "",
+            ),
+            (
+                url_for("bodyweight_view"),
+                "Bodyweight",
+                f"{bw.current:.1f} kg" if bw else "",
+                f"Last update {days(bw.last)}." if bw else "",
+            ),
+            (
+                url_for("bodyfat_view"),
+                "Body fat",
+                f"{bf.current:.1f} %" if bf else "",
+                f"Last update {days(bf.last)}." if bf else "",
+            ),
+            *(
+                [
+                    (
+                        url_for("period_view"),
+                        "Period",
+                        "",
+                        "",
+                    )
+                ]
+                if session["sex"] == utils.Sex.FEMALE
+                else []
+            ),
         ],
     )
 
@@ -206,14 +244,14 @@ def bodyfat_view() -> Union[str, Response]:
         df = df.set_index("date")
         df = df[interval.first : interval.last]  # type: ignore
         df["fat3"] = (
-            utils.jackson_pollock_3_female(df)
+            bodyfat.jackson_pollock_3_female(df)
             if session["sex"] == utils.Sex.FEMALE
-            else utils.jackson_pollock_3_male(df)
+            else bodyfat.jackson_pollock_3_male(df)
         )
         df["fat7"] = (
-            utils.jackson_pollock_7_female(df)
+            bodyfat.jackson_pollock_7_female(df)
             if session["sex"] == utils.Sex.FEMALE
-            else utils.jackson_pollock_7_male(df)
+            else bodyfat.jackson_pollock_7_male(df)
         )
 
     return render_template(
@@ -583,16 +621,16 @@ def image_view(image_type: str) -> Response:
 
     interval = parse_interval_args()
     if image_type == "bodyweight":
-        fig = diagram.bodyweight(session["user_id"], interval.first, interval.last)
+        fig = diagram.plot_bodyweight(session["user_id"], interval.first, interval.last)
     elif image_type == "bodyfat":
-        fig = diagram.bodyfat(session["user_id"], interval.first, interval.last)
+        fig = diagram.plot_bodyfat(session["user_id"], interval.first, interval.last)
     elif image_type == "period":
-        fig = diagram.period(session["user_id"], interval.first, interval.last)
+        fig = diagram.plot_period(session["user_id"], interval.first, interval.last)
     elif image_type == "workouts":
-        fig = diagram.workouts(session["user_id"], interval.first, interval.last)
+        fig = diagram.plot_workouts(session["user_id"], interval.first, interval.last)
     elif image_type.startswith("exercise"):
         name = request.args.get("name", "")
-        fig = diagram.exercise(session["user_id"], name, interval.first, interval.last)
+        fig = diagram.plot_exercise(session["user_id"], name, interval.first, interval.last)
     else:
         return make_response("", 404)
     return Response(diagram.plot_svg(fig), mimetype="image/svg+xml")
@@ -626,3 +664,13 @@ def next_interval(current: Interval) -> Interval:
     next_first = current.last + timedelta(days=1)
     next_last = next_first + (current.last - current.first)
     return Interval(next_first, next_last)
+
+
+def days(td: timedelta) -> str:
+    if td == timedelta(days=0):
+        return "<strong>today</strong>"
+
+    if td == timedelta(days=1):
+        return "<strong>yesterday</strong>"
+
+    return f"<strong>{td.days} days</strong> ago"

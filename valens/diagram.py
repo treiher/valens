@@ -10,7 +10,7 @@ from flask import session
 from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
 
-from valens import storage, utils
+from valens import bodyfat, storage, utils
 
 matplotlib.style.use("seaborn-whitegrid")
 
@@ -39,14 +39,14 @@ def plot_svg(fig: Figure) -> bytes:
     return output.getvalue()
 
 
-def workouts(user_id: int, first: date = None, last: date = None) -> Figure:
+def plot_workouts(user_id: int, first: date = None, last: date = None) -> Figure:
     df = storage.read_sets(user_id)
     df["reps+rir"] = df["reps"] + df["rir"]
     df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
     return _workouts_exercise(df, first, last)
 
 
-def exercise(user_id: int, name: str, first: date = None, last: date = None) -> Figure:
+def plot_exercise(user_id: int, name: str, first: date = None, last: date = None) -> Figure:
     df = storage.read_sets(user_id)
     df["reps+rir"] = df["reps"] + df["rir"]
     df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
@@ -96,7 +96,7 @@ def _workouts_exercise(df: pd.DataFrame, first: date = None, last: date = None) 
     return fig
 
 
-def bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
+def plot_bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
     df = storage.read_bodyweight(user_id).set_index("date")
 
     margin_first = first - timedelta(days=90) if first else None
@@ -123,7 +123,7 @@ def bodyweight(user_id: int, first: date = None, last: date = None) -> Figure:
     return fig
 
 
-def bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
+def plot_bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
     fig, ax1 = plt.subplots(1, 1)
 
     margin_first = first - timedelta(days=90) if first else None
@@ -134,14 +134,14 @@ def bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
     df_diagram = pd.DataFrame(
         {
             "fat3": (
-                utils.jackson_pollock_3_female(df_interval)
+                bodyfat.jackson_pollock_3_female(df_interval)
                 if session["sex"] == utils.Sex.FEMALE
-                else utils.jackson_pollock_3_male(df_interval)
+                else bodyfat.jackson_pollock_3_male(df_interval)
             ),
             "fat7": (
-                utils.jackson_pollock_7_female(df_interval)
+                bodyfat.jackson_pollock_7_female(df_interval)
                 if session["sex"] == utils.Sex.FEMALE
-                else utils.jackson_pollock_7_male(df_interval)
+                else bodyfat.jackson_pollock_7_male(df_interval)
             ),
         }
     )
@@ -185,7 +185,7 @@ def bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
     return fig
 
 
-def period(user_id: int, first: date = None, last: date = None) -> Figure:
+def plot_period(user_id: int, first: date = None, last: date = None) -> Figure:
     fig, ax1 = plt.subplots(1, 1)
 
     df = storage.read_period(user_id).set_index("date")

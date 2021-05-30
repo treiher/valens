@@ -71,16 +71,16 @@ def list_exercises(args: argparse.Namespace) -> None:
 
 def show_workouts(args: argparse.Namespace) -> None:
     # pylint: disable=unused-argument
-    diagram.workouts(1)
+    diagram.plot_workouts(1)
     plt.show()
 
 
 def show_exercise(args: argparse.Namespace) -> None:
-    diagram.exercise(1, args.exercise)
+    diagram.plot_exercise(1, args.exercise)
     plt.show()
 
 
 def show_bodyweight(args: argparse.Namespace) -> None:
     # pylint: disable=unused-argument
-    diagram.bodyweight(1)
+    diagram.plot_bodyweight(1)
     plt.show()

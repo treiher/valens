@@ -138,6 +138,27 @@ def test_non_availability(client: Client, url: str, monkeypatch: Any) -> None:
         assert resp.status_code == 404, f"{url} found"
 
 
+def test_index(client: Client, monkeypatch: Any) -> None:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tests.utils.initialize_data(tmp_dir)
+        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+
+        resp = client.post("/login", data={"username": "U1"})
+        assert resp.status_code == 302
+
+        resp = client.get("/")
+        assert resp.status_code == 200
+
+
+def test_index_empty(client: Client, monkeypatch: Any, tmp_path: pathlib.Path) -> None:
+    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
+
+    web.storage.initialize()
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+
+
 def test_users(client: Client, monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tests.utils.initialize_data(tmp_dir)
@@ -839,3 +860,9 @@ def test_workout_save_error(client: Client, monkeypatch: Any) -> None:
         resp = client.post("/workout/2002-02-22", data={"exercise:E4": "error"})
         assert resp.status_code == 200
         assert "df" not in args
+
+
+def test_days() -> None:
+    assert "today" in web.days(datetime.timedelta(days=0))
+    assert "yesterday" in web.days(datetime.timedelta(days=1))
+    assert "2" in web.days(datetime.timedelta(days=2))

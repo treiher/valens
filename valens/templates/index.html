@@ -5,9 +5,18 @@
 {% block content_title %}Valens{% endblock %}
 
 {% block content %}
-<div class="container has-text-centered">
-    {% for href, caption in navigation %}
-    <div class="column"><a class="button" href="{{ href }}">{{ caption }}</a></div>
+<div class="tile is-ancestor is-vertical">
+    {% for href, title, subtitle, content in navigation %}
+    <a class="tile is-parent" href="{{ href }}">
+        <div class="tile is-child box">
+            <p class="title is-size-4 has-text-success">{{ title }}</p>
+            {% if subtitle %}<p class="subtitle is-size-5">{{ subtitle }}</p>{% endif %}
+            {% if content %}<div class="content">{{ content|safe }}</div>{% endif %}
+        </div>
+    </a>
     {% endfor %}
+    <div class="content has-text-centered mt-6">
+        <a class="button" href="{{ url_for("logout_view") }}">Switch user</a>
+    </div>
 </div>
 {% endblock %}

@@ -7,7 +7,7 @@
 {% block content_title %}Bodyweight{% endblock %}
 
 {% block content %}
-{{ diagram("bodyweight", intervals, current, previous, next) }}
+{{ diagram("bodyweight", intervals, current) }}
 <div class="container has-text-centered">
     <form action="bodyweight" method="post">
         <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />

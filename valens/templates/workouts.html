@@ -7,7 +7,7 @@
 {% block content_title %}Workouts{% endblock %}
 
 {% block content %}
-{{ diagram("workouts", intervals, current, previous, next) }}
+{{ diagram("workouts", intervals, current) }}
 <div class="container has-text-centered">
     <form action="{{ url_for('workouts_view') }}" method="post">
         <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />

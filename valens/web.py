@@ -198,9 +198,7 @@ def bodyweight_view() -> Union[str, Response]:
     return render_template(
         "bodyweight.html",
         current=interval,
-        intervals=intervals(),
-        previous=prev_interval(interval),
-        next=next_interval(interval),
+        intervals=intervals(interval),
         today=request.form.get("date", date.today()),
         bodyweight=bodyweight_list,
     )
@@ -257,9 +255,7 @@ def bodyfat_view() -> Union[str, Response]:
     return render_template(
         "bodyfat.html",
         current=interval,
-        intervals=intervals(),
-        previous=prev_interval(interval),
-        next=next_interval(interval),
+        intervals=intervals(interval),
         today=request.form.get("date", date.today()),
         bodyfat=df.iloc[::-1].itertuples(),
         sites_3=["tricep", "suprailiac", "tigh"]
@@ -314,9 +310,7 @@ def period_view() -> Union[str, Response]:
     return render_template(
         "period.html",
         current=interval,
-        intervals=intervals(),
-        previous=prev_interval(interval),
-        next=next_interval(interval),
+        intervals=intervals(interval),
         today=request.form.get("date", date.today()),
         period=period_list,
         notification=notification,
@@ -382,9 +376,7 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
         "exercise.html",
         exercise=name,
         current=interval,
-        intervals=intervals(),
-        previous=prev_interval(interval),
-        next=next_interval(interval),
+        intervals=intervals(interval),
         workouts=workouts_list,
         today=request.form.get("date", date.today()),
     )
@@ -531,9 +523,7 @@ def workouts_view() -> Union[str, Response]:
     return render_template(
         "workouts.html",
         current=interval,
-        intervals=intervals(),
-        previous=prev_interval(interval),
-        next=next_interval(interval),
+        intervals=intervals(interval),
         today=request.form.get("date", date.today()),
         routines=routines,
         workouts=workouts_list,
@@ -644,26 +634,19 @@ def parse_interval_args() -> Interval:
     return Interval(first, last)
 
 
-def intervals() -> Sequence[Tuple[str, date, date]]:
+def intervals(current: Interval) -> Sequence[Tuple[str, date, date]]:
     today = date.today()
+    interval = (current.last - current.first) + timedelta(days=2)
     return [
-        ("12M", today - timedelta(weeks=52), today),
+        ("1Y", today - timedelta(weeks=52), today),
         ("6M", today - timedelta(weeks=26), today),
         ("3M", today - timedelta(weeks=13), today),
         ("1M", today - timedelta(days=30), today),
+        ("+", current.first + interval / 4, current.last - interval / 4),
+        ("−", current.first - interval / 2, current.last + interval / 2),
+        ("<", current.first - interval / 4, current.last - interval / 4),
+        (">", current.first + interval / 4, current.last + interval / 4),
     ]
-
-
-def prev_interval(current: Interval) -> Interval:
-    prev_last = current.first - timedelta(days=1)
-    prev_first = prev_last - (current.last - current.first)
-    return Interval(prev_first, prev_last)
-
-
-def next_interval(current: Interval) -> Interval:
-    next_first = current.last + timedelta(days=1)
-    next_last = next_first + (current.last - current.first)
-    return Interval(next_first, next_last)
 
 
 def days(td: timedelta) -> str:

@@ -7,7 +7,7 @@
 {% block content_title %}Period{% endblock %}
 
 {% block content %}
-{{ diagram("period", intervals, current, previous, next) }}
+{{ diagram("period", intervals, current) }}
 <div class="container has-text-centered">
     <form action="period" method="post">
         <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />

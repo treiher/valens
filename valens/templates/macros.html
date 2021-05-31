@@ -1,15 +1,13 @@
-{% macro diagram(endpoint, intervals, current, previous, next, name='') %}
+{% macro diagram(endpoint, intervals, current, name='') %}
 {% set args = {'name': name} if name else {} %}
-<div id="diagram" class="container">
-    <div class="container has-text-centered">
-        <a class="button is-small" href="{{ url_for(endpoint + '_view', first=previous.first, last=previous.last, **args) }}">&lt;&lt;</a>
-        {% for interval_name, interval_first, interval_last in intervals %}
-        <a class="button is-small" href="{{ url_for(endpoint + '_view', first=interval_first, last=interval_last, **args) }}">{{ interval_name }}</a>
-        {% endfor %}
-        <a class="button is-small" href="{{ url_for(endpoint + '_view', first=next.first, last=next.last, **args) }}">&gt;&gt;</a>
-    </div>
-    <div class="container has-text-centered">
-        <img src="{{ url_for('image_view', image_type=endpoint, first=current.first, last=current.last, **args) }}" />
-    </div>
+<div class="field has-addons has-addons-centered">
+    {% for interval_name, interval_first, interval_last in intervals %}
+    <p class="control">
+    <a class="button is-small" href="{{ url_for(endpoint + '_view', first=interval_first, last=interval_last, **args) }}">{{ interval_name }}</a>
+    </p>
+    {% endfor %}
+</div>
+<div class="container has-text-centered">
+    <img src="{{ url_for('image_view', image_type=endpoint, first=current.first, last=current.last, **args) }}" />
 </div>
 {% endmacro %}

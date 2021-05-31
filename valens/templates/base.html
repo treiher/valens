@@ -15,20 +15,24 @@
     </head>
     <body>
         <section class="hero is-small is-success">
-            <div class="hero-body columns is-mobile">
-                <div class="column is-2">
-                    {% if parent_page is defined %}
-                    <a href="{{ url_for(parent_page) }}" class="title">&#10094;</a>
-                    {% endif %}
-                </div>
-                <div class="column">
-                    <h1 class="title">{% block content_title %}{% endblock %}</h1>
-                    <h1 class="subtitle">{{ session['username'] if 'username' in session else '' }}</h1>
+            <div class="hero-body">
+                <div class="container is-max-desktop">
+                    <div class="columns is-mobile">
+                        <div class="column is-2">
+                            {% if parent_page is defined %}
+                            <a href="{{ url_for(parent_page) }}" class="title">&#10094;</a>
+                            {% endif %}
+                        </div>
+                        <div class="column">
+                            <h1 class="title">{% block content_title %}{% endblock %}</h1>
+                            <h1 class="subtitle">{{ session['username'] if 'username' in session else '' }}</h1>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
         <section class="section">
-            <div class="container" style="max-width: 600px">
+            <div class="container is-max-desktop">
                 {% if notification %}
                 <div class="notification">{{ notification }}</div>
                 {% endif %}

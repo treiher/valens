@@ -1,0 +1,113 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ['py36', 'py37', 'py38']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.coverage.paths]
+source = ['valens']
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_lines = [
+    'pragma: no cover',
+    'assert False',
+    'def __repr__',
+    'def __str__',
+    'if TYPE_CHECKING:',
+    'raise NotImplementedError',
+    'return NotImplemented',
+]
+
+[tool.isort]
+profile = 'black'
+line_length = 100
+combine_as_imports = true
+
+[tool.pydocstyle]
+ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    "D203",
+    "D212",
+]
+
+[tool.pylint.master]
+jobs = 0
+
+[tool.pylint.messages_control]
+enable = [
+    'useless-suppression'
+]
+disable = [
+    'missing-docstring',
+    'bad-continuation',
+    'unnecessary-lambda',
+    'inconsistent-return-statements',
+    'unsubscriptable-object',  # ISSUE: PyCQA/pylint#3045
+    'duplicate-code',  # ISSUE: PyCQA/pylint#4118
+]
+
+[tool.pylint.basic]
+good-names = [
+    'i',
+    'j',
+    'k',
+    'ex',
+    'log',
+    '_',
+]
+
+argument-rgx = '[a-z_][a-z0-9_]{1,30}$'
+variable-rgx = '[a-z0-9_]{1,30}$'
+
+[tool.pylint.design]
+max-args = 6
+max-attributes = 7
+max-bool-expr = 5
+max-branches = 12
+max-locals = 15
+max-parents = 7
+max-public-methods = 20
+max-returns = 10
+max-statements = 50
+min-public-methods = 0
+
+[tool.pylint.similarities]
+min-similarity-lines = 12
+ignore-imports = true
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    'ignore:Gdk.Cursor.new is deprecated',
+    'ignore:Gtk.Widget.set_double_buffered is deprecated',
+    'ignore:Gtk.Window.set_wmclass is deprecated',
+    'ignore:Gtk.Widget.size_request is deprecated',
+]

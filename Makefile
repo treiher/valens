@@ -1,7 +1,7 @@
 VERBOSE ?= @
 export MYPYPATH = $(PWD)/stubs
 
-python-packages := valens tests setup.py
+python-packages := valens tests
 
 .PHONY: all check check_black check_isort check_flake8 check_pylint check_mypy format \
 	test test_optimized test_coverage

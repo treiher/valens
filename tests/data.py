@@ -63,13 +63,13 @@ BODYFAT: Final = {
 BODYFAT_DF: Final = pd.DataFrame(
     {
         "date": [datetime.date(2002, 2, 20), datetime.date(2002, 2, 22)],
-        "chest": [11, 12],
-        "abdominal": [13, 14],
-        "tigh": [15, 16],
-        "tricep": [17, 18],
-        "subscapular": [19, 20],
-        "suprailiac": [21, 22],
-        "midaxillary": [23, 24],
+        "chest": [11.0, 12.0],
+        "abdominal": [13.0, 14.0],
+        "tigh": [15.0, 16.0],
+        "tricep": [17.0, 18.0],
+        "subscapular": [19.0, 20.0],
+        "suprailiac": [21.0, 22.0],
+        "midaxillary": [23.0, 24.0],
     }
 )
 
@@ -78,7 +78,7 @@ PERIOD: Final = {datetime.date(2002, 2, 20): 81.2, datetime.date(2002, 2, 22): 8
 PERIOD_DF: Final = pd.DataFrame(
     {
         "date": [datetime.date(2002, 2, 20), datetime.date(2002, 2, 22)],
-        "intensity": [2, 3],
+        "intensity": [2.0, 3.0],
     }
 )
 

@@ -1,5 +1,5 @@
 import sys
-import tempfile
+from pathlib import Path
 from typing import Any, Sequence
 
 import matplotlib.pyplot as plt
@@ -26,14 +26,13 @@ def test_main_noarg(monkeypatch: Any) -> None:
         ["show", "wo"],
     ],
 )
-def test_main(monkeypatch: Any, args: Sequence[str]) -> None:
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tests.utils.initialize_data(tmp_dir)
-        monkeypatch.setattr(config, "DATA_DIRECTORY", tests.utils.initialize_data(tmp_dir))
+def test_main(monkeypatch: Any, args: Sequence[str], tmp_path: Path) -> None:
+    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
+    tests.utils.initialize_data()
 
-        monkeypatch.setattr(sys, "argv", ["valens", *args])
-        monkeypatch.setattr(plt, "show", lambda: None)
-        assert cli.main() == 0
+    monkeypatch.setattr(sys, "argv", ["valens", *args])
+    monkeypatch.setattr(plt, "show", lambda: None)
+    assert cli.main() == 0
 
 
 @pytest.mark.parametrize(

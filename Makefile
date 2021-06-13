@@ -30,7 +30,7 @@ format:
 	isort $(python-packages)
 
 test:
-	pytest -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing tests
+	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing tests
 
 css: sass/bulma/bulma.sass
 	sass --sourcemap=none sass/bulma.scss:valens/static/css/bulma.css

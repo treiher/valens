@@ -1,23 +1,21 @@
 VERBOSE ?= @
-export MYPYPATH = $(PWD)/stubs
+
+export SQLALCHEMY_WARN_20=1
 
 python-packages := valens tests
 
-.PHONY: all check check_black check_isort check_flake8 check_pylint check_mypy format \
+.PHONY: all check check_black check_isort check_pylint check_mypy format \
 	test test_optimized test_coverage
 
 all: check test
 
-check: check_black check_isort check_flake8 check_pylint check_mypy
+check: check_black check_isort check_pylint check_mypy
 
 check_black:
 	black --check --diff --line-length 100 $(python-packages)
 
 check_isort:
 	isort --check --diff $(python-packages)
-
-check_flake8:
-	flake8 $(python-packages)
 
 check_pylint:
 	pylint $(python-packages)

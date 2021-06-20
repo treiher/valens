@@ -5,7 +5,7 @@ from typing import Optional
 import pandas as pd
 from flask import session
 
-from valens import utils
+from valens.models import Sex
 
 
 @dataclass
@@ -22,7 +22,7 @@ def analyze(df: pd.DataFrame) -> Optional[Bodyfat]:
         date.today() - df.iloc[-1, 0],
         (
             jackson_pollock_3_female(df)
-            if session["sex"] == utils.Sex.FEMALE
+            if session["sex"] == Sex.FEMALE
             else jackson_pollock_3_male(df)
         ).iloc[-1],
     )

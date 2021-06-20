@@ -10,7 +10,8 @@ from flask import session
 from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
 
-from valens import bodyfat, storage, utils
+from valens import bodyfat, storage
+from valens.models import Sex
 
 matplotlib.style.use("seaborn-whitegrid")
 
@@ -135,12 +136,12 @@ def plot_bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
         {
             "fat3": (
                 bodyfat.jackson_pollock_3_female(df_interval)
-                if session["sex"] == utils.Sex.FEMALE
+                if session["sex"] == Sex.FEMALE
                 else bodyfat.jackson_pollock_3_male(df_interval)
             ),
             "fat7": (
                 bodyfat.jackson_pollock_7_female(df_interval)
-                if session["sex"] == utils.Sex.FEMALE
+                if session["sex"] == Sex.FEMALE
                 else bodyfat.jackson_pollock_7_male(df_interval)
             ),
         }

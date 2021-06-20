@@ -1,25 +1,29 @@
 import datetime
 import re
 from pathlib import Path
-from typing import Any
+from typing import Generator
 
-import pandas as pd
 import pytest
 from werkzeug.datastructures import MultiDict
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from werkzeug.test import Client
-from werkzeug.wrappers import Response
+from werkzeug.test import Client, TestResponse
 
 import tests.data
 import tests.utils
-from valens import config, web
+from valens import app, database as db, utils, web
+from valens.models import Sex, User
 
 
 @pytest.fixture(name="client")
-def fixture_client() -> Client:
-    web.app.config["TESTING"] = True
-    app = DispatcherMiddleware(web.app, {"/test": web.app})
-    return Client(app, Response)
+def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
+    app.config["DATABASE"] = f"sqlite:///{tmp_path}/valens.db"
+    app.config["TESTING"] = True
+    app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/test": app.wsgi_app})  # type: ignore
+
+    with app.test_client() as client:
+        with app.app_context():
+            db.init_db()
+            yield client
 
 
 def assert_resources_available(client: Client, data: bytes) -> None:
@@ -29,15 +33,21 @@ def assert_resources_available(client: Client, data: bytes) -> None:
         assert client.get(r).status_code == 200, f"{r} not found"
 
 
+def login(client: Client, user_id: int = 1, path: str = "") -> TestResponse:
+    return client.post(f"{path}/login", data=dict(username=tests.data.users()[user_id - 1].name))
+
+
 @pytest.mark.parametrize("path", ["", "/test"])
-def test_login(client: Client, path: str, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_login(client: Client, path: str) -> None:
+    tests.utils.init_db_data()
+
+    resp = client.get(f"{path}/")
+    assert resp.status_code == 302
 
     resp = client.get(f"{path}/login")
     assert resp.status_code == 200
 
-    resp = client.post(f"{path}/login", data={"username": "U1"})
+    resp = login(client, path=path)
     assert resp.status_code == 302
 
     resp = client.get(f"{path}/")
@@ -55,17 +65,14 @@ def test_login(client: Client, path: str, monkeypatch: Any, tmp_path: Path) -> N
     ],
 )
 @pytest.mark.parametrize("path", ["", "/test"])
-def test_availability_wihout_login(
-    client: Client, path: str, route: str, monkeypatch: Any, tmp_path: Path
-) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_availability_wihout_login(client: Client, path: str, route: str) -> None:
+    tests.utils.init_db_data()
 
     url = path + route
     resp = client.get(url)
     assert resp.status_code == 200
 
-    resp = client.post(f"{path}/login", data={"username": "U1"})
+    resp = login(client, path=path)
     assert resp.status_code == 302
 
     resp = client.get(url)
@@ -86,32 +93,29 @@ def test_availability_wihout_login(
         "/bodyfat?first=2002-01-01&last=2002-12-31",
         "/period",
         "/period?first=2002-01-01&last=2002-12-31",
-        "/exercise/foo",
+        "/exercise/E1",
         "/exercises",
         "/image/bodyweight",
         "/image/bodyfat",
         "/image/period",
         "/image/exercise",
         "/image/workouts",
-        "/routine/foo",
+        "/routine/R1",
         "/routines",
-        "/workout/2002-02-20",
+        "/workout/1",
         "/workouts",
         "/workouts?first=2002-01-01&last=2002-12-31",
     ],
 )
 @pytest.mark.parametrize("path", ["", "/test"])
-def test_availability_with_login(
-    client: Client, path: str, route: str, monkeypatch: Any, tmp_path: Path
-) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_availability_with_login(client: Client, path: str, route: str) -> None:
+    tests.utils.init_db_data()
 
     url = path + route
     resp = client.get(url)
     assert resp.status_code == 302
 
-    resp = client.post(f"{path}/login", data={"username": "U1"})
+    resp = login(client, path=path)
     assert resp.status_code == 302
 
     resp = client.get(url)
@@ -126,704 +130,768 @@ def test_availability_with_login(
     "url",
     ["/image/foo"],
 )
-def test_non_availability(client: Client, url: str, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_non_availability(client: Client, url: str) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get(url)
     assert resp.status_code == 404, f"{url} found"
 
 
-def test_index(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_index(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/")
     assert resp.status_code == 200
 
 
-def test_index_empty(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_users()
+def test_index_empty(client: Client) -> None:
+    tests.utils.init_db_users()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/")
     assert resp.status_code == 200
 
 
-def test_users(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_users(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/users")
     assert resp.status_code == 200
-    for user in tests.data.USERS.values():
-        assert user["name"] in resp.data.decode("utf-8")
+    for user in tests.data.users():
+        assert user.name in resp.data.decode("utf-8")
 
 
-def test_users_empty(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_users()
+def test_users_empty(client: Client) -> None:
+    tests.utils.init_db_users()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/users")
     assert resp.status_code == 200
 
 
-def test_users_add(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_users_add(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_users", lambda x: args.update({"df": x}))
     resp = client.post(
         "/users",
         data=MultiDict(
             [
-                *[("user_id", user_id) for user_id in tests.data.USERS],
-                *[("username", user["name"]) for user in tests.data.USERS.values()],
-                *[("sex", user["sex"]) for user in tests.data.USERS.values()],
-                *[("user_id", 3), ("username", "U3"), ("sex", 0)],
+                *[
+                    e
+                    for user in tests.data.users()
+                    for e in [
+                        ("user_id", user.id),
+                        ("username", user.name),
+                        ("sex", user.sex.value),
+                    ]
+                ],
+                *[("user_id", 3), ("username", "Carol"), ("sex", Sex.FEMALE.value)],
+                *[("user_id", 0), ("username", ""), ("sex", Sex.MALE.value)],
             ]
         ),
     )
     assert resp.status_code == 200
-    assert len(args["df"]) == 3
-    for user in tests.data.USERS.values():
-        assert user["name"] in resp.data.decode("utf-8")
-    assert "U3" in resp.data.decode("utf-8")
+    assert len(db.session.query(User).all()) == len(tests.data.users()) + 1
+    for user in tests.data.users():
+        assert user.name in resp.data.decode("utf-8")
+    assert "Carol" in resp.data.decode("utf-8")
 
 
-def test_users_remove(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_users_remove(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_users", lambda x: args.update({"df": x}))
     resp = client.post(
         "/users",
         data=MultiDict(
             [
-                *[("user_id", user_id) for user_id in tests.data.USERS][1:],
-                *[("username", user["name"]) for user in tests.data.USERS.values()][1:],
-                *[("sex", user["sex"]) for user in tests.data.USERS.values()][1:],
+                e
+                for user in tests.data.users()
+                for e in [
+                    ("user_id", user.id),
+                    ("username", user.name if user.id != 2 else ""),
+                    ("sex", user.sex.value),
+                ]
             ]
         ),
     )
     assert resp.status_code == 200
-    assert len(args["df"]) == 1
+    assert len(db.session.query(User).all()) == len(tests.data.users()) - 1
+    for user in tests.data.users():
+        if user.id == 2:
+            assert user.name not in resp.data.decode("utf-8")
+        else:
+            assert user.name in resp.data.decode("utf-8")
 
 
-def test_bodyweight(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_bodyweight(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/bodyweight?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
-    for d in tests.data.BODYWEIGHT:
-        assert str(d) in resp.data.decode("utf-8")
+    for body_weight in tests.data.user().body_weight:
+        assert str(body_weight.weight) in resp.data.decode("utf-8")
 
 
-def test_bodyweight_empty(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_users()
+def test_bodyweight_empty(client: Client) -> None:
+    tests.utils.init_db_users()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/bodyweight?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
 
 
-def test_bodyweight_add(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_bodyweight_add(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_bodyweight", lambda x, y: args.update({"df": x}))
     resp = client.post("/bodyweight", data={"date": "2002-02-24", "weight": "42"})
     assert resp.status_code == 200
-    assert len(args["df"]) == 3
+
+    resp = client.get("/bodyweight?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for body_weight in tests.data.user().body_weight:
+        assert str(body_weight.weight) in resp.data.decode("utf-8")
+    assert "42" in resp.data.decode("utf-8")
 
 
-def test_bodyweight_remove(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_bodyweight_remove(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_bodyweight", lambda x, y: args.update({"df": x}))
     resp = client.post("/bodyweight", data={"date": "2002-02-20", "weight": "0"})
     assert resp.status_code == 200
-    assert len(args["df"]) == 1
+
+    resp = client.get("/bodyweight?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for body_weight in tests.data.user().body_weight:
+        if body_weight.date == datetime.date(2002, 2, 20):
+            assert str(body_weight.weight) not in resp.data.decode("utf-8")
+        else:
+            assert str(body_weight.weight) in resp.data.decode("utf-8")
 
 
-def test_bodyfat_female(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_bodyfat_female(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
-    for date, values in tests.data.BODYFAT.items():
-        assert str(date) in resp.data.decode("utf-8")
-        for v in values:
-            assert str(v) in resp.data.decode("utf-8")
+    for body_fat in tests.data.user().body_fat:
+        for attr in [
+            "date",
+            "tricep",
+            "suprailiac",
+            "tigh",
+            "chest",
+            "abdominal",
+            "subscapular",
+            "midaxillary",
+        ]:
+            assert f"<td>{getattr(body_fat, attr)}</td>" in resp.data.decode("utf-8")
 
 
-def test_bodyfat_male(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_bodyfat_male(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U2"})
+    resp = login(client, user_id=2)
     assert resp.status_code == 302
 
     resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
-    for date, values in tests.data.BODYFAT.items():
-        assert str(date) in resp.data.decode("utf-8")
-        for v in values:
-            assert str(v) in resp.data.decode("utf-8")
+    for body_fat in tests.data.user(user_id=2).body_fat:
+        for attr in [
+            "date",
+            "chest",
+            "abdominal",
+            "tigh",
+            "tricep",
+            "subscapular",
+            "suprailiac",
+            "midaxillary",
+        ]:
+            assert f"<td>{getattr(body_fat, attr)}</td>" in resp.data.decode("utf-8")
 
 
-def test_bodyfat_empty(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_users()
+def test_bodyfat_empty(client: Client) -> None:
+    tests.utils.init_db_users()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
 
 
-def test_bodyfat_add(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_bodyfat_add(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     data = {
         "date": "2002-02-24",
-        "chest": 25,
-        "abdominal": 26,
-        "tigh": 27,
-        "tricep": 28,
-        "subscapular": 29,
-        "suprailiac": 30,
-        "midaxillary": 31,
+        "chest": "29",
+        "abdominal": "30",
+        "tigh": "31",
+        "tricep": "32",
+        "subscapular": "33",
+        "suprailiac": "34",
+        "midaxillary": "35",
     }
-    args = {}
-    monkeypatch.setattr(web.storage, "write_bodyfat", lambda x, y: args.update({"df": x}))
-    resp = client.post(
-        "/bodyfat",
-        data=data,
-    )
+    resp = client.post("/bodyfat", data=data)
     assert resp.status_code == 200
-    assert len(args["df"]) == 3
+
+    resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for body_fat in tests.data.user().body_fat:
+        for attr in [
+            "date",
+            "tricep",
+            "suprailiac",
+            "tigh",
+            "chest",
+            "abdominal",
+            "subscapular",
+            "midaxillary",
+        ]:
+            assert f"<td>{getattr(body_fat, attr)}</td>" in resp.data.decode("utf-8")
+    for value in data.values():
+        assert f"<td>{value}</td>" in resp.data.decode("utf-8")
 
 
-def test_bodyfat_remove(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_bodyfat_remove(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_bodyfat", lambda x, y: args.update({"df": x}))
-    resp = client.post(
-        "/bodyfat",
-        data={
-            "date": "2002-02-20",
-            "chest": "",
-            "abdominal": "",
-            "tigh": "",
-            "tricep": "",
-            "subscapular": "",
-            "suprailiac": "",
-            "midaxillary": "",
-        },
-    )
+    data = {
+        "date": "2002-02-20",
+        "chest": "",
+        "abdominal": "",
+        "tigh": "",
+        "tricep": "",
+        "subscapular": "",
+        "suprailiac": "",
+        "midaxillary": "",
+    }
+    resp = client.post("/bodyfat", data=data)
     assert resp.status_code == 200
-    assert len(args["df"]) == 1
+
+    resp = client.get("/bodyfat?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for body_fat in tests.data.user().body_fat:
+        for attr in [
+            "date",
+            "tricep",
+            "suprailiac",
+            "tigh",
+            "chest",
+            "abdominal",
+            "subscapular",
+            "midaxillary",
+        ]:
+            if body_fat.date == datetime.date(2002, 2, 20):
+                assert f"<td>{getattr(body_fat, attr)}</td>" not in resp.data.decode("utf-8")
+            else:
+                assert f"<td>{getattr(body_fat, attr)}</td>" in resp.data.decode("utf-8")
 
 
-def test_period(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_period(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/period?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
-    for d in tests.data.PERIOD:
-        assert str(d) in resp.data.decode("utf-8")
+    for period in tests.data.user().period:
+        assert f"<td>{period.intensity}</td>" in resp.data.decode("utf-8")
 
 
-def test_period_empty(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_users()
+def test_period_empty(client: Client) -> None:
+    tests.utils.init_db_users()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/period?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
 
 
-def test_period_add(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_period_add(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_period", lambda x, y: args.update({"df": x}))
-    resp = client.post("/period", data={"date": "2002-02-24", "intensity": "1"})
+    resp = client.post("/period", data={"date": "2002-02-24", "intensity": "3"})
     assert resp.status_code == 200
-    assert len(args["df"]) == 3
+
+    resp = client.get("/period?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for period in tests.data.user().period:
+        assert f"<td>{period.intensity}</td>" in resp.data.decode("utf-8")
+    assert "<td>3</td>" in resp.data.decode("utf-8")
 
 
-def test_period_add_invalid(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_period_add_invalid(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_period", lambda x, y: args.update({"df": x}))
     resp = client.post("/period", data={"date": "2002-02-24", "intensity": "42"})
     assert resp.status_code == 200
     assert "Invalid intensity value 42" in resp.data.decode("utf-8")
 
 
-def test_period_remove(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_period_remove(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_period", lambda x, y: args.update({"df": x}))
     resp = client.post("/period", data={"date": "2002-02-20", "intensity": "0"})
     assert resp.status_code == 200
-    assert len(args["df"]) == 1
 
-
-def test_exercise(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    for date, exercises in tests.data.SETS.items():
-        for exercise in exercises:
-            resp = client.get(f"/exercise/{exercise}?first=2002-02-01&last=2002-03-01")
-            assert resp.status_code == 200
-            assert str(date) in resp.data.decode("utf-8")
-
-
-def test_exercise_rename(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args_sets = {}
-    args_routines = {}
-    monkeypatch.setattr(
-        web.storage, "write_sets", lambda x, y: args_sets.update({"df": x, "user_id": y})
-    )
-    monkeypatch.setattr(
-        web.storage,
-        "write_routine_sets",
-        lambda x, y: args_routines.update({"df": x, "user_id": y}),
-    )
-    resp = client.post("/exercise/E1", data={"new_name": "NEW"})
-    assert resp.status_code == 302
-    assert args_sets["user_id"] == 1
-    assert len(args_sets["df"]) == len(tests.data.SETS_DF)
-    assert "NEW" in str(args_sets["df"])
-    assert "E1" not in str(args_sets["df"])
-    assert args_routines["user_id"] == 1
-    assert len(args_routines["df"]) == len(tests.data.ROUTINE_SETS_DF)
-    assert "NEW" in str(args_routines["df"])
-    assert "E1" not in str(args_routines["df"])
-
-
-def test_routines(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    resp = client.get("/routines")
+    resp = client.get("/period?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
-    for routine_name in tests.data.ROUTINE_SETS:
-        assert routine_name in resp.data.decode("utf-8")
+    for period in tests.data.user().period:
+        if period.date == datetime.date(2002, 2, 20):
+            assert f"<td>{period.intensity}</td>" not in resp.data.decode("utf-8")
+        else:
+            assert f"<td>{period.intensity}</td>" in resp.data.decode("utf-8")
 
 
-def test_routines_empty(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_users()
+def test_exercise(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    resp = client.get("/routines")
-    assert resp.status_code == 200
-
-
-def test_routines_add(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    resp = client.post("/routines", data={"name": "Test"})
-    assert resp.status_code == 302
-    assert "Test" in resp.data.decode("utf-8")
-
-
-def test_routine(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    for routine_name, exercises in tests.data.ROUTINE_SETS.items():
-        resp = client.get(f"/routine/{routine_name}")
+    for exercise in tests.data.user().exercises:
+        resp = client.get(f"/exercise/{exercise.name}?first=2002-02-01&last=2002-03-01")
         assert resp.status_code == 200
-        assert routine_name in resp.data.decode("utf-8")
-        for exercise in exercises:
-            assert exercise in resp.data.decode("utf-8")
+        for workout_set in exercise.sets:
+            assert str(workout_set.workout.date) in resp.data.decode("utf-8")
 
 
-def test_routine_delete(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_exercise_rename(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_routine_sets", lambda x, y: args.update({"df": x}))
-    resp = client.post("/routine/T1", data={"delete": ""})
-    assert resp.status_code == 302
-    assert args["df"].equals(
-        tests.data.ROUTINE_SETS_DF[tests.data.ROUTINE_SETS_DF["routine"] != "T1"]
-    )
+    exercise_name = tests.data.user().exercises[0].name
 
-
-def test_routine_save(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_routine_sets", lambda x, y: args.update({"df_rs": x}))
-    monkeypatch.setattr(web.storage, "write_routines", lambda x, y: args.update({"df_r": x}))
-    resp = client.post("/routine/T2")
+    resp = client.post(f"/exercise/{exercise_name}", data={"new_name": ""})
     assert resp.status_code == 200
-    assert args["df_rs"].equals(
-        tests.data.ROUTINE_SETS_DF[tests.data.ROUTINE_SETS_DF["routine"] != "T2"]
-    )
-    assert args["df_r"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+    assert exercise_name in resp.data.decode("utf-8")
 
     resp = client.post(
-        "/routine/T2",
+        f"/exercise/{exercise_name}", data={"new_name": "New Exercise"}, follow_redirects=True
+    )
+    assert resp.status_code == 200
+    assert exercise_name not in resp.data.decode("utf-8")
+    assert "New Exercise" in resp.data.decode("utf-8")
+
+
+def test_routines(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    resp = client.get("/routines")
+    assert resp.status_code == 200
+    for routine in tests.data.user().routines:
+        assert routine.name in resp.data.decode("utf-8")
+
+
+def test_routines_empty(client: Client) -> None:
+    tests.utils.init_db_users()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    resp = client.get("/routines")
+    assert resp.status_code == 200
+
+
+def test_routines_add(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    resp = client.post("/routines", data={"name": "R42"}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert "R42" in resp.data.decode("utf-8")
+
+    resp = client.get("/routines")
+    assert resp.status_code == 200
+    for routine in tests.data.user().routines:
+        assert routine.name in resp.data.decode("utf-8")
+    assert "R42" in resp.data.decode("utf-8")
+
+
+def test_routine(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    for routine in tests.data.user().routines:
+        resp = client.get(f"/routine/{routine.name}")
+        assert resp.status_code == 200
+        assert routine.name in resp.data.decode("utf-8")
+        for routine_exercise in routine.exercises:
+            assert routine_exercise.exercise.name in resp.data.decode("utf-8")
+
+
+def test_routine_delete(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    routines = tests.data.user().routines
+    routine_name = routines[0].name
+
+    resp = client.post(f"/routine/{routine_name}", data={"delete": ""})
+    assert resp.status_code == 302
+
+    resp = client.get("/routines")
+    assert resp.status_code == 200
+    for routine in routines:
+        if routine.name == routine_name:
+            assert routine.name not in resp.data.decode("utf-8")
+        else:
+            assert routine.name in resp.data.decode("utf-8")
+
+
+def test_routine_save_unchanged(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    routines = tests.data.user().routines
+    routine = routines[0]
+
+    resp = client.post(
+        f"/routine/{routine.name}",
         data={
-            "exercise": list(tests.data.ROUTINE_SETS["T2"].keys()),
-            "set_count": [len(v) for v in tests.data.ROUTINE_SETS["T2"].values()],
-            "notes": tests.data.ROUTINES["T2"]["notes"],
+            "exercise": [routine_exercise.exercise.name for routine_exercise in routine.exercises],
+            "set_count": [routine_exercise.sets for routine_exercise in routine.exercises],
+            "notes": routine.notes,
         },
     )
     assert resp.status_code == 200
-    assert args["df_rs"].equals(tests.data.ROUTINE_SETS_DF)
-    assert args["df_r"].equals(tests.data.ROUTINES_DF)
+    for routine_exercise in routine.exercises:
+        assert routine_exercise.exercise.name in resp.data.decode("utf-8")
+    assert routine.notes in resp.data.decode("utf-8")
 
 
-def test_routine_save_empty_notes(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_routine_add_exercise(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_routine_sets", lambda x, y: args.update({"df_rs": x}))
-    monkeypatch.setattr(web.storage, "write_routines", lambda x, y: args.update({"df_r": x}))
-    resp = client.post("/routine/T2")
+    routines = tests.data.user().routines
+    routine = routines[0]
+
+    resp = client.post(f"/routine/{routine.name}")
     assert resp.status_code == 200
-    assert args["df_rs"].equals(
-        tests.data.ROUTINE_SETS_DF[tests.data.ROUTINE_SETS_DF["routine"] != "T2"]
-    )
-    assert args["df_r"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+    for routine_exercise in routine.exercises:
+        assert routine_exercise.exercise.name not in resp.data.decode("utf-8")
+    assert routine.notes in resp.data.decode("utf-8")
+
+    resp = client.post(f"/routine/{routine.name}", data={"notes": ""})
+    assert resp.status_code == 200
+    assert routine.notes not in resp.data.decode("utf-8")
 
     resp = client.post(
-        "/routine/T2",
+        f"/routine/{routine.name}",
         data={
-            "exercise": list(tests.data.ROUTINE_SETS["T2"].keys()),
-            "set_count": [len(v) for v in tests.data.ROUTINE_SETS["T2"].values()],
-            "notes": "",
+            "exercise": [routine_exercise.exercise.name for routine_exercise in routine.exercises],
+            "set_count": [routine_exercise.sets for routine_exercise in routine.exercises],
+            "notes": routine.notes,
         },
     )
     assert resp.status_code == 200
-    assert args["df_rs"].equals(tests.data.ROUTINE_SETS_DF)
-    assert args["df_r"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+    for routine_exercise in routine.exercises:
+        assert routine_exercise.exercise.name in resp.data.decode("utf-8")
+    assert routine.notes in resp.data.decode("utf-8")
 
 
-def test_routine_save_remove_exercise(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_routine_remove_exercise(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_routine_sets", lambda x, y: args.update({"df_rs": x}))
-    monkeypatch.setattr(web.storage, "write_routines", lambda x, y: args.update({"df_r": x}))
-    resp = client.post("/routine/T2")
-    assert resp.status_code == 200
-    assert args["df_rs"].equals(
-        tests.data.ROUTINE_SETS_DF[tests.data.ROUTINE_SETS_DF["routine"] != "T2"]
-    )
-    assert args["df_r"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+    routines = tests.data.user().routines
+    routine = routines[0]
 
     resp = client.post(
-        "/routine/T2",
+        f"/routine/{routine.name}",
         data={
-            "exercise": [""] * len(tests.data.ROUTINE_SETS["T2"]),
-            "set_count": [len(v) for v in tests.data.ROUTINE_SETS["T2"].values()],
+            "exercise": [routine_exercise.exercise.name for routine_exercise in routine.exercises],
+            "set_count": [
+                0 if routine_exercise.position == 1 else routine_exercise.sets
+                for routine_exercise in routine.exercises
+            ],
         },
     )
     assert resp.status_code == 200
-    assert args["df_rs"].equals(
-        tests.data.ROUTINE_SETS_DF[tests.data.ROUTINE_SETS_DF["routine"] != "T2"]
+    for routine_exercise in routine.exercises:
+        if routine_exercise.position == 1:
+            assert routine_exercise.exercise.name not in resp.data.decode("utf-8")
+        else:
+            assert routine_exercise.exercise.name in resp.data.decode("utf-8")
+    assert routine.notes in resp.data.decode("utf-8")
+
+
+def test_routine_rename_exercise(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    routines = tests.data.user().routines
+    routine = routines[0]
+
+    resp = client.post(
+        f"/routine/{routine.name}",
+        data={
+            "exercise": [
+                "X" + routine_exercise.exercise.name for routine_exercise in routine.exercises
+            ],
+            "set_count": [routine_exercise.sets for routine_exercise in routine.exercises],
+        },
     )
-    assert args["df_r"].equals(tests.data.ROUTINES_DF[tests.data.ROUTINES_DF["routine"] != "T2"])
+    assert resp.status_code == 200
+    for routine_exercise in routine.exercises:
+        assert "X" + routine_exercise.exercise.name in resp.data.decode("utf-8")
+    assert routine.notes in resp.data.decode("utf-8")
 
 
-def test_workouts(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_workouts(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
-    for d in tests.data.SETS:
-        assert str(d) in resp.data.decode("utf-8")
+    for workout in tests.data.user().workouts:
+        assert str(workout.date) in resp.data.decode("utf-8")
 
 
-def test_workouts_empty(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_users()
+def test_workouts_empty(client: Client) -> None:
+    tests.utils.init_db_users()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
     resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
 
 
-def test_workouts_add(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_workouts_add(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_sets", lambda x, y: args.update({"df_s": x}))
-    monkeypatch.setattr(web.storage, "write_workouts", lambda x, y: args.update({"df_w": x}))
-    resp = client.post("/workouts", data={"date": "2002-02-24", "routine": "T2"})
-    assert resp.status_code == 302
-
-    routines_df = tests.data.ROUTINE_SETS_DF.loc[
-        tests.data.ROUTINE_SETS_DF["routine"] == "T2",
-        tests.data.ROUTINE_SETS_DF.columns != "routine",
-    ].copy()
-    routines_df["date"] = [datetime.date(2002, 2, 24)] * len(routines_df)
-    assert args["df_s"].equals(pd.concat([tests.data.SETS_DF, routines_df]))
-    assert "df_w" in args
-
-
-def test_workouts_add_empty_routines(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_sets", lambda x, y: args.update({"df_s": x}))
-    monkeypatch.setattr(web.storage, "write_workouts", lambda x, y: args.update({"df_w": x}))
-    resp = client.post("/workouts", data={"date": "2002-02-24", "routine": "T1"})
-    assert resp.status_code == 302
-
-    routines_df = tests.data.ROUTINE_SETS_DF.loc[
-        tests.data.ROUTINE_SETS_DF["routine"] == "T1",
-        tests.data.ROUTINE_SETS_DF.columns != "routine",
-    ].copy()
-    routines_df["date"] = [datetime.date(2002, 2, 24)] * len(routines_df)
-    assert args["df_s"].equals(pd.concat([tests.data.SETS_DF, routines_df]))
-    assert "df_w" not in args
-
-
-def test_workouts_add_existing(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_sets", lambda x, y: args.update({"df": x}))
-    resp = client.post("/workouts", data={"date": "2002-02-20", "routine": "T1"})
-    assert resp.status_code == 200
-    assert "df" not in args
-
-
-def test_workouts_add_undefined(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_sets", lambda x, y: args.update({"df": x}))
-    resp = client.post("/workouts", data={"date": "2002-02-24", "routine": "Undefined"})
-    assert resp.status_code == 200
-    assert "df" not in args
-
-
-def test_workout_delete(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_sets", lambda x, y: args.update({"df": x}))
-    resp = client.post("/workout/2002-02-22", data={"delete": ""})
-    assert resp.status_code == 302
-    assert args["df"].equals(
-        tests.data.SETS_DF[tests.data.SETS_DF["date"] != datetime.date(2002, 2, 22)]
-    )
-
-
-def test_workout_save_sets(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_sets", lambda x, y: args.update({"df": x}))
-    resp = client.post("/workout/2002-02-22")
-    assert resp.status_code == 200
-    assert args["df"].equals(
-        tests.data.SETS_DF[tests.data.SETS_DF["date"] != datetime.date(2002, 2, 22)]
-    )
 
     resp = client.post(
-        "/workout/2002-02-22",
+        "/workouts", data={"date": "2002-02-24", "routine": "R1"}, follow_redirects=True
+    )
+    assert resp.status_code == 200
+    assert "2002-02-24" in resp.data.decode("utf-8")
+
+    resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for workout in tests.data.user().workouts:
+        assert str(workout.date) in resp.data.decode("utf-8")
+    assert "2002-02-24" in resp.data.decode("utf-8")
+
+
+def test_workouts_add_empty(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client, user_id=2)
+    assert resp.status_code == 302
+
+    resp = client.post(
+        "/workouts", data={"date": "2002-02-24", "routine": "Empty"}, follow_redirects=True
+    )
+    assert resp.status_code == 200
+    assert "2002-02-24" in resp.data.decode("utf-8")
+
+    resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for workout in tests.data.user(user_id=2).workouts:
+        assert str(workout.date) in resp.data.decode("utf-8")
+    assert "2002-02-24" in resp.data.decode("utf-8")
+
+
+def test_workout_delete(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    workout_id = tests.data.user().workouts[0].id
+
+    resp = client.post(f"/workout/{workout_id}", data={"delete": ""})
+    assert resp.status_code == 302
+
+    resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
+    assert resp.status_code == 200
+    for workout in tests.data.user().workouts:
+        if workout.id == workout_id:
+            assert str(workout.date) not in resp.data.decode("utf-8")
+        else:
+            assert str(workout.date) in resp.data.decode("utf-8")
+
+
+def test_workout_change(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    workouts = tests.data.user().workouts
+    workout = workouts[0]
+
+    resp = client.post(
+        f"/workout/{workout.id}",
         data=MultiDict(
             [
-                (f"exercise:{k}", e)
-                for k, v in tests.data.SETS[datetime.date(2002, 2, 22)].items()
-                for e in v
+                *[
+                    (
+                        f"exercise:{workout_set.exercise.name}",
+                        "",
+                    )
+                    for workout_set in workout.sets
+                ],
+                ("notes", ""),
             ]
         ),
     )
     assert resp.status_code == 200
-    assert args["df"][["date", "exercise", "reps", "time", "weight", "rpe"]].equals(
-        tests.data.SETS_DF[["date", "exercise", "reps", "time", "weight", "rpe"]]
-    )
-
-
-def test_workout_save_workouts(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    resp = client.post("/login", data={"username": "U1"})
-    assert resp.status_code == 302
-
-    args = {}
-    monkeypatch.setattr(web.storage, "write_workouts", lambda x, y: args.update({"df": x}))
-    resp = client.post("/workout/2002-02-22", data={"undefined": "undefined"})
-    assert resp.status_code == 200
-    assert args["df"].equals(
-        tests.data.WORKOUTS_DF[tests.data.WORKOUTS_DF["date"] != datetime.date(2002, 2, 22)]
-    )
+    for workout_set in workout.sets:
+        assert (
+            utils.format_set(
+                (
+                    workout_set.reps,
+                    workout_set.time,
+                    workout_set.weight,
+                    workout_set.rpe,
+                )
+            )
+            not in resp.data.decode("utf-8")
+        )
+    assert workout.notes not in resp.data.decode("utf-8")
 
     resp = client.post(
-        "/workout/2002-02-22",
-        data=MultiDict(tests.data.WORKOUTS[datetime.date(2002, 2, 22)]),
+        f"/workout/{workout.id}",
+        data=MultiDict(
+            [
+                *[
+                    (
+                        f"exercise:{workout_set.exercise.name}",
+                        utils.format_set(
+                            (
+                                workout_set.reps,
+                                workout_set.time,
+                                workout_set.weight,
+                                workout_set.rpe,
+                            )
+                        ),
+                    )
+                    for workout_set in workout.sets
+                ],
+                ("notes", workout.notes),
+            ]
+        ),
     )
     assert resp.status_code == 200
-    assert args["df"][["date", "notes"]].equals(tests.data.WORKOUTS_DF[["date", "notes"]])
+    for workout_set in workout.sets:
+        assert (
+            utils.format_set(
+                (
+                    workout_set.reps,
+                    workout_set.time,
+                    workout_set.weight,
+                    workout_set.rpe,
+                )
+            )
+            in resp.data.decode("utf-8")
+        )
+    assert workout.notes in resp.data.decode("utf-8")
 
 
-def test_workout_save_error(client: Client, monkeypatch: Any, tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
+def test_workout_change_error(client: Client) -> None:
+    tests.utils.init_db_data()
 
-    resp = client.post("/login", data={"username": "U1"})
+    resp = login(client)
     assert resp.status_code == 302
 
-    args = {}
-    monkeypatch.setattr(web.storage, "write_sets", lambda x, y: args.update({"df": x}))
-    resp = client.post("/workout/2002-02-22", data={"exercise:E4": "error"})
+    workouts = tests.data.user().workouts
+    workout = workouts[0]
+
+    resp = client.post(
+        f"/workout/{workout.id}",
+        data=MultiDict(
+            [
+                *[
+                    (
+                        f"exercise:{workout_set.exercise.name}",
+                        "invalid",
+                    )
+                    for workout_set in workout.sets
+                ],
+            ]
+        ),
+    )
     assert resp.status_code == 200
-    assert "df" not in args
+    print(resp.data)
+    assert "unexpected format for set" in resp.data.decode("utf-8")
 
 
 def test_days() -> None:

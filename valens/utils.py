@@ -1,14 +1,8 @@
 import re
-from enum import IntEnum
 from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-
-
-class Sex(IntEnum):
-    FEMALE = 0
-    MALE = 1
 
 
 def parse_set(set_string: Optional[str]) -> Dict[str, Optional[float]]:

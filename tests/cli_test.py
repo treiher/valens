@@ -1,12 +1,7 @@
 import sys
-from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
-import matplotlib.pyplot as plt
-import pytest
-
-import tests.utils
-from valens import cli, config
+from valens import cli, database as db
 
 
 def test_main_noarg(monkeypatch: Any) -> None:
@@ -14,37 +9,14 @@ def test_main_noarg(monkeypatch: Any) -> None:
     assert cli.main() == 2
 
 
-@pytest.mark.parametrize(
-    "args",
-    [
-        ["init"],
-        ["list"],
-        ["list", "--short"],
-        ["list", "--last"],
-        ["show", "bw"],
-        ["show", "ex", "foo"],
-        ["show", "wo"],
-    ],
-)
-def test_main(monkeypatch: Any, args: Sequence[str], tmp_path: Path) -> None:
-    monkeypatch.setattr(config, "DATA_DIRECTORY", tmp_path)
-    tests.utils.initialize_data()
-
-    monkeypatch.setattr(sys, "argv", ["valens", *args])
-    monkeypatch.setattr(plt, "show", lambda: None)
+def test_main_version(monkeypatch: Any) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "--version"])
     assert cli.main() == 0
 
 
-@pytest.mark.parametrize(
-    "args",
-    [
-        ["-h"],
-        ["init", "-h"],
-        ["list", "-h"],
-        ["show", "-h"],
-    ],
-)
-def test_main_help(monkeypatch: Any, args: Sequence[str]) -> None:
-    monkeypatch.setattr(sys, "argv", ["valens", *args])
-    with pytest.raises(SystemExit):
-        cli.main()
+def test_main_init(monkeypatch: Any) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "--init"])
+    init_called = []
+    monkeypatch.setattr(db, "init_db", lambda: init_called.append(True))
+    assert cli.main() == 0
+    assert init_called

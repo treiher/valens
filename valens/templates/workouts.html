@@ -36,9 +36,9 @@
             </tr>
         </thead>
         <tbody>
-            {% for date, reps, time, weight, rpe, reps_rir, tut, volume in workouts %}
+            {% for workout_id, date, reps, time, weight, rpe, reps_rir, tut, volume in workouts %}
             <tr>
-                <td><a href="{{ url_for('workout_view', workout_date=date) }}">{{ date }}</a></td>
+                <td><a href="{{ url_for('workout_view', workout_id=workout_id) }}">{{ date }}</a></td>
                 <td>{{ reps }}</td>
                 <td>{{ time }}</td>
                 <td>{{ weight }}</td>

@@ -1,22 +1,27 @@
 from collections import deque
 from dataclasses import dataclass
 from datetime import date, timedelta
+from itertools import chain, zip_longest
 from typing import Sequence, Tuple, Union
 
+import flask
 import numpy as np
 import pandas as pd
-from flask import Flask, make_response, redirect, render_template, request, session, url_for
+from flask import make_response, redirect, render_template, request, session, url_for
+from sqlalchemy import delete, select
 from werkzeug.wrappers import Response
 
-from valens import bodyfat, bodyweight, diagram, storage, utils
-
-app = Flask(__name__)
-
-app.jinja_env.lstrip_blocks = True
-app.jinja_env.trim_blocks = True
-
-app.secret_key = b"Q|6s:@}cC{>v:$,#"
-app.permanent_session_lifetime = timedelta(weeks=52)
+from valens import app, bodyfat, bodyweight, database as db, diagram, query, storage, utils
+from valens.models import (
+    BodyFat,
+    BodyWeight,
+    Period,
+    RoutineExercise,
+    Sex,
+    User,
+    Workout,
+    WorkoutSet,
+)
 
 
 @dataclass
@@ -27,6 +32,12 @@ class Interval:
 
 def is_logged_in() -> bool:
     return "username" in session and "user_id" in session and "sex" in session
+
+
+@app.teardown_appcontext
+def teardown(_: BaseException = None) -> flask.Response:
+    db.remove_session()
+    return flask.Response()
 
 
 @app.route("/")
@@ -79,7 +90,7 @@ def index_view() -> Union[str, Response]:
                         "",
                     )
                 ]
-                if session["sex"] == utils.Sex.FEMALE
+                if session["sex"] == Sex.FEMALE
                 else []
             ),
         ],
@@ -88,19 +99,19 @@ def index_view() -> Union[str, Response]:
 
 @app.route("/login", methods=["GET", "POST"])
 def login_view() -> Union[str, Response]:
-    users = storage.read_users().set_index("user_id").itertuples()
+    users = db.session.execute(select(User)).scalars().all()
 
     if request.method == "POST":
-        for user_id, username, sex in users:
-            if username == request.form["username"]:
-                session["user_id"] = int(user_id)
-                session["username"] = username
-                session["sex"] = utils.Sex(sex)
+        for user in users:
+            if user.name == request.form["username"]:
+                session["user_id"] = user.id
+                session["username"] = user.name
+                session["sex"] = user.sex
                 # ISSUE: PyCQA/pylint#3793
                 session.permanent = True  # pylint: disable = assigning-non-slot
         return redirect(url_for("index_view"))
 
-    return render_template("login.html", usernames=[n for _, n, _ in users])
+    return render_template("login.html", usernames=[u.name for u in users])
 
 
 @app.route("/logout")
@@ -111,31 +122,42 @@ def logout_view() -> Response:
 
 @app.route("/users", methods=["GET", "POST"])
 def users_view() -> Union[str, Response]:
-    df = storage.read_users().set_index("user_id")
-
     if request.method == "POST":
+        users = db.session.execute(select(User)).scalars().all()
+
         form_user_ids = [int(i) for i in request.form.getlist("user_id")]
         assert len(form_user_ids) == len(set(form_user_ids)), "duplicate user id"
         form_usernames = request.form.getlist("username")
         assert len([n for n in form_usernames if n]) == len(
             {n for n in form_usernames if n}
         ), "duplicate username"
-        form_sexes = [int(i) for i in request.form.getlist("sex")]
-        next_user_id = max(form_user_ids) + 1 if len(form_user_ids) > 0 else 1
-        users = [
-            (user_id if user_id > 0 else next_user_id, name.strip(), sex)
-            for user_id, name, sex in zip(form_user_ids, form_usernames, form_sexes)
-            if name
-        ]
-        user_ids, usernames, sexes = zip(*users)
-        df = pd.DataFrame({"user_id": user_ids, "name": usernames, "sex": sexes}).set_index(
-            "user_id"
-        )
-        storage.write_users(df.reset_index())
+        form_sexes = [Sex(int(i)) for i in request.form.getlist("sex")]
+
+        delete_users = []
+
+        for user, user_id, name, sex in zip_longest(
+            users, form_user_ids, form_usernames, form_sexes
+        ):
+            if user:
+                assert user.id == user_id
+            if user and name:
+                user.name = name
+                user.sex = sex
+            if user is None and name:
+                db.session.add(User(name=name, sex=sex))
+            elif user and not name:
+                delete_users.append(user.id)
+            elif user is None and not name:
+                continue
+
+        db.session.execute(delete(User).where(User.id.in_(delete_users)))
+        db.session.commit()
+
+    users = db.session.execute(select(User)).scalars().all()
 
     return render_template(
         "users.html",
-        users=df.itertuples(),
+        users=[(u.id, u.name, u.sex) for u in users],
     )
 
 
@@ -148,12 +170,16 @@ def bodyweight_view() -> Union[str, Response]:
         date_ = date.fromisoformat(request.form["date"])
         weight = float(request.form["weight"])
 
-        df = storage.read_bodyweight(session["user_id"]).set_index("date")
-        df.loc[date_] = weight
-        if weight <= 0:
-            df = df.drop(date_)
-        df = df.sort_index()
-        storage.write_bodyweight(df.reset_index(), session["user_id"])
+        db.session.execute(
+            delete(BodyWeight)
+            .where(BodyWeight.user_id == session["user_id"])
+            .where(BodyWeight.date == date_)
+        )
+
+        if weight > 0:
+            db.session.add(BodyWeight(user_id=session["user_id"], date=date_, weight=weight))
+
+        db.session.commit()
 
     interval = parse_interval_args()
     df = storage.read_bodyweight(session["user_id"])
@@ -213,20 +239,30 @@ def bodyfat_view() -> Union[str, Response]:
         subscapular = request.form["subscapular"]
         suprailiac = request.form["suprailiac"]
         midaxillary = request.form["midaxillary"]
-        df = storage.read_bodyfat(session["user_id"]).set_index("date")
-        df.loc[date_] = (
-            int(chest) if chest else np.nan,
-            int(abdominal) if abdominal else np.nan,
-            int(tigh) if tigh else np.nan,
-            int(tricep) if tricep else np.nan,
-            int(subscapular) if subscapular else np.nan,
-            int(suprailiac) if suprailiac else np.nan,
-            int(midaxillary) if midaxillary else np.nan,
+
+        db.session.execute(
+            delete(BodyFat)
+            .where(BodyFat.user_id == session["user_id"])
+            .where(BodyFat.date == date_)
         )
-        if not (chest or abdominal or tigh or tricep or subscapular or suprailiac or midaxillary):
-            df = df.drop(date_)
-        df = df.sort_index()
-        storage.write_bodyfat(df.reset_index(), session["user_id"])
+
+        values = {
+            k: int(v) if v and int(v) else None
+            for k, v in [
+                ("chest", chest),
+                ("abdominal", abdominal),
+                ("tigh", tigh),
+                ("tricep", tricep),
+                ("subscapular", subscapular),
+                ("suprailiac", suprailiac),
+                ("midaxillary", midaxillary),
+            ]
+        }
+
+        if any(values.values()):
+            db.session.add(BodyFat(user_id=session["user_id"], date=date_, **values))
+
+        db.session.commit()
 
     interval = parse_interval_args()
     df = storage.read_bodyfat(session["user_id"])
@@ -236,12 +272,12 @@ def bodyfat_view() -> Union[str, Response]:
         df = df[interval.first : interval.last]  # type: ignore
         df["fat3"] = (
             bodyfat.jackson_pollock_3_female(df)
-            if session["sex"] == utils.Sex.FEMALE
+            if session["sex"] == Sex.FEMALE
             else bodyfat.jackson_pollock_3_male(df)
         )
         df["fat7"] = (
             bodyfat.jackson_pollock_7_female(df)
-            if session["sex"] == utils.Sex.FEMALE
+            if session["sex"] == Sex.FEMALE
             else bodyfat.jackson_pollock_7_male(df)
         )
 
@@ -252,10 +288,10 @@ def bodyfat_view() -> Union[str, Response]:
         today=request.form.get("date", date.today()),
         bodyfat=df.iloc[::-1].itertuples(),
         sites_3=["tricep", "suprailiac", "tigh"]
-        if session["sex"] == utils.Sex.FEMALE
+        if session["sex"] == Sex.FEMALE
         else ["chest", "abdominal", "tigh"],
         additional_sites_7=["chest", "abdominal", "subscapular", "midaxillary"]
-        if session["sex"] == utils.Sex.FEMALE
+        if session["sex"] == Sex.FEMALE
         else ["tricep", "subscapular", "suprailiac", "midaxillary"],
         notification=notification,
     )
@@ -277,12 +313,16 @@ def period_view() -> Union[str, Response]:
         except ValueError:
             notification = f"Invalid intensity value {request.form['intensity']}"
         else:
-            df = storage.read_period(session["user_id"]).set_index("date")
-            df.loc[date_] = intensity
-            if intensity == 0:
-                df = df.drop(date_)
-            df = df.sort_index()
-            storage.write_period(df.reset_index(), session["user_id"])
+            db.session.execute(
+                delete(Period)
+                .where(Period.user_id == session["user_id"])
+                .where(Period.date == date_)
+            )
+
+            if intensity > 0:
+                db.session.add(Period(user_id=session["user_id"], date=date_, intensity=intensity))
+
+            db.session.commit()
 
     interval = parse_interval_args()
     df = storage.read_period(session["user_id"])
@@ -315,10 +355,12 @@ def exercises_view() -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
-    df = storage.read_sets(session["user_id"])
-    exercise_list = df.sort_index(ascending=False).loc[:, "exercise"].unique()
+    exercises = query.get_exercises()
 
-    return render_template("exercises.html", exercise_list=exercise_list)
+    return render_template(
+        "exercises.html",
+        exercise_list=[e.name for e in sorted(exercises, key=lambda x: x.id, reverse=True)],
+    )
 
 
 @app.route("/exercise/<name>", methods=["GET", "POST"])
@@ -327,33 +369,34 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
         return redirect(url_for("login_view"))
 
     interval = parse_interval_args()
-    df = storage.read_sets(session["user_id"])
 
     if request.method == "POST":
-        new_name = request.form["new_name"]
-        storage.write_sets(df.replace(to_replace=name, value=new_name), session["user_id"])
-        storage.write_routine_sets(
-            storage.read_routine_sets(session["user_id"]).replace(to_replace=name, value=new_name),
-            session["user_id"],
-        )
-        return redirect(
-            url_for("exercise_view", name=new_name, first=interval.first, last=interval.last),
-            Response=Response,
-        )
+        new_name = request.form["new_name"].strip()
+        if new_name:
+            exercise = query.get_exercise(name)
+            exercise.name = new_name
+            db.session.commit()
+            return redirect(
+                url_for("exercise_view", name=new_name, first=interval.first, last=interval.last),
+                Response=Response,
+            )
 
+    df = storage.read_sets(session["user_id"])
+    df = df[(df["date"] >= interval.first) & (df["date"] <= interval.last)]
     df["reps+rir"] = df["reps"] + df["rir"]
+    df = df.drop("rir", 1)
     df = df.loc[lambda x: x["exercise"] == name]
     df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
-    df_sum = df.groupby(["date"]).sum()
-    wo = df.groupby(["date"]).mean()
+    df_sum = df.groupby(["workout_id", "date"]).sum()
+    wo = df.groupby(["workout_id", "date"]).mean()
     wo["tut"] = df_sum["tut"]
     wo["volume"] = df_sum["reps"]
-    wo = wo[interval.first : interval.last]  # type: ignore
 
     workouts_list: deque = deque()
-    for wo_date, reps, time, weight, rpe, _, reps_rir, tut, volume in wo.itertuples():
+    for (workout_id, wo_date), reps, time, weight, rpe, reps_rir, tut, volume in wo.itertuples():
         workouts_list.appendleft(
             (
+                workout_id,
                 wo_date,
                 utils.format_number(reps),
                 utils.format_number(time),
@@ -384,12 +427,15 @@ def routines_view() -> Union[str, Response]:
         return redirect(
             url_for("routine_view", name=request.form["name"].strip()),
             Response=Response,
+            code=307,
         )
 
-    df = storage.read_routine_sets(session["user_id"])
-    routines = df.sort_index(ascending=False).loc[:, "routine"].unique()
+    routines = query.get_routines()
 
-    return render_template("routines.html", routines=routines)
+    return render_template(
+        "routines.html",
+        routines=[r.name for r in sorted(routines, key=lambda x: x.id, reverse=True)],
+    )
 
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
@@ -399,56 +445,70 @@ def routine_view(name: str) -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
-    df_s = storage.read_routine_sets(session["user_id"])
-    df_r = storage.read_routines(session["user_id"])
-
     if request.method == "POST":
-        df_s = df_s.loc[df_s["routine"] != name]
-        df_r = df_r.loc[df_r["routine"] != name]
+        routine = query.get_or_create_routine(name)
 
         if "delete" in request.form:
-            storage.write_routine_sets(df_s, session["user_id"])
-            storage.write_routines(df_r, session["user_id"])
+            db.session.delete(routine)
+            db.session.commit()
             return redirect(url_for("routines_view"))
 
-        for ex, set_count in zip(
-            request.form.getlist("exercise"), request.form.getlist("set_count")
-        ):
-            ex = ex.strip()
+        offset = 1
 
-            if ex and set_count:
-                df_s = df_s.append(
-                    pd.DataFrame(
-                        {
-                            "routine": [name] * int(set_count),
-                            "exercise": [ex] * int(set_count),
-                        }
-                    ),
-                    ignore_index=True,
+        for position, (routine_exercise, exercise_name, sets) in enumerate(
+            zip_longest(
+                sorted(routine.exercises, key=lambda x: x.position),
+                request.form.getlist("exercise"),
+                [int(s) if s else 0 for s in request.form.getlist("set_count")],
+            )
+        ):
+            if not routine_exercise and exercise_name and sets:
+                exercise = query.get_or_create_exercise(exercise_name)
+                routine.exercises.append(
+                    RoutineExercise(position=position + offset, exercise=exercise, sets=sets)
                 )
+            if routine_exercise:
+                if (
+                    routine_exercise.position == position + offset
+                    and routine_exercise.exercise.name == exercise_name
+                    and routine_exercise.sets == sets
+                ):
+                    continue
+                if not exercise_name or not sets:
+                    db.session.delete(routine_exercise)
+                    db.session.commit()
+                    offset -= 1
+                else:
+                    if routine_exercise.exercise.name != exercise_name:
+                        db.session.delete(routine_exercise)
+                        exercise = query.get_or_create_exercise(exercise_name)
+                        routine.exercises.append(
+                            RoutineExercise(
+                                position=position + offset, exercise=exercise, sets=sets
+                            )
+                        )
+                    else:
+                        routine_exercise.position = position + offset
+                        routine_exercise.sets = sets
 
         if "notes" in request.form:
-            notes = request.form["notes"]
-            if notes:
-                df_r = df_r.append(
-                    {"routine": name, "notes": notes},
-                    ignore_index=True,
-                )
+            routine.notes = request.form["notes"]
 
-        storage.write_routine_sets(df_s, session["user_id"])
-        storage.write_routines(df_r, session["user_id"])
+        db.session.commit()
 
-    df_s = df_s.loc[df_s["routine"] == name, df_s.columns != "routine"]
-    routine = [
-        (i + 1, exercise, sets["exercise"].count())
-        for i, (exercise, sets) in enumerate(df_s.groupby("exercise", sort=False))
-    ]
+    routine = query.get_routine(name)
 
-    df_r = df_r[df_r["routine"] == name]
-    assert 0 <= len(df_r) <= 1
-    notes = df_r.iat[0, 1] if len(df_r) == 1 else ""
-
-    return render_template("routine.html", name=name, routine=routine, notes=notes)
+    return render_template(
+        "routine.html",
+        name=name,
+        routine=[
+            (e.position, e.exercise.name, e.sets)
+            for e in sorted(routine.exercises, key=lambda x: x.position)
+        ]
+        if routine
+        else [],
+        notes=routine.notes if routine and routine.notes else "",
+    )
 
 
 @app.route("/workouts", methods=["GET", "POST"])
@@ -458,54 +518,51 @@ def workouts_view() -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
-    notification = ""
-    df_rs = storage.read_routine_sets(session["user_id"])
-    df_r = storage.read_routines(session["user_id"])
-    df_s = storage.read_sets(session["user_id"])
-    df_w = storage.read_workouts(session["user_id"])
-
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
-        routine = request.form["routine"]
-        df_routine = df_rs.loc[df_rs["routine"] == routine, df_rs.columns != "routine"]
+        routine_name = request.form["routine"]
+        routine = query.get_routine(routine_name)
 
-        if not df_routine.empty:
-            df_routine["date"] = date_
+        workout = Workout(
+            user_id=session["user_id"],
+            date=date_,
+            sets=[
+                WorkoutSet(position=position, exercise_id=routine_exercise.exercise_id)
+                for position, routine_exercise in enumerate(routine.exercises, start=1)
+            ],
+        )
+        db.session.add(workout)
+        db.session.commit()
 
-            if len(df_s[df_s["date"] == date_]) == 0:
-                df_s = pd.concat([df_s[df_s["date"] != date_], df_routine])
-                storage.write_sets(df_s, session["user_id"])
+        return redirect(
+            url_for("workout_view", workout_id=workout.id),
+            Response=Response,
+        )
 
-                df_r = df_r.loc[df_r["routine"] == routine]
-                assert 0 <= len(df_r) <= 1
-                if len(df_r) == 1:
-                    df_w = df_w.loc[df_w["date"] != date_]
-                    df_w = df_w.append({"date": date_, "notes": df_r.iat[0, 1]}, ignore_index=True)
-                    storage.write_workouts(df_w, session["user_id"])
-
-                return redirect(
-                    url_for("workout_view", workout_date=request.form["date"]),
-                    Response=Response,
-                )
-
-            notification = f"Workout on {date_} already exists"
-
-        else:
-            notification = f"Routine {routine} undefined"
-
+    notification = ""
     interval = parse_interval_args()
-    df_s["reps+rir"] = df_s["reps"] + df_s["rir"]
-    df_s = df_s[(df_s["date"] >= interval.first) & (df_s["date"] <= interval.last)].drop("rir", 1)
-    wo = df_s.groupby(["date"]).mean()
-    df_s["tut"] = df_s["reps"].replace(np.nan, 1) * df_s["time"]
-    df_sum = df_s.groupby(["date"]).sum()
+    df = storage.read_sets(session["user_id"])
+    df = df[(df["date"] >= interval.first) & (df["date"] <= interval.last)]
+    df["reps+rir"] = df["reps"] + df["rir"]
+    df = df.drop("rir", 1)
+    df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
+    df_sum = df.groupby(["workout_id"]).sum()
+    wo = df.groupby(["workout_id", "date"]).mean()
     wo["tut"] = df_sum["tut"]
     wo["volume"] = df_sum["reps"]
 
-    workouts_list: deque = deque()
-    for wo_date, reps, time, weight, rpe, reps_rir, tut, volume in wo.itertuples():
-        workouts_list.appendleft(
+    workouts_list = []
+    for (workout_id, wo_date), reps, time, weight, rpe, reps_rir, tut, volume in chain(
+        wo.itertuples(),
+        (
+            ((workout.id, workout.date), None, None, None, None, None, None, None)
+            for workout in query.get_workouts()
+            if not workout.sets
+        ),
+    ):
+        workouts_list.append(
             (
+                workout_id,
                 wo_date,
                 utils.format_number(reps),
                 utils.format_number(time),
@@ -517,71 +574,67 @@ def workouts_view() -> Union[str, Response]:
             )
         )
 
-    routines = reversed([r for r, _ in df_rs.groupby("routine", sort=False)])
+    routines = query.get_routines()
 
     return render_template(
         "workouts.html",
         current=interval,
         intervals=intervals(interval),
         today=request.form.get("date", date.today()),
-        routines=routines,
-        workouts=workouts_list,
+        routines=[r.name for r in sorted(routines, key=lambda x: x.id, reverse=True)],
+        workouts=sorted(workouts_list, key=lambda x: x[0], reverse=True),
         notification=notification,
     )
 
 
-@app.route("/workout/<workout_date>", methods=["GET", "POST"])
-def workout_view(workout_date: str) -> Union[str, Response]:
+@app.route("/workout/<workout_id>", methods=["GET", "POST"])
+def workout_view(workout_id: int) -> Union[str, Response]:
     # pylint: disable=too-many-locals
 
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
     notification = ""
-    date_ = date.fromisoformat(workout_date)
-    df_s = storage.read_sets(session["user_id"])
-    df_w = storage.read_workouts(session["user_id"])
 
     if request.method == "POST":
-        df_s = df_s.loc[df_s["date"] != date_]
-        df_w = df_w.loc[df_w["date"] != date_]
+        workout = query.get_workout(workout_id)
 
         if "delete" in request.form:
-            storage.write_sets(df_s, session["user_id"])
-            storage.write_workouts(df_w, session["user_id"])
+            db.session.delete(workout)
+            db.session.commit()
             return redirect(url_for("workouts_view"))
 
         try:
-            for name, values in request.form.lists():
-                if name.startswith("exercise:"):
-                    for set_str in values:
-                        df_s = df_s.append(
-                            {
-                                "date": date_,
-                                "exercise": name.split(":")[1],
-                                **utils.parse_set(set_str),
-                            },
-                            ignore_index=True,
-                        )
-                elif name == "notes" and values[0]:
-                    df_w = df_w.append(
-                        {"date": date_, "notes": values[0]},
-                        ignore_index=True,
-                    )
+            for workout_set, (name, value) in zip_longest(
+                sorted(workout.sets, key=lambda x: x.position),
+                [(name, value) for name, values in request.form.lists() for value in values],
+            ):
+                tag, exercise_name = (
+                    name.split(":") if name.startswith("exercise:") else (name, None)
+                )
+                if tag == "exercise":
+                    assert workout_set.exercise.name == exercise_name
+                    for attr, val in utils.parse_set(value).items():
+                        setattr(workout_set, attr, val)
+                else:
+                    assert tag == "notes"
+                    workout.notes = value
 
-            storage.write_sets(df_s, session["user_id"])
-            storage.write_workouts(df_w, session["user_id"])
+            db.session.commit()
         except ValueError as e:
+            db.session.rollback()
             notification = str(e)
 
-    df_cur = df_s[df_s["date"] == date_].groupby("exercise", sort=False)
+    workout = query.get_workout(workout_id)
+    df_s = storage.read_sets(session["user_id"])
+    df_cur = df_s[df_s["date"] == workout.date].groupby("exercise", sort=False)
     workout_data = []
     for ex, sets in df_cur:
         current = [
             utils.format_set(set_tuple[1:])
             for set_tuple in sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
         ]
-        previous_date = df_s[(df_s["date"] < date_) & (df_s["exercise"] == ex)]["date"].max()
+        previous_date = df_s[(df_s["date"] < workout.date) & (df_s["exercise"] == ex)]["date"].max()
         previous_sets = df_s.loc[(df_s["date"] == previous_date) & (df_s["exercise"] == ex)]
         previous = [
             utils.format_set(set_tuple[1:])
@@ -590,15 +643,12 @@ def workout_view(workout_date: str) -> Union[str, Response]:
         previous = previous + [""] * (len(current) - len(previous))
         workout_data.append((ex, zip(current, previous)))
 
-    df_w = df_w[df_w["date"] == date_]
-    assert 0 <= len(df_w) <= 1
-    notes = df_w.iat[0, 1] if len(df_w) == 1 else ""
-
     return render_template(
         "workout.html",
-        date=date_,
+        workout_id=workout.id,
+        date=workout.date,
         workout=workout_data,
-        notes=notes,
+        notes=workout.notes if workout.notes else "",
         notification=notification,
     )
 

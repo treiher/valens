@@ -350,10 +350,13 @@ def period_view() -> Union[str, Response]:
     )
 
 
-@app.route("/exercises")
+@app.route("/exercises", methods=["GET", "POST"])
 def exercises_view() -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"))
+
+    if request.method == "POST":
+        return redirect(url_for("exercise_view", name=request.form["exercise"]))
 
     exercises = query.get_exercises()
 

@@ -6,6 +6,16 @@
 
 {% block content %}
 <div class="container has-text-centered">
+    <form action="exercises" method="post">
+        <input class="input" list="exercises" name="exercise" placeholder="Search">
+        <datalist id="exercises">
+            {% for name in exercise_list|sort %}
+            <option value="{{ name }}">
+            {% endfor %}
+        </datalist>
+    </form>
+</div>
+<div class="container has-text-centered mt-4">
     {% for name in exercise_list %}
     <div class="column"><a class="button" href="{{ url_for('exercise_view', name=name) }}">{{ name }}</a></div>
     {% endfor %}

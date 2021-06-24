@@ -494,6 +494,17 @@ def test_period_remove(client: Client) -> None:
             assert f"<td>{period.intensity}</td>" in resp.data.decode("utf-8")
 
 
+def test_exercises(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    resp = client.post("/exercises", data={"exercise": "Exercise 42"}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert "Exercise 42" in resp.data.decode("utf-8")
+
+
 def test_exercise(client: Client) -> None:
     tests.utils.init_db_data()
 

@@ -15,22 +15,26 @@
                 <input class="input" type="date" name="date" value="{{ today }}" required="required" />
             </div>
         </div>
-        <label class="label">3-Site Caliper Method</label>
-        {% for name in sites_3 %}
-        <div class="field">
-            <div class="control">
-                <input class="input" type="number" min="0" max="99" name="{{ name }}" step="1" placeholder="{{ name|capitalize }}" />
+        <fieldset class="fieldset mb-4">
+            <legend>3-Site Caliper Method</legend>
+            {% for name in sites_3 %}
+            <div class="field">
+                <div class="control">
+                    <input class="input" type="number" min="0" max="99" name="{{ name }}" step="1" placeholder="{{ name|capitalize }}" />
+                </div>
             </div>
-        </div>
-        {% endfor %}
-        <label class="label">Additionally for 7-Site Caliper Method</label>
-        {% for name in additional_sites_7 %}
-        <div class="field">
-            <div class="control">
-                <input class="input" type="number" min="0" max="99" name="{{ name }}" step="1" placeholder="{{ name|capitalize }}" />
+            {% endfor %}
+        </fieldset>
+        <fieldset class="fieldset mb-4">
+            <legend>Additionally for 7-Site Caliper Method</legend>
+            {% for name in additional_sites_7 %}
+            <div class="field">
+                <div class="control">
+                    <input class="input" type="number" min="0" max="99" name="{{ name }}" step="1" placeholder="{{ name|capitalize }}" />
+                </div>
             </div>
-        </div>
-        {% endfor %}
+            {% endfor %}
+        </fieldset>
         <div class="field">
             <div class="control">
                 <input class="button is-success" style="width: 25%" type="submit" value="Submit" />

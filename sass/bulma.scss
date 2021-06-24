@@ -30,3 +30,23 @@ $family-sans-serif: "Roboto", sans-serif;
 $green: #48C774;
 
 @import "bulma/bulma.sass";
+
+$fieldset-background-color: $scheme-main !default;
+$fieldset-border-color: $border !default;
+$fieldset-color: $text-strong !default;
+$fieldset-padding: 1.5em;
+$fieldset-radius: $radius !default;
+
+.fieldset {
+    background-color: $fieldset-background-color;
+    border-radius: $fieldset-radius;
+    border: 1px solid $fieldset-border-color;
+    color: $fieldset-color;
+    padding: 1.25rem;
+}
+.fieldset > legend {
+    background-color: $fieldset-background-color;
+    color: $fieldset-color;
+    font-weight: 700;
+    padding: 0 5px;
+}

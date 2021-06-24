@@ -7623,3 +7623,16 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
 .footer {
   background-color: #fafafa;
   padding: 3rem 1.5rem 6rem; }
+
+.fieldset {
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid #dbdbdb;
+  color: #363636;
+  padding: 1.25rem; }
+
+.fieldset > legend {
+  background-color: white;
+  color: #363636;
+  font-weight: 700;
+  padding: 0 5px; }

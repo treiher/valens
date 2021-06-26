@@ -56,10 +56,9 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-    - name: Install
+    - name: Test
       run: |
-        python setup.py sdist
-        pip install valens --user --no-deps --no-index --find-links dist/
+        make test_installation
 
   Tests:
     runs-on: ubuntu-20.04

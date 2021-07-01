@@ -531,7 +531,14 @@ def workouts_view() -> Union[str, Response]:
             date=date_,
             sets=[
                 WorkoutSet(position=position, exercise_id=routine_exercise.exercise_id)
-                for position, routine_exercise in enumerate(routine.exercises, start=1)
+                for position, routine_exercise in enumerate(
+                    (
+                        routine_exercise
+                        for routine_exercise in routine.exercises
+                        for _ in range(routine_exercise.sets)
+                    ),
+                    start=1,
+                )
             ],
         )
         db.session.add(workout)

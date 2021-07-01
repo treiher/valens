@@ -12,7 +12,7 @@
     <form action="{{ url_for('workouts_view') }}" method="post">
         <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />
         <div class="select" style="width: 30%">
-            <select name="routine">
+            <select name="routine" style="width: 100%">
                 {% for name in routines %}
                 <option>{{ name }}</option>
                 {% endfor %}

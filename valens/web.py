@@ -16,6 +16,7 @@ from valens.models import (
     BodyFat,
     BodyWeight,
     Period,
+    Routine,
     RoutineExercise,
     Sex,
     User,
@@ -442,13 +443,13 @@ def routines_view() -> Union[str, Response]:
 
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
-def routine_view(name: str) -> Union[str, Response]:
+def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-many-branches
     name = name.strip()
 
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
-    if request.method == "POST":
+    if request.method == "POST":  # pylint: disable = too-many-nested-blocks
         routine = query.get_or_create_routine(name)
 
         if "delete" in request.form:
@@ -456,43 +457,72 @@ def routine_view(name: str) -> Union[str, Response]:
             db.session.commit()
             return redirect(url_for("routines_view"))
 
-        offset = 1
+        if "rename" in request.form:
+            new_name = request.form["rename"].strip()
+            if new_name:
+                routine.name = new_name
+                db.session.commit()
+                return redirect(url_for("routine_view", name=new_name))
 
-        for position, (routine_exercise, exercise_name, sets) in enumerate(
-            zip_longest(
-                sorted(routine.exercises, key=lambda x: x.position),
-                request.form.getlist("exercise"),
-                [int(s) if s else 0 for s in request.form.getlist("set_count")],
-            )
-        ):
-            if not routine_exercise and exercise_name and sets:
-                exercise = query.get_or_create_exercise(exercise_name)
-                routine.exercises.append(
-                    RoutineExercise(position=position + offset, exercise=exercise, sets=sets)
-                )
-            if routine_exercise:
-                if (
-                    routine_exercise.position == position + offset
-                    and routine_exercise.exercise.name == exercise_name
-                    and routine_exercise.sets == sets
-                ):
-                    continue
-                if not exercise_name or not sets:
-                    db.session.delete(routine_exercise)
-                    db.session.commit()
-                    offset -= 1
-                else:
-                    if routine_exercise.exercise.name != exercise_name:
-                        db.session.delete(routine_exercise)
-                        exercise = query.get_or_create_exercise(exercise_name)
-                        routine.exercises.append(
+        if "copy" in request.form:
+            new_name = request.form["copy"].strip()
+            if new_name and new_name != routine.name:
+                db.session.add(
+                    Routine(
+                        user_id=session["user_id"],
+                        name=new_name,
+                        notes=routine.notes,
+                        exercises=[
                             RoutineExercise(
-                                position=position + offset, exercise=exercise, sets=sets
+                                position=routine_exercise.position,
+                                exercise_id=routine_exercise.exercise_id,
+                                sets=routine_exercise.sets,
                             )
-                        )
+                            for routine_exercise in routine.exercises
+                        ],
+                    )
+                )
+                db.session.commit()
+                return redirect(url_for("routine_view", name=new_name))
+
+        if "exercise" in request.form:
+            offset = 1
+
+            for position, (routine_exercise, exercise_name, sets) in enumerate(
+                zip_longest(
+                    sorted(routine.exercises, key=lambda x: x.position),
+                    request.form.getlist("exercise"),
+                    [int(s) if s else 0 for s in request.form.getlist("set_count")],
+                )
+            ):
+                if not routine_exercise and exercise_name and sets:
+                    exercise = query.get_or_create_exercise(exercise_name)
+                    routine.exercises.append(
+                        RoutineExercise(position=position + offset, exercise=exercise, sets=sets)
+                    )
+                if routine_exercise:
+                    if (
+                        routine_exercise.position == position + offset
+                        and routine_exercise.exercise.name == exercise_name
+                        and routine_exercise.sets == sets
+                    ):
+                        continue
+                    if not exercise_name or not sets:
+                        db.session.delete(routine_exercise)
+                        db.session.commit()
+                        offset -= 1
                     else:
-                        routine_exercise.position = position + offset
-                        routine_exercise.sets = sets
+                        if routine_exercise.exercise.name != exercise_name:
+                            db.session.delete(routine_exercise)
+                            exercise = query.get_or_create_exercise(exercise_name)
+                            routine.exercises.append(
+                                RoutineExercise(
+                                    position=position + offset, exercise=exercise, sets=sets
+                                )
+                            )
+                        else:
+                            routine_exercise.position = position + offset
+                            routine_exercise.sets = sets
 
         if "notes" in request.form:
             routine.notes = request.form["notes"]

@@ -47,6 +47,18 @@
         </div>
     </div>
 </form>
+<div class="container has-text-centered mt-6">
+    <form action="{{ url_for('routine_view', name=name) }}" method="post">
+        <input class="input" style="width: 40%" type="text" name="rename" value="{{ name }}" required="required" />
+        <input class="button is-success" style="width: 25%" type="submit" value="Rename" />
+    </form>
+</div>
+<div class="container has-text-centered mt-3">
+    <form action="{{ url_for('routine_view', name=name) }}" method="post">
+        <input class="input" style="width: 40%" type="text" name="copy" value="{{ name }}" required="required" />
+        <input class="button is-success" style="width: 25%" type="submit" value="Copy" />
+    </form>
+</div>
 {% endblock %}
 
 {% set parent_page = 'routines_view' %}

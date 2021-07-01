@@ -612,6 +612,56 @@ def test_routine_delete(client: Client) -> None:
             assert routine.name in resp.data.decode("utf-8")
 
 
+def test_routine_rename(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    routine_name = tests.data.user().routines[0].name
+
+    resp = client.post(f"/routine/{routine_name}", data={"rename": ""})
+    assert resp.status_code == 200
+    assert routine_name in resp.data.decode("utf-8")
+
+    resp = client.post(
+        f"/routine/{routine_name}", data={"rename": "New Routine"}, follow_redirects=True
+    )
+    assert resp.status_code == 200
+    assert routine_name not in resp.data.decode("utf-8")
+    assert "New Routine" in resp.data.decode("utf-8")
+
+    resp = client.get("/routines")
+    assert resp.status_code == 200
+    assert routine_name not in resp.data.decode("utf-8")
+    assert "New Routine" in resp.data.decode("utf-8")
+
+
+def test_routine_copy(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    routine_name = tests.data.user().routines[0].name
+
+    resp = client.post(f"/routine/{routine_name}", data={"copy": ""})
+    assert resp.status_code == 200
+    assert routine_name in resp.data.decode("utf-8")
+
+    resp = client.post(
+        f"/routine/{routine_name}", data={"copy": "Copy of Routine"}, follow_redirects=True
+    )
+    assert resp.status_code == 200
+    assert routine_name not in resp.data.decode("utf-8")
+    assert "Copy of Routine" in resp.data.decode("utf-8")
+
+    resp = client.get("/routines")
+    assert resp.status_code == 200
+    assert routine_name in resp.data.decode("utf-8")
+    assert "Copy of Routine" in resp.data.decode("utf-8")
+
+
 def test_routine_save_unchanged(client: Client) -> None:
     tests.utils.init_db_data()
 
@@ -644,10 +694,10 @@ def test_routine_add_exercise(client: Client) -> None:
     routines = tests.data.user().routines
     routine = routines[0]
 
-    resp = client.post(f"/routine/{routine.name}")
+    resp = client.post(f"/routine/{routine.name}", data={"exercise": ""})
     assert resp.status_code == 200
     for routine_exercise in routine.exercises:
-        assert routine_exercise.exercise.name not in resp.data.decode("utf-8")
+        assert f'placeholder="{routine_exercise.exercise.name}"' not in resp.data.decode("utf-8")
     assert routine.notes in resp.data.decode("utf-8")
 
     resp = client.post(f"/routine/{routine.name}", data={"notes": ""})
@@ -664,7 +714,7 @@ def test_routine_add_exercise(client: Client) -> None:
     )
     assert resp.status_code == 200
     for routine_exercise in routine.exercises:
-        assert routine_exercise.exercise.name in resp.data.decode("utf-8")
+        assert f'placeholder="{routine_exercise.exercise.name}"' in resp.data.decode("utf-8")
     assert routine.notes in resp.data.decode("utf-8")
 
 
@@ -690,9 +740,11 @@ def test_routine_remove_exercise(client: Client) -> None:
     assert resp.status_code == 200
     for routine_exercise in routine.exercises:
         if routine_exercise.position == 1:
-            assert routine_exercise.exercise.name not in resp.data.decode("utf-8")
+            assert f'placeholder="{routine_exercise.exercise.name}"' not in resp.data.decode(
+                "utf-8"
+            )
         else:
-            assert routine_exercise.exercise.name in resp.data.decode("utf-8")
+            assert f'placeholder="{routine_exercise.exercise.name}"' in resp.data.decode("utf-8")
     assert routine.notes in resp.data.decode("utf-8")
 
 

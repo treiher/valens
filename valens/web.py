@@ -530,6 +530,7 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
         db.session.commit()
 
     routine = query.get_routine(name)
+    exercises = query.get_exercises()
 
     return render_template(
         "routine.html",
@@ -541,6 +542,7 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
         if routine
         else [],
         notes=routine.notes if routine and routine.notes else "",
+        exercises=[e.name for e in sorted(exercises, key=lambda x: x.id, reverse=True)],
     )
 
 

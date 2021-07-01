@@ -11,7 +11,7 @@
         <label class="label">E{{ i }}</label>
         <div class="field-body is-grouped">
             <div class="field">
-                <input class="input" type="text" name="exercise" value="{{ exercise }}" placeholder="{{ exercise }}" />
+                <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="{{ exercise }}" />
             </div>
             <div class="field">
                 <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="{{ set_count }}" min="0" />
@@ -23,7 +23,7 @@
         <label class="label">Add exercise</label>
         <div class="field-body is-grouped">
             <div class="field">
-                <input class="input" type="text" name="exercise" value="{{ exercise }}" placeholder="Exercise name" />
+                <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="Exercise name" />
             </div>
             <div class="field">
                 <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="Number of sets" min="0" />
@@ -59,6 +59,11 @@
         <input class="button is-success" style="width: 25%" type="submit" value="Copy" />
     </form>
 </div>
+<datalist id="exercises">
+    {% for name in exercises|sort %}
+    <option value="{{ name }}">
+    {% endfor %}
+</datalist>
 {% endblock %}
 
 {% set parent_page = 'routines_view' %}

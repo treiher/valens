@@ -20,3 +20,11 @@ def test_main_init(monkeypatch: Any) -> None:
     monkeypatch.setattr(db, "init_db", lambda: init_called.append(True))
     assert cli.main() == 0
     assert init_called
+
+
+def test_main_upgrade(monkeypatch: Any) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "--upgrade"])
+    upgrade_called = []
+    monkeypatch.setattr(db, "upgrade_db", lambda: upgrade_called.append(True))
+    assert cli.main() == 0
+    assert upgrade_called

@@ -11,6 +11,7 @@ def main() -> Union[int, str]:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="store_true", help="show version")
     parser.add_argument("--init", action="store_true", help="initialize database")
+    parser.add_argument("--upgrade", action="store_true", help="upgrade database")
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -20,6 +21,10 @@ def main() -> Union[int, str]:
 
     if args.init:
         db.init_db()
+        return 0
+
+    if args.upgrade:
+        db.upgrade_db()
         return 0
 
     parser.print_usage()

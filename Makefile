@@ -28,7 +28,7 @@ format:
 	isort $(python-packages)
 
 test:
-	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing tests
+	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing --test-alembic tests
 
 test_installation:
 	python setup.py sdist

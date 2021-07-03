@@ -1,3 +1,5 @@
+from alembic import command
+from alembic.config import Config
 from flask import g
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.engine import Engine
@@ -18,6 +20,9 @@ meta = MetaData(
 )
 
 Base = declarative_base(cls=RepresentableBase, metadata=meta)
+
+alembic_cfg = Config()
+alembic_cfg.set_main_option("script_location", "valens:migrations")
 
 
 def get_engine() -> Engine:
@@ -48,3 +53,9 @@ def init_db() -> None:
 
     Base.query = get_scoped_session().query_property()
     Base.metadata.create_all(bind=get_engine())
+
+    command.stamp(alembic_cfg, "head")
+
+
+def upgrade_db() -> None:
+    command.upgrade(alembic_cfg, "head")

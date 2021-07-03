@@ -105,6 +105,7 @@ class Routine(Base):
     exercises: list[RoutineExercise] = relationship(
         "RoutineExercise", backref="routine", cascade="all, delete-orphan"
     )
+    workouts: list[Workout] = relationship("Workout", back_populates="routine")
 
 
 class RoutineExercise(Base):
@@ -123,9 +124,11 @@ class Workout(Base):
 
     id: int = Column(Integer, primary_key=True)
     user_id: int = Column(ForeignKey("user.id"), nullable=False)
+    routine_id: int = Column(ForeignKey("routine.id"))
     date: date = Column(Date, nullable=False)
     notes: str = Column(String)
 
+    routine: Routine = relationship("Routine", back_populates="workouts")
     sets: list[WorkoutSet] = relationship(
         "WorkoutSet", back_populates="workout", cascade="all, delete-orphan"
     )

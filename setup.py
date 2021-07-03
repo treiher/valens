@@ -12,8 +12,10 @@ setup(
     version=version,
     license="AGPL-3.0",
     packages=find_packages(include=["valens"]),
+    package_data={"valens": ["migrations/*", "migrations/versions/*"]},
     python_requires=">=3.8",
     install_requires=[
+        "alembic >=1.6",
         "flask",
         "matplotlib",
         "pandas",
@@ -29,6 +31,7 @@ setup(
             "mypy >=0.770",
             "pylint >=2.6.0",
             "pytest >=5",
+            "pytest-alembic >=0.3.1",
             "pytest-cov >=2.10.0",
             "pytest-xdist >=1.32.0",
         ]

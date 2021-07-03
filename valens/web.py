@@ -669,7 +669,7 @@ def workout_view(workout_id: int) -> Union[str, Response]:
 
     workout = query.get_workout(workout_id)
     df_s = storage.read_sets(session["user_id"])
-    df_cur = df_s[df_s["date"] == workout.date].groupby("exercise", sort=False)
+    df_cur = df_s[df_s["workout_id"] == workout.id].groupby("exercise", sort=False)
     workout_data = []
     for ex, sets in df_cur:
         current = [

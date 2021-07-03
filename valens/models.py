@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    column,
 )
 from sqlalchemy.orm import relationship
 
@@ -49,7 +50,7 @@ class BodyWeight(Base):
 
     user_id: int = Column(ForeignKey("user.id"), primary_key=True)
     date: date = Column(Date, primary_key=True)
-    weight: float = Column(Float, CheckConstraint("weight > 0"), nullable=False)
+    weight: float = Column(Float, CheckConstraint(column("weight") > 0), nullable=False)
 
 
 class BodyFat(Base):
@@ -57,13 +58,13 @@ class BodyFat(Base):
 
     user_id: int = Column(ForeignKey("user.id"), primary_key=True)
     date: date = Column(Date, primary_key=True)
-    chest: Optional[int] = Column(Integer, CheckConstraint("chest > 0"))
-    abdominal: Optional[int] = Column(Integer, CheckConstraint("abdominal > 0"))
-    tigh: Optional[int] = Column(Integer, CheckConstraint("tigh > 0"))
-    tricep: Optional[int] = Column(Integer, CheckConstraint("tricep > 0"))
-    subscapular: Optional[int] = Column(Integer, CheckConstraint("subscapular > 0"))
-    suprailiac: Optional[int] = Column(Integer, CheckConstraint("suprailiac > 0"))
-    midaxillary: Optional[int] = Column(Integer, CheckConstraint("midaxillary > 0"))
+    chest: Optional[int] = Column(Integer, CheckConstraint(column("chest") > 0))
+    abdominal: Optional[int] = Column(Integer, CheckConstraint(column("abdominal") > 0))
+    tigh: Optional[int] = Column(Integer, CheckConstraint(column("tigh") > 0))
+    tricep: Optional[int] = Column(Integer, CheckConstraint(column("tricep") > 0))
+    subscapular: Optional[int] = Column(Integer, CheckConstraint(column("subscapular") > 0))
+    suprailiac: Optional[int] = Column(Integer, CheckConstraint(column("suprailiac") > 0))
+    midaxillary: Optional[int] = Column(Integer, CheckConstraint(column("midaxillary") > 0))
 
 
 class Period(Base):
@@ -72,7 +73,10 @@ class Period(Base):
     user_id: int = Column(ForeignKey("user.id"), primary_key=True)
     date: date = Column(Date, primary_key=True)
     intensity: int = Column(
-        Integer, CheckConstraint("intensity >= 1 and intensity <= 4"), nullable=False
+        Integer,
+        CheckConstraint(column("intensity") >= 1),
+        CheckConstraint(column("intensity") <= 4),
+        nullable=False,
     )
 
 
@@ -107,9 +111,9 @@ class RoutineExercise(Base):
     __tablename__ = "routine_exercise"
 
     routine_id: int = Column(ForeignKey("routine.id"), primary_key=True)
-    position: int = Column(Integer, CheckConstraint("position > 0"), primary_key=True)
+    position: int = Column(Integer, CheckConstraint(column("position") > 0), primary_key=True)
     exercise_id: int = Column(ForeignKey("exercise.id"), nullable=False)
-    sets: int = Column(Integer, CheckConstraint("sets > 0"), nullable=False)
+    sets: int = Column(Integer, CheckConstraint(column("sets") > 0), nullable=False)
 
     exercise: Exercise = relationship("Exercise")
 
@@ -131,12 +135,14 @@ class WorkoutSet(Base):
     __tablename__ = "workout_set"
 
     workout_id: int = Column(ForeignKey("workout.id"), primary_key=True)
-    position: int = Column(Integer, CheckConstraint("position > 0"), primary_key=True)
+    position: int = Column(Integer, CheckConstraint(column("position") > 0), primary_key=True)
     exercise_id: int = Column(ForeignKey("exercise.id"), nullable=False)
-    reps: int = Column(Integer, CheckConstraint("reps > 0"))
-    time: int = Column(Integer, CheckConstraint("time > 0"))
-    weight: float = Column(Float, CheckConstraint("weight > 0"))
-    rpe: float = Column(Float, CheckConstraint("rpe >= 0 and rpe <= 10"))
+    reps: int = Column(Integer, CheckConstraint(column("reps") > 0))
+    time: int = Column(Integer, CheckConstraint(column("time") > 0))
+    weight: float = Column(Float, CheckConstraint(column("weight") > 0))
+    rpe: float = Column(
+        Float, CheckConstraint(column("rpe") >= 0), CheckConstraint(column("rpe") <= 10)
+    )
 
     workout: Workout = relationship("Workout", back_populates="sets")
     exercise: Exercise = relationship("Exercise", back_populates="sets")

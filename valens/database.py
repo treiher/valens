@@ -1,5 +1,5 @@
 from flask import g
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, declarative_base, scoped_session, sessionmaker
 from sqlalchemy_repr import RepresentableBase
@@ -7,7 +7,17 @@ from werkzeug.local import LocalProxy
 
 from valens import app
 
-Base = declarative_base(cls=RepresentableBase)
+meta = MetaData(
+    naming_convention={
+        "ix": "ix_%(column_0_label)s",
+        "uq": "uq_%(table_name)s_%(column_0_name)s",
+        "ck": "ck_%(table_name)s_%(column_0_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s",
+    }
+)
+
+Base = declarative_base(cls=RepresentableBase, metadata=meta)
 
 
 def get_engine() -> Engine:

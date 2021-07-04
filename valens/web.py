@@ -631,7 +631,7 @@ def workouts_view() -> Union[str, Response]:
         intervals=intervals(interval),
         today=request.form.get("date", date.today()),
         routines=[r.name for r in sorted(routines, key=lambda x: x.id, reverse=True)],
-        workouts=sorted(workouts_list, key=lambda x: x[0], reverse=True),
+        workouts=sorted(workouts_list, key=lambda x: (x[1], x[0]), reverse=True),
         notification=notification,
     )
 

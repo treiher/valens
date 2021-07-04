@@ -531,6 +531,7 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
 
     routine = query.get_routine(name)
     exercises = query.get_exercises()
+    workouts = query.get_workouts()
 
     return render_template(
         "routine.html",
@@ -543,6 +544,11 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
         else [],
         notes=routine.notes if routine and routine.notes else "",
         exercises=[e.name for e in sorted(exercises, key=lambda x: x.id, reverse=True)],
+        workouts=[
+            (w.id, w.date)
+            for w in sorted(workouts, key=lambda x: (x.date, x.id), reverse=True)
+            if w.routine_id == routine.id
+        ],
     )
 
 
@@ -560,6 +566,7 @@ def workouts_view() -> Union[str, Response]:
 
         workout = Workout(
             user_id=session["user_id"],
+            routine=routine,
             date=date_,
             sets=[
                 WorkoutSet(position=position, exercise_id=routine_exercise.exercise_id)
@@ -688,6 +695,7 @@ def workout_view(workout_id: int) -> Union[str, Response]:
     return render_template(
         "workout.html",
         workout_id=workout.id,
+        routine=workout.routine,
         date=workout.date,
         workout=workout_data,
         notes=workout.notes if workout.notes else "",

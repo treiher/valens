@@ -59,6 +59,16 @@
         <input class="button is-success" style="width: 25%" type="submit" value="Copy" />
     </form>
 </div>
+{% if workouts %}
+<div class="container mt-6">
+    <h1 class="title">Workouts</h1>
+    <ul>
+        {% for workout_id, workout_date in workouts %}
+        <li><a href="{{ url_for('workout_view', workout_id=workout_id) }}">{{ workout_date }}</a></li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
 <datalist id="exercises">
     {% for name in exercises|sort %}
     <option value="{{ name }}">

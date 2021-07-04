@@ -2,7 +2,7 @@
 
 {% block title %}Workout on {{ date }}{% endblock %}
 
-{% block content_title %}Workout on {{ date }}{% endblock %}
+{% block content_title %}Workout&nbsp;{% if routine %}<a href="{{ url_for('routine_view', name=routine.name) }}">{{ routine.name }}</a>&nbsp;{% endif %}on&nbsp;<span style="white-space: nowrap;">{{ date }}</span>{% endblock %}
 
 {% block content %}
 <form action="{{ url_for('workout_view', workout_id=workout_id) }}" method="post">

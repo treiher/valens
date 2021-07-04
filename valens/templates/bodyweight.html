@@ -10,9 +10,17 @@
 {{ diagram("bodyweight", intervals, current) }}
 <div class="container has-text-centered">
     <form action="bodyweight" method="post">
-        <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />
-        <input class="input" style="width: 30%" type="number" name="weight" min="0" step="0.1" placeholder="weight (kg)" required="required" />
-        <input class="button is-success" style="width: 25%" type="submit" value="Submit" />
+        <div class="field has-addons has-addons-centered mx-2">
+            <div class="control">
+                <input class="input" type="date" name="date" value="{{ today }}" required="required" />
+            </div>
+            <div class="control">
+                <input class="input" type="number" name="weight" min="0" step="0.1" placeholder="weight (kg)" required="required" />
+            </div>
+            <div class="control">
+                <input class="button is-success" type="submit" value="Submit"/>
+            </div>
+        </div>
     </form>
 </div>
 <div class="table-container mt-4">

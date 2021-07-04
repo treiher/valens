@@ -10,9 +10,25 @@
 {{ diagram("period", intervals, current) }}
 <div class="container has-text-centered">
     <form action="period" method="post">
-        <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />
-        <input class="input" style="width: 30%" type="number" min="0" max="4" name="intensity" step="1" placeholder="intensity" required="required" />
-        <input class="button is-success" style="width: 25%" type="submit" value="Submit" />
+        <div class="field has-addons has-addons-centered mx-2">
+            <div class="control">
+                <input class="input" type="date" name="date" value="{{ today }}" required="required" />
+            </div>
+            <div class="control">
+                <div class="select">
+                    <select name="intensity">
+                        <option>0</option>
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                        <option>4</option>
+                    </select>
+                </div>
+            </div>
+            <div class="control">
+                <input class="button is-success" type="submit" value="Submit"/>
+            </div>
+        </div>
     </form>
 </div>
 <div class="table-container mt-4">

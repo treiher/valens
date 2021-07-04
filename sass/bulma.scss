@@ -29,6 +29,10 @@
 $family-sans-serif: "Roboto", sans-serif;
 $green: #48C774;
 
+// Enable horizontal navbar on mobile
+// ISSUE: jgthms/bulma#1445
+$navbar-breakpoint: 0;
+
 @import "bulma/bulma.sass";
 
 $fieldset-background-color: $scheme-main !default;

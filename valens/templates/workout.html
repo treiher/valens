@@ -5,36 +5,38 @@
 {% block content_title %}Workout&nbsp;{% if routine %}<a href="{{ url_for('routine_view', name=routine.name) }}">{{ routine.name }}</a>&nbsp;{% endif %}on&nbsp;<span style="white-space: nowrap;">{{ date }}</span>{% endblock %}
 
 {% block content %}
-<form action="{{ url_for('workout_view', workout_id=workout_id) }}" method="post">
-    {% for exercise, sets in workout %}
-    <div class="field">
-        <label class="label"><a href="{{ url_for('exercise_view', name=exercise) }}">{{ exercise }}</a></label>
-        <div class="field-body is-grouped">
-            {% for current, previous in sets %}
-            <div class="field">
-                <input class="input" type="text" name="exercise:{{ exercise }}" value="{{ current }}" placeholder="{{ previous }}" />
+<div class="container mx-2">
+    <form action="{{ url_for('workout_view', workout_id=workout_id) }}" method="post">
+        {% for exercise, sets in workout %}
+        <div class="field">
+            <label class="label"><a href="{{ url_for('exercise_view', name=exercise) }}">{{ exercise }}</a></label>
+            <div class="field-body is-grouped">
+                {% for current, previous in sets %}
+                <div class="field">
+                    <input class="input" type="text" name="exercise:{{ exercise }}" value="{{ current }}" placeholder="{{ previous }}" />
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
         </div>
-    </div>
-    {% endfor %}
-    <div class="field">
-        <label class="label">Notes</label>
-        <textarea class="textarea" name="notes">{{ notes }}</textarea>
-    </div>
-    <div class="columns is-mobile mt-4">
-        <div class="column">
-            <input class="button is-success" style="width: 50%" type="submit" value="Save" />
+        {% endfor %}
+        <div class="field">
+            <label class="label">Notes</label>
+            <textarea class="textarea" name="notes">{{ notes }}</textarea>
         </div>
-        <div class="column has-text-right">
-            <span class="tag is-medium is-danger mt-1">
-                <label class="checkbox">
-                    <input type="checkbox" name="delete" /> Delete
-                </label>
-            </span>
+        <div class="level is-mobile mt-4">
+            <div class="level-left">
+                <input class="button is-success" type="submit" value="Save" />
+            </div>
+            <div class="level-right">
+                <span class="button is-danger">
+                    <label class="checkbox">
+                        <input type="checkbox" name="delete" /> Delete
+                    </label>
+                </span>
+            </div>
         </div>
-    </div>
-</form>
+    </form>
+</div>
 {% endblock %}
 
 {% set parent_page = 'workouts_view' %}

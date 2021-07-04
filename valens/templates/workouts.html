@@ -10,15 +10,23 @@
 {{ diagram("workouts", intervals, current) }}
 <div class="container has-text-centered">
     <form action="{{ url_for('workouts_view') }}" method="post">
-        <input class="input" style="width: 40%" type="date" name="date" value="{{ today }}" required="required" />
-        <div class="select" style="width: 30%">
-            <select name="routine" style="width: 100%">
-                {% for name in routines %}
-                <option>{{ name }}</option>
-                {% endfor %}
-            </select>
+        <div class="field has-addons has-addons-centered mx-2">
+            <div class="control">
+                <input class="input" type="date" name="date" value="{{ today }}" required="required" />
+            </div>
+            <div class="control">
+                <div class="select">
+                    <select name="routine">
+                        {% for name in routines %}
+                        <option>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="control">
+                <input class="button is-success" type="submit" value="Create" />
+            </div>
         </div>
-        <input class="button is-success" style="width: 25%" type="submit" value="Create" />
     </form>
 </div>
 <div class="table-container mt-4">

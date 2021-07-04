@@ -5,48 +5,50 @@
 {% block content_title %}{{ name }}{% endblock %}
 
 {% block content %}
-<form action="{{ url_for('routine_view', name=name) }}" method="post">
-    {% for i, exercise, set_count in routine %}
-    <div class="field">
-        <label class="label">E{{ i }}</label>
-        <div class="field-body is-grouped">
-            <div class="field">
-                <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="{{ exercise }}" />
-            </div>
-            <div class="field">
-                <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="{{ set_count }}" min="0" />
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-    <div class="field">
-        <label class="label">Add exercise</label>
-        <div class="field-body is-grouped">
-            <div class="field">
-                <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="Exercise name" />
-            </div>
-            <div class="field">
-                <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="Number of sets" min="0" />
+<div class="container mx-2">
+    <form action="{{ url_for('routine_view', name=name) }}" method="post">
+        {% for i, exercise, set_count in routine %}
+        <div class="field">
+            <label class="label">E{{ i }}</label>
+            <div class="field-body is-grouped">
+                <div class="field">
+                    <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="{{ exercise }}" />
+                </div>
+                <div class="field">
+                    <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="{{ set_count }}" min="0" />
+                </div>
             </div>
         </div>
-    </div>
-    <div class="field">
-        <label class="label">Notes</label>
-        <textarea class="textarea" name="notes">{{ notes }}</textarea>
-    </div>
-    <div class="columns is-mobile mt-4">
-        <div class="column">
-            <input class="button is-success" style="width: 50%" type="submit" value="Save" />
+        {% endfor %}
+        <div class="field">
+            <label class="label">Add exercise</label>
+            <div class="field-body is-grouped">
+                <div class="field">
+                    <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="Exercise name" />
+                </div>
+                <div class="field">
+                    <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="Number of sets" min="0" />
+                </div>
+            </div>
         </div>
-        <div class="column has-text-right">
-            <span class="tag is-medium is-danger mt-1">
-                <label class="checkbox">
-                    <input type="checkbox" name="delete" /> Delete
-                </label>
-            </span>
+        <div class="field">
+            <label class="label">Notes</label>
+            <textarea class="textarea" name="notes">{{ notes }}</textarea>
         </div>
-    </div>
-</form>
+        <div class="level is-mobile mt-4">
+            <div class="level-left">
+                <input class="button is-success" type="submit" value="Save" />
+            </div>
+            <div class="level-right">
+                <span class="button is-danger">
+                    <label class="checkbox">
+                        <input type="checkbox" name="delete" /> Delete
+                    </label>
+                </span>
+            </div>
+        </div>
+    </form>
+</div>
 <div class="container has-text-centered mt-6">
     <form action="{{ url_for('routine_view', name=name) }}" method="post">
         <input class="input" style="width: 40%" type="text" name="rename" value="{{ name }}" required="required" />

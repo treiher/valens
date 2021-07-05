@@ -470,11 +470,6 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
     if request.method == "POST":  # pylint: disable = too-many-nested-blocks
         routine = query.get_or_create_routine(name)
 
-        if "delete" in request.form:
-            db.session.delete(routine)
-            db.session.commit()
-            return redirect(url_for("routines_view"))
-
         if "rename" in request.form:
             new_name = request.form["rename"].strip()
             if new_name:
@@ -553,6 +548,7 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
 
     return render_template(
         "routine.html",
+        navbar_items=[("Delete", url_for("routine_delete_view", name=name))],
         name=name,
         routine=[
             (e.position, e.exercise.name, e.sets)
@@ -567,6 +563,23 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
             for w in sorted(workouts, key=lambda x: (x.date, x.id), reverse=True)
             if w.routine_id == routine.id
         ],
+    )
+
+
+@app.route("/routine/<name>/delete", methods=["GET", "POST"])
+def routine_delete_view(name: str) -> Union[str, Response]:
+    if request.method == "POST":
+        routine = query.get_routine(name)
+        db.session.delete(routine)
+        db.session.commit()
+        return redirect(url_for("routines_view"))
+
+    return render_template(
+        "delete.html",
+        name=name,
+        element="routine",
+        delete_target=url_for("routine_delete_view", name=name),
+        cancel_target=url_for("routine_view", name=name),
     )
 
 
@@ -654,7 +667,7 @@ def workouts_view() -> Union[str, Response]:
     )
 
 
-@app.route("/workout/<workout_id>", methods=["GET", "POST"])
+@app.route("/workout/<int:workout_id>", methods=["GET", "POST"])
 def workout_view(workout_id: int) -> Union[str, Response]:
     # pylint: disable=too-many-locals
 
@@ -665,11 +678,6 @@ def workout_view(workout_id: int) -> Union[str, Response]:
 
     if request.method == "POST":
         workout = query.get_workout(workout_id)
-
-        if "delete" in request.form:
-            db.session.delete(workout)
-            db.session.commit()
-            return redirect(url_for("workouts_view"))
 
         try:
             for workout_set, (name, value) in zip_longest(
@@ -712,12 +720,31 @@ def workout_view(workout_id: int) -> Union[str, Response]:
 
     return render_template(
         "workout.html",
+        navbar_items=[("Delete", url_for("workout_delete_view", workout_id=workout_id))],
         workout_id=workout.id,
         routine=workout.routine,
         date=workout.date,
         workout=workout_data,
         notes=workout.notes if workout.notes else "",
         notification=notification,
+    )
+
+
+@app.route("/workout/<int:workout_id>/delete", methods=["GET", "POST"])
+def workout_delete_view(workout_id: int) -> Union[str, Response]:
+    workout = query.get_workout(workout_id)
+
+    if request.method == "POST":
+        db.session.delete(workout)
+        db.session.commit()
+        return redirect(url_for("workouts_view"))
+
+    return render_template(
+        "delete.html",
+        name=f"Workout on {workout.date}",
+        element="workout",
+        delete_target=url_for("workout_delete_view", workout_id=workout_id),
+        cancel_target=url_for("workout_view", workout_id=workout_id),
     )
 
 

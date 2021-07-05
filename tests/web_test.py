@@ -621,7 +621,7 @@ def test_routine_delete(client: Client) -> None:
     routines = tests.data.user().routines
     routine_name = routines[0].name
 
-    resp = client.post(f"/routine/{routine_name}", data={"delete": ""})
+    resp = client.post(f"/routine/{routine_name}/delete")
     assert resp.status_code == 302
 
     resp = client.get("/routines")
@@ -861,7 +861,7 @@ def test_workout_delete(client: Client) -> None:
 
     workout_id = tests.data.user().workouts[0].id
 
-    resp = client.post(f"/workout/{workout_id}", data={"delete": ""})
+    resp = client.post(f"/workout/{workout_id}/delete")
     assert resp.status_code == 302
 
     resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")

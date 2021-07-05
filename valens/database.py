@@ -30,7 +30,9 @@ def get_engine() -> Engine:
 
 
 def get_scoped_session() -> scoped_session:
-    return scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=get_engine()))
+    return scoped_session(
+        sessionmaker(autocommit=False, autoflush=False, bind=get_engine(), future=True)
+    )
 
 
 def get_session() -> Session:

@@ -13,24 +13,37 @@
         <title>{% block title %}{% endblock %} - Valens</title>
     </head>
     <body class="has-navbar-fixed-top">
-        <nav class="navbar is-fixed-top is-success">
-            <div class="navbar-brand">
-                {% if parent_page is defined %}
-                <a href="{{ url_for(parent_page) }}" class="navbar-item has-text-light has-text-weight-bold is-size-5">&#10094;</a>
-                {% else %}
-                <a class="navbar-item has-text-success has-text-weight-bold is-size-5">&#10094;</a>
-                {% endif %}
-                <div class="navbar-item has-text-light has-text-weight-bold is-size-5">
-                    {% block content_title %}{% endblock %}
-                </div>
-            </div>
-            <div class="navbar-menu">
-                <div class="navbar-end">
-                    {% if 'username' in session %}
-                    <div class="navbar-item">
-                        <span class="tag is-rounded has-text-success has-text-weight-bold is-family-monospace">{{ session['username'][0] }}</span>
-                    </div>
+        <nav class="navbar is-fixed-top is-success" role="navigation" aria-label="main navigation">
+            <div class="container">
+                <div class="navbar-brand">
+                    {% if parent_page is defined %}
+                    <a href="{{ url_for(parent_page) }}" class="navbar-item has-text-light has-text-weight-bold is-size-5">&#10094;</a>
+                    {% else %}
+                    <a class="navbar-item has-text-success has-text-weight-bold is-size-5">&#10094;</a>
                     {% endif %}
+                    <div class="navbar-item has-text-light has-text-weight-bold is-size-5">
+                        {% block content_title %}{% endblock %}
+                    </div>
+                </div>
+                <input type="checkbox" id="navbar-burger-toggle" class="navbar-burger-toggle is-hidden">
+                <label for="navbar-burger-toggle" class="navbar-burger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </label>
+                <div class="navbar-menu">
+                    <div class="navbar-end">
+                        {% for name, target in navbar_items %}
+                        <a class="navbar-item is-size-5 has-text-weight-bold" href="{{ target }}">
+                            {{ name }}
+                        </a>
+                        {% endfor %}
+                        {% if 'username' in session %}
+                        <div class="navbar-item">
+                            <span class="tag is-medium has-text-light has-background-grey has-text-weight-bold">{{ session['username'] }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </nav>

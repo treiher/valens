@@ -29,9 +29,32 @@
 $family-sans-serif: "Roboto", sans-serif;
 $green: #48C774;
 
-// Enable horizontal navbar on mobile
-// ISSUE: jgthms/bulma#1445
-$navbar-breakpoint: 0;
+// Enable hamburger menu without JavaScript
+
+// Fix hamburger button position
+.navbar-burger-toggle + .navbar-burger {
+    margin-top: -3.25em;
+}
+
+// Hamburger/X animation (1/3)
+.navbar-burger-toggle:checked + .navbar-burger span:nth-child(1) {
+    transform: translateY(5px) rotate(45deg);
+}
+
+// Hamburger/X animation (2/3)
+.navbar-burger-toggle:checked + .navbar-burger span:nth-child(2) {
+    opacity: 0;
+}
+
+// Hamburger/X animation (3/3)
+.navbar-burger-toggle:checked + .navbar-burger span:nth-child(3) {
+    transform: translateY(-5px) rotate(-45deg);
+}
+
+// Display menu when it's checked
+.navbar-burger-toggle:checked ~ .navbar-menu {
+    display: block;
+}
 
 @import "bulma/bulma.sass";
 

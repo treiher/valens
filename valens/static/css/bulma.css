@@ -19,6 +19,21 @@
   src: url("../../static/fonts/Roboto-Regular.woff") format("woff");
   font-weight: normal;
   font-style: normal; }
+.navbar-burger-toggle + .navbar-burger {
+  margin-top: -3.25em; }
+
+.navbar-burger-toggle:checked + .navbar-burger span:nth-child(1) {
+  transform: translateY(5px) rotate(45deg); }
+
+.navbar-burger-toggle:checked + .navbar-burger span:nth-child(2) {
+  opacity: 0; }
+
+.navbar-burger-toggle:checked + .navbar-burger span:nth-child(3) {
+  transform: translateY(-5px) rotate(-45deg); }
+
+.navbar-burger-toggle:checked ~ .navbar-menu {
+  display: block; }
+
 /*! bulma.io v0.9.2 | MIT License | github.com/jgthms/bulma */
 /* Bulma Utilities */
 .button, .input, .textarea, .select select, .file-cta,
@@ -3445,7 +3460,7 @@ button.dropdown-item {
       border-color: #0a0a0a; }
     .navbar.is-white .navbar-burger {
       color: #0a0a0a; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-white .navbar-start > .navbar-item,
       .navbar.is-white .navbar-start .navbar-link,
       .navbar.is-white .navbar-end > .navbar-item,
@@ -3490,7 +3505,7 @@ button.dropdown-item {
       border-color: white; }
     .navbar.is-black .navbar-burger {
       color: white; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-black .navbar-start > .navbar-item,
       .navbar.is-black .navbar-start .navbar-link,
       .navbar.is-black .navbar-end > .navbar-item,
@@ -3535,7 +3550,7 @@ button.dropdown-item {
       border-color: rgba(0, 0, 0, 0.7); }
     .navbar.is-light .navbar-burger {
       color: rgba(0, 0, 0, 0.7); }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-light .navbar-start > .navbar-item,
       .navbar.is-light .navbar-start .navbar-link,
       .navbar.is-light .navbar-end > .navbar-item,
@@ -3580,7 +3595,7 @@ button.dropdown-item {
       border-color: #fff; }
     .navbar.is-dark .navbar-burger {
       color: #fff; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-dark .navbar-start > .navbar-item,
       .navbar.is-dark .navbar-start .navbar-link,
       .navbar.is-dark .navbar-end > .navbar-item,
@@ -3625,7 +3640,7 @@ button.dropdown-item {
       border-color: #fff; }
     .navbar.is-primary .navbar-burger {
       color: #fff; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-primary .navbar-start > .navbar-item,
       .navbar.is-primary .navbar-start .navbar-link,
       .navbar.is-primary .navbar-end > .navbar-item,
@@ -3670,7 +3685,7 @@ button.dropdown-item {
       border-color: #fff; }
     .navbar.is-link .navbar-burger {
       color: #fff; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-link .navbar-start > .navbar-item,
       .navbar.is-link .navbar-start .navbar-link,
       .navbar.is-link .navbar-end > .navbar-item,
@@ -3715,7 +3730,7 @@ button.dropdown-item {
       border-color: #fff; }
     .navbar.is-info .navbar-burger {
       color: #fff; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-info .navbar-start > .navbar-item,
       .navbar.is-info .navbar-start .navbar-link,
       .navbar.is-info .navbar-end > .navbar-item,
@@ -3760,7 +3775,7 @@ button.dropdown-item {
       border-color: #fff; }
     .navbar.is-success .navbar-burger {
       color: #fff; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-success .navbar-start > .navbar-item,
       .navbar.is-success .navbar-start .navbar-link,
       .navbar.is-success .navbar-end > .navbar-item,
@@ -3805,7 +3820,7 @@ button.dropdown-item {
       border-color: rgba(0, 0, 0, 0.7); }
     .navbar.is-warning .navbar-burger {
       color: rgba(0, 0, 0, 0.7); }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-warning .navbar-start > .navbar-item,
       .navbar.is-warning .navbar-start .navbar-link,
       .navbar.is-warning .navbar-end > .navbar-item,
@@ -3850,7 +3865,7 @@ button.dropdown-item {
       border-color: #fff; }
     .navbar.is-danger .navbar-burger {
       color: #fff; }
-    @media screen and (min-width: 0) {
+    @media screen and (min-width: 1024px) {
       .navbar.is-danger .navbar-start > .navbar-item,
       .navbar.is-danger .navbar-start .navbar-link,
       .navbar.is-danger .navbar-end > .navbar-item,
@@ -4032,7 +4047,7 @@ a.navbar-item,
   height: 2px;
   margin: 0.5rem 0; }
 
-@media screen and (max-width: -1px) {
+@media screen and (max-width: 1023px) {
   .navbar > .container {
     display: block; }
 
@@ -4073,7 +4088,7 @@ a.navbar-item,
   html.has-navbar-fixed-bottom-touch,
   body.has-navbar-fixed-bottom-touch {
     padding-bottom: 3.25rem; } }
-@media screen and (min-width: 0) {
+@media screen and (min-width: 1024px) {
   .navbar,
   .navbar-menu,
   .navbar-start,

@@ -518,6 +518,27 @@ def test_exercise(client: Client) -> None:
             assert str(workout_set.workout.date) in resp.data.decode("utf-8")
 
 
+def test_exercise_delete(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    exercises = tests.data.user().exercises
+    exercise_name = exercises[0].name
+
+    resp = client.post(f"/exercise/{exercise_name}/delete")
+    assert resp.status_code == 302
+
+    resp = client.get("/exercises")
+    assert resp.status_code == 200
+    for exercise in exercises:
+        if exercise.name == exercise_name:
+            assert exercise.name not in resp.data.decode("utf-8")
+        else:
+            assert exercise.name in resp.data.decode("utf-8")
+
+
 def test_exercise_rename(client: Client) -> None:
     tests.utils.init_db_data()
 

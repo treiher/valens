@@ -414,11 +414,29 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
 
     return render_template(
         "exercise.html",
+        navbar_items=[("Delete", url_for("exercise_delete_view", name=name))],
         exercise=name,
         current=interval,
         intervals=intervals(interval),
         workouts=workouts_list,
         today=request.form.get("date", date.today()),
+    )
+
+
+@app.route("/exercise/<name>/delete", methods=["GET", "POST"])
+def exercise_delete_view(name: str) -> Union[str, Response]:
+    if request.method == "POST":
+        exercise = query.get_exercise(name)
+        db.session.delete(exercise)
+        db.session.commit()
+        return redirect(url_for("exercises_view"))
+
+    return render_template(
+        "delete.html",
+        name=name,
+        element="exercise",
+        delete_target=url_for("exercise_delete_view", name=name),
+        cancel_target=url_for("exercise_view", name=name),
     )
 
 

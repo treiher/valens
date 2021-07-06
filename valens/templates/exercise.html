@@ -38,12 +38,6 @@
         </tbody>
     </table>
 </div>
-<div class="container has-text-centered mt-6">
-    <form action="{{ exercise }}?first={{ current.first }}&last={{ current.last }}" method="post">
-        <input class="input" style="width: 40%" type="text" name="new_name" value="{{ exercise }}" required="required" />
-        <input class="button is-success" style="width: 25%" type="submit" value="Rename" />
-    </form>
-</div>
 {% endblock %}
 
 {% set parent_page = 'exercises_view' %}

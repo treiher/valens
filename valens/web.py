@@ -362,22 +362,11 @@ def exercises_view() -> Union[str, Response]:
 
 
 @app.route("/exercise/<name>", methods=["GET", "POST"])
-def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-many-locals
+def exercise_view(name: str) -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
     interval = parse_interval_args()
-
-    if request.method == "POST":
-        new_name = request.form["new_name"].strip()
-        if new_name:
-            exercise = query.get_exercise(name)
-            exercise.name = new_name
-            db.session.commit()
-            return redirect(
-                url_for("exercise_view", name=new_name, first=interval.first, last=interval.last),
-                Response=Response,
-            )
 
     df = storage.read_sets(session["user_id"])
     df = df[(df["date"] >= interval.first) & (df["date"] <= interval.last)]
@@ -408,12 +397,35 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
 
     return render_template(
         "exercise.html",
-        navbar_items=[("Delete", url_for("exercise_delete_view", name=name))],
+        navbar_items=[
+            ("Rename", url_for("exercise_rename_view", name=name)),
+            ("Delete", url_for("exercise_delete_view", name=name)),
+        ],
         exercise=name,
         current=interval,
         intervals=intervals(interval),
         workouts=workouts_list,
         today=request.form.get("date", date.today()),
+    )
+
+
+@app.route("/exercise/<name>/rename", methods=["GET", "POST"])
+def exercise_rename_view(name: str) -> Union[str, Response]:
+    exercise = query.get_exercise(name)
+
+    if request.method == "POST":
+        new_name = request.form["new_name"].strip()
+        if new_name:
+            exercise.name = new_name
+            db.session.commit()
+            return redirect(url_for("exercise_view", name=new_name))
+
+    return render_template(
+        "new_name.html",
+        name=name,
+        element="exercise",
+        target=url_for("exercise_rename_view", name=name),
+        button_text="Rename",
     )
 
 
@@ -460,7 +472,7 @@ def routines_view() -> Union[str, Response]:
 
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
-def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-many-branches
+def routine_view(name: str) -> Union[str, Response]:
     name = name.strip()
 
     if not is_logged_in():
@@ -468,34 +480,6 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
 
     if request.method == "POST":  # pylint: disable = too-many-nested-blocks
         routine = query.get_or_create_routine(name)
-
-        if "rename" in request.form:
-            new_name = request.form["rename"].strip()
-            if new_name:
-                routine.name = new_name
-                db.session.commit()
-                return redirect(url_for("routine_view", name=new_name))
-
-        if "copy" in request.form:
-            new_name = request.form["copy"].strip()
-            if new_name and new_name != routine.name:
-                db.session.add(
-                    Routine(
-                        user_id=session["user_id"],
-                        name=new_name,
-                        notes=routine.notes,
-                        exercises=[
-                            RoutineExercise(
-                                position=routine_exercise.position,
-                                exercise_id=routine_exercise.exercise_id,
-                                sets=routine_exercise.sets,
-                            )
-                            for routine_exercise in routine.exercises
-                        ],
-                    )
-                )
-                db.session.commit()
-                return redirect(url_for("routine_view", name=new_name))
 
         if "exercise" in request.form:
             offset = 1
@@ -547,7 +531,11 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
 
     return render_template(
         "routine.html",
-        navbar_items=[("Delete", url_for("routine_delete_view", name=name))],
+        navbar_items=[
+            ("Rename", url_for("routine_rename_view", name=name)),
+            ("Copy", url_for("routine_copy_view", name=name)),
+            ("Delete", url_for("routine_delete_view", name=name)),
+        ],
         name=name,
         routine=[
             (e.position, e.exercise.name, e.sets)
@@ -562,6 +550,60 @@ def routine_view(name: str) -> Union[str, Response]:  # pylint: disable = too-ma
             for w in sorted(workouts, key=lambda x: (x.date, x.id), reverse=True)
             if w.routine_id == routine.id
         ],
+    )
+
+
+@app.route("/routine/<name>/rename", methods=["GET", "POST"])
+def routine_rename_view(name: str) -> Union[str, Response]:
+    routine = query.get_routine(name)
+
+    if request.method == "POST":
+        new_name = request.form["new_name"].strip()
+        if new_name:
+            routine.name = new_name
+            db.session.commit()
+            return redirect(url_for("routine_view", name=new_name))
+
+    return render_template(
+        "new_name.html",
+        name=name,
+        element="routine",
+        target=url_for("routine_rename_view", name=name),
+        button_text="Rename",
+    )
+
+
+@app.route("/routine/<name>/copy", methods=["GET", "POST"])
+def routine_copy_view(name: str) -> Union[str, Response]:
+    routine = query.get_routine(name)
+
+    if request.method == "POST":
+        new_name = request.form["new_name"].strip()
+        if new_name and new_name != routine.name:
+            db.session.add(
+                Routine(
+                    user_id=session["user_id"],
+                    name=new_name,
+                    notes=routine.notes,
+                    exercises=[
+                        RoutineExercise(
+                            position=routine_exercise.position,
+                            exercise_id=routine_exercise.exercise_id,
+                            sets=routine_exercise.sets,
+                        )
+                        for routine_exercise in routine.exercises
+                    ],
+                )
+            )
+            db.session.commit()
+            return redirect(url_for("routine_view", name=new_name))
+
+    return render_template(
+        "new_name.html",
+        name=name,
+        element="routine",
+        target=url_for("routine_copy_view", name=name),
+        button_text="Copy",
     )
 
 

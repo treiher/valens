@@ -574,12 +574,17 @@ def test_exercise_rename(client: Client) -> None:
 
     exercise_name = tests.data.user().exercises[0].name
 
-    resp = client.post(f"/exercise/{exercise_name}", data={"new_name": ""})
+    resp = client.get(f"/exercise/{exercise_name}/rename")
+    assert resp.status_code == 200
+
+    resp = client.post(f"/exercise/{exercise_name}/rename", data={"new_name": ""})
     assert resp.status_code == 200
     assert exercise_name in resp.data.decode("utf-8")
 
     resp = client.post(
-        f"/exercise/{exercise_name}", data={"new_name": "New Exercise"}, follow_redirects=True
+        f"/exercise/{exercise_name}/rename",
+        data={"new_name": "New Exercise"},
+        follow_redirects=True,
     )
     assert resp.status_code == 200
     assert exercise_name not in resp.data.decode("utf-8")
@@ -668,12 +673,15 @@ def test_routine_rename(client: Client) -> None:
 
     routine_name = tests.data.user().routines[0].name
 
-    resp = client.post(f"/routine/{routine_name}", data={"rename": ""})
+    resp = client.get(f"/routine/{routine_name}/rename")
+    assert resp.status_code == 200
+
+    resp = client.post(f"/routine/{routine_name}/rename", data={"new_name": ""})
     assert resp.status_code == 200
     assert routine_name in resp.data.decode("utf-8")
 
     resp = client.post(
-        f"/routine/{routine_name}", data={"rename": "New Routine"}, follow_redirects=True
+        f"/routine/{routine_name}/rename", data={"new_name": "New Routine"}, follow_redirects=True
     )
     assert resp.status_code == 200
     assert routine_name not in resp.data.decode("utf-8")
@@ -693,12 +701,15 @@ def test_routine_copy(client: Client) -> None:
 
     routine_name = tests.data.user().routines[0].name
 
-    resp = client.post(f"/routine/{routine_name}", data={"copy": ""})
+    resp = client.get(f"/routine/{routine_name}/copy")
+    assert resp.status_code == 200
+
+    resp = client.post(f"/routine/{routine_name}/copy", data={"new_name": ""})
     assert resp.status_code == 200
     assert routine_name in resp.data.decode("utf-8")
 
     resp = client.post(
-        f"/routine/{routine_name}", data={"copy": "Copy of Routine"}, follow_redirects=True
+        f"/routine/{routine_name}/copy", data={"new_name": "Copy of Routine"}, follow_redirects=True
     )
     assert resp.status_code == 200
     assert routine_name not in resp.data.decode("utf-8")

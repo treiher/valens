@@ -229,8 +229,6 @@ def bodyfat_view() -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
-    notification = ""
-
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         chest = request.form["chest"]
@@ -294,7 +292,6 @@ def bodyfat_view() -> Union[str, Response]:
         additional_sites_7=["chest", "abdominal", "subscapular", "midaxillary"]
         if session["sex"] == Sex.FEMALE
         else ["tricep", "subscapular", "suprailiac", "midaxillary"],
-        notification=notification,
     )
 
 
@@ -303,8 +300,6 @@ def period_view() -> Union[str, Response]:
     if not is_logged_in():
         return redirect(url_for("login_view"))
 
-    notification = ""
-
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         try:
@@ -312,7 +307,7 @@ def period_view() -> Union[str, Response]:
             if not 0 <= intensity <= 4:
                 raise ValueError()
         except ValueError:
-            notification = f"Invalid intensity value {request.form['intensity']}"
+            flash(f"Invalid intensity value {request.form['intensity']}")
         else:
             db.session.execute(
                 delete(Period)
@@ -347,7 +342,6 @@ def period_view() -> Union[str, Response]:
         intervals=intervals(interval),
         today=request.form.get("date", date.today()),
         period=period_list,
-        notification=notification,
     )
 
 
@@ -619,7 +613,6 @@ def workouts_view() -> Union[str, Response]:
             Response=Response,
         )
 
-    notification = ""
     interval = parse_interval_args()
     df = storage.read_sets(session["user_id"])
     df = df[(df["date"] >= interval.first) & (df["date"] <= interval.last)]
@@ -663,7 +656,6 @@ def workouts_view() -> Union[str, Response]:
         today=request.form.get("date", date.today()),
         routines=[r.name for r in sorted(routines, key=lambda x: x.id, reverse=True)],
         workouts=sorted(workouts_list, key=lambda x: (x[1], x[0]), reverse=True),
-        notification=notification,
     )
 
 
@@ -673,8 +665,6 @@ def workout_view(workout_id: int) -> Union[str, Response]:
 
     if not is_logged_in():
         return redirect(url_for("login_view"))
-
-    notification = ""
 
     if request.method == "POST":
         workout = query.get_workout(workout_id)
@@ -698,7 +688,7 @@ def workout_view(workout_id: int) -> Union[str, Response]:
             db.session.commit()
         except ValueError as e:
             db.session.rollback()
-            notification = str(e)
+            flash(str(e))
 
     workout = query.get_workout(workout_id)
     df_s = storage.read_sets(session["user_id"])
@@ -726,7 +716,6 @@ def workout_view(workout_id: int) -> Union[str, Response]:
         date=workout.date,
         workout=workout_data,
         notes=workout.notes if workout.notes else "",
-        notification=notification,
     )
 
 

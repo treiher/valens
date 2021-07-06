@@ -48,9 +48,15 @@
             </div>
         </nav>
         <div class="container is-max-desktop py-4">
-            {% if notification %}
-            <div class="notification">{{ notification }}</div>
-            {% endif %}
+            {% with messages = get_flashed_messages() %}
+            {% for message in messages %}
+            <div class="message is-danger mx-2">
+                <div class="message-body">
+                    {{ message }}
+                </div>
+            </div>
+            {% endfor %}
+            {% endwith %}
             {% block content %}{% endblock %}
         </div>
     </body>

@@ -7,7 +7,7 @@ from typing import Sequence, Tuple, Union
 import flask
 import numpy as np
 import pandas as pd
-from flask import make_response, redirect, render_template, request, session, url_for
+from flask import flash, make_response, redirect, render_template, request, session, url_for
 from sqlalchemy import delete, select
 from werkzeug.wrappers import Response
 
@@ -419,8 +419,13 @@ def exercise_view(name: str) -> Union[str, Response]:  # pylint: disable=too-man
 
 @app.route("/exercise/<name>/delete", methods=["GET", "POST"])
 def exercise_delete_view(name: str) -> Union[str, Response]:
+    exercise = query.get_exercise(name)
+
+    if exercise.sets or exercise.routine_exercises:
+        flash("Only exercises that are not used in any routine or workout can be deleted.")
+        return redirect(url_for("exercise_view", name=name), Response=Response)
+
     if request.method == "POST":
-        exercise = query.get_exercise(name)
         db.session.delete(exercise)
         db.session.commit()
         return redirect(url_for("exercises_view"))

@@ -1,3 +1,5 @@
+# pylint: disable = too-many-lines
+
 import datetime
 import re
 from pathlib import Path
@@ -30,7 +32,7 @@ def assert_resources_available(client: Client, data: bytes) -> None:
     for r in re.findall(r' (?:href|src)="([^"]*)"', data.decode("utf-8")):
         if "logout" in r:
             continue
-        assert client.get(r).status_code == 200, f"{r} not found"
+        assert client.get(r, follow_redirects=True).status_code == 200, f"{r} not found"
 
 
 def login(client: Client, user_id: int = 1, path: str = "") -> TestResponse:
@@ -93,7 +95,7 @@ def test_availability_wihout_login(client: Client, path: str, route: str) -> Non
         "/bodyfat?first=2002-01-01&last=2002-12-31",
         "/period",
         "/period?first=2002-01-01&last=2002-12-31",
-        "/exercise/E1",
+        "/exercise/Exercise 1",
         "/exercises",
         "/image/bodyweight",
         "/image/bodyfat",
@@ -525,7 +527,11 @@ def test_exercise_delete(client: Client) -> None:
     assert resp.status_code == 302
 
     exercises = tests.data.user().exercises
-    exercise_name = exercises[0].name
+    exercise_name = exercises[-1].name
+    assert exercise_name == "Unused Exercise"
+
+    resp = client.get(f"/exercise/{exercise_name}/delete")
+    assert resp.status_code == 200
 
     resp = client.post(f"/exercise/{exercise_name}/delete")
     assert resp.status_code == 302
@@ -537,6 +543,27 @@ def test_exercise_delete(client: Client) -> None:
             assert exercise.name not in resp.data.decode("utf-8")
         else:
             assert exercise.name in resp.data.decode("utf-8")
+
+
+def test_exercise_delete_error(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    exercises = tests.data.user().exercises
+    exercise_name = exercises[0].name
+
+    resp = client.get(f"/exercise/{exercise_name}/delete")
+    assert resp.status_code == 302
+
+    resp = client.post(f"/exercise/{exercise_name}/delete")
+    assert resp.status_code == 302
+
+    resp = client.get("/exercises")
+    assert resp.status_code == 200
+    for exercise in exercises:
+        assert exercise.name in resp.data.decode("utf-8")
 
 
 def test_exercise_rename(client: Client) -> None:

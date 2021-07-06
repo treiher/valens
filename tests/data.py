@@ -28,6 +28,7 @@ def users() -> list[User]:
     exercise_2 = Exercise(id=2, user_id=2, name="Exercise 2")
     exercise_3 = Exercise(id=3, user_id=1, name="Exercise 2")
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 3")
+    exercise_5 = Exercise(id=5, user_id=1, name="Unused Exercise")
 
     result = [
         User(
@@ -71,6 +72,7 @@ def users() -> list[User]:
             exercises=[
                 exercise_1,
                 exercise_3,
+                exercise_5,
             ],
             routines=[
                 Routine(

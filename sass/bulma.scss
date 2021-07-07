@@ -56,6 +56,15 @@ $green: #48C774;
     display: block;
 }
 
+// Enable transparent navbar
+
+.navbar {
+    &.is-transparent {
+        background-color: transparent;
+        background-image: none;
+    }
+}
+
 @import "bulma/bulma.sass";
 
 $fieldset-background-color: $scheme-main !default;

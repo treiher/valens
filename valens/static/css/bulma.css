@@ -34,6 +34,10 @@
 .navbar-burger-toggle:checked ~ .navbar-menu {
   display: block; }
 
+.navbar.is-transparent {
+  background-color: transparent;
+  background-image: none; }
+
 /*! bulma.io v0.9.2 | MIT License | github.com/jgthms/bulma */
 /* Bulma Utilities */
 .button, .input, .textarea, .select select, .file-cta,

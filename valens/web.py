@@ -716,26 +716,18 @@ def workout_view(workout_id: int) -> Union[str, Response]:
     if request.method == "POST":
         workout = query.get_workout(workout_id)
 
-        try:
-            for workout_set, (name, value) in zip_longest(
-                sorted(workout.sets, key=lambda x: x.position),
-                [(name, value) for name, values in request.form.lists() for value in values],
-            ):
-                tag, exercise_name = (
-                    name.split(":") if name.startswith("exercise:") else (name, None)
-                )
-                if tag == "exercise":
-                    assert workout_set.exercise.name == exercise_name
-                    for attr, val in utils.parse_set(value).items():
-                        setattr(workout_set, attr, val)
-                else:
-                    assert tag == "notes"
-                    workout.notes = value
+        for workout_set, (reps, time, weight, rpe) in zip_longest(
+            sorted(workout.sets, key=lambda x: x.position),
+            [values for input_name, values in request.form.lists() if input_name.startswith("set")],
+        ):
+            workout_set.reps = int(reps) if reps else None
+            workout_set.time = int(time) if time else None
+            workout_set.weight = float(weight) if weight else None
+            workout_set.rpe = float(rpe) if rpe else None
 
-            db.session.commit()
-        except ValueError as e:
-            db.session.rollback()
-            flash(str(e))
+        workout.notes = request.form.get("notes", "")
+
+        db.session.commit()
 
     workout = query.get_workout(workout_id)
     df_s = storage.read_sets(session["user_id"])
@@ -743,16 +735,16 @@ def workout_view(workout_id: int) -> Union[str, Response]:
     workout_data = []
     for ex, sets in df_cur:
         current = [
-            utils.format_set(set_tuple[1:])
+            set_tuple[1:]
             for set_tuple in sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
         ]
         previous_date = df_s[(df_s["date"] < workout.date) & (df_s["exercise"] == ex)]["date"].max()
         previous_sets = df_s.loc[(df_s["date"] == previous_date) & (df_s["exercise"] == ex)]
         previous = [
-            utils.format_set(set_tuple[1:])
+            set_tuple[1:]
             for set_tuple in previous_sets.loc[:, ["reps", "time", "weight", "rpe"]].itertuples()
         ]
-        previous = previous + [""] * (len(current) - len(previous))
+        previous = previous + [(np.nan, np.nan, np.nan, np.nan)] * (len(current) - len(previous))
         workout_data.append((ex, zip(current, previous)))
 
     return render_template(

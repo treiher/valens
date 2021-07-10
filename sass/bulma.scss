@@ -65,6 +65,17 @@ $green: #48C774;
     }
 }
 
+// Hide spinners for number inputs
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    display: none;
+}
+
+input[type=number] {
+    -moz-appearance:textfield;
+}
+
 @import "bulma/bulma.sass";
 
 $fieldset-background-color: $scheme-main !default;

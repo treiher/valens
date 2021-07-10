@@ -1,5 +1,3 @@
-# pylint: disable = too-many-lines
-
 import datetime
 import re
 from pathlib import Path
@@ -12,7 +10,7 @@ from werkzeug.test import Client, TestResponse
 
 import tests.data
 import tests.utils
-from valens import app, database as db, utils, web
+from valens import app, database as db, web
 from valens.models import Sex, User
 
 
@@ -924,30 +922,15 @@ def test_workout_change(client: Client) -> None:
         f"/workout/{workout.id}",
         data=MultiDict(
             [
-                *[
-                    (
-                        f"exercise:{workout_set.exercise.name}",
-                        "",
-                    )
-                    for workout_set in workout.sets
-                ],
+                *[(f"set{i}", "") for i, workout_set in enumerate(workout.sets) for _ in range(4)],
                 ("notes", ""),
             ]
         ),
     )
     assert resp.status_code == 200
     for workout_set in workout.sets:
-        assert (
-            utils.format_set(
-                (
-                    workout_set.reps,
-                    workout_set.time,
-                    workout_set.weight,
-                    workout_set.rpe,
-                )
-            )
-            not in resp.data.decode("utf-8")
-        )
+        for value in [workout_set.reps, workout_set.time, workout_set.weight, workout_set.rpe]:
+            assert f' value="{value}" ' not in resp.data.decode("utf-8")
     assert workout.notes not in resp.data.decode("utf-8")
 
     resp = client.post(
@@ -955,18 +938,14 @@ def test_workout_change(client: Client) -> None:
         data=MultiDict(
             [
                 *[
-                    (
-                        f"exercise:{workout_set.exercise.name}",
-                        utils.format_set(
-                            (
-                                workout_set.reps,
-                                workout_set.time,
-                                workout_set.weight,
-                                workout_set.rpe,
-                            )
-                        ),
-                    )
-                    for workout_set in workout.sets
+                    (f"set{i}", str(value) if value else "")
+                    for i, workout_set in enumerate(workout.sets)
+                    for value in [
+                        workout_set.reps,
+                        workout_set.time,
+                        workout_set.weight,
+                        workout_set.rpe,
+                    ]
                 ],
                 ("notes", workout.notes),
             ]
@@ -974,46 +953,9 @@ def test_workout_change(client: Client) -> None:
     )
     assert resp.status_code == 200
     for workout_set in workout.sets:
-        assert (
-            utils.format_set(
-                (
-                    workout_set.reps,
-                    workout_set.time,
-                    workout_set.weight,
-                    workout_set.rpe,
-                )
-            )
-            in resp.data.decode("utf-8")
-        )
+        for value in [workout_set.reps, workout_set.time, workout_set.weight, workout_set.rpe]:
+            assert f' value="{str(value) if value else ""}" ' in resp.data.decode("utf-8")
     assert workout.notes in resp.data.decode("utf-8")
-
-
-def test_workout_change_error(client: Client) -> None:
-    tests.utils.init_db_data()
-
-    resp = login(client)
-    assert resp.status_code == 302
-
-    workouts = tests.data.user().workouts
-    workout = workouts[0]
-
-    resp = client.post(
-        f"/workout/{workout.id}",
-        data=MultiDict(
-            [
-                *[
-                    (
-                        f"exercise:{workout_set.exercise.name}",
-                        "invalid",
-                    )
-                    for workout_set in workout.sets
-                ],
-            ]
-        ),
-    )
-    assert resp.status_code == 200
-    print(resp.data)
-    assert "unexpected format for set" in resp.data.decode("utf-8")
 
 
 def test_days() -> None:

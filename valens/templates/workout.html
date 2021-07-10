@@ -9,14 +9,37 @@
     <form action="{{ url_for('workout_view', workout_id=workout_id) }}" method="post">
         {% for exercise, sets in workout %}
         <div class="field">
-            <label class="label"><a href="{{ url_for('exercise_view', name=exercise) }}">{{ exercise }}</a></label>
-            <div class="field-body is-grouped">
-                {% for current, previous in sets %}
-                <div class="field">
-                    <input class="input" type="text" name="exercise:{{ exercise }}" value="{{ current }}" placeholder="{{ previous }}" />
+            <label class="label"><a href="{{ url_for('exercise_view', name=exercise) }}" tabindex="-1">{{ exercise }}</a></label>
+            {% set exercise_loop = loop %}
+            {% for (reps, time, weight, rpe), (prev_reps, prev_time, prev_weight, prev_rpe) in sets %}
+            {% set input_name = "set" ~ exercise_loop.index ~ "." ~ loop.index %}
+            <div class="field has-addons">
+                <div class="control has-icons-right has-text-right">
+                    <input class="input has-text-right" type="number" name="{{ input_name }}" value="{{ reps | int("") }}" placeholder="{{ prev_reps | int("") }}" min=0 max=999 step="1" size="2" />
+                    <span class="icon is-small is-right">
+                        &#10005;
+                    </span>
                 </div>
-                {% endfor %}
+                <div class="control has-icons-right has-text-right">
+                    <input class="input has-text-right" type="number" name="{{ input_name }}" value="{{ time | int("") }}" placeholder="{{ prev_time | int("") }}" min=0 max=999 step="1" size="2" />
+                    <span class="icon is-small is-right">
+                        s
+                    </span>
+                </div>
+                <div class="control has-icons-right has-text-right">
+                    <input class="input has-text-right" type="number" name="{{ input_name }}" value="{{ weight | float | replace("nan", "") }}" placeholder="{{ prev_weight | float | replace("nan", "") }}" min=0 max=999 step="0.1" size="3" />
+                    <span class="icon is-small is-right">
+                        kg
+                    </span>
+                </div>
+                <div class="control has-icons-left has-text-right">
+                    <span class="icon is-small is-left">
+                        @
+                    </span>
+                    <input class="input has-text-right" type="number" name="{{ input_name }}" value="{{ rpe | float | replace("nan", "") }}" placeholder="{{ prev_rpe | float | replace("nan", "") }}" min=0 max=10 step="0.5" size="2" />
+                </div>
             </div>
+            {% endfor %}
         </div>
         {% endfor %}
         <div class="field">

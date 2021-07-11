@@ -10,6 +10,7 @@
         <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32x32.png') }}">
         <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
         <link rel="stylesheet" href="{{ url_for('static', filename='css/bulma.css') }}">
+        {% block head %}{% endblock %}
         <title>{% block title %}{% endblock %} - Valens</title>
     </head>
     <body class="has-navbar-fixed-top has-navbar-fixed-bottom">

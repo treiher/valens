@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block head %}
+        <script src="{{ url_for('static', filename='js/workout.js') }}"></script>
+{% endblock %}
+
 {% block title %}Workout on {{ date }}{% endblock %}
 
 {% block content_title %}Workout&nbsp;{% if routine %}<a href="{{ url_for('routine_view', name=routine.name) }}">{{ routine.name }}</a>&nbsp;{% endif %}on&nbsp;<span style="white-space: nowrap;">{{ date }}</span>{% endblock %}
@@ -47,11 +51,70 @@
             <textarea class="textarea" name="notes">{{ notes }}</textarea>
         </div>
         <div class="navbar is-fixed-bottom is-transparent">
-            <div class="navbar-end container is-max-desktop has-text-right p-5">
-                <button class="button is-success">Save</button>
+            <div class="container is-flex-direction-column">
+                <div class="columns is-mobile px-4">
+                    <div class="column">
+                        <button class="button" id="modal-open" type="button">
+                            <span>&#9201;</span>
+                        </button>
+                    </div>
+                    <div class="column has-text-right">
+                        <button class="button is-success">Save</button>
+                    </div>
+                </div>
             </div>
         </div>
     </form>
+</div>
+<div id="modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-content">
+        <div class="box mx-2">
+            <div class="block">
+                <label class="subtitle">Stopwatch</label>
+                <div class="section has-text-centered">
+                    <p id="stopwatch-time" class="title is-size-1"></p>
+                    <button id="stopwatch-reset" class="button mt-5" type="button">&#8634;</button>
+                </div>
+            </div>
+            <div class="block">
+                <label class="subtitle">Metronome</label>
+                <div class="section">
+                    <div class="field is-grouped is-grouped-centered">
+                        <div class="field mx-4">
+                            <label class="label">Interval</label>
+                            <div class="select">
+                                <select id="metronome-interval">
+                                    {% for i in range(1, 61) %}
+                                    <option>{{ i }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field mx-4">
+                            <label class="label">Stress</label>
+                            <div class="control">
+                                <div class="select">
+                                    <select id="metronome-stress">
+                                        {% for i in range(1, 13) %}
+                                        <option>{{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="field has-text-centered mx-4">
+                            <label class="label">&nbsp;</label>
+                            <div class="control">
+                                <button id="metronome-play" class="button" type="button"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <button id="modal-close" class="modal-close is-large" aria-label="close"></button>
 </div>
 {% endblock %}
 

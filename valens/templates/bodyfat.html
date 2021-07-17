@@ -47,15 +47,32 @@
         <thead>
             <tr>
                 <th>Date</th>
-                <th><abbr title="Body fat percentage using Jackson-Pollock 3-site skinfold formula">Body fat (3)</abbr></th>
-                <th><abbr title="Body fat percentage using Jackson-Pollock 7-site skinfold formula">Body fat (7)</abbr></th>
-                <th><abbr title="Diagonal fold, halfway between armpit and nipple">Chest</abbr></th>
-                <th><abbr title="Vertical fold, 2 cm to the right of navel">Abdominal</abbr></th>
-                <th><abbr title="Vertical fold, halfway between hipbone and kneecap">Tigh</abbr></th>
-                <th><abbr title="Vertical fold, halfway between shoulder and elbow">Tricep</abbr></th>
-                <th><abbr title="Diagonal fold, directly below shoulder blade">Subscapular</abbr></th>
-                <th><abbr title="Diagonal fold, directly above hip bone">Suprailiac</abbr></th>
-                <th><abbr title="Vertical fold, directly below armpit">Midaxillary</abbr></th>
+                {% for name, description in [
+                    ("Body fat (3)", "Body fat percentage using Jackson-Pollock 3-site skinfold formula"),
+                    ("Body fat (7)", "Body fat percentage using Jackson-Pollock 7-site skinfold formula"),
+                    ("Chest", "Diagonal fold, halfway between armpit and nipple"),
+                    ("Abdominal", "Vertical fold, 2 cm to the right of navel"),
+                    ("Tigh", "Vertical fold, halfway between hipbone and kneecap"),
+                    ("Tricep", "Vertical fold, halfway between shoulder and elbow"),
+                    ("Subscapular", "Diagonal fold, directly below shoulder blade"),
+                    ("Suprailiac", "Diagonal fold, directly above hip bone"),
+                    ("Midaxillary", "Vertical fold, directly below armpit"),
+                ] %}
+                <th>
+                    <div class="dropdown is-hoverable">
+                        <div class="dropdown-trigger">
+                            {{ name }}
+                        </div>
+                        <div class="dropdown-menu" role="menu">
+                            <div class="dropdown-content">
+                                <div class="dropdown-item">
+                                    {{ description }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </th>
+                {% endfor %}
             </tr>
         </thead>
         <tbody>

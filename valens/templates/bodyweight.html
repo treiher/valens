@@ -28,9 +28,26 @@
         <thead>
             <tr>
                 <th>Date</th>
-                <th><abbr title="Weight in kg">Weight</abbr></th>
-                <th><abbr title="Central moving average of 9 values">Avg. Weight</abbr></th>
-                <th><abbr title="Interpolated average weight change within the last 7 days in percent">Avg. Change</abbr></th>
+                {% for name, description in [
+                    ("Weight", "Weight in kg"),
+                    ("Avg. Weight", "Central moving average of 9 values"),
+                    ("Avg. Change", "Interpolated average weight change within the last 7 days in percent"),
+                ] %}
+                <th>
+                    <div class="dropdown is-hoverable">
+                        <div class="dropdown-trigger">
+                            {{ name }}
+                        </div>
+                        <div class="dropdown-menu" role="menu">
+                            <div class="dropdown-content">
+                                <div class="dropdown-item">
+                                    {{ description }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </th>
+                {% endfor %}
             </tr>
         </thead>
         <tbody>

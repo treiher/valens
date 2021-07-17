@@ -34,13 +34,30 @@
         <thead>
             <tr>
                 <th>Date</th>
-                <th><abbr title="Average repetitions">Reps</abbr></th>
-                <th><abbr title="Average time">Time</abbr></th>
-                <th><abbr title="Average weight">Weight</abbr></th>
-                <th><abbr title="Average rating of perceived exertion">RPE</abbr></th>
-                <th><abbr title="Average reps + reps in reserve">Reps+RIR</abbr></th>
-                <th><abbr title="Total of reps">Volume</abbr></th>
-                <th><abbr title="Total time under tension">TUT</abbr></th>
+                {% for name, description in [
+                    ("Reps", "Average repetitions"),
+                    ("Time", "Average time"),
+                    ("Weight", "Average weight"),
+                    ("RPE", "Average rating of perceived exertion"),
+                    ("Reps+RIR", "Average reps + reps in reserve"),
+                    ("Volume", "Total of reps"),
+                    ("TUT", "Total time under tension"),
+                ] %}
+                <th>
+                    <div class="dropdown is-hoverable">
+                        <div class="dropdown-trigger">
+                            {{ name }}
+                        </div>
+                        <div class="dropdown-menu" role="menu">
+                            <div class="dropdown-content">
+                                <div class="dropdown-item">
+                                    {{ description }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </th>
+                {% endfor %}
             </tr>
         </thead>
         <tbody>

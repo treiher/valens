@@ -666,7 +666,7 @@ def workouts_view() -> Union[str, Response]:
     df["reps+rir"] = df["reps"] + df["rir"]
     df = df.drop("rir", 1)
     df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
-    df_sum = df.groupby(["workout_id"]).sum()
+    df_sum = df.groupby(["workout_id", "date"]).sum()
     wo = df.groupby(["workout_id", "date"]).mean()
     wo["tut"] = df_sum["tut"]
     wo["volume"] = df_sum["reps"]

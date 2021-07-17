@@ -32,9 +32,9 @@ class Interval:
     last: date
 
 
-def login_required(function: Callable) -> Callable:
+def login_required(function: Callable) -> Callable:  # type: ignore[type-arg]
     @wraps(function)
-    def decorated_function(*args: Any, **kwargs: Any) -> Union[str, Response]:
+    def decorated_function(*args: Any, **kwargs: Any) -> Union[str, Response]:  # type: ignore[misc]
         if "username" not in session or "user_id" not in session or "sex" not in session:
             return redirect(url_for("login_view", next=request.path))
         return function(*args, **kwargs)
@@ -207,7 +207,7 @@ def bodyweight_view() -> Union[str, Response]:
 
         df = df[interval.first : interval.last]  # type: ignore
 
-    bodyweight_list: deque = deque()
+    bodyweight_list: deque[tuple[date, str, str, str]] = deque()
     for bw_date, weight, avg_weight, avg_weight_change in df.itertuples():
         bodyweight_list.appendleft(
             (
@@ -326,7 +326,7 @@ def period_view() -> Union[str, Response]:
         df = df.set_index("date")
         df = df[interval.first : interval.last]  # type: ignore
 
-    period_list: deque = deque()
+    period_list: deque[tuple[date, int]] = deque()
     for date_, intensity in df.itertuples():
         period_list.appendleft(
             (
@@ -374,7 +374,7 @@ def exercise_view(name: str) -> Union[str, Response]:
     wo["tut"] = df_sum["tut"]
     wo["volume"] = df_sum["reps"]
 
-    workouts_list: deque = deque()
+    workouts_list: deque[tuple[int, date, str, str, str, str, str, str, str]] = deque()
     for (workout_id, wo_date), reps, time, weight, rpe, reps_rir, tut, volume in wo.itertuples():
         workouts_list.appendleft(
             (

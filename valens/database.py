@@ -1,7 +1,9 @@
+import sqlite3
+
 from alembic import command
 from alembic.config import Config
 from flask import g
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import MetaData, create_engine, event, pool
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, declarative_base, scoped_session, sessionmaker
 from sqlalchemy_repr import RepresentableBase
@@ -23,6 +25,16 @@ Base = declarative_base(cls=RepresentableBase, metadata=meta)
 
 alembic_cfg = Config()
 alembic_cfg.set_main_option("script_location", "valens:migrations")
+
+
+@event.listens_for(Engine, "connect")
+def _set_sqlite_pragma(
+    dbapi_connection: sqlite3.Connection,
+    _: pool.base._ConnectionRecord,  # pylint: disable = protected-access
+) -> None:
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
 
 def get_engine() -> Engine:

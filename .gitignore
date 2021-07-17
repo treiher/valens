@@ -1,5 +1,6 @@
-sass/bulma/
 .sass-cache
+sass/bulma/
+valens/config.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

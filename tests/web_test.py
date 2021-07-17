@@ -17,6 +17,7 @@ from valens.models import Sex, User
 @pytest.fixture(name="client")
 def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
     app.config["DATABASE"] = f"sqlite:///{tmp_path}/valens.db"
+    app.config["SECRET_KEY"] = b"TEST_KEY"
     app.config["TESTING"] = True
     app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/test": app.wsgi_app})  # type: ignore
 

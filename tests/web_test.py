@@ -35,7 +35,9 @@ def assert_resources_available(client: Client, data: bytes) -> None:
 
 
 def login(client: Client, user_id: int = 1, path: str = "") -> TestResponse:
-    return client.post(f"{path}/login", data=dict(username=tests.data.users()[user_id - 1].name))
+    return client.post(
+        f"{path}/login", data=dict(username=tests.data.users()[user_id - 1].name, next="/")
+    )
 
 
 @pytest.mark.parametrize("path", ["", "/test"])

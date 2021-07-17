@@ -7,6 +7,7 @@
 {% block content %}
 <div class="container has-text-centered">
     <form action="login" method="post">
+        <input type="hidden" name="next" value="{{ request.args.get("next", url_for("index_view")) }}" />
         {% for name in usernames %}
         <div class="column">
             <input class="button is-success" style="width: 25%" type="submit" name="username" value="{{name}}" />

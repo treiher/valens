@@ -1,8 +1,9 @@
 from collections import deque
 from dataclasses import dataclass
 from datetime import date, timedelta
+from functools import wraps
 from itertools import chain, zip_longest
-from typing import Sequence, Tuple, Union
+from typing import Any, Callable, Sequence, Tuple, Union
 
 import flask
 import numpy as np
@@ -31,8 +32,14 @@ class Interval:
     last: date
 
 
-def is_logged_in() -> bool:
-    return "username" in session and "user_id" in session and "sex" in session
+def login_required(function: Callable) -> Callable:
+    @wraps(function)
+    def decorated_function(*args: Any, **kwargs: Any) -> Union[str, Response]:
+        if "username" not in session or "user_id" not in session or "sex" not in session:
+            return redirect(url_for("login_view", next=request.path))
+        return function(*args, **kwargs)
+
+    return decorated_function
 
 
 @app.teardown_appcontext
@@ -42,10 +49,8 @@ def teardown(_: BaseException = None) -> flask.Response:
 
 
 @app.route("/")
+@login_required
 def index_view() -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     bw = bodyweight.analyze(storage.read_bodyweight(session["user_id"]))
     bf = bodyfat.analyze(storage.read_bodyfat(session["user_id"]))
 
@@ -110,7 +115,7 @@ def login_view() -> Union[str, Response]:
                 session["sex"] = user.sex
                 # ISSUE: PyCQA/pylint#3793
                 session.permanent = True  # pylint: disable = assigning-non-slot
-        return redirect(url_for("index_view"))
+        return redirect(request.form["next"])
 
     return render_template("login.html", usernames=[u.name for u in users])
 
@@ -163,10 +168,8 @@ def users_view() -> Union[str, Response]:
 
 
 @app.route("/bodyweight", methods=["GET", "POST"])
+@login_required
 def bodyweight_view() -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         weight = float(request.form["weight"])
@@ -225,10 +228,8 @@ def bodyweight_view() -> Union[str, Response]:
 
 
 @app.route("/bodyfat", methods=["GET", "POST"])
+@login_required
 def bodyfat_view() -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         chest = request.form["chest"]
@@ -296,10 +297,8 @@ def bodyfat_view() -> Union[str, Response]:
 
 
 @app.route("/period", methods=["GET", "POST"])
+@login_required
 def period_view() -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         try:
@@ -346,10 +345,8 @@ def period_view() -> Union[str, Response]:
 
 
 @app.route("/exercises", methods=["GET", "POST"])
+@login_required
 def exercises_view() -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     if request.method == "POST":
         return redirect(url_for("exercise_view", name=request.form["exercise"]))
 
@@ -362,10 +359,8 @@ def exercises_view() -> Union[str, Response]:
 
 
 @app.route("/exercise/<name>", methods=["GET", "POST"])
+@login_required
 def exercise_view(name: str) -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     interval = parse_interval_args()
 
     df = storage.read_sets(session["user_id"])
@@ -410,6 +405,7 @@ def exercise_view(name: str) -> Union[str, Response]:
 
 
 @app.route("/exercise/<name>/rename", methods=["GET", "POST"])
+@login_required
 def exercise_rename_view(name: str) -> Union[str, Response]:
     exercise = query.get_exercise(name)
 
@@ -430,6 +426,7 @@ def exercise_rename_view(name: str) -> Union[str, Response]:
 
 
 @app.route("/exercise/<name>/delete", methods=["GET", "POST"])
+@login_required
 def exercise_delete_view(name: str) -> Union[str, Response]:
     exercise = query.get_exercise(name)
 
@@ -452,10 +449,8 @@ def exercise_delete_view(name: str) -> Union[str, Response]:
 
 
 @app.route("/routines", methods=["GET", "POST"])
+@login_required
 def routines_view() -> Union[str, Response]:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     if request.method == "POST":
         return redirect(
             url_for("routine_view", name=request.form["name"].strip()),
@@ -472,11 +467,9 @@ def routines_view() -> Union[str, Response]:
 
 
 @app.route("/routine/<name>", methods=["GET", "POST"])
+@login_required
 def routine_view(name: str) -> Union[str, Response]:
     name = name.strip()
-
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
 
     if request.method == "POST":  # pylint: disable = too-many-nested-blocks
         routine = query.get_or_create_routine(name)
@@ -554,6 +547,7 @@ def routine_view(name: str) -> Union[str, Response]:
 
 
 @app.route("/routine/<name>/rename", methods=["GET", "POST"])
+@login_required
 def routine_rename_view(name: str) -> Union[str, Response]:
     routine = query.get_routine(name)
 
@@ -574,6 +568,7 @@ def routine_rename_view(name: str) -> Union[str, Response]:
 
 
 @app.route("/routine/<name>/copy", methods=["GET", "POST"])
+@login_required
 def routine_copy_view(name: str) -> Union[str, Response]:
     routine = query.get_routine(name)
 
@@ -608,6 +603,7 @@ def routine_copy_view(name: str) -> Union[str, Response]:
 
 
 @app.route("/routine/<name>/delete", methods=["GET", "POST"])
+@login_required
 def routine_delete_view(name: str) -> Union[str, Response]:
     if request.method == "POST":
         routine = query.get_routine(name)
@@ -625,11 +621,9 @@ def routine_delete_view(name: str) -> Union[str, Response]:
 
 
 @app.route("/workouts", methods=["GET", "POST"])
+@login_required
 def workouts_view() -> Union[str, Response]:
     # pylint: disable=too-many-locals
-
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
 
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
@@ -707,11 +701,9 @@ def workouts_view() -> Union[str, Response]:
 
 
 @app.route("/workout/<int:workout_id>", methods=["GET", "POST"])
+@login_required
 def workout_view(workout_id: int) -> Union[str, Response]:
     # pylint: disable=too-many-locals
-
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
 
     if request.method == "POST":
         workout = query.get_workout(workout_id)
@@ -759,6 +751,7 @@ def workout_view(workout_id: int) -> Union[str, Response]:
 
 
 @app.route("/workout/<int:workout_id>/delete", methods=["GET", "POST"])
+@login_required
 def workout_delete_view(workout_id: int) -> Union[str, Response]:
     workout = query.get_workout(workout_id)
 
@@ -777,10 +770,8 @@ def workout_delete_view(workout_id: int) -> Union[str, Response]:
 
 
 @app.route("/image/<image_type>")
+@login_required
 def image_view(image_type: str) -> Response:
-    if not is_logged_in():
-        return redirect(url_for("login_view"))
-
     interval = parse_interval_args()
     if image_type == "bodyweight":
         fig = diagram.plot_bodyweight(session["user_id"], interval.first, interval.last)

@@ -1,3 +1,5 @@
+# pylint: disable = too-many-lines
+
 import datetime
 import re
 from pathlib import Path
@@ -11,7 +13,7 @@ from werkzeug.test import Client, TestResponse
 import tests.data
 import tests.utils
 from valens import app, database as db, web
-from valens.models import Sex, User
+from valens.models import BodyWeight, Sex, User
 
 
 @pytest.fixture(name="client")
@@ -243,6 +245,65 @@ def test_users_remove(client: Client) -> None:
             assert user.name not in resp.data.decode("utf-8")
         else:
             assert user.name in resp.data.decode("utf-8")
+
+
+def test_users_add_after_remove(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    user = db.session.query(User).where(User.id == 2).one()
+
+    resp = client.post(
+        "/users",
+        data=MultiDict(
+            [
+                e
+                for user in tests.data.users()
+                for e in [
+                    ("user_id", user.id),
+                    ("username", user.name if user.id != 2 else ""),
+                    ("sex", user.sex.value),
+                ]
+            ]
+        ),
+    )
+    assert resp.status_code == 200
+    assert len(db.session.query(User).all()) == len(tests.data.users()) - 1
+    for user in tests.data.users():
+        if user.id == 2:
+            assert user.name not in resp.data.decode("utf-8")
+        else:
+            assert user.name in resp.data.decode("utf-8")
+
+    resp = client.post(
+        "/users",
+        data=MultiDict(
+            [
+                *[
+                    e
+                    for user in tests.data.users()
+                    if user.id != 2
+                    for e in [
+                        ("user_id", user.id),
+                        ("username", user.name),
+                        ("sex", user.sex.value),
+                    ]
+                ],
+                *[("user_id", 2), ("username", "Dave"), ("sex", Sex.MALE.value)],
+            ]
+        ),
+    )
+    assert resp.status_code == 200
+    assert len(db.session.query(User).all()) == len(tests.data.users())
+    for user in tests.data.users():
+        if user.id == 2:
+            assert "Dave" in resp.data.decode("utf-8")
+        else:
+            assert user.name in resp.data.decode("utf-8")
+
+    assert len(db.session.query(BodyWeight).where(BodyWeight.user_id == 2).all()) == 0
 
 
 def test_bodyweight(client: Client) -> None:

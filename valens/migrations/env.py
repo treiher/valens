@@ -14,6 +14,9 @@ TARGET_METADATA = models.Base.metadata
 assert not context.is_offline_mode()  # pylint: disable = no-member
 
 with app.app_context():
+    # Prevent integrity errors and data loss caused by ON DELETE cascades
+    app.config["SQLITE_FOREIGN_KEY_SUPPORT"] = False
+
     connectable = db.get_engine()
 
     with connectable.connect() as connection:
@@ -25,3 +28,5 @@ with app.app_context():
 
         with context.begin_transaction():  # pylint: disable = no-member
             context.run_migrations()  # pylint: disable = no-member
+
+    app.config["SQLITE_FOREIGN_KEY_SUPPORT"] = True

@@ -4,9 +4,23 @@ function $(id) {
     return document.getElementById(id);
 }
 
-const Stopwatch = function(display, resetButton) {
-    display.onclick = toggle;
+const Stopwatch = function(display, playButton, resetButton) {
+    display.onclick = function() {
+        if (time == 0 || interval) {
+            toggle();
+        } else {
+            reset();
+        }
+    };
+    playButton.onclick = toggle;
     resetButton.onclick = reset;
+
+    const playIcon = "&#9654;";
+    const pauseIcon = "&#9208;";
+    const resetIcon = "&#8634;";
+
+    playButton.innerHTML = playIcon;
+    resetButton.innerHTML = resetIcon;
 
     let time;
     let startTime;
@@ -18,17 +32,17 @@ const Stopwatch = function(display, resetButton) {
         if (interval) {
             clearInterval(interval);
             interval = null;
+            playButton.innerHTML = playIcon;
         } else {
             startTime = Date.now();
             interval = setInterval(update, 10);
+            playButton.innerHTML = pauseIcon;
         }
     }
 
     function reset() {
         time = 0;
         render();
-        clearInterval(interval);
-        interval = null;
     }
 
     function update() {
@@ -129,7 +143,7 @@ function init() {
         e.onclick = closeModal;
     }
 
-    new Stopwatch($("stopwatch-time"), $("stopwatch-reset"));
+    new Stopwatch($("stopwatch-time"), $("stopwatch-play"), $("stopwatch-reset"));
 
     new Metronome($("metronome-play"), $("metronome-interval"), $("metronome-stress"));
 }

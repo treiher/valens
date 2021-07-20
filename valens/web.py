@@ -36,7 +36,7 @@ def login_required(function: Callable) -> Callable:  # type: ignore[type-arg]
     @wraps(function)
     def decorated_function(*args: Any, **kwargs: Any) -> Union[str, Response]:  # type: ignore[misc]
         if "username" not in session or "user_id" not in session or "sex" not in session:
-            return redirect(url_for("login_view", next=request.path))
+            return redirect(url_for("login_view", next=f"{request.root_path}{request.path}"))
         return function(*args, **kwargs)
 
     return decorated_function

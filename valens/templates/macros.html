@@ -7,7 +7,57 @@
     </p>
     {% endfor %}
 </div>
-<div class="container has-text-centered">
+<div class="container has-text-centered" style="max-width: 360pt">
     <img src="{{ url_for('image_view', image_type=endpoint, first=current.first, last=current.last, **args) }}" />
 </div>
+{% endmacro %}
+
+{% macro workouts_table(workouts) %}
+<table class="table is-fullwidth is-narrow is-striped has-text-centered">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Routine</th>
+            {% for name, description in [
+            ("Reps", "Average repetitions"),
+            ("Time", "Average time"),
+            ("Weight", "Average weight"),
+            ("RPE", "Average rating of perceived exertion"),
+            ("Reps+RIR", "Average reps + reps in reserve"),
+            ("Volume", "Total of reps"),
+            ("TUT", "Total time under tension"),
+            ] %}
+            <th>
+                <div class="dropdown is-hoverable">
+                    <div class="dropdown-trigger">
+                        {{ name }}
+                    </div>
+                    <div class="dropdown-menu" role="menu">
+                        <div class="dropdown-content">
+                            <div class="dropdown-item">
+                                {{ description }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for workout_id, date, routine, reps, time, weight, rpe, reps_rir, tut, volume in workouts %}
+        <tr>
+            <td><a href="{{ url_for('workout_view', workout_id=workout_id) }}">{{ date }}</a></td>
+            <td>{% if routine %}<a href="{{ url_for('routine_view', name=routine) }}">{{ routine }}</a>{% else %}-{% endif %}</td>
+            <td>{{ reps }}</td>
+            <td>{{ time }}</td>
+            <td>{{ weight }}</td>
+            <td>{{ rpe }}</td>
+            <td>{{ reps_rir }}</td>
+            <td>{{ volume|int }}</td>
+            <td>{{ tut|int }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endmacro %}

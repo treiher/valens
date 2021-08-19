@@ -76,6 +76,11 @@ input[type=number] {
     -moz-appearance:textfield;
 }
 
+table.is-centered {
+    margin-left: auto;
+    margin-right: auto;
+}
+
 @import "bulma/bulma.sass";
 
 $fieldset-background-color: $scheme-main !default;

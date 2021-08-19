@@ -363,33 +363,6 @@ def exercises_view() -> Union[str, Response]:
 def exercise_view(name: str) -> Union[str, Response]:
     interval = parse_interval_args()
 
-    df = storage.read_sets(session["user_id"])
-    df = df[(df["date"] >= interval.first) & (df["date"] <= interval.last)]
-    df["reps+rir"] = df["reps"] + df["rir"]
-    df = df.drop("rir", 1)
-    df = df.loc[lambda x: x["exercise"] == name]
-    df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
-    df_sum = df.groupby(["workout_id", "date"]).sum()
-    wo = df.groupby(["workout_id", "date"]).mean()
-    wo["tut"] = df_sum["tut"]
-    wo["volume"] = df_sum["reps"]
-
-    workouts_list: deque[tuple[int, date, str, str, str, str, str, str, str]] = deque()
-    for (workout_id, wo_date), reps, time, weight, rpe, reps_rir, tut, volume in wo.itertuples():
-        workouts_list.appendleft(
-            (
-                workout_id,
-                wo_date,
-                utils.format_number(reps),
-                utils.format_number(time),
-                utils.format_number(weight),
-                utils.format_number(rpe),
-                utils.format_number(reps_rir),
-                utils.format_number(tut),
-                utils.format_number(volume),
-            )
-        )
-
     return render_template(
         "exercise.html",
         navbar_items=[
@@ -399,7 +372,7 @@ def exercise_view(name: str) -> Union[str, Response]:
         exercise=name,
         current=interval,
         intervals=intervals(interval),
-        workouts=workouts_list,
+        workouts=create_workouts_list(interval, exercise_name=name),
         today=request.form.get("date", date.today()),
     )
 
@@ -453,7 +426,7 @@ def exercise_delete_view(name: str) -> Union[str, Response]:
 def routines_view() -> Union[str, Response]:
     if request.method == "POST":
         return redirect(
-            url_for("routine_view", name=request.form["name"].strip()),
+            url_for("routine_edit_view", name=request.form["name"].strip()),
             Response=Response,
             code=307,
         )
@@ -469,6 +442,35 @@ def routines_view() -> Union[str, Response]:
 @app.route("/routine/<name>", methods=["GET", "POST"])
 @login_required
 def routine_view(name: str) -> Union[str, Response]:
+    name = name.strip()
+    routine = query.get_routine(name)
+    current_exercises = {e.exercise.name for e in routine.exercises}
+    all_exercises = {s.exercise.name for w in routine.workouts for s in w.sets}
+
+    return render_template(
+        "routine.html",
+        navbar_items=[
+            ("Edit", url_for("routine_edit_view", name=name)),
+        ],
+        name=name,
+        routine=[
+            (e.position, e.exercise.name, e.sets)
+            for e in sorted(routine.exercises, key=lambda x: x.position)
+        ]
+        if routine
+        else [],
+        notes=routine.notes if routine and routine.notes else "",
+        previous_exercises=sorted(all_exercises - current_exercises),
+        diagram=diagram.plot_svg(diagram.plot_workouts(session["user_id"], routine=routine)).decode(
+            "utf-8"
+        ),
+        workouts=create_workouts_list(routine=routine),
+    )
+
+
+@app.route("/routine/<name>/edit", methods=["GET", "POST"])
+@login_required
+def routine_edit_view(name: str) -> Union[str, Response]:
     name = name.strip()
 
     if request.method == "POST":  # pylint: disable = too-many-nested-blocks
@@ -520,10 +522,9 @@ def routine_view(name: str) -> Union[str, Response]:
 
     routine = query.get_routine(name)
     exercises = query.get_exercises()
-    workouts = query.get_workouts()
 
     return render_template(
-        "routine.html",
+        "routine_edit.html",
         navbar_items=[
             ("Rename", url_for("routine_rename_view", name=name)),
             ("Copy", url_for("routine_copy_view", name=name)),
@@ -538,11 +539,6 @@ def routine_view(name: str) -> Union[str, Response]:
         else [],
         notes=routine.notes if routine and routine.notes else "",
         exercises=[e.name for e in sorted(exercises, key=lambda x: x.id, reverse=True)],
-        workouts=[
-            (w.id, w.date)
-            for w in sorted(workouts, key=lambda x: (x.date, x.id), reverse=True)
-            if w.routine_id == routine.id
-        ],
     )
 
 
@@ -623,8 +619,6 @@ def routine_delete_view(name: str) -> Union[str, Response]:
 @app.route("/workouts", methods=["GET", "POST"])
 @login_required
 def workouts_view() -> Union[str, Response]:
-    # pylint: disable=too-many-locals
-
     if request.method == "POST":
         date_ = date.fromisoformat(request.form["date"])
         routine_name = request.form["routine"]
@@ -655,39 +649,6 @@ def workouts_view() -> Union[str, Response]:
         )
 
     interval = parse_interval_args()
-    df = storage.read_sets(session["user_id"])
-    df = df[(df["date"] >= interval.first) & (df["date"] <= interval.last)]
-    df["reps+rir"] = df["reps"] + df["rir"]
-    df = df.drop("rir", 1)
-    df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
-    df_sum = df.groupby(["workout_id", "date"]).sum()
-    wo = df.groupby(["workout_id", "date"]).mean()
-    wo["tut"] = df_sum["tut"]
-    wo["volume"] = df_sum["reps"]
-
-    workouts_list = []
-    for (workout_id, wo_date), reps, time, weight, rpe, reps_rir, tut, volume in chain(
-        wo.itertuples(),
-        (
-            ((workout.id, workout.date), None, None, None, None, None, None, None)
-            for workout in query.get_workouts()
-            if not workout.sets
-        ),
-    ):
-        workouts_list.append(
-            (
-                workout_id,
-                wo_date,
-                utils.format_number(reps),
-                utils.format_number(time),
-                utils.format_number(weight),
-                utils.format_number(rpe),
-                utils.format_number(reps_rir),
-                utils.format_number(tut),
-                utils.format_number(volume),
-            )
-        )
-
     routines = query.get_routines()
 
     return render_template(
@@ -696,7 +657,7 @@ def workouts_view() -> Union[str, Response]:
         intervals=intervals(interval),
         today=request.form.get("date", date.today()),
         routines=[r.name for r in sorted(routines, key=lambda x: x.id, reverse=True)],
-        workouts=sorted(workouts_list, key=lambda x: (x[1], x[0]), reverse=True),
+        workouts=create_workouts_list(interval),
     )
 
 
@@ -794,6 +755,8 @@ def parse_interval_args() -> Interval:
     args_last = request.args.get("last", "")
     first = date.fromisoformat(args_first) if args_first else date.today() - timedelta(days=30)
     last = date.fromisoformat(args_last) if args_last else date.today()
+    if last <= first:
+        first = last - timedelta(days=1)
     return Interval(first, last)
 
 
@@ -820,3 +783,67 @@ def days(td: timedelta) -> str:
         return "<strong>yesterday</strong>"
 
     return f"<strong>{td.days} days</strong> ago"
+
+
+def create_workouts_list(  # pylint: disable = too-many-locals
+    interval: Interval = None, routine: Routine = None, exercise_name: str = None
+) -> Sequence[Tuple[int, date, str, str, str, str, str, str, str, str]]:
+    df = storage.read_sets(session["user_id"])
+    if interval:
+        df = df[(df["date"] >= interval.first) & (df["date"] <= interval.last)]
+    if routine:
+        df = df[df["workout_id"].isin({w.id for w in routine.workouts})]
+    if exercise_name:
+        df = df.loc[lambda x: x["exercise"] == exercise_name]
+    df["reps+rir"] = df["reps"] + df["rir"]
+    df = df.drop("rir", 1)
+    df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
+    df_grouped = df.groupby([df.workout_id, df.date, df.routine.fillna("")])
+    df_sum = df_grouped.sum()
+    wo = df_grouped.mean()
+    wo["tut"] = df_sum["tut"]
+    wo["volume"] = df_sum["reps"]
+
+    workouts_list = []
+    for (
+        (workout_id, wo_date, routine_name),
+        reps,
+        time,
+        weight,
+        rpe,
+        reps_rir,
+        tut,
+        volume,
+    ) in chain(
+        wo.itertuples(),
+        (
+            (
+                (workout.id, workout.date, workout.routine.name),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            for workout in query.get_workouts()
+            if not workout.sets
+        ),
+    ):
+        workouts_list.append(
+            (
+                workout_id,
+                wo_date,
+                routine_name,
+                utils.format_number(reps),
+                utils.format_number(time),
+                utils.format_number(weight),
+                utils.format_number(rpe),
+                utils.format_number(reps_rir),
+                utils.format_number(tut),
+                utils.format_number(volume),
+            )
+        )
+
+    return sorted(workouts_list, key=lambda x: (x[1], x[0]), reverse=True)

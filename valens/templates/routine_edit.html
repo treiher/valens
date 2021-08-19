@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ name }} - Routine{% endblock %}
+
+{% block content_title %}{{ name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-2">
+    <form action="{{ url_for('routine_edit_view', name=name) }}" method="post">
+        {% for i, exercise, set_count in routine %}
+        <div class="field">
+            <label class="label">E{{ i }}</label>
+            <div class="field-body is-grouped">
+                <div class="field">
+                    <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="{{ exercise }}" />
+                </div>
+                <div class="field">
+                    <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="{{ set_count }}" min="0" />
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="field">
+            <label class="label">Add exercise</label>
+            <div class="field-body is-grouped">
+                <div class="field">
+                    <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="Exercise name" />
+                </div>
+                <div class="field">
+                    <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="Number of sets" min="0" />
+                </div>
+            </div>
+        </div>
+        <div class="field">
+            <label class="label">Notes</label>
+            <textarea class="textarea" name="notes">{{ notes }}</textarea>
+        </div>
+        <div class="navbar is-fixed-bottom is-transparent">
+            <div class="navbar-end container is-max-desktop has-text-right p-5">
+                <div class="navbar-item">
+                    <a class="button" href="{{ url_for('routine_view', name=name) }}">Cancel</a>
+                </div>
+                <div class="navbar-item">
+                    <button class="button is-success">Save</button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+<datalist id="exercises">
+    {% for name in exercises|sort %}
+    <option value="{{ name }}">
+    {% endfor %}
+</datalist>
+{% endblock %}
+
+{% set parent_page = 'routines_view' %}

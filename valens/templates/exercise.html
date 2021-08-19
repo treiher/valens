@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% from "macros.html" import diagram with context %}
+{% from "macros.html" import diagram, workouts_table with context %}
 
 {% block title %}{{ exercise }} - Exercise{% endblock %}
 
@@ -9,51 +9,7 @@
 {% block content %}
 {{ diagram('exercise', intervals, current, exercise) }}
 <div class="table-container mt-4">
-    <table class="table is-fullwidth is-narrow is-striped has-text-centered">
-        <thead>
-            <tr>
-                <th>Date</th>
-                {% for name, description in [
-                    ("Reps", "Average repetitions"),
-                    ("Time", "Average time"),
-                    ("Weight", "Average weight"),
-                    ("RPE", "Average rating of perceived exertion"),
-                    ("Reps+RIR", "Average reps + reps in reserve"),
-                    ("Volume", "Total of reps"),
-                    ("TUT", "Total time under tension"),
-                ] %}
-                <th>
-                    <div class="dropdown is-hoverable">
-                        <div class="dropdown-trigger">
-                            {{ name }}
-                        </div>
-                        <div class="dropdown-menu" role="menu">
-                            <div class="dropdown-content">
-                                <div class="dropdown-item">
-                                    {{ description }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </th>
-                {% endfor %}
-            </tr>
-        </thead>
-        <tbody>
-            {% for workout_id, date, reps, time, weight, rpe, reps_rir, tut, volume in workouts %}
-            <tr>
-                <td><a href="{{ url_for('workout_view', workout_id=workout_id) }}">{{ date }}</a></td>
-                <td>{{ reps }}</td>
-                <td>{{ time }}</td>
-                <td>{{ weight }}</td>
-                <td>{{ rpe }}</td>
-                <td>{{ reps_rir }}</td>
-                <td>{{ volume|int }}</td>
-                <td>{{ tut|int }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    {{ workouts_table(workouts) }}
 </div>
 {% endblock %}
 

@@ -106,6 +106,10 @@ def test_availability_wihout_login(client: Client, path: str, route: str) -> Non
         "/image/exercise",
         "/image/workouts",
         "/routine/R1",
+        "/routine/R1/edit",
+        "/routine/R1/rename",
+        "/routine/R1/copy",
+        "/routine/R1/delete",
         "/routines",
         "/workout/1",
         "/workouts",
@@ -783,7 +787,21 @@ def test_routine_copy(client: Client) -> None:
     assert "Copy of Routine" in resp.data.decode("utf-8")
 
 
-def test_routine_save_unchanged(client: Client) -> None:
+def test_routine_edit(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    for routine in tests.data.user().routines:
+        resp = client.get(f"/routine/{routine.name}/edit")
+        assert resp.status_code == 200
+        assert routine.name in resp.data.decode("utf-8")
+        for routine_exercise in routine.exercises:
+            assert routine_exercise.exercise.name in resp.data.decode("utf-8")
+
+
+def test_routine_edit_save_unchanged(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = login(client)
@@ -793,7 +811,7 @@ def test_routine_save_unchanged(client: Client) -> None:
     routine = routines[0]
 
     resp = client.post(
-        f"/routine/{routine.name}",
+        f"/routine/{routine.name}/edit",
         data={
             "exercise": [routine_exercise.exercise.name for routine_exercise in routine.exercises],
             "set_count": [routine_exercise.sets for routine_exercise in routine.exercises],
@@ -806,7 +824,7 @@ def test_routine_save_unchanged(client: Client) -> None:
     assert routine.notes in resp.data.decode("utf-8")
 
 
-def test_routine_add_exercise(client: Client) -> None:
+def test_routine_edit_add_exercise(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = login(client)
@@ -815,18 +833,18 @@ def test_routine_add_exercise(client: Client) -> None:
     routines = tests.data.user().routines
     routine = routines[0]
 
-    resp = client.post(f"/routine/{routine.name}", data={"exercise": ""})
+    resp = client.post(f"/routine/{routine.name}/edit", data={"exercise": ""})
     assert resp.status_code == 200
     for routine_exercise in routine.exercises:
         assert f'placeholder="{routine_exercise.exercise.name}"' not in resp.data.decode("utf-8")
     assert routine.notes in resp.data.decode("utf-8")
 
-    resp = client.post(f"/routine/{routine.name}", data={"notes": ""})
+    resp = client.post(f"/routine/{routine.name}/edit", data={"notes": ""})
     assert resp.status_code == 200
     assert routine.notes not in resp.data.decode("utf-8")
 
     resp = client.post(
-        f"/routine/{routine.name}",
+        f"/routine/{routine.name}/edit",
         data={
             "exercise": [routine_exercise.exercise.name for routine_exercise in routine.exercises],
             "set_count": [routine_exercise.sets for routine_exercise in routine.exercises],
@@ -839,7 +857,7 @@ def test_routine_add_exercise(client: Client) -> None:
     assert routine.notes in resp.data.decode("utf-8")
 
 
-def test_routine_remove_exercise(client: Client) -> None:
+def test_routine_edit_remove_exercise(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = login(client)
@@ -849,7 +867,7 @@ def test_routine_remove_exercise(client: Client) -> None:
     routine = routines[0]
 
     resp = client.post(
-        f"/routine/{routine.name}",
+        f"/routine/{routine.name}/edit",
         data={
             "exercise": [routine_exercise.exercise.name for routine_exercise in routine.exercises],
             "set_count": [
@@ -869,7 +887,7 @@ def test_routine_remove_exercise(client: Client) -> None:
     assert routine.notes in resp.data.decode("utf-8")
 
 
-def test_routine_rename_exercise(client: Client) -> None:
+def test_routine_edit_rename_exercise(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = login(client)
@@ -879,7 +897,7 @@ def test_routine_rename_exercise(client: Client) -> None:
     routine = routines[0]
 
     resp = client.post(
-        f"/routine/{routine.name}",
+        f"/routine/{routine.name}/edit",
         data={
             "exercise": [
                 "X" + routine_exercise.exercise.name for routine_exercise in routine.exercises
@@ -913,6 +931,17 @@ def test_workouts_empty(client: Client) -> None:
 
     resp = client.get("/workouts?first=2002-02-01&last=2002-03-01")
     assert resp.status_code == 200
+
+
+def test_workouts_negative_interval(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    resp = client.get("/workouts?first=2002-03-01&last=2002-02-20")
+    assert resp.status_code == 200
+    assert ">2002-02-20<" in resp.data.decode("utf-8")
 
 
 def test_workouts_add(client: Client) -> None:

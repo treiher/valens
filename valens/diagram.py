@@ -1,4 +1,5 @@
 import io
+import re
 from datetime import date, timedelta
 
 import matplotlib
@@ -11,7 +12,7 @@ from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
 
 from valens import bodyfat, storage
-from valens.models import Sex
+from valens.models import Routine, Sex
 
 matplotlib.style.use("seaborn-whitegrid")
 
@@ -37,11 +38,15 @@ COLOR = {
 def plot_svg(fig: Figure) -> bytes:
     output = io.BytesIO()
     FigureCanvasSVG(fig).print_svg(output)
-    return output.getvalue()
+    return re.sub(b'(?:width|height)="[0-9]*pt"', b"", output.getvalue(), count=2)
 
 
-def plot_workouts(user_id: int, first: date = None, last: date = None) -> Figure:
+def plot_workouts(
+    user_id: int, first: date = None, last: date = None, routine: Routine = None
+) -> Figure:
     df = storage.read_sets(user_id)
+    if routine:
+        df = df[df["workout_id"].isin({w.id for w in routine.workouts})]
     df["reps+rir"] = df["reps"] + df["rir"]
     df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]
     return _workouts_exercise(df, first, last)

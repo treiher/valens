@@ -1,62 +1,49 @@
 {% extends "base.html" %}
 
+{% from "macros.html" import workouts_table with context %}
+
 {% block title %}{{ name }} - Routine{% endblock %}
 
 {% block content_title %}{{ name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-2">
-    <form action="{{ url_for('routine_view', name=name) }}" method="post">
+<table class="table is-striped is-centered">
+    <thead>
+        <tr>
+            <th></th>
+            <th>Exercise</th>
+            <th>Sets</th>
+        </tr>
+    </thead>
+    <tbody>
         {% for i, exercise, set_count in routine %}
-        <div class="field">
-            <label class="label">E{{ i }}</label>
-            <div class="field-body is-grouped">
-                <div class="field">
-                    <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="{{ exercise }}" />
-                </div>
-                <div class="field">
-                    <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="{{ set_count }}" min="0" />
-                </div>
-            </div>
-        </div>
+        <tr>
+            <td class="has-text-centered">E{{ i }}</td>
+            <td><a href="{{ url_for('exercise_view', name=exercise) }}">{{ exercise }}</a></td>
+            <td class="has-text-centered">{{ set_count }}</td>
+        </tr>
         {% endfor %}
-        <div class="field">
-            <label class="label">Add exercise</label>
-            <div class="field-body is-grouped">
-                <div class="field">
-                    <input class="input" type="text" list="exercises" name="exercise" value="{{ exercise }}" placeholder="Exercise name" />
-                </div>
-                <div class="field">
-                    <input class="input" type="number" name="set_count" value="{{ set_count }}" placeholder="Number of sets" min="0" />
-                </div>
-            </div>
-        </div>
-        <div class="field">
-            <label class="label">Notes</label>
-            <textarea class="textarea" name="notes">{{ notes }}</textarea>
-        </div>
-        <div class="navbar is-fixed-bottom is-transparent">
-            <div class="navbar-end container is-max-desktop has-text-right p-5">
-                <button class="button is-success">Save</button>
-            </div>
-        </div>
-    </form>
-</div>
-{% if workouts %}
-<div class="container mt-6">
-    <h1 class="title">Workouts</h1>
-    <ul>
-        {% for workout_id, workout_date in workouts %}
-        <li><a href="{{ url_for('workout_view', workout_id=workout_id) }}">{{ workout_date }}</a></li>
-        {% endfor %}
-    </ul>
+    </tbody>
+</table>
+{% if previous_exercises %}
+<div class="container has-text-centered mt-6">
+    <h1 class="title is-5">Previously used exercises</h1>
+    {% for exercise in previous_exercises %}
+    <p class="m-2"><a href="{{ url_for('exercise_view', name=exercise) }}">{{ exercise }}</a></p>
+    {% endfor %}
 </div>
 {% endif %}
-<datalist id="exercises">
-    {% for name in exercises|sort %}
-    <option value="{{ name }}">
-    {% endfor %}
-</datalist>
+{% if workouts %}
+<div class="container has-text-centered mt-6">
+    <h1 class="title is-5">Workouts</h1>
+    <div class="container" style="max-width: 360pt">
+        {{ diagram|safe }}
+    </div>
+</div>
+<div class="table-container">
+    {{ workouts_table(workouts) }}
+</div>
+{% endif %}
 {% endblock %}
 
 {% set parent_page = 'routines_view' %}

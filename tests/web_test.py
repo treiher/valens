@@ -66,6 +66,8 @@ def test_login(client: Client, path: str) -> None:
     "route",
     [
         "/login",
+        "/offline",
+        "/service-worker.js",
         "/users",
     ],
 )

@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block head %}
+        <script src="{{ url_for('static', filename='js/register-sw.js') }}"></script>
+{% endblock %}
+
 {% block title %}Index{% endblock %}
 
 {% block content_title %}Valens{% endblock %}

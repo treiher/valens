@@ -48,6 +48,16 @@ def teardown(_: BaseException = None) -> flask.Response:
     return flask.Response()
 
 
+@app.route("/service-worker.js")
+def service_worker() -> Union[str, Response]:
+    return app.send_static_file("js/service-worker.js")
+
+
+@app.route("/offline")
+def offline() -> Union[str, Response]:
+    return render_template("offline.html")
+
+
 @app.route("/")
 @login_required
 def index_view() -> Union[str, Response]:

@@ -112,7 +112,7 @@ def upgrade() -> None:
         local_col,
         table_args,
     ) in FOREIGN_KEY_CONSTRAINTS:
-        with op.batch_alter_table(source_table, schema=None, table_args=table_args) as batch_op:
+        with op.batch_alter_table(source_table, schema=None, table_args=table_args) as batch_op:  # type: ignore[no-untyped-call]
             batch_op.drop_constraint(constraint_name, type_="foreignkey")
             batch_op.create_foreign_key(
                 batch_op.f(constraint_name), referent_table, [local_col], ["id"], ondelete="CASCADE"
@@ -127,7 +127,7 @@ def downgrade() -> None:
         local_col,
         table_args,
     ) in FOREIGN_KEY_CONSTRAINTS:
-        with op.batch_alter_table(source_table, schema=None, table_args=table_args) as batch_op:
+        with op.batch_alter_table(source_table, schema=None, table_args=table_args) as batch_op:  # type: ignore[no-untyped-call]
             batch_op.drop_constraint(constraint_name, type_="foreignkey")
             batch_op.create_foreign_key(
                 batch_op.f(constraint_name), referent_table, [local_col], ["id"]

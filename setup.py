@@ -2,7 +2,7 @@ import re
 
 from setuptools import find_packages, setup  # type: ignore
 
-with open("valens/__init__.py") as f:
+with open("valens/__init__.py", encoding="utf-8") as f:
     match = re.search(r'__version__ = "(.*?)"', f.read())
     assert match
     version = match.group(1)
@@ -25,11 +25,11 @@ setup(
     ],
     extras_require={
         "devel": [
-            "black ==20.8b1",
+            "black >=21.9b0",
             "flake8 >=3",
             "isort >=5",
-            "mypy >=0.770",
-            "pylint >=2.6.0",
+            "mypy >=0.910",
+            "pylint >=2.11.0",
             "pytest >=5",
             "pytest-alembic >=0.3.1",
             "pytest-cov >=2.10.0",

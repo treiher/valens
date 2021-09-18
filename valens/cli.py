@@ -25,7 +25,7 @@ def main() -> Union[int, str]:
         return 0
 
     if args.create_config:
-        CONFIG_FILE.write_text(f"SECRET_KEY = {os.urandom(24)!r}\n")
+        CONFIG_FILE.write_text(f"SECRET_KEY = {os.urandom(24)!r}\n", encoding="utf-8")
         return 0
 
     if args.init:

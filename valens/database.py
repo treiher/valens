@@ -29,8 +29,7 @@ alembic_cfg.set_main_option("script_location", "valens:migrations")
 
 @event.listens_for(Engine, "connect")
 def _set_sqlite_pragma(
-    dbapi_connection: sqlite3.Connection,
-    _: pool.base._ConnectionRecord,  # pylint: disable = protected-access
+    dbapi_connection: sqlite3.Connection, _: pool.base._ConnectionRecord
 ) -> None:
     if app.config["SQLITE_FOREIGN_KEY_SUPPORT"]:
         cursor = dbapi_connection.cursor()

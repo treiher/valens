@@ -2,7 +2,7 @@ VERBOSE ?= @
 
 export SQLALCHEMY_WARN_20=1
 
-python-packages := valens tests
+python-packages := valens tests setup.py
 
 .PHONY: all check check_black check_isort check_pylint check_mypy format \
 	test test_installation

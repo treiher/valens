@@ -72,15 +72,15 @@
         <div class="box mx-2">
             <div class="block">
                 <label class="subtitle">Stopwatch</label>
-                <div class="section has-text-centered">
+                <div class="container has-text-centered p-5">
                     <p id="stopwatch-time" class="title is-size-1"></p>
-                    <button id="stopwatch-play" class="button mt-5 mx-3" type="button"></button>
-                    <button id="stopwatch-reset" class="button mt-5 mx-3" type="button"></button>
+                    <button id="stopwatch-play" class="button mt-1 mx-3" type="button"></button>
+                    <button id="stopwatch-reset" class="button mt-1 mx-3" type="button"></button>
                 </div>
             </div>
             <div class="block">
                 <label class="subtitle">Metronome</label>
-                <div class="section">
+                <div class="container p-5">
                     <div class="field is-grouped is-grouped-centered">
                         <div class="field mx-4">
                             <label class="label">Interval</label>
@@ -111,6 +111,14 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+            <div class="block">
+                <label class="subtitle">Timer</label>
+                <div class="container has-text-centered p-5">
+                    <p><input id="timer-time" class="title is-size-1 has-text-centered" type="number" min="0" max="9999" step="1" size="4"></input></p>
+                    <button id="timer-play" class="button mt-5 mx-3" type="button"></button>
+                    <button id="timer-reset" class="button mt-5 mx-3" type="button"></button>
                 </div>
             </div>
         </div>

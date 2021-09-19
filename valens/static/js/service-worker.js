@@ -53,3 +53,18 @@ self.addEventListener("fetch", function(event) {
         );
     }
 });
+
+self.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "notification") {
+        self.registration.showNotification(event.data.title, event.data.options);
+    }
+});
+
+const timer_channel = new BroadcastChannel("timer");
+
+self.addEventListener("notificationclick", function(event) {
+    event.notification.close();
+    if (event.action === "timer-pause" || event.action === "timer-reset") {
+        timer_channel.postMessage(event.action);
+    }
+}, false);

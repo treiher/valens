@@ -72,7 +72,7 @@ def test_login(client: Client, path: str) -> None:
     ],
 )
 @pytest.mark.parametrize("path", ["", "/test"])
-def test_availability_wihout_login(client: Client, path: str, route: str) -> None:
+def test_availability_without_login(client: Client, path: str, route: str) -> None:
     tests.utils.init_db_data()
 
     url = path + route

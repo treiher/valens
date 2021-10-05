@@ -15,7 +15,6 @@ def main() -> Union[int, str]:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", action="store_true", help="show version")
     parser.add_argument("--create-config", action="store_true", help="create config")
-    parser.add_argument("--init", action="store_true", help="initialize database")
     parser.add_argument("--upgrade", action="store_true", help="upgrade database")
 
     args = parser.parse_args(sys.argv[1:])
@@ -26,10 +25,6 @@ def main() -> Union[int, str]:
 
     if args.create_config:
         CONFIG_FILE.write_text(f"SECRET_KEY = {os.urandom(24)!r}\n", encoding="utf-8")
-        return 0
-
-    if args.init:
-        db.init_db()
         return 0
 
     if args.upgrade:

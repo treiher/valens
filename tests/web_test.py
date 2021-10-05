@@ -25,7 +25,6 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
 
     with app.test_client() as client:
         with app.app_context():
-            db.init_db()
             yield client
 
 

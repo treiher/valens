@@ -24,14 +24,6 @@ def test_main_create_config(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     assert "SECRET_KEY" in config_file.read_text()
 
 
-def test_main_init(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "argv", ["valens", "--init"])
-    init_called = []
-    monkeypatch.setattr(db, "init_db", lambda: init_called.append(True))
-    assert cli.main() == 0
-    assert init_called
-
-
 def test_main_upgrade(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "--upgrade"])
     upgrade_called = []

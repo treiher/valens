@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pytest import MonkeyPatch
 
-from valens import cli, database as db
+from valens import cli, database as db, demo, web
 
 
 def test_main_noarg(monkeypatch: MonkeyPatch) -> None:
@@ -30,3 +30,19 @@ def test_main_upgrade(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(db, "upgrade_db", lambda: upgrade_called.append(True))
     assert cli.main() == 0
     assert upgrade_called
+
+
+def test_main_run(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "--run"])
+    run_called = []
+    monkeypatch.setattr(web.app, "run", lambda: run_called.append(True))
+    assert cli.main() == 0
+    assert run_called
+
+
+def test_main_demo(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "--demo"])
+    demo_called = []
+    monkeypatch.setattr(demo, "run", lambda x: demo_called.append(True))
+    assert cli.main() == 0
+    assert demo_called

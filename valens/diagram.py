@@ -112,6 +112,9 @@ def plot_bodyweight(user_id: int, first: date = None, last: date = None) -> Figu
     ymin = int(df_interval.min()) if not df_interval.empty else None
     ymax = int(df_interval.max()) + 1 if not df_interval.empty else None
 
+    if df_interval.empty:
+        return _empty_diagram()
+
     plot = df_interval.plot(
         style=STYLE,
         color=COLOR,
@@ -154,6 +157,9 @@ def plot_bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
 
     ymin = int(df_diagram.min().min()) if not df_diagram.empty else None
     ymax = int(df_diagram.max().max()) + 1 if not df_diagram.empty else None
+
+    if df_diagram.empty:
+        return _empty_diagram()
 
     for col in ["fat3", "fat7"]:
         df_diagram[col].dropna().plot(
@@ -241,3 +247,10 @@ def plot_period(user_id: int, first: date = None, last: date = None) -> Figure:
 def _common_layout(fig: Figure) -> None:
     fig.legend(loc="upper center", bbox_to_anchor=(0.5, 0.97), ncol=6)
     fig.autofmt_xdate()
+
+
+def _empty_diagram() -> None:
+    fig, _ = plt.subplots(1, 1)
+    _common_layout(fig)
+    fig.set_size_inches(5, 4)
+    return fig

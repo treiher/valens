@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from valens import __version__, database as db, demo, web
+from valens import __version__, config, database as db, demo, web
 
 CONFIG_FILE = Path("config.py")
 
@@ -62,14 +62,20 @@ def main() -> int:
 def create_config(args: argparse.Namespace) -> None:
     config_file = args.directory / CONFIG_FILE
     print(f"Creating {config_file}")
-    config_file.write_text(f"SECRET_KEY = {os.urandom(24)!r}\n", encoding="utf-8")
+    config_file.write_text(
+        f"DATABASE = 'sqlite:///{Path.home()}/.local/share/valens/valens.db'\n"
+        f"SECRET_KEY = {os.urandom(24)!r}\n",
+        encoding="utf-8",
+    )
 
 
 def upgrade(_: argparse.Namespace) -> None:
+    config.check_config_file(os.environ.copy())
     db.upgrade_db()
 
 
 def run(args: argparse.Namespace) -> None:
+    config.check_config_file(os.environ.copy())
     web.app.run("0.0.0.0" if args.public else "127.0.0.1")
 
 

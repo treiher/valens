@@ -1,4 +1,5 @@
 import sqlite3
+from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session, declarative_base, scoped_session, sessionmak
 from sqlalchemy_repr import RepresentableBase
 from werkzeug.local import LocalProxy
 
-from valens import app
+from valens import app, config
 
 meta = MetaData(
     naming_convention={
@@ -38,6 +39,8 @@ def _set_sqlite_pragma(
 
 
 def get_engine() -> Engine:
+    config.check_app_config()
+    Path(app.config["DATABASE"].split(":")[1]).parent.mkdir(exist_ok=True)
     return create_engine(app.config["DATABASE"])
 
 

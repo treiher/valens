@@ -77,4 +77,5 @@ def init_db() -> None:
 
 
 def upgrade_db() -> None:
+    init_db()
     command.upgrade(alembic_cfg, "head")

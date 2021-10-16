@@ -5,7 +5,7 @@ export SQLALCHEMY_WARN_20=1
 python-packages := valens tests setup.py
 
 .PHONY: all check check_black check_isort check_pylint check_mypy format \
-	test test_installation
+	test test_installation css dist
 
 all: check test test_installation
 
@@ -30,8 +30,7 @@ format:
 test:
 	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing --test-alembic tests
 
-test_installation:
-	python setup.py sdist
+test_installation: dist
 	$(eval TMPDIR := $(shell mktemp -d))
 	pip wheel setuptools wheel -w $(TMPDIR)/wheels
 	pip install valens --no-deps --no-index --find-links dist/ --find-links $(TMPDIR)/wheels/ --target $(TMPDIR)
@@ -42,3 +41,7 @@ css: sass/bulma/bulma.sass
 
 sass/bulma/bulma.sass:
 	wget -qO- https://github.com/jgthms/bulma/releases/download/0.9.2/bulma-0.9.2.zip | bsdtar -xf- -C sass
+
+dist:
+	rm -rf valens.egg-info
+	python3 setup.py sdist

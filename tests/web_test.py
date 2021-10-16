@@ -983,6 +983,17 @@ def test_workouts_add_empty(client: Client) -> None:
     assert "2002-02-24" in resp.data.decode("utf-8")
 
 
+def test_workouts_add_no_routine(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = login(client)
+    assert resp.status_code == 302
+
+    resp = client.post("/workouts", data={"date": "2002-02-24"}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert "A routine has to be defined before creating a workout." in resp.data.decode("utf-8")
+
+
 def test_workout_delete(client: Client) -> None:
     tests.utils.init_db_data()
 

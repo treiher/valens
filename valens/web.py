@@ -630,33 +630,36 @@ def routine_delete_view(name: str) -> Union[str, Response]:
 @login_required
 def workouts_view() -> Union[str, Response]:
     if request.method == "POST":
-        date_ = date.fromisoformat(request.form["date"])
-        routine_name = request.form["routine"]
-        routine = query.get_routine(routine_name)
+        if "routine" not in request.form:
+            flash("A routine has to be defined before creating a workout.")
+        else:
+            date_ = date.fromisoformat(request.form["date"])
+            routine_name = request.form["routine"]
+            routine = query.get_routine(routine_name)
 
-        workout = Workout(
-            user_id=session["user_id"],
-            routine=routine,
-            date=date_,
-            sets=[
-                WorkoutSet(position=position, exercise_id=routine_exercise.exercise_id)
-                for position, routine_exercise in enumerate(
-                    (
-                        routine_exercise
-                        for routine_exercise in routine.exercises
-                        for _ in range(routine_exercise.sets)
-                    ),
-                    start=1,
-                )
-            ],
-        )
-        db.session.add(workout)
-        db.session.commit()
+            workout = Workout(
+                user_id=session["user_id"],
+                routine=routine,
+                date=date_,
+                sets=[
+                    WorkoutSet(position=position, exercise_id=routine_exercise.exercise_id)
+                    for position, routine_exercise in enumerate(
+                        (
+                            routine_exercise
+                            for routine_exercise in routine.exercises
+                            for _ in range(routine_exercise.sets)
+                        ),
+                        start=1,
+                    )
+                ],
+            )
+            db.session.add(workout)
+            db.session.commit()
 
-        return redirect(
-            url_for("workout_view", workout_id=workout.id),
-            Response=Response,
-        )
+            return redirect(
+                url_for("workout_view", workout_id=workout.id),
+                Response=Response,
+            )
 
     interval = parse_interval_args()
     routines = query.get_routines()

@@ -1,25 +1,44 @@
 import re
+from pathlib import Path
 
 from setuptools import find_packages, setup  # type: ignore
 
-with open("valens/__init__.py", encoding="utf-8") as f:
-    match = re.search(r'__version__ = "(.*?)"', f.read())
-    assert match
-    version = match.group(1)
+match = re.search(r'__version__ = "(.*?)"', Path("valens/__init__.py").read_text(encoding="utf-8"))
+assert match
+version = match.group(1)
+
+readme = Path("README.md").read_text(encoding="utf-8")
 
 setup(
     name="valens",
     version=version,
+    description="An app for tracking your health and training progress.",
+    long_description=readme,
+    long_description_content_type="text/markdown",
+    author="Tobias Reiher",
+    author_email="valens@ardeidae.de",
+    url="https://github.com/treiher/valens",
     license="AGPL-3.0",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Environment :: Web Environment",
+        "Intended Audience :: End Users/Desktop",
+        "License :: OSI Approved :: GNU Affero General Public License v3",
+        "Natural Language :: English",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Topic :: Other/Nonlisted Topic",
+    ],
     packages=find_packages(include=["valens"]),
-    package_data={"valens": ["migrations/*", "migrations/versions/*"]},
+    package_data={"valens": ["*", "*/*", "*/*/*"]},
     python_requires=">=3.8",
     install_requires=[
         "alembic >=1.6",
         "flask",
         "matplotlib",
         "pandas",
-        "pyarrow",
         "sqlalchemy-repr >= 0.0.2",
         "sqlalchemy[mypy] >= 1.4",
     ],

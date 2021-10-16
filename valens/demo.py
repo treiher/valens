@@ -68,16 +68,16 @@ def _body_fat(user_id: int = 1) -> list[BodyFat]:
     values = []
 
     previous: tuple[int, ...] = (
+        random.randint(5, 20),
         random.randint(10, 30),
         random.randint(10, 30),
         random.randint(10, 30),
-        random.randint(10, 30),
-        random.randint(10, 30),
-        random.randint(10, 30),
-        random.randint(10, 30),
+        random.randint(5, 20),
+        random.randint(5, 20),
+        random.randint(5, 20),
     )
     for _ in range(52):
-        value = tuple(abs(e + int(random.gauss(0, 0.8))) for e in previous)
+        value = tuple(max(1, abs(e + int(random.gauss(0, 0.8)))) for e in previous)
         previous = value
         values.append((day, value))
         day -= datetime.timedelta(days=7)

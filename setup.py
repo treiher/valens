@@ -36,7 +36,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "alembic >=1.6",
-        "flask",
+        "flask >=2.0.2",
         "matplotlib",
         "pandas",
         "sqlalchemy-repr >= 0.0.2",

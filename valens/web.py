@@ -5,7 +5,6 @@ from functools import wraps
 from itertools import chain, zip_longest
 from typing import Any, Callable, Sequence, Tuple, Union
 
-import flask
 import numpy as np
 import pandas as pd
 from flask import flash, make_response, redirect, render_template, request, session, url_for
@@ -43,9 +42,8 @@ def login_required(function: Callable) -> Callable:  # type: ignore[type-arg]
 
 
 @app.teardown_appcontext
-def teardown(_: BaseException = None) -> flask.Response:
+def teardown(_: BaseException = None) -> None:
     db.remove_session()
-    return flask.Response()
 
 
 @app.route("/service-worker.js")

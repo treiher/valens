@@ -1,9 +1,13 @@
 from datetime import timedelta
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from flask import Flask
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("valens")
+except PackageNotFoundError:  # pragma: no cover
+    pass
 
 app = Flask(__name__)
 

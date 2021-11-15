@@ -1,17 +1,11 @@
-import re
 from pathlib import Path
 
 from setuptools import find_packages, setup  # type: ignore
-
-match = re.search(r'__version__ = "(.*?)"', Path("valens/__init__.py").read_text(encoding="utf-8"))
-assert match
-version = match.group(1)
 
 readme = Path("README.md").read_text(encoding="utf-8")
 
 setup(
     name="valens",
-    version=version,
     description="An app for tracking your health and training progress.",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -53,7 +47,10 @@ setup(
             "pytest-alembic >=0.3.1",
             "pytest-cov >=2.10.0",
             "pytest-xdist >=1.32.0",
+            "setuptools_scm >=6.2",
         ]
     },
     entry_points={"console_scripts": ["valens=valens.cli:main"]},
+    use_scm_version=True,
+    setup_requires=["setuptools_scm"],
 )

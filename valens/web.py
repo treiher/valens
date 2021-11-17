@@ -11,7 +11,17 @@ from flask import flash, make_response, redirect, render_template, request, sess
 from sqlalchemy import delete, select
 from werkzeug.wrappers import Response
 
-from valens import app, bodyfat, bodyweight, database as db, diagram, query, storage, utils
+from valens import (
+    __version__,
+    app,
+    bodyfat,
+    bodyweight,
+    database as db,
+    diagram,
+    query,
+    storage,
+    utils,
+)
 from valens.models import (
     BodyFat,
     BodyWeight,
@@ -172,6 +182,7 @@ def users_view() -> Union[str, Response]:
     return render_template(
         "users.html",
         users=[(u.id, u.name, u.sex) for u in users],
+        version=__version__,
     )
 
 

@@ -44,4 +44,4 @@ sass/bulma/bulma.sass:
 
 dist:
 	rm -rf valens.egg-info
-	python3 setup.py sdist
+	python3 -m build

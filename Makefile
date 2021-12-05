@@ -40,7 +40,7 @@ css: sass/bulma/bulma.sass
 	sass --sourcemap=none sass/bulma.scss:valens/static/css/bulma.css
 
 sass/bulma/bulma.sass:
-	wget -qO- https://github.com/jgthms/bulma/releases/download/0.9.2/bulma-0.9.2.zip | bsdtar -xf- -C sass
+	wget -qO- https://github.com/jgthms/bulma/releases/download/0.9.3/bulma-0.9.3.zip | bsdtar -xf- -C sass
 
 dist:
 	rm -rf valens.egg-info

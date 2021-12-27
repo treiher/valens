@@ -4,7 +4,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from flask import g
-from sqlalchemy import MetaData, create_engine, event, pool
+from sqlalchemy import MetaData, create_engine, event, inspect, pool
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, declarative_base, scoped_session, sessionmaker
 from sqlalchemy_repr import RepresentableBase
@@ -52,7 +52,7 @@ def get_scoped_session() -> scoped_session:
 
 def get_session() -> Session:
     if "db_session" not in g:
-        if not get_engine().table_names():
+        if not inspect(get_engine()).get_table_names():
             init_db()
         g.db_session = get_scoped_session()()
 

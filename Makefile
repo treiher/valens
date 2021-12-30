@@ -42,6 +42,14 @@ css: sass/bulma/bulma.sass
 sass/bulma/bulma.sass:
 	wget -qO- https://github.com/jgthms/bulma/releases/download/0.9.3/bulma-0.9.3.zip | bsdtar -xf- -C sass
 
+fonts: sass/fontawesome/scss/fontawesome.scss
+	cp sass/fontawesome/webfonts/* frontend/assets/fonts/
+
+
+sass/fontawesome/scss/fontawesome.scss:
+	wget -qO- https://use.fontawesome.com/releases/v5.15.4/fontawesome-free-5.15.4-web.zip | bsdtar -xf- -C sass
+	mv sass/fontawesome-* sass/fontawesome
+
 dist:
 	rm -rf valens.egg-info
 	python3 -m build

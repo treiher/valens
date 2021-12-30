@@ -29,6 +29,8 @@
 $family-sans-serif: "Roboto", sans-serif;
 $green: #48C774;
 
+// Bulma
+
 // Enable hamburger menu without JavaScript
 
 // Fix hamburger button position
@@ -102,3 +104,10 @@ $fieldset-radius: $radius !default;
     font-weight: 700;
     padding: 0 5px;
 }
+
+// Font Awesome
+
+$fa-font-path: "fonts";
+
+@import "../../sass/fontawesome/scss/fontawesome.scss";
+@import "../../sass/fontawesome/scss/solid.scss";

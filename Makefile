@@ -9,7 +9,14 @@ python-packages := valens tests
 
 all: check test test_installation
 
-check: check_black check_isort check_pylint check_mypy
+check: check_frontend check_backend
+
+check_frontend:
+	cargo fmt --manifest-path=frontend/Cargo.toml -- --check
+	cargo check --manifest-path=frontend/Cargo.toml
+	cargo clippy --manifest-path=frontend/Cargo.toml
+
+check_backend: check_black check_isort check_pylint check_mypy
 
 check_black:
 	black --check --diff --line-length 100 $(python-packages)
@@ -24,10 +31,16 @@ check_mypy:
 	mypy --pretty $(python-packages)
 
 format:
+	cargo fmt --manifest-path=frontend/Cargo.toml
 	black -l 100 $(python-packages)
 	isort $(python-packages)
 
-test:
+test: test_frontend test_backend
+
+test_frontend:
+	cargo test --manifest-path=frontend/Cargo.toml
+
+test_backend:
 	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing --test-alembic tests
 
 test_installation: dist

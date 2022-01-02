@@ -54,8 +54,11 @@ dist:
 	rm -rf valens.egg-info
 	python3 -m build
 
-run_backend:
+run:
 	FLASK_ENV=development FLASK_APP=valens.web VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
 
 run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
+
+run_backend:
+	FLASK_ENV=development FLASK_APP=valens.api VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0

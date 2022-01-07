@@ -32,6 +32,7 @@ fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
 // ------ ------
 
 const LOGIN: &str = "login";
+const ADMIN: &str = "admin";
 
 struct Urls;
 
@@ -41,6 +42,9 @@ impl Urls {
     }
     fn login() -> Url {
         Url::new().set_path(&[LOGIN])
+    }
+    fn admin() -> Url {
+        Url::new().set_path(&[ADMIN])
     }
 }
 
@@ -75,6 +79,7 @@ struct Content {
 enum Page {
     Home(page::home::Model),
     Login(page::login::Model),
+    Admin(page::admin::Model),
     NotFound,
 }
 
@@ -84,11 +89,17 @@ impl Page {
             match url.remaining_path_parts().as_slice() {
                 [] => Self::Home(page::home::init(url, &mut orders.proxy(Msg::Home))),
                 [LOGIN] => Self::Login(page::login::init(url, &mut orders.proxy(Msg::Login))),
+                [ADMIN] => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
                 _ => Self::NotFound,
             }
         } else {
-            Urls::login().go_and_push();
-            Self::Login(page::login::init(url, &mut orders.proxy(Msg::Login)))
+            match url.remaining_path_parts().as_slice() {
+                [ADMIN] => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
+                _ => {
+                    Urls::login().go_and_push();
+                    Self::Login(page::login::init(url, &mut orders.proxy(Msg::Login)))
+                }
+            }
         }
     }
 }
@@ -110,6 +121,7 @@ enum Msg {
     // ------ Pages ------
     Home(page::home::Msg),
     Login(page::login::Msg),
+    Admin(page::admin::Msg),
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -136,7 +148,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         .expect("deserialization failed");
                     Msg::SessionFetched(session)
                 } else {
-                    Msg::RedirectToLogin
+                    Msg::UrlChanged(subs::UrlChanged(Url::current()))
                 }
             });
         }
@@ -180,6 +192,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     &mut orders.proxy(Msg::Login),
                     &mut model.session,
                 )
+            }
+        }
+        Msg::Admin(msg) => {
+            if let Some(Page::Admin(model)) = &mut model.content.page {
+                page::admin::update(msg, model, &mut orders.proxy(Msg::Admin))
             }
         }
     }
@@ -295,6 +312,7 @@ fn view_content(content: &Content) -> Node<Msg> {
         match &content.page {
             Some(Page::Home(model)) => page::home::view(model).map_msg(Msg::Home),
             Some(Page::Login(model)) => page::login::view(model).map_msg(Msg::Login),
+            Some(Page::Admin(model)) => page::admin::view(model).map_msg(Msg::Admin),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![
                 C!["is-size-5"],

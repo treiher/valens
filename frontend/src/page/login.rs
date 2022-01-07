@@ -131,12 +131,22 @@ pub fn view(model: &Model) -> Node<Msg> {
                     button![
                         C!["button"],
                         C!["is-success"],
-                        C!["has-text-weight-bold"],
                         ev(Ev::Click, move |_| Msg::RequestSession(user_id)),
                         &user.name,
                     ]
                 ]
             })
             .collect::<Vec<_>>(),
+        div![
+            C!["column"],
+            C!["mt-5"],
+            a![
+                C!["button"],
+                attrs! {
+                    At::Href => crate::Urls::admin(),
+                },
+                "Admin",
+            ]
+        ]
     ]
 }

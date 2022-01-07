@@ -28,6 +28,13 @@ def delete_session(client: Client) -> Response:
     return client.delete("/api/session")
 
 
+def test_get_version(client: Client) -> None:
+    resp = client.get("/api/version")
+
+    assert resp.status_code == 200
+    assert resp.json
+
+
 def test_session(client: Client) -> None:
     tests.utils.init_db_data()
 
@@ -132,6 +139,15 @@ def test_add_user(client: Client) -> None:
     ]
 
 
+def test_add_user_conflict(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = client.post("/api/users", json={"name": " Alice ", "sex": 0})
+
+    assert resp.status_code == 409
+    assert resp.json
+
+
 def test_add_user_invalid_content_type(client: Client) -> None:
     resp = client.post("/api/users", data={"name": "Carol", "sex": 0})
 
@@ -141,6 +157,57 @@ def test_add_user_invalid_content_type(client: Client) -> None:
 
 def test_add_user_bad_request(client: Client) -> None:
     resp = client.post("/api/users", json={"invalid": "data"})
+
+    assert resp.status_code == 400
+    assert resp.is_json
+
+
+def test_edit_user(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = client.put("/api/users/2", json={"name": "Carol", "sex": 0})
+
+    assert resp.status_code == 200
+    assert resp.json == {"id": 2, "name": "Carol", "sex": 0}
+
+    resp = client.get("/api/users")
+
+    assert resp.status_code == 200
+    assert resp.json == [
+        {"id": 1, "name": "Alice", "sex": 0},
+        {"id": 2, "name": "Carol", "sex": 0},
+    ]
+
+
+def test_edit_user_not_found(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = client.put("/api/users/3", json={"name": "Carol", "sex": 0})
+
+    assert resp.status_code == 404
+    assert not resp.data
+
+
+def test_edit_user_conflict(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = client.put("/api/users/2", json={"name": " Alice ", "sex": 0})
+
+    assert resp.status_code == 409
+    assert resp.json
+
+
+def test_edit_user_invalid_content_type(client: Client) -> None:
+    resp = client.put("/api/users/2", data={"name": "Carol", "sex": 0})
+
+    assert resp.status_code == 415
+    assert not resp.data
+
+
+def test_edit_user_bad_request(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    resp = client.put("/api/users/2", json={"invalid": "data"})
 
     assert resp.status_code == 400
     assert resp.is_json

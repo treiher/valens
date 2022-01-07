@@ -5,9 +5,9 @@ from typing import Callable
 from flask import jsonify, request, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import select
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from valens import app, database as db
+from valens import __version__, app, database as db
 from valens.models import User
 
 
@@ -29,6 +29,11 @@ def session_required(function: Callable) -> Callable:  # type: ignore[type-arg]
         return function(*args, **kwargs)
 
     return decorated_function
+
+
+@app.route("/api/version")
+def get_version() -> ResponseReturnValue:
+    return jsonify(__version__)
 
 
 @app.route("/api/session")
@@ -93,18 +98,48 @@ def add_user() -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        user = User(**data)
-    except TypeError as e:
+        user = User(name=data["name"].strip(), sex=data["sex"])
+    except KeyError as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(user)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
         jsonify({"id": user.id, "name": user.name, "sex": user.sex}),
         HTTPStatus.CREATED,
         {"Location": f"/api/users/{user.id}"},
     )
+
+
+@app.route("/api/users/<int:user_id>", methods=["PUT"])
+@json_expected
+def edit_user(user_id: int) -> ResponseReturnValue:
+    try:
+        user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
+    except NoResultFound:
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        user.name = data["name"].strip()
+        user.sex = data["sex"]
+    except KeyError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return jsonify({"id": user.id, "name": user.name, "sex": user.sex}), HTTPStatus.OK
 
 
 @app.route("/api/users/<int:user_id>", methods=["DELETE"])

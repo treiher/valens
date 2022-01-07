@@ -20,10 +20,8 @@ fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
             items: Vec::new(),
             menu_visible: false,
         },
-        content: Content {
-            error_messages: Vec::new(),
-            page: None,
-        },
+        page: None,
+        errors: Vec::new(),
     }
 }
 
@@ -55,13 +53,16 @@ impl Urls {
 struct Model {
     session: Option<Session>,
     navbar: Navbar,
-    content: Content,
+    page: Option<Page>,
+    errors: Vec<String>,
 }
 
 #[derive(serde::Deserialize, Debug)]
 pub struct Session {
+    #[allow(dead_code)]
     id: u32,
     name: String,
+    #[allow(dead_code)]
     sex: u8,
 }
 
@@ -69,11 +70,6 @@ struct Navbar {
     title: String,
     items: Vec<(String, String)>,
     menu_visible: bool,
-}
-
-struct Content {
-    error_messages: Vec<String>,
-    page: Option<Page>,
 }
 
 enum Page {
@@ -109,6 +105,9 @@ impl Page {
 // ------ ------
 
 enum Msg {
+    ShowErrorDialog(String),
+    CloseErrorDialog,
+
     UrlChanged(subs::UrlChanged),
     ToggleMenu,
     HideMenu,
@@ -116,7 +115,6 @@ enum Msg {
     SessionFetched(Session),
     SwitchUser,
     RedirectToLogin,
-    ShowError(String),
 
     // ------ Pages ------
     Home(page::home::Msg),
@@ -126,9 +124,16 @@ enum Msg {
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
+        Msg::ShowErrorDialog(message) => {
+            model.errors.push(message);
+        }
+        Msg::CloseErrorDialog => {
+            model.errors.remove(0);
+        }
+
         Msg::UrlChanged(subs::UrlChanged(url)) => {
-            model.content.error_messages.clear();
-            model.content.page = Some(Page::init(url, orders, model.session.is_some()));
+            model.page = Some(Page::init(url, orders, model.session.is_some()));
+            model.errors.clear();
         }
         Msg::ToggleMenu => model.navbar.menu_visible = not(model.navbar.menu_visible),
         Msg::HideMenu => {
@@ -154,7 +159,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SessionFetched(session) => {
             model.session = Some(session);
-            model.content.page = Some(Page::init(Url::current(), orders, true));
+            model.page = Some(Page::init(Url::current(), orders, true));
         }
         Msg::SwitchUser => {
             orders.skip().perform_cmd(async {
@@ -163,10 +168,12 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         if response.status().is_ok() {
                             Msg::RedirectToLogin
                         } else {
-                            Msg::ShowError("Failed to switch user: unexpected response".into())
+                            Msg::ShowErrorDialog(
+                                "Failed to switch user: unexpected response".into(),
+                            )
                         }
                     }
-                    Err(_) => Msg::ShowError("Failed to switch user: no connection".into()),
+                    Err(_) => Msg::ShowErrorDialog("Failed to switch user: no connection".into()),
                 }
             });
         }
@@ -174,18 +181,15 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             orders.request_url(Urls::login());
             model.session = None;
         }
-        Msg::ShowError(message) => {
-            model.content.error_messages.push(message);
-        }
 
         // ------ Pages ------
         Msg::Home(msg) => {
-            if let Some(Page::Home(model)) = &mut model.content.page {
+            if let Some(Page::Home(model)) = &mut model.page {
                 page::home::update(msg, model, &mut orders.proxy(Msg::Home))
             }
         }
         Msg::Login(msg) => {
-            if let Some(Page::Login(page_model)) = &mut model.content.page {
+            if let Some(Page::Login(page_model)) = &mut model.page {
                 page::login::update(
                     msg,
                     page_model,
@@ -195,7 +199,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         }
         Msg::Admin(msg) => {
-            if let Some(Page::Admin(model)) = &mut model.content.page {
+            if let Some(Page::Admin(model)) = &mut model.page {
                 page::admin::update(msg, model, &mut orders.proxy(Msg::Admin))
             }
         }
@@ -209,7 +213,8 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 fn view(model: &Model) -> impl IntoNodes<Msg> {
     nodes![
         view_navbar(&model.navbar, &model.session),
-        view_content(&model.content),
+        view_page(&model.page),
+        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
     ]
 }
 
@@ -303,13 +308,12 @@ fn view_navbar(navbar: &Navbar, session: &Option<Session>) -> Node<Msg> {
     ]
 }
 
-fn view_content(content: &Content) -> Node<Msg> {
+fn view_page(page: &Option<Page>) -> Node<Msg> {
     div![
         C!["container"],
         C!["is-max-desktop"],
         C!["py-4"],
-        common::view_errors(&content.error_messages),
-        match &content.page {
+        match page {
             Some(Page::Home(model)) => page::home::view(model).map_msg(Msg::Home),
             Some(Page::Login(model)) => page::login::view(model).map_msg(Msg::Login),
             Some(Page::Admin(model)) => page::admin::view(model).map_msg(Msg::Admin),

@@ -12,7 +12,7 @@ pub fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
 
     Model {
         users: Vec::new(),
-        error_messages: Vec::new(),
+        errors: Vec::new(),
     }
 }
 
@@ -22,7 +22,7 @@ pub fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
 
 pub struct Model {
     users: Users,
-    error_messages: Vec<String>,
+    errors: Vec<String>,
 }
 
 type Users = Vec<User>;
@@ -31,6 +31,7 @@ type Users = Vec<User>;
 pub struct User {
     id: i32,
     name: String,
+    #[allow(dead_code)]
     sex: i8,
 }
 
@@ -39,8 +40,11 @@ pub struct User {
 // ------ ------
 
 pub enum Msg {
+    CloseErrorDialog,
+
     FetchUsers,
     UsersFetched(Result<Users, String>),
+
     RequestSession(i32),
     SessionReceived(Result<crate::Session, String>),
 }
@@ -52,6 +56,10 @@ pub fn update(
     session: &mut Option<crate::Session>,
 ) {
     match msg {
+        Msg::CloseErrorDialog => {
+            model.errors.remove(0);
+        }
+
         Msg::FetchUsers => {
             orders.skip().perform_cmd(async {
                 match fetch("api/users").await {
@@ -74,9 +82,10 @@ pub fn update(
         }
         Msg::UsersFetched(Err(message)) => {
             model
-                .error_messages
+                .errors
                 .push("Failed to fetch users: ".to_owned() + &message);
         }
+
         Msg::RequestSession(user_id) => {
             orders.skip().perform_cmd(async move {
                 let request = Request::new("api/session")
@@ -106,7 +115,7 @@ pub fn update(
         }
         Msg::SessionReceived(Err(message)) => {
             model
-                .error_messages
+                .errors
                 .push("Failed to request session: ".to_owned() + &message);
         }
     }
@@ -120,7 +129,7 @@ pub fn view(model: &Model) -> Node<Msg> {
     div![
         C!["container"],
         C!["has-text-centered"],
-        common::view_errors(&model.error_messages),
+        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
         &model
             .users
             .iter()

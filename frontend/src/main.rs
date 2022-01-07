@@ -105,16 +105,18 @@ impl Page {
 // ------ ------
 
 enum Msg {
-    ShowErrorDialog(String),
     CloseErrorDialog,
 
     UrlChanged(subs::UrlChanged),
+
     ToggleMenu,
     HideMenu,
+
     InitializeSession,
-    SessionFetched(Session),
-    SwitchUser,
-    RedirectToLogin,
+    SessionInitialized(Session),
+
+    DeleteSession,
+    SessionDeleted(Result<(), String>),
 
     // ------ Pages ------
     Home(page::home::Msg),
@@ -124,9 +126,6 @@ enum Msg {
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
-        Msg::ShowErrorDialog(message) => {
-            model.errors.push(message);
-        }
         Msg::CloseErrorDialog => {
             model.errors.remove(0);
         }
@@ -135,6 +134,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.page = Some(Page::init(url, orders, model.session.is_some()));
             model.errors.clear();
         }
+
         Msg::ToggleMenu => model.navbar.menu_visible = not(model.navbar.menu_visible),
         Msg::HideMenu => {
             if model.navbar.menu_visible {
@@ -143,6 +143,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 orders.skip();
             }
         }
+
         Msg::InitializeSession => {
             orders.skip().perform_cmd(async {
                 let response = fetch("api/session").await.expect("HTTP request failed");
@@ -151,35 +152,31 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         .json::<Session>()
                         .await
                         .expect("deserialization failed");
-                    Msg::SessionFetched(session)
+                    Msg::SessionInitialized(session)
                 } else {
                     Msg::UrlChanged(subs::UrlChanged(Url::current()))
                 }
             });
         }
-        Msg::SessionFetched(session) => {
+        Msg::SessionInitialized(session) => {
             model.session = Some(session);
             model.page = Some(Page::init(Url::current(), orders, true));
         }
-        Msg::SwitchUser => {
+
+        Msg::DeleteSession => {
+            let request = Request::new("api/session").method(Method::Delete);
             orders.skip().perform_cmd(async {
-                match fetch(Request::new("api/session").method(Method::Delete)).await {
-                    Ok(response) => {
-                        if response.status().is_ok() {
-                            Msg::RedirectToLogin
-                        } else {
-                            Msg::ShowErrorDialog(
-                                "Failed to switch user: unexpected response".into(),
-                            )
-                        }
-                    }
-                    Err(_) => Msg::ShowErrorDialog("Failed to switch user: no connection".into()),
-                }
+                common::fetch_no_content(request, Msg::SessionDeleted).await
             });
         }
-        Msg::RedirectToLogin => {
+        Msg::SessionDeleted(Ok(_)) => {
             orders.request_url(Urls::login());
             model.session = None;
+        }
+        Msg::SessionDeleted(Err(message)) => {
+            model
+                .errors
+                .push("Failed to switch users: ".to_owned() + &message);
         }
 
         // ------ Pages ------

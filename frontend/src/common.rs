@@ -1,5 +1,43 @@
 use seed::{prelude::*, *};
 
+pub async fn fetch<'a, Ms, T>(
+    request: impl Into<Request<'a>>,
+    message: fn(Result<T, String>) -> Ms,
+) -> Ms
+where
+    T: 'static + for<'de> serde::Deserialize<'de>,
+{
+    match seed::browser::fetch::fetch(request).await {
+        Ok(response) => {
+            if response.status().is_ok() {
+                match response.json::<T>().await {
+                    Ok(data) => message(Ok(data)),
+                    Err(_) => message(Err("deserialization failed".into())),
+                }
+            } else {
+                message(Err("unexpected response".into()))
+            }
+        }
+        Err(_) => message(Err("no connection".into())),
+    }
+}
+
+pub async fn fetch_no_content<'a, Ms>(
+    request: impl Into<Request<'a>>,
+    message: fn(Result<(), String>) -> Ms,
+) -> Ms {
+    match seed::browser::fetch::fetch(request).await {
+        Ok(response) => {
+            if response.status().is_ok() {
+                message(Ok(()))
+            } else {
+                message(Err("unexpected response".into()))
+            }
+        }
+        Err(_) => message(Err("no connection".into())),
+    }
+}
+
 pub fn view_dialog<Ms>(
     color: &str,
     title: &str,

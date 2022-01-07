@@ -150,21 +150,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         },
 
         Msg::FetchVersion => {
-            orders.perform_cmd(async {
-                match fetch("api/version").await {
-                    Ok(response) => {
-                        if response.status().is_ok() {
-                            match response.json::<String>().await {
-                                Ok(version) => Msg::VersionFetched(Ok(version)),
-                                Err(_) => Msg::VersionFetched(Err("deserialization failed".into())),
-                            }
-                        } else {
-                            Msg::VersionFetched(Err("unexpected response".into()))
-                        }
-                    }
-                    Err(_) => Msg::VersionFetched(Err("no connection".into())),
-                }
-            });
+            orders.perform_cmd(async { common::fetch("api/version", Msg::VersionFetched).await });
         }
         Msg::VersionFetched(Ok(version)) => {
             model.version = version;
@@ -176,21 +162,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::FetchUsers => {
-            orders.perform_cmd(async {
-                match fetch("api/users").await {
-                    Ok(response) => {
-                        if response.status().is_ok() {
-                            match response.json::<Users>().await {
-                                Ok(users) => Msg::UsersFetched(Ok(users)),
-                                Err(_) => Msg::UsersFetched(Err("deserialization failed".into())),
-                            }
-                        } else {
-                            Msg::UsersFetched(Err("unexpected response".into()))
-                        }
-                    }
-                    Err(_) => Msg::UsersFetched(Err("no connection".into())),
-                }
-            });
+            orders.perform_cmd(async { common::fetch("api/users", Msg::UsersFetched).await });
         }
         Msg::UsersFetched(Ok(users)) => {
             model.users = users;
@@ -225,21 +197,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     panic!();
                 }
             }
-            orders.perform_cmd(async move {
-                match fetch(request).await {
-                    Ok(response) => {
-                        if response.status().is_ok() {
-                            match response.json::<User>().await {
-                                Ok(user) => Msg::UserSaved(Ok(user)),
-                                Err(_) => Msg::UserSaved(Err("deserialization failed".into())),
-                            }
-                        } else {
-                            Msg::UserSaved(Err("unexpected response".into()))
-                        }
-                    }
-                    Err(_) => Msg::UserSaved(Err("no connection".into())),
-                }
-            });
+            orders.perform_cmd(async move { common::fetch(request, Msg::UserSaved).await });
         }
         Msg::UserSaved(Ok(_)) => {
             model.loading = false;
@@ -258,19 +216,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteUser(index) => {
             model.loading = true;
             let id = model.users[index].id;
-            orders.perform_cmd(async move {
-                let request = Request::new(format!("api/users/{}", id)).method(Method::Delete);
-                match fetch(request).await {
-                    Ok(response) => {
-                        if response.status().is_ok() {
-                            Msg::UserDeleted(Ok(()))
-                        } else {
-                            Msg::UserDeleted(Err("unexpected response".into()))
-                        }
-                    }
-                    Err(_) => Msg::UserDeleted(Err("no connection".into())),
-                }
-            });
+            let request = Request::new(format!("api/users/{}", id)).method(Method::Delete);
+            orders.perform_cmd(
+                async move { common::fetch_no_content(request, Msg::UserDeleted).await },
+            );
         }
         Msg::UserDeleted(Ok(_)) => {
             model.loading = false;

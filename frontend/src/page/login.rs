@@ -61,21 +61,9 @@ pub fn update(
         }
 
         Msg::FetchUsers => {
-            orders.skip().perform_cmd(async {
-                match fetch("api/users").await {
-                    Ok(response) => {
-                        if response.status().is_ok() {
-                            match response.json::<Users>().await {
-                                Ok(users) => Msg::UsersFetched(Ok(users)),
-                                Err(_) => Msg::UsersFetched(Err("deserialization failed".into())),
-                            }
-                        } else {
-                            Msg::UsersFetched(Err("unexpected response".into()))
-                        }
-                    }
-                    Err(_) => Msg::UsersFetched(Err("no connection".into())),
-                }
-            });
+            orders
+                .skip()
+                .perform_cmd(async { common::fetch("api/users", Msg::UsersFetched).await });
         }
         Msg::UsersFetched(Ok(users)) => {
             model.users = users;
@@ -87,27 +75,13 @@ pub fn update(
         }
 
         Msg::RequestSession(user_id) => {
-            orders.skip().perform_cmd(async move {
-                let request = Request::new("api/session")
-                    .method(Method::Post)
-                    .json(&json!({ "id": user_id }))
-                    .expect("serialization failed");
-                match fetch(request).await {
-                    Ok(response) => {
-                        if response.status().is_ok() {
-                            match response.json::<crate::Session>().await {
-                                Ok(session) => Msg::SessionReceived(Ok(session)),
-                                Err(_) => {
-                                    Msg::SessionReceived(Err("deserialization failed".into()))
-                                }
-                            }
-                        } else {
-                            Msg::SessionReceived(Err("unexpected response".into()))
-                        }
-                    }
-                    Err(_) => Msg::SessionReceived(Err("no connection".into())),
-                }
-            });
+            let request = Request::new("api/session")
+                .method(Method::Post)
+                .json(&json!({ "id": user_id }))
+                .expect("serialization failed");
+            orders
+                .skip()
+                .perform_cmd(async move { common::fetch(request, Msg::SessionReceived).await });
         }
         Msg::SessionReceived(Ok(new_session)) => {
             *session = Some(new_session);

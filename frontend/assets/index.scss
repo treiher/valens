@@ -67,6 +67,22 @@ $green: #48C774;
     }
 }
 
+// Floating Action Button (FAB)
+
+.button.is-fab {
+    position: fixed;
+    right: 2rem;
+    bottom: 2rem;
+    border-radius: 50%;
+}
+
+.button.is-fab-navbar {
+    position: fixed;
+    right: 2rem;
+    bottom: 4rem;
+    border-radius: 50%;
+}
+
 // Hide spinners for number inputs
 
 input::-webkit-outer-spin-button,

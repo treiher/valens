@@ -301,15 +301,13 @@ pub fn view(model: &Model) -> Node<Msg> {
                     .collect::<Vec<_>>(),],
             ]
         ],
-        div![
-            C!["has-text-right"],
-            C!["mx-5"],
-            button![
-                C!["button"],
-                C!["is-link"],
-                ev(Ev::Click, |_| Msg::ShowAddUserDialog),
-                span![C!["icon"], i![C!["fas fa-user-plus fa-lg"]]]
-            ],
+        button![
+            C!["button"],
+            C!["is-fab-navbar"],
+            C!["is-medium"],
+            C!["is-link"],
+            ev(Ev::Click, |_| Msg::ShowAddUserDialog),
+            span![C!["icon"], i![C!["fas fa-user-plus"]]]
         ],
         div![
             C!["navbar"],

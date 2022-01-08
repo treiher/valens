@@ -7,8 +7,10 @@ use crate::common;
 //     Init
 // ------ ------
 
-pub fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
+pub fn init(_: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
     orders.send_msg(Msg::FetchUsers);
+
+    navbar.items = vec![("Administration".into(), crate::Urls::admin())];
 
     Model {
         users: Vec::new(),
@@ -113,23 +115,12 @@ pub fn view(model: &Model) -> Node<Msg> {
                     C!["column"],
                     button![
                         C!["button"],
-                        C!["is-success"],
+                        C!["is-link"],
                         ev(Ev::Click, move |_| Msg::RequestSession(user_id)),
                         &user.name,
                     ]
                 ]
             })
             .collect::<Vec<_>>(),
-        div![
-            C!["column"],
-            C!["mt-5"],
-            a![
-                C!["button"],
-                attrs! {
-                    At::Href => crate::Urls::admin(),
-                },
-                "Admin",
-            ]
-        ]
     ]
 }

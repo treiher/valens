@@ -353,7 +353,7 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
         }
     }
     common::view_dialog(
-        "success",
+        "primary",
         title,
         nodes![
             div![
@@ -426,7 +426,7 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                     C!["control"],
                     button![
                         C!["button"],
-                        C!["is-success"],
+                        C!["is-primary"],
                         C![IF![loading => "is-loading"]],
                         attrs![
                             At::Disabled =>

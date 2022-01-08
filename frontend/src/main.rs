@@ -66,9 +66,9 @@ pub struct Session {
     sex: u8,
 }
 
-struct Navbar {
+pub struct Navbar {
     title: String,
-    items: Vec<(String, String)>,
+    items: Vec<(String, Url)>,
     menu_visible: bool,
 }
 
@@ -80,11 +80,22 @@ enum Page {
 }
 
 impl Page {
-    fn init(mut url: Url, orders: &mut impl Orders<Msg>, has_session: bool) -> Self {
+    fn init(
+        mut url: Url,
+        orders: &mut impl Orders<Msg>,
+        navbar: &mut Navbar,
+        has_session: bool,
+    ) -> Self {
+        navbar.items.clear();
+
         if has_session {
             match url.remaining_path_parts().as_slice() {
                 [] => Self::Home(page::home::init(url, &mut orders.proxy(Msg::Home))),
-                [LOGIN] => Self::Login(page::login::init(url, &mut orders.proxy(Msg::Login))),
+                [LOGIN] => Self::Login(page::login::init(
+                    url,
+                    &mut orders.proxy(Msg::Login),
+                    navbar,
+                )),
                 [ADMIN] => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
                 _ => Self::NotFound,
             }
@@ -93,7 +104,11 @@ impl Page {
                 [ADMIN] => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
                 _ => {
                     Urls::login().go_and_push();
-                    Self::Login(page::login::init(url, &mut orders.proxy(Msg::Login)))
+                    Self::Login(page::login::init(
+                        url,
+                        &mut orders.proxy(Msg::Login),
+                        navbar,
+                    ))
                 }
             }
         }
@@ -131,7 +146,12 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::UrlChanged(subs::UrlChanged(url)) => {
-            model.page = Some(Page::init(url, orders, model.session.is_some()));
+            model.page = Some(Page::init(
+                url,
+                orders,
+                &mut model.navbar,
+                model.session.is_some(),
+            ));
             model.errors.clear();
         }
 
@@ -160,7 +180,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SessionInitialized(session) => {
             model.session = Some(session);
-            model.page = Some(Page::init(Url::current(), orders, true));
+            model.page = Some(Page::init(Url::current(), orders, &mut model.navbar, true));
         }
 
         Msg::DeleteSession => {
@@ -219,7 +239,7 @@ fn view_navbar(navbar: &Navbar, session: &Option<Session>) -> Node<Msg> {
     nav![
         C!["navbar"],
         C!["is-fixed-top"],
-        C!["is-success"],
+        C!["is-primary"],
         div![
             C!["container"],
             div![
@@ -267,7 +287,6 @@ fn view_navbar(navbar: &Navbar, session: &Option<Session>) -> Node<Msg> {
                         .map(|(name, target)| {
                             a![
                                 C!["navbar-item"],
-                                C!["is-size-5"],
                                 C!["has-text-weight-bold"],
                                 attrs! {
                                     At::Href => target,
@@ -277,25 +296,18 @@ fn view_navbar(navbar: &Navbar, session: &Option<Session>) -> Node<Msg> {
                         })
                         .collect::<Vec<_>>(),
                     match &session {
-                        Some(s) => div![
+                        Some(s) => a![
                             C!["navbar-item"],
+                            C!["has-text-weight-bold"],
+                            ev(Ev::Click, |_| Msg::DeleteSession),
                             span![
                                 C!["tag"],
                                 C!["is-medium"],
                                 C!["has-text-light"],
                                 C!["has-background-grey"],
-                                C!["has-text-weight-bold"],
                                 &s.name
                             ],
-                            a![
-                                C!["icon"],
-                                C!["is-size-5"],
-                                C!["has-text-grey"],
-                                C!["has-text-weight-bold"],
-                                C!["px-5"],
-                                ev(Ev::Click, |_| Msg::SwitchUser),
-                                i![C!["fas fa-sign-out-alt"]],
-                            ]
+                            span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]]
                         ],
                         None => empty![],
                     }

@@ -1,1 +1,5 @@
-include THIRD-PARTY-LICENSES
+# All SCM-managed files are automatically added to the sdist by setuptools_scm.
+prune *
+exclude *.ini .gitignore Makefile
+graft valens
+global-exclude *.py[cod]

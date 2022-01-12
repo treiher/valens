@@ -45,7 +45,7 @@ test_backend:
 
 test_installation: dist
 	$(eval TMPDIR := $(shell mktemp -d))
-	pip wheel setuptools wheel -w $(TMPDIR)/wheels
+	pip wheel setuptools setuptools_scm wheel -w $(TMPDIR)/wheels
 	pip install valens --no-deps --no-index --find-links dist/ --find-links $(TMPDIR)/wheels/ --target $(TMPDIR)
 	rm -rf $(TMPDIR)
 

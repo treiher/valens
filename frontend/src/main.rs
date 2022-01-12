@@ -7,13 +7,14 @@ mod page;
 //     Init
 // ------ ------
 
-fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
+fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
     orders
         .subscribe(Msg::UrlChanged)
         .stream(streams::window_event(Ev::Click, |_| Msg::HideMenu))
         .send_msg(Msg::InitializeSession);
 
     Model {
+        base_url: url.to_hash_base_url(),
         session: None,
         navbar: Navbar {
             title: String::from("Valens"),
@@ -32,17 +33,16 @@ fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
 const LOGIN: &str = "login";
 const ADMIN: &str = "admin";
 
-struct Urls;
-
-impl Urls {
-    fn home() -> Url {
-        Url::new().set_path(&[""])
+struct_urls!();
+impl<'a> Urls<'a> {
+    pub fn home(self) -> Url {
+        self.base_url()
     }
-    fn login() -> Url {
-        Url::new().set_path(&[LOGIN])
+    pub fn login(self) -> Url {
+        self.base_url().set_hash_path(&[LOGIN])
     }
-    fn admin() -> Url {
-        Url::new().set_path(&[ADMIN])
+    pub fn admin(self) -> Url {
+        self.base_url().set_hash_path(&[ADMIN])
     }
 }
 
@@ -51,6 +51,7 @@ impl Urls {
 // ------ ------
 
 struct Model {
+    base_url: Url,
     session: Option<Session>,
     navbar: Navbar,
     page: Option<Page>,
@@ -89,21 +90,21 @@ impl Page {
         navbar.items.clear();
 
         if has_session {
-            match url.remaining_path_parts().as_slice() {
-                [] => Self::Home(page::home::init(url, &mut orders.proxy(Msg::Home))),
-                [LOGIN] => Self::Login(page::login::init(
+            match url.next_hash_path_part() {
+                None => Self::Home(page::home::init(url, &mut orders.proxy(Msg::Home))),
+                Some(LOGIN) => Self::Login(page::login::init(
                     url,
                     &mut orders.proxy(Msg::Login),
                     navbar,
                 )),
-                [ADMIN] => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
-                _ => Self::NotFound,
+                Some(ADMIN) => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
+                Some(_) => Self::NotFound,
             }
         } else {
-            match url.remaining_path_parts().as_slice() {
-                [ADMIN] => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
-                _ => {
-                    Urls::login().go_and_push();
+            match url.next_hash_path_part() {
+                Some(ADMIN) => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
+                None | Some(_) => {
+                    Urls::new(&url.to_hash_base_url()).login().go_and_push();
                     Self::Login(page::login::init(
                         url,
                         &mut orders.proxy(Msg::Login),
@@ -190,7 +191,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::SessionDeleted(Ok(_)) => {
-            orders.request_url(Urls::login());
+            orders.request_url(Urls::new(&model.base_url).login());
             model.session = None;
         }
         Msg::SessionDeleted(Err(message)) => {

@@ -7,12 +7,15 @@ use crate::common;
 //     Init
 // ------ ------
 
-pub fn init(_: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
+pub fn init(url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
+    let base_url = url.to_hash_base_url();
+
     orders.send_msg(Msg::FetchUsers);
 
-    navbar.items = vec![("Administration".into(), crate::Urls::admin())];
+    navbar.items = vec![("Administration".into(), crate::Urls::new(&base_url).admin())];
 
     Model {
+        base_url,
         users: Vec::new(),
         errors: Vec::new(),
     }
@@ -23,6 +26,7 @@ pub fn init(_: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -
 // ------ ------
 
 pub struct Model {
+    base_url: Url,
     users: Users,
     errors: Vec<String>,
 }
@@ -87,7 +91,9 @@ pub fn update(
         }
         Msg::SessionReceived(Ok(new_session)) => {
             *session = Some(new_session);
-            orders.request_url(crate::Urls::home());
+            orders.request_url(
+                crate::Urls::new(&model.base_url.clone().set_hash_path(&[""; 0])).home(),
+            );
         }
         Msg::SessionReceived(Err(message)) => {
             model

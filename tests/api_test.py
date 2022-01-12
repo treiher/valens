@@ -28,6 +28,23 @@ def delete_session(client: Client) -> Response:
     return client.delete("/api/session")
 
 
+@pytest.mark.parametrize(
+    "route",
+    [
+        "/",
+        "/manifest.json",
+        "/index.css",
+        "/index.js",
+        "/index.wasm",
+        "/service-worker.js",
+    ],
+)
+def test_static_files(client: Client, route: str) -> None:
+    resp = client.get(route)
+
+    assert resp.status_code == 200
+
+
 def test_get_version(client: Client) -> None:
     resp = client.get("/api/version")
 

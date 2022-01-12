@@ -69,6 +69,7 @@ def offline() -> Union[str, Response]:
 
 
 @app.route("/")
+@app.route("/index")
 @login_required
 def index_view() -> Union[str, Response]:
     bw = bodyweight.analyze(storage.read_bodyweight(session["user_id"]))

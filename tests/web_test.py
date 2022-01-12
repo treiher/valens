@@ -45,7 +45,7 @@ def login(client: Client, user_id: int = 1, path: str = "") -> TestResponse:
 def test_login(client: Client, path: str) -> None:
     tests.utils.init_db_data()
 
-    resp = client.get(f"{path}/")
+    resp = client.get(f"{path}/index")
     assert resp.status_code == 302
 
     resp = client.get(f"{path}/login")
@@ -54,7 +54,7 @@ def test_login(client: Client, path: str) -> None:
     resp = login(client, path=path)
     assert resp.status_code == 302
 
-    resp = client.get(f"{path}/")
+    resp = client.get(f"{path}/index")
     assert resp.status_code == 200
 
     resp = client.get(f"{path}/logout")
@@ -92,7 +92,7 @@ def test_availability_without_login(client: Client, path: str, route: str) -> No
 @pytest.mark.parametrize(
     "route",
     [
-        "/",
+        "/index",
         "/bodyweight",
         "/bodyweight?first=2002-01-01&last=2002-12-31",
         "/bodyfat",
@@ -156,7 +156,7 @@ def test_index(client: Client) -> None:
     resp = login(client)
     assert resp.status_code == 302
 
-    resp = client.get("/")
+    resp = client.get("/index")
     assert resp.status_code == 200
 
 
@@ -166,7 +166,7 @@ def test_index_empty(client: Client) -> None:
     resp = login(client)
     assert resp.status_code == 302
 
-    resp = client.get("/")
+    resp = client.get("/index")
     assert resp.status_code == 200
 
 

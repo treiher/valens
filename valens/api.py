@@ -2,13 +2,30 @@ from functools import wraps
 from http import HTTPStatus
 from typing import Callable
 
-from flask import jsonify, request, session
+from flask import jsonify, render_template, request, send_from_directory, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from valens import __version__, app, database as db
 from valens.models import User
+
+PUBLIC_URL = app.config["PUBLIC_URL"] if "PUBLIC_URL" in app.config else ""
+
+
+@app.route("/")
+def root() -> ResponseReturnValue:
+    return render_template("frontend.html", public_url=PUBLIC_URL)
+
+
+@app.route("/manifest.json")
+def manifest() -> ResponseReturnValue:
+    return render_template("manifest.json", public_url=PUBLIC_URL)
+
+
+@app.route("/<path:name>")
+def frontend(name: str) -> ResponseReturnValue:
+    return send_from_directory("frontend", name)
 
 
 def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]

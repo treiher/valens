@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#48C774">
+        <title>Valens</title>
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ public_url }}/images/apple-touch-icon.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ public_url }}/images/favicon-16x16.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ public_url }}/images/favicon-32x32.png">
+        <link rel="manifest" href="{{ public_url }}/manifest.json">
+        <link rel="stylesheet" href="{{ public_url }}/index.css">
+        <script src="/js/register-sw.js"></script>
+        <base href="{{ public_url }}/">
+        <link rel="preload" href="{{ public_url }}/index.wasm" as="fetch" type="application/wasm" crossorigin="">
+        <link rel="modulepreload" href="{{ public_url }}/index.js">
+    </head>
+    <body class="has-navbar-fixed-top has-navbar-fixed-bottom">
+        <div id="app">
+        </div>
+        <script type="module">
+            import init from '{{ public_url }}/index.js';
+            init('{{ public_url }}/index.wasm');
+        </script>
+    </body>
+</html>

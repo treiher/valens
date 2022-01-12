@@ -1,8 +1,10 @@
+SHELL = /bin/bash
 VERBOSE ?= @
 
 export SQLALCHEMY_WARN_20=1
 
 python-packages := valens tests
+frontend-files := $(addprefix valens/frontend/,index.css index.js index.wasm service-worker.js)
 
 .PHONY: all check check_black check_isort check_pylint check_mypy format \
 	test test_installation css dist
@@ -41,6 +43,8 @@ test_frontend:
 	cargo test --manifest-path=frontend/Cargo.toml
 
 test_backend:
+	mkdir -p valens/frontend
+	touch $(frontend-files)
 	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing --test-alembic tests
 
 test_installation: dist
@@ -63,7 +67,16 @@ sass/fontawesome/scss/fontawesome.scss:
 	wget -qO- https://use.fontawesome.com/releases/v5.15.4/fontawesome-free-5.15.4-web.zip | bsdtar -xf- -C sass
 	mv sass/fontawesome-* sass/fontawesome
 
-dist:
+$(frontend-files): sass/bulma/bulma.sass sass/fontawesome/scss/fontawesome.scss $(shell find frontend/src/ -type f -name '*.rs')
+	cd frontend && trunk build --release && cd ..
+	mkdir -p valens/frontend
+	rm -rf valens/frontend/*
+	cp frontend/dist/index-*.js valens/frontend/index.js
+	cp frontend/dist/index-*_bg.wasm valens/frontend/index.wasm
+	cp frontend/dist/index-*.css valens/frontend/index.css
+	cp -r frontend/dist/{index.css,service-worker.js,fonts,images,js} valens/frontend
+
+dist: $(frontend-files)
 	rm -rf valens.egg-info
 	python3 -m build
 
@@ -75,3 +88,7 @@ run_frontend:
 
 run_backend:
 	FLASK_ENV=development FLASK_APP=valens.api VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
+
+clean:
+	rm -rf valens/frontend
+	cd frontend && trunk clean

@@ -49,8 +49,9 @@ test_backend:
 
 test_installation: dist
 	$(eval TMPDIR := $(shell mktemp -d))
-	pip wheel setuptools setuptools_scm wheel -w $(TMPDIR)/wheels
-	pip install valens --no-deps --no-index --find-links dist/ --find-links $(TMPDIR)/wheels/ --target $(TMPDIR)
+	python3 -m venv $(TMPDIR)/venv
+	$(TMPDIR)/venv/bin/pip install dist/valens-`python3 -c 'import setuptools_scm; print(setuptools_scm.get_version())'`-py3-none-any.whl
+	$(TMPDIR)/venv/bin/valens --help
 	rm -rf $(TMPDIR)
 
 css: sass/bulma/bulma.sass

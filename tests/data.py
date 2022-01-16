@@ -55,13 +55,13 @@ def users() -> list[User]:
                 BodyFat(
                     user_id=1,
                     date=datetime.date(2002, 2, 21),
-                    chest=8,
-                    abdominal=9,
+                    chest=None,
+                    abdominal=None,
                     tigh=10,
                     tricep=11,
-                    subscapular=12,
+                    subscapular=None,
                     suprailiac=13,
-                    midaxillary=14,
+                    midaxillary=None,
                 ),
             ],
             period=[

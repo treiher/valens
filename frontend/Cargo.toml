@@ -5,6 +5,7 @@ authors = ["Tobias Reiher <valens@ardeidae.de>"]
 edition = "2021"
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 seed = "0.8"
 serde = "1.0"
 serde_json = "1.0"

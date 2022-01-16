@@ -62,10 +62,14 @@ def read_bodyweight(user_id: int) -> pd.DataFrame:
 
 
 def read_bodyfat(user_id: int) -> pd.DataFrame:
-    return pd.read_sql(
-        db.session.query(BodyFat).where(BodyFat.user_id == user_id).statement,
-        db.session.bind,
-    ).loc[:, BODYFAT_COLS[1:]]
+    return (
+        pd.read_sql(
+            db.session.query(BodyFat).where(BodyFat.user_id == user_id).statement,
+            db.session.bind,
+        )
+        .loc[:, BODYFAT_COLS[1:]]
+        .astype({col: "Int64" for col in BODYFAT_COLS[2:]})
+    )
 
 
 def read_period(user_id: int) -> pd.DataFrame:

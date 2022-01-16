@@ -32,6 +32,12 @@ fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
 
 const LOGIN: &str = "login";
 const ADMIN: &str = "admin";
+const WORKOUTS: &str = "workouts";
+const ROUTINES: &str = "routines";
+const EXERCISES: &str = "exercises";
+const BODY_WEIGHT: &str = "body_weight";
+const BODY_FAT: &str = "body_fat";
+const PERIOD: &str = "period";
 
 struct_urls!();
 impl<'a> Urls<'a> {
@@ -43,6 +49,24 @@ impl<'a> Urls<'a> {
     }
     pub fn admin(self) -> Url {
         self.base_url().set_hash_path(&[ADMIN])
+    }
+    pub fn workouts(self) -> Url {
+        self.base_url().set_hash_path(&[WORKOUTS])
+    }
+    pub fn routines(self) -> Url {
+        self.base_url().set_hash_path(&[ROUTINES])
+    }
+    pub fn exercises(self) -> Url {
+        self.base_url().set_hash_path(&[EXERCISES])
+    }
+    pub fn body_weight(self) -> Url {
+        self.base_url().set_hash_path(&[BODY_WEIGHT])
+    }
+    pub fn body_fat(self) -> Url {
+        self.base_url().set_hash_path(&[BODY_FAT])
+    }
+    pub fn period(self) -> Url {
+        self.base_url().set_hash_path(&[PERIOD])
     }
 }
 
@@ -58,7 +82,7 @@ struct Model {
     errors: Vec<String>,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Clone)]
 pub struct Session {
     #[allow(dead_code)]
     id: u32,
@@ -85,13 +109,17 @@ impl Page {
         mut url: Url,
         orders: &mut impl Orders<Msg>,
         navbar: &mut Navbar,
-        has_session: bool,
+        session: &Option<Session>,
     ) -> Self {
         navbar.items.clear();
 
-        if has_session {
+        if let Some(session) = session {
             match url.next_hash_path_part() {
-                None => Self::Home(page::home::init(url, &mut orders.proxy(Msg::Home))),
+                None => Self::Home(page::home::init(
+                    url,
+                    &mut orders.proxy(Msg::Home),
+                    session.clone(),
+                )),
                 Some(LOGIN) => Self::Login(page::login::init(
                     url,
                     &mut orders.proxy(Msg::Login),
@@ -147,12 +175,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::UrlChanged(subs::UrlChanged(url)) => {
-            model.page = Some(Page::init(
-                url,
-                orders,
-                &mut model.navbar,
-                model.session.is_some(),
-            ));
+            model.page = Some(Page::init(url, orders, &mut model.navbar, &model.session));
             model.errors.clear();
         }
 
@@ -181,7 +204,12 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SessionInitialized(session) => {
             model.session = Some(session);
-            model.page = Some(Page::init(Url::current(), orders, &mut model.navbar, true));
+            model.page = Some(Page::init(
+                Url::current(),
+                orders,
+                &mut model.navbar,
+                &model.session,
+            ));
         }
 
         Msg::DeleteSession => {

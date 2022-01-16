@@ -386,7 +386,8 @@ def test_bodyfat_female(client: Client) -> None:
             "subscapular",
             "midaxillary",
         ]:
-            assert f"<td>{getattr(body_fat, attr)}</td>" in resp.data.decode("utf-8")
+            value = getattr(body_fat, attr)
+            assert f"<td>{value if value is not None else '-'}</td>" in resp.data.decode("utf-8")
 
 
 def test_bodyfat_male(client: Client) -> None:
@@ -453,9 +454,10 @@ def test_bodyfat_add(client: Client) -> None:
             "subscapular",
             "midaxillary",
         ]:
-            assert f"<td>{getattr(body_fat, attr)}</td>" in resp.data.decode("utf-8")
+            value = getattr(body_fat, attr)
+            assert f"<td>{value if value is not None else '-'}</td>" in resp.data.decode("utf-8")
     for value in data.values():
-        assert f"<td>{value}</td>" in resp.data.decode("utf-8")
+        assert f"<td>{value if value is not None else '-'}</td>" in resp.data.decode("utf-8")
 
 
 def test_bodyfat_remove(client: Client) -> None:
@@ -490,10 +492,15 @@ def test_bodyfat_remove(client: Client) -> None:
             "subscapular",
             "midaxillary",
         ]:
+            value = getattr(body_fat, attr)
             if body_fat.date == datetime.date(2002, 2, 20):
-                assert f"<td>{getattr(body_fat, attr)}</td>" not in resp.data.decode("utf-8")
+                assert f"<td>{value if value is not None else '-'}</td>" not in resp.data.decode(
+                    "utf-8"
+                )
             else:
-                assert f"<td>{getattr(body_fat, attr)}</td>" in resp.data.decode("utf-8")
+                assert f"<td>{value if value is not None else '-'}</td>" in resp.data.decode(
+                    "utf-8"
+                )
 
 
 def test_period(client: Client) -> None:

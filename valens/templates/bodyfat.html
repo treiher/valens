@@ -79,8 +79,8 @@
             {% for datetime, chest, abdominal, tigh, tricep, subscapular, suprailiac, midaxillary, fat3, fat7 in bodyfat %}
             <tr>
                 <td>{{ datetime.date() }}</td>
-                <td>{{ fat3|round(2)|replace('nan', '-') }}</td>
-                <td>{{ fat7|round(2)|replace('nan', '-') }}</td>
+                <td>{{ fat3|float|round(2)|replace('0.0', '-') }}</td>
+                <td>{{ fat7|float|round(2)|replace('0.0', '-') }}</td>
                 <td>{{ chest|int }}</td>
                 <td>{{ abdominal|int }}</td>
                 <td>{{ tigh|int }}</td>

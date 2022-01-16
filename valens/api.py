@@ -7,8 +7,8 @@ from flask.typing import ResponseReturnValue
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from valens import __version__, app, database as db
-from valens.models import User
+from valens import __version__, app, bodyfat, database as db, storage
+from valens.models import BodyWeight, Sex, User
 
 PUBLIC_URL = app.config["PUBLIC_URL"] if "PUBLIC_URL" in app.config else ""
 
@@ -170,3 +170,33 @@ def delete_user(user_id: int) -> ResponseReturnValue:
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
+
+
+@app.route("/api/body_weight")
+@session_required
+def get_body_weight() -> ResponseReturnValue:
+    body_weight = (
+        db.session.execute(select(BodyWeight).where(BodyWeight.user_id == session["user_id"]))
+        .scalars()
+        .all()
+    )
+    return jsonify([{"date": bw.date.isoformat(), "weight": bw.weight} for bw in body_weight])
+
+
+@app.route("/api/body_fat")
+@session_required
+def get_body_fat() -> ResponseReturnValue:
+    df = storage.read_bodyfat(session["user_id"])
+    if not df.empty:
+        df["date"] = df["date"].apply(lambda x: x.isoformat())
+        df["jp3"] = (
+            bodyfat.jackson_pollock_3_female(df)
+            if session["sex"] == Sex.FEMALE
+            else bodyfat.jackson_pollock_3_male(df)
+        )
+        df["jp7"] = (
+            bodyfat.jackson_pollock_7_female(df)
+            if session["sex"] == Sex.FEMALE
+            else bodyfat.jackson_pollock_7_male(df)
+        )
+    return jsonify(df.fillna(0).to_dict(orient="records"))

@@ -6,14 +6,14 @@ import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from valens import __version__, config, database as db, demo, web
+from valens import app, config, database as db, demo, version, web
 
 CONFIG_FILE = Path("config.py")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--version", action="version", version=version.get())
 
     subparsers = parser.add_subparsers(dest="subcommand")
 
@@ -70,8 +70,9 @@ def create_config(args: argparse.Namespace) -> None:
 
 
 def upgrade(_: argparse.Namespace) -> None:
-    config.check_config_file(os.environ.copy())
-    db.upgrade_db()
+    with app.app_context():
+        config.check_config_file(os.environ.copy())
+        db.upgrade_db()
 
 
 def run(args: argparse.Namespace) -> None:

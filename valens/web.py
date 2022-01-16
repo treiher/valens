@@ -9,21 +9,11 @@ from typing import Any, Callable, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from flask import flash, make_response, redirect, render_template, request, session, url_for
+from flask import Flask, flash, make_response, redirect, render_template, request, session, url_for
 from sqlalchemy import delete, select
 from werkzeug.wrappers import Response
 
-from valens import (
-    __version__,
-    app,
-    bodyfat,
-    bodyweight,
-    database as db,
-    diagram,
-    query,
-    storage,
-    utils,
-)
+from valens import bodyfat, bodyweight, database as db, diagram, query, storage, utils, version
 from valens.models import (
     BodyFat,
     BodyWeight,
@@ -35,6 +25,14 @@ from valens.models import (
     Workout,
     WorkoutSet,
 )
+
+app = Flask(__name__)
+
+app.config.from_object("valens.default_config")
+app.config.from_envvar("VALENS_CONFIG", silent=True)
+
+app.jinja_env.lstrip_blocks = True
+app.jinja_env.trim_blocks = True
 
 
 @dataclass
@@ -184,7 +182,7 @@ def users_view() -> Union[str, Response]:
     return render_template(
         "users.html",
         users=[(u.id, u.name, u.sex) for u in users],
-        version=__version__,
+        version=version.get(),
     )
 
 

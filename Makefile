@@ -88,7 +88,7 @@ run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
 
 run_backend:
-	FLASK_ENV=development FLASK_APP=valens.api VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
+	FLASK_ENV=development FLASK_APP=valens VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
 
 clean:
 	rm -rf valens/frontend

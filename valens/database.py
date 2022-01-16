@@ -3,14 +3,14 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from flask import g
+from flask import current_app, g
 from sqlalchemy import MetaData, create_engine, event, inspect, pool
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, declarative_base, scoped_session, sessionmaker
 from sqlalchemy_repr import RepresentableBase
 from werkzeug.local import LocalProxy
 
-from valens import app, config
+from valens import config
 
 meta = MetaData(
     naming_convention={
@@ -32,7 +32,7 @@ alembic_cfg.set_main_option("script_location", "valens:migrations")
 def _set_sqlite_pragma(
     dbapi_connection: sqlite3.Connection, _: pool.base._ConnectionRecord
 ) -> None:
-    if app.config["SQLITE_FOREIGN_KEY_SUPPORT"]:
+    if current_app.config["SQLITE_FOREIGN_KEY_SUPPORT"]:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
@@ -40,8 +40,8 @@ def _set_sqlite_pragma(
 
 def get_engine() -> Engine:
     config.check_app_config()
-    Path(app.config["DATABASE"].split(":")[1]).parent.mkdir(exist_ok=True)
-    return create_engine(app.config["DATABASE"])
+    Path(current_app.config["DATABASE"].split(":")[1]).parent.mkdir(exist_ok=True)
+    return create_engine(current_app.config["DATABASE"])
 
 
 def get_scoped_session() -> scoped_session:

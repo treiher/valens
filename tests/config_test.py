@@ -6,10 +6,11 @@ from valens import app, config
 
 
 def test_missing_key() -> None:
-    with pytest.raises(RuntimeError, match=r"'DATABASE' is not set in app config"):
-        if "DATABASE" in app.config:
-            del app.config["DATABASE"]
-        config.check_app_config()
+    with app.app_context():
+        with pytest.raises(RuntimeError, match=r"'DATABASE' is not set in app config"):
+            if "DATABASE" in app.config:
+                del app.config["DATABASE"]
+            config.check_app_config()
 
 
 def test_config_not_set() -> None:
@@ -24,8 +25,9 @@ def test_config_file_not_found(tmp_path: Path) -> None:
 
 
 def test_config(tmp_path: Path) -> None:
-    config_file = tmp_path / "config.py"
-    config_file.write_text("SECRET_KEY = 'TEST'\nDATABASE = 'TEST'\n", encoding="utf-8")
-    app.config["SECRET_KEY"] = "TEST"
-    app.config["DATABASE"] = "TEST"
-    config.check_config_file({"VALENS_CONFIG": str(config_file)})
+    with app.app_context():
+        config_file = tmp_path / "config.py"
+        config_file.write_text("SECRET_KEY = 'TEST'\nDATABASE = 'TEST'\n", encoding="utf-8")
+        app.config["SECRET_KEY"] = "TEST"
+        app.config["DATABASE"] = "TEST"
+        config.check_config_file({"VALENS_CONFIG": str(config_file)})

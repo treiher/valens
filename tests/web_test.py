@@ -12,19 +12,23 @@ from werkzeug.test import Client, TestResponse
 
 import tests.data
 import tests.utils
-from valens import app, database as db, web
+from valens import database as db, web
 from valens.models import BodyWeight, Sex, User
 
 
 @pytest.fixture(name="client")
 def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
-    app.config["DATABASE"] = f"sqlite:///{tmp_path}/valens.db"
-    app.config["SECRET_KEY"] = b"TEST_KEY"
-    app.config["TESTING"] = True
-    app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/test": app.wsgi_app})  # type: ignore
+    web.app.config["DATABASE"] = f"sqlite:///{tmp_path}/valens.db"
+    web.app.config["SECRET_KEY"] = b"TEST_KEY"
+    web.app.config["TESTING"] = True
 
-    with app.test_client() as client:
-        with app.app_context():
+    web.app.wsgi_app = DispatcherMiddleware(  # type: ignore
+        web.app.wsgi_app,
+        {"/test": web.app.wsgi_app},
+    )
+
+    with web.app.test_client() as client:
+        with web.app.app_context():
             yield client
 
 

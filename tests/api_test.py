@@ -7,7 +7,7 @@ from werkzeug.test import Client, TestResponse as Response
 
 import tests.data
 import tests.utils
-from valens import api, app  # pylint: disable = unused-import
+from valens import app
 
 
 @pytest.fixture(name="client")
@@ -27,23 +27,6 @@ def add_session(client: Client, user_id: int = 1) -> Response:
 
 def delete_session(client: Client) -> Response:
     return client.delete("/api/session")
-
-
-@pytest.mark.parametrize(
-    "route",
-    [
-        "/",
-        "/manifest.json",
-        "/index.css",
-        "/index.js",
-        "/index.wasm",
-        "/service-worker.js",
-    ],
-)
-def test_static_files(client: Client, route: str) -> None:
-    resp = client.get(route)
-
-    assert resp.status_code == HTTPStatus.OK
 
 
 @pytest.mark.parametrize(

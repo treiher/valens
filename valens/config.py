@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from valens import app
+from flask import current_app
 
 
 def check_app_config() -> None:
     for key in ["DATABASE", "SECRET_KEY"]:
-        if key not in app.config:
+        if key not in current_app.config:
             raise RuntimeError(f"'{key}' is not set in app config")
 
 

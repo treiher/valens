@@ -158,10 +158,9 @@ def plot_bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
     ymin = int(df_diagram.min().min()) if not df_diagram.empty else None
     ymax = int(df_diagram.max().max()) + 1 if not df_diagram.empty else None
 
-    if df_diagram.empty:
-        return _empty_diagram()
-
     for col in ["fat3", "fat7"]:
+        if df_diagram[col].dropna().empty:
+            continue
         df_diagram[col].dropna().plot(
             ax=ax1,
             style=STYLE,
@@ -170,6 +169,9 @@ def plot_bodyfat(user_id: int, first: date = None, last: date = None) -> Figure:
             ylim=(ymin, ymax),
             legend=False,
         ).set(xlabel=None)
+
+    if df_interval.empty:
+        return _empty_diagram()
 
     ax2 = ax1.twinx()
     ax1.set_zorder(1)  # plot ax1 above ax2

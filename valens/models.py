@@ -62,7 +62,10 @@ class User(Base):
 
 class BodyWeight(Base):
     __tablename__ = "body_weight"
-    __table_args__ = (CheckConstraint(column("weight") > 0, name="weight_gt_0"),)
+    __table_args__ = (
+        CheckConstraint("typeof(weight) = 'real'", name="weight_type_real"),
+        CheckConstraint(column("weight") > 0, name="weight_gt_0"),
+    )
 
     user_id: int = Column(ForeignKey("user.id", ondelete="CASCADE"), primary_key=True)
     date: date = Column(Date, primary_key=True)
@@ -72,6 +75,34 @@ class BodyWeight(Base):
 class BodyFat(Base):
     __tablename__ = "body_fat"
     __table_args__ = (
+        CheckConstraint(
+            "typeof(chest) = 'integer' or typeof(chest) = 'null'",
+            name="chest_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(abdominal) = 'integer' or typeof(abdominal) = 'null'",
+            name="abdominal_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(tigh) = 'integer' or typeof(tigh) = 'null'",
+            name="tigh_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(tricep) = 'integer' or typeof(tricep) = 'null'",
+            name="tricep_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(subscapular) = 'integer' or typeof(subscapular) = 'null'",
+            name="subscapular_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(suprailiac) = 'integer' or typeof(suprailiac) = 'null'",
+            name="suprailiac_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(midaxillary) = 'integer' or typeof(midaxillary) = 'null'",
+            name="midaxillary_type_integer_or_null",
+        ),
         CheckConstraint(column("chest") > 0, name="chest_gt_0"),
         CheckConstraint(column("abdominal") > 0, name="abdominal_gt_0"),
         CheckConstraint(column("tigh") > 0, name="tigh_gt_0"),
@@ -95,6 +126,7 @@ class BodyFat(Base):
 class Period(Base):
     __tablename__ = "period"
     __table_args__ = (
+        CheckConstraint("typeof(intensity) = 'integer'", name="intensity_type_integer"),
         CheckConstraint(column("intensity") >= 1, name="intensity_ge_1"),
         CheckConstraint(column("intensity") <= 4, name="intensity_le_4"),
     )
@@ -138,6 +170,8 @@ class Routine(Base):
 class RoutineExercise(Base):
     __tablename__ = "routine_exercise"
     __table_args__ = (
+        CheckConstraint("typeof(position) = 'integer'", name="position_type_integer"),
+        CheckConstraint("typeof(sets) = 'integer'", name="sets_type_integer"),
         CheckConstraint(column("position") > 0, name="position_gt_0"),
         CheckConstraint(column("sets") > 0, name="sets_gt_0"),
     )
@@ -169,6 +203,26 @@ class Workout(Base):
 class WorkoutSet(Base):
     __tablename__ = "workout_set"
     __table_args__ = (
+        CheckConstraint(
+            "typeof(position) = 'integer'",
+            name="position_type_integer",
+        ),
+        CheckConstraint(
+            "typeof(reps) = 'integer' or typeof(reps) = 'null'",
+            name="reps_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(time) = 'integer' or typeof(time) = 'null'",
+            name="time_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(weight) = 'real' or typeof(weight) = 'null'",
+            name="weight_type_real_or_null",
+        ),
+        CheckConstraint(
+            "typeof(rpe) = 'real' or typeof(rpe) = 'null'",
+            name="rpe_type_real_or_null",
+        ),
         CheckConstraint(column("position") > 0, name="position_gt_0"),
         CheckConstraint(column("reps") > 0, name="reps_gt_0"),
         CheckConstraint(column("time") > 0, name="time_gt_0"),

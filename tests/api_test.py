@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from http import HTTPStatus
 from pathlib import Path
 from typing import Generator
@@ -30,18 +32,62 @@ def delete_session(client: Client) -> Response:
 
 
 @pytest.mark.parametrize(
-    "route",
+    "method, route",
     [
-        "/api/users/1",
-        "/api/body_weight",
-        "/api/body_fat",
+        ("get", "/api/users/1"),
+        ("get", "/api/body_weight"),
+        ("get", "/api/body_fat"),
+        ("post", "/api/body_weight"),
+        ("put", "/api/body_weight/2002-02-22"),
     ],
 )
-def test_session_required(client: Client, route: str) -> None:
-    resp = client.get(route)
+def test_session_required(client: Client, method: str, route: str) -> None:
+    resp = getattr(client, method)(route)
 
     assert resp.status_code == HTTPStatus.UNAUTHORIZED
     assert not resp.data
+
+
+@pytest.mark.parametrize(
+    "method, route",
+    [
+        ("post", "/api/session"),
+        ("post", "/api/users"),
+        ("put", "/api/users/2"),
+        ("post", "/api/body_weight"),
+        ("put", "/api/body_weight/2002-02-22"),
+    ],
+)
+def test_json_required(client: Client, method: str, route: str) -> None:
+    tests.utils.init_db_data()
+
+    assert add_session(client).status_code == HTTPStatus.OK
+
+    resp = getattr(client, method)(route, data={})
+
+    assert resp.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+    assert not resp.data
+
+
+@pytest.mark.parametrize(
+    "method, route",
+    [
+        ("post", "/api/session"),
+        ("post", "/api/users"),
+        ("put", "/api/users/2"),
+        ("post", "/api/body_weight"),
+        ("put", "/api/body_weight/2002-02-22"),
+    ],
+)
+def test_invalid_data(client: Client, method: str, route: str) -> None:
+    tests.utils.init_db_data()
+
+    assert add_session(client).status_code == HTTPStatus.OK
+
+    resp = getattr(client, method)(route, json={"invalid": "data"})
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.is_json
 
 
 def test_get_version(client: Client) -> None:
@@ -74,24 +120,10 @@ def test_get_session_not_found(client: Client) -> None:
     assert not resp.data
 
 
-def test_add_session_bad_request(client: Client) -> None:
-    resp = client.post("/api/session", json={"invalid": "data"})
-
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
-    assert resp.is_json
-
-
 def test_add_session_not_found(client: Client) -> None:
     resp = client.post("/api/session", json={"id": 1})
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
-    assert not resp.data
-
-
-def test_add_session_invalid_content_type(client: Client) -> None:
-    resp = client.post("/api/session", data={"id": 1})
-
-    assert resp.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
     assert not resp.data
 
 
@@ -112,11 +144,6 @@ def test_get_users(client: Client) -> None:
 
 
 def test_get_user(client: Client) -> None:
-    resp = client.get("/api/users/1")
-
-    assert resp.status_code == HTTPStatus.UNAUTHORIZED
-    assert not resp.data
-
     tests.utils.init_db_data()
 
     resp = add_session(client)
@@ -164,20 +191,6 @@ def test_add_user_conflict(client: Client) -> None:
     assert resp.json
 
 
-def test_add_user_invalid_content_type(client: Client) -> None:
-    resp = client.post("/api/users", data={"name": "Carol", "sex": 0})
-
-    assert resp.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
-    assert not resp.data
-
-
-def test_add_user_bad_request(client: Client) -> None:
-    resp = client.post("/api/users", json={"invalid": "data"})
-
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
-    assert resp.is_json
-
-
 def test_edit_user(client: Client) -> None:
     tests.utils.init_db_data()
 
@@ -213,22 +226,6 @@ def test_edit_user_conflict(client: Client) -> None:
     assert resp.json
 
 
-def test_edit_user_invalid_content_type(client: Client) -> None:
-    resp = client.put("/api/users/2", data={"name": "Carol", "sex": 0})
-
-    assert resp.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
-    assert not resp.data
-
-
-def test_edit_user_bad_request(client: Client) -> None:
-    tests.utils.init_db_data()
-
-    resp = client.put("/api/users/2", json={"invalid": "data"})
-
-    assert resp.status_code == HTTPStatus.BAD_REQUEST
-    assert resp.is_json
-
-
 def test_delete_user(client: Client) -> None:
     tests.utils.init_db_data()
 
@@ -250,74 +247,369 @@ def test_delete_user(client: Client) -> None:
     assert not resp.data
 
 
-def test_get_body_weight(client: Client) -> None:
-    tests.utils.init_db_data()
-
-    assert add_session(client).status_code == HTTPStatus.OK
-
-    resp = client.get("/api/body_weight")
-
-    assert resp.status_code == HTTPStatus.OK
-    assert resp.json == [
-        {"date": "2002-02-20", "weight": 67.5},
-        {"date": "2002-02-21", "weight": 67.7},
-        {"date": "2002-02-22", "weight": 67.3},
-    ]
-
-
-def test_get_body_weight_empty(client: Client) -> None:
+@pytest.mark.parametrize(
+    "user_id, route, data",
+    [
+        (
+            1,
+            "/api/body_weight",
+            [
+                {"date": "2002-02-20", "weight": 67.5},
+                {"date": "2002-02-21", "weight": 67.7},
+                {"date": "2002-02-22", "weight": 67.3},
+            ],
+        ),
+        (
+            2,
+            "/api/body_weight?format=statistics",
+            [
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-02-20",
+                    "weight": 100.0,
+                },
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-02-21",
+                    "weight": 101.0,
+                },
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-02-22",
+                    "weight": 102.0,
+                },
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-02-24",
+                    "weight": 104.0,
+                },
+                {
+                    "avg_weight": 105.0,
+                    "avg_weight_change": None,
+                    "date": "2002-02-25",
+                    "weight": 105.0,
+                },
+                {
+                    "avg_weight": 106.22222222222223,
+                    "avg_weight_change": None,
+                    "date": "2002-02-26",
+                    "weight": 106.0,
+                },
+                {
+                    "avg_weight": 107.55555555555556,
+                    "avg_weight_change": None,
+                    "date": "2002-02-28",
+                    "weight": 108.0,
+                },
+                {
+                    "avg_weight": 108.88888888888889,
+                    "avg_weight_change": None,
+                    "date": "2002-03-01",
+                    "weight": 109.0,
+                },
+                {
+                    "avg_weight": 110.11111111111111,
+                    "avg_weight_change": None,
+                    "date": "2002-03-02",
+                    "weight": 110.0,
+                },
+                {
+                    "avg_weight": 111.33333333333333,
+                    "avg_weight_change": None,
+                    "date": "2002-03-03",
+                    "weight": 111.0,
+                },
+                {
+                    "avg_weight": 112.66666666666667,
+                    "avg_weight_change": 6.066945606694563,
+                    "date": "2002-03-05",
+                    "weight": 113.0,
+                },
+                {
+                    "avg_weight": 113.88888888888889,
+                    "avg_weight_change": 6.548856548856552,
+                    "date": "2002-03-06",
+                    "weight": 114.0,
+                },
+                {
+                    "avg_weight": 115.11111111111111,
+                    "avg_weight_change": 7.024793388429762,
+                    "date": "2002-03-07",
+                    "weight": 115.0,
+                },
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-03-08",
+                    "weight": 116.0,
+                },
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-03-10",
+                    "weight": 118.0,
+                },
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-03-11",
+                    "weight": 119.0,
+                },
+                {
+                    "avg_weight": None,
+                    "avg_weight_change": None,
+                    "date": "2002-03-12",
+                    "weight": 120.0,
+                },
+            ],
+        ),
+        (
+            1,
+            "/api/body_fat",
+            [
+                {
+                    "abdominal": 2,
+                    "chest": 1,
+                    "date": "2002-02-20",
+                    "jp3": 7.14935882262705,
+                    "jp7": 8.147206788471749,
+                    "midaxillary": 7,
+                    "subscapular": 5,
+                    "suprailiac": 6,
+                    "tigh": 3,
+                    "tricep": 4,
+                },
+                {
+                    "abdominal": 0,
+                    "chest": 0,
+                    "date": "2002-02-21",
+                    "jp3": 15.131007672030591,
+                    "jp7": 0,
+                    "midaxillary": 0,
+                    "subscapular": 0,
+                    "suprailiac": 13,
+                    "tigh": 10,
+                    "tricep": 11,
+                },
+            ],
+        ),
+    ],
+)
+def test_get(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
     tests.utils.init_db_users()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert add_session(client, user_id).status_code == HTTPStatus.OK
 
-    resp = client.get("/api/body_weight")
+    resp = client.get(route)
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == []
 
+    tests.utils.clear_db()
+    tests.utils.init_db_data()
 
-def test_get_body_fat(client: Client) -> None:
+    assert add_session(client, user_id).status_code == HTTPStatus.OK
+
+    resp = client.get(route)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == data
+
+
+@pytest.mark.parametrize(
+    "route, data, result",
+    [
+        (
+            "/api/body_weight",
+            {"date": "2002-02-24", "weight": 68.1},
+            [
+                {"date": "2002-02-20", "weight": 67.5},
+                {"date": "2002-02-21", "weight": 67.7},
+                {"date": "2002-02-22", "weight": 67.3},
+                {"date": "2002-02-24", "weight": 68.1},
+            ],
+        ),
+    ],
+)
+def test_add(
+    client: Client, route: str, data: dict[str, object], result: list[dict[str, object]]
+) -> None:
     tests.utils.init_db_data()
 
     assert add_session(client).status_code == HTTPStatus.OK
 
-    resp = client.get("/api/body_fat")
+    resp = client.post(route, json=data)
+
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.json == data
+
+    resp = client.get(route)
 
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == [
-        {
-            "abdominal": 2,
-            "chest": 1,
-            "date": "2002-02-20",
-            "jp3": 7.14935882262705,
-            "jp7": 8.147206788471749,
-            "midaxillary": 7,
-            "subscapular": 5,
-            "suprailiac": 6,
-            "tigh": 3,
-            "tricep": 4,
-        },
-        {
-            "abdominal": 0,
-            "chest": 0,
-            "date": "2002-02-21",
-            "jp3": 15.131007672030591,
-            "jp7": 0,
-            "midaxillary": 0,
-            "subscapular": 0,
-            "suprailiac": 13,
-            "tigh": 10,
-            "tricep": 11,
-        },
-    ]
+    assert resp.json == result
+
+    resp = client.post(route, json=data)
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json
 
 
-def test_get_body_fat_empty(client: Client) -> None:
+@pytest.mark.parametrize(
+    "route, data, response, result, conflicting_data",
+    [
+        (
+            "/api/body_weight/2002-02-20",
+            {"weight": "68.1"},
+            {"date": "2002-02-20", "weight": 68.1},
+            [
+                {"date": "2002-02-20", "weight": 68.1},
+                {"date": "2002-02-21", "weight": 67.7},
+                {"date": "2002-02-22", "weight": 67.3},
+            ],
+            {"weight": "0"},
+        ),
+    ],
+)
+def test_edit(
+    client: Client,
+    route: str,
+    data: dict[str, object],
+    response: dict[str, object],
+    result: list[dict[str, object]],
+    conflicting_data: dict[str, object],
+) -> None:
+    tests.utils.init_db_data()
+
+    assert add_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put(route, json=data)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == response
+
+    resp = client.get(str(Path(route).parent))
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == result
+
+    resp = client.put(str(Path(route).parent / "invalid"), json=data)
+
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
+
+    resp = client.put(route, json=conflicting_data)
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json
+
+
+@pytest.mark.parametrize(
+    "route, result",
+    [
+        (
+            "/api/body_weight/2002-02-21",
+            [
+                {"date": "2002-02-20", "weight": 67.5},
+                {"date": "2002-02-22", "weight": 67.3},
+            ],
+        ),
+    ],
+)
+def test_delete(
+    client: Client,
+    route: str,
+    result: list[dict[str, object]],
+) -> None:
+    tests.utils.init_db_data()
+
+    assert add_session(client).status_code == HTTPStatus.OK
+
+    resp = client.delete(route)
+
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not resp.data
+
+    resp = client.get(str(Path(route).parent))
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == result
+
+    resp = client.delete(str(Path(route).parent / "invalid"))
+
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
+
+
+@pytest.mark.parametrize(
+    "first, last",
+    [
+        ("", ""),
+        (None, None),
+        (None, "2000-12-31"),
+        ("2000-01-01", None),
+        ("2000-01-01", "2000-12-31"),
+        ("2002-02-01", "2002-02-28"),
+    ],
+)
+@pytest.mark.parametrize(
+    "user_id",
+    [1, 2],
+)
+@pytest.mark.parametrize(
+    "kind",
+    ["bodyweight", "bodyfat", "period", "workouts", "exercise"],
+)
+def test_get_images(client: Client, user_id: int, kind: str, first: str, last: str) -> None:
+    args = "&".join(
+        [
+            *([f"first={first}"] if first is not None else []),
+            *([f"last={last}"] if last is not None else []),
+        ]
+    )
+    route = f"/api/images/{kind}?{args}"
+    tests.utils.init_db_users()
+
+    assert add_session(client, user_id).status_code == HTTPStatus.OK
+
+    resp = client.get(route)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.mimetype == "image/svg+xml"
+    assert resp.data
+
+    tests.utils.clear_db()
+    tests.utils.init_db_data()
+
+    assert add_session(client, user_id).status_code == HTTPStatus.OK
+
+    resp = client.get(route)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.mimetype == "image/svg+xml"
+    assert resp.data
+
+
+def test_get_images_invalid_kind(client: Client) -> None:
     tests.utils.init_db_users()
 
     assert add_session(client).status_code == HTTPStatus.OK
 
-    resp = client.get("/api/body_fat")
+    resp = client.get("/api/images/invalid")
 
-    assert resp.status_code == HTTPStatus.OK
-    assert resp.json == []
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
+
+
+def test_get_images_invalid_argument(client: Client) -> None:
+    tests.utils.init_db_users()
+
+    assert add_session(client).status_code == HTTPStatus.OK
+
+    resp = client.get("/api/images/workouts?first=invalid")
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json

@@ -11,7 +11,7 @@ from flask import session
 from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
 
-from valens import bodyfat, storage
+from valens import bodyfat, bodyweight, storage
 from valens.models import Routine, Sex
 
 matplotlib.style.use("seaborn-whitegrid")
@@ -38,6 +38,7 @@ COLOR = {
 def plot_svg(fig: Figure) -> bytes:
     output = io.BytesIO()
     FigureCanvasSVG(fig).print_svg(output)
+    plt.close(fig)
     return re.sub(b'(?:width|height)="[0-9]*pt"', b"", output.getvalue(), count=2)
 
 
@@ -122,9 +123,7 @@ def plot_bodyweight(user_id: int, first: date = None, last: date = None) -> Figu
         ylim=(ymin, ymax),
         legend=False,
     )
-    df.rolling(window=9, center=True).mean()["weight"].plot(
-        style="-", color=COLOR, label="avg. weight"
-    ).set(xlabel=None)
+    bodyweight.avg_weight(df).plot(style="-", color=COLOR, label="avg. weight").set(xlabel=None)
 
     fig = plot.get_figure()
     _common_layout(fig)

@@ -101,6 +101,7 @@ enum Page {
     Home(page::home::Model),
     Login(page::login::Model),
     Admin(page::admin::Model),
+    BodyWeight(page::body_weight::Model),
     NotFound,
 }
 
@@ -126,6 +127,10 @@ impl Page {
                     navbar,
                 )),
                 Some(ADMIN) => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
+                Some(BODY_WEIGHT) => Self::BodyWeight(page::body_weight::init(
+                    url,
+                    &mut orders.proxy(Msg::BodyWeight),
+                )),
                 Some(_) => Self::NotFound,
             }
         } else {
@@ -166,6 +171,7 @@ enum Msg {
     Home(page::home::Msg),
     Login(page::login::Msg),
     Admin(page::admin::Msg),
+    BodyWeight(page::body_weight::Msg),
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -247,6 +253,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::Admin(msg) => {
             if let Some(Page::Admin(model)) = &mut model.page {
                 page::admin::update(msg, model, &mut orders.proxy(Msg::Admin))
+            }
+        }
+        Msg::BodyWeight(msg) => {
+            if let Some(Page::BodyWeight(model)) = &mut model.page {
+                page::body_weight::update(msg, model, &mut orders.proxy(Msg::BodyWeight))
             }
         }
     }
@@ -355,6 +366,8 @@ fn view_page(page: &Option<Page>) -> Node<Msg> {
             Some(Page::Home(model)) => page::home::view(model).map_msg(Msg::Home),
             Some(Page::Login(model)) => page::login::view(model).map_msg(Msg::Login),
             Some(Page::Admin(model)) => page::admin::view(model).map_msg(Msg::Admin),
+            Some(Page::BodyWeight(model)) =>
+                page::body_weight::view(model).map_msg(Msg::BodyWeight),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![
                 C!["is-size-5"],

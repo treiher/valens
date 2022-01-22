@@ -1,13 +1,16 @@
+from dataclasses import dataclass
+from datetime import date, timedelta
 from functools import wraps
 from http import HTTPStatus
 from typing import Callable
 
-from flask import Blueprint, jsonify, request, session
+import numpy as np
+from flask import Blueprint, Response, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from valens import bodyfat, database as db, storage, version
+from valens import bodyfat, bodyweight, database as db, diagram, storage, version
 from valens.models import BodyWeight, Sex, User
 
 bp = Blueprint("api", __name__, url_prefix="/api")
@@ -132,8 +135,8 @@ def edit_user(user_id: int) -> ResponseReturnValue:
 
     try:
         user.name = data["name"].strip()
-        user.sex = data["sex"]
-    except KeyError as e:
+        user.sex = Sex(data["sex"])
+    except (KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     try:
@@ -160,12 +163,116 @@ def delete_user(user_id: int) -> ResponseReturnValue:
 @bp.route("/body_weight")
 @session_required
 def get_body_weight() -> ResponseReturnValue:
+    if request.args.get("format", None) == "statistics":
+        df = storage.read_bodyweight(session["user_id"])
+
+        if df.empty:
+            return jsonify([])
+
+        df = df.set_index("date")
+        df["avg_weight"] = bodyweight.avg_weight(df)
+        df["avg_weight_change"] = bodyweight.avg_weight_change(df)
+        df.reset_index(inplace=True)
+        df["date"] = df["date"].apply(lambda x: x.isoformat())
+
+        return jsonify(df.replace([np.nan], [None]).to_dict(orient="records"))
+
     body_weight = (
         db.session.execute(select(BodyWeight).where(BodyWeight.user_id == session["user_id"]))
         .scalars()
         .all()
     )
     return jsonify([{"date": bw.date.isoformat(), "weight": bw.weight} for bw in body_weight])
+
+
+@bp.route("/body_weight", methods=["POST"])
+@session_required
+@json_expected
+def add_body_weight() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        body_weight = BodyWeight(
+            user_id=session["user_id"],
+            date=date.fromisoformat(data["date"]),
+            weight=float(data["weight"]),
+        )
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(body_weight)
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify({"date": body_weight.date.isoformat(), "weight": body_weight.weight}),
+        HTTPStatus.CREATED,
+        {"Location": f"/body_weight/{body_weight.date}"},
+    )
+
+
+@bp.route("/body_weight/<date_>", methods=["PUT"])
+@session_required
+@json_expected
+def edit_body_weight(date_: str) -> ResponseReturnValue:
+    try:
+        body_weight = (
+            db.session.execute(
+                select(BodyWeight)
+                .where(BodyWeight.user_id == session["user_id"])
+                .where(BodyWeight.date == date.fromisoformat(date_))
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        body_weight.weight = float(data["weight"])
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify({"date": body_weight.date.isoformat(), "weight": body_weight.weight}),
+        HTTPStatus.OK,
+    )
+
+
+@bp.route("/body_weight/<date_>", methods=["DELETE"])
+@session_required
+def delete_body_weight(date_: str) -> ResponseReturnValue:
+    try:
+        body_weight = (
+            db.session.execute(
+                select(BodyWeight)
+                .where(BodyWeight.user_id == session["user_id"])
+                .where(BodyWeight.date == date.fromisoformat(date_))
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    db.session.delete(body_weight)
+    db.session.commit()
+
+    return "", HTTPStatus.NO_CONTENT
 
 
 @bp.route("/body_fat")
@@ -185,3 +292,46 @@ def get_body_fat() -> ResponseReturnValue:
             else bodyfat.jackson_pollock_7_male(df)
         )
     return jsonify(df.fillna(0).to_dict(orient="records"))
+
+
+@bp.route("/images/<kind>")
+@session_required
+def get_images(kind: str) -> ResponseReturnValue:
+    try:
+        interval = _parse_interval_args()
+    except ValueError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    if kind == "bodyweight":
+        fig = diagram.plot_bodyweight(session["user_id"], interval.first, interval.last)
+    elif kind == "bodyfat":
+        fig = diagram.plot_bodyfat(session["user_id"], interval.first, interval.last)
+    elif kind == "period":
+        fig = diagram.plot_period(session["user_id"], interval.first, interval.last)
+    elif kind == "workouts":
+        fig = diagram.plot_workouts(session["user_id"], interval.first, interval.last)
+    elif kind.startswith("exercise"):
+        name = request.args.get("name", "")
+        fig = diagram.plot_exercise(session["user_id"], name, interval.first, interval.last)
+    else:
+        return "", HTTPStatus.NOT_FOUND
+
+    return Response(diagram.plot_svg(fig), mimetype="image/svg+xml")
+
+
+@dataclass
+class _Interval:
+    first: date
+    last: date
+
+
+def _parse_interval_args() -> _Interval:
+    args_first = request.args.get("first", "")
+    args_last = request.args.get("last", "")
+    first = date.fromisoformat(args_first) if args_first else date.today() - timedelta(days=30)
+    last = date.fromisoformat(args_last) if args_last else date.today()
+
+    if last <= first:
+        first = last - timedelta(days=1)
+
+    return _Interval(first, last)

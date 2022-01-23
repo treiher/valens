@@ -28,7 +28,6 @@ source = ['valens']
 
 [tool.coverage.run]
 branch = true
-omit = ['valens/migrations/versions/**']
 
 [tool.coverage.report]
 show_missing = true

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tempfile import NamedTemporaryFile
+
 import pytest
 
 from valens import app, database as db
@@ -12,6 +14,8 @@ def alembic_config() -> dict[str, str]:
 
 @pytest.fixture
 def alembic_engine() -> object:
-    with app.app_context():
-        app.config["DATABASE"] = "sqlite:///"
-        yield db.get_engine()
+    with NamedTemporaryFile() as tmp_file:
+        app.config["DATABASE"] = f"sqlite:///{tmp_file.name}"
+        with app.app_context():
+            db.init_db()
+            yield db.get_engine()

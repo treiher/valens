@@ -45,7 +45,7 @@ test_frontend:
 test_backend:
 	mkdir -p valens/frontend
 	touch $(frontend-files)
-	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing --test-alembic tests
+	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests
 
 test_installation: dist
 	$(eval TMPDIR := $(shell mktemp -d))

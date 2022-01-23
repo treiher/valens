@@ -283,3 +283,11 @@ pub fn view_diagram<Ms>(
         }]
     ]
 }
+
+pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
+    if let Some(value) = option {
+        format!("{:.1}", value)
+    } else {
+        "-".into()
+    }
+}

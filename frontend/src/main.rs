@@ -102,6 +102,7 @@ enum Page {
     Login(page::login::Model),
     Admin(page::admin::Model),
     BodyWeight(page::body_weight::Model),
+    BodyFat(page::body_fat::Model),
     NotFound,
 }
 
@@ -130,6 +131,11 @@ impl Page {
                 Some(BODY_WEIGHT) => Self::BodyWeight(page::body_weight::init(
                     url,
                     &mut orders.proxy(Msg::BodyWeight),
+                )),
+                Some(BODY_FAT) => Self::BodyFat(page::body_fat::init(
+                    url,
+                    &mut orders.proxy(Msg::BodyFat),
+                    session.sex,
                 )),
                 Some(_) => Self::NotFound,
             }
@@ -172,6 +178,7 @@ enum Msg {
     Login(page::login::Msg),
     Admin(page::admin::Msg),
     BodyWeight(page::body_weight::Msg),
+    BodyFat(page::body_fat::Msg),
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -258,6 +265,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::BodyWeight(msg) => {
             if let Some(Page::BodyWeight(model)) = &mut model.page {
                 page::body_weight::update(msg, model, &mut orders.proxy(Msg::BodyWeight))
+            }
+        }
+        Msg::BodyFat(msg) => {
+            if let Some(Page::BodyFat(model)) = &mut model.page {
+                page::body_fat::update(msg, model, &mut orders.proxy(Msg::BodyFat))
             }
         }
     }
@@ -368,6 +380,7 @@ fn view_page(page: &Option<Page>) -> Node<Msg> {
             Some(Page::Admin(model)) => page::admin::view(model).map_msg(Msg::Admin),
             Some(Page::BodyWeight(model)) =>
                 page::body_weight::view(model).map_msg(Msg::BodyWeight),
+            Some(Page::BodyFat(model)) => page::body_fat::view(model).map_msg(Msg::BodyFat),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![
                 C!["is-size-5"],

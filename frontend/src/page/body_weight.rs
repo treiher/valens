@@ -59,16 +59,16 @@ struct Form {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct BodyWeight {
-    date: NaiveDate,
-    weight: f32,
+    pub date: NaiveDate,
+    pub weight: f32,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct BodyWeightStats {
-    date: NaiveDate,
-    weight: f32,
-    avg_weight: Option<f32>,
-    avg_weight_change: Option<f32>,
+    pub date: NaiveDate,
+    pub weight: f32,
+    pub avg_weight: Option<f32>,
+    pub avg_weight_change: Option<f32>,
 }
 
 // ------ ------
@@ -419,16 +419,8 @@ fn view_table(model: &Model) -> Node<Msg> {
                             bw.date.to_string(),
                         ]],
                         td![format!("{:.1}", bw.weight)],
-                        td![if let Some(avg_weight) = bw.avg_weight {
-                            format!("{:.1}", avg_weight)
-                        } else {
-                            "-".into()
-                        }],
-                        td![if let Some(avg_weight_change) = bw.avg_weight_change {
-                            format!("{:.1}", avg_weight_change)
-                        } else {
-                            "-".into()
-                        }],
+                        td![common::value_or_dash(bw.avg_weight)],
+                        td![common::value_or_dash(bw.avg_weight_change)],
                         td![p![
                             C!["is-flex is-flex-wrap-nowrap"],
                             a![

@@ -30,37 +30,9 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>, session: crate::Session) ->
 pub struct Model {
     base_url: Url,
     session: crate::Session,
-    body_weight: Option<BodyWeight>,
-    body_fat: Option<BodyFat>,
+    body_weight: Option<crate::page::body_weight::BodyWeight>,
+    body_fat: Option<crate::page::body_fat::BodyFatStats>,
     errors: Vec<String>,
-}
-
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct BodyWeight {
-    date: NaiveDate,
-    weight: f32,
-}
-
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct BodyFat {
-    date: NaiveDate,
-    #[allow(dead_code)]
-    chest: u8,
-    #[allow(dead_code)]
-    abdominal: u8,
-    #[allow(dead_code)]
-    tigh: u8,
-    #[allow(dead_code)]
-    tricep: u8,
-    #[allow(dead_code)]
-    subscapular: u8,
-    #[allow(dead_code)]
-    suprailiac: u8,
-    #[allow(dead_code)]
-    midaxillary: u8,
-    jp3: f32,
-    #[allow(dead_code)]
-    jp7: f32,
 }
 
 // ------ ------
@@ -71,10 +43,10 @@ pub enum Msg {
     CloseErrorDialog,
 
     FetchBodyWeight,
-    BodyWeightFetched(Result<Vec<BodyWeight>, String>),
+    BodyWeightFetched(Result<Vec<crate::page::body_weight::BodyWeight>, String>),
 
     FetchBodyFat,
-    BodyFatFetched(Result<Vec<BodyFat>, String>),
+    BodyFatFetched(Result<Vec<crate::page::body_fat::BodyFatStats>, String>),
 }
 
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -98,9 +70,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::FetchBodyFat => {
-            orders
-                .skip()
-                .perform_cmd(async { common::fetch("api/body_fat", Msg::BodyFatFetched).await });
+            orders.skip().perform_cmd(async {
+                common::fetch("api/body_fat?format=statistics", Msg::BodyFatFetched).await
+            });
         }
         Msg::BodyFatFetched(Ok(body_fat)) => {
             model.body_fat = body_fat.last().cloned();
@@ -133,7 +105,11 @@ pub fn view(model: &Model) -> Node<Msg> {
     }
 
     if let Some(body_fat) = &model.body_fat {
-        body_fat_subtitle = format!("{:.1} %", body_fat.jp3);
+        body_fat_subtitle = if let Some(jp3) = body_fat.jp3 {
+            format!("{:.1} %", jp3)
+        } else {
+            String::new()
+        };
         body_fat_content = last_update(local - body_fat.date);
     } else {
         body_fat_subtitle = String::new();

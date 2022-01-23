@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from valens import bodyfat, bodyweight, database as db, diagram, storage, version
-from valens.models import BodyWeight, Sex, User
+from valens.models import BodyFat, BodyWeight, Sex, User
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -103,8 +103,8 @@ def add_user() -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        user = User(name=data["name"].strip(), sex=data["sex"])
-    except KeyError as e:
+        user = User(name=data["name"].strip(), sex=Sex(data["sex"]))
+    except (KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(user)
@@ -278,8 +278,12 @@ def delete_body_weight(date_: str) -> ResponseReturnValue:
 @bp.route("/body_fat")
 @session_required
 def get_body_fat() -> ResponseReturnValue:
-    df = storage.read_bodyfat(session["user_id"])
-    if not df.empty:
+    if request.args.get("format", None) == "statistics":
+        df = storage.read_bodyfat(session["user_id"])
+
+        if df.empty:
+            return jsonify([])
+
         df["date"] = df["date"].apply(lambda x: x.isoformat())
         df["jp3"] = (
             bodyfat.jackson_pollock_3_female(df)
@@ -291,7 +295,161 @@ def get_body_fat() -> ResponseReturnValue:
             if session["sex"] == Sex.FEMALE
             else bodyfat.jackson_pollock_7_male(df)
         )
-    return jsonify(df.fillna(0).to_dict(orient="records"))
+
+        return jsonify(df.replace([np.nan], [None]).to_dict(orient="records"))
+
+    body_fat = (
+        db.session.execute(select(BodyFat).where(BodyFat.user_id == session["user_id"]))
+        .scalars()
+        .all()
+    )
+    return jsonify(
+        [
+            {
+                "date": bf.date.isoformat(),
+                "chest": bf.chest,
+                "abdominal": bf.abdominal,
+                "tigh": bf.tigh,
+                "tricep": bf.tricep,
+                "subscapular": bf.subscapular,
+                "suprailiac": bf.suprailiac,
+                "midaxillary": bf.midaxillary,
+            }
+            for bf in body_fat
+        ]
+    )
+
+
+@bp.route("/body_fat", methods=["POST"])
+@session_required
+@json_expected
+def add_body_fat() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        body_fat = BodyFat(
+            user_id=int(session["user_id"]),
+            date=date.fromisoformat(data["date"]),
+            **{
+                part: int(data[part]) if data[part] is not None else None
+                for part in [
+                    "chest",
+                    "abdominal",
+                    "tigh",
+                    "tricep",
+                    "subscapular",
+                    "suprailiac",
+                    "midaxillary",
+                ]
+            },
+        )
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(body_fat)
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify(
+            {
+                "date": body_fat.date.isoformat(),
+                "chest": body_fat.chest,
+                "abdominal": body_fat.abdominal,
+                "tigh": body_fat.tigh,
+                "tricep": body_fat.tricep,
+                "subscapular": body_fat.subscapular,
+                "suprailiac": body_fat.suprailiac,
+                "midaxillary": body_fat.midaxillary,
+            }
+        ),
+        HTTPStatus.CREATED,
+        {"Location": f"/body_fat/{body_fat.date}"},
+    )
+
+
+@bp.route("/body_fat/<date_>", methods=["PUT"])
+@session_required
+@json_expected
+def edit_body_fat(date_: str) -> ResponseReturnValue:
+    try:
+        body_fat = (
+            db.session.execute(
+                select(BodyFat)
+                .where(BodyFat.user_id == session["user_id"])
+                .where(BodyFat.date == date.fromisoformat(date_))
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        for attr in [
+            "chest",
+            "abdominal",
+            "tigh",
+            "tricep",
+            "subscapular",
+            "suprailiac",
+            "midaxillary",
+        ]:
+            setattr(body_fat, attr, int(data[attr]) if data[attr] is not None else None)
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify(
+            {
+                "date": body_fat.date.isoformat(),
+                "chest": body_fat.chest,
+                "abdominal": body_fat.abdominal,
+                "tigh": body_fat.tigh,
+                "tricep": body_fat.tricep,
+                "subscapular": body_fat.subscapular,
+                "suprailiac": body_fat.suprailiac,
+                "midaxillary": body_fat.midaxillary,
+            }
+        ),
+        HTTPStatus.OK,
+    )
+
+
+@bp.route("/body_fat/<date_>", methods=["DELETE"])
+@session_required
+def delete_body_fat(date_: str) -> ResponseReturnValue:
+    try:
+        body_fat = (
+            db.session.execute(
+                select(BodyFat)
+                .where(BodyFat.user_id == session["user_id"])
+                .where(BodyFat.date == date.fromisoformat(date_))
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    db.session.delete(body_fat)
+    db.session.commit()
+
+    return "", HTTPStatus.NO_CONTENT
 
 
 @bp.route("/images/<kind>")

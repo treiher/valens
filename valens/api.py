@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from valens import bodyfat, bodyweight, database as db, diagram, storage, version
-from valens.models import BodyFat, BodyWeight, Sex, User
+from valens.models import BodyFat, BodyWeight, Period, Sex, User
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -447,6 +447,107 @@ def delete_body_fat(date_: str) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(body_fat)
+    db.session.commit()
+
+    return "", HTTPStatus.NO_CONTENT
+
+
+@bp.route("/period")
+@session_required
+def get_period() -> ResponseReturnValue:
+    period = (
+        db.session.execute(select(Period).where(Period.user_id == session["user_id"]))
+        .scalars()
+        .all()
+    )
+    return jsonify([{"date": p.date.isoformat(), "intensity": p.intensity} for p in period])
+
+
+@bp.route("/period", methods=["POST"])
+@session_required
+@json_expected
+def add_period() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        period = Period(
+            user_id=session["user_id"],
+            date=date.fromisoformat(data["date"]),
+            intensity=int(data["intensity"]),
+        )
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(period)
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify({"date": period.date.isoformat(), "intensity": period.intensity}),
+        HTTPStatus.CREATED,
+        {"Location": f"/period/{period.date}"},
+    )
+
+
+@bp.route("/period/<date_>", methods=["PUT"])
+@session_required
+@json_expected
+def edit_period(date_: str) -> ResponseReturnValue:
+    try:
+        period = (
+            db.session.execute(
+                select(Period)
+                .where(Period.user_id == session["user_id"])
+                .where(Period.date == date.fromisoformat(date_))
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        period.intensity = int(data["intensity"])
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify({"date": period.date.isoformat(), "intensity": period.intensity}),
+        HTTPStatus.OK,
+    )
+
+
+@bp.route("/period/<date_>", methods=["DELETE"])
+@session_required
+def delete_period(date_: str) -> ResponseReturnValue:
+    try:
+        period = (
+            db.session.execute(
+                select(Period)
+                .where(Period.user_id == session["user_id"])
+                .where(Period.date == date.fromisoformat(date_))
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    db.session.delete(period)
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT

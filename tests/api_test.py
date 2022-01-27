@@ -41,6 +41,9 @@ def delete_session(client: Client) -> Response:
         ("get", "/api/body_fat"),
         ("post", "/api/body_fat"),
         ("put", "/api/body_fat/2002-02-22"),
+        ("get", "/api/period"),
+        ("post", "/api/period"),
+        ("put", "/api/period/2002-02-22"),
     ],
 )
 def test_session_required(client: Client, method: str, route: str) -> None:
@@ -60,6 +63,8 @@ def test_session_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/body_weight/2002-02-22"),
         ("post", "/api/body_fat"),
         ("put", "/api/body_fat/2002-02-22"),
+        ("post", "/api/period"),
+        ("put", "/api/period/2002-02-22"),
     ],
 )
 def test_json_required(client: Client, method: str, route: str) -> None:
@@ -83,6 +88,8 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/body_weight/2002-02-22"),
         ("post", "/api/body_fat"),
         ("put", "/api/body_fat/2002-02-20"),
+        ("post", "/api/period"),
+        ("put", "/api/period/2002-02-22"),
     ],
 )
 def test_invalid_data(client: Client, method: str, route: str) -> None:
@@ -429,6 +436,15 @@ def test_delete_user(client: Client) -> None:
                 },
             ],
         ),
+        (
+            1,
+            "/api/period",
+            [
+                {"date": "2002-02-20", "intensity": 2},
+                {"date": "2002-02-21", "intensity": 4},
+                {"date": "2002-02-22", "intensity": 1},
+            ],
+        ),
     ],
 )
 def test_get(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
@@ -508,6 +524,16 @@ def test_get(client: Client, user_id: int, route: str, data: list[dict[str, obje
                     "subscapular": 19,
                     "midaxillary": None,
                 },
+            ],
+        ),
+        (
+            "/api/period",
+            {"date": "2002-02-24", "intensity": 1},
+            [
+                {"date": "2002-02-20", "intensity": 2},
+                {"date": "2002-02-21", "intensity": 4},
+                {"date": "2002-02-22", "intensity": 1},
+                {"date": "2002-02-24", "intensity": 1},
             ],
         ),
     ],
@@ -602,6 +628,17 @@ def test_add(
                 "midaxillary": 0,
             },
         ),
+        (
+            "/api/period/2002-02-20",
+            {"intensity": 3},
+            {"date": "2002-02-20", "intensity": 3},
+            [
+                {"date": "2002-02-20", "intensity": 3},
+                {"date": "2002-02-21", "intensity": 4},
+                {"date": "2002-02-22", "intensity": 1},
+            ],
+            {"intensity": 0},
+        ),
     ],
 )
 def test_edit(
@@ -660,6 +697,13 @@ def test_edit(
                     "suprailiac": 6,
                     "midaxillary": 7,
                 },
+            ],
+        ),
+        (
+            "/api/period/2002-02-21",
+            [
+                {"date": "2002-02-20", "intensity": 2},
+                {"date": "2002-02-22", "intensity": 1},
             ],
         ),
     ],

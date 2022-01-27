@@ -12,13 +12,15 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>, session: crate::Session) ->
 
     orders
         .send_msg(Msg::FetchBodyWeight)
-        .send_msg(Msg::FetchBodyFat);
+        .send_msg(Msg::FetchBodyFat)
+        .send_msg(Msg::FetchPeriod);
 
     Model {
         base_url,
         session,
         body_weight: None,
         body_fat: None,
+        period: None,
         errors: Vec::new(),
     }
 }
@@ -32,6 +34,7 @@ pub struct Model {
     session: crate::Session,
     body_weight: Option<crate::page::body_weight::BodyWeight>,
     body_fat: Option<crate::page::body_fat::BodyFatStats>,
+    period: Option<crate::page::period::Period>,
     errors: Vec<String>,
 }
 
@@ -47,6 +50,9 @@ pub enum Msg {
 
     FetchBodyFat,
     BodyFatFetched(Result<Vec<crate::page::body_fat::BodyFatStats>, String>),
+
+    FetchPeriod,
+    PeriodFetched(Result<Vec<crate::page::period::Period>, String>),
 }
 
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -82,6 +88,20 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .errors
                 .push("Failed to fetch body fat: ".to_owned() + &message);
         }
+
+        Msg::FetchPeriod => {
+            orders
+                .skip()
+                .perform_cmd(async { common::fetch("api/period", Msg::PeriodFetched).await });
+        }
+        Msg::PeriodFetched(Ok(period)) => {
+            model.period = period.last().cloned();
+        }
+        Msg::PeriodFetched(Err(message)) => {
+            model
+                .errors
+                .push("Failed to fetch period: ".to_owned() + &message);
+        }
     }
 }
 
@@ -95,6 +115,7 @@ pub fn view(model: &Model) -> Node<Msg> {
     let body_weight_content;
     let body_fat_subtitle;
     let body_fat_content;
+    let period_content;
 
     if let Some(body_weight) = &model.body_weight {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
@@ -114,6 +135,12 @@ pub fn view(model: &Model) -> Node<Msg> {
     } else {
         body_fat_subtitle = String::new();
         body_fat_content = String::new();
+    }
+
+    if let Some(period) = &model.period {
+        period_content = last_update(local - period.date);
+    } else {
+        period_content = String::new();
     }
 
     div![
@@ -150,7 +177,7 @@ pub fn view(model: &Model) -> Node<Msg> {
         ),
         IF![
             model.session.sex == 0 => {
-                view_tile("Period", "", "", crate::Urls::new(&model.base_url).period())
+                view_tile("Period", "", &period_content, crate::Urls::new(&model.base_url).period())
             }
         ],
     ]
@@ -191,8 +218,16 @@ fn view_tile(title: &str, subtitle: &str, content: &str, target: Url) -> Node<Ms
                         span![C!["icon"], i![C!["fas fa-plus-circle"]]]
                     ]],
                 ],
-                IF![!subtitle.is_empty() => p![C!["subtitle"], C!["is-size-5"], subtitle]],
-                IF![!content.is_empty() => p![C!["content"], raw![content]]]
+                IF![
+                    !subtitle.is_empty() => {
+                        p![C!["subtitle"], C!["is-size-5"], subtitle]
+                    }
+                ],
+                IF![
+                    !content.is_empty() => {
+                        p![C!["content"], C![IF![subtitle.is_empty() => "mt-5"]], raw![content]]
+                    }
+                ]
             ],
         ],
     ]

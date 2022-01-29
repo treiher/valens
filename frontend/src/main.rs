@@ -32,12 +32,13 @@ fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
 
 const LOGIN: &str = "login";
 const ADMIN: &str = "admin";
-const WORKOUTS: &str = "workouts";
-const ROUTINES: &str = "routines";
-const EXERCISES: &str = "exercises";
 const BODY_WEIGHT: &str = "body_weight";
 const BODY_FAT: &str = "body_fat";
 const PERIOD: &str = "period";
+const EXERCISES: &str = "exercises";
+const EXERCISE: &str = "exercise";
+const ROUTINES: &str = "routines";
+const WORKOUTS: &str = "workouts";
 
 struct_urls!();
 impl<'a> Urls<'a> {
@@ -50,15 +51,6 @@ impl<'a> Urls<'a> {
     pub fn admin(self) -> Url {
         self.base_url().set_hash_path(&[ADMIN])
     }
-    pub fn workouts(self) -> Url {
-        self.base_url().set_hash_path(&[WORKOUTS])
-    }
-    pub fn routines(self) -> Url {
-        self.base_url().set_hash_path(&[ROUTINES])
-    }
-    pub fn exercises(self) -> Url {
-        self.base_url().set_hash_path(&[EXERCISES])
-    }
     pub fn body_weight(self) -> Url {
         self.base_url().set_hash_path(&[BODY_WEIGHT])
     }
@@ -67,6 +59,18 @@ impl<'a> Urls<'a> {
     }
     pub fn period(self) -> Url {
         self.base_url().set_hash_path(&[PERIOD])
+    }
+    pub fn exercises(self) -> Url {
+        self.base_url().set_hash_path(&[EXERCISES])
+    }
+    pub fn exercise(self) -> Url {
+        self.base_url().set_hash_path(&[EXERCISE])
+    }
+    pub fn routines(self) -> Url {
+        self.base_url().set_hash_path(&[ROUTINES])
+    }
+    pub fn workouts(self) -> Url {
+        self.base_url().set_hash_path(&[WORKOUTS])
     }
 }
 
@@ -104,6 +108,7 @@ enum Page {
     BodyWeight(page::body_weight::Model),
     BodyFat(page::body_fat::Model),
     Period(page::period::Model),
+    Exercises(page::exercises::Model),
     NotFound,
 }
 
@@ -141,6 +146,10 @@ impl Page {
                 Some(PERIOD) => {
                     Self::Period(page::period::init(url, &mut orders.proxy(Msg::Period)))
                 }
+                Some(EXERCISES) => Self::Exercises(page::exercises::init(
+                    url,
+                    &mut orders.proxy(Msg::Exercises),
+                )),
                 Some(_) => Self::NotFound,
             }
         } else {
@@ -184,6 +193,7 @@ enum Msg {
     BodyWeight(page::body_weight::Msg),
     BodyFat(page::body_fat::Msg),
     Period(page::period::Msg),
+    Exercises(page::exercises::Msg),
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -280,6 +290,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::Period(msg) => {
             if let Some(Page::Period(model)) = &mut model.page {
                 page::period::update(msg, model, &mut orders.proxy(Msg::Period))
+            }
+        }
+        Msg::Exercises(msg) => {
+            if let Some(Page::Exercises(model)) = &mut model.page {
+                page::exercises::update(msg, model, &mut orders.proxy(Msg::Exercises))
             }
         }
     }
@@ -392,6 +407,7 @@ fn view_page(page: &Option<Page>) -> Node<Msg> {
                 page::body_weight::view(model).map_msg(Msg::BodyWeight),
             Some(Page::BodyFat(model)) => page::body_fat::view(model).map_msg(Msg::BodyFat),
             Some(Page::Period(model)) => page::period::view(model).map_msg(Msg::Period),
+            Some(Page::Exercises(model)) => page::exercises::view(model).map_msg(Msg::Exercises),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![
                 C!["is-size-5"],

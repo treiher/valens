@@ -44,6 +44,9 @@ def delete_session(client: Client) -> Response:
         ("get", "/api/period"),
         ("post", "/api/period"),
         ("put", "/api/period/2002-02-22"),
+        ("get", "/api/exercises"),
+        ("post", "/api/exercises"),
+        ("put", "/api/exercises/1"),
     ],
 )
 def test_session_required(client: Client, method: str, route: str) -> None:
@@ -65,6 +68,8 @@ def test_session_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/body_fat/2002-02-22"),
         ("post", "/api/period"),
         ("put", "/api/period/2002-02-22"),
+        ("post", "/api/exercises"),
+        ("put", "/api/exercises/1"),
     ],
 )
 def test_json_required(client: Client, method: str, route: str) -> None:
@@ -90,6 +95,8 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/body_fat/2002-02-20"),
         ("post", "/api/period"),
         ("put", "/api/period/2002-02-22"),
+        ("post", "/api/exercises"),
+        ("put", "/api/exercises/1"),
     ],
 )
 def test_invalid_data(client: Client, method: str, route: str) -> None:
@@ -445,6 +452,15 @@ def test_delete_user(client: Client) -> None:
                 {"date": "2002-02-22", "intensity": 1},
             ],
         ),
+        (
+            1,
+            "/api/exercises",
+            [
+                {"id": 1, "name": "Exercise 1"},
+                {"id": 3, "name": "Exercise 2"},
+                {"id": 5, "name": "Unused Exercise"},
+            ],
+        ),
     ],
 )
 def test_get(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
@@ -534,6 +550,16 @@ def test_get(client: Client, user_id: int, route: str, data: list[dict[str, obje
                 {"date": "2002-02-21", "intensity": 4},
                 {"date": "2002-02-22", "intensity": 1},
                 {"date": "2002-02-24", "intensity": 1},
+            ],
+        ),
+        (
+            "/api/exercises",
+            {"id": 6, "name": "New Exercise"},
+            [
+                {"id": 1, "name": "Exercise 1"},
+                {"id": 3, "name": "Exercise 2"},
+                {"id": 6, "name": "New Exercise"},
+                {"id": 5, "name": "Unused Exercise"},
             ],
         ),
     ],
@@ -639,6 +665,17 @@ def test_add(
             ],
             {"intensity": 0},
         ),
+        (
+            "/api/exercises/1",
+            {"name": "Changed Exercise"},
+            {"id": 1, "name": "Changed Exercise"},
+            [
+                {"id": 1, "name": "Changed Exercise"},
+                {"id": 3, "name": "Exercise 2"},
+                {"id": 5, "name": "Unused Exercise"},
+            ],
+            {"name": "Exercise 2"},
+        ),
     ],
 )
 def test_edit(
@@ -663,7 +700,7 @@ def test_edit(
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == result
 
-    resp = client.put(str(Path(route).parent / "invalid"), json=data)
+    resp = client.put(str(Path(route).parent / "0"), json=data)
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
@@ -706,6 +743,13 @@ def test_edit(
                 {"date": "2002-02-22", "intensity": 1},
             ],
         ),
+        (
+            "/api/exercises/3",
+            [
+                {"id": 1, "name": "Exercise 1"},
+                {"id": 5, "name": "Unused Exercise"},
+            ],
+        ),
     ],
 )
 def test_delete(
@@ -727,7 +771,7 @@ def test_delete(
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == result
 
-    resp = client.delete(str(Path(route).parent / "invalid"))
+    resp = client.delete(str(Path(route).parent / "0"))
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data

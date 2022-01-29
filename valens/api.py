@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 from functools import wraps
@@ -11,9 +13,20 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from valens import bodyfat, bodyweight, database as db, diagram, storage, version
-from valens.models import BodyFat, BodyWeight, Period, Sex, User
+from valens.models import BodyFat, BodyWeight, Exercise, Period, Sex, User
 
 bp = Blueprint("api", __name__, url_prefix="/api")
+
+
+def model_to_dict(model: object, exclude: list[str] = None) -> dict[str, object]:
+    assert hasattr(model, "__table__")
+    exclude = ["user_id"]
+    return {
+        name: attr.isoformat() if isinstance(attr, date) else attr
+        for col in getattr(model, "__table__").columns
+        if col.name not in exclude
+        for name, attr in [(col.name, getattr(model, col.name))]
+    }
 
 
 def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]
@@ -69,7 +82,7 @@ def add_session() -> ResponseReturnValue:
     # ISSUE: PyCQA/pylint#3793
     session.permanent = True
 
-    return jsonify({"id": user.id, "name": user.name, "sex": user.sex})
+    return jsonify(model_to_dict(user))
 
 
 @bp.route("/session", methods=["DELETE"])
@@ -81,7 +94,7 @@ def delete_session() -> ResponseReturnValue:
 @bp.route("/users")
 def get_users() -> ResponseReturnValue:
     users = db.session.execute(select(User)).scalars().all()
-    return jsonify([{"id": u.id, "name": u.name, "sex": u.sex} for u in users])
+    return jsonify([model_to_dict(u) for u in users])
 
 
 @bp.route("/users/<int:user_id>")
@@ -92,7 +105,7 @@ def get_user(user_id: int) -> ResponseReturnValue:
     except NoResultFound:
         return "", HTTPStatus.NOT_FOUND
 
-    return jsonify({"id": user.id, "name": user.name, "sex": user.sex})
+    return jsonify(model_to_dict(user))
 
 
 @bp.route("/users", methods=["POST"])
@@ -115,7 +128,7 @@ def add_user() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify({"id": user.id, "name": user.name, "sex": user.sex}),
+        jsonify(model_to_dict(user)),
         HTTPStatus.CREATED,
         {"Location": f"/users/{user.id}"},
     )
@@ -144,7 +157,7 @@ def edit_user(user_id: int) -> ResponseReturnValue:
     except IntegrityError as e:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
-    return jsonify({"id": user.id, "name": user.name, "sex": user.sex}), HTTPStatus.OK
+    return jsonify(model_to_dict(user)), HTTPStatus.OK
 
 
 @bp.route("/users/<int:user_id>", methods=["DELETE"])
@@ -182,7 +195,7 @@ def get_body_weight() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify([{"date": bw.date.isoformat(), "weight": bw.weight} for bw in body_weight])
+    return jsonify([model_to_dict(bw) for bw in body_weight])
 
 
 @bp.route("/body_weight", methods=["POST"])
@@ -210,7 +223,7 @@ def add_body_weight() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify({"date": body_weight.date.isoformat(), "weight": body_weight.weight}),
+        jsonify(model_to_dict(body_weight)),
         HTTPStatus.CREATED,
         {"Location": f"/body_weight/{body_weight.date}"},
     )
@@ -248,7 +261,7 @@ def edit_body_weight(date_: str) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify({"date": body_weight.date.isoformat(), "weight": body_weight.weight}),
+        jsonify(model_to_dict(body_weight)),
         HTTPStatus.OK,
     )
 
@@ -303,21 +316,7 @@ def get_body_fat() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify(
-        [
-            {
-                "date": bf.date.isoformat(),
-                "chest": bf.chest,
-                "abdominal": bf.abdominal,
-                "tigh": bf.tigh,
-                "tricep": bf.tricep,
-                "subscapular": bf.subscapular,
-                "suprailiac": bf.suprailiac,
-                "midaxillary": bf.midaxillary,
-            }
-            for bf in body_fat
-        ]
-    )
+    return jsonify([model_to_dict(bf) for bf in body_fat])
 
 
 @bp.route("/body_fat", methods=["POST"])
@@ -356,18 +355,7 @@ def add_body_fat() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(
-            {
-                "date": body_fat.date.isoformat(),
-                "chest": body_fat.chest,
-                "abdominal": body_fat.abdominal,
-                "tigh": body_fat.tigh,
-                "tricep": body_fat.tricep,
-                "subscapular": body_fat.subscapular,
-                "suprailiac": body_fat.suprailiac,
-                "midaxillary": body_fat.midaxillary,
-            }
-        ),
+        jsonify(model_to_dict(body_fat)),
         HTTPStatus.CREATED,
         {"Location": f"/body_fat/{body_fat.date}"},
     )
@@ -414,18 +402,7 @@ def edit_body_fat(date_: str) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(
-            {
-                "date": body_fat.date.isoformat(),
-                "chest": body_fat.chest,
-                "abdominal": body_fat.abdominal,
-                "tigh": body_fat.tigh,
-                "tricep": body_fat.tricep,
-                "subscapular": body_fat.subscapular,
-                "suprailiac": body_fat.suprailiac,
-                "midaxillary": body_fat.midaxillary,
-            }
-        ),
+        jsonify(model_to_dict(body_fat)),
         HTTPStatus.OK,
     )
 
@@ -460,7 +437,7 @@ def get_period() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify([{"date": p.date.isoformat(), "intensity": p.intensity} for p in period])
+    return jsonify([model_to_dict(p) for p in period])
 
 
 @bp.route("/period", methods=["POST"])
@@ -488,7 +465,7 @@ def add_period() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify({"date": period.date.isoformat(), "intensity": period.intensity}),
+        jsonify(model_to_dict(period)),
         HTTPStatus.CREATED,
         {"Location": f"/period/{period.date}"},
     )
@@ -526,7 +503,7 @@ def edit_period(date_: str) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify({"date": period.date.isoformat(), "intensity": period.intensity}),
+        jsonify(model_to_dict(period)),
         HTTPStatus.OK,
     )
 
@@ -548,6 +525,106 @@ def delete_period(date_: str) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(period)
+    db.session.commit()
+
+    return "", HTTPStatus.NO_CONTENT
+
+
+@bp.route("/exercises")
+@session_required
+def get_exercises() -> ResponseReturnValue:
+    exercises = (
+        db.session.execute(select(Exercise).where(Exercise.user_id == session["user_id"]))
+        .scalars()
+        .all()
+    )
+    return jsonify([model_to_dict(e) for e in exercises])
+
+
+@bp.route("/exercises", methods=["POST"])
+@session_required
+@json_expected
+def add_exercises() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        exercise = Exercise(
+            user_id=session["user_id"],
+            name=data["name"],
+        )
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(exercise)
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify(model_to_dict(exercise)),
+        HTTPStatus.CREATED,
+        {"Location": f"/exercises/{exercise.id}"},
+    )
+
+
+@bp.route("/exercises/<int:id_>", methods=["PUT"])
+@session_required
+@json_expected
+def edit_exercises(id_: int) -> ResponseReturnValue:
+    try:
+        exercise = (
+            db.session.execute(
+                select(Exercise)
+                .where(Exercise.id == id_)
+                .where(Exercise.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        exercise.name = data["name"]
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify(model_to_dict(exercise)),
+        HTTPStatus.OK,
+    )
+
+
+@bp.route("/exercises/<int:id_>", methods=["DELETE"])
+@session_required
+def delete_exercises(id_: int) -> ResponseReturnValue:
+    try:
+        exercise = (
+            db.session.execute(
+                select(Exercise)
+                .where(Exercise.id == id_)
+                .where(Exercise.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    db.session.delete(exercise)
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT

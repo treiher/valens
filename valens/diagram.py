@@ -1,6 +1,7 @@
 import io
 import re
 from datetime import date, timedelta
+from typing import Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -10,9 +11,11 @@ import pandas as pd
 from flask import session
 from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
+from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 
-from valens import bodyfat, bodyweight, storage
-from valens.models import Routine, Sex
+from valens import bodyfat, bodyweight, database as db, storage
+from valens.models import Exercise, Routine, Sex
 
 matplotlib.style.use("seaborn-whitegrid")
 
@@ -53,7 +56,25 @@ def plot_workouts(
     return _workouts_exercise(df, first, last)
 
 
-def plot_exercise(user_id: int, name: str, first: date = None, last: date = None) -> Figure:
+def plot_exercise(
+    user_id: int, exercise: Union[str, int], first: date = None, last: date = None
+) -> Figure:
+    if isinstance(exercise, int):
+        try:
+            name = (
+                db.session.execute(
+                    select(Exercise)
+                    .where(Exercise.id == exercise)
+                    .where(Exercise.user_id == session["user_id"])
+                )
+                .scalars()
+                .one()
+            ).name
+        except NoResultFound:
+            name = ""
+    else:
+        name = exercise
+
     df = storage.read_sets(user_id)
     df["reps+rir"] = df["reps"] + df["rir"]
     df["tut"] = df["reps"].replace(np.nan, 1) * df["time"]

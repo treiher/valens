@@ -541,6 +541,25 @@ def get_exercises() -> ResponseReturnValue:
     return jsonify([model_to_dict(e) for e in exercises])
 
 
+@bp.route("/exercises/<int:id_>")
+@session_required
+def get_exercise(id_: int) -> ResponseReturnValue:
+    try:
+        exercise = (
+            db.session.execute(
+                select(Exercise)
+                .where(Exercise.id == id_)
+                .where(Exercise.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    return jsonify(model_to_dict(exercise))
+
+
 @bp.route("/exercises", methods=["POST"])
 @session_required
 @json_expected
@@ -631,8 +650,9 @@ def delete_exercises(id_: int) -> ResponseReturnValue:
 
 
 @bp.route("/images/<kind>")
+@bp.route("/images/<kind>/<int:id_>")
 @session_required
-def get_images(kind: str) -> ResponseReturnValue:
+def get_images(kind: str, id_: int = None) -> ResponseReturnValue:
     try:
         interval = _parse_interval_args()
     except ValueError as e:
@@ -646,9 +666,8 @@ def get_images(kind: str) -> ResponseReturnValue:
         fig = diagram.plot_period(session["user_id"], interval.first, interval.last)
     elif kind == "workouts":
         fig = diagram.plot_workouts(session["user_id"], interval.first, interval.last)
-    elif kind.startswith("exercise"):
-        name = request.args.get("name", "")
-        fig = diagram.plot_exercise(session["user_id"], name, interval.first, interval.last)
+    elif kind == "exercise" and id_:
+        fig = diagram.plot_exercise(session["user_id"], id_, interval.first, interval.last)
     else:
         return "", HTTPStatus.NOT_FOUND
 

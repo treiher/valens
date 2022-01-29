@@ -109,6 +109,7 @@ enum Page {
     BodyFat(page::body_fat::Model),
     Period(page::period::Model),
     Exercises(page::exercises::Model),
+    Exercise(page::exercise::Model),
     NotFound,
 }
 
@@ -150,6 +151,9 @@ impl Page {
                     url,
                     &mut orders.proxy(Msg::Exercises),
                 )),
+                Some(EXERCISE) => {
+                    Self::Exercise(page::exercise::init(url, &mut orders.proxy(Msg::Exercise)))
+                }
                 Some(_) => Self::NotFound,
             }
         } else {
@@ -194,6 +198,7 @@ enum Msg {
     BodyFat(page::body_fat::Msg),
     Period(page::period::Msg),
     Exercises(page::exercises::Msg),
+    Exercise(page::exercise::Msg),
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -295,6 +300,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::Exercises(msg) => {
             if let Some(Page::Exercises(model)) = &mut model.page {
                 page::exercises::update(msg, model, &mut orders.proxy(Msg::Exercises))
+            }
+        }
+        Msg::Exercise(msg) => {
+            if let Some(Page::Exercise(model)) = &mut model.page {
+                page::exercise::update(msg, model, &mut orders.proxy(Msg::Exercise))
             }
         }
     }
@@ -408,6 +418,7 @@ fn view_page(page: &Option<Page>) -> Node<Msg> {
             Some(Page::BodyFat(model)) => page::body_fat::view(model).map_msg(Msg::BodyFat),
             Some(Page::Period(model)) => page::period::view(model).map_msg(Msg::Period),
             Some(Page::Exercises(model)) => page::exercises::view(model).map_msg(Msg::Exercises),
+            Some(Page::Exercise(model)) => page::exercise::view(model).map_msg(Msg::Exercise),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![
                 C!["is-size-5"],

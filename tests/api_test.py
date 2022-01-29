@@ -45,6 +45,7 @@ def delete_session(client: Client) -> Response:
         ("post", "/api/period"),
         ("put", "/api/period/2002-02-22"),
         ("get", "/api/exercises"),
+        ("get", "/api/exercises/1"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
     ],
@@ -463,7 +464,7 @@ def test_delete_user(client: Client) -> None:
         ),
     ],
 )
-def test_get(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
+def test_get_all(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
     tests.utils.init_db_users()
 
     assert add_session(client, user_id).status_code == HTTPStatus.OK
@@ -472,6 +473,37 @@ def test_get(client: Client, user_id: int, route: str, data: list[dict[str, obje
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == []
+
+    tests.utils.clear_db()
+    tests.utils.init_db_data()
+
+    assert add_session(client, user_id).status_code == HTTPStatus.OK
+
+    resp = client.get(route)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == data
+
+
+@pytest.mark.parametrize(
+    "user_id, route, data",
+    [
+        (
+            1,
+            "/api/exercises/1",
+            {"id": 1, "name": "Exercise 1"},
+        ),
+    ],
+)
+def test_get_one(client: Client, user_id: int, route: str, data: dict[str, object]) -> None:
+    tests.utils.init_db_users()
+
+    assert add_session(client, user_id).status_code == HTTPStatus.OK
+
+    resp = client.get(route)
+
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
 
     tests.utils.clear_db()
     tests.utils.init_db_data()
@@ -794,7 +826,7 @@ def test_delete(
 )
 @pytest.mark.parametrize(
     "kind",
-    ["bodyweight", "bodyfat", "period", "workouts", "exercise"],
+    ["bodyweight", "bodyfat", "period", "workouts", "exercise/1"],
 )
 def test_get_images(client: Client, user_id: int, kind: str, first: str, last: str) -> None:
     args = "&".join(

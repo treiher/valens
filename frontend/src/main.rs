@@ -38,7 +38,9 @@ const PERIOD: &str = "period";
 const EXERCISES: &str = "exercises";
 const EXERCISE: &str = "exercise";
 const ROUTINES: &str = "routines";
+const ROUTINE: &str = "routine";
 const WORKOUTS: &str = "workouts";
+const WORKOUT: &str = "workout";
 
 struct_urls!();
 impl<'a> Urls<'a> {
@@ -69,8 +71,14 @@ impl<'a> Urls<'a> {
     pub fn routines(self) -> Url {
         self.base_url().set_hash_path(&[ROUTINES])
     }
+    pub fn routine(self) -> Url {
+        self.base_url().set_hash_path(&[ROUTINE])
+    }
     pub fn workouts(self) -> Url {
         self.base_url().set_hash_path(&[WORKOUTS])
+    }
+    pub fn workout(self) -> Url {
+        self.base_url().set_hash_path(&[WORKOUT])
     }
 }
 
@@ -110,6 +118,7 @@ enum Page {
     Period(page::period::Model),
     Exercises(page::exercises::Model),
     Exercise(page::exercise::Model),
+    Workouts(page::workouts::Model),
     NotFound,
 }
 
@@ -153,6 +162,9 @@ impl Page {
                 )),
                 Some(EXERCISE) => {
                     Self::Exercise(page::exercise::init(url, &mut orders.proxy(Msg::Exercise)))
+                }
+                Some(WORKOUTS) => {
+                    Self::Workouts(page::workouts::init(url, &mut orders.proxy(Msg::Workouts)))
                 }
                 Some(_) => Self::NotFound,
             }
@@ -199,6 +211,7 @@ enum Msg {
     Period(page::period::Msg),
     Exercises(page::exercises::Msg),
     Exercise(page::exercise::Msg),
+    Workouts(page::workouts::Msg),
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -305,6 +318,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::Exercise(msg) => {
             if let Some(Page::Exercise(model)) = &mut model.page {
                 page::exercise::update(msg, model, &mut orders.proxy(Msg::Exercise))
+            }
+        }
+        Msg::Workouts(msg) => {
+            if let Some(Page::Workouts(model)) = &mut model.page {
+                page::workouts::update(msg, model, &mut orders.proxy(Msg::Workouts))
             }
         }
     }
@@ -419,6 +437,7 @@ fn view_page(page: &Option<Page>) -> Node<Msg> {
             Some(Page::Period(model)) => page::period::view(model).map_msg(Msg::Period),
             Some(Page::Exercises(model)) => page::exercises::view(model).map_msg(Msg::Exercises),
             Some(Page::Exercise(model)) => page::exercise::view(model).map_msg(Msg::Exercise),
+            Some(Page::Workouts(model)) => page::workouts::view(model).map_msg(Msg::Workouts),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![
                 C!["is-size-5"],

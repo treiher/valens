@@ -48,6 +48,8 @@ def delete_session(client: Client) -> Response:
         ("get", "/api/exercises/1"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
+        ("get", "/api/workouts"),
+        ("post", "/api/workouts"),
     ],
 )
 def test_session_required(client: Client, method: str, route: str) -> None:
@@ -71,6 +73,7 @@ def test_session_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/period/2002-02-22"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
+        ("post", "/api/workouts"),
     ],
 )
 def test_json_required(client: Client, method: str, route: str) -> None:
@@ -98,6 +101,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/period/2002-02-22"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
+        ("post", "/api/workouts"),
     ],
 )
 def test_invalid_data(client: Client, method: str, route: str) -> None:
@@ -462,6 +466,54 @@ def test_delete_user(client: Client) -> None:
                 {"id": 5, "name": "Unused Exercise"},
             ],
         ),
+        (
+            1,
+            "/api/workouts",
+            [
+                {
+                    "id": 1,
+                    "date": "2002-02-20",
+                    "routine_id": 1,
+                    "notes": "First Workout",
+                },
+                {
+                    "id": 3,
+                    "date": "2002-02-22",
+                    "routine_id": None,
+                    "notes": None,
+                },
+            ],
+        ),
+        (
+            1,
+            "/api/workouts?format=statistics",
+            [
+                {
+                    "avg_reps": 9.5,
+                    "avg_rpe": 8.5,
+                    "avg_time": 22.666666666666668,
+                    "avg_weight": None,
+                    "date": "2002-02-20",
+                    "id": 1,
+                    "routine": "R1",
+                    "routine_id": 1,
+                    "tut": 136.0,
+                    "volume": 19.0,
+                },
+                {
+                    "avg_reps": 7.0,
+                    "avg_rpe": None,
+                    "avg_time": None,
+                    "avg_weight": None,
+                    "date": "2002-02-22",
+                    "id": 3,
+                    "routine": "",
+                    "routine_id": None,
+                    "tut": 0.0,
+                    "volume": 35.0,
+                },
+            ],
+        ),
     ],
 )
 def test_get_all(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
@@ -617,6 +669,31 @@ def test_add(
 
     assert resp.status_code == HTTPStatus.CONFLICT
     assert resp.json
+
+
+def test_add_workout(client: Client) -> None:
+    route = "/api/workouts"
+    data = {"date": "2002-02-24", "routine_id": 1}
+    created = {"date": "2002-02-24", "id": 4, "notes": "", "routine_id": 1}
+    result = [
+        {"date": "2002-02-20", "id": 1, "notes": "First Workout", "routine_id": 1},
+        {"date": "2002-02-22", "id": 3, "notes": None, "routine_id": None},
+        {"date": "2002-02-24", "id": 4, "notes": "", "routine_id": 1},
+    ]
+
+    tests.utils.init_db_data()
+
+    assert add_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post(route, json=data)
+
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.json == created
+
+    resp = client.get(route)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == result
 
 
 @pytest.mark.parametrize(
@@ -780,6 +857,17 @@ def test_edit(
             [
                 {"id": 1, "name": "Exercise 1"},
                 {"id": 5, "name": "Unused Exercise"},
+            ],
+        ),
+        (
+            "/api/workouts/3",
+            [
+                {
+                    "id": 1,
+                    "date": "2002-02-20",
+                    "routine_id": 1,
+                    "notes": "First Workout",
+                },
             ],
         ),
     ],

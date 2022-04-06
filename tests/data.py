@@ -98,6 +98,7 @@ def users() -> list[User]:
                 Workout(
                     id=1,
                     user_id=1,
+                    routine_id=1,
                     date=datetime.date(2002, 2, 20),
                     notes="First Workout",
                     sets=[

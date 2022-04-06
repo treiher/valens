@@ -12,8 +12,18 @@ from flask.typing import ResponseReturnValue
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from valens import bodyfat, bodyweight, database as db, diagram, storage, version
-from valens.models import BodyFat, BodyWeight, Exercise, Period, Sex, User
+from valens import bodyfat, bodyweight, database as db, diagram, statistics, storage, version
+from valens.models import (
+    BodyFat,
+    BodyWeight,
+    Exercise,
+    Period,
+    Routine,
+    Sex,
+    User,
+    Workout,
+    WorkoutSet,
+)
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -644,6 +654,97 @@ def delete_exercises(id_: int) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(exercise)
+    db.session.commit()
+
+    return "", HTTPStatus.NO_CONTENT
+
+
+@bp.route("/workouts")
+@session_required
+def get_workouts() -> ResponseReturnValue:
+    if request.args.get("format", None) == "statistics":
+        df = statistics.workouts(session["user_id"])
+
+        if df.empty:
+            return jsonify([])
+
+        return jsonify(df.replace([np.nan], [None]).to_dict(orient="records"))
+
+    workouts = (
+        db.session.execute(select(Workout).where(Workout.user_id == session["user_id"]))
+        .scalars()
+        .all()
+    )
+    return jsonify([model_to_dict(w) for w in workouts])
+
+
+@bp.route("/workouts", methods=["POST"])
+@session_required
+@json_expected
+def add_workouts() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        routine = (
+            db.session.execute(
+                select(Routine)
+                .where(Routine.user_id == session["user_id"])
+                .where(Routine.id == data["routine_id"])
+            )
+            .scalars()
+            .one()
+        )
+
+        workout = Workout(
+            user_id=session["user_id"],
+            routine=routine,
+            date=date.fromisoformat(data["date"]),
+            notes="",
+            sets=[
+                WorkoutSet(position=position, exercise_id=routine_exercise.exercise_id)
+                for position, routine_exercise in enumerate(
+                    (
+                        routine_exercise
+                        for routine_exercise in routine.exercises
+                        for _ in range(routine_exercise.sets)
+                    ),
+                    start=1,
+                )
+            ],
+        )
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(workout)
+
+    db.session.commit()
+
+    return (
+        jsonify(model_to_dict(workout)),
+        HTTPStatus.CREATED,
+        {"Location": f"/workouts/{workout.id}"},
+    )
+
+
+@bp.route("/workouts/<int:id_>", methods=["DELETE"])
+@session_required
+def delete_workouts(id_: int) -> ResponseReturnValue:
+    try:
+        workout = (
+            db.session.execute(
+                select(Workout)
+                .where(Workout.id == id_)
+                .where(Workout.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    db.session.delete(workout)
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT

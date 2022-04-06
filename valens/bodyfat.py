@@ -31,7 +31,7 @@ def analyze(df: pd.DataFrame) -> Optional[Bodyfat]:
 def jackson_pollock(s: pd.Series, k0: float, k1: float, k2: float, ka: float) -> pd.Series:
     # pylint: disable = invalid-name
     a = 30
-    return (495 / (k0 - (k1 * s) + (k2 * s ** 2) - (ka * a))) - 450
+    return (495 / (k0 - (k1 * s) + (k2 * s**2) - (ka * a))) - 450
 
 
 def jackson_pollock_3_female(df: pd.DataFrame) -> pd.Series:

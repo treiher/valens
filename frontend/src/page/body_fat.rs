@@ -421,25 +421,22 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::SaveBodyFat => {
             model.loading = true;
-            let request;
-            match model.dialog {
-                Dialog::AddBodyFat(ref mut form) => {
-                    request = Request::new("api/body_fat")
-                        .method(Method::Post)
-                        .json(&BodyFat {
-                            date: form.date.1.unwrap(),
-                            chest: form.chest.1,
-                            abdominal: form.abdominal.1,
-                            tigh: form.tigh.1,
-                            tricep: form.tricep.1,
-                            subscapular: form.subscapular.1,
-                            suprailiac: form.suprailiac.1,
-                            midaxillary: form.midaxillary.1,
-                        })
-                        .expect("serialization failed");
-                }
+            let request = match model.dialog {
+                Dialog::AddBodyFat(ref mut form) => Request::new("api/body_fat")
+                    .method(Method::Post)
+                    .json(&BodyFat {
+                        date: form.date.1.unwrap(),
+                        chest: form.chest.1,
+                        abdominal: form.abdominal.1,
+                        tigh: form.tigh.1,
+                        tricep: form.tricep.1,
+                        subscapular: form.subscapular.1,
+                        suprailiac: form.suprailiac.1,
+                        midaxillary: form.midaxillary.1,
+                    })
+                    .expect("serialization failed"),
                 Dialog::EditBodyFat(ref mut form) => {
-                    request = Request::new(format!("api/body_fat/{}", form.date.1.unwrap()))
+                    Request::new(format!("api/body_fat/{}", form.date.1.unwrap()))
                         .method(Method::Put)
                         .json(&json!({
                             "chest": form.chest.1,
@@ -450,12 +447,12 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                             "suprailiac": form.suprailiac.1,
                             "midaxillary": form.midaxillary.1,
                         }))
-                        .expect("serialization failed");
+                        .expect("serialization failed")
                 }
                 Dialog::Hidden | Dialog::DeleteBodyFat(_) => {
                     panic!();
                 }
-            }
+            };
             orders.perform_cmd(async move { common::fetch(request, Msg::BodyFatSaved).await });
         }
         Msg::BodyFatSaved(Ok(_)) => {

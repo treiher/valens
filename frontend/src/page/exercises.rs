@@ -136,27 +136,24 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::SaveExercises => {
             model.loading = true;
-            let request;
-            match model.dialog {
-                Dialog::AddExercise(ref mut form) => {
-                    request = Request::new("api/exercises")
-                        .method(Method::Post)
-                        .json(&json!({ "name": form.name.1.clone().unwrap() }))
-                        .expect("serialization failed");
-                }
+            let request = match model.dialog {
+                Dialog::AddExercise(ref mut form) => Request::new("api/exercises")
+                    .method(Method::Post)
+                    .json(&json!({ "name": form.name.1.clone().unwrap() }))
+                    .expect("serialization failed"),
                 Dialog::EditExercise(ref mut form) => {
-                    request = Request::new(format!("api/exercises/{}", form.id))
+                    Request::new(format!("api/exercises/{}", form.id))
                         .method(Method::Put)
                         .json(&Exercise {
                             id: form.id,
                             name: form.name.1.clone().unwrap(),
                         })
-                        .expect("serialization failed");
+                        .expect("serialization failed")
                 }
                 Dialog::Hidden | Dialog::DeleteExercise(_) => {
                     panic!();
                 }
-            }
+            };
             orders.perform_cmd(async move { common::fetch(request, Msg::ExercisesSaved).await });
         }
         Msg::ExercisesSaved(Ok(_)) => {

@@ -178,27 +178,24 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::SavePeriod => {
             model.loading = true;
-            let request;
-            match model.dialog {
-                Dialog::AddPeriod(ref mut form) => {
-                    request = Request::new("api/period")
-                        .method(Method::Post)
-                        .json(&Period {
-                            date: form.date.1.unwrap(),
-                            intensity: form.intensity.1.unwrap(),
-                        })
-                        .expect("serialization failed");
-                }
+            let request = match model.dialog {
+                Dialog::AddPeriod(ref mut form) => Request::new("api/period")
+                    .method(Method::Post)
+                    .json(&Period {
+                        date: form.date.1.unwrap(),
+                        intensity: form.intensity.1.unwrap(),
+                    })
+                    .expect("serialization failed"),
                 Dialog::EditPeriod(ref mut form) => {
-                    request = Request::new(format!("api/period/{}", form.date.1.unwrap()))
+                    Request::new(format!("api/period/{}", form.date.1.unwrap()))
                         .method(Method::Put)
                         .json(&json!({ "intensity": form.intensity.1.unwrap() }))
-                        .expect("serialization failed");
+                        .expect("serialization failed")
                 }
                 Dialog::Hidden | Dialog::DeletePeriod(_) => {
                     panic!();
                 }
-            }
+            };
             orders.perform_cmd(async move { common::fetch(request, Msg::PeriodSaved).await });
         }
         Msg::PeriodSaved(Ok(_)) => {

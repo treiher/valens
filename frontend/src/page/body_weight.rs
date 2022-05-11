@@ -188,27 +188,24 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::SaveBodyWeight => {
             model.loading = true;
-            let request;
-            match model.dialog {
-                Dialog::AddBodyWeight(ref mut form) => {
-                    request = Request::new("api/body_weight")
-                        .method(Method::Post)
-                        .json(&BodyWeight {
-                            date: form.date.1.unwrap(),
-                            weight: form.weight.1.unwrap(),
-                        })
-                        .expect("serialization failed");
-                }
+            let request = match model.dialog {
+                Dialog::AddBodyWeight(ref mut form) => Request::new("api/body_weight")
+                    .method(Method::Post)
+                    .json(&BodyWeight {
+                        date: form.date.1.unwrap(),
+                        weight: form.weight.1.unwrap(),
+                    })
+                    .expect("serialization failed"),
                 Dialog::EditBodyWeight(ref mut form) => {
-                    request = Request::new(format!("api/body_weight/{}", form.date.1.unwrap()))
+                    Request::new(format!("api/body_weight/{}", form.date.1.unwrap()))
                         .method(Method::Put)
                         .json(&json!({ "weight": form.weight.1.unwrap() }))
-                        .expect("serialization failed");
+                        .expect("serialization failed")
                 }
                 Dialog::Hidden | Dialog::DeleteBodyWeight(_) => {
                     panic!();
                 }
-            }
+            };
             orders.perform_cmd(async move { common::fetch(request, Msg::BodyWeightSaved).await });
         }
         Msg::BodyWeightSaved(Ok(_)) => {

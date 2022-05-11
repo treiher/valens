@@ -115,7 +115,6 @@ pub fn view(model: &Model) -> Node<Msg> {
     let body_weight_content;
     let body_fat_subtitle;
     let body_fat_content;
-    let period_content;
 
     if let Some(body_weight) = &model.body_weight {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
@@ -137,11 +136,11 @@ pub fn view(model: &Model) -> Node<Msg> {
         body_fat_content = String::new();
     }
 
-    if let Some(period) = &model.period {
-        period_content = last_update(local - period.date);
+    let period_content = if let Some(period) = &model.period {
+        last_update(local - period.date)
     } else {
-        period_content = String::new();
-    }
+        String::new()
+    };
 
     div![
         common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),

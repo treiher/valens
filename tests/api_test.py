@@ -1,3 +1,5 @@
+# pylint: disable = too-many-lines
+
 from __future__ import annotations
 
 from http import HTTPStatus
@@ -48,6 +50,10 @@ def delete_session(client: Client) -> Response:
         ("get", "/api/exercises/1"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
+        ("get", "/api/routines"),
+        ("get", "/api/routines/1"),
+        ("post", "/api/routines"),
+        ("put", "/api/routines/1"),
         ("get", "/api/workouts"),
         ("post", "/api/workouts"),
     ],
@@ -73,6 +79,8 @@ def test_session_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/period/2002-02-22"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
+        ("post", "/api/routines"),
+        ("put", "/api/routines/1"),
         ("post", "/api/workouts"),
     ],
 )
@@ -101,6 +109,8 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/period/2002-02-22"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
+        ("post", "/api/routines"),
+        ("put", "/api/routines/1"),
         ("post", "/api/workouts"),
     ],
 )
@@ -468,6 +478,14 @@ def test_delete_user(client: Client) -> None:
         ),
         (
             1,
+            "/api/routines",
+            [
+                {"id": 1, "name": "R1", "notes": "First Routine"},
+                {"id": 3, "name": "R2", "notes": None},
+            ],
+        ),
+        (
+            1,
             "/api/workouts",
             [
                 {
@@ -544,6 +562,11 @@ def test_get_all(client: Client, user_id: int, route: str, data: list[dict[str, 
             1,
             "/api/exercises/1",
             {"id": 1, "name": "Exercise 1"},
+        ),
+        (
+            1,
+            "/api/routines/1",
+            {"id": 1, "name": "R1", "notes": "First Routine"},
         ),
     ],
 )
@@ -644,6 +667,15 @@ def test_get_one(client: Client, user_id: int, route: str, data: dict[str, objec
                 {"id": 3, "name": "Exercise 2"},
                 {"id": 6, "name": "New Exercise"},
                 {"id": 5, "name": "Unused Exercise"},
+            ],
+        ),
+        (
+            "/api/routines",
+            {"id": 5, "name": "New Routine", "notes": None},
+            [
+                {"id": 5, "name": "New Routine", "notes": None},
+                {"id": 1, "name": "R1", "notes": "First Routine"},
+                {"id": 3, "name": "R2", "notes": None},
             ],
         ),
     ],
@@ -785,6 +817,16 @@ def test_add_workout(client: Client) -> None:
             ],
             {"name": "Exercise 2"},
         ),
+        (
+            "/api/routines/1",
+            {"name": "Changed Routine"},
+            {"id": 1, "name": "Changed Routine", "notes": "First Routine"},
+            [
+                {"id": 1, "name": "Changed Routine", "notes": "First Routine"},
+                {"id": 3, "name": "R2", "notes": None},
+            ],
+            {"name": "R2"},
+        ),
     ],
 )
 def test_edit(
@@ -857,6 +899,12 @@ def test_edit(
             [
                 {"id": 1, "name": "Exercise 1"},
                 {"id": 5, "name": "Unused Exercise"},
+            ],
+        ),
+        (
+            "/api/routines/3",
+            [
+                {"id": 1, "name": "R1", "notes": "First Routine"},
             ],
         ),
         (

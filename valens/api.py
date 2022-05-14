@@ -659,6 +659,125 @@ def delete_exercises(id_: int) -> ResponseReturnValue:
     return "", HTTPStatus.NO_CONTENT
 
 
+@bp.route("/routines")
+@session_required
+def get_routines() -> ResponseReturnValue:
+    routines = (
+        db.session.execute(select(Routine).where(Routine.user_id == session["user_id"]))
+        .scalars()
+        .all()
+    )
+    return jsonify([model_to_dict(e) for e in routines])
+
+
+@bp.route("/routines/<int:id_>")
+@session_required
+def get_routine(id_: int) -> ResponseReturnValue:
+    try:
+        routine = (
+            db.session.execute(
+                select(Routine)
+                .where(Routine.id == id_)
+                .where(Routine.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    return jsonify(model_to_dict(routine))
+
+
+@bp.route("/routines", methods=["POST"])
+@session_required
+@json_expected
+def add_routines() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        routine = Routine(
+            user_id=session["user_id"],
+            name=data["name"],
+        )
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.add(routine)
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify(model_to_dict(routine)),
+        HTTPStatus.CREATED,
+        {"Location": f"/routines/{routine.id}"},
+    )
+
+
+@bp.route("/routines/<int:id_>", methods=["PUT"])
+@session_required
+@json_expected
+def edit_routines(id_: int) -> ResponseReturnValue:
+    try:
+        routine = (
+            db.session.execute(
+                select(Routine)
+                .where(Routine.id == id_)
+                .where(Routine.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        routine.name = data["name"]
+    except (KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify(model_to_dict(routine)),
+        HTTPStatus.OK,
+    )
+
+
+@bp.route("/routines/<int:id_>", methods=["DELETE"])
+@session_required
+def delete_routines(id_: int) -> ResponseReturnValue:
+    try:
+        routine = (
+            db.session.execute(
+                select(Routine)
+                .where(Routine.id == id_)
+                .where(Routine.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    db.session.delete(routine)
+    db.session.commit()
+
+    return "", HTTPStatus.NO_CONTENT
+
+
 @bp.route("/workouts")
 @session_required
 def get_workouts() -> ResponseReturnValue:

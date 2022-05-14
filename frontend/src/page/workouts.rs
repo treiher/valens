@@ -11,7 +11,10 @@ use crate::common;
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
     let base_url = url.to_hash_base_url();
 
-    orders.skip().send_msg(Msg::FetchWorkouts);
+    orders
+        .skip()
+        .send_msg(Msg::FetchWorkouts)
+        .send_msg(Msg::FetchRoutines);
 
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddWorkoutDialog);
@@ -26,6 +29,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
             last: today,
         },
         workouts: Vec::new(),
+        routines: Vec::new(),
         dialog: Dialog::Hidden,
         loading: false,
         errors: Vec::new(),
@@ -40,6 +44,7 @@ pub struct Model {
     base_url: Url,
     interval: common::Interval,
     workouts: Vec<WorkoutStats>,
+    routines: Vec<crate::page::routines::Routine>,
     dialog: Dialog,
     loading: bool,
     errors: Vec<String>,
@@ -94,6 +99,9 @@ pub enum Msg {
 
     FetchWorkouts,
     WorkoutsFetched(Result<Vec<WorkoutStats>, String>),
+
+    FetchRoutines,
+    RoutinesFetched(Result<Vec<crate::page::routines::Routine>, String>),
 
     SaveWorkout,
     WorkoutSaved(Result<Workout, String>),
@@ -193,6 +201,21 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to fetch workouts: ".to_owned() + &message);
         }
 
+        Msg::FetchRoutines => {
+            orders
+                .skip()
+                .perform_cmd(async { common::fetch("api/routines", Msg::RoutinesFetched).await });
+        }
+        Msg::RoutinesFetched(Ok(routines)) => {
+            model.routines = routines;
+            model.routines.sort_by(|a, b| b.id.cmp(&a.id));
+        }
+        Msg::RoutinesFetched(Err(message)) => {
+            model
+                .errors
+                .push("Failed to fetch routines: ".to_owned() + &message);
+        }
+
         Msg::SaveWorkout => {
             model.loading = true;
             let request = match model.dialog {
@@ -261,7 +284,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
 pub fn view(model: &Model) -> Node<Msg> {
     div![
-        view_workouts_dialog(&model.dialog, model.loading),
+        view_workouts_dialog(&model.routines, &model.dialog, model.loading),
         common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         common::view_diagram(
@@ -279,7 +302,11 @@ pub fn view(model: &Model) -> Node<Msg> {
     ]
 }
 
-fn view_workouts_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
+fn view_workouts_dialog(
+    routines: &[crate::page::routines::Routine],
+    dialog: &Dialog,
+    loading: bool,
+) -> Node<Msg> {
     let title;
     let form;
     let date_disabled;
@@ -333,12 +360,17 @@ fn view_workouts_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                     input_ev(Ev::Input, Msg::RoutineChanged),
                     div![
                         C!["select"],
-                        select![option![
-                            "TODO",
-                            attrs![
-                                At::Value => 0,
-                            ]
-                        ],],
+                        select![routines
+                            .iter()
+                            .map(|r| {
+                                option![
+                                    &r.name,
+                                    attrs![
+                                        At::Value => r.id,
+                                    ]
+                                ]
+                            })
+                            .collect::<Vec<_>>()],
                     ],
                 ],
             ],

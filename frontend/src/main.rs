@@ -118,6 +118,7 @@ enum Page {
     Period(page::period::Model),
     Exercises(page::exercises::Model),
     Exercise(page::exercise::Model),
+    Routines(page::routines::Model),
     Workouts(page::workouts::Model),
     NotFound,
 }
@@ -162,6 +163,9 @@ impl Page {
                 )),
                 Some(EXERCISE) => {
                     Self::Exercise(page::exercise::init(url, &mut orders.proxy(Msg::Exercise)))
+                }
+                Some(ROUTINES) => {
+                    Self::Routines(page::routines::init(url, &mut orders.proxy(Msg::Routines)))
                 }
                 Some(WORKOUTS) => {
                     Self::Workouts(page::workouts::init(url, &mut orders.proxy(Msg::Workouts)))
@@ -211,6 +215,7 @@ enum Msg {
     Period(page::period::Msg),
     Exercises(page::exercises::Msg),
     Exercise(page::exercise::Msg),
+    Routines(page::routines::Msg),
     Workouts(page::workouts::Msg),
 }
 
@@ -318,6 +323,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::Exercise(msg) => {
             if let Some(Page::Exercise(model)) = &mut model.page {
                 page::exercise::update(msg, model, &mut orders.proxy(Msg::Exercise))
+            }
+        }
+        Msg::Routines(msg) => {
+            if let Some(Page::Routines(model)) = &mut model.page {
+                page::routines::update(msg, model, &mut orders.proxy(Msg::Routines))
             }
         }
         Msg::Workouts(msg) => {
@@ -437,6 +447,7 @@ fn view_page(page: &Option<Page>) -> Node<Msg> {
             Some(Page::Period(model)) => page::period::view(model).map_msg(Msg::Period),
             Some(Page::Exercises(model)) => page::exercises::view(model).map_msg(Msg::Exercises),
             Some(Page::Exercise(model)) => page::exercise::view(model).map_msg(Msg::Exercise),
+            Some(Page::Routines(model)) => page::routines::view(model).map_msg(Msg::Routines),
             Some(Page::Workouts(model)) => page::workouts::view(model).map_msg(Msg::Workouts),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![

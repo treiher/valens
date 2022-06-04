@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import deque
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -131,8 +133,7 @@ def login_view() -> Union[str, Response]:
                 session["user_id"] = user.id
                 session["username"] = user.name
                 session["sex"] = user.sex
-                # ISSUE: PyCQA/pylint#3793
-                session.permanent = True  # pylint: disable = assigning-non-slot
+                session.permanent = True
         return redirect(request.form["next"])
 
     return render_template("login.html", usernames=[u.name for u in users])

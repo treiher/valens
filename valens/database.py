@@ -54,8 +54,7 @@ def get_session() -> Session:
     if "db_session" not in g:
         if not get_engine().table_names():
             init_db()
-        # ISSUE: PyCQA/pylint#3793
-        g.db_session = get_scoped_session()()  # pylint: disable = assigning-non-slot
+        g.db_session = get_scoped_session()()
 
     return g.db_session
 

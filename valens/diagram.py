@@ -17,6 +17,8 @@ from sqlalchemy.exc import NoResultFound
 from valens import bodyfat, bodyweight, database as db, storage
 from valens.models import Exercise, Routine, Sex
 
+matplotlib.use("Agg")
+
 matplotlib.style.use("seaborn-whitegrid")
 
 matplotlib.rc("font", family="Roboto", size=12)

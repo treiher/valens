@@ -64,8 +64,8 @@ fonts: sass/fontawesome/scss/fontawesome.scss
 	cp sass/fontawesome/webfonts/* frontend/assets/fonts/
 
 
-sass/fontawesome/scss/fontawesome.scss:
-	wget -qO- https://use.fontawesome.com/releases/v5.15.4/fontawesome-free-5.15.4-web.zip | bsdtar -xf- -C sass
+sass/fontawesome:
+	wget -qO- https://use.fontawesome.com/releases/v6.1.1/fontawesome-free-6.1.1-web.zip | bsdtar -xf- -C sass
 	mv sass/fontawesome-* sass/fontawesome
 
 $(frontend-files): sass/bulma/bulma.sass sass/fontawesome/scss/fontawesome.scss $(shell find frontend/src/ -type f -name '*.rs')

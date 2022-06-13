@@ -14,15 +14,15 @@
         <link rel="stylesheet" href="{{ public_url }}/index.css">
         <script src="/js/register-sw.js"></script>
         <base href="{{ public_url }}/">
-        <link rel="preload" href="{{ public_url }}/index.wasm" as="fetch" type="application/wasm" crossorigin="">
-        <link rel="modulepreload" href="{{ public_url }}/index.js">
+        <link rel="preload" href="{{ public_url }}/valens-frontend_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+        <link rel="modulepreload" href="{{ public_url }}/valens-frontend.js">
     </head>
     <body class="has-navbar-fixed-top has-navbar-fixed-bottom">
         <div id="app">
         </div>
         <script type="module">
-            import init from '{{ public_url }}/index.js';
-            init('{{ public_url }}/index.wasm');
+            import init from '{{ public_url }}/valens-frontend.js';
+            init('{{ public_url }}/valens-frontend_bg.wasm');
         </script>
     </body>
 </html>

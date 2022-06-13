@@ -25,8 +25,8 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
         "/",
         "/manifest.json",
         "/index.css",
-        "/index.js",
-        "/index.wasm",
+        "/valens-frontend.js",
+        "/valens-frontend_bg.wasm",
         "/service-worker.js",
     ],
 )

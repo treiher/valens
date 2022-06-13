@@ -1,15 +1,18 @@
 SHELL = /bin/bash
-VERBOSE ?= @
+
+BULMA_VERSION := 0.9.3
+FONTAWESOME_VERSION := 6.1.1
+
+PYTHON_PACKAGES := valens tests
+FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js valens-frontend_bg.wasm fonts images js
 
 export SQLALCHEMY_WARN_20=1
 
-python-packages := valens tests
-frontend-files := $(addprefix valens/frontend/,index.css index.js index.wasm service-worker.js)
-
-.PHONY: all check check_black check_isort check_pylint check_mypy format \
-	test test_installation css dist
+.PHONY: all
 
 all: check test test_installation
+
+.PHONY: check check_frontend check_backend check_black check_isort check_pylint check_mypy
 
 check: check_frontend check_backend
 
@@ -21,21 +24,25 @@ check_frontend:
 check_backend: check_black check_isort check_pylint check_mypy
 
 check_black:
-	black --check --diff --line-length 100 $(python-packages)
+	black --check --diff --line-length 100 $(PYTHON_PACKAGES)
 
 check_isort:
-	isort --check --diff $(python-packages)
+	isort --check --diff $(PYTHON_PACKAGES)
 
 check_pylint:
-	pylint $(python-packages)
+	pylint $(PYTHON_PACKAGES)
 
 check_mypy:
-	mypy --pretty $(python-packages)
+	mypy --pretty $(PYTHON_PACKAGES)
+
+.PHONY: format
 
 format:
 	cargo fmt --manifest-path=frontend/Cargo.toml
-	black -l 100 $(python-packages)
-	isort $(python-packages)
+	black -l 100 $(PYTHON_PACKAGES)
+	isort $(PYTHON_PACKAGES)
+
+.PHONY: test test_frontend test_backend test_installation
 
 test: test_frontend test_backend
 
@@ -44,7 +51,7 @@ test_frontend:
 
 test_backend:
 	mkdir -p valens/frontend
-	touch $(frontend-files)
+	touch $(addprefix valens/frontend/,$(FRONTEND_FILES))
 	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests
 
 test_installation: dist
@@ -54,32 +61,41 @@ test_installation: dist
 	$(TMPDIR)/venv/bin/valens --help
 	rm -rf $(TMPDIR)
 
-css: sass/bulma/bulma.sass
-	sass --sourcemap=none sass/bulma.scss:valens/static/css/bulma.css
+.PHONY: update update_css update_fonts
 
-sass/bulma/bulma.sass:
-	wget -qO- https://github.com/jgthms/bulma/releases/download/0.9.3/bulma-0.9.3.zip | bsdtar -xf- -C sass
+update: update_css update_fonts
 
-fonts: sass/fontawesome/scss/fontawesome.scss
-	cp sass/fontawesome/webfonts/* frontend/assets/fonts/
+update_css: third-party/bulma
+	sass --no-source-map sass/bulma.scss:valens/static/css/bulma.css
 
+update_fonts: third-party/fontawesome
+	cp third-party/fontawesome/webfonts/fa-solid-900.{woff2,ttf} frontend/assets/fonts/
 
-sass/fontawesome:
-	wget -qO- https://use.fontawesome.com/releases/v6.1.1/fontawesome-free-6.1.1-web.zip | bsdtar -xf- -C sass
-	mv sass/fontawesome-* sass/fontawesome
+third-party/bulma:
+	wget -qO- https://github.com/jgthms/bulma/releases/download/$(BULMA_VERSION)/bulma-$(BULMA_VERSION).zip | bsdtar -xf- -C third-party
+	rm -rf third-party/bulma/css
 
-$(frontend-files): sass/bulma/bulma.sass sass/fontawesome/scss/fontawesome.scss $(shell find frontend/src/ -type f -name '*.rs')
-	cd frontend && trunk build --release && cd ..
-	mkdir -p valens/frontend
-	rm -rf valens/frontend/*
-	cp frontend/dist/index-*.js valens/frontend/index.js
-	cp frontend/dist/index-*_bg.wasm valens/frontend/index.wasm
-	cp frontend/dist/index-*.css valens/frontend/index.css
-	cp -r frontend/dist/{index.css,service-worker.js,fonts,images,js} valens/frontend
+third-party/fontawesome:
+	wget -qO- https://use.fontawesome.com/releases/v$(FONTAWESOME_VERSION)/fontawesome-free-$(FONTAWESOME_VERSION)-web.zip | bsdtar -xf- -C third-party
+	rm -rf third-party/fontawesome
+	mv third-party/fontawesome-* third-party/fontawesome
+	rm -rf third-party/fontawesome/{css,js,less,metadata,sprites,svgs}
 
-dist: $(frontend-files)
-	rm -rf valens.egg-info
+.PHONY: dist
+
+dist: valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
 	python3 -m build
+
+valens/frontend:
+	mkdir -p valens/frontend
+
+valens/frontend/%: frontend/dist/%
+	cp -r $< $@
+
+$(addprefix frontend/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find frontend/src/ -type f -name '*.rs')
+	cd frontend && trunk build --release --filehash false
+
+.PHONY: run run_frontend run_backend
 
 run:
 	FLASK_ENV=development FLASK_APP=valens.web VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
@@ -90,6 +106,9 @@ run_frontend:
 run_backend:
 	FLASK_ENV=development FLASK_APP=valens VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
 
+.PHONY: clean
+
 clean:
+	rm -rf valens.egg-info
 	rm -rf valens/frontend
-	cd frontend && trunk clean
+	cd frontend && trunk clean && cargo clean

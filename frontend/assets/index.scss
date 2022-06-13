@@ -101,7 +101,7 @@ table.is-centered {
     margin-right: auto;
 }
 
-@import "../../sass/bulma/bulma.sass";
+@import "../../third-party/bulma/bulma.sass";
 
 $fieldset-background-color: $scheme-main !default;
 $fieldset-border-color: $border !default;
@@ -127,5 +127,5 @@ $fieldset-radius: $radius !default;
 
 $fa-font-path: "fonts";
 
-@import "../../sass/fontawesome/scss/fontawesome.scss";
-@import "../../sass/fontawesome/scss/solid.scss";
+@import "../../third-party/fontawesome/scss/fontawesome.scss";
+@import "../../third-party/fontawesome/scss/solid.scss";

@@ -1,6 +1,6 @@
 SHELL = /bin/bash
 
-BULMA_VERSION := 0.9.3
+BULMA_VERSION := 0.9.4
 FONTAWESOME_VERSION := 6.1.1
 
 PYTHON_PACKAGES := valens tests

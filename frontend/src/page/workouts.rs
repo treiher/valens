@@ -1,38 +1,35 @@
-use chrono::{prelude::*, Duration};
+use chrono::prelude::*;
 use seed::{prelude::*, *};
-use serde_json::json;
 
 use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
+pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
     let base_url = url.to_hash_base_url();
-
-    orders
-        .skip()
-        .send_msg(Msg::FetchWorkouts)
-        .send_msg(Msg::FetchRoutines);
 
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddWorkoutDialog);
     }
 
-    let today = Local::today().naive_local();
+    orders.subscribe(Msg::DataEvent);
+
+    let (first, last) = common::initial_interval(
+        &data_model
+            .workouts
+            .iter()
+            .map(|w| w.date)
+            .collect::<Vec<NaiveDate>>(),
+    );
 
     Model {
         base_url,
-        interval: common::Interval {
-            first: today,
-            last: today,
-        },
-        workouts: Vec::new(),
-        routines: Vec::new(),
+        interval: common::Interval { first, last },
         dialog: Dialog::Hidden,
         loading: false,
-        errors: Vec::new(),
     }
 }
 
@@ -43,11 +40,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
 pub struct Model {
     base_url: Url,
     interval: common::Interval,
-    workouts: Vec<WorkoutStats>,
-    routines: Vec<crate::page::routines::Routine>,
     dialog: Dialog,
     loading: bool,
-    errors: Vec<String>,
 }
 
 enum Dialog {
@@ -61,35 +55,11 @@ struct Form {
     routine_id: (String, Option<u32>),
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct Workout {
-    pub id: u32,
-    pub routine_id: Option<u32>,
-    pub date: NaiveDate,
-    pub notes: String,
-}
-
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct WorkoutStats {
-    pub id: u32,
-    pub routine_id: Option<u32>,
-    pub routine: String,
-    pub date: NaiveDate,
-    pub avg_reps: Option<f32>,
-    pub avg_time: Option<f32>,
-    pub avg_weight: Option<f32>,
-    pub avg_rpe: Option<f32>,
-    pub volume: u32,
-    pub tut: u32,
-}
-
 // ------ ------
 //    Update
 // ------ ------
 
 pub enum Msg {
-    CloseErrorDialog,
-
     ShowAddWorkoutDialog,
     ShowDeleteWorkoutDialog(u32),
     CloseWorkoutDialog,
@@ -97,34 +67,27 @@ pub enum Msg {
     DateChanged(String),
     RoutineChanged(String),
 
-    FetchWorkouts,
-    WorkoutsFetched(Result<Vec<WorkoutStats>, String>),
-
-    FetchRoutines,
-    RoutinesFetched(Result<Vec<crate::page::routines::Routine>, String>),
-
     SaveWorkout,
-    WorkoutSaved(Result<Workout, String>),
-
     DeleteWorkout(u32),
-    WorkoutDeleted(Result<(), String>),
+    DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
 }
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::ShowAddWorkoutDialog => {
             let local = Local::now().date().naive_local();
             model.dialog = Dialog::AddWorkout(Form {
                 date: (local.to_string(), Some(local)),
                 routine_id: (
                     String::new(),
-                    model.routines.first().map(|routine| routine.id),
+                    data_model.routines.first().map(|routine| routine.id),
                 ),
             });
         }
@@ -140,7 +103,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Dialog::AddWorkout(ref mut form) => {
                 match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                     Ok(parsed_date) => {
-                        if model.workouts.iter().all(|p| p.date != parsed_date) {
+                        if data_model.workouts.iter().all(|p| p.date != parsed_date) {
                             form.date = (date, Some(parsed_date));
                         } else {
                             form.date = (date, None);
@@ -172,103 +135,32 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         },
 
-        Msg::FetchWorkouts => {
-            orders.skip().perform_cmd(async {
-                common::fetch("api/workouts?format=statistics", Msg::WorkoutsFetched).await
-            });
-        }
-        Msg::WorkoutsFetched(Ok(workouts)) => {
-            model.workouts = workouts;
-
-            let today = Local::today().naive_local();
-
-            if model.interval.first == today && model.interval.last == today {
-                let dates = || model.workouts.iter().map(|w| w.date);
-
-                model.interval.first = dates().min().unwrap_or(today);
-                model.interval.last = dates().max().unwrap_or(today);
-
-                if model.interval.last >= today - Duration::days(30) {
-                    model.interval.first = today - Duration::days(30);
-                } else {
-                    model.interval.last = today;
-                };
-            }
-        }
-        Msg::WorkoutsFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch workouts: ".to_owned() + &message);
-        }
-
-        Msg::FetchRoutines => {
-            orders
-                .skip()
-                .perform_cmd(async { common::fetch("api/routines", Msg::RoutinesFetched).await });
-        }
-        Msg::RoutinesFetched(Ok(routines)) => {
-            model.routines = routines;
-            model.routines.sort_by(|a, b| b.id.cmp(&a.id));
-        }
-        Msg::RoutinesFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch routines: ".to_owned() + &message);
-        }
-
         Msg::SaveWorkout => {
             model.loading = true;
-            let request = match model.dialog {
-                Dialog::AddWorkout(ref mut form) => Request::new("api/workouts")
-                    .method(Method::Post)
-                    .json(&json!({
-                        "date": form.date.1.unwrap(),
-                        "routine_id": form.routine_id.1.unwrap()
-                    }))
-                    .expect("serialization failed"),
+            match model.dialog {
+                Dialog::AddWorkout(ref mut form) => {
+                    orders.notify(data::Msg::CreateWorkout(
+                        form.date.1.unwrap(),
+                        form.routine_id.1.unwrap(),
+                    ));
+                }
                 Dialog::Hidden | Dialog::DeleteWorkout(_) => {
                     panic!();
                 }
             };
-            orders.perform_cmd(async move { common::fetch(request, Msg::WorkoutSaved).await });
         }
-        Msg::WorkoutSaved(Ok(_)) => {
-            model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchWorkouts)
-                .send_msg(Msg::CloseWorkoutDialog)
-                .send_msg(Msg::ChangeInterval(
-                    model.interval.first,
-                    model.interval.last,
-                ));
-        }
-        Msg::WorkoutSaved(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to save workout: ".to_owned() + &message);
-        }
-
-        Msg::DeleteWorkout(date) => {
+        Msg::DeleteWorkout(id) => {
             model.loading = true;
-            let request = Request::new(format!("api/workouts/{}", date)).method(Method::Delete);
-            orders.perform_cmd(async move {
-                common::fetch_no_content(request, Msg::WorkoutDeleted).await
-            });
+            orders.notify(data::Msg::DeleteWorkout(id));
         }
-        Msg::WorkoutDeleted(Ok(_)) => {
+        Msg::DataEvent(event) => {
             model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchWorkouts)
-                .send_msg(Msg::CloseWorkoutDialog);
-        }
-        Msg::WorkoutDeleted(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to delete workout: ".to_owned() + &message);
+            match event {
+                data::Event::WorkoutCreationSuccessful | data::Event::WorkoutDeleteSuccessful => {
+                    orders.skip().send_msg(Msg::CloseWorkoutDialog);
+                }
+                _ => {}
+            };
         }
 
         Msg::ChangeInterval(first, last) => {
@@ -282,31 +174,26 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
-        view_workouts_dialog(&model.routines, &model.dialog, model.loading),
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
+        view_workouts_dialog(&data_model.routines, &model.dialog, model.loading),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         common::view_diagram(
             &model.base_url,
             "workouts",
             &model.interval,
-            &model
+            &data_model
                 .workouts
                 .iter()
                 .map(|w| (w.id, w.date))
                 .collect::<Vec<_>>(),
         ),
-        view_table(model),
+        view_table(model, data_model),
         common::view_fab(|_| Msg::ShowAddWorkoutDialog),
     ]
 }
 
-fn view_workouts_dialog(
-    routines: &[crate::page::routines::Routine],
-    dialog: &Dialog,
-    loading: bool,
-) -> Node<Msg> {
+fn view_workouts_dialog(routines: &[data::Routine], dialog: &Dialog, loading: bool) -> Node<Msg> {
     let title;
     let form;
     let date_disabled;
@@ -407,7 +294,7 @@ fn view_workouts_dialog(
     )
 }
 
-fn view_table(model: &Model) -> Node<Msg> {
+fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -428,7 +315,7 @@ fn view_table(model: &Model) -> Node<Msg> {
                 th!["TUT"],
                 th![]
             ]],
-            tbody![&model
+            tbody![&data_model
                 .workouts
                 .iter()
                 .rev()

@@ -1,6 +1,8 @@
+use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
 
 mod common;
+mod data;
 mod page;
 
 // ------ ------
@@ -9,20 +11,20 @@ mod page;
 
 fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
     orders
+        .skip()
         .subscribe(Msg::UrlChanged)
+        .subscribe(Msg::Data)
         .stream(streams::window_event(Ev::Click, |_| Msg::HideMenu))
-        .send_msg(Msg::InitializeSession);
+        .notify(data::Msg::InitializeSession);
 
     Model {
-        base_url: url.to_hash_base_url(),
-        session: None,
         navbar: Navbar {
             title: String::from("Valens"),
             items: Vec::new(),
             menu_visible: false,
         },
         page: None,
-        errors: Vec::new(),
+        data: data::init(url, &mut orders.proxy(Msg::Data)),
     }
 }
 
@@ -87,20 +89,9 @@ impl<'a> Urls<'a> {
 // ------ ------
 
 struct Model {
-    base_url: Url,
-    session: Option<Session>,
     navbar: Navbar,
     page: Option<Page>,
-    errors: Vec<String>,
-}
-
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct Session {
-    #[allow(dead_code)]
-    id: u32,
-    name: String,
-    #[allow(dead_code)]
-    sex: u8,
+    data: data::Model,
 }
 
 pub struct Navbar {
@@ -128,17 +119,13 @@ impl Page {
         mut url: Url,
         orders: &mut impl Orders<Msg>,
         navbar: &mut Navbar,
-        session: &Option<Session>,
+        data_model: &data::Model,
     ) -> Self {
         navbar.items.clear();
 
-        if let Some(session) = session {
+        if data_model.session.is_some() {
             match url.next_hash_path_part() {
-                None => Self::Home(page::home::init(
-                    url,
-                    &mut orders.proxy(Msg::Home),
-                    session.clone(),
-                )),
+                None => Self::Home(page::home::init(url, &mut orders.proxy(Msg::Home))),
                 Some(LOGIN) => Self::Login(page::login::init(
                     url,
                     &mut orders.proxy(Msg::Login),
@@ -148,15 +135,18 @@ impl Page {
                 Some(BODY_WEIGHT) => Self::BodyWeight(page::body_weight::init(
                     url,
                     &mut orders.proxy(Msg::BodyWeight),
+                    data_model,
                 )),
                 Some(BODY_FAT) => Self::BodyFat(page::body_fat::init(
                     url,
                     &mut orders.proxy(Msg::BodyFat),
-                    session.sex,
+                    data_model,
                 )),
-                Some(PERIOD) => {
-                    Self::Period(page::period::init(url, &mut orders.proxy(Msg::Period)))
-                }
+                Some(PERIOD) => Self::Period(page::period::init(
+                    url,
+                    &mut orders.proxy(Msg::Period),
+                    data_model,
+                )),
                 Some(EXERCISES) => Self::Exercises(page::exercises::init(
                     url,
                     &mut orders.proxy(Msg::Exercises),
@@ -167,9 +157,11 @@ impl Page {
                 Some(ROUTINES) => {
                     Self::Routines(page::routines::init(url, &mut orders.proxy(Msg::Routines)))
                 }
-                Some(WORKOUTS) => {
-                    Self::Workouts(page::workouts::init(url, &mut orders.proxy(Msg::Workouts)))
-                }
+                Some(WORKOUTS) => Self::Workouts(page::workouts::init(
+                    url,
+                    &mut orders.proxy(Msg::Workouts),
+                    data_model,
+                )),
                 Some(_) => Self::NotFound,
             }
         } else {
@@ -193,18 +185,12 @@ impl Page {
 // ------ ------
 
 enum Msg {
-    CloseErrorDialog,
-
     UrlChanged(subs::UrlChanged),
 
     ToggleMenu,
     HideMenu,
 
-    InitializeSession,
-    SessionInitialized(Session),
-
-    DeleteSession,
-    SessionDeleted(Result<(), String>),
+    LogOut,
 
     // ------ Pages ------
     Home(page::home::Msg),
@@ -217,17 +203,16 @@ enum Msg {
     Exercise(page::exercise::Msg),
     Routines(page::routines::Msg),
     Workouts(page::workouts::Msg),
+
+    // ------ Data ------
+    Data(data::Msg),
 }
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::UrlChanged(subs::UrlChanged(url)) => {
-            model.page = Some(Page::init(url, orders, &mut model.navbar, &model.session));
-            model.errors.clear();
+            model.page = Some(Page::init(url, orders, &mut model.navbar, &model.data));
+            orders.send_msg(Msg::Data(data::Msg::ClearErrors));
         }
 
         Msg::ToggleMenu => model.navbar.menu_visible = not(model.navbar.menu_visible),
@@ -239,102 +224,88 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         }
 
-        Msg::InitializeSession => {
-            orders.skip().perform_cmd(async {
-                let response = fetch("api/session").await.expect("HTTP request failed");
-                if response.status().is_ok() {
-                    let session = response
-                        .json::<Session>()
-                        .await
-                        .expect("deserialization failed");
-                    Msg::SessionInitialized(session)
-                } else {
-                    Msg::UrlChanged(subs::UrlChanged(Url::current()))
-                }
-            });
-        }
-        Msg::SessionInitialized(session) => {
-            model.session = Some(session);
-            model.page = Some(Page::init(
-                Url::current(),
-                orders,
-                &mut model.navbar,
-                &model.session,
-            ));
-        }
-
-        Msg::DeleteSession => {
-            let request = Request::new("api/session").method(Method::Delete);
-            orders.skip().perform_cmd(async {
-                common::fetch_no_content(request, Msg::SessionDeleted).await
-            });
-        }
-        Msg::SessionDeleted(Ok(_)) => {
-            orders.request_url(Urls::new(&model.base_url).login());
-            model.session = None;
-        }
-        Msg::SessionDeleted(Err(message)) => {
-            model
-                .errors
-                .push("Failed to switch users: ".to_owned() + &message);
+        Msg::LogOut => {
+            orders.skip().notify(data::Msg::DeleteSession);
         }
 
         // ------ Pages ------
         Msg::Home(msg) => {
-            if let Some(Page::Home(model)) = &mut model.page {
-                page::home::update(msg, model, &mut orders.proxy(Msg::Home))
+            if let Some(Page::Home(page_model)) = &mut model.page {
+                page::home::update(msg, page_model, &mut orders.proxy(Msg::Home))
             }
         }
         Msg::Login(msg) => {
             if let Some(Page::Login(page_model)) = &mut model.page {
-                page::login::update(
-                    msg,
-                    page_model,
-                    &mut orders.proxy(Msg::Login),
-                    &mut model.session,
-                )
+                page::login::update(msg, page_model, &mut orders.proxy(Msg::Login))
             }
         }
         Msg::Admin(msg) => {
-            if let Some(Page::Admin(model)) = &mut model.page {
-                page::admin::update(msg, model, &mut orders.proxy(Msg::Admin))
+            if let Some(Page::Admin(page_model)) = &mut model.page {
+                page::admin::update(msg, page_model, &model.data, &mut orders.proxy(Msg::Admin))
             }
         }
         Msg::BodyWeight(msg) => {
-            if let Some(Page::BodyWeight(model)) = &mut model.page {
-                page::body_weight::update(msg, model, &mut orders.proxy(Msg::BodyWeight))
+            if let Some(Page::BodyWeight(page_model)) = &mut model.page {
+                page::body_weight::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::BodyWeight),
+                )
             }
         }
         Msg::BodyFat(msg) => {
-            if let Some(Page::BodyFat(model)) = &mut model.page {
-                page::body_fat::update(msg, model, &mut orders.proxy(Msg::BodyFat))
+            if let Some(Page::BodyFat(page_model)) = &mut model.page {
+                page::body_fat::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::BodyFat),
+                )
             }
         }
         Msg::Period(msg) => {
-            if let Some(Page::Period(model)) = &mut model.page {
-                page::period::update(msg, model, &mut orders.proxy(Msg::Period))
+            if let Some(Page::Period(page_model)) = &mut model.page {
+                page::period::update(msg, page_model, &model.data, &mut orders.proxy(Msg::Period))
             }
         }
         Msg::Exercises(msg) => {
-            if let Some(Page::Exercises(model)) = &mut model.page {
-                page::exercises::update(msg, model, &mut orders.proxy(Msg::Exercises))
+            if let Some(Page::Exercises(page_model)) = &mut model.page {
+                page::exercises::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::Exercises),
+                )
             }
         }
         Msg::Exercise(msg) => {
-            if let Some(Page::Exercise(model)) = &mut model.page {
-                page::exercise::update(msg, model, &mut orders.proxy(Msg::Exercise))
+            if let Some(Page::Exercise(page_model)) = &mut model.page {
+                page::exercise::update(msg, page_model, &mut orders.proxy(Msg::Exercise))
             }
         }
         Msg::Routines(msg) => {
-            if let Some(Page::Routines(model)) = &mut model.page {
-                page::routines::update(msg, model, &mut orders.proxy(Msg::Routines))
+            if let Some(Page::Routines(page_model)) = &mut model.page {
+                page::routines::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::Routines),
+                )
             }
         }
         Msg::Workouts(msg) => {
-            if let Some(Page::Workouts(model)) = &mut model.page {
-                page::workouts::update(msg, model, &mut orders.proxy(Msg::Workouts))
+            if let Some(Page::Workouts(page_model)) = &mut model.page {
+                page::workouts::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::Workouts),
+                )
             }
         }
+
+        Msg::Data(msg) => data::update(msg, &mut model.data, &mut orders.proxy(Msg::Data)),
     }
 }
 
@@ -344,13 +315,13 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
 fn view(model: &Model) -> impl IntoNodes<Msg> {
     nodes![
-        view_navbar(&model.navbar, &model.session),
-        view_page(&model.page),
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
+        view_navbar(&model.navbar, &model.data),
+        view_page(&model.page, &model.data),
+        data::view(&model.data).map_msg(Msg::Data),
     ]
 }
 
-fn view_navbar(navbar: &Navbar, session: &Option<Session>) -> Node<Msg> {
+fn view_navbar(navbar: &Navbar, data_model: &data::Model) -> Node<Msg> {
     nav![
         C!["navbar"],
         C!["is-fixed-top"],
@@ -410,11 +381,21 @@ fn view_navbar(navbar: &Navbar, session: &Option<Session>) -> Node<Msg> {
                             ]
                         })
                         .collect::<Vec<_>>(),
-                    match &session {
+                    match &data_model.session {
+                        Some(_) => a![
+                            C!["navbar-item"],
+                            C!["has-text-weight-bold"],
+                            ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
+                            span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
+                            view_duration(Utc::now() - data_model.last_refresh),
+                        ],
+                        None => empty![],
+                    },
+                    match &data_model.session {
                         Some(s) => a![
                             C!["navbar-item"],
                             C!["has-text-weight-bold"],
-                            ev(Ev::Click, |_| Msg::DeleteSession),
+                            ev(Ev::Click, |_| Msg::LogOut),
                             span![
                                 C!["tag"],
                                 C!["is-medium"],
@@ -432,23 +413,39 @@ fn view_navbar(navbar: &Navbar, session: &Option<Session>) -> Node<Msg> {
     ]
 }
 
-fn view_page(page: &Option<Page>) -> Node<Msg> {
+fn view_duration(duration: Duration) -> String {
+    if duration < Duration::minutes(1) {
+        String::from("now")
+    } else if duration < Duration::hours(1) {
+        format!("{} min ago", duration.num_minutes())
+    } else if duration < Duration::days(1) {
+        format!("{} h ago", duration.num_hours())
+    } else {
+        format!("{} days ago", duration.num_days())
+    }
+}
+
+fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["container"],
         C!["is-max-desktop"],
         C!["py-4"],
         match page {
-            Some(Page::Home(model)) => page::home::view(model).map_msg(Msg::Home),
-            Some(Page::Login(model)) => page::login::view(model).map_msg(Msg::Login),
-            Some(Page::Admin(model)) => page::admin::view(model).map_msg(Msg::Admin),
+            Some(Page::Home(model)) => page::home::view(model, data_model).map_msg(Msg::Home),
+            Some(Page::Login(model)) => page::login::view(model, data_model).map_msg(Msg::Login),
+            Some(Page::Admin(model)) => page::admin::view(model, data_model).map_msg(Msg::Admin),
             Some(Page::BodyWeight(model)) =>
-                page::body_weight::view(model).map_msg(Msg::BodyWeight),
-            Some(Page::BodyFat(model)) => page::body_fat::view(model).map_msg(Msg::BodyFat),
-            Some(Page::Period(model)) => page::period::view(model).map_msg(Msg::Period),
-            Some(Page::Exercises(model)) => page::exercises::view(model).map_msg(Msg::Exercises),
+                page::body_weight::view(model, data_model).map_msg(Msg::BodyWeight),
+            Some(Page::BodyFat(model)) =>
+                page::body_fat::view(model, data_model).map_msg(Msg::BodyFat),
+            Some(Page::Period(model)) => page::period::view(model, data_model).map_msg(Msg::Period),
+            Some(Page::Exercises(model)) =>
+                page::exercises::view(model, data_model).map_msg(Msg::Exercises),
             Some(Page::Exercise(model)) => page::exercise::view(model).map_msg(Msg::Exercise),
-            Some(Page::Routines(model)) => page::routines::view(model).map_msg(Msg::Routines),
-            Some(Page::Workouts(model)) => page::workouts::view(model).map_msg(Msg::Workouts),
+            Some(Page::Routines(model)) =>
+                page::routines::view(model, data_model).map_msg(Msg::Routines),
+            Some(Page::Workouts(model)) =>
+                page::workouts::view(model, data_model).map_msg(Msg::Workouts),
             Some(Page::NotFound) => page::not_found::view(),
             None => div![
                 C!["is-size-5"],

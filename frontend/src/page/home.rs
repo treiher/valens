@@ -1,28 +1,16 @@
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(url: Url, orders: &mut impl Orders<Msg>, session: crate::Session) -> Model {
+pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
     let base_url = url.to_hash_base_url();
 
-    orders
-        .send_msg(Msg::FetchBodyWeight)
-        .send_msg(Msg::FetchBodyFat)
-        .send_msg(Msg::FetchPeriod);
-
-    Model {
-        base_url,
-        session,
-        body_weight: None,
-        body_fat: None,
-        period: None,
-        errors: Vec::new(),
-    }
+    Model { base_url }
 }
 
 // ------ ------
@@ -31,92 +19,28 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>, session: crate::Session) ->
 
 pub struct Model {
     base_url: Url,
-    session: crate::Session,
-    body_weight: Option<crate::page::body_weight::BodyWeight>,
-    body_fat: Option<crate::page::body_fat::BodyFatStats>,
-    period: Option<crate::page::period::Period>,
-    errors: Vec<String>,
 }
 
 // ------ ------
 //    Update
 // ------ ------
 
-pub enum Msg {
-    CloseErrorDialog,
+pub enum Msg {}
 
-    FetchBodyWeight,
-    BodyWeightFetched(Result<Vec<crate::page::body_weight::BodyWeight>, String>),
-
-    FetchBodyFat,
-    BodyFatFetched(Result<Vec<crate::page::body_fat::BodyFatStats>, String>),
-
-    FetchPeriod,
-    PeriodFetched(Result<Vec<crate::page::period::Period>, String>),
-}
-
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
-    match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
-        Msg::FetchBodyWeight => {
-            orders.skip().perform_cmd(async {
-                common::fetch("api/body_weight", Msg::BodyWeightFetched).await
-            });
-        }
-        Msg::BodyWeightFetched(Ok(body_weight)) => {
-            model.body_weight = body_weight.last().cloned();
-        }
-        Msg::BodyWeightFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch body weight: ".to_owned() + &message);
-        }
-
-        Msg::FetchBodyFat => {
-            orders.skip().perform_cmd(async {
-                common::fetch("api/body_fat?format=statistics", Msg::BodyFatFetched).await
-            });
-        }
-        Msg::BodyFatFetched(Ok(body_fat)) => {
-            model.body_fat = body_fat.last().cloned();
-        }
-        Msg::BodyFatFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch body fat: ".to_owned() + &message);
-        }
-
-        Msg::FetchPeriod => {
-            orders
-                .skip()
-                .perform_cmd(async { common::fetch("api/period", Msg::PeriodFetched).await });
-        }
-        Msg::PeriodFetched(Ok(period)) => {
-            model.period = period.last().cloned();
-        }
-        Msg::PeriodFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch period: ".to_owned() + &message);
-        }
-    }
-}
+pub fn update(_msg: Msg, _model: &mut Model, _orders: &mut impl Orders<Msg>) {}
 
 // ------ ------
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     let local: NaiveDate = Local::now().date().naive_local();
     let body_weight_subtitle;
     let body_weight_content;
     let body_fat_subtitle;
     let body_fat_content;
 
-    if let Some(body_weight) = &model.body_weight {
+    if let Some(body_weight) = &data_model.body_weight.last() {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
         body_weight_content = last_update(local - body_weight.date);
     } else {
@@ -124,7 +48,7 @@ pub fn view(model: &Model) -> Node<Msg> {
         body_weight_content = String::new();
     }
 
-    if let Some(body_fat) = &model.body_fat {
+    if let Some(body_fat) = &data_model.body_fat.last() {
         body_fat_subtitle = if let Some(jp3) = body_fat.jp3 {
             format!("{:.1} %", jp3)
         } else {
@@ -136,14 +60,13 @@ pub fn view(model: &Model) -> Node<Msg> {
         body_fat_content = String::new();
     }
 
-    let period_content = if let Some(period) = &model.period {
+    let period_content = if let Some(period) = &data_model.period.last() {
         last_update(local - period.date)
     } else {
         String::new()
     };
 
     div![
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
         view_tile(
             "Workouts",
             "",
@@ -175,7 +98,7 @@ pub fn view(model: &Model) -> Node<Msg> {
             crate::Urls::new(&model.base_url).body_fat()
         ),
         IF![
-            model.session.sex == 0 => {
+            data_model.session.as_ref().unwrap().sex == 0 => {
                 view_tile("Period", "", &period_content, crate::Urls::new(&model.base_url).period())
             }
         ],

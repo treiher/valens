@@ -10,42 +10,18 @@ pub struct Interval {
     pub last: NaiveDate,
 }
 
-pub async fn fetch<'a, Ms, T>(
-    request: impl Into<Request<'a>>,
-    message: fn(Result<T, String>) -> Ms,
-) -> Ms
-where
-    T: 'static + for<'de> serde::Deserialize<'de>,
-{
-    match seed::browser::fetch::fetch(request).await {
-        Ok(response) => {
-            if response.status().is_ok() {
-                match response.json::<T>().await {
-                    Ok(data) => message(Ok(data)),
-                    Err(_) => message(Err("deserialization failed".into())),
-                }
-            } else {
-                message(Err("unexpected response".into()))
-            }
-        }
-        Err(_) => message(Err("no connection".into())),
-    }
-}
+pub fn initial_interval(dates: &[NaiveDate]) -> (NaiveDate, NaiveDate) {
+    let today = Local::today().naive_local();
+    let mut first = dates.iter().copied().min().unwrap_or(today);
+    let mut last = dates.iter().copied().max().unwrap_or(today);
 
-pub async fn fetch_no_content<'a, Ms>(
-    request: impl Into<Request<'a>>,
-    message: fn(Result<(), String>) -> Ms,
-) -> Ms {
-    match seed::browser::fetch::fetch(request).await {
-        Ok(response) => {
-            if response.status().is_ok() {
-                message(Ok(()))
-            } else {
-                message(Err("unexpected response".into()))
-            }
-        }
-        Err(_) => message(Err("no connection".into())),
-    }
+    if last >= today - Duration::days(30) {
+        first = today - Duration::days(30);
+    } else {
+        last = today;
+    };
+
+    (first, last)
 }
 
 pub fn view_dialog<Ms>(
@@ -95,7 +71,7 @@ pub fn view_error_dialog<Ms>(
         "danger",
         "Error",
         nodes![
-            div![C!["block"], &error_messages[0]],
+            div![C!["block"], &error_messages.last()],
             div![
                 C!["field"],
                 C!["is-grouped"],

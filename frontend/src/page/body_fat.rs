@@ -1,35 +1,35 @@
-use chrono::{prelude::*, Duration};
+use chrono::prelude::*;
 use seed::{prelude::*, *};
-use serde_json::json;
 
 use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, sex: u8) -> Model {
+pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
     let base_url = url.to_hash_base_url();
-
-    orders.send_msg(Msg::FetchBodyFat);
 
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddBodyFatDialog);
     }
 
-    let local = Local::now().date().naive_local();
+    orders.subscribe(Msg::DataEvent);
+
+    let (first, last) = common::initial_interval(
+        &data_model
+            .body_fat
+            .iter()
+            .map(|bf| bf.date)
+            .collect::<Vec<NaiveDate>>(),
+    );
 
     Model {
         base_url,
-        sex,
-        interval: common::Interval {
-            first: local - Duration::days(30),
-            last: local,
-        },
-        body_fat: Vec::new(),
+        interval: common::Interval { first, last },
         dialog: Dialog::Hidden,
         loading: false,
-        errors: Vec::new(),
     }
 }
 
@@ -39,12 +39,9 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, sex: u8) -> Model {
 
 pub struct Model {
     base_url: Url,
-    sex: u8,
     interval: common::Interval,
-    body_fat: Vec<BodyFatStats>,
     dialog: Dialog,
     loading: bool,
-    errors: Vec<String>,
 }
 
 enum Dialog {
@@ -85,39 +82,11 @@ impl Form {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct BodyFat {
-    pub date: NaiveDate,
-    pub chest: Option<u8>,
-    pub abdominal: Option<u8>,
-    pub tigh: Option<u8>,
-    pub tricep: Option<u8>,
-    pub subscapular: Option<u8>,
-    pub suprailiac: Option<u8>,
-    pub midaxillary: Option<u8>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct BodyFatStats {
-    pub date: NaiveDate,
-    pub chest: Option<u8>,
-    pub abdominal: Option<u8>,
-    pub tigh: Option<u8>,
-    pub tricep: Option<u8>,
-    pub subscapular: Option<u8>,
-    pub suprailiac: Option<u8>,
-    pub midaxillary: Option<u8>,
-    pub jp3: Option<f32>,
-    pub jp7: Option<f32>,
-}
-
 // ------ ------
 //    Update
 // ------ ------
 
 pub enum Msg {
-    CloseErrorDialog,
-
     ShowAddBodyFatDialog,
     ShowEditBodyFatDialog(usize),
     ShowDeleteBodyFatDialog(NaiveDate),
@@ -132,30 +101,26 @@ pub enum Msg {
     SuprailiacChanged(String),
     MidaxillaryChanged(String),
 
-    FetchBodyFat,
-    BodyFatFetched(Result<Vec<BodyFatStats>, String>),
-
     SaveBodyFat,
-    BodyFatSaved(Result<BodyFat, String>),
-
     DeleteBodyFat(NaiveDate),
-    BodyFatDeleted(Result<(), String>),
+    DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
 }
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::ShowAddBodyFatDialog => {
             let local = Local::now().date().naive_local();
             model.dialog = Dialog::AddBodyFat(Form {
                 date: (
                     local.to_string(),
-                    if model.body_fat.iter().all(|bf| bf.date != local) {
+                    if data_model.body_fat.iter().all(|bf| bf.date != local) {
                         Some(local)
                     } else {
                         None
@@ -171,14 +136,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::ShowEditBodyFatDialog(index) => {
-            let date = model.body_fat[index].date;
-            let chest = model.body_fat[index].chest;
-            let abdominal = model.body_fat[index].abdominal;
-            let tigh = model.body_fat[index].tigh;
-            let tricep = model.body_fat[index].tricep;
-            let subscapular = model.body_fat[index].subscapular;
-            let suprailiac = model.body_fat[index].suprailiac;
-            let midaxillary = model.body_fat[index].midaxillary;
+            let date = data_model.body_fat[index].date;
+            let chest = data_model.body_fat[index].chest;
+            let abdominal = data_model.body_fat[index].abdominal;
+            let tigh = data_model.body_fat[index].tigh;
+            let tricep = data_model.body_fat[index].tricep;
+            let subscapular = data_model.body_fat[index].subscapular;
+            let suprailiac = data_model.body_fat[index].suprailiac;
+            let midaxillary = data_model.body_fat[index].midaxillary;
             model.dialog = Dialog::EditBodyFat(Form {
                 date: (date.to_string(), Some(date)),
                 chest: (
@@ -251,7 +216,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Dialog::AddBodyFat(ref mut form) => {
                 match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                     Ok(parsed_date) => {
-                        if model.body_fat.iter().all(|bf| bf.date != parsed_date) {
+                        if data_model.body_fat.iter().all(|bf| bf.date != parsed_date) {
                             form.date = (date, Some(parsed_date));
                         } else {
                             form.date = (date, None);
@@ -405,26 +370,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         },
 
-        Msg::FetchBodyFat => {
-            orders.skip().perform_cmd(async {
-                common::fetch("api/body_fat?format=statistics", Msg::BodyFatFetched).await
-            });
-        }
-        Msg::BodyFatFetched(Ok(body_fat)) => {
-            model.body_fat = body_fat;
-        }
-        Msg::BodyFatFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch body fat: ".to_owned() + &message);
-        }
-
         Msg::SaveBodyFat => {
             model.loading = true;
-            let request = match model.dialog {
-                Dialog::AddBodyFat(ref mut form) => Request::new("api/body_fat")
-                    .method(Method::Post)
-                    .json(&BodyFat {
+            match model.dialog {
+                Dialog::AddBodyFat(ref mut form) => {
+                    orders.notify(data::Msg::CreateBodyFat(data::BodyFat {
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,
@@ -433,65 +383,39 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         subscapular: form.subscapular.1,
                         suprailiac: form.suprailiac.1,
                         midaxillary: form.midaxillary.1,
-                    })
-                    .expect("serialization failed"),
+                    }));
+                }
                 Dialog::EditBodyFat(ref mut form) => {
-                    Request::new(format!("api/body_fat/{}", form.date.1.unwrap()))
-                        .method(Method::Put)
-                        .json(&json!({
-                            "chest": form.chest.1,
-                            "abdominal": form.abdominal.1,
-                            "tigh": form.tigh.1,
-                            "tricep": form.tricep.1,
-                            "subscapular": form.subscapular.1,
-                            "suprailiac": form.suprailiac.1,
-                            "midaxillary": form.midaxillary.1,
-                        }))
-                        .expect("serialization failed")
+                    orders.notify(data::Msg::UpdateBodyFat(data::BodyFat {
+                        date: form.date.1.unwrap(),
+                        chest: form.chest.1,
+                        abdominal: form.abdominal.1,
+                        tigh: form.tigh.1,
+                        tricep: form.tricep.1,
+                        subscapular: form.subscapular.1,
+                        suprailiac: form.suprailiac.1,
+                        midaxillary: form.midaxillary.1,
+                    }));
                 }
                 Dialog::Hidden | Dialog::DeleteBodyFat(_) => {
                     panic!();
                 }
             };
-            orders.perform_cmd(async move { common::fetch(request, Msg::BodyFatSaved).await });
         }
-        Msg::BodyFatSaved(Ok(_)) => {
-            model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchBodyFat)
-                .send_msg(Msg::CloseBodyFatDialog)
-                .send_msg(Msg::ChangeInterval(
-                    model.interval.first,
-                    model.interval.last,
-                ));
-        }
-        Msg::BodyFatSaved(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to save body fat: ".to_owned() + &message);
-        }
-
         Msg::DeleteBodyFat(date) => {
             model.loading = true;
-            let request = Request::new(format!("api/body_fat/{}", date)).method(Method::Delete);
-            orders.perform_cmd(async move {
-                common::fetch_no_content(request, Msg::BodyFatDeleted).await
-            });
+            orders.notify(data::Msg::DeleteBodyFat(date));
         }
-        Msg::BodyFatDeleted(Ok(_)) => {
+        Msg::DataEvent(event) => {
             model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchBodyFat)
-                .send_msg(Msg::CloseBodyFatDialog);
-        }
-        Msg::BodyFatDeleted(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to delete body fat: ".to_owned() + &message);
+            match event {
+                data::Event::BodyFatCreationSuccessful
+                | data::Event::BodyFatUpdateSuccessful
+                | data::Event::BodyFatDeleteSuccessful => {
+                    orders.skip().send_msg(Msg::CloseBodyFatDialog);
+                }
+                _ => {}
+            };
         }
 
         Msg::ChangeInterval(first, last) => {
@@ -505,17 +429,20 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
-        view_body_fat_dialog(&model.dialog, model.loading, model.sex),
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
+        view_body_fat_dialog(
+            &model.dialog,
+            model.loading,
+            data_model.session.as_ref().unwrap().sex
+        ),
         common::view_fab(|_| Msg::ShowAddBodyFatDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         common::view_diagram(
             &model.base_url,
             "bodyfat",
             &model.interval,
-            &model
+            &data_model
                 .body_fat
                 .iter()
                 .map(|bf| (
@@ -530,7 +457,7 @@ pub fn view(model: &Model) -> Node<Msg> {
                 ))
                 .collect::<Vec<_>>(),
         ),
-        view_table(model),
+        view_table(model, data_model),
     ]
 }
 
@@ -760,7 +687,7 @@ fn view_body_fat_form_field(
     ]
 }
 
-fn view_table(model: &Model) -> Node<Msg> {
+fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -773,7 +700,7 @@ fn view_table(model: &Model) -> Node<Msg> {
                 th!["Date"],
                 th!["JP3 (%)"],
                 th!["JP7 (%)"],
-                if model.sex == 0 {
+                if data_model.session.as_ref().unwrap().sex == 0 {
                     nodes![
                         th!["Tricep (mm)"],
                         th!["Suprailiac (mm)"],
@@ -796,7 +723,7 @@ fn view_table(model: &Model) -> Node<Msg> {
                 },
                 th![]
             ]],
-            tbody![&model
+            tbody![&data_model
                 .body_fat
                 .iter()
                 .enumerate()
@@ -812,7 +739,7 @@ fn view_table(model: &Model) -> Node<Msg> {
                         ]],
                         td![common::value_or_dash(bf.jp3)],
                         td![common::value_or_dash(bf.jp7)],
-                        if model.sex == 0 {
+                        if data_model.session.as_ref().unwrap().sex == 0 {
                             nodes![
                                 td![common::value_or_dash(bf.tricep)],
                                 td![common::value_or_dash(bf.suprailiac)],

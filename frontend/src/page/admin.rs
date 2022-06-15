@@ -1,20 +1,21 @@
 use seed::{prelude::*, *};
 
 use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
 // ------ ------
 
 pub fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
-    orders.send_msg(Msg::FetchVersion).send_msg(Msg::FetchUsers);
+    orders
+        .subscribe(Msg::DataEvent)
+        .notify(data::Msg::FetchVersion)
+        .notify(data::Msg::FetchUsers);
 
     Model {
-        version: String::new(),
-        users: Vec::new(),
         dialog: Dialog::Hidden,
         loading: false,
-        errors: Vec::new(),
     }
 }
 
@@ -23,33 +24,15 @@ pub fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
 // ------ ------
 
 pub struct Model {
-    version: String,
-    users: Users,
     dialog: Dialog,
     loading: bool,
-    errors: Vec<String>,
 }
 
 enum Dialog {
     Hidden,
-    AddUser(NewUser, String),
-    EditUser(User, String),
+    AddUser(data::NewUser, String),
+    EditUser(data::User, String),
     DeleteUser(usize),
-}
-
-type Users = Vec<User>;
-
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct User {
-    id: i32,
-    name: String,
-    sex: i8,
-}
-
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct NewUser {
-    name: String,
-    sex: i8,
 }
 
 // ------ ------
@@ -57,8 +40,6 @@ pub struct NewUser {
 // ------ ------
 
 pub enum Msg {
-    CloseErrorDialog,
-
     ShowAddUserDialog,
     ShowEditUserDialog(usize),
     ShowDeleteUserDialog(usize),
@@ -67,31 +48,24 @@ pub enum Msg {
     NameChanged(String),
     SexChanged(String),
 
-    FetchVersion,
-    VersionFetched(Result<String, String>),
-
-    FetchUsers,
-    UsersFetched(Result<Users, String>),
-
-    DeleteUser(usize),
-    UserDeleted(Result<(), String>),
-
     SaveUser,
-    UserSaved(Result<User, String>),
+    DeleteUser(usize),
+    DataEvent(data::Event),
 }
 
 const ERROR_EMPTY_NAME: &str = "The name must not be empty";
 const ERROR_NAME_CONFLICT: &str = "A user with this name already exists";
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::ShowAddUserDialog => {
             model.dialog = Dialog::AddUser(
-                NewUser {
+                data::NewUser {
                     name: String::new(),
                     sex: 0,
                 },
@@ -99,7 +73,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             );
         }
         Msg::ShowEditUserDialog(index) => {
-            model.dialog = Dialog::EditUser(model.users[index].clone(), String::new());
+            model.dialog = Dialog::EditUser(data_model.users[index].clone(), String::new());
         }
         Msg::ShowDeleteUserDialog(index) => {
             model.dialog = Dialog::DeleteUser(index);
@@ -112,7 +86,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Dialog::AddUser(ref mut user, ref mut error) => {
                 if name.trim().is_empty() {
                     *error = ERROR_EMPTY_NAME.into()
-                } else if model.users.iter().any(|u| u.name.trim() == name.trim()) {
+                } else if data_model
+                    .users
+                    .iter()
+                    .any(|u| u.name.trim() == name.trim())
+                {
                     *error = ERROR_NAME_CONFLICT.into()
                 } else {
                     *error = String::new()
@@ -122,7 +100,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Dialog::EditUser(ref mut user, ref mut error) => {
                 if name.trim().is_empty() {
                     *error = ERROR_EMPTY_NAME.into()
-                } else if model
+                } else if data_model
                     .users
                     .iter()
                     .any(|u| u.name.trim() == name.trim() && u.id != user.id)
@@ -149,90 +127,37 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         },
 
-        Msg::FetchVersion => {
-            orders.perform_cmd(async { common::fetch("api/version", Msg::VersionFetched).await });
-        }
-        Msg::VersionFetched(Ok(version)) => {
-            model.version = version;
-        }
-        Msg::VersionFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch version: ".to_owned() + &message);
-        }
-
-        Msg::FetchUsers => {
-            orders.perform_cmd(async { common::fetch("api/users", Msg::UsersFetched).await });
-        }
-        Msg::UsersFetched(Ok(users)) => {
-            model.users = users;
-        }
-        Msg::UsersFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch users: ".to_owned() + &message);
-        }
-
         Msg::SaveUser => {
             model.loading = true;
-            let request;
             match model.dialog {
                 Dialog::AddUser(ref mut user, _) => {
                     user.name = user.name.trim().into();
-                    request = Request::new("api/users")
-                        .method(Method::Post)
-                        .json(user)
-                        .expect("serialization failed");
+                    orders.notify(data::Msg::CreateUser(user.clone()));
                 }
                 Dialog::EditUser(ref mut user, _) => {
-                    request = Request::new(format!("api/users/{}", user.id))
-                        .method(Method::Put)
-                        .json(&NewUser {
-                            name: user.name.trim().into(),
-                            sex: user.sex,
-                        })
-                        .expect("serialization failed");
+                    user.name = user.name.trim().into();
+                    orders.notify(data::Msg::UpdateUser(user.clone()));
                 }
                 Dialog::Hidden | Dialog::DeleteUser(_) => {
                     panic!();
                 }
             }
-            orders.perform_cmd(async move { common::fetch(request, Msg::UserSaved).await });
         }
-        Msg::UserSaved(Ok(_)) => {
-            model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchUsers)
-                .send_msg(Msg::CloseUserDialog);
-        }
-        Msg::UserSaved(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to save user: ".to_owned() + &message);
-        }
-
         Msg::DeleteUser(index) => {
             model.loading = true;
-            let id = model.users[index].id;
-            let request = Request::new(format!("api/users/{}", id)).method(Method::Delete);
-            orders.perform_cmd(
-                async move { common::fetch_no_content(request, Msg::UserDeleted).await },
-            );
+            let id = data_model.users[index].id;
+            orders.notify(data::Msg::DeleteUser(id));
         }
-        Msg::UserDeleted(Ok(_)) => {
+        Msg::DataEvent(event) => {
             model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchUsers)
-                .send_msg(Msg::CloseUserDialog);
-        }
-        Msg::UserDeleted(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to delete user: ".to_owned() + &message);
+            match event {
+                data::Event::UserCreationSuccessful
+                | data::Event::UserUpdateSuccessful
+                | data::Event::UserDeleteSuccessful => {
+                    orders.skip().send_msg(Msg::CloseUserDialog);
+                }
+                _ => {}
+            };
         }
     }
 }
@@ -241,7 +166,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         IF![
             matches!(model.dialog, Dialog::EditUser(_, _) | Dialog::AddUser(_, _)) => {
@@ -258,7 +183,6 @@ pub fn view(model: &Model) -> Node<Msg> {
         } else {
             Node::Empty
         },
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
         div![
             C!["table-container"],
             C!["mt-4"],
@@ -268,7 +192,7 @@ pub fn view(model: &Model) -> Node<Msg> {
                 C!["is-hoverable"],
                 C!["has-text-centered"],
                 thead![tr![th!["Name"], th!["Sex"], th![]]],
-                tbody![&model
+                tbody![&data_model
                     .users
                     .iter()
                     .enumerate()
@@ -322,7 +246,7 @@ pub fn view(model: &Model) -> Node<Msg> {
                         C!["column"],
                         C!["has-text-centered"],
                         C!["has-text-grey"],
-                        raw![&("<b>Valens</b> ".to_owned() + &model.version)],
+                        raw![&("<b>Valens</b> ".to_owned() + &data_model.version)],
                     ],
                 ]
             ],

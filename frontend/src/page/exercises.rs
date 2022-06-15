@@ -1,7 +1,7 @@
 use seed::{prelude::*, *};
-use serde_json::json;
 
 use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
@@ -10,18 +10,16 @@ use crate::common;
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
     let base_url = url.to_hash_base_url();
 
-    orders.send_msg(Msg::FetchExercises);
-
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddExerciseDialog);
     }
 
+    orders.subscribe(Msg::DataEvent);
+
     Model {
         base_url,
-        exercises: Vec::new(),
         dialog: Dialog::Hidden,
         loading: false,
-        errors: Vec::new(),
     }
 }
 
@@ -31,10 +29,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
 
 pub struct Model {
     base_url: Url,
-    exercises: Vec<Exercise>,
     dialog: Dialog,
     loading: bool,
-    errors: Vec<String>,
 }
 
 enum Dialog {
@@ -49,42 +45,30 @@ struct Form {
     name: (String, Option<String>),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct Exercise {
-    pub id: u32,
-    pub name: String,
-}
-
 // ------ ------
 //    Update
 // ------ ------
 
 pub enum Msg {
-    CloseErrorDialog,
-
     ShowAddExerciseDialog,
     ShowEditExerciseDialog(usize),
     ShowDeleteExerciseDialog(usize),
-    CloseExercisesDialog,
+    CloseExerciseDialog,
 
     NameChanged(String),
 
-    FetchExercises,
-    ExercisesFetched(Result<Vec<Exercise>, String>),
-
-    SaveExercises,
-    ExercisesSaved(Result<Exercise, String>),
-
+    SaveExercise,
     DeleteExercise(u32),
-    ExercisesDeleted(Result<(), String>),
+    DataEvent(data::Event),
 }
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::ShowAddExerciseDialog => {
             model.dialog = Dialog::AddExercise(Form {
                 id: 0,
@@ -92,8 +76,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::ShowEditExerciseDialog(index) => {
-            let id = model.exercises[index].id;
-            let name = model.exercises[index].name.clone();
+            let id = data_model.exercises[index].id;
+            let name = data_model.exercises[index].name.clone();
             model.dialog = Dialog::EditExercise(Form {
                 id,
                 name: (name.clone(), Some(name)),
@@ -102,14 +86,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ShowDeleteExerciseDialog(index) => {
             model.dialog = Dialog::DeleteExercise(index);
         }
-        Msg::CloseExercisesDialog => {
+        Msg::CloseExerciseDialog => {
             model.dialog = Dialog::Hidden;
             Url::go_and_replace(&crate::Urls::new(&model.base_url).exercises());
         }
 
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
-                if model.exercises.iter().all(|e| e.name != name) {
+                if data_model.exercises.iter().all(|e| e.name != name) {
                     form.name = (name.clone(), Some(name));
                 } else {
                     form.name = (name, None);
@@ -120,75 +104,37 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         },
 
-        Msg::FetchExercises => {
-            orders
-                .skip()
-                .perform_cmd(async { common::fetch("api/exercises", Msg::ExercisesFetched).await });
-        }
-        Msg::ExercisesFetched(Ok(exercises)) => {
-            model.exercises = exercises;
-        }
-        Msg::ExercisesFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch exercises: ".to_owned() + &message);
-        }
-
-        Msg::SaveExercises => {
+        Msg::SaveExercise => {
             model.loading = true;
-            let request = match model.dialog {
-                Dialog::AddExercise(ref mut form) => Request::new("api/exercises")
-                    .method(Method::Post)
-                    .json(&json!({ "name": form.name.1.clone().unwrap() }))
-                    .expect("serialization failed"),
+            match model.dialog {
+                Dialog::AddExercise(ref mut form) => {
+                    orders.notify(data::Msg::CreateExercise(form.name.1.clone().unwrap()));
+                }
                 Dialog::EditExercise(ref mut form) => {
-                    Request::new(format!("api/exercises/{}", form.id))
-                        .method(Method::Put)
-                        .json(&Exercise {
-                            id: form.id,
-                            name: form.name.1.clone().unwrap(),
-                        })
-                        .expect("serialization failed")
+                    orders.notify(data::Msg::UpdateExercise(data::Exercise {
+                        id: form.id,
+                        name: form.name.1.clone().unwrap(),
+                    }));
                 }
                 Dialog::Hidden | Dialog::DeleteExercise(_) => {
                     panic!();
                 }
             };
-            orders.perform_cmd(async move { common::fetch(request, Msg::ExercisesSaved).await });
         }
-        Msg::ExercisesSaved(Ok(_)) => {
-            model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchExercises)
-                .send_msg(Msg::CloseExercisesDialog);
-        }
-        Msg::ExercisesSaved(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to save exercises: ".to_owned() + &message);
-        }
-
-        Msg::DeleteExercise(date) => {
+        Msg::DeleteExercise(id) => {
             model.loading = true;
-            let request = Request::new(format!("api/exercises/{}", date)).method(Method::Delete);
-            orders.perform_cmd(async move {
-                common::fetch_no_content(request, Msg::ExercisesDeleted).await
-            });
+            orders.notify(data::Msg::DeleteExercise(id));
         }
-        Msg::ExercisesDeleted(Ok(_)) => {
+        Msg::DataEvent(event) => {
             model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchExercises)
-                .send_msg(Msg::CloseExercisesDialog);
-        }
-        Msg::ExercisesDeleted(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to delete exercises: ".to_owned() + &message);
+            match event {
+                data::Event::ExerciseCreationSuccessful
+                | data::Event::ExerciseUpdateSuccessful
+                | data::Event::ExerciseDeleteSuccessful => {
+                    orders.skip().send_msg(Msg::CloseExerciseDialog);
+                }
+                _ => {}
+            };
         }
     }
 }
@@ -197,16 +143,15 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
-        view_exercise_dialog(&model.dialog, &model.exercises, model.loading),
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
+        view_exercise_dialog(&model.dialog, &data_model.exercises, model.loading),
         common::view_fab(|_| Msg::ShowAddExerciseDialog),
-        view_table(model),
+        view_table(model, data_model),
     ]
 }
 
-fn view_exercise_dialog(dialog: &Dialog, exercises: &[Exercise], loading: bool) -> Node<Msg> {
+fn view_exercise_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> Node<Msg> {
     let title;
     let form;
     match dialog {
@@ -224,7 +169,7 @@ fn view_exercise_dialog(dialog: &Dialog, exercises: &[Exercise], loading: bool) 
             return common::view_delete_confirmation_dialog(
                 "exercise",
                 &ev(Ev::Click, move |_| Msg::DeleteExercise(id)),
-                &ev(Ev::Click, |_| Msg::CloseExercisesDialog),
+                &ev(Ev::Click, |_| Msg::CloseExerciseDialog),
                 loading,
             );
         }
@@ -263,7 +208,7 @@ fn view_exercise_dialog(dialog: &Dialog, exercises: &[Exercise], loading: bool) 
                     button![
                         C!["button"],
                         C!["is-light"],
-                        ev(Ev::Click, |_| Msg::CloseExercisesDialog),
+                        ev(Ev::Click, |_| Msg::CloseExerciseDialog),
                         "Cancel",
                     ]
                 ],
@@ -276,17 +221,17 @@ fn view_exercise_dialog(dialog: &Dialog, exercises: &[Exercise], loading: bool) 
                         attrs! {
                             At::Disabled => save_disabled.as_at_value(),
                         },
-                        ev(Ev::Click, |_| Msg::SaveExercises),
+                        ev(Ev::Click, |_| Msg::SaveExercise),
                         "Save",
                     ]
                 ],
             ],
         ],
-        &ev(Ev::Click, |_| Msg::CloseExercisesDialog),
+        &ev(Ev::Click, |_| Msg::CloseExerciseDialog),
     )
 }
 
-fn view_table(model: &Model) -> Node<Msg> {
+fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -295,7 +240,7 @@ fn view_table(model: &Model) -> Node<Msg> {
             C!["is-fullwidth"],
             C!["is-hoverable"],
             thead![tr![th!["Name"], th![]]],
-            tbody![&model
+            tbody![&data_model
                 .exercises
                 .iter()
                 .enumerate()

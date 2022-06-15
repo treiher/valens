@@ -1,7 +1,7 @@
 use seed::{prelude::*, *};
-use serde_json::json;
 
 use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
@@ -10,18 +10,16 @@ use crate::common;
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
     let base_url = url.to_hash_base_url();
 
-    orders.skip().send_msg(Msg::FetchRoutines);
-
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddRoutineDialog);
     }
 
+    orders.subscribe(Msg::DataEvent);
+
     Model {
         base_url,
-        routines: Vec::new(),
         dialog: Dialog::Hidden,
         loading: false,
-        errors: Vec::new(),
     }
 }
 
@@ -31,10 +29,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
 
 pub struct Model {
     base_url: Url,
-    routines: Vec<Routine>,
     dialog: Dialog,
     loading: bool,
-    errors: Vec<String>,
 }
 
 enum Dialog {
@@ -49,19 +45,11 @@ struct Form {
     name: (String, Option<String>),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct Routine {
-    pub id: u32,
-    pub name: String,
-}
-
 // ------ ------
 //    Update
 // ------ ------
 
 pub enum Msg {
-    CloseErrorDialog,
-
     ShowAddRoutineDialog,
     ShowEditRoutineDialog(usize),
     ShowDeleteRoutineDialog(usize),
@@ -69,22 +57,18 @@ pub enum Msg {
 
     NameChanged(String),
 
-    FetchRoutines,
-    RoutinesFetched(Result<Vec<Routine>, String>),
-
     SaveRoutine,
-    RoutineSaved(Result<Routine, String>),
-
     DeleteRoutine(u32),
-    RoutineDeleted(Result<(), String>),
+    DataEvent(data::Event),
 }
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::ShowAddRoutineDialog => {
             model.dialog = Dialog::AddRoutine(Form {
                 id: 0,
@@ -92,8 +76,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::ShowEditRoutineDialog(index) => {
-            let id = model.routines[index].id;
-            let name = model.routines[index].name.clone();
+            let id = data_model.routines[index].id;
+            let name = data_model.routines[index].name.clone();
             model.dialog = Dialog::EditRoutine(Form {
                 id,
                 name: (name.clone(), Some(name)),
@@ -109,7 +93,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddRoutine(ref mut form) | Dialog::EditRoutine(ref mut form) => {
-                if model.routines.iter().all(|e| e.name != name) {
+                if data_model.routines.iter().all(|e| e.name != name) {
                     form.name = (name.clone(), Some(name));
                 } else {
                     form.name = (name, None);
@@ -120,76 +104,37 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         },
 
-        Msg::FetchRoutines => {
-            orders
-                .skip()
-                .perform_cmd(async { common::fetch("api/routines", Msg::RoutinesFetched).await });
-        }
-        Msg::RoutinesFetched(Ok(routines)) => {
-            model.routines = routines;
-            model.routines.sort_by(|a, b| b.id.cmp(&a.id));
-        }
-        Msg::RoutinesFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch routines: ".to_owned() + &message);
-        }
-
         Msg::SaveRoutine => {
             model.loading = true;
-            let request = match model.dialog {
-                Dialog::AddRoutine(ref mut form) => Request::new("api/routines")
-                    .method(Method::Post)
-                    .json(&json!({ "name": form.name.1.clone().unwrap() }))
-                    .expect("serialization failed"),
+            match model.dialog {
+                Dialog::AddRoutine(ref mut form) => {
+                    orders.notify(data::Msg::CreateRoutine(form.name.1.clone().unwrap()));
+                }
                 Dialog::EditRoutine(ref mut form) => {
-                    Request::new(format!("api/routines/{}", form.id))
-                        .method(Method::Put)
-                        .json(&Routine {
-                            id: form.id,
-                            name: form.name.1.clone().unwrap(),
-                        })
-                        .expect("serialization failed")
+                    orders.notify(data::Msg::UpdateRoutine(data::Routine {
+                        id: form.id,
+                        name: form.name.1.clone().unwrap(),
+                    }));
                 }
                 Dialog::Hidden | Dialog::DeleteRoutine(_) => {
                     panic!();
                 }
             };
-            orders.perform_cmd(async move { common::fetch(request, Msg::RoutineSaved).await });
         }
-        Msg::RoutineSaved(Ok(_)) => {
-            model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchRoutines)
-                .send_msg(Msg::CloseRoutineDialog);
-        }
-        Msg::RoutineSaved(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to save routine: ".to_owned() + &message);
-        }
-
-        Msg::DeleteRoutine(date) => {
+        Msg::DeleteRoutine(id) => {
             model.loading = true;
-            let request = Request::new(format!("api/routines/{}", date)).method(Method::Delete);
-            orders.perform_cmd(async move {
-                common::fetch_no_content(request, Msg::RoutineDeleted).await
-            });
+            orders.notify(data::Msg::DeleteRoutine(id));
         }
-        Msg::RoutineDeleted(Ok(_)) => {
+        Msg::DataEvent(event) => {
             model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchRoutines)
-                .send_msg(Msg::CloseRoutineDialog);
-        }
-        Msg::RoutineDeleted(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to delete routine: ".to_owned() + &message);
+            match event {
+                data::Event::RoutineCreationSuccessful
+                | data::Event::RoutineUpdateSuccessful
+                | data::Event::RoutineDeleteSuccessful => {
+                    orders.skip().send_msg(Msg::CloseRoutineDialog);
+                }
+                _ => {}
+            };
         }
     }
 }
@@ -198,16 +143,15 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
-        view_routine_dialog(&model.dialog, &model.routines, model.loading),
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
+        view_routine_dialog(&model.dialog, &data_model.routines, model.loading),
         common::view_fab(|_| Msg::ShowAddRoutineDialog),
-        view_table(model),
+        view_table(model, data_model),
     ]
 }
 
-fn view_routine_dialog(dialog: &Dialog, routines: &[Routine], loading: bool) -> Node<Msg> {
+fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: bool) -> Node<Msg> {
     let title;
     let form;
     match dialog {
@@ -287,7 +231,7 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[Routine], loading: bool) -> 
     )
 }
 
-fn view_table(model: &Model) -> Node<Msg> {
+fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -296,7 +240,7 @@ fn view_table(model: &Model) -> Node<Msg> {
             C!["is-fullwidth"],
             C!["is-hoverable"],
             thead![tr![th!["Name"], th![]]],
-            tbody![&model
+            tbody![&data_model
                 .routines
                 .iter()
                 .enumerate()

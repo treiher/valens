@@ -1,34 +1,35 @@
-use chrono::{prelude::*, Duration};
+use chrono::prelude::*;
 use seed::{prelude::*, *};
-use serde_json::json;
 
 use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
+pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
     let base_url = url.to_hash_base_url();
-
-    orders.send_msg(Msg::FetchPeriod);
 
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddPeriodDialog);
     }
 
-    let local = Local::now().date().naive_local();
+    orders.subscribe(Msg::DataEvent);
+
+    let (first, last) = common::initial_interval(
+        &data_model
+            .period
+            .iter()
+            .map(|bf| bf.date)
+            .collect::<Vec<NaiveDate>>(),
+    );
 
     Model {
         base_url,
-        interval: common::Interval {
-            first: local - Duration::days(30),
-            last: local,
-        },
-        period: Vec::new(),
+        interval: common::Interval { first, last },
         dialog: Dialog::Hidden,
         loading: false,
-        errors: Vec::new(),
     }
 }
 
@@ -39,10 +40,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
 pub struct Model {
     base_url: Url,
     interval: common::Interval,
-    period: Vec<Period>,
     dialog: Dialog,
     loading: bool,
-    errors: Vec<String>,
 }
 
 enum Dialog {
@@ -57,19 +56,11 @@ struct Form {
     intensity: (String, Option<u8>),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct Period {
-    pub date: NaiveDate,
-    pub intensity: u8,
-}
-
 // ------ ------
 //    Update
 // ------ ------
 
 pub enum Msg {
-    CloseErrorDialog,
-
     ShowAddPeriodDialog,
     ShowEditPeriodDialog(usize),
     ShowDeletePeriodDialog(NaiveDate),
@@ -78,30 +69,26 @@ pub enum Msg {
     DateChanged(String),
     IntensityChanged(String),
 
-    FetchPeriod,
-    PeriodFetched(Result<Vec<Period>, String>),
-
     SavePeriod,
-    PeriodSaved(Result<Period, String>),
-
     DeletePeriod(NaiveDate),
-    PeriodDeleted(Result<(), String>),
+    DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
 }
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::ShowAddPeriodDialog => {
             let local = Local::now().date().naive_local();
             model.dialog = Dialog::AddPeriod(Form {
                 date: (
                     local.to_string(),
-                    if model.period.iter().all(|p| p.date != local) {
+                    if data_model.period.iter().all(|p| p.date != local) {
                         Some(local)
                     } else {
                         None
@@ -111,8 +98,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::ShowEditPeriodDialog(index) => {
-            let date = model.period[index].date;
-            let intensity = model.period[index].intensity;
+            let date = data_model.period[index].date;
+            let intensity = data_model.period[index].intensity;
             model.dialog = Dialog::EditPeriod(Form {
                 date: (date.to_string(), Some(date)),
                 intensity: (intensity.to_string(), Some(intensity)),
@@ -129,7 +116,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DateChanged(date) => match model.dialog {
             Dialog::AddPeriod(ref mut form) => match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                 Ok(parsed_date) => {
-                    if model.period.iter().all(|p| p.date != parsed_date) {
+                    if data_model.period.iter().all(|p| p.date != parsed_date) {
                         form.date = (date, Some(parsed_date));
                     } else {
                         form.date = (date, None);
@@ -162,79 +149,40 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         },
 
-        Msg::FetchPeriod => {
-            orders.skip().perform_cmd(async {
-                common::fetch("api/period?format=statistics", Msg::PeriodFetched).await
-            });
-        }
-        Msg::PeriodFetched(Ok(period)) => {
-            model.period = period;
-        }
-        Msg::PeriodFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch period: ".to_owned() + &message);
-        }
-
         Msg::SavePeriod => {
             model.loading = true;
-            let request = match model.dialog {
-                Dialog::AddPeriod(ref mut form) => Request::new("api/period")
-                    .method(Method::Post)
-                    .json(&Period {
+            match model.dialog {
+                Dialog::AddPeriod(ref mut form) => {
+                    orders.notify(data::Msg::CreatePeriod(data::Period {
                         date: form.date.1.unwrap(),
                         intensity: form.intensity.1.unwrap(),
-                    })
-                    .expect("serialization failed"),
+                    }));
+                }
                 Dialog::EditPeriod(ref mut form) => {
-                    Request::new(format!("api/period/{}", form.date.1.unwrap()))
-                        .method(Method::Put)
-                        .json(&json!({ "intensity": form.intensity.1.unwrap() }))
-                        .expect("serialization failed")
+                    orders.notify(data::Msg::UpdatePeriod(data::Period {
+                        date: form.date.1.unwrap(),
+                        intensity: form.intensity.1.unwrap(),
+                    }));
                 }
                 Dialog::Hidden | Dialog::DeletePeriod(_) => {
                     panic!();
                 }
             };
-            orders.perform_cmd(async move { common::fetch(request, Msg::PeriodSaved).await });
         }
-        Msg::PeriodSaved(Ok(_)) => {
-            model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchPeriod)
-                .send_msg(Msg::ClosePeriodDialog)
-                .send_msg(Msg::ChangeInterval(
-                    model.interval.first,
-                    model.interval.last,
-                ));
-        }
-        Msg::PeriodSaved(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to save period: ".to_owned() + &message);
-        }
-
         Msg::DeletePeriod(date) => {
             model.loading = true;
-            let request = Request::new(format!("api/period/{}", date)).method(Method::Delete);
-            orders.perform_cmd(async move {
-                common::fetch_no_content(request, Msg::PeriodDeleted).await
-            });
+            orders.notify(data::Msg::DeletePeriod(date));
         }
-        Msg::PeriodDeleted(Ok(_)) => {
+        Msg::DataEvent(event) => {
             model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchPeriod)
-                .send_msg(Msg::ClosePeriodDialog);
-        }
-        Msg::PeriodDeleted(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to delete period: ".to_owned() + &message);
+            match event {
+                data::Event::PeriodCreationSuccessful
+                | data::Event::PeriodUpdateSuccessful
+                | data::Event::PeriodDeleteSuccessful => {
+                    orders.skip().send_msg(Msg::ClosePeriodDialog);
+                }
+                _ => {}
+            };
         }
 
         Msg::ChangeInterval(first, last) => {
@@ -248,23 +196,22 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_period_dialog(&model.dialog, model.loading),
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
         common::view_fab(|_| Msg::ShowAddPeriodDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         common::view_diagram(
             &model.base_url,
             "period",
             &model.interval,
-            &model
+            &data_model
                 .period
                 .iter()
                 .map(|p| (p.date, p.intensity as u32))
                 .collect::<Vec<_>>(),
         ),
-        view_table(model),
+        view_table(model, data_model),
     ]
 }
 
@@ -371,7 +318,7 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     )
 }
 
-fn view_table(model: &Model) -> Node<Msg> {
+fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -381,7 +328,7 @@ fn view_table(model: &Model) -> Node<Msg> {
             C!["is-hoverable"],
             C!["has-text-centered"],
             thead![tr![th!["Date"], th!["Intensity"], th![]]],
-            tbody![&model
+            tbody![&data_model
                 .period
                 .iter()
                 .enumerate()

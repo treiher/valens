@@ -1,34 +1,35 @@
-use chrono::{prelude::*, Duration};
+use chrono::prelude::*;
 use seed::{prelude::*, *};
-use serde_json::json;
 
 use crate::common;
+use crate::data;
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
+pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
     let base_url = url.to_hash_base_url();
-
-    orders.send_msg(Msg::FetchBodyWeight);
 
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddBodyWeightDialog);
     }
 
-    let local = Local::now().date().naive_local();
+    orders.subscribe(Msg::DataEvent);
+
+    let (first, last) = common::initial_interval(
+        &data_model
+            .body_weight
+            .iter()
+            .map(|bw| bw.date)
+            .collect::<Vec<NaiveDate>>(),
+    );
 
     Model {
         base_url,
-        interval: common::Interval {
-            first: local - Duration::days(30),
-            last: local,
-        },
-        body_weight: Vec::new(),
+        interval: common::Interval { first, last },
         dialog: Dialog::Hidden,
         loading: false,
-        errors: Vec::new(),
     }
 }
 
@@ -39,10 +40,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
 pub struct Model {
     base_url: Url,
     interval: common::Interval,
-    body_weight: Vec<BodyWeightStats>,
     dialog: Dialog,
     loading: bool,
-    errors: Vec<String>,
 }
 
 enum Dialog {
@@ -57,27 +56,11 @@ struct Form {
     weight: (String, Option<f32>),
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct BodyWeight {
-    pub date: NaiveDate,
-    pub weight: f32,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct BodyWeightStats {
-    pub date: NaiveDate,
-    pub weight: f32,
-    pub avg_weight: Option<f32>,
-    pub avg_weight_change: Option<f32>,
-}
-
 // ------ ------
 //    Update
 // ------ ------
 
 pub enum Msg {
-    CloseErrorDialog,
-
     ShowAddBodyWeightDialog,
     ShowEditBodyWeightDialog(usize),
     ShowDeleteBodyWeightDialog(NaiveDate),
@@ -86,30 +69,26 @@ pub enum Msg {
     DateChanged(String),
     WeightChanged(String),
 
-    FetchBodyWeight,
-    BodyWeightFetched(Result<Vec<BodyWeightStats>, String>),
-
     SaveBodyWeight,
-    BodyWeightSaved(Result<BodyWeight, String>),
-
     DeleteBodyWeight(NaiveDate),
-    BodyWeightDeleted(Result<(), String>),
+    DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
 }
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
-        Msg::CloseErrorDialog => {
-            model.errors.remove(0);
-        }
-
         Msg::ShowAddBodyWeightDialog => {
             let local = Local::now().date().naive_local();
             model.dialog = Dialog::AddBodyWeight(Form {
                 date: (
                     local.to_string(),
-                    if model.body_weight.iter().all(|bw| bw.date != local) {
+                    if data_model.body_weight.iter().all(|bw| bw.date != local) {
                         Some(local)
                     } else {
                         None
@@ -119,8 +98,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::ShowEditBodyWeightDialog(index) => {
-            let date = model.body_weight[index].date;
-            let weight = model.body_weight[index].weight;
+            let date = data_model.body_weight[index].date;
+            let weight = data_model.body_weight[index].weight;
             model.dialog = Dialog::EditBodyWeight(Form {
                 date: (date.to_string(), Some(date)),
                 weight: (weight.to_string(), Some(weight)),
@@ -138,7 +117,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Dialog::AddBodyWeight(ref mut form) => {
                 match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                     Ok(parsed_date) => {
-                        if model.body_weight.iter().all(|bw| bw.date != parsed_date) {
+                        if data_model
+                            .body_weight
+                            .iter()
+                            .all(|bw| bw.date != parsed_date)
+                        {
                             form.date = (date, Some(parsed_date));
                         } else {
                             form.date = (date, None);
@@ -172,79 +155,40 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         },
 
-        Msg::FetchBodyWeight => {
-            orders.skip().perform_cmd(async {
-                common::fetch("api/body_weight?format=statistics", Msg::BodyWeightFetched).await
-            });
-        }
-        Msg::BodyWeightFetched(Ok(body_weight)) => {
-            model.body_weight = body_weight;
-        }
-        Msg::BodyWeightFetched(Err(message)) => {
-            model
-                .errors
-                .push("Failed to fetch body weight: ".to_owned() + &message);
-        }
-
         Msg::SaveBodyWeight => {
             model.loading = true;
-            let request = match model.dialog {
-                Dialog::AddBodyWeight(ref mut form) => Request::new("api/body_weight")
-                    .method(Method::Post)
-                    .json(&BodyWeight {
+            match model.dialog {
+                Dialog::AddBodyWeight(ref mut form) => {
+                    orders.notify(data::Msg::CreateBodyWeight(data::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
-                    })
-                    .expect("serialization failed"),
+                    }));
+                }
                 Dialog::EditBodyWeight(ref mut form) => {
-                    Request::new(format!("api/body_weight/{}", form.date.1.unwrap()))
-                        .method(Method::Put)
-                        .json(&json!({ "weight": form.weight.1.unwrap() }))
-                        .expect("serialization failed")
+                    orders.notify(data::Msg::UpdateBodyWeight(data::BodyWeight {
+                        date: form.date.1.unwrap(),
+                        weight: form.weight.1.unwrap(),
+                    }));
                 }
                 Dialog::Hidden | Dialog::DeleteBodyWeight(_) => {
                     panic!();
                 }
             };
-            orders.perform_cmd(async move { common::fetch(request, Msg::BodyWeightSaved).await });
         }
-        Msg::BodyWeightSaved(Ok(_)) => {
-            model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchBodyWeight)
-                .send_msg(Msg::CloseBodyWeightDialog)
-                .send_msg(Msg::ChangeInterval(
-                    model.interval.first,
-                    model.interval.last,
-                ));
-        }
-        Msg::BodyWeightSaved(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to save body weight: ".to_owned() + &message);
-        }
-
         Msg::DeleteBodyWeight(date) => {
             model.loading = true;
-            let request = Request::new(format!("api/body_weight/{}", date)).method(Method::Delete);
-            orders.perform_cmd(async move {
-                common::fetch_no_content(request, Msg::BodyWeightDeleted).await
-            });
+            orders.notify(data::Msg::DeleteBodyWeight(date));
         }
-        Msg::BodyWeightDeleted(Ok(_)) => {
+        Msg::DataEvent(event) => {
             model.loading = false;
-            orders
-                .skip()
-                .send_msg(Msg::FetchBodyWeight)
-                .send_msg(Msg::CloseBodyWeightDialog);
-        }
-        Msg::BodyWeightDeleted(Err(message)) => {
-            model.loading = false;
-            model
-                .errors
-                .push("Failed to delete body weight: ".to_owned() + &message);
+            match event {
+                data::Event::BodyWeightCreationSuccessful
+                | data::Event::BodyWeightUpdateSuccessful
+                | data::Event::BodyWeightDeleteSuccessful => {
+                    orders.skip().send_msg(Msg::CloseBodyWeightDialog);
+                }
+                _ => {}
+            };
         }
 
         Msg::ChangeInterval(first, last) => {
@@ -258,23 +202,22 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
+pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_body_weight_dialog(&model.dialog, model.loading),
-        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::CloseErrorDialog)),
         common::view_fab(|_| Msg::ShowAddBodyWeightDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         common::view_diagram(
             &model.base_url,
             "bodyweight",
             &model.interval,
-            &model
+            &data_model
                 .body_weight
                 .iter()
                 .map(|bw| (bw.date, bw.weight as u32))
                 .collect::<Vec<_>>(),
         ),
-        view_table(model),
+        view_table(model, data_model),
     ]
 }
 
@@ -385,7 +328,7 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     )
 }
 
-fn view_table(model: &Model) -> Node<Msg> {
+fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -401,7 +344,7 @@ fn view_table(model: &Model) -> Node<Msg> {
                 th!["Avg. change (%)"],
                 th![]
             ]],
-            tbody![&model
+            tbody![&data_model
                 .body_weight
                 .iter()
                 .enumerate()

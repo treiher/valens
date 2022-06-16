@@ -10,8 +10,8 @@ use crate::data;
 pub fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
     orders
         .subscribe(Msg::DataEvent)
-        .notify(data::Msg::FetchVersion)
-        .notify(data::Msg::FetchUsers);
+        .notify(data::Msg::ReadVersion)
+        .notify(data::Msg::ReadUsers);
 
     Model {
         dialog: Dialog::Hidden,
@@ -136,7 +136,7 @@ pub fn update(
                 }
                 Dialog::EditUser(ref mut user, _) => {
                     user.name = user.name.trim().into();
-                    orders.notify(data::Msg::UpdateUser(user.clone()));
+                    orders.notify(data::Msg::ReplaceUser(user.clone()));
                 }
                 Dialog::Hidden | Dialog::DeleteUser(_) => {
                     panic!();
@@ -151,9 +151,9 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
-                data::Event::UserCreationSuccessful
-                | data::Event::UserUpdateSuccessful
-                | data::Event::UserDeleteSuccessful => {
+                data::Event::UserCreatedOk
+                | data::Event::UserReplacedOk
+                | data::Event::UserDeletedOk => {
                     orders.skip().send_msg(Msg::CloseUserDialog);
                 }
                 _ => {}

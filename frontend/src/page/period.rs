@@ -159,7 +159,7 @@ pub fn update(
                     }));
                 }
                 Dialog::EditPeriod(ref mut form) => {
-                    orders.notify(data::Msg::UpdatePeriod(data::Period {
+                    orders.notify(data::Msg::ReplacePeriod(data::Period {
                         date: form.date.1.unwrap(),
                         intensity: form.intensity.1.unwrap(),
                     }));
@@ -176,9 +176,9 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
-                data::Event::PeriodCreationSuccessful
-                | data::Event::PeriodUpdateSuccessful
-                | data::Event::PeriodDeleteSuccessful => {
+                data::Event::PeriodCreatedOk
+                | data::Event::PeriodReplacedOk
+                | data::Event::PeriodDeletedOk => {
                     orders.skip().send_msg(Msg::ClosePeriodDialog);
                 }
                 _ => {}

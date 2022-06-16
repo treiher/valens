@@ -165,7 +165,7 @@ pub fn update(
                     }));
                 }
                 Dialog::EditBodyWeight(ref mut form) => {
-                    orders.notify(data::Msg::UpdateBodyWeight(data::BodyWeight {
+                    orders.notify(data::Msg::ReplaceBodyWeight(data::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
                     }));
@@ -182,9 +182,9 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
-                data::Event::BodyWeightCreationSuccessful
-                | data::Event::BodyWeightUpdateSuccessful
-                | data::Event::BodyWeightDeleteSuccessful => {
+                data::Event::BodyWeightCreatedOk
+                | data::Event::BodyWeightReplacedOk
+                | data::Event::BodyWeightDeletedOk => {
                     orders.skip().send_msg(Msg::CloseBodyWeightDialog);
                 }
                 _ => {}

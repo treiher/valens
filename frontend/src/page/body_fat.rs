@@ -386,7 +386,7 @@ pub fn update(
                     }));
                 }
                 Dialog::EditBodyFat(ref mut form) => {
-                    orders.notify(data::Msg::UpdateBodyFat(data::BodyFat {
+                    orders.notify(data::Msg::ReplaceBodyFat(data::BodyFat {
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,
@@ -409,9 +409,9 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
-                data::Event::BodyFatCreationSuccessful
-                | data::Event::BodyFatUpdateSuccessful
-                | data::Event::BodyFatDeleteSuccessful => {
+                data::Event::BodyFatCreatedOk
+                | data::Event::BodyFatReplacedOk
+                | data::Event::BodyFatDeletedOk => {
                     orders.skip().send_msg(Msg::CloseBodyFatDialog);
                 }
                 _ => {}

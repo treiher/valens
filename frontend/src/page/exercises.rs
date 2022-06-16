@@ -111,7 +111,7 @@ pub fn update(
                     orders.notify(data::Msg::CreateExercise(form.name.1.clone().unwrap()));
                 }
                 Dialog::EditExercise(ref mut form) => {
-                    orders.notify(data::Msg::UpdateExercise(data::Exercise {
+                    orders.notify(data::Msg::ReplaceExercise(data::Exercise {
                         id: form.id,
                         name: form.name.1.clone().unwrap(),
                     }));
@@ -128,9 +128,9 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
-                data::Event::ExerciseCreationSuccessful
-                | data::Event::ExerciseUpdateSuccessful
-                | data::Event::ExerciseDeleteSuccessful => {
+                data::Event::ExerciseCreatedOk
+                | data::Event::ExerciseReplacedOk
+                | data::Event::ExerciseDeletedOk => {
                     orders.skip().send_msg(Msg::CloseExerciseDialog);
                 }
                 _ => {}

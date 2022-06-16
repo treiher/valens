@@ -156,7 +156,7 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
-                data::Event::WorkoutCreationSuccessful | data::Event::WorkoutDeleteSuccessful => {
+                data::Event::WorkoutCreatedOk | data::Event::WorkoutDeletedOk => {
                     orders.skip().send_msg(Msg::CloseWorkoutDialog);
                 }
                 _ => {}

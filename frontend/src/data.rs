@@ -168,65 +168,65 @@ pub enum Msg {
     DeleteSession,
     SessionDeleted(Result<(), String>),
 
-    FetchVersion,
-    VersionFetched(Result<String, String>),
+    ReadVersion,
+    VersionRead(Result<String, String>),
 
-    FetchUsers,
-    UsersFetched(Result<Vec<User>, String>),
+    ReadUsers,
+    UsersRead(Result<Vec<User>, String>),
     CreateUser(NewUser),
     UserCreated(Result<User, String>),
-    UpdateUser(User),
-    UserUpdated(Result<User, String>),
+    ReplaceUser(User),
+    UserReplaced(Result<User, String>),
     DeleteUser(u32),
     UserDeleted(Result<(), String>),
 
-    FetchBodyWeight,
-    BodyWeightFetched(Result<Vec<BodyWeightStats>, String>),
+    ReadBodyWeight,
+    BodyWeightRead(Result<Vec<BodyWeightStats>, String>),
     CreateBodyWeight(BodyWeight),
     BodyWeightCreated(Result<BodyWeight, String>),
-    UpdateBodyWeight(BodyWeight),
-    BodyWeightUpdated(Result<BodyWeight, String>),
+    ReplaceBodyWeight(BodyWeight),
+    BodyWeightReplaced(Result<BodyWeight, String>),
     DeleteBodyWeight(NaiveDate),
     BodyWeightDeleted(Result<(), String>),
 
-    FetchBodyFat,
-    BodyFatFetched(Result<Vec<BodyFatStats>, String>),
+    ReadBodyFat,
+    BodyFatRead(Result<Vec<BodyFatStats>, String>),
     CreateBodyFat(BodyFat),
     BodyFatCreated(Result<BodyFat, String>),
-    UpdateBodyFat(BodyFat),
-    BodyFatUpdated(Result<BodyFat, String>),
+    ReplaceBodyFat(BodyFat),
+    BodyFatReplaced(Result<BodyFat, String>),
     DeleteBodyFat(NaiveDate),
     BodyFatDeleted(Result<(), String>),
 
-    FetchPeriod,
-    PeriodFetched(Result<Vec<Period>, String>),
+    ReadPeriod,
+    PeriodRead(Result<Vec<Period>, String>),
     CreatePeriod(Period),
     PeriodCreated(Result<Period, String>),
-    UpdatePeriod(Period),
-    PeriodUpdated(Result<Period, String>),
+    ReplacePeriod(Period),
+    PeriodReplaced(Result<Period, String>),
     DeletePeriod(NaiveDate),
     PeriodDeleted(Result<(), String>),
 
-    FetchExercises,
-    ExercisesFetched(Result<Vec<Exercise>, String>),
+    ReadExercises,
+    ExercisesRead(Result<Vec<Exercise>, String>),
     CreateExercise(String),
     ExerciseCreated(Result<Exercise, String>),
-    UpdateExercise(Exercise),
-    ExerciseUpdated(Result<Exercise, String>),
+    ReplaceExercise(Exercise),
+    ExerciseReplaced(Result<Exercise, String>),
     DeleteExercise(u32),
     ExerciseDeleted(Result<(), String>),
 
-    FetchRoutines,
-    RoutinesFetched(Result<Vec<Routine>, String>),
+    ReadRoutines,
+    RoutinesRead(Result<Vec<Routine>, String>),
     CreateRoutine(String),
     RoutineCreated(Result<Routine, String>),
-    UpdateRoutine(Routine),
-    RoutineUpdated(Result<Routine, String>),
+    ReplaceRoutine(Routine),
+    RoutineReplaced(Result<Routine, String>),
     DeleteRoutine(u32),
     RoutineDeleted(Result<(), String>),
 
-    FetchWorkouts,
-    WorkoutsFetched(Result<Vec<WorkoutStats>, String>),
+    ReadWorkouts,
+    WorkoutsRead(Result<Vec<WorkoutStats>, String>),
     CreateWorkout(NaiveDate, u32),
     WorkoutCreated(Result<Workout, String>),
     DeleteWorkout(u32),
@@ -235,46 +235,46 @@ pub enum Msg {
 
 #[derive(Clone)]
 pub enum Event {
-    UserCreationSuccessful,
-    UserCreationFailed,
-    UserUpdateSuccessful,
-    UserUpdateFailed,
-    UserDeleteSuccessful,
-    UserDeleteFailed,
-    BodyWeightCreationSuccessful,
-    BodyWeightCreationFailed,
-    BodyWeightUpdateSuccessful,
-    BodyWeightUpdateFailed,
-    BodyWeightDeleteSuccessful,
-    BodyWeightDeleteFailed,
-    BodyFatCreationSuccessful,
-    BodyFatCreationFailed,
-    BodyFatUpdateSuccessful,
-    BodyFatUpdateFailed,
-    BodyFatDeleteSuccessful,
-    BodyFatDeleteFailed,
-    PeriodCreationSuccessful,
-    PeriodCreationFailed,
-    PeriodUpdateSuccessful,
-    PeriodUpdateFailed,
-    PeriodDeleteSuccessful,
-    PeriodDeleteFailed,
-    ExerciseCreationSuccessful,
-    ExerciseCreationFailed,
-    ExerciseUpdateSuccessful,
-    ExerciseUpdateFailed,
-    ExerciseDeleteSuccessful,
-    ExerciseDeleteFailed,
-    RoutineCreationSuccessful,
-    RoutineCreationFailed,
-    RoutineUpdateSuccessful,
-    RoutineUpdateFailed,
-    RoutineDeleteSuccessful,
-    RoutineDeleteFailed,
-    WorkoutCreationSuccessful,
-    WorkoutCreationFailed,
-    WorkoutDeleteSuccessful,
-    WorkoutDeleteFailed,
+    UserCreatedOk,
+    UserCreatedErr,
+    UserReplacedOk,
+    UserReplacedErr,
+    UserDeletedOk,
+    UserDeletedErr,
+    BodyWeightCreatedOk,
+    BodyWeightCreatedErr,
+    BodyWeightReplacedOk,
+    BodyWeightReplacedErr,
+    BodyWeightDeletedOk,
+    BodyWeightDeletedErr,
+    BodyFatCreatedOk,
+    BodyFatCreatedErr,
+    BodyFatReplacedOk,
+    BodyFatReplacedErr,
+    BodyFatDeletedOk,
+    BodyFatDeletedErr,
+    PeriodCreatedOk,
+    PeriodCreatedErr,
+    PeriodReplacedOk,
+    PeriodReplacedErr,
+    PeriodDeletedOk,
+    PeriodDeletedErr,
+    ExerciseCreatedOk,
+    ExerciseCreatedErr,
+    ExerciseReplacedOk,
+    ExerciseReplacedErr,
+    ExerciseDeletedOk,
+    ExerciseDeletedErr,
+    RoutineCreatedOk,
+    RoutineCreatedErr,
+    RoutineReplacedOk,
+    RoutineReplacedErr,
+    RoutineDeletedOk,
+    RoutineDeletedErr,
+    WorkoutCreatedOk,
+    WorkoutCreatedErr,
+    WorkoutDeletedOk,
+    WorkoutDeletedErr,
 }
 
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -288,14 +288,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::Refresh => {
             orders
-                .send_msg(Msg::FetchVersion)
-                .send_msg(Msg::FetchUsers)
-                .send_msg(Msg::FetchBodyWeight)
-                .send_msg(Msg::FetchBodyFat)
-                .send_msg(Msg::FetchPeriod)
-                .send_msg(Msg::FetchExercises)
-                .send_msg(Msg::FetchRoutines)
-                .send_msg(Msg::FetchWorkouts);
+                .send_msg(Msg::ReadVersion)
+                .send_msg(Msg::ReadUsers)
+                .send_msg(Msg::ReadBodyWeight)
+                .send_msg(Msg::ReadBodyFat)
+                .send_msg(Msg::ReadPeriod)
+                .send_msg(Msg::ReadExercises)
+                .send_msg(Msg::ReadRoutines)
+                .send_msg(Msg::ReadWorkouts);
             model.last_refresh = Utc::now();
         }
         Msg::ClearSessionDependentData => {
@@ -366,28 +366,28 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to switch users: ".to_owned() + &message);
         }
 
-        Msg::FetchVersion => {
-            orders.perform_cmd(async { fetch("api/version", Msg::VersionFetched).await });
+        Msg::ReadVersion => {
+            orders.perform_cmd(async { fetch("api/version", Msg::VersionRead).await });
         }
-        Msg::VersionFetched(Ok(version)) => {
+        Msg::VersionRead(Ok(version)) => {
             model.version = version;
         }
-        Msg::VersionFetched(Err(message)) => {
+        Msg::VersionRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch version: ".to_owned() + &message);
+                .push("Failed to read version: ".to_owned() + &message);
         }
 
-        Msg::FetchUsers => {
-            orders.perform_cmd(async { fetch("api/users", Msg::UsersFetched).await });
+        Msg::ReadUsers => {
+            orders.perform_cmd(async { fetch("api/users", Msg::UsersRead).await });
         }
-        Msg::UsersFetched(Ok(users)) => {
+        Msg::UsersRead(Ok(users)) => {
             model.users = users;
         }
-        Msg::UsersFetched(Err(message)) => {
+        Msg::UsersRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch users: ".to_owned() + &message);
+                .push("Failed to read users: ".to_owned() + &message);
         }
         Msg::CreateUser(user) => {
             orders.perform_cmd(async move {
@@ -402,17 +402,15 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::UserCreated(Ok(_)) => {
-            orders
-                .notify(Event::UserCreationSuccessful)
-                .send_msg(Msg::FetchUsers);
+            orders.notify(Event::UserCreatedOk).send_msg(Msg::ReadUsers);
         }
         Msg::UserCreated(Err(message)) => {
-            orders.notify(Event::UserCreationFailed);
+            orders.notify(Event::UserCreatedErr);
             model
                 .errors
-                .push("Failed to add user: ".to_owned() + &message);
+                .push("Failed to create user: ".to_owned() + &message);
         }
-        Msg::UpdateUser(user) => {
+        Msg::ReplaceUser(user) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new(format!("api/users/{}", user.id))
@@ -422,21 +420,21 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                             sex: user.sex,
                         })
                         .expect("serialization failed"),
-                    Msg::UserUpdated,
+                    Msg::UserReplaced,
                 )
                 .await
             });
         }
-        Msg::UserUpdated(Ok(_)) => {
+        Msg::UserReplaced(Ok(_)) => {
             orders
-                .notify(Event::UserUpdateSuccessful)
-                .send_msg(Msg::FetchUsers);
+                .notify(Event::UserReplacedOk)
+                .send_msg(Msg::ReadUsers);
         }
-        Msg::UserUpdated(Err(message)) => {
-            orders.notify(Event::UserUpdateFailed);
+        Msg::UserReplaced(Err(message)) => {
+            orders.notify(Event::UserReplacedErr);
             model
                 .errors
-                .push("Failed to update user: ".to_owned() + &message);
+                .push("Failed to replace user: ".to_owned() + &message);
         }
         Msg::DeleteUser(id) => {
             orders.perform_cmd(async move {
@@ -448,29 +446,27 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::UserDeleted(Ok(_)) => {
-            orders
-                .notify(Event::UserDeleteSuccessful)
-                .send_msg(Msg::FetchUsers);
+            orders.notify(Event::UserDeletedOk).send_msg(Msg::ReadUsers);
         }
         Msg::UserDeleted(Err(message)) => {
-            orders.notify(Event::UserDeleteFailed);
+            orders.notify(Event::UserDeletedErr);
             model
                 .errors
                 .push("Failed to delete user: ".to_owned() + &message);
         }
 
-        Msg::FetchBodyWeight => {
+        Msg::ReadBodyWeight => {
             orders.skip().perform_cmd(async {
-                fetch("api/body_weight?format=statistics", Msg::BodyWeightFetched).await
+                fetch("api/body_weight?format=statistics", Msg::BodyWeightRead).await
             });
         }
-        Msg::BodyWeightFetched(Ok(body_weight)) => {
+        Msg::BodyWeightRead(Ok(body_weight)) => {
             model.body_weight = body_weight;
         }
-        Msg::BodyWeightFetched(Err(message)) => {
+        Msg::BodyWeightRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch body weight: ".to_owned() + &message);
+                .push("Failed to read body weight: ".to_owned() + &message);
         }
         Msg::CreateBodyWeight(body_weight) => {
             orders.perform_cmd(async move {
@@ -486,37 +482,37 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightCreated(Ok(_)) => {
             orders
-                .notify(Event::BodyWeightCreationSuccessful)
-                .send_msg(Msg::FetchBodyWeight);
+                .notify(Event::BodyWeightCreatedOk)
+                .send_msg(Msg::ReadBodyWeight);
         }
         Msg::BodyWeightCreated(Err(message)) => {
-            orders.notify(Event::BodyWeightCreationFailed);
+            orders.notify(Event::BodyWeightCreatedErr);
             model
                 .errors
-                .push("Failed to add body weight: ".to_owned() + &message);
+                .push("Failed to create body weight: ".to_owned() + &message);
         }
-        Msg::UpdateBodyWeight(body_weight) => {
+        Msg::ReplaceBodyWeight(body_weight) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new(format!("api/body_weight/{}", body_weight.date))
                         .method(Method::Put)
                         .json(&json!({ "weight": body_weight.weight }))
                         .expect("serialization failed"),
-                    Msg::BodyWeightUpdated,
+                    Msg::BodyWeightReplaced,
                 )
                 .await
             });
         }
-        Msg::BodyWeightUpdated(Ok(_)) => {
+        Msg::BodyWeightReplaced(Ok(_)) => {
             orders
-                .notify(Event::BodyWeightUpdateSuccessful)
-                .send_msg(Msg::FetchBodyWeight);
+                .notify(Event::BodyWeightReplacedOk)
+                .send_msg(Msg::ReadBodyWeight);
         }
-        Msg::BodyWeightUpdated(Err(message)) => {
-            orders.notify(Event::BodyWeightUpdateFailed);
+        Msg::BodyWeightReplaced(Err(message)) => {
+            orders.notify(Event::BodyWeightReplacedErr);
             model
                 .errors
-                .push("Failed to update body weight: ".to_owned() + &message);
+                .push("Failed to replace body weight: ".to_owned() + &message);
         }
         Msg::DeleteBodyWeight(date) => {
             orders.perform_cmd(async move {
@@ -529,28 +525,28 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightDeleted(Ok(_)) => {
             orders
-                .notify(Event::BodyWeightDeleteSuccessful)
-                .send_msg(Msg::FetchBodyWeight);
+                .notify(Event::BodyWeightDeletedOk)
+                .send_msg(Msg::ReadBodyWeight);
         }
         Msg::BodyWeightDeleted(Err(message)) => {
-            orders.notify(Event::BodyWeightDeleteFailed);
+            orders.notify(Event::BodyWeightDeletedErr);
             model
                 .errors
                 .push("Failed to delete body weight: ".to_owned() + &message);
         }
 
-        Msg::FetchBodyFat => {
+        Msg::ReadBodyFat => {
             orders.skip().perform_cmd(async {
-                fetch("api/body_fat?format=statistics", Msg::BodyFatFetched).await
+                fetch("api/body_fat?format=statistics", Msg::BodyFatRead).await
             });
         }
-        Msg::BodyFatFetched(Ok(body_fat)) => {
+        Msg::BodyFatRead(Ok(body_fat)) => {
             model.body_fat = body_fat;
         }
-        Msg::BodyFatFetched(Err(message)) => {
+        Msg::BodyFatRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch body fat: ".to_owned() + &message);
+                .push("Failed to read body fat: ".to_owned() + &message);
         }
         Msg::CreateBodyFat(body_fat) => {
             orders.perform_cmd(async move {
@@ -566,16 +562,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyFatCreated(Ok(_)) => {
             orders
-                .notify(Event::BodyFatCreationSuccessful)
-                .send_msg(Msg::FetchBodyFat);
+                .notify(Event::BodyFatCreatedOk)
+                .send_msg(Msg::ReadBodyFat);
         }
         Msg::BodyFatCreated(Err(message)) => {
-            orders.notify(Event::BodyFatCreationFailed);
+            orders.notify(Event::BodyFatCreatedErr);
             model
                 .errors
-                .push("Failed to add body fat: ".to_owned() + &message);
+                .push("Failed to create body fat: ".to_owned() + &message);
         }
-        Msg::UpdateBodyFat(body_fat) => {
+        Msg::ReplaceBodyFat(body_fat) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new(format!("api/body_fat/{}", body_fat.date))
@@ -590,21 +586,21 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                             "midaxillary": body_fat.midaxillary,
                         }))
                         .expect("serialization failed"),
-                    Msg::BodyFatUpdated,
+                    Msg::BodyFatReplaced,
                 )
                 .await
             });
         }
-        Msg::BodyFatUpdated(Ok(_)) => {
+        Msg::BodyFatReplaced(Ok(_)) => {
             orders
-                .notify(Event::BodyFatUpdateSuccessful)
-                .send_msg(Msg::FetchBodyFat);
+                .notify(Event::BodyFatReplacedOk)
+                .send_msg(Msg::ReadBodyFat);
         }
-        Msg::BodyFatUpdated(Err(message)) => {
-            orders.notify(Event::BodyFatUpdateFailed);
+        Msg::BodyFatReplaced(Err(message)) => {
+            orders.notify(Event::BodyFatReplacedErr);
             model
                 .errors
-                .push("Failed to update body fat: ".to_owned() + &message);
+                .push("Failed to replace body fat: ".to_owned() + &message);
         }
         Msg::DeleteBodyFat(date) => {
             orders.perform_cmd(async move {
@@ -617,28 +613,28 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyFatDeleted(Ok(_)) => {
             orders
-                .notify(Event::BodyFatDeleteSuccessful)
-                .send_msg(Msg::FetchBodyFat);
+                .notify(Event::BodyFatDeletedOk)
+                .send_msg(Msg::ReadBodyFat);
         }
         Msg::BodyFatDeleted(Err(message)) => {
-            orders.notify(Event::BodyFatDeleteFailed);
+            orders.notify(Event::BodyFatDeletedErr);
             model
                 .errors
                 .push("Failed to delete body fat: ".to_owned() + &message);
         }
 
-        Msg::FetchPeriod => {
+        Msg::ReadPeriod => {
             orders
                 .skip()
-                .perform_cmd(async { fetch("api/period", Msg::PeriodFetched).await });
+                .perform_cmd(async { fetch("api/period", Msg::PeriodRead).await });
         }
-        Msg::PeriodFetched(Ok(period)) => {
+        Msg::PeriodRead(Ok(period)) => {
             model.period = period;
         }
-        Msg::PeriodFetched(Err(message)) => {
+        Msg::PeriodRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch period: ".to_owned() + &message);
+                .push("Failed to read period: ".to_owned() + &message);
         }
         Msg::CreatePeriod(period) => {
             orders.perform_cmd(async move {
@@ -654,37 +650,37 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodCreated(Ok(_)) => {
             orders
-                .notify(Event::PeriodCreationSuccessful)
-                .send_msg(Msg::FetchPeriod);
+                .notify(Event::PeriodCreatedOk)
+                .send_msg(Msg::ReadPeriod);
         }
         Msg::PeriodCreated(Err(message)) => {
-            orders.notify(Event::PeriodCreationFailed);
+            orders.notify(Event::PeriodCreatedErr);
             model
                 .errors
-                .push("Failed to add period: ".to_owned() + &message);
+                .push("Failed to create period: ".to_owned() + &message);
         }
-        Msg::UpdatePeriod(period) => {
+        Msg::ReplacePeriod(period) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new(format!("api/period/{}", period.date))
                         .method(Method::Put)
                         .json(&json!({ "intensity": period.intensity }))
                         .expect("serialization failed"),
-                    Msg::PeriodUpdated,
+                    Msg::PeriodReplaced,
                 )
                 .await
             });
         }
-        Msg::PeriodUpdated(Ok(_)) => {
+        Msg::PeriodReplaced(Ok(_)) => {
             orders
-                .notify(Event::PeriodUpdateSuccessful)
-                .send_msg(Msg::FetchPeriod);
+                .notify(Event::PeriodReplacedOk)
+                .send_msg(Msg::ReadPeriod);
         }
-        Msg::PeriodUpdated(Err(message)) => {
-            orders.notify(Event::PeriodUpdateFailed);
+        Msg::PeriodReplaced(Err(message)) => {
+            orders.notify(Event::PeriodReplacedErr);
             model
                 .errors
-                .push("Failed to update period: ".to_owned() + &message);
+                .push("Failed to replace period: ".to_owned() + &message);
         }
         Msg::DeletePeriod(date) => {
             orders.perform_cmd(async move {
@@ -697,28 +693,28 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodDeleted(Ok(_)) => {
             orders
-                .notify(Event::PeriodDeleteSuccessful)
-                .send_msg(Msg::FetchPeriod);
+                .notify(Event::PeriodDeletedOk)
+                .send_msg(Msg::ReadPeriod);
         }
         Msg::PeriodDeleted(Err(message)) => {
-            orders.notify(Event::PeriodDeleteFailed);
+            orders.notify(Event::PeriodDeletedErr);
             model
                 .errors
                 .push("Failed to delete period: ".to_owned() + &message);
         }
 
-        Msg::FetchExercises => {
+        Msg::ReadExercises => {
             orders
                 .skip()
-                .perform_cmd(async { fetch("api/exercises", Msg::ExercisesFetched).await });
+                .perform_cmd(async { fetch("api/exercises", Msg::ExercisesRead).await });
         }
-        Msg::ExercisesFetched(Ok(exercises)) => {
+        Msg::ExercisesRead(Ok(exercises)) => {
             model.exercises = exercises;
         }
-        Msg::ExercisesFetched(Err(message)) => {
+        Msg::ExercisesRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch exercises: ".to_owned() + &message);
+                .push("Failed to read exercises: ".to_owned() + &message);
         }
         Msg::CreateExercise(exercise_name) => {
             orders.perform_cmd(async move {
@@ -734,37 +730,37 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::ExerciseCreated(Ok(_)) => {
             orders
-                .notify(Event::ExerciseCreationSuccessful)
-                .send_msg(Msg::FetchExercises);
+                .notify(Event::ExerciseCreatedOk)
+                .send_msg(Msg::ReadExercises);
         }
         Msg::ExerciseCreated(Err(message)) => {
-            orders.notify(Event::ExerciseCreationFailed);
+            orders.notify(Event::ExerciseCreatedErr);
             model
                 .errors
-                .push("Failed to add exercise: ".to_owned() + &message);
+                .push("Failed to create exercise: ".to_owned() + &message);
         }
-        Msg::UpdateExercise(exercise) => {
+        Msg::ReplaceExercise(exercise) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new(format!("api/exercises/{}", exercise.id))
                         .method(Method::Put)
                         .json(&exercise)
                         .expect("serialization failed"),
-                    Msg::ExerciseUpdated,
+                    Msg::ExerciseReplaced,
                 )
                 .await
             });
         }
-        Msg::ExerciseUpdated(Ok(_)) => {
+        Msg::ExerciseReplaced(Ok(_)) => {
             orders
-                .notify(Event::ExerciseUpdateSuccessful)
-                .send_msg(Msg::FetchExercises);
+                .notify(Event::ExerciseReplacedOk)
+                .send_msg(Msg::ReadExercises);
         }
-        Msg::ExerciseUpdated(Err(message)) => {
-            orders.notify(Event::ExerciseUpdateFailed);
+        Msg::ExerciseReplaced(Err(message)) => {
+            orders.notify(Event::ExerciseReplacedErr);
             model
                 .errors
-                .push("Failed to update exercise: ".to_owned() + &message);
+                .push("Failed to replace exercise: ".to_owned() + &message);
         }
         Msg::DeleteExercise(id) => {
             orders.perform_cmd(async move {
@@ -777,29 +773,29 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::ExerciseDeleted(Ok(_)) => {
             orders
-                .notify(Event::ExerciseDeleteSuccessful)
-                .send_msg(Msg::FetchExercises);
+                .notify(Event::ExerciseDeletedOk)
+                .send_msg(Msg::ReadExercises);
         }
         Msg::ExerciseDeleted(Err(message)) => {
-            orders.notify(Event::ExerciseDeleteFailed);
+            orders.notify(Event::ExerciseDeletedErr);
             model
                 .errors
                 .push("Failed to delete exercise: ".to_owned() + &message);
         }
 
-        Msg::FetchRoutines => {
+        Msg::ReadRoutines => {
             orders
                 .skip()
-                .perform_cmd(async { fetch("api/routines", Msg::RoutinesFetched).await });
+                .perform_cmd(async { fetch("api/routines", Msg::RoutinesRead).await });
         }
-        Msg::RoutinesFetched(Ok(routines)) => {
+        Msg::RoutinesRead(Ok(routines)) => {
             model.routines = routines;
             model.routines.sort_by(|a, b| b.id.cmp(&a.id));
         }
-        Msg::RoutinesFetched(Err(message)) => {
+        Msg::RoutinesRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch routines: ".to_owned() + &message);
+                .push("Failed to read routines: ".to_owned() + &message);
         }
         Msg::CreateRoutine(routine_name) => {
             orders.perform_cmd(async move {
@@ -815,37 +811,37 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::RoutineCreated(Ok(_)) => {
             orders
-                .notify(Event::RoutineCreationSuccessful)
-                .send_msg(Msg::FetchRoutines);
+                .notify(Event::RoutineCreatedOk)
+                .send_msg(Msg::ReadRoutines);
         }
         Msg::RoutineCreated(Err(message)) => {
-            orders.notify(Event::RoutineCreationFailed);
+            orders.notify(Event::RoutineCreatedErr);
             model
                 .errors
-                .push("Failed to add routine: ".to_owned() + &message);
+                .push("Failed to create routine: ".to_owned() + &message);
         }
-        Msg::UpdateRoutine(routine) => {
+        Msg::ReplaceRoutine(routine) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new(format!("api/routines/{}", routine.id))
                         .method(Method::Put)
                         .json(&routine)
                         .expect("serialization failed"),
-                    Msg::RoutineUpdated,
+                    Msg::RoutineReplaced,
                 )
                 .await
             });
         }
-        Msg::RoutineUpdated(Ok(_)) => {
+        Msg::RoutineReplaced(Ok(_)) => {
             orders
-                .notify(Event::RoutineUpdateSuccessful)
-                .send_msg(Msg::FetchRoutines);
+                .notify(Event::RoutineReplacedOk)
+                .send_msg(Msg::ReadRoutines);
         }
-        Msg::RoutineUpdated(Err(message)) => {
-            orders.notify(Event::RoutineUpdateFailed);
+        Msg::RoutineReplaced(Err(message)) => {
+            orders.notify(Event::RoutineReplacedErr);
             model
                 .errors
-                .push("Failed to update routine: ".to_owned() + &message);
+                .push("Failed to replace routine: ".to_owned() + &message);
         }
         Msg::DeleteRoutine(id) => {
             orders.perform_cmd(async move {
@@ -858,28 +854,28 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::RoutineDeleted(Ok(_)) => {
             orders
-                .notify(Event::RoutineDeleteSuccessful)
-                .send_msg(Msg::FetchRoutines);
+                .notify(Event::RoutineDeletedOk)
+                .send_msg(Msg::ReadRoutines);
         }
         Msg::RoutineDeleted(Err(message)) => {
-            orders.notify(Event::RoutineDeleteFailed);
+            orders.notify(Event::RoutineDeletedErr);
             model
                 .errors
                 .push("Failed to delete routine: ".to_owned() + &message);
         }
 
-        Msg::FetchWorkouts => {
+        Msg::ReadWorkouts => {
             orders.skip().perform_cmd(async {
-                fetch("api/workouts?format=statistics", Msg::WorkoutsFetched).await
+                fetch("api/workouts?format=statistics", Msg::WorkoutsRead).await
             });
         }
-        Msg::WorkoutsFetched(Ok(workouts)) => {
+        Msg::WorkoutsRead(Ok(workouts)) => {
             model.workouts = workouts;
         }
-        Msg::WorkoutsFetched(Err(message)) => {
+        Msg::WorkoutsRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to fetch workouts: ".to_owned() + &message);
+                .push("Failed to read workouts: ".to_owned() + &message);
         }
         Msg::CreateWorkout(date, routine_id) => {
             orders.perform_cmd(async move {
@@ -895,14 +891,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::WorkoutCreated(Ok(_)) => {
             orders
-                .notify(Event::WorkoutCreationSuccessful)
-                .send_msg(Msg::FetchWorkouts);
+                .notify(Event::WorkoutCreatedOk)
+                .send_msg(Msg::ReadWorkouts);
         }
         Msg::WorkoutCreated(Err(message)) => {
-            orders.notify(Event::WorkoutCreationFailed);
+            orders.notify(Event::WorkoutCreatedErr);
             model
                 .errors
-                .push("Failed to add workout: ".to_owned() + &message);
+                .push("Failed to create workout: ".to_owned() + &message);
         }
         Msg::DeleteWorkout(id) => {
             orders.perform_cmd(async move {
@@ -915,11 +911,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::WorkoutDeleted(Ok(_)) => {
             orders
-                .notify(Event::WorkoutDeleteSuccessful)
-                .send_msg(Msg::FetchWorkouts);
+                .notify(Event::WorkoutDeletedOk)
+                .send_msg(Msg::ReadWorkouts);
         }
         Msg::WorkoutDeleted(Err(message)) => {
-            orders.notify(Event::WorkoutDeleteFailed);
+            orders.notify(Event::WorkoutDeletedErr);
             model
                 .errors
                 .push("Failed to delete workout: ".to_owned() + &message);

@@ -60,12 +60,12 @@ def session_required(function: Callable) -> Callable:  # type: ignore[type-arg]
 
 
 @bp.route("/version")
-def get_version() -> ResponseReturnValue:
+def read_version() -> ResponseReturnValue:
     return jsonify(version.get())
 
 
 @bp.route("/session")
-def get_session() -> ResponseReturnValue:
+def read_session() -> ResponseReturnValue:
     if "username" not in session or "user_id" not in session or "sex" not in session:
         return "", HTTPStatus.NOT_FOUND
 
@@ -74,7 +74,7 @@ def get_session() -> ResponseReturnValue:
 
 @bp.route("/session", methods=["POST"])
 @json_expected
-def add_session() -> ResponseReturnValue:
+def create_session() -> ResponseReturnValue:
     try:
         assert isinstance(request.json, dict)
         user_id = request.json["id"]
@@ -102,14 +102,14 @@ def delete_session() -> ResponseReturnValue:
 
 
 @bp.route("/users")
-def get_users() -> ResponseReturnValue:
+def read_users() -> ResponseReturnValue:
     users = db.session.execute(select(User)).scalars().all()
     return jsonify([model_to_dict(u) for u in users])
 
 
 @bp.route("/users/<int:user_id>")
 @session_required
-def get_user(user_id: int) -> ResponseReturnValue:
+def read_user(user_id: int) -> ResponseReturnValue:
     try:
         user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
     except NoResultFound:
@@ -120,7 +120,7 @@ def get_user(user_id: int) -> ResponseReturnValue:
 
 @bp.route("/users", methods=["POST"])
 @json_expected
-def add_user() -> ResponseReturnValue:
+def create_user() -> ResponseReturnValue:
     data = request.json
 
     assert isinstance(data, dict)
@@ -146,7 +146,7 @@ def add_user() -> ResponseReturnValue:
 
 @bp.route("/users/<int:user_id>", methods=["PUT"])
 @json_expected
-def edit_user(user_id: int) -> ResponseReturnValue:
+def replace_user(user_id: int) -> ResponseReturnValue:
     try:
         user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
     except NoResultFound:
@@ -185,7 +185,7 @@ def delete_user(user_id: int) -> ResponseReturnValue:
 
 @bp.route("/body_weight")
 @session_required
-def get_body_weight() -> ResponseReturnValue:
+def read_body_weight() -> ResponseReturnValue:
     if request.args.get("format", None) == "statistics":
         df = storage.read_bodyweight(session["user_id"])
 
@@ -211,7 +211,7 @@ def get_body_weight() -> ResponseReturnValue:
 @bp.route("/body_weight", methods=["POST"])
 @session_required
 @json_expected
-def add_body_weight() -> ResponseReturnValue:
+def create_body_weight() -> ResponseReturnValue:
     data = request.json
 
     assert isinstance(data, dict)
@@ -242,7 +242,7 @@ def add_body_weight() -> ResponseReturnValue:
 @bp.route("/body_weight/<date_>", methods=["PUT"])
 @session_required
 @json_expected
-def edit_body_weight(date_: str) -> ResponseReturnValue:
+def replace_body_weight(date_: str) -> ResponseReturnValue:
     try:
         body_weight = (
             db.session.execute(
@@ -300,7 +300,7 @@ def delete_body_weight(date_: str) -> ResponseReturnValue:
 
 @bp.route("/body_fat")
 @session_required
-def get_body_fat() -> ResponseReturnValue:
+def read_body_fat() -> ResponseReturnValue:
     if request.args.get("format", None) == "statistics":
         df = storage.read_bodyfat(session["user_id"])
 
@@ -332,7 +332,7 @@ def get_body_fat() -> ResponseReturnValue:
 @bp.route("/body_fat", methods=["POST"])
 @session_required
 @json_expected
-def add_body_fat() -> ResponseReturnValue:
+def create_body_fat() -> ResponseReturnValue:
     data = request.json
 
     assert isinstance(data, dict)
@@ -374,7 +374,7 @@ def add_body_fat() -> ResponseReturnValue:
 @bp.route("/body_fat/<date_>", methods=["PUT"])
 @session_required
 @json_expected
-def edit_body_fat(date_: str) -> ResponseReturnValue:
+def replace_body_fat(date_: str) -> ResponseReturnValue:
     try:
         body_fat = (
             db.session.execute(
@@ -441,7 +441,7 @@ def delete_body_fat(date_: str) -> ResponseReturnValue:
 
 @bp.route("/period")
 @session_required
-def get_period() -> ResponseReturnValue:
+def read_period() -> ResponseReturnValue:
     period = (
         db.session.execute(select(Period).where(Period.user_id == session["user_id"]))
         .scalars()
@@ -453,7 +453,7 @@ def get_period() -> ResponseReturnValue:
 @bp.route("/period", methods=["POST"])
 @session_required
 @json_expected
-def add_period() -> ResponseReturnValue:
+def create_period() -> ResponseReturnValue:
     data = request.json
 
     assert isinstance(data, dict)
@@ -484,7 +484,7 @@ def add_period() -> ResponseReturnValue:
 @bp.route("/period/<date_>", methods=["PUT"])
 @session_required
 @json_expected
-def edit_period(date_: str) -> ResponseReturnValue:
+def replace_period(date_: str) -> ResponseReturnValue:
     try:
         period = (
             db.session.execute(
@@ -542,7 +542,7 @@ def delete_period(date_: str) -> ResponseReturnValue:
 
 @bp.route("/exercises")
 @session_required
-def get_exercises() -> ResponseReturnValue:
+def read_exercises() -> ResponseReturnValue:
     exercises = (
         db.session.execute(select(Exercise).where(Exercise.user_id == session["user_id"]))
         .scalars()
@@ -553,7 +553,7 @@ def get_exercises() -> ResponseReturnValue:
 
 @bp.route("/exercises/<int:id_>")
 @session_required
-def get_exercise(id_: int) -> ResponseReturnValue:
+def read_exercise(id_: int) -> ResponseReturnValue:
     try:
         exercise = (
             db.session.execute(
@@ -573,7 +573,7 @@ def get_exercise(id_: int) -> ResponseReturnValue:
 @bp.route("/exercises", methods=["POST"])
 @session_required
 @json_expected
-def add_exercises() -> ResponseReturnValue:
+def create_exercise() -> ResponseReturnValue:
     data = request.json
 
     assert isinstance(data, dict)
@@ -603,7 +603,7 @@ def add_exercises() -> ResponseReturnValue:
 @bp.route("/exercises/<int:id_>", methods=["PUT"])
 @session_required
 @json_expected
-def edit_exercises(id_: int) -> ResponseReturnValue:
+def replace_exercise(id_: int) -> ResponseReturnValue:
     try:
         exercise = (
             db.session.execute(
@@ -639,7 +639,7 @@ def edit_exercises(id_: int) -> ResponseReturnValue:
 
 @bp.route("/exercises/<int:id_>", methods=["DELETE"])
 @session_required
-def delete_exercises(id_: int) -> ResponseReturnValue:
+def delete_exercise(id_: int) -> ResponseReturnValue:
     try:
         exercise = (
             db.session.execute(
@@ -661,7 +661,7 @@ def delete_exercises(id_: int) -> ResponseReturnValue:
 
 @bp.route("/routines")
 @session_required
-def get_routines() -> ResponseReturnValue:
+def read_routines() -> ResponseReturnValue:
     routines = (
         db.session.execute(select(Routine).where(Routine.user_id == session["user_id"]))
         .scalars()
@@ -672,7 +672,7 @@ def get_routines() -> ResponseReturnValue:
 
 @bp.route("/routines/<int:id_>")
 @session_required
-def get_routine(id_: int) -> ResponseReturnValue:
+def read_routine(id_: int) -> ResponseReturnValue:
     try:
         routine = (
             db.session.execute(
@@ -692,7 +692,7 @@ def get_routine(id_: int) -> ResponseReturnValue:
 @bp.route("/routines", methods=["POST"])
 @session_required
 @json_expected
-def add_routines() -> ResponseReturnValue:
+def create_routine() -> ResponseReturnValue:
     data = request.json
 
     assert isinstance(data, dict)
@@ -722,7 +722,7 @@ def add_routines() -> ResponseReturnValue:
 @bp.route("/routines/<int:id_>", methods=["PUT"])
 @session_required
 @json_expected
-def edit_routines(id_: int) -> ResponseReturnValue:
+def replace_routine(id_: int) -> ResponseReturnValue:
     try:
         routine = (
             db.session.execute(
@@ -758,7 +758,7 @@ def edit_routines(id_: int) -> ResponseReturnValue:
 
 @bp.route("/routines/<int:id_>", methods=["DELETE"])
 @session_required
-def delete_routines(id_: int) -> ResponseReturnValue:
+def delete_routine(id_: int) -> ResponseReturnValue:
     try:
         routine = (
             db.session.execute(
@@ -780,7 +780,7 @@ def delete_routines(id_: int) -> ResponseReturnValue:
 
 @bp.route("/workouts")
 @session_required
-def get_workouts() -> ResponseReturnValue:
+def read_workouts() -> ResponseReturnValue:
     if request.args.get("format", None) == "statistics":
         df = statistics.workouts(session["user_id"])
 
@@ -800,7 +800,7 @@ def get_workouts() -> ResponseReturnValue:
 @bp.route("/workouts", methods=["POST"])
 @session_required
 @json_expected
-def add_workouts() -> ResponseReturnValue:
+def create_workout() -> ResponseReturnValue:
     data = request.json
 
     assert isinstance(data, dict)
@@ -849,7 +849,7 @@ def add_workouts() -> ResponseReturnValue:
 
 @bp.route("/workouts/<int:id_>", methods=["DELETE"])
 @session_required
-def delete_workouts(id_: int) -> ResponseReturnValue:
+def delete_workout(id_: int) -> ResponseReturnValue:
     try:
         workout = (
             db.session.execute(
@@ -872,7 +872,7 @@ def delete_workouts(id_: int) -> ResponseReturnValue:
 @bp.route("/images/<kind>")
 @bp.route("/images/<kind>/<int:id_>")
 @session_required
-def get_images(kind: str, id_: int = None) -> ResponseReturnValue:
+def read_images(kind: str, id_: int = None) -> ResponseReturnValue:
     try:
         interval = _parse_interval_args()
     except ValueError as e:

@@ -25,7 +25,7 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
             yield client
 
 
-def add_session(client: Client, user_id: int = 1) -> Response:
+def create_session(client: Client, user_id: int = 1) -> Response:
     return client.post("/api/session", json={"id": user_id})
 
 
@@ -87,7 +87,7 @@ def test_session_required(client: Client, method: str, route: str) -> None:
 def test_json_required(client: Client, method: str, route: str) -> None:
     tests.utils.init_db_data()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = getattr(client, method)(route, data={})
 
@@ -117,7 +117,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
 def test_invalid_data(client: Client, method: str, route: str) -> None:
     tests.utils.init_db_data()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = getattr(client, method)(route, json={"invalid": "data"})
 
@@ -125,7 +125,7 @@ def test_invalid_data(client: Client, method: str, route: str) -> None:
     assert resp.is_json
 
 
-def test_get_version(client: Client) -> None:
+def test_read_version(client: Client) -> None:
     resp = client.get("/api/version")
 
     assert resp.status_code == HTTPStatus.OK
@@ -135,7 +135,7 @@ def test_get_version(client: Client) -> None:
 def test_session(client: Client) -> None:
     tests.utils.init_db_data()
 
-    resp = add_session(client)
+    resp = create_session(client)
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == {"id": 1, "name": "Alice", "sex": 0}
 
@@ -148,21 +148,21 @@ def test_session(client: Client) -> None:
     assert not resp.data
 
 
-def test_get_session_not_found(client: Client) -> None:
+def test_read_session_not_found(client: Client) -> None:
     resp = client.get("/api/session")
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
 
 
-def test_add_session_not_found(client: Client) -> None:
+def test_create_session_not_found(client: Client) -> None:
     resp = client.post("/api/session", json={"id": 1})
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
 
 
-def test_get_users(client: Client) -> None:
+def test_read_users(client: Client) -> None:
     resp = client.get("/api/users")
 
     assert resp.status_code == HTTPStatus.OK
@@ -178,10 +178,10 @@ def test_get_users(client: Client) -> None:
     ]
 
 
-def test_get_user(client: Client) -> None:
+def test_read_user(client: Client) -> None:
     tests.utils.init_db_data()
 
-    resp = add_session(client)
+    resp = create_session(client)
     assert resp.status_code == HTTPStatus.OK
 
     resp = client.get("/api/users/0")
@@ -199,7 +199,7 @@ def test_get_user(client: Client) -> None:
     assert not resp.data
 
 
-def test_add_user(client: Client) -> None:
+def test_create_user(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = client.post("/api/users", json={"name": "Carol", "sex": 0})
@@ -217,7 +217,7 @@ def test_add_user(client: Client) -> None:
     ]
 
 
-def test_add_user_conflict(client: Client) -> None:
+def test_create_user_conflict(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = client.post("/api/users", json={"name": " Alice ", "sex": 0})
@@ -226,7 +226,7 @@ def test_add_user_conflict(client: Client) -> None:
     assert resp.json
 
 
-def test_edit_user(client: Client) -> None:
+def test_replace_user(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = client.put("/api/users/2", json={"name": "Carol", "sex": 0})
@@ -243,7 +243,7 @@ def test_edit_user(client: Client) -> None:
     ]
 
 
-def test_edit_user_not_found(client: Client) -> None:
+def test_replace_user_not_found(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = client.put("/api/users/3", json={"name": "Carol", "sex": 0})
@@ -252,7 +252,7 @@ def test_edit_user_not_found(client: Client) -> None:
     assert not resp.data
 
 
-def test_edit_user_conflict(client: Client) -> None:
+def test_replace_user_conflict(client: Client) -> None:
     tests.utils.init_db_data()
 
     resp = client.put("/api/users/2", json={"name": " Alice ", "sex": 0})
@@ -534,10 +534,10 @@ def test_delete_user(client: Client) -> None:
         ),
     ],
 )
-def test_get_all(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
+def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
     tests.utils.init_db_users()
 
-    assert add_session(client, user_id).status_code == HTTPStatus.OK
+    assert create_session(client, user_id).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 
@@ -547,7 +547,7 @@ def test_get_all(client: Client, user_id: int, route: str, data: list[dict[str, 
     tests.utils.clear_db()
     tests.utils.init_db_data()
 
-    assert add_session(client, user_id).status_code == HTTPStatus.OK
+    assert create_session(client, user_id).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 
@@ -570,10 +570,10 @@ def test_get_all(client: Client, user_id: int, route: str, data: list[dict[str, 
         ),
     ],
 )
-def test_get_one(client: Client, user_id: int, route: str, data: dict[str, object]) -> None:
+def test_read_one(client: Client, user_id: int, route: str, data: dict[str, object]) -> None:
     tests.utils.init_db_users()
 
-    assert add_session(client, user_id).status_code == HTTPStatus.OK
+    assert create_session(client, user_id).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 
@@ -583,7 +583,7 @@ def test_get_one(client: Client, user_id: int, route: str, data: dict[str, objec
     tests.utils.clear_db()
     tests.utils.init_db_data()
 
-    assert add_session(client, user_id).status_code == HTTPStatus.OK
+    assert create_session(client, user_id).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 
@@ -680,12 +680,12 @@ def test_get_one(client: Client, user_id: int, route: str, data: dict[str, objec
         ),
     ],
 )
-def test_add(
+def test_create(
     client: Client, route: str, data: dict[str, object], result: list[dict[str, object]]
 ) -> None:
     tests.utils.init_db_data()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.post(route, json=data)
 
@@ -703,7 +703,7 @@ def test_add(
     assert resp.json
 
 
-def test_add_workout(client: Client) -> None:
+def test_create_workout(client: Client) -> None:
     route = "/api/workouts"
     data = {"date": "2002-02-24", "routine_id": 1}
     created = {"date": "2002-02-24", "id": 4, "notes": "", "routine_id": 1}
@@ -715,7 +715,7 @@ def test_add_workout(client: Client) -> None:
 
     tests.utils.init_db_data()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.post(route, json=data)
 
@@ -829,7 +829,7 @@ def test_add_workout(client: Client) -> None:
         ),
     ],
 )
-def test_edit(
+def test_replace(
     client: Client,
     route: str,
     data: dict[str, object],
@@ -839,7 +839,7 @@ def test_edit(
 ) -> None:
     tests.utils.init_db_data()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.put(route, json=data)
 
@@ -927,7 +927,7 @@ def test_delete(
 ) -> None:
     tests.utils.init_db_data()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.delete(route)
 
@@ -964,7 +964,7 @@ def test_delete(
     "kind",
     ["bodyweight", "bodyfat", "period", "workouts", "exercise/1"],
 )
-def test_get_images(client: Client, user_id: int, kind: str, first: str, last: str) -> None:
+def test_read_images(client: Client, user_id: int, kind: str, first: str, last: str) -> None:
     args = "&".join(
         [
             *([f"first={first}"] if first is not None else []),
@@ -974,7 +974,7 @@ def test_get_images(client: Client, user_id: int, kind: str, first: str, last: s
     route = f"/api/images/{kind}?{args}"
     tests.utils.init_db_users()
 
-    assert add_session(client, user_id).status_code == HTTPStatus.OK
+    assert create_session(client, user_id).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 
@@ -985,7 +985,7 @@ def test_get_images(client: Client, user_id: int, kind: str, first: str, last: s
     tests.utils.clear_db()
     tests.utils.init_db_data()
 
-    assert add_session(client, user_id).status_code == HTTPStatus.OK
+    assert create_session(client, user_id).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 
@@ -994,10 +994,10 @@ def test_get_images(client: Client, user_id: int, kind: str, first: str, last: s
     assert resp.data
 
 
-def test_get_images_invalid_kind(client: Client) -> None:
+def test_read_images_invalid_kind(client: Client) -> None:
     tests.utils.init_db_users()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.get("/api/images/invalid")
 
@@ -1005,10 +1005,10 @@ def test_get_images_invalid_kind(client: Client) -> None:
     assert not resp.data
 
 
-def test_get_images_invalid_argument(client: Client) -> None:
+def test_read_images_invalid_argument(client: Client) -> None:
     tests.utils.init_db_users()
 
-    assert add_session(client).status_code == HTTPStatus.OK
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.get("/api/images/workouts?first=invalid")
 

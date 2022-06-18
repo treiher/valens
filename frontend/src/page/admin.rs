@@ -246,7 +246,15 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         C!["column"],
                         C!["has-text-centered"],
                         C!["has-text-grey"],
-                        raw![&("<b>Valens</b> ".to_owned() + &data_model.version)],
+                        if &data_model.version == env!("VALENS_VERSION") {
+                            raw![&("<b>Valens</b> ".to_owned() + &data_model.version)]
+                        } else {
+                            raw![&format!(
+                                "<b>Valens</b> {} / {}",
+                                env!("VALENS_VERSION"),
+                                &data_model.version
+                            )]
+                        }
                     ],
                 ]
             ],

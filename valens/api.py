@@ -4,12 +4,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from functools import wraps
 from http import HTTPStatus
-from typing import Callable
+from itertools import chain
+from typing import Any, Callable
 
 import numpy as np
 from flask import Blueprint, Response, jsonify, request, session
 from flask.typing import ResponseReturnValue
-from sqlalchemy import select
+from sqlalchemy import column, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from valens import bodyfat, bodyweight, database as db, diagram, statistics, storage, version
@@ -19,6 +20,7 @@ from valens.models import (
     Exercise,
     Period,
     Routine,
+    RoutineExercise,
     Sex,
     User,
     Workout,
@@ -28,15 +30,40 @@ from valens.models import (
 bp = Blueprint("api", __name__, url_prefix="/api")
 
 
-def model_to_dict(model: object, exclude: list[str] = None) -> dict[str, object]:
+class DeserializationError(Exception):
+    pass
+
+
+def model_to_dict(
+    model: object, exclude: list[str] = None, include: list[str] = None
+) -> dict[str, object]:
     assert hasattr(model, "__table__")
-    exclude = ["user_id"]
+    exclude = ["user_id"] if exclude is None else exclude
+    include = [] if include is None else include
     return {
         name: attr.isoformat() if isinstance(attr, date) else attr
-        for col in getattr(model, "__table__").columns
+        for col in chain(getattr(model, "__table__").columns, (column(i) for i in include))
         if col.name not in exclude
         for name, attr in [(col.name, getattr(model, col.name))]
     }
+
+
+def to_routine_exercises(json: list[dict[str, Any]]) -> list[RoutineExercise]:  # type: ignore[misc]
+    exercises = [
+        RoutineExercise(
+            position=exercise["position"],
+            exercise_id=exercise["exercise_id"],
+            sets=exercise["sets"],
+        )
+        for exercise in json
+    ]
+
+    if sorted(e.position for e in exercises) != list(range(1, len(exercises) + 1)):
+        raise DeserializationError(
+            "exercise positions must be in ascending order without gaps, starting with 1"
+        )
+
+    return exercises
 
 
 def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]
@@ -551,25 +578,6 @@ def read_exercises() -> ResponseReturnValue:
     return jsonify([model_to_dict(e) for e in exercises])
 
 
-@bp.route("/exercises/<int:id_>")
-@session_required
-def read_exercise(id_: int) -> ResponseReturnValue:
-    try:
-        exercise = (
-            db.session.execute(
-                select(Exercise)
-                .where(Exercise.id == id_)
-                .where(Exercise.user_id == session["user_id"])
-            )
-            .scalars()
-            .one()
-        )
-    except (NoResultFound, ValueError):
-        return "", HTTPStatus.NOT_FOUND
-
-    return jsonify(model_to_dict(exercise))
-
-
 @bp.route("/exercises", methods=["POST"])
 @session_required
 @json_expected
@@ -667,26 +675,15 @@ def read_routines() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify([model_to_dict(e) for e in routines])
-
-
-@bp.route("/routines/<int:id_>")
-@session_required
-def read_routine(id_: int) -> ResponseReturnValue:
-    try:
-        routine = (
-            db.session.execute(
-                select(Routine)
-                .where(Routine.id == id_)
-                .where(Routine.user_id == session["user_id"])
-            )
-            .scalars()
-            .one()
-        )
-    except (NoResultFound, ValueError):
-        return "", HTTPStatus.NOT_FOUND
-
-    return jsonify(model_to_dict(routine))
+    return jsonify(
+        [
+            {
+                **model_to_dict(r),
+                "exercises": [{**model_to_dict(e, exclude=["routine_id"])} for e in r.exercises],
+            }
+            for r in routines
+        ]
+    )
 
 
 @bp.route("/routines", methods=["POST"])
@@ -701,8 +698,10 @@ def create_routine() -> ResponseReturnValue:
         routine = Routine(
             user_id=session["user_id"],
             name=data["name"],
+            notes=data["notes"],
+            exercises=to_routine_exercises(data["exercises"]),
         )
-    except (KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(routine)
@@ -713,16 +712,23 @@ def create_routine() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(routine)),
+        jsonify(
+            {
+                **model_to_dict(routine),
+                "exercises": [
+                    {**model_to_dict(e, exclude=["routine_id"])} for e in routine.exercises
+                ],
+            }
+        ),
         HTTPStatus.CREATED,
         {"Location": f"/routines/{routine.id}"},
     )
 
 
-@bp.route("/routines/<int:id_>", methods=["PUT"])
+@bp.route("/routines/<int:id_>", methods=["PUT", "PATCH"])
 @session_required
 @json_expected
-def replace_routine(id_: int) -> ResponseReturnValue:
+def update_routine(id_: int) -> ResponseReturnValue:
     try:
         routine = (
             db.session.execute(
@@ -741,8 +747,13 @@ def replace_routine(id_: int) -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        routine.name = data["name"]
-    except (KeyError, ValueError) as e:
+        if "name" in data or request.method == "PUT":
+            routine.name = data["name"]
+        if "notes" in data or request.method == "PUT":
+            routine.notes = data["notes"]
+        if "exercises" in data or request.method == "PUT":
+            routine.exercises = to_routine_exercises(data["exercises"])
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     try:
@@ -751,7 +762,12 @@ def replace_routine(id_: int) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(routine)),
+        jsonify(
+            {
+                **model_to_dict(routine),
+                "exercises": [model_to_dict(e, exclude=["routine_id"]) for e in routine.exercises],
+            }
+        ),
         HTTPStatus.OK,
     )
 
@@ -885,7 +901,9 @@ def read_images(kind: str, id_: int = None) -> ResponseReturnValue:
     elif kind == "period":
         fig = diagram.plot_period(session["user_id"], interval.first, interval.last)
     elif kind == "workouts":
-        fig = diagram.plot_workouts(session["user_id"], interval.first, interval.last)
+        fig = diagram.plot_workouts(
+            session["user_id"], interval.first, interval.last, routine_id=id_
+        )
     elif kind == "exercise" and id_:
         fig = diagram.plot_exercise(session["user_id"], id_, interval.first, interval.last)
     else:

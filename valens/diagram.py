@@ -48,9 +48,26 @@ def plot_svg(fig: Figure) -> bytes:
 
 
 def plot_workouts(
-    user_id: int, first: date = None, last: date = None, routine: Routine = None
+    user_id: int,
+    first: date = None,
+    last: date = None,
+    routine: Routine = None,
+    routine_id: int = None,
 ) -> Figure:
     df = storage.read_sets(user_id)
+    if routine_id:
+        try:
+            routine = (
+                db.session.execute(
+                    select(Routine)
+                    .where(Routine.user_id == session["user_id"])
+                    .where(Routine.id == routine_id)
+                )
+                .scalars()
+                .one()
+            )
+        except NoResultFound:
+            pass
     if routine:
         df = df[df["workout_id"].isin({w.id for w in routine.workouts})]
     df["reps+rir"] = df["reps"] + df["rir"]

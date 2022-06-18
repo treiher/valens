@@ -47,11 +47,9 @@ def delete_session(client: Client) -> Response:
         ("post", "/api/period"),
         ("put", "/api/period/2002-02-22"),
         ("get", "/api/exercises"),
-        ("get", "/api/exercises/1"),
         ("post", "/api/exercises"),
         ("put", "/api/exercises/1"),
         ("get", "/api/routines"),
-        ("get", "/api/routines/1"),
         ("post", "/api/routines"),
         ("put", "/api/routines/1"),
         ("get", "/api/workouts"),
@@ -96,30 +94,52 @@ def test_json_required(client: Client, method: str, route: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "method, route",
+    "method, route, data",
     [
-        ("post", "/api/session"),
-        ("post", "/api/users"),
-        ("put", "/api/users/2"),
-        ("post", "/api/body_weight"),
-        ("put", "/api/body_weight/2002-02-22"),
-        ("post", "/api/body_fat"),
-        ("put", "/api/body_fat/2002-02-20"),
-        ("post", "/api/period"),
-        ("put", "/api/period/2002-02-22"),
-        ("post", "/api/exercises"),
-        ("put", "/api/exercises/1"),
-        ("post", "/api/routines"),
-        ("put", "/api/routines/1"),
-        ("post", "/api/workouts"),
+        ("post", "/api/session", {"invalid": "data"}),
+        ("post", "/api/users", {"invalid": "data"}),
+        ("put", "/api/users/2", {"invalid": "data"}),
+        ("post", "/api/body_weight", {"invalid": "data"}),
+        ("put", "/api/body_weight/2002-02-22", {"invalid": "data"}),
+        ("post", "/api/body_fat", {"invalid": "data"}),
+        ("put", "/api/body_fat/2002-02-20", {"invalid": "data"}),
+        ("post", "/api/period", {"invalid": "data"}),
+        ("put", "/api/period/2002-02-22", {"invalid": "data"}),
+        ("post", "/api/exercises", {"invalid": "data"}),
+        ("put", "/api/exercises/1", {"invalid": "data"}),
+        ("post", "/api/routines", {"invalid": "data"}),
+        (
+            "post",
+            "/api/routines",
+            {
+                "name": "X",
+                "notes": "",
+                "exercises": [
+                    {"exercise_id": 1, "position": 1, "sets": 1},
+                    {"exercise_id": 3, "position": 3, "sets": 3},
+                ],
+            },
+        ),
+        ("put", "/api/routines/1", {"invalid": "data"}),
+        (
+            "patch",
+            "/api/routines/1",
+            {
+                "exercises": [
+                    {"exercise_id": 1, "position": 1, "sets": 1},
+                    {"exercise_id": 3, "position": 3, "sets": 3},
+                ],
+            },
+        ),
+        ("post", "/api/workouts", {"invalid": "data"}),
     ],
 )
-def test_invalid_data(client: Client, method: str, route: str) -> None:
+def test_invalid_data(client: Client, method: str, route: str, data: object) -> None:
     tests.utils.init_db_data()
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = getattr(client, method)(route, json={"invalid": "data"})
+    resp = getattr(client, method)(route, json=data)
 
     assert resp.status_code == HTTPStatus.BAD_REQUEST
     assert resp.is_json
@@ -480,8 +500,23 @@ def test_delete_user(client: Client) -> None:
             1,
             "/api/routines",
             [
-                {"id": 1, "name": "R1", "notes": "First Routine"},
-                {"id": 3, "name": "R2", "notes": None},
+                {
+                    "id": 1,
+                    "name": "R1",
+                    "notes": "First Routine",
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 1},
+                        {"exercise_id": 1, "position": 2, "sets": 2},
+                    ],
+                },
+                {
+                    "id": 3,
+                    "name": "R2",
+                    "notes": None,
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    ],
+                },
             ],
         ),
         (
@@ -543,42 +578,6 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == []
-
-    tests.utils.clear_db()
-    tests.utils.init_db_data()
-
-    assert create_session(client, user_id).status_code == HTTPStatus.OK
-
-    resp = client.get(route)
-
-    assert resp.status_code == HTTPStatus.OK
-    assert resp.json == data
-
-
-@pytest.mark.parametrize(
-    "user_id, route, data",
-    [
-        (
-            1,
-            "/api/exercises/1",
-            {"id": 1, "name": "Exercise 1"},
-        ),
-        (
-            1,
-            "/api/routines/1",
-            {"id": 1, "name": "R1", "notes": "First Routine"},
-        ),
-    ],
-)
-def test_read_one(client: Client, user_id: int, route: str, data: dict[str, object]) -> None:
-    tests.utils.init_db_users()
-
-    assert create_session(client, user_id).status_code == HTTPStatus.OK
-
-    resp = client.get(route)
-
-    assert resp.status_code == HTTPStatus.NOT_FOUND
-    assert not resp.data
 
     tests.utils.clear_db()
     tests.utils.init_db_data()
@@ -671,11 +670,42 @@ def test_read_one(client: Client, user_id: int, route: str, data: dict[str, obje
         ),
         (
             "/api/routines",
-            {"id": 5, "name": "New Routine", "notes": None},
+            {
+                "id": 5,
+                "name": "New Routine",
+                "notes": "Something New",
+                "exercises": [
+                    {"exercise_id": 1, "position": 1, "sets": 2},
+                    {"exercise_id": 3, "position": 2, "sets": 1},
+                ],
+            },
             [
-                {"id": 5, "name": "New Routine", "notes": None},
-                {"id": 1, "name": "R1", "notes": "First Routine"},
-                {"id": 3, "name": "R2", "notes": None},
+                {
+                    "id": 5,
+                    "name": "New Routine",
+                    "notes": "Something New",
+                    "exercises": [
+                        {"exercise_id": 1, "position": 1, "sets": 2},
+                        {"exercise_id": 3, "position": 2, "sets": 1},
+                    ],
+                },
+                {
+                    "id": 1,
+                    "name": "R1",
+                    "notes": "First Routine",
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 1},
+                        {"exercise_id": 1, "position": 2, "sets": 2},
+                    ],
+                },
+                {
+                    "id": 3,
+                    "name": "R2",
+                    "notes": None,
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    ],
+                },
             ],
         ),
     ],
@@ -819,13 +849,47 @@ def test_create_workout(client: Client) -> None:
         ),
         (
             "/api/routines/1",
-            {"name": "Changed Routine"},
-            {"id": 1, "name": "Changed Routine", "notes": "First Routine"},
+            {
+                "name": "Changed Routine",
+                "notes": "First Changed Routine",
+                "exercises": [
+                    {"exercise_id": 1, "position": 1, "sets": 2},
+                    {"exercise_id": 3, "position": 2, "sets": 1},
+                ],
+            },
+            {
+                "id": 1,
+                "name": "Changed Routine",
+                "notes": "First Changed Routine",
+                "exercises": [
+                    {"exercise_id": 1, "position": 1, "sets": 2},
+                    {"exercise_id": 3, "position": 2, "sets": 1},
+                ],
+            },
             [
-                {"id": 1, "name": "Changed Routine", "notes": "First Routine"},
-                {"id": 3, "name": "R2", "notes": None},
+                {
+                    "id": 1,
+                    "name": "Changed Routine",
+                    "notes": "First Changed Routine",
+                    "exercises": [
+                        {"exercise_id": 1, "position": 1, "sets": 2},
+                        {"exercise_id": 3, "position": 2, "sets": 1},
+                    ],
+                },
+                {
+                    "id": 3,
+                    "name": "R2",
+                    "notes": None,
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    ],
+                },
             ],
-            {"name": "R2"},
+            {
+                "name": "R2",
+                "notes": "",
+                "exercises": [],
+            },
         ),
     ],
 )
@@ -857,6 +921,157 @@ def test_replace(
     assert not resp.data
 
     resp = client.put(route, json=conflicting_data)
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json
+
+
+@pytest.mark.parametrize(
+    "route, data, response, result, conflicting_data",
+    [
+        (
+            "/api/routines/1",
+            {
+                "name": "Changed Routine",
+            },
+            {
+                "id": 1,
+                "name": "Changed Routine",
+                "notes": "First Routine",
+                "exercises": [
+                    {"exercise_id": 3, "position": 1, "sets": 1},
+                    {"exercise_id": 1, "position": 2, "sets": 2},
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "name": "Changed Routine",
+                    "notes": "First Routine",
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 1},
+                        {"exercise_id": 1, "position": 2, "sets": 2},
+                    ],
+                },
+                {
+                    "id": 3,
+                    "name": "R2",
+                    "notes": None,
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    ],
+                },
+            ],
+            {
+                "name": "R2",
+            },
+        ),
+        (
+            "/api/routines/1",
+            {
+                "notes": "Changed Notes",
+            },
+            {
+                "id": 1,
+                "name": "R1",
+                "notes": "Changed Notes",
+                "exercises": [
+                    {"exercise_id": 3, "position": 1, "sets": 1},
+                    {"exercise_id": 1, "position": 2, "sets": 2},
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "name": "R1",
+                    "notes": "Changed Notes",
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 1},
+                        {"exercise_id": 1, "position": 2, "sets": 2},
+                    ],
+                },
+                {
+                    "id": 3,
+                    "name": "R2",
+                    "notes": None,
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    ],
+                },
+            ],
+            {
+                "name": "R2",
+                "notes": "",
+            },
+        ),
+        (
+            "/api/routines/1",
+            {
+                "exercises": [
+                    {"exercise_id": 1, "position": 1, "sets": 2},
+                    {"exercise_id": 3, "position": 2, "sets": 1},
+                ],
+            },
+            {
+                "id": 1,
+                "name": "R1",
+                "notes": "First Routine",
+                "exercises": [
+                    {"exercise_id": 1, "position": 1, "sets": 2},
+                    {"exercise_id": 3, "position": 2, "sets": 1},
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "name": "R1",
+                    "notes": "First Routine",
+                    "exercises": [
+                        {"exercise_id": 1, "position": 1, "sets": 2},
+                        {"exercise_id": 3, "position": 2, "sets": 1},
+                    ],
+                },
+                {
+                    "id": 3,
+                    "name": "R2",
+                    "notes": None,
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    ],
+                },
+            ],
+            {"name": "R2", "notes": "", "exercises": []},
+        ),
+    ],
+)
+def test_modify(
+    client: Client,
+    route: str,
+    data: dict[str, object],
+    response: dict[str, object],
+    result: list[dict[str, object]],
+    conflicting_data: dict[str, object],
+) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch(route, json=data)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == response
+
+    resp = client.get(str(Path(route).parent))
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == result
+
+    resp = client.patch(str(Path(route).parent / "0"), json=data)
+
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
+
+    resp = client.patch(route, json=conflicting_data)
 
     assert resp.status_code == HTTPStatus.CONFLICT
     assert resp.json
@@ -904,7 +1119,15 @@ def test_replace(
         (
             "/api/routines/3",
             [
-                {"id": 1, "name": "R1", "notes": "First Routine"},
+                {
+                    "id": 1,
+                    "name": "R1",
+                    "notes": "First Routine",
+                    "exercises": [
+                        {"exercise_id": 3, "position": 1, "sets": 1},
+                        {"exercise_id": 1, "position": 2, "sets": 2},
+                    ],
+                },
             ],
         ),
         (
@@ -962,7 +1185,7 @@ def test_delete(
 )
 @pytest.mark.parametrize(
     "kind",
-    ["bodyweight", "bodyfat", "period", "workouts", "exercise/1"],
+    ["bodyweight", "bodyfat", "period", "workouts", "workouts/1", "exercise/1"],
 )
 def test_read_images(client: Client, user_id: int, kind: str, first: str, last: str) -> None:
     args = "&".join(

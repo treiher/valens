@@ -111,10 +111,7 @@ pub fn update(
                     orders.notify(data::Msg::CreateRoutine(form.name.1.clone().unwrap()));
                 }
                 Dialog::EditRoutine(ref mut form) => {
-                    orders.notify(data::Msg::ReplaceRoutine(data::Routine {
-                        id: form.id,
-                        name: form.name.1.clone().unwrap(),
-                    }));
+                    orders.notify(data::Msg::ModifyRoutine(form.id, form.name.1.clone(), None));
                 }
                 Dialog::Hidden | Dialog::DeleteRoutine(_) => {
                     panic!();
@@ -129,7 +126,7 @@ pub fn update(
             model.loading = false;
             match event {
                 data::Event::RoutineCreatedOk
-                | data::Event::RoutineReplacedOk
+                | data::Event::RoutineModifiedOk
                 | data::Event::RoutineDeletedOk => {
                     orders.skip().send_msg(Msg::CloseRoutineDialog);
                 }

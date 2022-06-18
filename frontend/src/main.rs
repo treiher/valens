@@ -110,6 +110,7 @@ enum Page {
     Exercises(page::exercises::Model),
     Exercise(page::exercise::Model),
     Routines(page::routines::Model),
+    Routine(page::routine::Model),
     Workouts(page::workouts::Model),
     NotFound,
 }
@@ -157,6 +158,11 @@ impl Page {
                 Some(ROUTINES) => {
                     Self::Routines(page::routines::init(url, &mut orders.proxy(Msg::Routines)))
                 }
+                Some(ROUTINE) => Self::Routine(page::routine::init(
+                    url,
+                    &mut orders.proxy(Msg::Routine),
+                    data_model,
+                )),
                 Some(WORKOUTS) => Self::Workouts(page::workouts::init(
                     url,
                     &mut orders.proxy(Msg::Workouts),
@@ -202,6 +208,7 @@ enum Msg {
     Exercises(page::exercises::Msg),
     Exercise(page::exercise::Msg),
     Routines(page::routines::Msg),
+    Routine(page::routine::Msg),
     Workouts(page::workouts::Msg),
 
     // ------ Data ------
@@ -291,6 +298,16 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Routines),
+                )
+            }
+        }
+        Msg::Routine(msg) => {
+            if let Some(Page::Routine(page_model)) = &mut model.page {
+                page::routine::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::Routine),
                 )
             }
         }
@@ -444,6 +461,8 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
             Some(Page::Exercise(model)) => page::exercise::view(model).map_msg(Msg::Exercise),
             Some(Page::Routines(model)) =>
                 page::routines::view(model, data_model).map_msg(Msg::Routines),
+            Some(Page::Routine(model)) =>
+                page::routine::view(model, data_model).map_msg(Msg::Routine),
             Some(Page::Workouts(model)) =>
                 page::workouts::view(model, data_model).map_msg(Msg::Workouts),
             Some(Page::NotFound) => page::not_found::view(),

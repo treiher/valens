@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use seed::prelude::*;
-use serde_json::json;
+use serde_json::{json, Map};
 
 use crate::common;
 
@@ -124,6 +124,14 @@ pub struct Exercise {
 pub struct Routine {
     pub id: u32,
     pub name: String,
+    pub exercises: Vec<RoutineExercise>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct RoutineExercise {
+    pub position: u32,
+    pub exercise_id: u32,
+    pub sets: u32,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -220,8 +228,8 @@ pub enum Msg {
     RoutinesRead(Result<Vec<Routine>, String>),
     CreateRoutine(String),
     RoutineCreated(Result<Routine, String>),
-    ReplaceRoutine(Routine),
-    RoutineReplaced(Result<Routine, String>),
+    ModifyRoutine(u32, Option<String>, Option<Vec<RoutineExercise>>),
+    RoutineModified(Result<Routine, String>),
     DeleteRoutine(u32),
     RoutineDeleted(Result<(), String>),
 
@@ -267,8 +275,8 @@ pub enum Event {
     ExerciseDeletedErr,
     RoutineCreatedOk,
     RoutineCreatedErr,
-    RoutineReplacedOk,
-    RoutineReplacedErr,
+    RoutineModifiedOk,
+    RoutineModifiedErr,
     RoutineDeletedOk,
     RoutineDeletedErr,
     WorkoutCreatedOk,
@@ -820,28 +828,35 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .errors
                 .push("Failed to create routine: ".to_owned() + &message);
         }
-        Msg::ReplaceRoutine(routine) => {
+        Msg::ModifyRoutine(id, name, exercises) => {
+            let mut content = Map::new();
+            if let Some(name) = name {
+                content.insert("name".into(), json!(name));
+            }
+            if let Some(exercises) = exercises {
+                content.insert("exercises".into(), json!(exercises));
+            }
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/routines/{}", routine.id))
-                        .method(Method::Put)
-                        .json(&routine)
+                    Request::new(format!("api/routines/{}", id))
+                        .method(Method::Patch)
+                        .json(&content)
                         .expect("serialization failed"),
-                    Msg::RoutineReplaced,
+                    Msg::RoutineModified,
                 )
                 .await
             });
         }
-        Msg::RoutineReplaced(Ok(_)) => {
+        Msg::RoutineModified(Ok(_)) => {
             orders
-                .notify(Event::RoutineReplacedOk)
+                .notify(Event::RoutineModifiedOk)
                 .send_msg(Msg::ReadRoutines);
         }
-        Msg::RoutineReplaced(Err(message)) => {
-            orders.notify(Event::RoutineReplacedErr);
+        Msg::RoutineModified(Err(message)) => {
+            orders.notify(Event::RoutineModifiedErr);
             model
                 .errors
-                .push("Failed to replace routine: ".to_owned() + &message);
+                .push("Failed to modify routine: ".to_owned() + &message);
         }
         Msg::DeleteRoutine(id) => {
             orders.perform_cmd(async move {

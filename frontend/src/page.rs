@@ -7,5 +7,6 @@ pub mod home;
 pub mod login;
 pub mod not_found;
 pub mod period;
+pub mod routine;
 pub mod routines;
 pub mod workouts;

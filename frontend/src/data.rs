@@ -30,7 +30,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
 // ------ ------
 
 pub struct Model {
-    base_url: Url,
+    pub base_url: Url,
     errors: Vec<String>,
 
     // ------ Data -----

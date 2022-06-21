@@ -204,6 +204,7 @@ enum Msg {
     ToggleMenu,
     HideMenu,
 
+    GoUp,
     LogOut,
 
     // ------ Pages ------
@@ -240,6 +241,31 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         }
 
+        Msg::GoUp => match &model.page {
+            Some(Page::Home(_)) | Some(Page::Login(_)) => {}
+            Some(Page::Admin(_)) => {
+                orders.request_url(crate::Urls::new(&model.data.base_url).login());
+            }
+            Some(Page::BodyWeight(_))
+            | Some(Page::BodyFat(_))
+            | Some(Page::Period(_))
+            | Some(Page::Exercises(_))
+            | Some(Page::Routines(_))
+            | Some(Page::Workouts(_))
+            | Some(Page::NotFound)
+            | None => {
+                orders.request_url(crate::Urls::new(&model.data.base_url).home());
+            }
+            Some(Page::Exercise(_)) => {
+                orders.request_url(crate::Urls::new(&model.data.base_url).exercises());
+            }
+            Some(Page::Routine(_)) => {
+                orders.request_url(crate::Urls::new(&model.data.base_url).routines());
+            }
+            Some(Page::Workout(_)) => {
+                orders.request_url(crate::Urls::new(&model.data.base_url).workouts());
+            }
+        },
         Msg::LogOut => {
             orders.skip().notify(data::Msg::DeleteSession);
         }
@@ -356,13 +382,13 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
 fn view(model: &Model) -> impl IntoNodes<Msg> {
     nodes![
-        view_navbar(&model.navbar, &model.data),
+        view_navbar(&model.navbar, &model.page, &model.data),
         view_page(&model.page, &model.data),
         data::view(&model.data).map_msg(Msg::Data),
     ]
 }
 
-fn view_navbar(navbar: &Navbar, data_model: &data::Model) -> Node<Msg> {
+fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
     nav![
         C!["navbar"],
         C!["is-fixed-top"],
@@ -373,10 +399,14 @@ fn view_navbar(navbar: &Navbar, data_model: &data::Model) -> Node<Msg> {
                 C!["navbar-brand"],
                 a![
                     C!["navbar-item"],
-                    C!["has-text-light"],
+                    if let Some(Page::Home(_)) | Some(Page::Login(_)) = page {
+                        C!["has-text-primary"]
+                    } else {
+                        C!["has-text-light"]
+                    },
                     C!["has-text-weight-bold"],
                     C!["is-size-5"],
-                    ev(Ev::Click, |_| Url::go_back(1)),
+                    ev(Ev::Click, |_| Msg::GoUp),
                     "❮"
                 ],
                 div![

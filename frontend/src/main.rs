@@ -112,6 +112,7 @@ enum Page {
     Routines(page::routines::Model),
     Routine(page::routine::Model),
     Workouts(page::workouts::Model),
+    Workout(page::workout::Model),
     NotFound,
 }
 
@@ -152,9 +153,11 @@ impl Page {
                     url,
                     &mut orders.proxy(Msg::Exercises),
                 )),
-                Some(EXERCISE) => {
-                    Self::Exercise(page::exercise::init(url, &mut orders.proxy(Msg::Exercise)))
-                }
+                Some(EXERCISE) => Self::Exercise(page::exercise::init(
+                    url,
+                    &mut orders.proxy(Msg::Exercise),
+                    data_model,
+                )),
                 Some(ROUTINES) => {
                     Self::Routines(page::routines::init(url, &mut orders.proxy(Msg::Routines)))
                 }
@@ -166,6 +169,11 @@ impl Page {
                 Some(WORKOUTS) => Self::Workouts(page::workouts::init(
                     url,
                     &mut orders.proxy(Msg::Workouts),
+                    data_model,
+                )),
+                Some(WORKOUT) => Self::Workout(page::workout::init(
+                    url,
+                    &mut orders.proxy(Msg::Workout),
                     data_model,
                 )),
                 Some(_) => Self::NotFound,
@@ -210,6 +218,7 @@ enum Msg {
     Routines(page::routines::Msg),
     Routine(page::routine::Msg),
     Workouts(page::workouts::Msg),
+    Workout(page::workout::Msg),
 
     // ------ Data ------
     Data(data::Msg),
@@ -318,6 +327,16 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Workouts),
+                )
+            }
+        }
+        Msg::Workout(msg) => {
+            if let Some(Page::Workout(page_model)) = &mut model.page {
+                page::workout::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::Workout),
                 )
             }
         }
@@ -458,19 +477,18 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
             Some(Page::Period(model)) => page::period::view(model, data_model).map_msg(Msg::Period),
             Some(Page::Exercises(model)) =>
                 page::exercises::view(model, data_model).map_msg(Msg::Exercises),
-            Some(Page::Exercise(model)) => page::exercise::view(model).map_msg(Msg::Exercise),
+            Some(Page::Exercise(model)) =>
+                page::exercise::view(model, data_model).map_msg(Msg::Exercise),
             Some(Page::Routines(model)) =>
                 page::routines::view(model, data_model).map_msg(Msg::Routines),
             Some(Page::Routine(model)) =>
                 page::routine::view(model, data_model).map_msg(Msg::Routine),
             Some(Page::Workouts(model)) =>
                 page::workouts::view(model, data_model).map_msg(Msg::Workouts),
+            Some(Page::Workout(model)) =>
+                page::workout::view(model, data_model).map_msg(Msg::Workout),
             Some(Page::NotFound) => page::not_found::view(),
-            None => div![
-                C!["is-size-5"],
-                C!["has-text-centered"],
-                i![C!["fas fa-spinner fa-pulse"]]
-            ],
+            None => common::view_loading(),
         }
     ]
 }

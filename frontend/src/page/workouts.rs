@@ -188,7 +188,13 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .map(|w| (w.id, w.date))
                 .collect::<Vec<_>>(),
         ),
-        view_table(model, data_model),
+        view_table(
+            &data_model.workouts,
+            &data_model.routines,
+            &model.interval,
+            &model.base_url,
+            Msg::ShowDeleteWorkoutDialog
+        ),
         common::view_fab(|_| Msg::ShowAddWorkoutDialog),
     ]
 }
@@ -294,7 +300,13 @@ fn view_workouts_dialog(routines: &[data::Routine], dialog: &Dialog, loading: bo
     )
 }
 
-fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
+pub fn view_table<Ms: 'static>(
+    workouts: &[data::Workout],
+    routines: &[data::Routine],
+    interval: &common::Interval,
+    base_url: &Url,
+    delete_workout_message: fn(u32) -> Ms,
+) -> Node<Ms> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -306,59 +318,58 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
             thead![tr![
                 th!["Date"],
                 th!["Routine"],
-                th!["Reps"],
-                th!["Time"],
-                th!["Weight"],
-                th!["RPE"],
-                th!["Reps+RIR"],
+                th!["Avg. reps"],
+                th!["Avg. time (s)"],
+                th!["Avg. weight (kg)"],
+                th!["Avg. RPE"],
+                th!["Avg. reps+RIR"],
                 th!["Volume"],
                 th!["TUT"],
                 th![]
             ]],
-            tbody![&data_model
-                .workouts
+            tbody![workouts
                 .iter()
                 .rev()
-                .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
+                .filter(|w| w.date >= interval.first && w.date <= interval.last)
                 .map(|w| {
                     #[allow(clippy::clone_on_copy)]
                     let id = w.id;
                     tr![
                         td![a![
                             attrs! {
-                                At::Href => crate::Urls::new(&model.base_url).workout().add_hash_path_part(w.id.to_string()),
+                                At::Href => crate::Urls::new(base_url).workout().add_hash_path_part(w.id.to_string()),
                             },
                             span![style! {St::WhiteSpace => "nowrap" }, w.date.to_string()]
                         ]],
                         td![
-                            if w.routine_id.is_some() {
+                            if let Some(routine_id) = w.routine_id {
                                 a![
                                     attrs! {
-                                        At::Href => crate::Urls::new(&model.base_url).routine().add_hash_path_part(w.routine_id.unwrap().to_string()),
+                                        At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(w.routine_id.unwrap().to_string()),
                                     },
-                                    &w.routine
+                                    &routines.iter().find(|r| r.id == routine_id).unwrap().name
                                 ]
                             } else {
                                 plain!["-"]
                             }
                         ],
-                        td![common::value_or_dash(w.avg_reps)],
-                        td![common::value_or_dash(w.avg_time)],
-                        td![common::value_or_dash(w.avg_weight)],
-                        td![common::value_or_dash(w.avg_rpe)],
-                        td![if w.avg_reps.is_some() && w.avg_rpe.is_some() {
-                            format!("{:.1}", w.avg_reps.unwrap() + w.avg_rpe.unwrap() - 10.0)
+                        td![common::value_or_dash(w.avg_reps())],
+                        td![common::value_or_dash(w.avg_time())],
+                        td![common::value_or_dash(w.avg_weight())],
+                        td![common::value_or_dash(w.avg_rpe())],
+                        td![if let (Some(avg_reps), Some(avg_rpe)) = (w.avg_reps(), w.avg_rpe()) {
+                            format!("{:.1}", avg_reps + 10.0 - avg_rpe)
                         } else {
                             "-".into()
                         }],
-                        td![&w.volume],
-                        td![&w.tut],
+                        td![&w.volume()],
+                        td![&w.tut()],
                         td![p![
                             C!["is-flex is-flex-wrap-nowrap"],
                             a![
                                 C!["icon"],
                                 C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteWorkoutDialog(id)),
+                                ev(Ev::Click, move |_| delete_workout_message(id)),
                                 i![C!["fas fa-times"]]
                             ]
                         ]]

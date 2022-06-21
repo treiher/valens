@@ -13,7 +13,7 @@ from flask.typing import ResponseReturnValue
 from sqlalchemy import column, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from valens import bodyfat, bodyweight, database as db, diagram, statistics, storage, version
+from valens import bodyfat, bodyweight, database as db, diagram, storage, version
 from valens.models import (
     BodyFat,
     BodyWeight,
@@ -64,6 +64,27 @@ def to_routine_exercises(json: list[dict[str, Any]]) -> list[RoutineExercise]:  
         )
 
     return exercises
+
+
+def to_workout_sets(json: list[dict[str, Any]]) -> list[WorkoutSet]:  # type: ignore[misc]
+    sets = [
+        WorkoutSet(
+            position=workout_set["position"],
+            exercise_id=workout_set["exercise_id"],
+            reps=workout_set["reps"],
+            time=workout_set["time"],
+            weight=workout_set["weight"],
+            rpe=workout_set["rpe"],
+        )
+        for workout_set in json
+    ]
+
+    if sorted(e.position for e in sets) != list(range(1, len(sets) + 1)):
+        raise DeserializationError(
+            "workout set positions must be in ascending order without gaps, starting with 1"
+        )
+
+    return sets
 
 
 def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]
@@ -797,20 +818,17 @@ def delete_routine(id_: int) -> ResponseReturnValue:
 @bp.route("/workouts")
 @session_required
 def read_workouts() -> ResponseReturnValue:
-    if request.args.get("format", None) == "statistics":
-        df = statistics.workouts(session["user_id"])
-
-        if df.empty:
-            return jsonify([])
-
-        return jsonify(df.replace([np.nan], [None]).to_dict(orient="records"))
-
     workouts = (
         db.session.execute(select(Workout).where(Workout.user_id == session["user_id"]))
         .scalars()
         .all()
     )
-    return jsonify([model_to_dict(w) for w in workouts])
+    return jsonify(
+        [
+            {**model_to_dict(w), "sets": [model_to_dict(s, exclude=["workout_id"]) for s in w.sets]}
+            for w in workouts
+        ]
+    )
 
 
 @bp.route("/workouts", methods=["POST"])
@@ -857,9 +875,58 @@ def create_workout() -> ResponseReturnValue:
     db.session.commit()
 
     return (
-        jsonify(model_to_dict(workout)),
+        jsonify(
+            {
+                **model_to_dict(workout),
+                "sets": [model_to_dict(e, exclude=["workout_id"]) for e in workout.sets],
+            }
+        ),
         HTTPStatus.CREATED,
         {"Location": f"/workouts/{workout.id}"},
+    )
+
+
+@bp.route("/workouts/<int:id_>", methods=["PUT", "PATCH"])
+@session_required
+@json_expected
+def update_workout(id_: int) -> ResponseReturnValue:
+    try:
+        workout = (
+            db.session.execute(
+                select(Workout)
+                .where(Workout.id == id_)
+                .where(Workout.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        )
+    except (NoResultFound, ValueError):
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        if "date" in data or request.method == "PUT":
+            workout.date = date.fromisoformat(data["date"])
+        if "notes" in data or request.method == "PUT":
+            workout.notes = data["notes"]
+        if "sets" in data or request.method == "PUT":
+            workout.sets = to_workout_sets(data["sets"])
+    except (DeserializationError, KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                **model_to_dict(workout),
+                "sets": [model_to_dict(e, exclude=["workout_id"]) for e in workout.sets],
+            }
+        ),
+        HTTPStatus.OK,
     )
 
 

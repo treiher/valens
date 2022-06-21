@@ -44,7 +44,7 @@ pub struct Model {
     pub period: Vec<Period>,
     pub exercises: Vec<Exercise>,
     pub routines: Vec<Routine>,
-    pub workouts: Vec<WorkoutStats>,
+    pub workouts: Vec<Workout>,
     pub last_refresh: DateTime<Utc>,
 }
 
@@ -134,26 +134,79 @@ pub struct RoutineExercise {
     pub sets: u32,
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Workout {
     pub id: u32,
     pub routine_id: Option<u32>,
     pub date: NaiveDate,
-    pub notes: String,
+    pub notes: Option<String>,
+    pub sets: Vec<WorkoutSet>,
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct WorkoutStats {
-    pub id: u32,
-    pub routine_id: Option<u32>,
-    pub routine: String,
-    pub date: NaiveDate,
-    pub avg_reps: Option<f32>,
-    pub avg_time: Option<f32>,
-    pub avg_weight: Option<f32>,
-    pub avg_rpe: Option<f32>,
-    pub volume: u32,
-    pub tut: u32,
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct WorkoutSet {
+    pub position: u32,
+    pub exercise_id: u32,
+    pub reps: Option<u32>,
+    pub time: Option<u32>,
+    pub weight: Option<f32>,
+    pub rpe: Option<f32>,
+}
+
+impl Workout {
+    pub fn avg_reps(&self) -> Option<f32> {
+        let sets = &self.sets.iter().filter_map(|s| s.reps).collect::<Vec<_>>();
+        if sets.is_empty() {
+            None
+        } else {
+            Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
+        }
+    }
+
+    pub fn avg_time(&self) -> Option<f32> {
+        let sets = &self.sets.iter().filter_map(|s| s.time).collect::<Vec<_>>();
+        if sets.is_empty() {
+            None
+        } else {
+            Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
+        }
+    }
+
+    pub fn avg_weight(&self) -> Option<f32> {
+        let sets = &self
+            .sets
+            .iter()
+            .filter_map(|s| s.weight)
+            .collect::<Vec<_>>();
+        if sets.is_empty() {
+            None
+        } else {
+            Some(sets.iter().sum::<f32>() / sets.len() as f32)
+        }
+    }
+
+    pub fn avg_rpe(&self) -> Option<f32> {
+        let sets = &self.sets.iter().filter_map(|s| s.rpe).collect::<Vec<_>>();
+        if sets.is_empty() {
+            None
+        } else {
+            Some(sets.iter().sum::<f32>() / sets.len() as f32)
+        }
+    }
+
+    pub fn volume(&self) -> u32 {
+        let sets = &self.sets.iter().filter_map(|s| s.reps).collect::<Vec<_>>();
+        sets.iter().sum::<u32>()
+    }
+
+    pub fn tut(&self) -> u32 {
+        let sets = &self
+            .sets
+            .iter()
+            .map(|s| s.reps.unwrap_or(1) * s.time.unwrap_or(0))
+            .collect::<Vec<_>>();
+        sets.iter().sum::<u32>()
+    }
 }
 
 // ------ ------
@@ -234,9 +287,11 @@ pub enum Msg {
     RoutineDeleted(Result<(), String>),
 
     ReadWorkouts,
-    WorkoutsRead(Result<Vec<WorkoutStats>, String>),
+    WorkoutsRead(Result<Vec<Workout>, String>),
     CreateWorkout(NaiveDate, u32),
     WorkoutCreated(Result<Workout, String>),
+    ModifyWorkout(u32, Option<String>, Option<Vec<WorkoutSet>>),
+    WorkoutModified(Result<Workout, String>),
     DeleteWorkout(u32),
     WorkoutDeleted(Result<(), String>),
 }
@@ -279,8 +334,12 @@ pub enum Event {
     RoutineModifiedErr,
     RoutineDeletedOk,
     RoutineDeletedErr,
+    WorkoutsReadOk,
+    WorkoutsReadErr,
     WorkoutCreatedOk,
     WorkoutCreatedErr,
+    WorkoutModifiedOk,
+    WorkoutModifiedErr,
     WorkoutDeletedOk,
     WorkoutDeletedErr,
 }
@@ -880,14 +939,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadWorkouts => {
-            orders.skip().perform_cmd(async {
-                fetch("api/workouts?format=statistics", Msg::WorkoutsRead).await
-            });
+            orders
+                .skip()
+                .perform_cmd(async { fetch("api/workouts", Msg::WorkoutsRead).await });
         }
         Msg::WorkoutsRead(Ok(workouts)) => {
+            orders.notify(Event::WorkoutsReadOk);
             model.workouts = workouts;
         }
         Msg::WorkoutsRead(Err(message)) => {
+            orders.notify(Event::WorkoutsReadErr);
             model
                 .errors
                 .push("Failed to read workouts: ".to_owned() + &message);
@@ -914,6 +975,36 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model
                 .errors
                 .push("Failed to create workout: ".to_owned() + &message);
+        }
+        Msg::ModifyWorkout(id, notes, sets) => {
+            let mut content = Map::new();
+            if let Some(notes) = notes {
+                content.insert("notes".into(), json!(notes));
+            }
+            if let Some(sets) = sets {
+                content.insert("sets".into(), json!(sets));
+            }
+            orders.perform_cmd(async move {
+                fetch(
+                    Request::new(format!("api/workouts/{}", id))
+                        .method(Method::Patch)
+                        .json(&content)
+                        .expect("serialization failed"),
+                    Msg::WorkoutModified,
+                )
+                .await
+            });
+        }
+        Msg::WorkoutModified(Ok(_)) => {
+            orders
+                .notify(Event::WorkoutModifiedOk)
+                .send_msg(Msg::ReadWorkouts);
+        }
+        Msg::WorkoutModified(Err(message)) => {
+            orders.notify(Event::WorkoutModifiedErr);
+            model
+                .errors
+                .push("Failed to modify workout: ".to_owned() + &message);
         }
         Msg::DeleteWorkout(id) => {
             orders.perform_cmd(async move {

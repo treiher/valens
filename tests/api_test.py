@@ -132,6 +132,31 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             },
         ),
         ("post", "/api/workouts", {"invalid": "data"}),
+        ("put", "/api/workouts/1", {"invalid": "data"}),
+        (
+            "patch",
+            "/api/workouts/1",
+            {
+                "sets": [
+                    {
+                        "position": 1,
+                        "exercise_id": 3,
+                        "reps": 10,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.0,
+                    },
+                    {
+                        "position": 3,
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": 60,
+                        "weight": None,
+                        "rpe": 9.0,
+                    },
+                ],
+            },
+        ),
     ],
 )
 def test_invalid_data(client: Client, method: str, route: str, data: object) -> None:
@@ -528,42 +553,80 @@ def test_delete_user(client: Client) -> None:
                     "date": "2002-02-20",
                     "routine_id": 1,
                     "notes": "First Workout",
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 10,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 9.0,
+                        },
+                    ],
                 },
                 {
                     "id": 3,
                     "date": "2002-02-22",
                     "routine_id": None,
                     "notes": None,
-                },
-            ],
-        ),
-        (
-            1,
-            "/api/workouts?format=statistics",
-            [
-                {
-                    "avg_reps": 9.5,
-                    "avg_rpe": 8.5,
-                    "avg_time": 22.666666666666668,
-                    "avg_weight": None,
-                    "date": "2002-02-20",
-                    "id": 1,
-                    "routine": "R1",
-                    "routine_id": 1,
-                    "tut": 136.0,
-                    "volume": 19.0,
-                },
-                {
-                    "avg_reps": 7.0,
-                    "avg_rpe": None,
-                    "avg_time": None,
-                    "avg_weight": None,
-                    "date": "2002-02-22",
-                    "id": 3,
-                    "routine": "",
-                    "routine_id": None,
-                    "tut": 0.0,
-                    "volume": 35.0,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 9,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 3,
+                            "reps": 8,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 3,
+                            "reps": 7,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 4,
+                            "exercise_id": 3,
+                            "reps": 6,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 5,
+                            "exercise_id": 3,
+                            "reps": 5,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                    ],
                 },
             ],
         ),
@@ -736,11 +799,151 @@ def test_create(
 def test_create_workout(client: Client) -> None:
     route = "/api/workouts"
     data = {"date": "2002-02-24", "routine_id": 1}
-    created = {"date": "2002-02-24", "id": 4, "notes": "", "routine_id": 1}
+    created = {
+        "date": "2002-02-24",
+        "id": 4,
+        "notes": "",
+        "routine_id": 1,
+        "sets": [
+            {
+                "position": 1,
+                "exercise_id": 3,
+                "reps": None,
+                "time": None,
+                "weight": None,
+                "rpe": None,
+            },
+            {
+                "position": 2,
+                "exercise_id": 1,
+                "reps": None,
+                "time": None,
+                "weight": None,
+                "rpe": None,
+            },
+            {
+                "position": 3,
+                "exercise_id": 1,
+                "reps": None,
+                "time": None,
+                "weight": None,
+                "rpe": None,
+            },
+        ],
+    }
     result = [
-        {"date": "2002-02-20", "id": 1, "notes": "First Workout", "routine_id": 1},
-        {"date": "2002-02-22", "id": 3, "notes": None, "routine_id": None},
-        {"date": "2002-02-24", "id": 4, "notes": "", "routine_id": 1},
+        {
+            "date": "2002-02-20",
+            "id": 1,
+            "notes": "First Workout",
+            "routine_id": 1,
+            "sets": [
+                {
+                    "position": 1,
+                    "exercise_id": 3,
+                    "reps": 10,
+                    "time": 4,
+                    "weight": None,
+                    "rpe": 8.0,
+                },
+                {
+                    "position": 2,
+                    "exercise_id": 1,
+                    "reps": 9,
+                    "time": 4,
+                    "weight": None,
+                    "rpe": 8.5,
+                },
+                {
+                    "position": 3,
+                    "exercise_id": 1,
+                    "reps": None,
+                    "time": 60,
+                    "weight": None,
+                    "rpe": 9.0,
+                },
+            ],
+        },
+        {
+            "date": "2002-02-22",
+            "id": 3,
+            "notes": None,
+            "routine_id": None,
+            "sets": [
+                {
+                    "position": 1,
+                    "exercise_id": 3,
+                    "reps": 9,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+                {
+                    "position": 2,
+                    "exercise_id": 3,
+                    "reps": 8,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+                {
+                    "position": 3,
+                    "exercise_id": 3,
+                    "reps": 7,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+                {
+                    "position": 4,
+                    "exercise_id": 3,
+                    "reps": 6,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+                {
+                    "position": 5,
+                    "exercise_id": 3,
+                    "reps": 5,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+            ],
+        },
+        {
+            "date": "2002-02-24",
+            "id": 4,
+            "notes": "",
+            "routine_id": 1,
+            "sets": [
+                {
+                    "position": 1,
+                    "exercise_id": 3,
+                    "reps": None,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+                {
+                    "position": 2,
+                    "exercise_id": 1,
+                    "reps": None,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+                {
+                    "position": 3,
+                    "exercise_id": 1,
+                    "reps": None,
+                    "time": None,
+                    "weight": None,
+                    "rpe": None,
+                },
+            ],
+        },
     ]
 
     tests.utils.init_db_data()
@@ -891,6 +1094,130 @@ def test_create_workout(client: Client) -> None:
                 "exercises": [],
             },
         ),
+        (
+            "/api/workouts/1",
+            {
+                "date": "2002-02-23",
+                "notes": "",
+                "sets": [
+                    {
+                        "position": 1,
+                        "exercise_id": 1,
+                        "reps": 9,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.5,
+                    },
+                    {
+                        "position": 2,
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": 60,
+                        "weight": None,
+                        "rpe": 9.0,
+                    },
+                ],
+            },
+            {
+                "id": 1,
+                "routine_id": 1,
+                "date": "2002-02-23",
+                "notes": "",
+                "sets": [
+                    {
+                        "position": 1,
+                        "exercise_id": 1,
+                        "reps": 9,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.5,
+                    },
+                    {
+                        "position": 2,
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": 60,
+                        "weight": None,
+                        "rpe": 9.0,
+                    },
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "routine_id": 1,
+                    "date": "2002-02-23",
+                    "notes": "",
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 9.0,
+                        },
+                    ],
+                },
+                {
+                    "id": 3,
+                    "date": "2002-02-22",
+                    "notes": None,
+                    "routine_id": None,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 9,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 3,
+                            "reps": 8,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 3,
+                            "reps": 7,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 4,
+                            "exercise_id": 3,
+                            "reps": 6,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 5,
+                            "exercise_id": 3,
+                            "reps": 5,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                    ],
+                },
+            ],
+            None,
+        ),
     ],
 )
 def test_replace(
@@ -920,10 +1247,11 @@ def test_replace(
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
 
-    resp = client.put(route, json=conflicting_data)
+    if conflicting_data is not None:
+        resp = client.put(route, json=conflicting_data)
 
-    assert resp.status_code == HTTPStatus.CONFLICT
-    assert resp.json
+        assert resp.status_code == HTTPStatus.CONFLICT
+        assert resp.json
 
 
 @pytest.mark.parametrize(
@@ -1042,6 +1370,370 @@ def test_replace(
             ],
             {"name": "R2", "notes": "", "exercises": []},
         ),
+        (
+            "/api/workouts/1",
+            {
+                "date": "2002-02-23",
+            },
+            {
+                "id": 1,
+                "date": "2002-02-23",
+                "routine_id": 1,
+                "notes": "First Workout",
+                "sets": [
+                    {
+                        "position": 1,
+                        "exercise_id": 3,
+                        "reps": 10,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.0,
+                    },
+                    {
+                        "position": 2,
+                        "exercise_id": 1,
+                        "reps": 9,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.5,
+                    },
+                    {
+                        "position": 3,
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": 60,
+                        "weight": None,
+                        "rpe": 9.0,
+                    },
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "date": "2002-02-23",
+                    "routine_id": 1,
+                    "notes": "First Workout",
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 10,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 9.0,
+                        },
+                    ],
+                },
+                {
+                    "id": 3,
+                    "date": "2002-02-22",
+                    "routine_id": None,
+                    "notes": None,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 9,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 3,
+                            "reps": 8,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 3,
+                            "reps": 7,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 4,
+                            "exercise_id": 3,
+                            "reps": 6,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 5,
+                            "exercise_id": 3,
+                            "reps": 5,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                    ],
+                },
+            ],
+            None,
+        ),
+        (
+            "/api/workouts/1",
+            {
+                "notes": "",
+            },
+            {
+                "id": 1,
+                "date": "2002-02-20",
+                "routine_id": 1,
+                "notes": "",
+                "sets": [
+                    {
+                        "position": 1,
+                        "exercise_id": 3,
+                        "reps": 10,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.0,
+                    },
+                    {
+                        "position": 2,
+                        "exercise_id": 1,
+                        "reps": 9,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.5,
+                    },
+                    {
+                        "position": 3,
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": 60,
+                        "weight": None,
+                        "rpe": 9.0,
+                    },
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "date": "2002-02-20",
+                    "routine_id": 1,
+                    "notes": "",
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 10,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 9.0,
+                        },
+                    ],
+                },
+                {
+                    "id": 3,
+                    "date": "2002-02-22",
+                    "routine_id": None,
+                    "notes": None,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 9,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 3,
+                            "reps": 8,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 3,
+                            "reps": 7,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 4,
+                            "exercise_id": 3,
+                            "reps": 6,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 5,
+                            "exercise_id": 3,
+                            "reps": 5,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                    ],
+                },
+            ],
+            None,
+        ),
+        (
+            "/api/workouts/1",
+            {
+                "sets": [
+                    {
+                        "position": 1,
+                        "exercise_id": 1,
+                        "reps": 9,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.5,
+                    },
+                    {
+                        "position": 2,
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": 60,
+                        "weight": None,
+                        "rpe": 9.0,
+                    },
+                ],
+            },
+            {
+                "id": 1,
+                "routine_id": 1,
+                "date": "2002-02-20",
+                "notes": "First Workout",
+                "sets": [
+                    {
+                        "position": 1,
+                        "exercise_id": 1,
+                        "reps": 9,
+                        "time": 4,
+                        "weight": None,
+                        "rpe": 8.5,
+                    },
+                    {
+                        "position": 2,
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": 60,
+                        "weight": None,
+                        "rpe": 9.0,
+                    },
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "date": "2002-02-20",
+                    "routine_id": 1,
+                    "notes": "First Workout",
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 9.0,
+                        },
+                    ],
+                },
+                {
+                    "id": 3,
+                    "date": "2002-02-22",
+                    "routine_id": None,
+                    "notes": None,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 9,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 3,
+                            "reps": 8,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 3,
+                            "reps": 7,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 4,
+                            "exercise_id": 3,
+                            "reps": 6,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                        {
+                            "position": 5,
+                            "exercise_id": 3,
+                            "reps": 5,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                        },
+                    ],
+                },
+            ],
+            None,
+        ),
     ],
 )
 def test_modify(
@@ -1071,10 +1763,11 @@ def test_modify(
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
 
-    resp = client.patch(route, json=conflicting_data)
+    if conflicting_data is not None:
+        resp = client.patch(route, json=conflicting_data)
 
-    assert resp.status_code == HTTPStatus.CONFLICT
-    assert resp.json
+        assert resp.status_code == HTTPStatus.CONFLICT
+        assert resp.json
 
 
 @pytest.mark.parametrize(
@@ -1138,6 +1831,32 @@ def test_modify(
                     "date": "2002-02-20",
                     "routine_id": 1,
                     "notes": "First Workout",
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 10,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 9.0,
+                        },
+                    ],
                 },
             ],
         ),

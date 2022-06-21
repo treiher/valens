@@ -9,4 +9,5 @@ pub mod not_found;
 pub mod period;
 pub mod routine;
 pub mod routines;
+pub mod workout;
 pub mod workouts;

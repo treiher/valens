@@ -1,10 +1,7 @@
-use seed::{prelude::*, *};
+use seed::prelude::*;
+
+use crate::common;
 
 pub fn view<Ms>() -> Node<Ms> {
-    div![
-        C!["message"],
-        C!["is-danger"],
-        C!["mx-2"],
-        div![C!["message-body"], "Page not found"],
-    ]
+    common::view_error_not_found("Page")
 }

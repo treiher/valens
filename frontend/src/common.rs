@@ -260,6 +260,33 @@ pub fn view_diagram<Ms>(
     ]
 }
 
+pub fn view_loading<Ms>() -> Node<Ms> {
+    div![
+        C!["is-size-4"],
+        C!["has-text-centered"],
+        i![C!["fas fa-spinner fa-pulse"]]
+    ]
+}
+
+pub fn view_error_not_found<Ms>(element: &str) -> Node<Ms> {
+    div![
+        C!["message"],
+        C!["has-background-white"],
+        C!["is-danger"],
+        C!["mx-2"],
+        div![
+            C!["message-body"],
+            C!["has-text-dark"],
+            div![
+                C!["title"],
+                C!["has-text-danger"],
+                C!["is-size-4"],
+                format!("{element} not found")
+            ],
+        ]
+    ]
+}
+
 pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     if let Some(value) = option {
         format!("{:.1}", value)

@@ -1,10 +1,12 @@
 use std::cmp;
+use std::collections::HashSet;
 
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::common;
 use crate::data;
+use crate::page::workouts;
 
 // ------ ------
 //     Init
@@ -33,12 +35,40 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
             .collect::<Vec<NaiveDate>>(),
     );
 
+    let routine = &data_model.routines.iter().find(|r| r.id == routine_id);
+
     Model {
         base_url,
         interval: common::Interval { first, last },
         routine_id,
+        previous_exercises: init_previous_exercises(routine, data_model),
         dialog: Dialog::Hidden,
         loading: false,
+    }
+}
+
+fn init_previous_exercises(
+    routine: &Option<&data::Routine>,
+    data_model: &data::Model,
+) -> HashSet<u32> {
+    if let Some(routine) = routine {
+        let workouts = &data_model
+            .workouts
+            .iter()
+            .filter(|w| w.routine_id == Some(routine.id))
+            .collect::<Vec<_>>();
+        let all_exercises = &workouts
+            .iter()
+            .flat_map(|w| w.sets.iter().map(|s| s.exercise_id))
+            .collect::<HashSet<_>>();
+        let current_exercises = &routine
+            .exercises
+            .iter()
+            .map(|e| e.exercise_id)
+            .collect::<HashSet<_>>();
+        all_exercises - current_exercises
+    } else {
+        HashSet::new()
     }
 }
 
@@ -50,6 +80,7 @@ pub struct Model {
     base_url: Url,
     interval: common::Interval,
     routine_id: u32,
+    previous_exercises: HashSet<u32>,
     dialog: Dialog,
     loading: bool,
 }
@@ -330,6 +361,13 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
+                data::Event::WorkoutsReadOk => {
+                    let routine = &data_model
+                        .routines
+                        .iter()
+                        .find(|r| r.id == model.routine_id);
+                    model.previous_exercises = init_previous_exercises(routine, data_model);
+                }
                 data::Event::RoutineCreatedOk
                 | data::Event::RoutineModifiedOk
                 | data::Event::RoutineDeletedOk
@@ -361,6 +399,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             view_exercise_dialog(&data_model.exercises, routine, &model.dialog, model.loading),
             nodes![
                 view_routine_exercises(model, data_model, routine),
+                view_previous_exercises(model, data_model),
                 view_workouts(model, data_model),
                 common::view_fab(|_| Msg::ShowAddExerciseDialog),
             ]
@@ -574,6 +613,34 @@ fn view_routine_exercises(
     ]
 }
 
+fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    if not(model.previous_exercises.is_empty()) {
+        div![
+            C!["container"],
+            C!["has-text-centered"],
+            C!["mt-6"],
+            h1![C!["title"], C!["is-5"], "Previously used exercises"],
+            &model
+                .previous_exercises
+                .iter()
+                .map(|exercise_id| {
+                    p![
+                        C!["m-2"],
+                        a![
+                            attrs! {
+                                At::Href => crate::Urls::new(&model.base_url).exercise().add_hash_path_part(exercise_id.to_string()),
+                            },
+                            &data_model.exercises.iter().find(|e| e.id == *exercise_id).unwrap().name
+                        ]
+                    ]
+                })
+            .collect::<Vec<_>>(),
+        ]
+    } else {
+        empty![]
+    }
+}
+
 fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["container"],
@@ -587,81 +654,17 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
             &model.interval,
             &0
         ),
-        view_workouts_table(model, data_model),
-    ]
-}
-
-fn view_workouts_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    div![
-        C!["table-container"],
-        C!["mt-4"],
-        table![
-            C!["table"],
-            C!["is-fullwidth"],
-            C!["is-hoverable"],
-            C!["has-text-centered"],
-            thead![tr![
-                th!["Date"],
-                th!["Routine"],
-                th!["Reps"],
-                th!["Time"],
-                th!["Weight"],
-                th!["RPE"],
-                th!["Reps+RIR"],
-                th!["Volume"],
-                th!["TUT"],
-                th![]
-            ]],
-            tbody![&data_model
+        workouts::view_table(
+            &data_model
                 .workouts
                 .iter()
-                .rev()
-                .filter(|w| w.routine_id == Some(model.routine_id) && w.date >= model.interval.first && w.date <= model.interval.last)
-                .map(|w| {
-                    #[allow(clippy::clone_on_copy)]
-                    let id = w.id;
-                    tr![
-                        td![a![
-                            attrs! {
-                                At::Href => crate::Urls::new(&model.base_url).workout().add_hash_path_part(w.id.to_string()),
-                            },
-                            span![style! {St::WhiteSpace => "nowrap" }, w.date.to_string()]
-                        ]],
-                        td![
-                            if w.routine_id.is_some() {
-                                a![
-                                    attrs! {
-                                        At::Href => crate::Urls::new(&model.base_url).routine().add_hash_path_part(w.routine_id.unwrap().to_string()),
-                                    },
-                                    &w.routine
-                                ]
-                            } else {
-                                plain!["-"]
-                            }
-                        ],
-                        td![common::value_or_dash(w.avg_reps)],
-                        td![common::value_or_dash(w.avg_time)],
-                        td![common::value_or_dash(w.avg_weight)],
-                        td![common::value_or_dash(w.avg_rpe)],
-                        td![if w.avg_reps.is_some() && w.avg_rpe.is_some() {
-                            format!("{:.1}", w.avg_reps.unwrap() + w.avg_rpe.unwrap() - 10.0)
-                        } else {
-                            "-".into()
-                        }],
-                        td![&w.volume],
-                        td![&w.tut],
-                        td![p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteWorkoutDialog(id)),
-                                i![C!["fas fa-times"]]
-                            ]
-                        ]]
-                    ]
-                })
-                .collect::<Vec<_>>()],
-        ]
+                .filter(|w| w.routine_id == Some(model.routine_id))
+                .cloned()
+                .collect::<Vec<_>>(),
+            &data_model.routines,
+            &model.interval,
+            &model.base_url,
+            Msg::ShowDeleteWorkoutDialog
+        ),
     ]
 }

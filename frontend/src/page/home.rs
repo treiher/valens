@@ -7,19 +7,15 @@ use crate::data;
 //     Init
 // ------ ------
 
-pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
-    let base_url = url.to_hash_base_url();
-
-    Model { base_url }
+pub fn init(_url: Url, _orders: &mut impl Orders<Msg>) -> Model {
+    Model {}
 }
 
 // ------ ------
 //     Model
 // ------ ------
 
-pub struct Model {
-    base_url: Url,
-}
+pub struct Model {}
 
 // ------ ------
 //    Update
@@ -33,7 +29,7 @@ pub fn update(_msg: Msg, _model: &mut Model, _orders: &mut impl Orders<Msg>) {}
 //     View
 // ------ ------
 
-pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
+pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     let local: NaiveDate = Local::now().date().naive_local();
     let body_weight_subtitle;
     let body_weight_content;
@@ -71,35 +67,35 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             "Workouts",
             "",
             "",
-            crate::Urls::new(&model.base_url).workouts()
+            crate::Urls::new(&data_model.base_url).workouts()
         ),
         view_tile(
             "Routines",
             "",
             "",
-            crate::Urls::new(&model.base_url).routines()
+            crate::Urls::new(&data_model.base_url).routines()
         ),
         view_tile(
             "Exercises",
             "",
             "",
-            crate::Urls::new(&model.base_url).exercises()
+            crate::Urls::new(&data_model.base_url).exercises()
         ),
         view_tile(
             "Body weight",
             &body_weight_subtitle,
             &body_weight_content,
-            crate::Urls::new(&model.base_url).body_weight()
+            crate::Urls::new(&data_model.base_url).body_weight()
         ),
         view_tile(
             "Body fat",
             &body_fat_subtitle,
             &body_fat_content,
-            crate::Urls::new(&model.base_url).body_fat()
+            crate::Urls::new(&data_model.base_url).body_fat()
         ),
         IF![
             data_model.session.as_ref().unwrap().sex == 0 => {
-                view_tile("Period", "", &period_content, crate::Urls::new(&model.base_url).period())
+                view_tile("Period", "", &period_content, crate::Urls::new(&data_model.base_url).period())
             }
         ],
     ]

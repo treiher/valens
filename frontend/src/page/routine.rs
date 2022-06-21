@@ -13,7 +13,6 @@ use crate::page::workouts;
 // ------ ------
 
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
-    let base_url = url.to_hash_base_url();
     let routine_id = url
         .next_hash_path_part()
         .unwrap_or("")
@@ -29,7 +28,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
     let routine = &data_model.routines.iter().find(|r| r.id == routine_id);
 
     Model {
-        base_url,
         interval: common::init_interval(
             &data_model
                 .workouts
@@ -76,7 +74,6 @@ fn init_previous_exercises(
 // ------ ------
 
 pub struct Model {
-    base_url: Url,
     interval: common::Interval,
     routine_id: u32,
     previous_exercises: HashSet<u32>,
@@ -170,7 +167,7 @@ pub fn update(
             model.dialog = Dialog::Hidden;
             model.loading = false;
             Url::go_and_replace(
-                &crate::Urls::new(&model.base_url)
+                &crate::Urls::new(&data_model.base_url)
                     .routine()
                     .add_hash_path_part(model.routine_id.to_string()),
             );
@@ -406,7 +403,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             view_exercise_dialog(&data_model.exercises, routine, &model.dialog, model.loading),
             nodes![
-                view_routine_exercises(model, data_model, routine),
+                view_routine_exercises(data_model, routine),
                 view_previous_exercises(model, data_model),
                 view_workouts(model, data_model),
                 common::view_fab(|_| Msg::ShowAddExerciseDialog),
@@ -563,11 +560,7 @@ fn view_exercise_dialog(
     )
 }
 
-fn view_routine_exercises(
-    model: &Model,
-    data_model: &data::Model,
-    routine: &data::Routine,
-) -> Node<Msg> {
+fn view_routine_exercises(data_model: &data::Model, routine: &data::Routine) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -593,7 +586,7 @@ fn view_routine_exercises(
                         td![
                                 a![
                                     attrs! {
-                                        At::Href => crate::Urls::new(&model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
+                                        At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
                                     },
                                         &data_model.exercises.iter().find(|x| x.id == e.exercise_id).unwrap().name
                                 ]
@@ -636,7 +629,7 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
                         C!["m-2"],
                         a![
                             attrs! {
-                                At::Href => crate::Urls::new(&model.base_url).exercise().add_hash_path_part(exercise_id.to_string()),
+                                At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(exercise_id.to_string()),
                             },
                             &data_model.exercises.iter().find(|e| e.id == *exercise_id).unwrap().name
                         ]
@@ -657,7 +650,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
         h1![C!["title"], C!["is-5"], "Workouts"],
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         common::view_diagram(
-            &model.base_url,
+            &data_model.base_url,
             &format!("workouts/{}", model.routine_id),
             &model.interval,
             &0
@@ -671,7 +664,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .collect::<Vec<_>>(),
             &data_model.routines,
             &model.interval,
-            &model.base_url,
+            &data_model.base_url,
             Msg::ShowDeleteWorkoutDialog
         ),
     ]

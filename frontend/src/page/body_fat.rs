@@ -9,8 +9,6 @@ use crate::data;
 // ------ ------
 
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
-    let base_url = url.to_hash_base_url();
-
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddBodyFatDialog);
     }
@@ -18,7 +16,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
     orders.subscribe(Msg::DataEvent);
 
     Model {
-        base_url,
         interval: common::init_interval(
             &data_model
                 .body_fat
@@ -37,7 +34,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
 // ------ ------
 
 pub struct Model {
-    base_url: Url,
     interval: common::Interval,
     dialog: Dialog,
     loading: bool,
@@ -208,7 +204,7 @@ pub fn update(
         }
         Msg::CloseBodyFatDialog => {
             model.dialog = Dialog::Hidden;
-            Url::go_and_replace(&crate::Urls::new(&model.base_url).body_fat());
+            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).body_fat());
         }
 
         Msg::DateChanged(date) => match model.dialog {
@@ -448,7 +444,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_fab(|_| Msg::ShowAddBodyFatDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         common::view_diagram(
-            &model.base_url,
+            &data_model.base_url,
             "bodyfat",
             &model.interval,
             &data_model

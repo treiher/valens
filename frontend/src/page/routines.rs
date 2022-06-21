@@ -8,8 +8,6 @@ use crate::data;
 // ------ ------
 
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
-    let base_url = url.to_hash_base_url();
-
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddRoutineDialog);
     }
@@ -17,7 +15,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
     orders.subscribe(Msg::DataEvent);
 
     Model {
-        base_url,
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -28,7 +25,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
 // ------ ------
 
 pub struct Model {
-    base_url: Url,
     dialog: Dialog,
     loading: bool,
 }
@@ -88,7 +84,7 @@ pub fn update(
         }
         Msg::CloseRoutineDialog => {
             model.dialog = Dialog::Hidden;
-            Url::go_and_replace(&crate::Urls::new(&model.base_url).routines());
+            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).routines());
         }
 
         Msg::NameChanged(name) => match model.dialog {
@@ -144,7 +140,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_routine_dialog(&model.dialog, &data_model.routines, model.loading),
         common::view_fab(|_| Msg::ShowAddRoutineDialog),
-        view_table(model, data_model),
+        view_table(data_model),
     ]
 }
 
@@ -228,7 +224,7 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: boo
     )
 }
 
-fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
+fn view_table(data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -247,7 +243,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         td![a![
                             attrs! {
                                 At::Href => {
-                                    crate::Urls::new(&model.base_url)
+                                    crate::Urls::new(&data_model.base_url)
                                         .routine()
                                         .add_hash_path_part(id.to_string())
                                 }

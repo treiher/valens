@@ -10,7 +10,6 @@ use crate::page::workouts;
 // ------ ------
 
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
-    let base_url = url.to_hash_base_url();
     let exercise_id = url
         .next_hash_path_part()
         .unwrap_or("")
@@ -20,7 +19,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
     orders.subscribe(Msg::DataEvent);
 
     Model {
-        base_url,
         interval: common::init_interval(
             &data_model
                 .workouts
@@ -41,7 +39,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
 // ------ ------
 
 pub struct Model {
-    base_url: Url,
     interval: common::Interval,
     exercise_id: u32,
     dialog: Dialog,
@@ -81,7 +78,7 @@ pub fn update(
             model.dialog = Dialog::Hidden;
             model.loading = false;
             Url::go_and_replace(
-                &crate::Urls::new(&model.base_url)
+                &crate::Urls::new(&data_model.base_url)
                     .routine()
                     .add_hash_path_part(model.exercise_id.to_string()),
             );
@@ -132,7 +129,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
             common::view_diagram(
-                &model.base_url,
+                &data_model.base_url,
                 &format!("exercise/{}", model.exercise_id),
                 &model.interval,
                 &0
@@ -157,7 +154,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     .collect::<Vec<_>>(),
                 &data_model.routines,
                 &model.interval,
-                &model.base_url,
+                &data_model.base_url,
                 Msg::ShowDeleteWorkoutDialog
             ),
             view_dialog(&model.dialog, model.loading)

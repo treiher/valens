@@ -11,7 +11,6 @@ use crate::data;
 // ------ ------
 
 pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
-    let base_url = url.to_hash_base_url();
     let workout_id = url
         .next_hash_path_part()
         .unwrap_or("")
@@ -23,7 +22,6 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
     let workout = &data_model.workouts.iter().find(|w| w.id == workout_id);
 
     Model {
-        base_url,
         workout_id,
         form: init_form(workout),
         previous_sets: init_previous_sets(workout, data_model),
@@ -101,7 +99,6 @@ fn init_previous_sets(
 // ------ ------
 
 pub struct Model {
-    base_url: Url,
     workout_id: u32,
     form: Form,
     previous_sets: HashMap<u32, Vec<data::WorkoutSet>>,
@@ -269,7 +266,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     a![
                         attrs! {
                             At::Href => {
-                                crate::Urls::new(&model.base_url)
+                                crate::Urls::new(&data_model.base_url)
                                     .exercise()
                                     .add_hash_path_part(sets.first().unwrap().exercise_id.to_string())
                             },

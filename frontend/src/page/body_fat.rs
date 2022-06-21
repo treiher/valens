@@ -17,17 +17,16 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
 
     orders.subscribe(Msg::DataEvent);
 
-    let (first, last) = common::initial_interval(
-        &data_model
-            .body_fat
-            .iter()
-            .map(|bf| bf.date)
-            .collect::<Vec<NaiveDate>>(),
-    );
-
     Model {
         base_url,
-        interval: common::Interval { first, last },
+        interval: common::init_interval(
+            &data_model
+                .body_fat
+                .iter()
+                .map(|bf| bf.date)
+                .collect::<Vec<NaiveDate>>(),
+            false,
+        ),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -409,6 +408,16 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
+                data::Event::WorkoutsReadOk => {
+                    model.interval = common::init_interval(
+                        &data_model
+                            .body_fat
+                            .iter()
+                            .map(|bf| bf.date)
+                            .collect::<Vec<NaiveDate>>(),
+                        false,
+                    );
+                }
                 data::Event::BodyFatCreatedOk
                 | data::Event::BodyFatReplacedOk
                 | data::Event::BodyFatDeletedOk => {

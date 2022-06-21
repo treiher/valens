@@ -26,20 +26,19 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
 
     orders.subscribe(Msg::DataEvent);
 
-    let (first, last) = common::initial_interval(
-        &data_model
-            .workouts
-            .iter()
-            .filter(|w| w.routine_id == Some(routine_id))
-            .map(|w| w.date)
-            .collect::<Vec<NaiveDate>>(),
-    );
-
     let routine = &data_model.routines.iter().find(|r| r.id == routine_id);
 
     Model {
         base_url,
-        interval: common::Interval { first, last },
+        interval: common::init_interval(
+            &data_model
+                .workouts
+                .iter()
+                .filter(|w| w.routine_id == Some(routine_id))
+                .map(|w| w.date)
+                .collect::<Vec<NaiveDate>>(),
+            true,
+        ),
         routine_id,
         previous_exercises: init_previous_exercises(routine, data_model),
         dialog: Dialog::Hidden,
@@ -362,6 +361,15 @@ pub fn update(
             model.loading = false;
             match event {
                 data::Event::WorkoutsReadOk => {
+                    model.interval = common::init_interval(
+                        &data_model
+                            .workouts
+                            .iter()
+                            .filter(|w| w.routine_id == Some(model.routine_id))
+                            .map(|w| w.date)
+                            .collect::<Vec<NaiveDate>>(),
+                        true,
+                    );
                     let routine = &data_model
                         .routines
                         .iter()

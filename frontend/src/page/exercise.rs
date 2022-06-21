@@ -19,18 +19,17 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
 
     orders.subscribe(Msg::DataEvent);
 
-    let (first, last) = common::initial_interval(
-        &data_model
-            .workouts
-            .iter()
-            .filter(|w| w.sets.iter().any(|s| s.exercise_id == exercise_id))
-            .map(|w| w.date)
-            .collect::<Vec<NaiveDate>>(),
-    );
-
     Model {
         base_url,
-        interval: common::Interval { first, last },
+        interval: common::init_interval(
+            &data_model
+                .workouts
+                .iter()
+                .filter(|w| w.sets.iter().any(|s| s.exercise_id == exercise_id))
+                .map(|w| w.date)
+                .collect::<Vec<NaiveDate>>(),
+            false,
+        ),
         exercise_id,
         dialog: Dialog::Hidden,
         loading: false,
@@ -68,7 +67,12 @@ pub enum Msg {
     ChangeInterval(NaiveDate, NaiveDate),
 }
 
-pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
+pub fn update(
+    msg: Msg,
+    model: &mut Model,
+    data_model: &data::Model,
+    orders: &mut impl Orders<Msg>,
+) {
     match msg {
         Msg::ShowDeleteWorkoutDialog(position) => {
             model.dialog = Dialog::DeleteWorkout(position);
@@ -89,8 +93,22 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::DataEvent(event) => {
             model.loading = false;
-            if let data::Event::WorkoutDeletedOk = event {
-                orders.skip().send_msg(Msg::CloseDialog);
+            match event {
+                data::Event::WorkoutsReadOk => {
+                    model.interval = common::init_interval(
+                        &data_model
+                            .workouts
+                            .iter()
+                            .filter(|w| w.sets.iter().any(|s| s.exercise_id == model.exercise_id))
+                            .map(|w| w.date)
+                            .collect::<Vec<NaiveDate>>(),
+                        false,
+                    );
+                }
+                data::Event::WorkoutDeletedOk => {
+                    orders.skip().send_msg(Msg::CloseDialog);
+                }
+                _ => {}
             };
         }
 

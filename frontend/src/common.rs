@@ -10,18 +10,18 @@ pub struct Interval {
     pub last: NaiveDate,
 }
 
-pub fn initial_interval(dates: &[NaiveDate]) -> (NaiveDate, NaiveDate) {
+pub fn init_interval(dates: &[NaiveDate], show_all: bool) -> Interval {
     let today = Local::today().naive_local();
     let mut first = dates.iter().copied().min().unwrap_or(today);
     let mut last = dates.iter().copied().max().unwrap_or(today);
 
-    if last >= today - Duration::days(30) {
+    if not(show_all) && last >= today - Duration::days(30) {
         first = today - Duration::days(30);
-    } else {
-        last = today;
     };
 
-    (first, last)
+    last = today;
+
+    Interval { first, last }
 }
 
 pub fn view_dialog<Ms>(

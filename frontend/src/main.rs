@@ -297,7 +297,12 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::Exercise(msg) => {
             if let Some(Page::Exercise(page_model)) = &mut model.page {
-                page::exercise::update(msg, page_model, &mut orders.proxy(Msg::Exercise))
+                page::exercise::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::Exercise),
+                )
             }
         }
         Msg::Routines(msg) => {

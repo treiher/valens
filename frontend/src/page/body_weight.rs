@@ -285,7 +285,7 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                     input_ev(Ev::Input, Msg::WeightChanged),
                     keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                         IF!(
-                            !save_disabled && keyboard_event.key_code() == common::ENTER_KEY => {
+                            not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
                                 Msg::SaveBodyWeight
                             }
                         )

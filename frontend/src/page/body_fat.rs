@@ -499,7 +499,11 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
     common::view_dialog(
         "primary",
         title,
-        nodes![
+        nodes![form![
+            attrs! {
+                At::Action => "javascript:void(0);",
+                At::OnKeyPress => "if (event.which == 13) return false;"
+            },
             div![
                 C!["field"],
                 label![C!["label"], "Date"],
@@ -656,7 +660,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                     ]
                 ],
             ],
-        ],
+        ]],
         &ev(Ev::Click, |_| Msg::CloseBodyFatDialog),
     )
 }
@@ -675,7 +679,7 @@ fn view_body_fat_form_field(
             input_ev(Ev::Input, message),
             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                 IF!(
-                    !save_disabled && keyboard_event.key_code() == common::ENTER_KEY => {
+                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
                         Msg::SaveBodyFat
                     }
                 )

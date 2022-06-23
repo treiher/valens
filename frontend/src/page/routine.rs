@@ -12,7 +12,12 @@ use crate::page::workouts;
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
+pub fn init(
+    mut url: Url,
+    orders: &mut impl Orders<Msg>,
+    data_model: &data::Model,
+    navbar: &mut crate::Navbar,
+) -> Model {
     let routine_id = url
         .next_hash_path_part()
         .unwrap_or("")
@@ -24,6 +29,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
     }
 
     orders.subscribe(Msg::DataEvent);
+
+    navbar.title = String::from("Routine");
 
     let routine = &data_model.routines.iter().find(|r| r.id == routine_id);
 
@@ -401,6 +408,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .find(|r| r.id == model.routine_id)
     {
         div![
+            common::view_title(&span![&routine.name], 0),
             view_exercise_dialog(&data_model.exercises, routine, &model.dialog, model.loading),
             nodes![
                 view_routine_exercises(data_model, routine),
@@ -563,7 +571,7 @@ fn view_exercise_dialog(
 fn view_routine_exercises(data_model: &data::Model, routine: &data::Routine) -> Node<Msg> {
     div![
         C!["table-container"],
-        C!["mt-4"],
+        C!["mt-2"],
         table![
             C!["table"],
             C!["is-fullwidth"],

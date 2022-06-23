@@ -7,11 +7,13 @@ use crate::data;
 //     Init
 // ------ ------
 
-pub fn init(_: Url, orders: &mut impl Orders<Msg>) -> Model {
+pub fn init(_: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
     orders
         .subscribe(Msg::DataEvent)
         .notify(data::Msg::ReadVersion)
         .notify(data::Msg::ReadUsers);
+
+    navbar.title = String::from("Administration");
 
     Model {
         dialog: Dialog::Hidden,

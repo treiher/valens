@@ -8,12 +8,19 @@ use crate::data;
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
+pub fn init(
+    mut url: Url,
+    orders: &mut impl Orders<Msg>,
+    data_model: &data::Model,
+    navbar: &mut crate::Navbar,
+) -> Model {
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddPeriodDialog);
     }
 
     orders.subscribe(Msg::DataEvent);
+
+    navbar.title = String::from("Period");
 
     Model {
         interval: common::init_interval(

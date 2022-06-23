@@ -127,60 +127,83 @@ impl Page {
 
         if data_model.session.is_some() {
             match url.next_hash_path_part() {
-                None => Self::Home(page::home::init(url, &mut orders.proxy(Msg::Home))),
+                None => Self::Home(page::home::init(
+                    url,
+                    &mut orders.proxy(Msg::Home),
+                    data_model,
+                    navbar,
+                )),
                 Some(LOGIN) => Self::Login(page::login::init(
                     url,
                     &mut orders.proxy(Msg::Login),
                     navbar,
                 )),
-                Some(ADMIN) => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
+                Some(ADMIN) => Self::Admin(page::admin::init(
+                    url,
+                    &mut orders.proxy(Msg::Admin),
+                    navbar,
+                )),
                 Some(BODY_WEIGHT) => Self::BodyWeight(page::body_weight::init(
                     url,
                     &mut orders.proxy(Msg::BodyWeight),
                     data_model,
+                    navbar,
                 )),
                 Some(BODY_FAT) => Self::BodyFat(page::body_fat::init(
                     url,
                     &mut orders.proxy(Msg::BodyFat),
                     data_model,
+                    navbar,
                 )),
                 Some(PERIOD) => Self::Period(page::period::init(
                     url,
                     &mut orders.proxy(Msg::Period),
                     data_model,
+                    navbar,
                 )),
                 Some(EXERCISES) => Self::Exercises(page::exercises::init(
                     url,
                     &mut orders.proxy(Msg::Exercises),
+                    navbar,
                 )),
                 Some(EXERCISE) => Self::Exercise(page::exercise::init(
                     url,
                     &mut orders.proxy(Msg::Exercise),
                     data_model,
+                    navbar,
                 )),
-                Some(ROUTINES) => {
-                    Self::Routines(page::routines::init(url, &mut orders.proxy(Msg::Routines)))
-                }
+                Some(ROUTINES) => Self::Routines(page::routines::init(
+                    url,
+                    &mut orders.proxy(Msg::Routines),
+                    navbar,
+                )),
                 Some(ROUTINE) => Self::Routine(page::routine::init(
                     url,
                     &mut orders.proxy(Msg::Routine),
                     data_model,
+                    navbar,
                 )),
                 Some(WORKOUTS) => Self::Workouts(page::workouts::init(
                     url,
                     &mut orders.proxy(Msg::Workouts),
                     data_model,
+                    navbar,
                 )),
                 Some(WORKOUT) => Self::Workout(page::workout::init(
                     url,
                     &mut orders.proxy(Msg::Workout),
                     data_model,
+                    navbar,
                 )),
                 Some(_) => Self::NotFound,
             }
         } else {
             match url.next_hash_path_part() {
-                Some(ADMIN) => Self::Admin(page::admin::init(url, &mut orders.proxy(Msg::Admin))),
+                Some(ADMIN) => Self::Admin(page::admin::init(
+                    url,
+                    &mut orders.proxy(Msg::Admin),
+                    navbar,
+                )),
                 None | Some(_) => {
                     Urls::new(&url.to_hash_base_url()).login().go_and_push();
                     Self::Login(page::login::init(

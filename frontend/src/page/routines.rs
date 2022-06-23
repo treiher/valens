@@ -7,12 +7,14 @@ use crate::data;
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>) -> Model {
+pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddRoutineDialog);
     }
 
     orders.subscribe(Msg::DataEvent);
+
+    navbar.title = String::from("Routines");
 
     Model {
         dialog: Dialog::Hidden,

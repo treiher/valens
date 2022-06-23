@@ -9,6 +9,7 @@ use crate::data;
 pub fn init(url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
     orders.notify(data::Msg::ReadUsers);
 
+    navbar.title = String::from("Valens");
     navbar.items = vec![(
         "Administration".into(),
         crate::Urls::new(&url.to_hash_base_url()).admin(),

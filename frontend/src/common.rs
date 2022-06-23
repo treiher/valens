@@ -24,6 +24,15 @@ pub fn init_interval(dates: &[NaiveDate], show_all: bool) -> Interval {
     Interval { first, last }
 }
 
+pub fn view_title<Ms>(title: &Node<Ms>, margin: u8) -> Node<Ms> {
+    div![
+        C!["container"],
+        C!["has-text-centered"],
+        C![format!("mb-{margin}")],
+        h1![C!["title"], C!["is-5"], title],
+    ]
+}
+
 pub fn view_dialog<Ms>(
     color: &str,
     title: &str,

@@ -9,7 +9,12 @@ use crate::page::workouts;
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
+pub fn init(
+    mut url: Url,
+    orders: &mut impl Orders<Msg>,
+    data_model: &data::Model,
+    navbar: &mut crate::Navbar,
+) -> Model {
     let exercise_id = url
         .next_hash_path_part()
         .unwrap_or("")
@@ -17,6 +22,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
         .unwrap_or(0);
 
     orders.subscribe(Msg::DataEvent);
+
+    navbar.title = String::from("Exercise");
 
     Model {
         interval: common::init_interval(
@@ -121,12 +128,13 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model
+    if let Some(exercise) = data_model
         .exercises
         .iter()
-        .any(|e| e.id == model.exercise_id)
+        .find(|e| e.id == model.exercise_id)
     {
         div![
+            common::view_title(&span![&exercise.name], 5),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
             common::view_diagram(
                 &data_model.base_url,

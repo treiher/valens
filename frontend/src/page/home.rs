@@ -7,7 +7,14 @@ use crate::data;
 //     Init
 // ------ ------
 
-pub fn init(_url: Url, _orders: &mut impl Orders<Msg>) -> Model {
+pub fn init(
+    _url: Url,
+    _orders: &mut impl Orders<Msg>,
+    data_model: &data::Model,
+    navbar: &mut crate::Navbar,
+) -> Model {
+    navbar.title = data_model.session.as_ref().unwrap().name.clone();
+
     Model {}
 }
 

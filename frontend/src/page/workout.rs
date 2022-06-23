@@ -10,7 +10,12 @@ use crate::data;
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Model) -> Model {
+pub fn init(
+    mut url: Url,
+    orders: &mut impl Orders<Msg>,
+    data_model: &data::Model,
+    navbar: &mut crate::Navbar,
+) -> Model {
     let workout_id = url
         .next_hash_path_part()
         .unwrap_or("")
@@ -18,6 +23,8 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, data_model: &data::Mode
         .unwrap_or(0);
 
     orders.subscribe(Msg::DataEvent);
+
+    navbar.title = String::from("Workout");
 
     let workout = &data_model.workouts.iter().find(|w| w.id == workout_id);
 
@@ -245,7 +252,11 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.workouts.iter().any(|w| w.id == model.workout_id) {
+    if let Some(workout) = data_model
+        .workouts
+        .iter()
+        .find(|w| w.id == model.workout_id)
+    {
         let changed = model
             .form
             .sets
@@ -412,34 +423,56 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 })
             ]);
         }
-        div![
-            C!["container"],
-            C!["mx-2"],
-            form![
-                attrs! {
-                    At::Action => "javascript:void(0);",
-                    At::OnKeyPress => "if (event.which == 13) return false;"
-                },
-                &form
-            ],
-            div![
-                C!["field"],
-                label![C!["label"], "Notes"],
-                input_ev(Ev::Input, Msg::NotesChanged),
-                textarea![C!["textarea"],]
-            ],
-            button![
-                C!["button"],
-                C!["is-fab"],
-                C!["is-medium"],
-                C!["is-link"],
-                C![IF![not(valid) => "is-danger"]],
-                C![IF![model.loading => "is-loading"]],
-                attrs![
-                    At::Disabled => save_disabled.as_at_value(),
+        let title = if let Some(routine) = data_model
+            .routines
+            .iter()
+            .find(|r| Some(r.id) == workout.routine_id)
+        {
+            span![
+                workout.date.to_string(),
+                " (",
+                a![
+                    attrs! {
+                        At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
+                    },
+                    &routine.name
                 ],
-                ev(Ev::Click, |_| Msg::SaveWorkout),
-                span![C!["icon"], i![C!["fas fa-save"]]]
+                ")"
+            ]
+        } else {
+            span![workout.date.to_string()]
+        };
+        div![
+            common::view_title(&title, 3),
+            div![
+                C!["container"],
+                C!["mx-2"],
+                form![
+                    attrs! {
+                        At::Action => "javascript:void(0);",
+                        At::OnKeyPress => "if (event.which == 13) return false;"
+                    },
+                    &form
+                ],
+                div![
+                    C!["field"],
+                    label![C!["label"], "Notes"],
+                    input_ev(Ev::Input, Msg::NotesChanged),
+                    textarea![C!["textarea"],]
+                ],
+                button![
+                    C!["button"],
+                    C!["is-fab"],
+                    C!["is-medium"],
+                    C!["is-link"],
+                    C![IF![not(valid) => "is-danger"]],
+                    C![IF![model.loading => "is-loading"]],
+                    attrs![
+                        At::Disabled => save_disabled.as_at_value(),
+                    ],
+                    ev(Ev::Click, |_| Msg::SaveWorkout),
+                    span![C!["icon"], i![C!["fas fa-save"]]]
+                ]
             ]
         ]
     } else if data_model.workouts.is_empty() {

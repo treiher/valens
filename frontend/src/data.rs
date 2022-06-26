@@ -438,6 +438,15 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::VersionRead(Ok(version)) => {
             model.version = version;
+            let frontend_version: Vec<&str> = env!("VALENS_VERSION").split('.').collect();
+            let backend_version: Vec<&str> = model.version.split('.').collect();
+            if frontend_version[0] != backend_version[0]
+                || frontend_version[1] != backend_version[1]
+            {
+                model
+                .errors
+                .push(format!("Mismatch between frontend and backend version ({}, {}). This may lead to unexpected errors. Please close and restart the app.", env!("VALENS_VERSION"), model.version));
+            }
         }
         Msg::VersionRead(Err(message)) => {
             model

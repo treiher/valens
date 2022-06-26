@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
 use slice_group_by::GroupBy;
 
@@ -25,6 +26,11 @@ pub fn init(
     orders.subscribe(Msg::DataEvent);
 
     navbar.title = String::from("Workout");
+    navbar.items = vec![div![
+        span![C!["icon"], C!["px-5"], i![C!["fas fa-stopwatch"]]],
+        ev(Ev::Click, |_| crate::Msg::Workout(Msg::ShowSMTDialog)),
+        "Stopwatch / Metronome / Timer"
+    ]];
 
     let workout = &data_model.workouts.iter().find(|w| w.id == workout_id);
 
@@ -32,6 +38,26 @@ pub fn init(
         workout_id,
         form: init_form(workout),
         previous_sets: init_previous_sets(workout, data_model),
+        timer_dialog: SMTDialog {
+            visible: false,
+            stopwatch: Stopwatch {
+                time: 0,
+                start_time: None,
+            },
+            metronome: Metronome {
+                audio_context: None,
+                interval: 1,
+                stressed_beat: 1,
+                beat_number: 0,
+                next_beat_time: 0.,
+            },
+            timer: Timer {
+                time: (String::from("60"), Some(60)),
+                reset_time: 60,
+                target_time: None,
+            },
+        },
+        timer_handle: None,
         loading: false,
     }
 }
@@ -109,6 +135,8 @@ pub struct Model {
     workout_id: u32,
     form: Form,
     previous_sets: HashMap<u32, Vec<data::WorkoutSet>>,
+    timer_dialog: SMTDialog,
+    timer_handle: Option<StreamHandle>,
     loading: bool,
 }
 
@@ -127,6 +155,144 @@ struct SetForm {
     rpe: (String, bool, Option<f32>, bool),
 }
 
+struct SMTDialog {
+    visible: bool,
+    stopwatch: Stopwatch,
+    metronome: Metronome,
+    timer: Timer,
+}
+
+struct Stopwatch {
+    time: i64,
+    start_time: Option<DateTime<Utc>>,
+}
+
+impl Stopwatch {
+    fn is_active(&self) -> bool {
+        self.start_time.is_some()
+    }
+
+    fn toggle(&mut self) {
+        if not(self.is_active()) && self.time > 0 {
+            self.reset();
+        } else {
+            self.start_pause();
+        }
+    }
+
+    fn start_pause(&mut self) {
+        self.start_time = match self.start_time {
+            Some(_) => None,
+            None => Some(Utc::now() - Duration::milliseconds(self.time)),
+        };
+    }
+
+    fn reset(&mut self) {
+        self.time = 0;
+        if self.start_time.is_some() {
+            self.start_time = Some(Utc::now());
+        }
+    }
+
+    fn update(&mut self) {
+        if let Some(start_time) = self.start_time {
+            self.time = Utc::now()
+                .signed_duration_since(start_time)
+                .num_milliseconds();
+        }
+    }
+}
+
+struct Metronome {
+    audio_context: Option<web_sys::AudioContext>,
+    interval: u32,
+    stressed_beat: u32,
+    beat_number: u32,
+    next_beat_time: f64,
+}
+
+impl Metronome {
+    fn is_active(&self) -> bool {
+        self.audio_context.is_some()
+    }
+
+    fn start_pause(&mut self) {
+        if self.is_active() {
+            self.audio_context = None;
+            self.beat_number = 0;
+            self.next_beat_time = 0.5;
+        } else {
+            self.audio_context = web_sys::AudioContext::new().ok();
+        }
+    }
+
+    fn update(&mut self) {
+        if self.is_active() {
+            if let Some(audio_context) = &self.audio_context {
+                if let Ok(oscillator) = audio_context.create_oscillator() {
+                    if let Err(err) =
+                        oscillator.connect_with_audio_node(&audio_context.destination())
+                    {
+                        error!("failed to connect oscillator:", err);
+                    }
+                    while self.next_beat_time < audio_context.current_time() + 0.5 {
+                        if self.beat_number % self.stressed_beat == 0 {
+                            oscillator.frequency().set_value(1000.);
+                        } else {
+                            oscillator.frequency().set_value(500.);
+                        }
+                        if let Err(err) = oscillator.start_with_when(self.next_beat_time) {
+                            error!("failed to start oscillator:", err);
+                        }
+                        if let Err(err) = oscillator.stop_with_when(self.next_beat_time + 0.05) {
+                            error!("failed to stop oscillator:", err);
+                        }
+                        self.next_beat_time += self.interval as f64;
+                        self.beat_number += 1;
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct Timer {
+    time: (String, Option<i64>),
+    reset_time: i64,
+    target_time: Option<DateTime<Utc>>,
+}
+
+impl Timer {
+    fn is_active(&self) -> bool {
+        self.target_time.is_some()
+    }
+
+    fn start_pause(&mut self) {
+        self.target_time = match self.target_time {
+            Some(_) => None,
+            None => Some(Utc::now() + Duration::seconds(self.time.1.unwrap())),
+        };
+    }
+
+    fn reset(&mut self) {
+        self.time = (self.reset_time.to_string(), Some(self.reset_time));
+        if self.target_time.is_some() {
+            self.target_time = Some(Utc::now() + Duration::seconds(self.reset_time));
+        }
+    }
+
+    fn update(&mut self) {
+        if let Some(target_time) = self.target_time {
+            let time = (target_time
+                .signed_duration_since(Utc::now())
+                .num_milliseconds() as f64
+                / 1000.)
+                .round() as i64;
+            self.time = (time.to_string(), Some(time));
+        }
+    }
+}
+
 // ------ ------
 //    Update
 // ------ ------
@@ -140,6 +306,22 @@ pub enum Msg {
 
     SaveWorkout,
     DataEvent(data::Event),
+
+    ShowSMTDialog,
+    CloseSMTDialog,
+    UpdateSMTDialog,
+
+    StartPauseStopwatch,
+    ResetStopwatch,
+    ToggleStopwatch,
+
+    StartPauseMetronome,
+    MetronomeIntervalChanged(String),
+    MetronomeStressChanged(String),
+
+    StartPauseTimer,
+    ResetTimer,
+    TimerTimeChanged(String),
 }
 
 pub fn update(
@@ -244,6 +426,67 @@ pub fn update(
                 _ => {}
             };
         }
+
+        Msg::ShowSMTDialog => {
+            model.timer_dialog.visible = true;
+        }
+        Msg::CloseSMTDialog => {
+            model.timer_dialog.visible = false;
+        }
+        Msg::UpdateSMTDialog => {
+            model.timer_dialog.stopwatch.update();
+            model.timer_dialog.metronome.update();
+            model.timer_dialog.timer.update();
+        }
+
+        Msg::StartPauseStopwatch => {
+            model.timer_dialog.stopwatch.start_pause();
+            update_timer_handle(model, orders);
+        }
+        Msg::ResetStopwatch => {
+            model.timer_dialog.stopwatch.reset();
+        }
+        Msg::ToggleStopwatch => {
+            model.timer_dialog.stopwatch.toggle();
+            update_timer_handle(model, orders);
+        }
+
+        Msg::StartPauseMetronome => {
+            model.timer_dialog.metronome.start_pause();
+            update_timer_handle(model, orders);
+        }
+        Msg::MetronomeIntervalChanged(interval) => {
+            model.timer_dialog.metronome.interval = interval.parse::<u32>().unwrap_or(1)
+        }
+        Msg::MetronomeStressChanged(stressed_beat) => {
+            model.timer_dialog.metronome.stressed_beat = stressed_beat.parse::<u32>().unwrap_or(1)
+        }
+
+        Msg::StartPauseTimer => {
+            model.timer_dialog.timer.start_pause();
+            update_timer_handle(model, orders);
+        }
+        Msg::ResetTimer => {
+            model.timer_dialog.timer.reset();
+        }
+        Msg::TimerTimeChanged(time) => match time.parse::<i64>() {
+            Ok(parsed_time) => {
+                model.timer_dialog.timer.time = (time, Some(parsed_time));
+                model.timer_dialog.timer.reset_time = parsed_time;
+            }
+            Err(_) => model.timer_dialog.timer.time = (time, None),
+        },
+    }
+}
+
+fn update_timer_handle(model: &mut Model, orders: &mut impl Orders<Msg>) {
+    model.timer_handle = if model.timer_dialog.stopwatch.is_active()
+        || model.timer_dialog.metronome.is_active()
+        || model.timer_dialog.timer.is_active()
+    {
+        Some(orders.stream_with_handle(streams::interval(100, || Msg::UpdateSMTDialog)))
+    } else {
+        None
     }
 }
 
@@ -257,20 +500,63 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .iter()
         .find(|w| w.id == model.workout_id)
     {
-        let changed = model
-            .form
-            .sets
-            .iter()
-            .any(|s| s.reps.3 || s.time.3 || s.weight.3 || s.rpe.3);
-        let valid = model
-            .form
-            .sets
-            .iter()
-            .all(|s| s.reps.1 && s.time.1 && s.weight.1 && s.rpe.1);
-        let save_disabled = not(changed) || not(valid);
-        let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
-        for sets in (&model.form.sets[..]).linear_group_by(|a, b| a.exercise_id == b.exercise_id) {
-            form.push(div![
+        if model.timer_dialog.visible {
+            div![
+                Node::NoChange,
+                Node::NoChange,
+                view_timer_dialog(&model.timer_dialog),
+            ]
+        } else {
+            div![
+                view_title(workout, data_model),
+                view_workout_form(model, data_model)
+            ]
+        }
+    } else if data_model.workouts.is_empty() {
+        common::view_loading()
+    } else {
+        common::view_error_not_found("Workout")
+    }
+}
+
+fn view_title(workout: &data::Workout, data_model: &data::Model) -> Node<Msg> {
+    let title = if let Some(routine) = data_model
+        .routines
+        .iter()
+        .find(|r| Some(r.id) == workout.routine_id)
+    {
+        span![
+            workout.date.to_string(),
+            " (",
+            a![
+                attrs! {
+                    At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
+                },
+                &routine.name
+            ],
+            ")"
+        ]
+    } else {
+        span![workout.date.to_string()]
+    };
+    common::view_title(&title, 3)
+}
+
+fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let changed = model
+        .form
+        .sets
+        .iter()
+        .any(|s| s.reps.3 || s.time.3 || s.weight.3 || s.rpe.3);
+    let valid = model
+        .form
+        .sets
+        .iter()
+        .all(|s| s.reps.1 && s.time.1 && s.weight.1 && s.rpe.1);
+    let save_disabled = not(changed) || not(valid);
+    let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
+    for sets in (&model.form.sets[..]).linear_group_by(|a, b| a.exercise_id == b.exercise_id) {
+        form.push(div![
                 C!["field"],
                 label![
                     C!["label"],
@@ -422,62 +708,222 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     ]
                 })
             ]);
-        }
-        let title = if let Some(routine) = data_model
-            .routines
-            .iter()
-            .find(|r| Some(r.id) == workout.routine_id)
-        {
-            span![
-                workout.date.to_string(),
-                " (",
-                a![
-                    attrs! {
-                        At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
-                    },
-                    &routine.name
-                ],
-                ")"
-            ]
-        } else {
-            span![workout.date.to_string()]
-        };
-        div![
-            common::view_title(&title, 3),
+    }
+    div![
+        C!["container"],
+        C!["mx-2"],
+        form![
+            attrs! {
+                At::Action => "javascript:void(0);",
+                At::OnKeyPress => "if (event.which == 13) return false;"
+            },
+            &form,
             div![
-                C!["container"],
+                C!["field"],
+                label![C!["label"], "Notes"],
+                input_ev(Ev::Input, Msg::NotesChanged),
+                textarea![C!["textarea"]]
+            ],
+        ],
+        button![
+            C!["button"],
+            C!["is-fab"],
+            C!["is-medium"],
+            C!["is-link"],
+            C![IF![not(valid) => "is-danger"]],
+            C![IF![model.loading => "is-loading"]],
+            attrs![
+                At::Disabled => save_disabled.as_at_value(),
+            ],
+            ev(Ev::Click, |_| Msg::SaveWorkout),
+            span![C!["icon"], i![C!["fas fa-save"]]]
+        ]
+    ]
+}
+
+fn view_timer_dialog(dialog: &SMTDialog) -> Node<Msg> {
+    div![
+        C!["modal"],
+        IF![dialog.visible => C!["is-active"]],
+        div![
+            C!["modal-background"],
+            ev(Ev::Click, |_| Msg::CloseSMTDialog),
+        ],
+        div![
+            C!["modal-content"],
+            div![
+                C!["box"],
                 C!["mx-2"],
-                form![
-                    attrs! {
-                        At::Action => "javascript:void(0);",
-                        At::OnKeyPress => "if (event.which == 13) return false;"
-                    },
-                    &form
+                div![
+                    C!["block"],
+                    label![C!["subtitle"], "Stopwatch"],
+                    div![
+                        C!["container"],
+                        C!["has-text-centered"],
+                        C!["p-5"],
+                        p![C!["title"], C!["is-size-1"],
+                        ev(Ev::Click, |_| Msg::ToggleStopwatch),
+                        format!("{:.1}", dialog.stopwatch.time as f64 / 1000.)],
+                        button![
+                            C!["button"],
+                            C!["mt-1"],
+                            C!["mx-3"],
+                            attrs! {At::Type => "button"},
+                            ev(Ev::Click, |_| Msg::StartPauseStopwatch),
+                            if dialog.stopwatch.is_active() {
+                                span![C!["icon"], i![C!["fas fa-pause"]]]
+                            } else {
+                                span![C!["icon"], i![C!["fas fa-play"]]]
+                            }
+                        ],
+                        button![
+                            C!["button"],
+                            C!["mt-1"],
+                            C!["mx-3"],
+                            attrs! {At::Type => "button"},
+                            ev(Ev::Click, |_| Msg::ResetStopwatch),
+                            span![C!["icon"], i![C!["fas fa-rotate-left"]]]
+                        ],
+                    ],
                 ],
                 div![
-                    C!["field"],
-                    label![C!["label"], "Notes"],
-                    input_ev(Ev::Input, Msg::NotesChanged),
-                    textarea![C!["textarea"],]
-                ],
-                button![
-                    C!["button"],
-                    C!["is-fab"],
-                    C!["is-medium"],
-                    C!["is-link"],
-                    C![IF![not(valid) => "is-danger"]],
-                    C![IF![model.loading => "is-loading"]],
-                    attrs![
-                        At::Disabled => save_disabled.as_at_value(),
+                    C!["block"],
+                    label![C!["subtitle"], "Metronome"],
+                    div![
+                        C!["container"],
+                        C!["p-5"],
+                        div![
+                            C!["field"],
+                            C!["is-grouped"],
+                            C!["is-grouped-centered"],
+                            div![
+                                C!["field"],
+                                C!["mx-4"],
+                                label![C!["label"], "Interval"],
+                                div![
+                                    C!["control"],
+                                    input_ev(Ev::Input, Msg::MetronomeIntervalChanged),
+                                    div![
+                                        C!["select"],
+                                        select![
+                                            (1..61).map(|i| {
+                                                option![
+                                                    &i,
+                                                    attrs! {
+                                                        At::Value => i,
+                                                        At::Selected => (i == dialog.metronome.interval).as_at_value()
+                                                    }
+                                                ]
+                                            }).collect::<Vec<_>>()
+                                        ]
+                                    ]
+                                ]
+                            ],
+                            div![
+                                C!["field"],
+                                C!["mx-4"],
+                                label![C!["label"], "Stress"],
+                                div![
+                                    C!["control"],
+                                    input_ev(Ev::Input, Msg::MetronomeStressChanged),
+                                    div![
+                                        C!["select"],
+                                        select![
+                                            (1..13).map(|i| {
+                                                option![
+                                                    &i,
+                                                    attrs! {
+                                                        At::Value => i,
+                                                        At::Selected => (i == dialog.metronome.stressed_beat).as_at_value()
+                                                    }
+                                                ]
+                                            }).collect::<Vec<_>>()
+                                        ]
+                                    ]
+                                ]
+                            ],
+                            div![
+                                C!["field"],
+                                C!["has-text-centered"],
+                                C!["mx-4"],
+                                label![C!["label"], raw!["&nbsp;"]],
+                                div![
+                                    C!["control"],
+                                    button![
+                                        C!["button"],
+                                        attrs! {At::Type => "button"},
+                                        ev(Ev::Click, |_| Msg::StartPauseMetronome),
+                                        if dialog.metronome.is_active() {
+                                            span![C!["icon"], i![C!["fas fa-pause"]]]
+                                        } else {
+                                            span![C!["icon"], i![C!["fas fa-play"]]]
+                                        }
+                                    ],
+                                ]
+                            ]
+                        ]
                     ],
-                    ev(Ev::Click, |_| Msg::SaveWorkout),
-                    span![C!["icon"], i![C!["fas fa-save"]]]
-                ]
+                ],
+                div![
+                    C!["block"],
+                    label![C!["subtitle"], "Timer"],
+                    div![
+                        C!["container"],
+                        C!["has-text-centered"],
+                        C!["p-5"],
+                        div![C!["field"],
+                        div![
+                            C!["control"],
+                            input_ev(Ev::Input, Msg::TimerTimeChanged),
+                            input![
+                                C!["input"],
+                                C!["title"],
+                                C!["is-size-1"],
+                                C!["has-text-centered"],
+                                C![IF![not(&dialog.timer.time.1.is_some()) => "is-danger"]],
+                                style! {
+                                    St::Height => "auto",
+                                    St::Width => "auto",
+                                    St::Padding => 0,
+                                },
+                                attrs! {
+                                    At::Type => "number",
+                                    At::Value => &dialog.timer.time.0,
+                                    At::Min => 0,
+                                    At::Max => 9999,
+                                    At::Step => 1,
+                                    At::Size => 4
+                                },
+                            ]
+                        ]],
+                        button![
+                            C!["button"],
+                            C!["mt-5"],
+                            C!["mx-3"],
+                            attrs! {At::Type => "button"},
+                            ev(Ev::Click, |_| Msg::StartPauseTimer),
+                            if dialog.timer.is_active() {
+                                span![C!["icon"], i![C!["fas fa-pause"]]]
+                            } else {
+                                span![C!["icon"], i![C!["fas fa-play"]]]
+                            }
+                        ],
+                        button![
+                            C!["button"],
+                            C!["mt-5"],
+                            C!["mx-3"],
+                            attrs! {At::Type => "button"},
+                            ev(Ev::Click, |_| Msg::ResetTimer),
+                            span![C!["icon"], i![C!["fas fa-rotate-left"]]]
+                        ],
+                    ],
+                ],
+            ],
+            button![
+                C!["modal-close"],
+                C!["is-large"],
+                ev(Ev::Click, |_| Msg::CloseSMTDialog),
             ]
         ]
-    } else if data_model.workouts.is_empty() {
-        common::view_loading()
-    } else {
-        common::view_error_not_found("Workout")
-    }
+    ]
 }

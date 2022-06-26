@@ -96,7 +96,7 @@ struct Model {
 
 pub struct Navbar {
     title: String,
-    items: Vec<(String, Url)>,
+    items: Vec<Node<Msg>>,
     menu_visible: bool,
 }
 
@@ -465,16 +465,7 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
                     &navbar
                         .items
                         .iter()
-                        .map(|(name, target)| {
-                            a![
-                                C!["navbar-item"],
-                                C!["has-text-weight-bold"],
-                                attrs! {
-                                    At::Href => target,
-                                },
-                                name,
-                            ]
-                        })
+                        .map(|item| { a![C!["navbar-item"], C!["has-text-weight-bold"], item] })
                         .collect::<Vec<_>>(),
                     match &data_model.session {
                         Some(_) => a![

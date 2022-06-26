@@ -482,6 +482,7 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
                             C!["navbar-item"],
                             C!["has-text-weight-bold"],
                             ev(Ev::Click, |_| Msg::LogOut),
+                            span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
                             span![
                                 C!["tag"],
                                 C!["is-medium"],
@@ -489,7 +490,6 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
                                 C!["has-background-grey"],
                                 &s.name
                             ],
-                            span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]]
                         ],
                         None => empty![],
                     }

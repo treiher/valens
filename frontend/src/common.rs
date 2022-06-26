@@ -157,31 +157,32 @@ pub fn view_interval_buttons<Ms>(
 where
     Ms: 'static,
 {
+    let today = Local::today().naive_local();
     let duration = (current.last - current.first) + Duration::days(2);
     let intervals = [
         (
             "1Y",
-            current.last - Duration::days(365),
-            current.last,
-            duration == Duration::days(367),
+            today - Duration::days(365),
+            today,
+            current.last == today && duration == Duration::days(367),
         ),
         (
             "6M",
-            current.last - Duration::days(182),
-            current.last,
-            duration == Duration::days(184),
+            today - Duration::days(182),
+            today,
+            current.last == today && duration == Duration::days(184),
         ),
         (
             "3M",
-            current.last - Duration::days(91),
-            current.last,
-            duration == Duration::days(93),
+            today - Duration::days(91),
+            today,
+            current.last == today && duration == Duration::days(93),
         ),
         (
             "1M",
-            current.last - Duration::days(30),
-            current.last,
-            duration == Duration::days(32),
+            today - Duration::days(30),
+            today,
+            current.last == today && duration == Duration::days(32),
         ),
         (
             "+",

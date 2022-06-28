@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pytest import MonkeyPatch
 
-from valens import cli, config, database as db, demo, web
+from valens import app, cli, config, database as db, demo
 
 
 def test_main_noarg(monkeypatch: MonkeyPatch) -> None:
@@ -46,7 +46,7 @@ def test_main_run(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "run"])
     called = []
     monkeypatch.setattr(config, "check_config_file", lambda x: called.append("check_config_file"))
-    monkeypatch.setattr(web.app, "run", lambda x: called.append("run"))
+    monkeypatch.setattr(app, "run", lambda x: called.append("run"))
     assert cli.main() == 0
     assert called == ["check_config_file", "run"]
 
@@ -55,7 +55,7 @@ def test_main_run_public(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "run", "--public"])
     called = []
     monkeypatch.setattr(config, "check_config_file", lambda x: called.append("check_config_file"))
-    monkeypatch.setattr(web.app, "run", lambda x: called.append("run"))
+    monkeypatch.setattr(app, "run", lambda x: called.append("run"))
     assert cli.main() == 0
     assert called == ["check_config_file", "run"]
 

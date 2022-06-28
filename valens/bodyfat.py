@@ -1,31 +1,4 @@
-from dataclasses import dataclass
-from datetime import date, timedelta
-from typing import Optional
-
 import pandas as pd
-from flask import session
-
-from valens.models import Sex
-
-
-@dataclass
-class Bodyfat:
-    last: timedelta
-    current: float
-
-
-def analyze(df: pd.DataFrame) -> Optional[Bodyfat]:
-    if df.empty:
-        return None
-
-    return Bodyfat(
-        date.today() - df.iloc[-1, 0],
-        (
-            jackson_pollock_3_female(df)
-            if session["sex"] == Sex.FEMALE
-            else jackson_pollock_3_male(df)
-        ).iloc[-1],
-    )
 
 
 def jackson_pollock(s: pd.Series, k0: float, k1: float, k2: float, ka: float) -> pd.Series:

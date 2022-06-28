@@ -66,7 +66,6 @@ test_installation: dist
 update: update_css update_fonts
 
 update_css: third-party/bulma
-	sass --no-source-map sass/bulma.scss:valens/static/css/bulma.css
 
 update_fonts: third-party/fontawesome
 	cp third-party/fontawesome/webfonts/fa-solid-900.{woff2,ttf} frontend/assets/fonts/
@@ -96,9 +95,6 @@ $(addprefix frontend/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fon
 	cd frontend && trunk build --release --filehash false
 
 .PHONY: run run_frontend run_backend
-
-run:
-	FLASK_ENV=development FLASK_APP=valens.web VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
 
 run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000

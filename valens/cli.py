@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from valens import app, config, database as db, demo, version, web
+from valens import app, config, database as db, demo, version
 
 CONFIG_FILE = Path("config.py")
 
@@ -77,7 +77,7 @@ def upgrade(_: argparse.Namespace) -> None:
 
 def run(args: argparse.Namespace) -> None:
     config.check_config_file(os.environ.copy())
-    web.app.run("0.0.0.0" if args.public else "127.0.0.1")
+    app.run("0.0.0.0" if args.public else "127.0.0.1")
 
 
 def run_demo(args: argparse.Namespace) -> None:

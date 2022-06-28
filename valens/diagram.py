@@ -1,7 +1,6 @@
 import io
 import re
 from datetime import date, timedelta
-from typing import Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -75,24 +74,19 @@ def plot_workouts(
     return _workouts_exercise(df, first, last)
 
 
-def plot_exercise(
-    user_id: int, exercise: Union[str, int], first: date = None, last: date = None
-) -> Figure:
-    if isinstance(exercise, int):
-        try:
-            name = (
-                db.session.execute(
-                    select(Exercise)
-                    .where(Exercise.id == exercise)
-                    .where(Exercise.user_id == session["user_id"])
-                )
-                .scalars()
-                .one()
-            ).name
-        except NoResultFound:
-            name = ""
-    else:
-        name = exercise
+def plot_exercise(user_id: int, exercise: int, first: date = None, last: date = None) -> Figure:
+    try:
+        name = (
+            db.session.execute(
+                select(Exercise)
+                .where(Exercise.id == exercise)
+                .where(Exercise.user_id == session["user_id"])
+            )
+            .scalars()
+            .one()
+        ).name
+    except NoResultFound:
+        name = ""
 
     df = storage.read_sets(user_id)
     df["reps+rir"] = df["reps"] + df["rir"]

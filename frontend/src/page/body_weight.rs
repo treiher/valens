@@ -164,12 +164,14 @@ pub fn update(
                     orders.notify(data::Msg::CreateBodyWeight(data::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
+                        avg_weight: None,
                     }));
                 }
                 Dialog::EditBodyWeight(ref mut form) => {
                     orders.notify(data::Msg::ReplaceBodyWeight(data::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
+                        avg_weight: None,
                     }));
                 }
                 Dialog::Hidden | Dialog::DeleteBodyWeight(_) => {
@@ -353,7 +355,6 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 th!["Date"],
                 th!["Weight (kg)"],
                 th!["Avg. weight (kg)"],
-                th!["Avg. change (%)"],
                 th![]
             ]],
             tbody![&data_model
@@ -372,7 +373,6 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         ]],
                         td![format!("{:.1}", bw.weight)],
                         td![common::value_or_dash(bw.avg_weight)],
-                        td![common::value_or_dash(bw.avg_weight_change)],
                         td![p![
                             C!["is-flex is-flex-wrap-nowrap"],
                             a![

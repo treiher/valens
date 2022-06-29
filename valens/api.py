@@ -7,13 +7,12 @@ from http import HTTPStatus
 from itertools import chain
 from typing import Any, Callable
 
-import numpy as np
 from flask import Blueprint, Response, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import column, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from valens import bodyfat, bodyweight, database as db, diagram, storage, version
+from valens import database as db, diagram, version
 from valens.models import (
     BodyFat,
     BodyWeight,
@@ -234,20 +233,6 @@ def delete_user(user_id: int) -> ResponseReturnValue:
 @bp.route("/body_weight")
 @session_required
 def read_body_weight() -> ResponseReturnValue:
-    if request.args.get("format", None) == "statistics":
-        df = storage.read_bodyweight(session["user_id"])
-
-        if df.empty:
-            return jsonify([])
-
-        df = df.set_index("date")
-        df["avg_weight"] = bodyweight.avg_weight(df)
-        df["avg_weight_change"] = bodyweight.avg_weight_change(df)
-        df.reset_index(inplace=True)
-        df["date"] = df["date"].apply(lambda x: x.isoformat())
-
-        return jsonify(df.replace([np.nan], [None]).to_dict(orient="records"))
-
     body_weight = (
         db.session.execute(select(BodyWeight).where(BodyWeight.user_id == session["user_id"]))
         .scalars()
@@ -349,26 +334,6 @@ def delete_body_weight(date_: str) -> ResponseReturnValue:
 @bp.route("/body_fat")
 @session_required
 def read_body_fat() -> ResponseReturnValue:
-    if request.args.get("format", None) == "statistics":
-        df = storage.read_bodyfat(session["user_id"])
-
-        if df.empty:
-            return jsonify([])
-
-        df["date"] = df["date"].apply(lambda x: x.isoformat())
-        df["jp3"] = (
-            bodyfat.jackson_pollock_3_female(df)
-            if session["sex"] == Sex.FEMALE
-            else bodyfat.jackson_pollock_3_male(df)
-        )
-        df["jp7"] = (
-            bodyfat.jackson_pollock_7_female(df)
-            if session["sex"] == Sex.FEMALE
-            else bodyfat.jackson_pollock_7_male(df)
-        )
-
-        return jsonify(df.replace([np.nan], [None]).to_dict(orient="records"))
-
     body_fat = (
         db.session.execute(select(BodyFat).where(BodyFat.user_id == session["user_id"]))
         .scalars()

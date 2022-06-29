@@ -39,8 +39,8 @@ pub struct Model {
     pub users: Vec<User>,
 
     // ------ Session-dependent data ------
-    pub body_weight: Vec<BodyWeightStats>,
-    pub body_fat: Vec<BodyFatStats>,
+    pub body_weight: Vec<BodyWeight>,
+    pub body_fat: Vec<BodyFat>,
     pub period: Vec<Period>,
     pub exercises: Vec<Exercise>,
     pub routines: Vec<Routine>,
@@ -72,14 +72,8 @@ pub struct NewUser {
 pub struct BodyWeight {
     pub date: NaiveDate,
     pub weight: f32,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct BodyWeightStats {
-    pub date: NaiveDate,
-    pub weight: f32,
+    #[serde(skip)]
     pub avg_weight: Option<f32>,
-    pub avg_weight_change: Option<f32>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -92,20 +86,6 @@ pub struct BodyFat {
     pub subscapular: Option<u8>,
     pub suprailiac: Option<u8>,
     pub midaxillary: Option<u8>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct BodyFatStats {
-    pub date: NaiveDate,
-    pub chest: Option<u8>,
-    pub abdominal: Option<u8>,
-    pub tigh: Option<u8>,
-    pub tricep: Option<u8>,
-    pub subscapular: Option<u8>,
-    pub suprailiac: Option<u8>,
-    pub midaxillary: Option<u8>,
-    pub jp3: Option<f32>,
-    pub jp7: Option<f32>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -151,6 +131,69 @@ pub struct WorkoutSet {
     pub time: Option<u32>,
     pub weight: Option<f32>,
     pub rpe: Option<f32>,
+}
+
+impl BodyFat {
+    pub fn jp3(&self, sex: u8) -> Option<f32> {
+        if sex == 0 {
+            Some(self.jackson_pollock(
+                self.tricep? as f32 + self.suprailiac? as f32 + self.tigh? as f32,
+                1.0994921,
+                0.0009929,
+                0.0000023,
+                0.0001392,
+            ))
+        } else if sex == 1 {
+            Some(self.jackson_pollock(
+                self.chest? as f32 + self.abdominal? as f32 + self.tigh? as f32,
+                1.10938,
+                0.0008267,
+                0.0000016,
+                0.0002574,
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub fn jp7(&self, sex: u8) -> Option<f32> {
+        if sex == 0 {
+            Some(self.jackson_pollock(
+                self.chest? as f32
+                    + self.abdominal? as f32
+                    + self.tigh? as f32
+                    + self.tricep? as f32
+                    + self.subscapular? as f32
+                    + self.suprailiac? as f32
+                    + self.midaxillary? as f32,
+                1.097,
+                0.00046971,
+                0.00000056,
+                0.00012828,
+            ))
+        } else if sex == 1 {
+            Some(self.jackson_pollock(
+                self.chest? as f32
+                    + self.abdominal? as f32
+                    + self.tigh? as f32
+                    + self.tricep? as f32
+                    + self.subscapular? as f32
+                    + self.suprailiac? as f32
+                    + self.midaxillary? as f32,
+                1.112,
+                0.00043499,
+                0.00000055,
+                0.00028826,
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn jackson_pollock(&self, sum: f32, k0: f32, k1: f32, k2: f32, ka: f32) -> f32 {
+        let age = 30.; // assume an age of 30
+        (495. / (k0 - (k1 * sum) + (k2 * sum * sum) - (ka * age))) - 450.
+    }
 }
 
 impl Workout {
@@ -209,6 +252,24 @@ impl Workout {
     }
 }
 
+fn calculate_body_weight_stats(mut body_weight: Vec<BodyWeight>) -> Vec<BodyWeight> {
+    // centered rolling mean
+    let window = 9;
+    let length = body_weight.len();
+    for i in 0..length {
+        if i >= window / 2 && i < length - window / 2 {
+            let avg_weight = body_weight[i - window / 2..=i + window / 2]
+                .iter()
+                .map(|bw| bw.weight)
+                .sum::<f32>()
+                / window as f32;
+            body_weight[i].avg_weight = Some(avg_weight);
+        }
+    }
+
+    body_weight
+}
+
 // ------ ------
 //    Update
 // ------ ------
@@ -242,7 +303,7 @@ pub enum Msg {
     UserDeleted(Result<(), String>),
 
     ReadBodyWeight,
-    BodyWeightRead(Result<Vec<BodyWeightStats>, String>),
+    BodyWeightRead(Result<Vec<BodyWeight>, String>),
     CreateBodyWeight(BodyWeight),
     BodyWeightCreated(Result<BodyWeight, String>),
     ReplaceBodyWeight(BodyWeight),
@@ -251,7 +312,7 @@ pub enum Msg {
     BodyWeightDeleted(Result<(), String>),
 
     ReadBodyFat,
-    BodyFatRead(Result<Vec<BodyFatStats>, String>),
+    BodyFatRead(Result<Vec<BodyFat>, String>),
     CreateBodyFat(BodyFat),
     BodyFatCreated(Result<BodyFat, String>),
     ReplaceBodyFat(BodyFat),
@@ -537,7 +598,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             });
         }
         Msg::BodyWeightRead(Ok(body_weight)) => {
-            model.body_weight = body_weight;
+            model.body_weight = calculate_body_weight_stats(body_weight);
         }
         Msg::BodyWeightRead(Err(message)) => {
             model

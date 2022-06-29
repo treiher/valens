@@ -37,6 +37,7 @@ pub fn update(_msg: Msg, _model: &mut Model, _orders: &mut impl Orders<Msg>) {}
 // ------ ------
 
 pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let sex = data_model.session.as_ref().unwrap().sex;
     let local: NaiveDate = Local::now().date().naive_local();
     let body_weight_subtitle;
     let body_weight_content;
@@ -52,7 +53,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 
     if let Some(body_fat) = &data_model.body_fat.last() {
-        body_fat_subtitle = if let Some(jp3) = body_fat.jp3 {
+        body_fat_subtitle = if let Some(jp3) = body_fat.jp3(sex) {
             format!("{:.1} %", jp3)
         } else {
             String::new()

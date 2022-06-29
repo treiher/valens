@@ -704,6 +704,7 @@ fn view_body_fat_form_field(
 }
 
 fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let sex = data_model.session.as_ref().unwrap().sex;
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -716,7 +717,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 th!["Date"],
                 th!["JP3 (%)"],
                 th!["JP7 (%)"],
-                if data_model.session.as_ref().unwrap().sex == 0 {
+                if sex == 0 {
                     nodes![
                         th!["Tricep (mm)"],
                         th!["Suprailiac (mm)"],
@@ -753,9 +754,9 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             style! {St::WhiteSpace => "nowrap" },
                             bf.date.to_string(),
                         ]],
-                        td![common::value_or_dash(bf.jp3)],
-                        td![common::value_or_dash(bf.jp7)],
-                        if data_model.session.as_ref().unwrap().sex == 0 {
+                        td![common::value_or_dash(bf.jp3(sex))],
+                        td![common::value_or_dash(bf.jp7(sex))],
+                        if sex == 0 {
                             nodes![
                                 td![common::value_or_dash(bf.tricep)],
                                 td![common::value_or_dash(bf.suprailiac)],

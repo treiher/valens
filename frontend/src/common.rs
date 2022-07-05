@@ -1,7 +1,7 @@
 use chrono::{prelude::*, Duration};
+use plotters::prelude::*;
+use plotters_canvas::CanvasBackend;
 use seed::{prelude::*, *};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 pub const ENTER_KEY: u32 = 13;
 
@@ -236,40 +236,6 @@ where
     ]
 }
 
-pub fn view_diagram<Ms>(
-    base_url: &Url,
-    kind: &str,
-    interval: &Interval,
-    represented_data: &impl Hash,
-) -> Node<Ms> {
-    // The hash must uniquely represent the state of the represented data to ensure that the
-    // right image is loaded when the data has been changed.
-    let mut hasher = DefaultHasher::new();
-    represented_data.hash(&mut hasher);
-    div![
-        C!["container"],
-        C!["has-text-centered"],
-        style! {
-            St::MaxWidth => "360pt"
-        },
-        img![attrs! {
-            At::Src => {
-                base_url
-                    .clone()
-                    .add_path_part("api")
-                    .add_path_part("images")
-                    .add_path_part(kind)
-                    .set_hash("")
-                    .set_search(UrlSearch::new(vec![
-                            ("first", vec![interval.first.to_string()]),
-                            ("last", vec![interval.last.to_string()]),
-                            ("x", vec![format!("{:x}", hasher.finish())]),
-                    ]))
-            }
-        }]
-    ]
-}
-
 pub fn view_loading<Ms>() -> Node<Ms> {
     div![
         C!["is-size-4"],
@@ -303,4 +269,296 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     } else {
         "-".into()
     }
+}
+
+pub fn view_chart_canvas<Ms>(
+    canvas: &ElRef<web_sys::HtmlCanvasElement>,
+    labels: &[(&str, usize)],
+) -> Node<Ms> {
+    div![
+        C!["container"],
+        C!["has-text-centered"],
+        h1![
+            C!["is-size-6"],
+            C!["has-text-weight-bold"],
+            labels
+                .iter()
+                .map(|(label, color_idx)| {
+                    span![
+                        C!["icon-text"],
+                        C!["mx-1"],
+                        span![
+                            C!["icon"],
+                            style![
+                                St::Color => {
+                                    let (r, g, b) = Palette99::pick(*color_idx).mix(0.9).rgb();
+                                    format!("#{r:02x}{g:02x}{b:02x}")
+                                }
+                            ],
+                            i![C!["fas fa-square"]]
+                        ],
+                        span![label],
+                    ]
+                })
+                .collect::<Vec<_>>(),
+        ],
+        canvas![
+            el_ref(canvas),
+            attrs! {
+                At::Width => px(400),
+                At::Height => px(200),
+            },
+        ],
+    ]
+}
+
+pub fn plot_line_chart(
+    canvas: Option<web_sys::HtmlCanvasElement>,
+    data: &[(Vec<(NaiveDate, f32)>, usize)],
+    x_min: NaiveDate,
+    x_max: NaiveDate,
+    y_min_opt: Option<f32>,
+    y_max_opt: Option<f32>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (y_min, y_max, y_margin) = determine_y_bounds(
+        data.iter()
+            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
+            .collect::<Vec<_>>(),
+        y_min_opt,
+        y_max_opt,
+    );
+
+    let backend = CanvasBackend::with_canvas_object(canvas.ok_or("canvas not found")?).unwrap();
+    let root = backend.into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let mut chart_builder = ChartBuilder::on(&root);
+    chart_builder
+        .margin(10f32)
+        .x_label_area_size(30f32)
+        .y_label_area_size(40f32);
+
+    let mut chart = chart_builder.build_cartesian_2d(
+        x_min..x_max,
+        f32::max(0., y_min - y_margin)..y_max + y_margin,
+    )?;
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .set_all_tick_mark_size(3u32)
+        .axis_style(&BLACK.mix(0.3))
+        .light_line_style(&WHITE.mix(0.0))
+        .x_labels(2)
+        .y_labels(6)
+        .draw()?;
+
+    for (series, color_idx) in data {
+        let color = Palette99::pick(*color_idx).mix(0.9);
+        chart.draw_series(LineSeries::new(
+            series.iter().map(|(x, y)| (*x, *y)),
+            color.stroke_width(2),
+        ))?;
+
+        chart.draw_series(
+            series
+                .iter()
+                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+        )?;
+    }
+
+    root.present()?;
+
+    Ok(())
+}
+
+pub fn plot_dual_line_chart(
+    canvas: Option<web_sys::HtmlCanvasElement>,
+    data: &[(Vec<(NaiveDate, f32)>, usize)],
+    secondary_data: &[(Vec<(NaiveDate, f32)>, usize)],
+    x_min: NaiveDate,
+    x_max: NaiveDate,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (y_min, y_max, y_margin) = determine_y_bounds(
+        data.iter()
+            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
+            .collect::<Vec<_>>(),
+        None,
+        None,
+    );
+    let (y2_min, y2_max, y2_margin) = determine_y_bounds(
+        secondary_data
+            .iter()
+            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
+            .collect::<Vec<_>>(),
+        None,
+        None,
+    );
+
+    let backend = CanvasBackend::with_canvas_object(canvas.ok_or("canvas not found")?).unwrap();
+    let root = backend.into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .margin(10f32)
+        .x_label_area_size(30f32)
+        .y_label_area_size(40f32)
+        .right_y_label_area_size(40f32)
+        .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
+        .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .set_all_tick_mark_size(3u32)
+        .axis_style(&BLACK.mix(0.3))
+        .light_line_style(&WHITE.mix(0.0))
+        .x_labels(2)
+        .y_labels(6)
+        .draw()?;
+
+    chart
+        .configure_secondary_axes()
+        .set_all_tick_mark_size(3u32)
+        .axis_style(&BLACK.mix(0.3))
+        .draw()?;
+
+    for (series, color_idx) in secondary_data {
+        let color = Palette99::pick(*color_idx).mix(0.9);
+        chart.draw_secondary_series(LineSeries::new(
+            series.iter().map(|(x, y)| (*x, *y)),
+            color.stroke_width(2),
+        ))?;
+
+        chart.draw_secondary_series(
+            series
+                .iter()
+                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+        )?;
+    }
+
+    for (series, color_idx) in data {
+        let color = Palette99::pick(*color_idx).mix(0.9);
+        chart.draw_series(LineSeries::new(
+            series.iter().map(|(x, y)| (*x, *y)),
+            color.stroke_width(2),
+        ))?;
+
+        chart.draw_series(
+            series
+                .iter()
+                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+        )?;
+    }
+
+    root.present()?;
+
+    Ok(())
+}
+
+pub fn plot_bar_chart(
+    canvas: Option<web_sys::HtmlCanvasElement>,
+    data: &[(Vec<(NaiveDate, f32)>, usize)],
+    secondary_data: &[(Vec<(NaiveDate, f32)>, usize)],
+    x_min: NaiveDate,
+    x_max: NaiveDate,
+    y_min_opt: Option<f32>,
+    y_max_opt: Option<f32>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (y_min, y_max, _) = determine_y_bounds(
+        data.iter()
+            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
+            .collect::<Vec<_>>(),
+        y_min_opt,
+        y_max_opt,
+    );
+    let y_margin = 0.;
+    let (y2_min, y2_max, y2_margin) = determine_y_bounds(
+        secondary_data
+            .iter()
+            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
+            .collect::<Vec<_>>(),
+        None,
+        None,
+    );
+
+    let backend = CanvasBackend::with_canvas_object(canvas.ok_or("canvas not found")?).unwrap();
+    let root = backend.into_drawing_area();
+
+    root.fill(&WHITE)?;
+
+    let mut chart = ChartBuilder::on(&root)
+        .margin(10f32)
+        .x_label_area_size(30f32)
+        .y_label_area_size(40f32)
+        .right_y_label_area_size(30f32)
+        .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
+        .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .set_all_tick_mark_size(3u32)
+        .axis_style(&BLACK.mix(0.3))
+        .light_line_style(&WHITE.mix(0.0))
+        .x_labels(2)
+        .y_labels(6)
+        .draw()?;
+
+    chart
+        .configure_secondary_axes()
+        .set_all_tick_mark_size(3u32)
+        .axis_style(&BLACK.mix(0.3))
+        .draw()?;
+
+    for (series, color_idx) in data {
+        let color = Palette99::pick(*color_idx).mix(0.9).filled();
+        let histogram = Histogram::vertical(&chart)
+            .style(color)
+            .margin(1)
+            .data(series.iter().map(|(x, y)| (*x, *y)));
+        chart.draw_series(histogram)?;
+    }
+
+    for (series, color_idx) in secondary_data {
+        let color = Palette99::pick(*color_idx).mix(0.9);
+        chart.draw_secondary_series(LineSeries::new(
+            series.iter().map(|(x, y)| (*x, *y)),
+            color.stroke_width(2),
+        ))?;
+
+        chart.draw_secondary_series(
+            series
+                .iter()
+                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+        )?;
+    }
+
+    root.present()?;
+
+    Ok(())
+}
+
+fn determine_y_bounds(
+    y: Vec<f32>,
+    y_min_opt: Option<f32>,
+    y_max_opt: Option<f32>,
+) -> (f32, f32, f32) {
+    let y_min = f32::min(
+        y_min_opt.unwrap_or(f32::MAX),
+        y.clone().into_iter().reduce(f32::min).unwrap_or(0.),
+    );
+    let y_max = f32::max(
+        y_max_opt.unwrap_or(0.),
+        y.into_iter().reduce(f32::max).unwrap_or(0.),
+    );
+    let y_margin = if y_min != y_max || y_min == 0. {
+        (y_max - y_min) * 0.1
+    } else {
+        0.1
+    };
+
+    (y_min, y_max, y_margin)
 }

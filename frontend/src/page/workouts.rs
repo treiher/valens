@@ -18,7 +18,9 @@ pub fn init(
         orders.send_msg(Msg::ShowAddWorkoutDialog);
     }
 
-    orders.subscribe(Msg::DataEvent);
+    orders
+        .subscribe(Msg::DataEvent)
+        .after_next_render(|_| Msg::PlotChart);
 
     navbar.title = String::from("Workouts");
 
@@ -31,6 +33,10 @@ pub fn init(
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
+        reps_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        weight_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        time_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        volume_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -42,6 +48,10 @@ pub fn init(
 
 pub struct Model {
     interval: common::Interval,
+    reps_chart: ElRef<web_sys::HtmlCanvasElement>,
+    weight_chart: ElRef<web_sys::HtmlCanvasElement>,
+    time_chart: ElRef<web_sys::HtmlCanvasElement>,
+    volume_chart: ElRef<web_sys::HtmlCanvasElement>,
     dialog: Dialog,
     loading: bool,
 }
@@ -74,6 +84,8 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
+
+    PlotChart,
 }
 
 pub fn update(
@@ -167,6 +179,7 @@ pub fn update(
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
+                    orders.after_next_render(|_| Msg::PlotChart);
                 }
                 data::Event::WorkoutCreatedOk | data::Event::WorkoutDeletedOk => {
                     orders.skip().send_msg(Msg::CloseWorkoutDialog);
@@ -178,7 +191,129 @@ pub fn update(
         Msg::ChangeInterval(first, last) => {
             model.interval.first = first;
             model.interval.last = last;
+            orders.after_next_render(|_| Msg::PlotChart);
         }
+
+        Msg::PlotChart => {
+            update_charts(
+                data_model
+                    .workouts
+                    .iter()
+                    .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                &model.reps_chart,
+                &model.weight_chart,
+                &model.time_chart,
+                &model.volume_chart,
+                &model.interval,
+            );
+        }
+    }
+}
+
+pub fn update_charts(
+    workouts: &[&data::Workout],
+    reps_chart: &ElRef<web_sys::HtmlCanvasElement>,
+    weight_chart: &ElRef<web_sys::HtmlCanvasElement>,
+    time_chart: &ElRef<web_sys::HtmlCanvasElement>,
+    volume_chart: &ElRef<web_sys::HtmlCanvasElement>,
+    interval: &common::Interval,
+) {
+    if let Err(err) = common::plot_line_chart(
+        reps_chart.get(),
+        vec![
+            (
+                workouts
+                    .iter()
+                    .filter_map(|w| w.avg_reps().map(|avg_reps| (w.date, avg_reps)))
+                    .collect::<Vec<_>>(),
+                3,
+            ),
+            (
+                workouts
+                    .iter()
+                    .filter_map(|w| {
+                        if let (Some(avg_reps), Some(avg_rpe)) = (w.avg_reps(), w.avg_rpe()) {
+                            Some((w.date, avg_reps + 10.0 - avg_rpe))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+                4,
+            ),
+        ]
+        .as_slice(),
+        interval.first,
+        interval.last,
+        Some(0.),
+        None,
+    ) {
+        error!("failed to plot chart:", err);
+    }
+
+    if let Err(err) = common::plot_line_chart(
+        weight_chart.get(),
+        vec![(
+            workouts
+                .iter()
+                .filter_map(|w| w.avg_weight().map(|avg_weight| (w.date, avg_weight)))
+                .collect::<Vec<_>>(),
+            1,
+        )]
+        .as_slice(),
+        interval.first,
+        interval.last,
+        Some(0.),
+        None,
+    ) {
+        error!("failed to plot chart:", err);
+    }
+
+    if let Err(err) = common::plot_line_chart(
+        time_chart.get(),
+        vec![(
+            workouts
+                .iter()
+                .filter_map(|w| w.avg_time().map(|avg_time| (w.date, avg_time)))
+                .collect::<Vec<_>>(),
+            5,
+        )]
+        .as_slice(),
+        interval.first,
+        interval.last,
+        Some(0.),
+        None,
+    ) {
+        error!("failed to plot chart:", err);
+    }
+
+    if let Err(err) = common::plot_line_chart(
+        volume_chart.get(),
+        vec![
+            (
+                workouts
+                    .iter()
+                    .map(|w| (w.date, w.volume() as f32))
+                    .collect::<Vec<_>>(),
+                6,
+            ),
+            (
+                workouts
+                    .iter()
+                    .map(|w| (w.date, w.tut() as f32))
+                    .collect::<Vec<_>>(),
+                0,
+            ),
+        ]
+        .as_slice(),
+        interval.first,
+        interval.last,
+        Some(0.),
+        None,
+    ) {
+        error!("failed to plot chart:", err);
     }
 }
 
@@ -190,15 +325,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_workouts_dialog(&data_model.routines, &model.dialog, model.loading),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        common::view_diagram(
-            &data_model.base_url,
-            "workouts",
-            &model.interval,
-            &data_model
-                .workouts
-                .iter()
-                .map(|w| (w.id, w.date))
-                .collect::<Vec<_>>(),
+        view_chart_canvas(
+            &model.reps_chart,
+            &model.weight_chart,
+            &model.time_chart,
+            &model.volume_chart
         ),
         view_table(
             &data_model.workouts,
@@ -310,6 +441,26 @@ fn view_workouts_dialog(routines: &[data::Routine], dialog: &Dialog, loading: bo
         ],
         &ev(Ev::Click, |_| Msg::CloseWorkoutDialog),
     )
+}
+
+pub fn view_chart_canvas<Ms: 'static>(
+    reps_chart: &ElRef<web_sys::HtmlCanvasElement>,
+    weight_chart: &ElRef<web_sys::HtmlCanvasElement>,
+    time_chart: &ElRef<web_sys::HtmlCanvasElement>,
+    volume_chart: &ElRef<web_sys::HtmlCanvasElement>,
+) -> Vec<Node<Ms>> {
+    vec![
+        common::view_chart_canvas(
+            reps_chart,
+            vec![("Repetitions", 3), ("+ Repetititions in reserve", 4)].as_slice(),
+        ),
+        common::view_chart_canvas(weight_chart, vec![("Weight (kg)", 1)].as_slice()),
+        common::view_chart_canvas(time_chart, vec![("Time (s)", 5)].as_slice()),
+        common::view_chart_canvas(
+            volume_chart,
+            vec![("Volume", 6), ("Time under tension (s)", 0)].as_slice(),
+        ),
+    ]
 }
 
 pub fn view_table<Ms: 'static>(

@@ -28,7 +28,9 @@ pub fn init(
         orders.send_msg(Msg::ShowAddExerciseDialog);
     }
 
-    orders.subscribe(Msg::DataEvent);
+    orders
+        .subscribe(Msg::DataEvent)
+        .after_next_render(|_| Msg::PlotChart);
 
     navbar.title = String::from("Routine");
 
@@ -46,6 +48,10 @@ pub fn init(
         ),
         routine_id,
         previous_exercises: init_previous_exercises(routine, data_model),
+        reps_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        weight_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        time_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        volume_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -84,6 +90,10 @@ pub struct Model {
     interval: common::Interval,
     routine_id: u32,
     previous_exercises: HashSet<u32>,
+    reps_chart: ElRef<web_sys::HtmlCanvasElement>,
+    weight_chart: ElRef<web_sys::HtmlCanvasElement>,
+    time_chart: ElRef<web_sys::HtmlCanvasElement>,
+    volume_chart: ElRef<web_sys::HtmlCanvasElement>,
     dialog: Dialog,
     loading: bool,
 }
@@ -124,6 +134,8 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
+
+    PlotChart,
 }
 
 pub fn update(
@@ -379,6 +391,7 @@ pub fn update(
                         .iter()
                         .find(|r| r.id == model.routine_id);
                     model.previous_exercises = init_previous_exercises(routine, data_model);
+                    orders.after_next_render(|_| Msg::PlotChart);
                 }
                 data::Event::RoutineCreatedOk
                 | data::Event::RoutineModifiedOk
@@ -393,6 +406,27 @@ pub fn update(
         Msg::ChangeInterval(first, last) => {
             model.interval.first = first;
             model.interval.last = last;
+            orders.after_next_render(|_| Msg::PlotChart);
+        }
+
+        Msg::PlotChart => {
+            workouts::update_charts(
+                data_model
+                    .workouts
+                    .iter()
+                    .filter(|w| {
+                        w.routine_id == Some(model.routine_id)
+                            && w.date >= model.interval.first
+                            && w.date <= model.interval.last
+                    })
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                &model.reps_chart,
+                &model.weight_chart,
+                &model.time_chart,
+                &model.volume_chart,
+                &model.interval,
+            );
         }
     }
 }
@@ -657,11 +691,11 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
         C!["mt-6"],
         h1![C!["title"], C!["is-5"], "Workouts"],
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        common::view_diagram(
-            &data_model.base_url,
-            &format!("workouts/{}", model.routine_id),
-            &model.interval,
-            &0
+        workouts::view_chart_canvas(
+            &model.reps_chart,
+            &model.weight_chart,
+            &model.time_chart,
+            &model.volume_chart,
         ),
         workouts::view_table(
             &data_model

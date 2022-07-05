@@ -21,7 +21,9 @@ pub fn init(
         .parse::<u32>()
         .unwrap_or(0);
 
-    orders.subscribe(Msg::DataEvent);
+    orders
+        .subscribe(Msg::DataEvent)
+        .after_next_render(|_| Msg::PlotChart);
 
     navbar.title = String::from("Exercise");
 
@@ -36,6 +38,10 @@ pub fn init(
             false,
         ),
         exercise_id,
+        reps_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        weight_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        time_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
+        volume_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -47,6 +53,10 @@ pub fn init(
 
 pub struct Model {
     interval: common::Interval,
+    reps_chart: ElRef<web_sys::HtmlCanvasElement>,
+    weight_chart: ElRef<web_sys::HtmlCanvasElement>,
+    time_chart: ElRef<web_sys::HtmlCanvasElement>,
+    volume_chart: ElRef<web_sys::HtmlCanvasElement>,
     exercise_id: u32,
     dialog: Dialog,
     loading: bool,
@@ -69,6 +79,8 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
+
+    PlotChart,
 }
 
 pub fn update(
@@ -108,6 +120,7 @@ pub fn update(
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
+                    orders.after_next_render(|_| Msg::PlotChart);
                 }
                 data::Event::WorkoutDeletedOk => {
                     orders.skip().send_msg(Msg::CloseDialog);
@@ -119,6 +132,19 @@ pub fn update(
         Msg::ChangeInterval(first, last) => {
             model.interval.first = first;
             model.interval.last = last;
+            orders.after_next_render(|_| Msg::PlotChart);
+        }
+
+        Msg::PlotChart => {
+            let workouts = exercise_workouts(model, data_model);
+            workouts::update_charts(
+                workouts.iter().collect::<Vec<_>>().as_slice(),
+                &model.reps_chart,
+                &model.weight_chart,
+                &model.time_chart,
+                &model.volume_chart,
+                &model.interval,
+            );
         }
     }
 }
@@ -136,30 +162,14 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             common::view_title(&span![&exercise.name], 5),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-            common::view_diagram(
-                &data_model.base_url,
-                &format!("exercise/{}", model.exercise_id),
-                &model.interval,
-                &0
+            workouts::view_chart_canvas(
+                &model.reps_chart,
+                &model.weight_chart,
+                &model.time_chart,
+                &model.volume_chart
             ),
             workouts::view_table(
-                &data_model
-                    .workouts
-                    .iter()
-                    .filter(|w| w.sets.iter().any(|s| s.exercise_id == model.exercise_id))
-                    .map(|w| data::Workout {
-                        id: w.id,
-                        routine_id: w.routine_id,
-                        date: w.date,
-                        notes: w.notes.clone(),
-                        sets: w
-                            .sets
-                            .iter()
-                            .filter(|s| s.exercise_id == model.exercise_id)
-                            .cloned()
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>(),
+                exercise_workouts(model, data_model).as_slice(),
                 &data_model.routines,
                 &model.interval,
                 &data_model.base_url,
@@ -188,4 +198,28 @@ fn view_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
             empty![]
         }
     }
+}
+
+fn exercise_workouts(model: &Model, data_model: &data::Model) -> Vec<data::Workout> {
+    data_model
+        .workouts
+        .iter()
+        .filter(|w| {
+            w.sets.iter().any(|s| s.exercise_id == model.exercise_id)
+                && w.date >= model.interval.first
+                && w.date <= model.interval.last
+        })
+        .map(|w| data::Workout {
+            id: w.id,
+            routine_id: w.routine_id,
+            date: w.date,
+            notes: w.notes.clone(),
+            sets: w
+                .sets
+                .iter()
+                .filter(|s| s.exercise_id == model.exercise_id)
+                .cloned()
+                .collect::<Vec<_>>(),
+        })
+        .collect::<Vec<_>>()
 }

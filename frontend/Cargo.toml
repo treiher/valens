@@ -6,6 +6,8 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde", "wasmbind"] }
+plotters = "0.3"
+plotters-canvas = "0.3"
 seed = "0.8"
 serde = "1.0"
 serde_json = "1.0"

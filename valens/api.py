@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from functools import wraps
 from http import HTTPStatus
 from itertools import chain
 from typing import Any, Callable
 
-from flask import Blueprint, Response, jsonify, request, session
+from flask import Blueprint, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import column, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 
-from valens import database as db, diagram, version
+from valens import database as db, version
 from valens.models import (
     BodyFat,
     BodyWeight,
@@ -915,48 +914,3 @@ def delete_workout(id_: int) -> ResponseReturnValue:
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
-
-
-@bp.route("/images/<kind>")
-@bp.route("/images/<kind>/<int:id_>")
-@session_required
-def read_images(kind: str, id_: int = None) -> ResponseReturnValue:
-    try:
-        interval = _parse_interval_args()
-    except ValueError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
-
-    if kind == "bodyweight":
-        fig = diagram.plot_bodyweight(session["user_id"], interval.first, interval.last)
-    elif kind == "bodyfat":
-        fig = diagram.plot_bodyfat(session["user_id"], interval.first, interval.last)
-    elif kind == "period":
-        fig = diagram.plot_period(session["user_id"], interval.first, interval.last)
-    elif kind == "workouts":
-        fig = diagram.plot_workouts(
-            session["user_id"], interval.first, interval.last, routine_id=id_
-        )
-    elif kind == "exercise" and id_:
-        fig = diagram.plot_exercise(session["user_id"], id_, interval.first, interval.last)
-    else:
-        return "", HTTPStatus.NOT_FOUND
-
-    return Response(diagram.plot_svg(fig), mimetype="image/svg+xml")
-
-
-@dataclass
-class _Interval:
-    first: date
-    last: date
-
-
-def _parse_interval_args() -> _Interval:
-    args_first = request.args.get("first", "")
-    args_last = request.args.get("last", "")
-    first = date.fromisoformat(args_first) if args_first else date.today() - timedelta(days=30)
-    last = date.fromisoformat(args_last) if args_last else date.today()
-
-    if last <= first:
-        first = last - timedelta(days=1)
-
-    return _Interval(first, last)

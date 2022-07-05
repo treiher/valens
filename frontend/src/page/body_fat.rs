@@ -18,7 +18,9 @@ pub fn init(
         orders.send_msg(Msg::ShowAddBodyFatDialog);
     }
 
-    orders.subscribe(Msg::DataEvent);
+    orders
+        .subscribe(Msg::DataEvent)
+        .after_next_render(|_| Msg::PlotChart);
 
     navbar.title = String::from("Body fat");
 
@@ -31,6 +33,7 @@ pub fn init(
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
+        chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -42,6 +45,7 @@ pub fn init(
 
 pub struct Model {
     interval: common::Interval,
+    chart: ElRef<web_sys::HtmlCanvasElement>,
     dialog: Dialog,
     loading: bool,
 }
@@ -108,6 +112,8 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
+
+    PlotChart,
 }
 
 pub fn update(
@@ -420,6 +426,7 @@ pub fn update(
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
+                    orders.after_next_render(|_| Msg::PlotChart);
                 }
                 data::Event::BodyFatCreatedOk
                 | data::Event::BodyFatReplacedOk
@@ -433,6 +440,54 @@ pub fn update(
         Msg::ChangeInterval(first, last) => {
             model.interval.first = first;
             model.interval.last = last;
+            orders.after_next_render(|_| Msg::PlotChart);
+        }
+
+        Msg::PlotChart => {
+            let body_fat = data_model
+                .body_fat
+                .iter()
+                .filter(|bf| bf.date >= model.interval.first && bf.date <= model.interval.last)
+                .collect::<Vec<_>>();
+            let body_weight = data_model
+                .body_weight
+                .iter()
+                .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+                .collect::<Vec<_>>();
+            let sex = data_model.session.as_ref().unwrap().sex;
+
+            if let Err(err) = common::plot_dual_line_chart(
+                model.chart.get(),
+                vec![
+                    (
+                        body_fat
+                            .iter()
+                            .filter_map(|bf| bf.jp3(sex).map(|jp3| (bf.date, jp3)))
+                            .collect::<Vec<_>>(),
+                        4,
+                    ),
+                    (
+                        body_fat
+                            .iter()
+                            .filter_map(|bf| bf.jp7(sex).map(|jp7| (bf.date, jp7)))
+                            .collect::<Vec<_>>(),
+                        0,
+                    ),
+                ]
+                .as_slice(),
+                vec![(
+                    body_weight
+                        .iter()
+                        .map(|bw| (bw.date, bw.weight))
+                        .collect::<Vec<_>>(),
+                    1,
+                )]
+                .as_slice(),
+                model.interval.first,
+                model.interval.last,
+            ) {
+                error!("failed to plot chart:", err);
+            }
         }
     }
 }
@@ -450,24 +505,9 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         ),
         common::view_fab(|_| Msg::ShowAddBodyFatDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        common::view_diagram(
-            &data_model.base_url,
-            "bodyfat",
-            &model.interval,
-            &data_model
-                .body_fat
-                .iter()
-                .map(|bf| (
-                    bf.date,
-                    bf.chest.unwrap_or(0),
-                    bf.abdominal.unwrap_or(0),
-                    bf.tigh.unwrap_or(0),
-                    bf.tricep.unwrap_or(0),
-                    bf.subscapular.unwrap_or(0),
-                    bf.suprailiac.unwrap_or(0),
-                    bf.midaxillary.unwrap_or(0),
-                ))
-                .collect::<Vec<_>>(),
+        common::view_chart_canvas(
+            &model.chart,
+            vec![("JP3 (%)", 4), ("JP7 (%)", 0), ("Weight (kg)", 1)].as_slice()
         ),
         view_table(model, data_model),
     ]

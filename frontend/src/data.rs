@@ -599,6 +599,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightRead(Ok(body_weight)) => {
             model.body_weight = calculate_body_weight_stats(body_weight);
+            model.body_weight.sort_by(|a, b| a.date.cmp(&b.date));
         }
         Msg::BodyWeightRead(Err(message)) => {
             model
@@ -679,6 +680,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyFatRead(Ok(body_fat)) => {
             model.body_fat = body_fat;
+            model.body_fat.sort_by(|a, b| a.date.cmp(&b.date));
         }
         Msg::BodyFatRead(Err(message)) => {
             model
@@ -767,6 +769,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodRead(Ok(period)) => {
             model.period = period;
+            model.period.sort_by(|a, b| a.date.cmp(&b.date));
         }
         Msg::PeriodRead(Err(message)) => {
             model
@@ -847,6 +850,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::ExercisesRead(Ok(exercises)) => {
             model.exercises = exercises;
+            model.exercises.sort_by(|a, b| a.name.cmp(&b.name));
         }
         Msg::ExercisesRead(Err(message)) => {
             model
@@ -1016,6 +1020,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::WorkoutsRead(Ok(workouts)) => {
             orders.notify(Event::WorkoutsReadOk);
             model.workouts = workouts;
+            model.workouts.sort_by(|a, b| a.date.cmp(&b.date));
         }
         Msg::WorkoutsRead(Err(message)) => {
             orders.notify(Event::WorkoutsReadErr);

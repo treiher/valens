@@ -320,7 +320,7 @@ pub fn plot_line_chart(
     let mut result = String::new();
 
     {
-        let root = SVGBackend::with_string(&mut result, (400, 200)).into_drawing_area();
+        let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
 
         root.fill(&WHITE)?;
 
@@ -390,7 +390,7 @@ pub fn plot_dual_line_chart(
     let mut result = String::new();
 
     {
-        let root = SVGBackend::with_string(&mut result, (400, 200)).into_drawing_area();
+        let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
 
         root.fill(&WHITE)?;
 
@@ -480,7 +480,7 @@ pub fn plot_bar_chart(
     let mut result = String::new();
 
     {
-        let root = SVGBackend::with_string(&mut result, (400, 200)).into_drawing_area();
+        let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
 
         root.fill(&WHITE)?;
 
@@ -557,4 +557,19 @@ fn determine_y_bounds(
     };
 
     (y_min, y_max, y_margin)
+}
+
+fn chart_width() -> u32 {
+    u32::min(
+        u32::max(
+            window()
+                .inner_width()
+                .unwrap_or(JsValue::UNDEFINED)
+                .as_f64()
+                .unwrap_or(420.) as u32
+                - 20,
+            300,
+        ),
+        960,
+    )
 }

@@ -144,8 +144,8 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_exercise_dialog(&model.dialog, &data_model.exercises, model.loading),
-        common::view_fab(|_| Msg::ShowAddExerciseDialog),
         view_table(data_model),
+        common::view_fab(|_| Msg::ShowAddExerciseDialog),
     ]
 }
 

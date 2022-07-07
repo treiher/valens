@@ -219,10 +219,10 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_body_weight_dialog(&model.dialog, model.loading),
-        common::view_fab(|_| Msg::ShowAddBodyWeightDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         view_chart(model, data_model),
         view_table(model, data_model),
+        common::view_fab(|_| Msg::ShowAddBodyWeightDialog),
     ]
 }
 

@@ -28,9 +28,17 @@ pub struct Model {}
 //    Update
 // ------ ------
 
-pub enum Msg {}
+pub enum Msg {
+    ChangePage(Url),
+}
 
-pub fn update(_msg: Msg, _model: &mut Model, _orders: &mut impl Orders<Msg>) {}
+pub fn update(msg: Msg, _model: &mut Model, orders: &mut impl Orders<Msg>) {
+    match msg {
+        Msg::ChangePage(url) => {
+            orders.request_url(url);
+        }
+    }
+}
 
 // ------ ------
 //     View
@@ -122,6 +130,10 @@ fn view_tile(title: &str, subtitle: &str, content: &str, target: Url) -> Node<Ms
                 C!["tile"],
                 C!["is-child"],
                 C!["box"],
+                {
+                    let target = target.clone();
+                    ev(Ev::Click, move |_| Msg::ChangePage(target))
+                },
                 div![
                     C!["is-flex"],
                     C!["is-justify-content-space-between"],

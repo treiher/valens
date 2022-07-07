@@ -18,9 +18,7 @@ pub fn init(
         orders.send_msg(Msg::ShowAddBodyWeightDialog);
     }
 
-    orders
-        .subscribe(Msg::DataEvent)
-        .after_next_render(|_| Msg::PlotChart);
+    orders.subscribe(Msg::DataEvent);
 
     navbar.title = String::from("Body weight");
 
@@ -33,7 +31,6 @@ pub fn init(
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
-        chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -45,7 +42,6 @@ pub fn init(
 
 pub struct Model {
     interval: common::Interval,
-    chart: ElRef<web_sys::HtmlCanvasElement>,
     dialog: Dialog,
     loading: bool,
 }
@@ -80,8 +76,6 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
-
-    PlotChart,
 }
 
 pub fn update(
@@ -201,7 +195,6 @@ pub fn update(
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
-                    orders.after_next_render(|_| Msg::PlotChart);
                 }
                 data::Event::BodyWeightCreatedOk
                 | data::Event::BodyWeightReplacedOk
@@ -215,40 +208,6 @@ pub fn update(
         Msg::ChangeInterval(first, last) => {
             model.interval.first = first;
             model.interval.last = last;
-            orders.after_next_render(|_| Msg::PlotChart);
-        }
-
-        Msg::PlotChart => {
-            let data = data_model
-                .body_weight
-                .iter()
-                .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
-                .collect::<Vec<_>>();
-            let series = vec![
-                (
-                    data.iter()
-                        .map(|bw| (bw.date, bw.weight))
-                        .collect::<Vec<_>>(),
-                    1,
-                ),
-                (
-                    data.iter()
-                        .filter_map(|bw| bw.avg_weight.map(|avg_weight| (bw.date, avg_weight)))
-                        .collect::<Vec<_>>(),
-                    2,
-                ),
-            ];
-
-            if let Err(err) = common::plot_line_chart(
-                model.chart.get(),
-                series.as_slice(),
-                model.interval.first,
-                model.interval.last,
-                None,
-                None,
-            ) {
-                error!("failed to plot chart:", err);
-            }
         }
     }
 }
@@ -262,10 +221,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         view_body_weight_dialog(&model.dialog, model.loading),
         common::view_fab(|_| Msg::ShowAddBodyWeightDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        common::view_chart_canvas(
-            &model.chart,
-            vec![("Weight (kg)", 1), ("Avg. weight (kg)", 2)].as_slice()
-        ),
+        view_chart(model, data_model),
         view_table(model, data_model),
     ]
 }
@@ -374,6 +330,45 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
             ],
         ],
         &ev(Ev::Click, |_| Msg::CloseBodyWeightDialog),
+    )
+}
+
+fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let data = data_model
+        .body_weight
+        .iter()
+        .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+        .collect::<Vec<_>>();
+
+    common::view_chart(
+        vec![("Weight (kg)", 1), ("Avg. weight (kg)", 2)].as_slice(),
+        match common::plot_line_chart(
+            vec![
+                (
+                    data.iter()
+                        .map(|bw| (bw.date, bw.weight))
+                        .collect::<Vec<_>>(),
+                    1,
+                ),
+                (
+                    data.iter()
+                        .filter_map(|bw| bw.avg_weight.map(|avg_weight| (bw.date, avg_weight)))
+                        .collect::<Vec<_>>(),
+                    2,
+                ),
+            ]
+            .as_slice(),
+            model.interval.first,
+            model.interval.last,
+            None,
+            None,
+        ) {
+            Ok(result) => raw![&result],
+            Err(err) => {
+                error!("failed to plot chart:", err);
+                raw![""]
+            }
+        },
     )
 }
 

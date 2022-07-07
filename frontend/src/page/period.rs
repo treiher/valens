@@ -18,9 +18,7 @@ pub fn init(
         orders.send_msg(Msg::ShowAddPeriodDialog);
     }
 
-    orders
-        .subscribe(Msg::DataEvent)
-        .after_next_render(|_| Msg::PlotChart);
+    orders.subscribe(Msg::DataEvent);
 
     navbar.title = String::from("Period");
 
@@ -33,7 +31,6 @@ pub fn init(
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
-        chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -45,7 +42,6 @@ pub fn init(
 
 pub struct Model {
     interval: common::Interval,
-    chart: ElRef<web_sys::HtmlCanvasElement>,
     dialog: Dialog,
     loading: bool,
 }
@@ -80,8 +76,6 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
-
-    PlotChart,
 }
 
 pub fn update(
@@ -193,7 +187,6 @@ pub fn update(
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
-                    orders.after_next_render(|_| Msg::PlotChart);
                 }
                 data::Event::PeriodCreatedOk
                 | data::Event::PeriodReplacedOk
@@ -207,46 +200,6 @@ pub fn update(
         Msg::ChangeInterval(first, last) => {
             model.interval.first = first;
             model.interval.last = last;
-            orders.after_next_render(|_| Msg::PlotChart);
-        }
-
-        Msg::PlotChart => {
-            let period = data_model
-                .period
-                .iter()
-                .filter(|p| p.date >= model.interval.first && p.date <= model.interval.last)
-                .collect::<Vec<_>>();
-            let body_weight = data_model
-                .body_weight
-                .iter()
-                .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
-                .collect::<Vec<_>>();
-
-            if let Err(err) = common::plot_bar_chart(
-                model.chart.get(),
-                vec![(
-                    period
-                        .iter()
-                        .map(|p| (p.date, p.intensity as f32))
-                        .collect::<Vec<_>>(),
-                    0,
-                )]
-                .as_slice(),
-                vec![(
-                    body_weight
-                        .iter()
-                        .map(|bw| (bw.date, bw.weight))
-                        .collect::<Vec<_>>(),
-                    1,
-                )]
-                .as_slice(),
-                model.interval.first,
-                model.interval.last,
-                Some(0.),
-                Some(4.),
-            ) {
-                error!("failed to plot chart:", err);
-            }
         }
     }
 }
@@ -260,10 +213,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         view_period_dialog(&model.dialog, model.loading),
         common::view_fab(|_| Msg::ShowAddPeriodDialog),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        common::view_chart_canvas(
-            &model.chart,
-            vec![("Intensity", 0), ("Weight (kg)", 1)].as_slice()
-        ),
+        view_chart(model, data_model),
         view_table(model, data_model),
     ]
 }
@@ -368,6 +318,51 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
             ],
         ],
         &ev(Ev::Click, |_| Msg::ClosePeriodDialog),
+    )
+}
+
+fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let period = data_model
+        .period
+        .iter()
+        .filter(|p| p.date >= model.interval.first && p.date <= model.interval.last)
+        .collect::<Vec<_>>();
+    let body_weight = data_model
+        .body_weight
+        .iter()
+        .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+        .collect::<Vec<_>>();
+
+    common::view_chart(
+        vec![("Intensity", 0), ("Weight (kg)", 1)].as_slice(),
+        match common::plot_bar_chart(
+            vec![(
+                period
+                    .iter()
+                    .map(|p| (p.date, p.intensity as f32))
+                    .collect::<Vec<_>>(),
+                0,
+            )]
+            .as_slice(),
+            vec![(
+                body_weight
+                    .iter()
+                    .map(|bw| (bw.date, bw.weight))
+                    .collect::<Vec<_>>(),
+                1,
+            )]
+            .as_slice(),
+            model.interval.first,
+            model.interval.last,
+            Some(0.),
+            Some(4.),
+        ) {
+            Ok(result) => raw![&result],
+            Err(err) => {
+                error!("failed to plot chart:", err);
+                raw![""]
+            }
+        },
     )
 }
 

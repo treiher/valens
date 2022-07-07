@@ -21,9 +21,7 @@ pub fn init(
         .parse::<u32>()
         .unwrap_or(0);
 
-    orders
-        .subscribe(Msg::DataEvent)
-        .after_next_render(|_| Msg::PlotChart);
+    orders.subscribe(Msg::DataEvent);
 
     navbar.title = String::from("Exercise");
 
@@ -38,10 +36,6 @@ pub fn init(
             false,
         ),
         exercise_id,
-        reps_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
-        weight_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
-        time_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
-        volume_chart: ElRef::<web_sys::HtmlCanvasElement>::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -53,10 +47,6 @@ pub fn init(
 
 pub struct Model {
     interval: common::Interval,
-    reps_chart: ElRef<web_sys::HtmlCanvasElement>,
-    weight_chart: ElRef<web_sys::HtmlCanvasElement>,
-    time_chart: ElRef<web_sys::HtmlCanvasElement>,
-    volume_chart: ElRef<web_sys::HtmlCanvasElement>,
     exercise_id: u32,
     dialog: Dialog,
     loading: bool,
@@ -79,8 +69,6 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
-
-    PlotChart,
 }
 
 pub fn update(
@@ -120,7 +108,6 @@ pub fn update(
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
-                    orders.after_next_render(|_| Msg::PlotChart);
                 }
                 data::Event::WorkoutDeletedOk => {
                     orders.skip().send_msg(Msg::CloseDialog);
@@ -132,19 +119,6 @@ pub fn update(
         Msg::ChangeInterval(first, last) => {
             model.interval.first = first;
             model.interval.last = last;
-            orders.after_next_render(|_| Msg::PlotChart);
-        }
-
-        Msg::PlotChart => {
-            let workouts = exercise_workouts(model, data_model);
-            workouts::update_charts(
-                workouts.iter().collect::<Vec<_>>().as_slice(),
-                &model.reps_chart,
-                &model.weight_chart,
-                &model.time_chart,
-                &model.volume_chart,
-                &model.interval,
-            );
         }
     }
 }
@@ -159,14 +133,13 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .iter()
         .find(|e| e.id == model.exercise_id)
     {
+        let workouts = exercise_workouts(model, data_model);
         div![
             common::view_title(&span![&exercise.name], 5),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-            workouts::view_chart_canvas(
-                &model.reps_chart,
-                &model.weight_chart,
-                &model.time_chart,
-                &model.volume_chart
+            workouts::view_charts(
+                workouts.iter().collect::<Vec<_>>().as_slice(),
+                &model.interval,
             ),
             workouts::view_table(
                 exercise_workouts(model, data_model).as_slice(),

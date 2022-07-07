@@ -1,6 +1,5 @@
 use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
-use plotters_canvas::CanvasBackend;
 use seed::{prelude::*, *};
 
 pub const ENTER_KEY: u32 = 13;
@@ -271,10 +270,7 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     }
 }
 
-pub fn view_chart_canvas<Ms>(
-    canvas: &ElRef<web_sys::HtmlCanvasElement>,
-    labels: &[(&str, usize)],
-) -> Node<Ms> {
+pub fn view_chart<Ms>(labels: &[(&str, usize)], chart: Vec<Node<Ms>>) -> Node<Ms> {
     div![
         C!["container"],
         C!["has-text-centered"],
@@ -302,24 +298,17 @@ pub fn view_chart_canvas<Ms>(
                 })
                 .collect::<Vec<_>>(),
         ],
-        canvas![
-            el_ref(canvas),
-            attrs! {
-                At::Width => px(400),
-                At::Height => px(200),
-            },
-        ],
+        chart,
     ]
 }
 
 pub fn plot_line_chart(
-    canvas: Option<web_sys::HtmlCanvasElement>,
     data: &[(Vec<(NaiveDate, f32)>, usize)],
     x_min: NaiveDate,
     x_max: NaiveDate,
     y_min_opt: Option<f32>,
     y_max_opt: Option<f32>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<String, Box<dyn std::error::Error>> {
     let (y_min, y_max, y_margin) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
@@ -328,58 +317,60 @@ pub fn plot_line_chart(
         y_max_opt,
     );
 
-    let backend = CanvasBackend::with_canvas_object(canvas.ok_or("canvas not found")?).unwrap();
-    let root = backend.into_drawing_area();
+    let mut result = String::new();
 
-    root.fill(&WHITE)?;
+    {
+        let root = SVGBackend::with_string(&mut result, (400, 200)).into_drawing_area();
 
-    let mut chart_builder = ChartBuilder::on(&root);
-    chart_builder
-        .margin(10f32)
-        .x_label_area_size(30f32)
-        .y_label_area_size(40f32);
+        root.fill(&WHITE)?;
 
-    let mut chart = chart_builder.build_cartesian_2d(
-        x_min..x_max,
-        f32::max(0., y_min - y_margin)..y_max + y_margin,
-    )?;
+        let mut chart_builder = ChartBuilder::on(&root);
+        chart_builder
+            .margin(10f32)
+            .x_label_area_size(30f32)
+            .y_label_area_size(40f32);
 
-    chart
-        .configure_mesh()
-        .disable_x_mesh()
-        .set_all_tick_mark_size(3u32)
-        .axis_style(&BLACK.mix(0.3))
-        .light_line_style(&WHITE.mix(0.0))
-        .x_labels(2)
-        .y_labels(6)
-        .draw()?;
-
-    for (series, color_idx) in data {
-        let color = Palette99::pick(*color_idx).mix(0.9);
-        chart.draw_series(LineSeries::new(
-            series.iter().map(|(x, y)| (*x, *y)),
-            color.stroke_width(2),
-        ))?;
-
-        chart.draw_series(
-            series
-                .iter()
-                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+        let mut chart = chart_builder.build_cartesian_2d(
+            x_min..x_max,
+            f32::max(0., y_min - y_margin)..y_max + y_margin,
         )?;
+
+        chart
+            .configure_mesh()
+            .disable_x_mesh()
+            .set_all_tick_mark_size(3u32)
+            .axis_style(&BLACK.mix(0.3))
+            .light_line_style(&WHITE.mix(0.0))
+            .x_labels(2)
+            .y_labels(6)
+            .draw()?;
+
+        for (series, color_idx) in data {
+            let color = Palette99::pick(*color_idx).mix(0.9);
+            chart.draw_series(LineSeries::new(
+                series.iter().map(|(x, y)| (*x, *y)),
+                color.stroke_width(2),
+            ))?;
+
+            chart.draw_series(
+                series
+                    .iter()
+                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+            )?;
+        }
+
+        root.present()?;
     }
 
-    root.present()?;
-
-    Ok(())
+    Ok(result)
 }
 
 pub fn plot_dual_line_chart(
-    canvas: Option<web_sys::HtmlCanvasElement>,
     data: &[(Vec<(NaiveDate, f32)>, usize)],
     secondary_data: &[(Vec<(NaiveDate, f32)>, usize)],
     x_min: NaiveDate,
     x_max: NaiveDate,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<String, Box<dyn std::error::Error>> {
     let (y_min, y_max, y_margin) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
@@ -396,77 +387,79 @@ pub fn plot_dual_line_chart(
         None,
     );
 
-    let backend = CanvasBackend::with_canvas_object(canvas.ok_or("canvas not found")?).unwrap();
-    let root = backend.into_drawing_area();
+    let mut result = String::new();
 
-    root.fill(&WHITE)?;
+    {
+        let root = SVGBackend::with_string(&mut result, (400, 200)).into_drawing_area();
 
-    let mut chart = ChartBuilder::on(&root)
-        .margin(10f32)
-        .x_label_area_size(30f32)
-        .y_label_area_size(40f32)
-        .right_y_label_area_size(40f32)
-        .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
-        .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
+        root.fill(&WHITE)?;
 
-    chart
-        .configure_mesh()
-        .disable_x_mesh()
-        .set_all_tick_mark_size(3u32)
-        .axis_style(&BLACK.mix(0.3))
-        .light_line_style(&WHITE.mix(0.0))
-        .x_labels(2)
-        .y_labels(6)
-        .draw()?;
+        let mut chart = ChartBuilder::on(&root)
+            .margin(10f32)
+            .x_label_area_size(30f32)
+            .y_label_area_size(40f32)
+            .right_y_label_area_size(40f32)
+            .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
+            .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
 
-    chart
-        .configure_secondary_axes()
-        .set_all_tick_mark_size(3u32)
-        .axis_style(&BLACK.mix(0.3))
-        .draw()?;
+        chart
+            .configure_mesh()
+            .disable_x_mesh()
+            .set_all_tick_mark_size(3u32)
+            .axis_style(&BLACK.mix(0.3))
+            .light_line_style(&WHITE.mix(0.0))
+            .x_labels(2)
+            .y_labels(6)
+            .draw()?;
 
-    for (series, color_idx) in secondary_data {
-        let color = Palette99::pick(*color_idx).mix(0.9);
-        chart.draw_secondary_series(LineSeries::new(
-            series.iter().map(|(x, y)| (*x, *y)),
-            color.stroke_width(2),
-        ))?;
+        chart
+            .configure_secondary_axes()
+            .set_all_tick_mark_size(3u32)
+            .axis_style(&BLACK.mix(0.3))
+            .draw()?;
 
-        chart.draw_secondary_series(
-            series
-                .iter()
-                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
-        )?;
+        for (series, color_idx) in secondary_data {
+            let color = Palette99::pick(*color_idx).mix(0.9);
+            chart.draw_secondary_series(LineSeries::new(
+                series.iter().map(|(x, y)| (*x, *y)),
+                color.stroke_width(2),
+            ))?;
+
+            chart.draw_secondary_series(
+                series
+                    .iter()
+                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+            )?;
+        }
+
+        for (series, color_idx) in data {
+            let color = Palette99::pick(*color_idx).mix(0.9);
+            chart.draw_series(LineSeries::new(
+                series.iter().map(|(x, y)| (*x, *y)),
+                color.stroke_width(2),
+            ))?;
+
+            chart.draw_series(
+                series
+                    .iter()
+                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+            )?;
+        }
+
+        root.present()?;
     }
 
-    for (series, color_idx) in data {
-        let color = Palette99::pick(*color_idx).mix(0.9);
-        chart.draw_series(LineSeries::new(
-            series.iter().map(|(x, y)| (*x, *y)),
-            color.stroke_width(2),
-        ))?;
-
-        chart.draw_series(
-            series
-                .iter()
-                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
-        )?;
-    }
-
-    root.present()?;
-
-    Ok(())
+    Ok(result)
 }
 
 pub fn plot_bar_chart(
-    canvas: Option<web_sys::HtmlCanvasElement>,
     data: &[(Vec<(NaiveDate, f32)>, usize)],
     secondary_data: &[(Vec<(NaiveDate, f32)>, usize)],
     x_min: NaiveDate,
     x_max: NaiveDate,
     y_min_opt: Option<f32>,
     y_max_opt: Option<f32>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<String, Box<dyn std::error::Error>> {
     let (y_min, y_max, _) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
@@ -484,61 +477,64 @@ pub fn plot_bar_chart(
         None,
     );
 
-    let backend = CanvasBackend::with_canvas_object(canvas.ok_or("canvas not found")?).unwrap();
-    let root = backend.into_drawing_area();
+    let mut result = String::new();
 
-    root.fill(&WHITE)?;
+    {
+        let root = SVGBackend::with_string(&mut result, (400, 200)).into_drawing_area();
 
-    let mut chart = ChartBuilder::on(&root)
-        .margin(10f32)
-        .x_label_area_size(30f32)
-        .y_label_area_size(40f32)
-        .right_y_label_area_size(30f32)
-        .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
-        .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
+        root.fill(&WHITE)?;
 
-    chart
-        .configure_mesh()
-        .disable_x_mesh()
-        .set_all_tick_mark_size(3u32)
-        .axis_style(&BLACK.mix(0.3))
-        .light_line_style(&WHITE.mix(0.0))
-        .x_labels(2)
-        .y_labels(6)
-        .draw()?;
+        let mut chart = ChartBuilder::on(&root)
+            .margin(10f32)
+            .x_label_area_size(30f32)
+            .y_label_area_size(40f32)
+            .right_y_label_area_size(30f32)
+            .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
+            .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
 
-    chart
-        .configure_secondary_axes()
-        .set_all_tick_mark_size(3u32)
-        .axis_style(&BLACK.mix(0.3))
-        .draw()?;
+        chart
+            .configure_mesh()
+            .disable_x_mesh()
+            .set_all_tick_mark_size(3u32)
+            .axis_style(&BLACK.mix(0.3))
+            .light_line_style(&WHITE.mix(0.0))
+            .x_labels(2)
+            .y_labels(6)
+            .draw()?;
 
-    for (series, color_idx) in data {
-        let color = Palette99::pick(*color_idx).mix(0.9).filled();
-        let histogram = Histogram::vertical(&chart)
-            .style(color)
-            .margin(1)
-            .data(series.iter().map(|(x, y)| (*x, *y)));
-        chart.draw_series(histogram)?;
+        chart
+            .configure_secondary_axes()
+            .set_all_tick_mark_size(3u32)
+            .axis_style(&BLACK.mix(0.3))
+            .draw()?;
+
+        for (series, color_idx) in data {
+            let color = Palette99::pick(*color_idx).mix(0.9).filled();
+            let histogram = Histogram::vertical(&chart)
+                .style(color)
+                .margin(0) // https://github.com/plotters-rs/plotters/issues/300
+                .data(series.iter().map(|(x, y)| (*x, *y)));
+            chart.draw_series(histogram)?;
+        }
+
+        for (series, color_idx) in secondary_data {
+            let color = Palette99::pick(*color_idx).mix(0.9);
+            chart.draw_secondary_series(LineSeries::new(
+                series.iter().map(|(x, y)| (*x, *y)),
+                color.stroke_width(2),
+            ))?;
+
+            chart.draw_secondary_series(
+                series
+                    .iter()
+                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
+            )?;
+        }
+
+        root.present()?;
     }
 
-    for (series, color_idx) in secondary_data {
-        let color = Palette99::pick(*color_idx).mix(0.9);
-        chart.draw_secondary_series(LineSeries::new(
-            series.iter().map(|(x, y)| (*x, *y)),
-            color.stroke_width(2),
-        ))?;
-
-        chart.draw_secondary_series(
-            series
-                .iter()
-                .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
-        )?;
-    }
-
-    root.present()?;
-
-    Ok(())
+    Ok(result)
 }
 
 fn determine_y_bounds(

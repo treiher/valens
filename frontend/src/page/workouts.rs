@@ -141,9 +141,30 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddWorkout(ref mut form) => {
+                    let routine = data_model
+                        .routines
+                        .iter()
+                        .find(|r| r.id == form.routine_id.1.unwrap())
+                        .unwrap();
+                    let sets = routine
+                        .exercises
+                        .iter()
+                        .flat_map(|e| (0..e.sets).map(move |_| e.clone()).collect::<Vec<_>>())
+                        .enumerate()
+                        .map(|(i, e)| data::WorkoutSet {
+                            position: i as u32 + 1,
+                            exercise_id: e.exercise_id,
+                            reps: None,
+                            time: None,
+                            weight: None,
+                            rpe: None,
+                        })
+                        .collect::<Vec<_>>();
                     orders.notify(data::Msg::CreateWorkout(
-                        form.date.1.unwrap(),
                         form.routine_id.1.unwrap(),
+                        form.date.1.unwrap(),
+                        String::new(),
+                        sets,
                     ));
                 }
                 Dialog::Hidden | Dialog::DeleteWorkout(_) => {

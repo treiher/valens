@@ -660,12 +660,10 @@ def test_create(
 
 def test_create_workout(client: Client) -> None:
     route = "/api/workouts"
-    data = {"date": "2002-02-24", "routine_id": 1}
-    created = {
+    data = {
         "date": "2002-02-24",
-        "id": 4,
-        "notes": "",
         "routine_id": 1,
+        "notes": "",
         "sets": [
             {
                 "position": 1,
@@ -692,6 +690,10 @@ def test_create_workout(client: Client) -> None:
                 "rpe": None,
             },
         ],
+    }
+    created = {
+        **data,
+        **{"id": 4},
     }
     result = [
         {
@@ -774,38 +776,7 @@ def test_create_workout(client: Client) -> None:
                 },
             ],
         },
-        {
-            "date": "2002-02-24",
-            "id": 4,
-            "notes": "",
-            "routine_id": 1,
-            "sets": [
-                {
-                    "position": 1,
-                    "exercise_id": 3,
-                    "reps": None,
-                    "time": None,
-                    "weight": None,
-                    "rpe": None,
-                },
-                {
-                    "position": 2,
-                    "exercise_id": 1,
-                    "reps": None,
-                    "time": None,
-                    "weight": None,
-                    "rpe": None,
-                },
-                {
-                    "position": 3,
-                    "exercise_id": 1,
-                    "reps": None,
-                    "time": None,
-                    "weight": None,
-                    "rpe": None,
-                },
-            ],
-        },
+        created,
     ]
 
     tests.utils.init_db_data()

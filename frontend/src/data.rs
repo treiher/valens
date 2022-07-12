@@ -349,7 +349,7 @@ pub enum Msg {
 
     ReadWorkouts,
     WorkoutsRead(Result<Vec<Workout>, String>),
-    CreateWorkout(NaiveDate, u32),
+    CreateWorkout(u32, NaiveDate, String, Vec<WorkoutSet>),
     WorkoutCreated(Result<Workout, String>),
     ModifyWorkout(u32, Option<String>, Option<Vec<WorkoutSet>>),
     WorkoutModified(Result<Workout, String>),
@@ -1028,12 +1028,17 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .errors
                 .push("Failed to read workouts: ".to_owned() + &message);
         }
-        Msg::CreateWorkout(date, routine_id) => {
+        Msg::CreateWorkout(routine_id, date, notes, sets) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new("api/workouts")
                         .method(Method::Post)
-                        .json(&json!({ "date": date, "routine_id": routine_id }))
+                        .json(&json!({
+                            "routine_id": routine_id,
+                            "date": date,
+                            "notes": notes,
+                            "sets": sets
+                        }))
                         .expect("serialization failed"),
                     Msg::WorkoutCreated,
                 )

@@ -818,20 +818,10 @@ def create_workout() -> ResponseReturnValue:
             user_id=session["user_id"],
             routine=routine,
             date=date.fromisoformat(data["date"]),
-            notes="",
-            sets=[
-                WorkoutSet(position=position, exercise_id=routine_exercise.exercise_id)
-                for position, routine_exercise in enumerate(
-                    (
-                        routine_exercise
-                        for routine_exercise in routine.exercises
-                        for _ in range(routine_exercise.sets)
-                    ),
-                    start=1,
-                )
-            ],
+            notes=data["notes"],
+            sets=to_workout_sets(data["sets"]),
         )
-    except (KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(workout)

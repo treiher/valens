@@ -116,7 +116,11 @@ fn init_previous_sets(
         if let Some(previous_workout) = &data_model
             .workouts
             .iter()
-            .filter(|w| w.id != workout.id && w.date <= workout.date)
+            .filter(|w| {
+                w.id != workout.id
+                    && w.date <= workout.date
+                    && (not(workout.routine_id.is_some()) || w.routine_id == workout.routine_id)
+            })
             .last()
         {
             for s in &previous_workout.sets {

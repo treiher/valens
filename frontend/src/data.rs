@@ -104,6 +104,7 @@ pub struct Exercise {
 pub struct Routine {
     pub id: u32,
     pub name: String,
+    pub notes: Option<String>,
     pub exercises: Vec<RoutineExercise>,
 }
 
@@ -943,7 +944,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch(
                     Request::new("api/routines")
                         .method(Method::Post)
-                        .json(&json!({ "name": routine_name }))
+                        .json(&json!({
+                            "name": routine_name,
+                            "notes": "",
+                            "exercises": []
+                        }))
                         .expect("serialization failed"),
                     Msg::RoutineCreated,
                 )

@@ -525,6 +525,13 @@ fn view_exercise_dialog(
                 div![
                     C!["control"],
                     input_ev(Ev::Input, Msg::SetsChanged),
+                    keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                        IF!(
+                            keyboard_event.key_code() == common::ENTER_KEY => {
+                                Msg::SaveExercise
+                            }
+                        )
+                    }),
                     input![
                         C!["input"],
                         C![IF![form.sets.1.is_none() => "is-danger"]],

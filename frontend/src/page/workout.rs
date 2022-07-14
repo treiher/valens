@@ -66,6 +66,7 @@ fn init_form(workout: &Option<&data::Workout>) -> Form {
     if let Some(workout) = workout {
         Form {
             notes: workout.notes.clone().unwrap_or_default(),
+            notes_changed: false,
             sets: workout
                 .sets
                 .iter()
@@ -102,6 +103,7 @@ fn init_form(workout: &Option<&data::Workout>) -> Form {
     } else {
         Form {
             notes: String::new(),
+            notes_changed: false,
             sets: vec![],
         }
     }
@@ -146,6 +148,7 @@ pub struct Model {
 
 struct Form {
     notes: String,
+    notes_changed: bool,
     sets: Vec<SetForm>,
 }
 
@@ -390,6 +393,7 @@ pub fn update(
         },
         Msg::NotesChanged(notes) => {
             model.form.notes = notes;
+            model.form.notes_changed = true;
         }
 
         Msg::SaveWorkout => {
@@ -547,11 +551,12 @@ fn view_title(workout: &data::Workout, data_model: &data::Model) -> Node<Msg> {
 }
 
 fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    let changed = model
-        .form
-        .sets
-        .iter()
-        .any(|s| s.reps.3 || s.time.3 || s.weight.3 || s.rpe.3);
+    let changed = model.form.notes_changed
+        || model
+            .form
+            .sets
+            .iter()
+            .any(|s| s.reps.3 || s.time.3 || s.weight.3 || s.rpe.3);
     let valid = model
         .form
         .sets
@@ -726,7 +731,11 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 C!["field"],
                 label![C!["label"], "Notes"],
                 input_ev(Ev::Input, Msg::NotesChanged),
-                textarea![C!["textarea"]]
+                textarea![
+                    C!["textarea"],
+                    C![IF![model.form.notes_changed => "is-info"]],
+                    &model.form.notes,
+                ]
             ],
         ],
         button![

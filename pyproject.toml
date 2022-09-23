@@ -105,6 +105,7 @@ min-similarity-lines = 12
 ignore-imports = true
 
 [tool.pytest.ini_options]
+addopts = '--tb=short'
 filterwarnings = [
     'ignore:Gdk.Cursor.new is deprecated',
     'ignore:Gtk.Widget.set_double_buffered is deprecated',

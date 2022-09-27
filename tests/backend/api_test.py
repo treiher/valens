@@ -394,6 +394,7 @@ def test_delete_user(client: Client) -> None:
                     "exercises": [
                         {"exercise_id": 3, "position": 1, "sets": 1},
                         {"exercise_id": 1, "position": 2, "sets": 2},
+                        {"exercise_id": 3, "position": 3, "sets": 3},
                     ],
                 },
                 {
@@ -487,6 +488,38 @@ def test_delete_user(client: Client) -> None:
                             "time": None,
                             "weight": None,
                             "rpe": None,
+                        },
+                    ],
+                },
+                {
+                    "id": 4,
+                    "date": "2002-02-24",
+                    "notes": None,
+                    "routine_id": 1,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 11,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 8.5,
                         },
                     ],
                 },
@@ -621,6 +654,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "exercises": [
                         {"exercise_id": 3, "position": 1, "sets": 1},
                         {"exercise_id": 1, "position": 2, "sets": 2},
+                        {"exercise_id": 3, "position": 3, "sets": 3},
                     ],
                 },
                 {
@@ -693,7 +727,7 @@ def test_create_workout(client: Client) -> None:
     }
     created = {
         **data,
-        **{"id": 4},
+        **{"id": 5},
     }
     result = [
         {
@@ -773,6 +807,38 @@ def test_create_workout(client: Client) -> None:
                     "time": None,
                     "weight": None,
                     "rpe": None,
+                },
+            ],
+        },
+        {
+            "id": 4,
+            "date": "2002-02-24",
+            "notes": None,
+            "routine_id": 1,
+            "sets": [
+                {
+                    "position": 1,
+                    "exercise_id": 3,
+                    "reps": 11,
+                    "time": 4,
+                    "weight": None,
+                    "rpe": 8.5,
+                },
+                {
+                    "position": 2,
+                    "exercise_id": 1,
+                    "reps": 9,
+                    "time": 4,
+                    "weight": None,
+                    "rpe": 8.0,
+                },
+                {
+                    "position": 3,
+                    "exercise_id": 1,
+                    "reps": None,
+                    "time": 60,
+                    "weight": None,
+                    "rpe": 8.5,
                 },
             ],
         },
@@ -1048,6 +1114,38 @@ def test_create_workout(client: Client) -> None:
                         },
                     ],
                 },
+                {
+                    "id": 4,
+                    "date": "2002-02-24",
+                    "notes": None,
+                    "routine_id": 1,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 11,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                    ],
+                },
             ],
             None,
         ),
@@ -1102,6 +1200,7 @@ def test_replace(
                 "exercises": [
                     {"exercise_id": 3, "position": 1, "sets": 1},
                     {"exercise_id": 1, "position": 2, "sets": 2},
+                    {"exercise_id": 3, "position": 3, "sets": 3},
                 ],
             },
             [
@@ -1112,6 +1211,7 @@ def test_replace(
                     "exercises": [
                         {"exercise_id": 3, "position": 1, "sets": 1},
                         {"exercise_id": 1, "position": 2, "sets": 2},
+                        {"exercise_id": 3, "position": 3, "sets": 3},
                     ],
                 },
                 {
@@ -1139,6 +1239,7 @@ def test_replace(
                 "exercises": [
                     {"exercise_id": 3, "position": 1, "sets": 1},
                     {"exercise_id": 1, "position": 2, "sets": 2},
+                    {"exercise_id": 3, "position": 3, "sets": 3},
                 ],
             },
             [
@@ -1149,6 +1250,7 @@ def test_replace(
                     "exercises": [
                         {"exercise_id": 3, "position": 1, "sets": 1},
                         {"exercise_id": 1, "position": 2, "sets": 2},
+                        {"exercise_id": 3, "position": 3, "sets": 3},
                     ],
                 },
                 {
@@ -1321,6 +1423,38 @@ def test_replace(
                         },
                     ],
                 },
+                {
+                    "id": 4,
+                    "date": "2002-02-24",
+                    "notes": None,
+                    "routine_id": 1,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 11,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                    ],
+                },
             ],
             None,
         ),
@@ -1439,6 +1573,38 @@ def test_replace(
                             "time": None,
                             "weight": None,
                             "rpe": None,
+                        },
+                    ],
+                },
+                {
+                    "id": 4,
+                    "date": "2002-02-24",
+                    "notes": None,
+                    "routine_id": 1,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 11,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 8.5,
                         },
                     ],
                 },
@@ -1564,6 +1730,38 @@ def test_replace(
                         },
                     ],
                 },
+                {
+                    "id": 4,
+                    "date": "2002-02-24",
+                    "notes": None,
+                    "routine_id": 1,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 11,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                    ],
+                },
             ],
             None,
         ),
@@ -1652,6 +1850,7 @@ def test_modify(
                     "exercises": [
                         {"exercise_id": 3, "position": 1, "sets": 1},
                         {"exercise_id": 1, "position": 2, "sets": 2},
+                        {"exercise_id": 3, "position": 3, "sets": 3},
                     ],
                 },
             ],
@@ -1688,6 +1887,38 @@ def test_modify(
                             "time": 60,
                             "weight": None,
                             "rpe": 9.0,
+                        },
+                    ],
+                },
+                {
+                    "id": 4,
+                    "date": "2002-02-24",
+                    "notes": None,
+                    "routine_id": 1,
+                    "sets": [
+                        {
+                            "position": 1,
+                            "exercise_id": 3,
+                            "reps": 11,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.5,
+                        },
+                        {
+                            "position": 2,
+                            "exercise_id": 1,
+                            "reps": 9,
+                            "time": 4,
+                            "weight": None,
+                            "rpe": 8.0,
+                        },
+                        {
+                            "position": 3,
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": 60,
+                            "weight": None,
+                            "rpe": 8.5,
                         },
                     ],
                 },

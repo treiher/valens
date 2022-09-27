@@ -42,9 +42,9 @@ format:
 	black -l 100 $(PYTHON_PACKAGES)
 	isort $(PYTHON_PACKAGES)
 
-.PHONY: test test_frontend test_backend test_installation
+.PHONY: test test_frontend test_backend test_e2e test_installation
 
-test: test_frontend test_backend
+test: test_frontend test_backend test_e2e test_installation
 
 test_frontend:
 	cargo test --manifest-path=frontend/Cargo.toml
@@ -52,7 +52,10 @@ test_frontend:
 test_backend:
 	mkdir -p valens/frontend
 	touch $(addprefix valens/frontend/,$(FRONTEND_FILES))
-	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests
+	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
+
+test_e2e: valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
+	python3 -m pytest -n$(shell nproc) -vv --driver chrome --headless tests/e2e
 
 test_installation: dist
 	$(eval TMPDIR := $(shell mktemp -d))

@@ -30,7 +30,7 @@ def users() -> list[User]:
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 3")
     exercise_5 = Exercise(id=5, user_id=1, name="Unused Exercise")
 
-    result = [
+    return [
         User(
             id=1,
             name="Alice",
@@ -83,6 +83,7 @@ def users() -> list[User]:
                     exercises=[
                         RoutineExercise(position=1, exercise=exercise_3, sets=1),
                         RoutineExercise(position=2, exercise=exercise_1, sets=2),
+                        RoutineExercise(position=3, exercise=exercise_3, sets=3),
                     ],
                 ),
                 Routine(
@@ -117,6 +118,17 @@ def users() -> list[User]:
                         WorkoutSet(position=3, exercise=exercise_3, reps=7),
                         WorkoutSet(position=4, exercise=exercise_3, reps=6),
                         WorkoutSet(position=5, exercise=exercise_3, reps=5),
+                    ],
+                ),
+                Workout(
+                    id=4,
+                    user_id=1,
+                    routine_id=1,
+                    date=datetime.date(2002, 2, 24),
+                    sets=[
+                        WorkoutSet(position=1, exercise=exercise_3, reps=11, time=4, rpe=8.5),
+                        WorkoutSet(position=2, exercise=exercise_1, reps=9, time=4, rpe=8),
+                        WorkoutSet(position=3, exercise=exercise_1, time=60, rpe=8.5),
                     ],
                 ),
             ],
@@ -208,7 +220,6 @@ def users() -> list[User]:
             ],
         ),
     ]
-    return result
 
 
 def user(user_id: int = 1) -> User:

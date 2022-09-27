@@ -133,3 +133,47 @@ jobs:
       - name: Test
         run: |
           make test_backend
+
+  test_e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-20.04
+    env:
+        python-version: "3.10"
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ env.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ env.python-version }}
+      - name: Determine exact Python version
+        run:
+          echo "PYTHON_VERSION=$(python -c 'import platform; print(platform.python_version())')" >> $GITHUB_ENV
+      - name: Cache Python dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local/lib/python${{ env.python-version }}/site-packages
+            ~/.local/bin
+          key: ${{ runner.os }}-python${{ env.PYTHON_VERSION }}-${{ hashFiles('**/setup.cfg') }}
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v1
+        with:
+          working-directory: frontend
+      - name: Install dependencies
+        run: |
+          sudo apt install libarchive-tools
+          python -m pip install --upgrade pip
+          pip install build setuptools_scm
+          pip install --user -e .[devel]
+          mkdir $HOME/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          cargo install --locked trunk
+          echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
+      - name: Test
+        run: |
+          make test_e2e

@@ -4,25 +4,12 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from flask import current_app, g
-from sqlalchemy import MetaData, create_engine, event, inspect, pool
+from sqlalchemy import create_engine, event, inspect, pool
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, declarative_base, scoped_session, sessionmaker
-from sqlalchemy_repr import RepresentableBase
+from sqlalchemy.orm import Session, scoped_session, sessionmaker
 from werkzeug.local import LocalProxy
 
-from valens import config
-
-meta = MetaData(
-    naming_convention={
-        "ix": "ix_%(column_0_label)s",
-        "uq": "uq_%(table_name)s_%(column_0_name)s",
-        "ck": "ck_%(table_name)s_%(constraint_name)s",
-        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-        "pk": "pk_%(table_name)s",
-    }
-)
-
-Base = declarative_base(cls=RepresentableBase, metadata=meta)
+from valens import config, models
 
 alembic_cfg = Config()
 alembic_cfg.set_main_option("script_location", "valens:migrations")
@@ -67,10 +54,8 @@ def remove_session() -> None:
 
 
 def init_db() -> None:
-    import valens.models  # pylint: disable = unused-import, import-outside-toplevel
-
-    Base.query = get_scoped_session().query_property()
-    Base.metadata.create_all(bind=get_engine())
+    models.Base.query = get_scoped_session().query_property()
+    models.Base.metadata.create_all(bind=get_engine())
 
     command.stamp(alembic_cfg, "head")
 

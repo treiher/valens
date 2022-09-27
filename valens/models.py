@@ -12,13 +12,13 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    MetaData,
     String,
     UniqueConstraint,
     column,
 )
-from sqlalchemy.orm import relationship
-
-from valens.database import Base
+from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy_repr import RepresentableBase
 
 # Alembic's autogenerate does not support CHECK constraints
 # (https://github.com/sqlalchemy/alembic/issues/508). CHECK constraints get lost when running
@@ -26,6 +26,19 @@ from valens.database import Base
 # (https://alembic.sqlalchemy.org/en/latest/batch.html#including-check-constraints).
 # CHECK constraints are only specified at the table level to enable the schema to be kept identical
 # when applying migrations despite the aforementioned limitations.
+
+
+meta = MetaData(
+    naming_convention={
+        "ix": "ix_%(column_0_label)s",
+        "uq": "uq_%(table_name)s_%(column_0_name)s",
+        "ck": "ck_%(table_name)s_%(constraint_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s",
+    }
+)
+
+Base = declarative_base(cls=RepresentableBase, metadata=meta)
 
 
 class Sex(IntEnum):

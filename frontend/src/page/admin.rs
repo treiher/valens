@@ -320,7 +320,7 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                 label![C!["label"], "Sex"],
                 div![
                     C!["control"],
-                    input_ev(Ev::Input, Msg::SexChanged),
+                    input_ev(Ev::Change, Msg::SexChanged),
                     div![
                         C!["select"],
                         select![

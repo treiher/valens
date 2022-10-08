@@ -815,7 +815,7 @@ fn view_timer_dialog(dialog: &SMTDialog) -> Node<Msg> {
                                 label![C!["label"], "Interval"],
                                 div![
                                     C!["control"],
-                                    input_ev(Ev::Input, Msg::MetronomeIntervalChanged),
+                                    input_ev(Ev::Change, Msg::MetronomeIntervalChanged),
                                     div![
                                         C!["select"],
                                         select![
@@ -838,7 +838,7 @@ fn view_timer_dialog(dialog: &SMTDialog) -> Node<Msg> {
                                 label![C!["label"], "Stress"],
                                 div![
                                     C!["control"],
-                                    input_ev(Ev::Input, Msg::MetronomeStressChanged),
+                                    input_ev(Ev::Change, Msg::MetronomeStressChanged),
                                     div![
                                         C!["select"],
                                         select![

@@ -282,7 +282,7 @@ fn view_workouts_dialog(routines: &[data::Routine], dialog: &Dialog, loading: bo
                 label![C!["label"], "Routine"],
                 div![
                     C!["control"],
-                    input_ev(Ev::Input, Msg::RoutineChanged),
+                    input_ev(Ev::Change, Msg::RoutineChanged),
                     div![
                         C!["select"],
                         select![routines

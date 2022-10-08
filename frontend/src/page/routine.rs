@@ -479,7 +479,7 @@ fn view_exercise_dialog(
                 label![C!["label"], "Position"],
                 div![
                     C!["control"],
-                    input_ev(Ev::Input, Msg::PositionChanged),
+                    input_ev(Ev::Change, Msg::PositionChanged),
                     div![
                         C!["select"],
                         select![(1..max_position)
@@ -501,7 +501,7 @@ fn view_exercise_dialog(
                 label![C!["label"], "Exercise"],
                 div![
                     C!["control"],
-                    input_ev(Ev::Input, Msg::ExerciseChanged),
+                    input_ev(Ev::Change, Msg::ExerciseChanged),
                     div![
                         C!["select"],
                         select![exercises

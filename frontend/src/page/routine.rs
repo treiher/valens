@@ -253,7 +253,7 @@ pub fn update(
                         let position = form.position.1.unwrap();
                         let mut exercises = vec![];
                         if not(routine.exercises.is_empty()) {
-                            if usize::try_from(position).unwrap() > routine.exercises.len() {
+                            if usize::try_from(position).unwrap() <= routine.exercises.len() {
                                 exercises.extend(
                                     routine.exercises[..position as usize - 1].iter().cloned(),
                                 );

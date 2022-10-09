@@ -501,7 +501,10 @@ pub fn view_table<Ms: 'static>(
                                     attrs! {
                                         At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(w.routine_id.unwrap().to_string()),
                                     },
-                                    &routines.iter().find(|r| r.id == routine_id).unwrap().name
+                                    match &routines.iter().find(|r| r.id == routine_id) {
+                                        Some(routine) => raw![&routine.name],
+                                        None => vec![common::view_loading()]
+                                    }
                                 ]
                             } else {
                                 plain!["-"]

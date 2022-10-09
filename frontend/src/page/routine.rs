@@ -603,7 +603,10 @@ fn view_routine_exercises(data_model: &data::Model, routine: &data::Routine) -> 
                                     attrs! {
                                         At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
                                     },
-                                        &data_model.exercises.iter().find(|x| x.id == e.exercise_id).unwrap().name
+                                    match &data_model.exercises.iter().find(|x| x.id == e.exercise_id) {
+                                        Some(exercise) => raw![&exercise.name],
+                                        None => vec![common::view_loading()]
+                                    }
                                 ]
                         ],
                         td![e.sets],

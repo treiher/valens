@@ -76,8 +76,9 @@ def upgrade(_: argparse.Namespace) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    config.check_config_file(os.environ.copy())
-    app.run("0.0.0.0" if args.public else "127.0.0.1")
+    with app.app_context():
+        config.check_config_file(os.environ.copy())
+        app.run("0.0.0.0" if args.public else "127.0.0.1")
 
 
 def run_demo(args: argparse.Namespace) -> None:

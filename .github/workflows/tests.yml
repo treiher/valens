@@ -48,7 +48,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --user -e .[devel]
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
       - name: Check
         run: |
@@ -127,8 +126,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --user -e .[devel]
-          mkdir $HOME/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
       - name: Test
         run: |
@@ -170,8 +167,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install build setuptools_scm
           pip install --user -e .[devel]
-          mkdir $HOME/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
           cargo install --locked trunk
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
       - name: Test

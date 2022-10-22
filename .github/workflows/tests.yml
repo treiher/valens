@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '0 2 * * *'
 
+env:
+  RUST_VERSION: "1.64"
+
 jobs:
   check_frontend:
     name: Frontend Checks
@@ -14,7 +17,9 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
+          default: true
+          components: rustfmt, clippy
       - name: Install dependencies
         run: |
           pip install setuptools_scm
@@ -73,8 +78,9 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           target: wasm32-unknown-unknown
+          default: true
       - uses: Swatinem/rust-cache@v1
         with:
           working-directory: frontend
@@ -96,7 +102,8 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
+          default: true
       - name: Check
         run: |
           make test_frontend
@@ -159,8 +166,9 @@ jobs:
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_VERSION }}
           target: wasm32-unknown-unknown
+          default: true
       - uses: Swatinem/rust-cache@v1
         with:
           working-directory: frontend

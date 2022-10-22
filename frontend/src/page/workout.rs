@@ -564,7 +564,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .all(|s| s.reps.1 && s.time.1 && s.weight.1 && s.rpe.1);
     let save_disabled = not(changed) || not(valid);
     let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
-    for sets in (&model.form.sets[..]).linear_group_by(|a, b| a.exercise_id == b.exercise_id) {
+    for sets in (model.form.sets[..]).linear_group_by(|a, b| a.exercise_id == b.exercise_id) {
         form.push(div![
                 C!["field"],
                 label![

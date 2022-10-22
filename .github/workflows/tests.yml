@@ -15,6 +15,9 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Install dependencies
+        run: |
+          pip install setuptools_scm
       - name: Check
         run: |
           make check_frontend

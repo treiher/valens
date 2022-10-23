@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Use client-side rendering (CSR) instead of server-side rendering (SSR)
+- Enable changing port number when running local server using CLI
 
 ## [0.1.0] - 2021-10-16
 

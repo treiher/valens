@@ -37,6 +37,13 @@ def main() -> int:
         action="store_true",
         help="make the server publicly available (sould be only used on a trusted network)",
     )
+    parser_run.add_argument(
+        "--port",
+        metavar="NUMBER",
+        type=int,
+        default=5000,
+        help="port to bind to",
+    )
 
     parser_demo = subparsers.add_parser(
         "demo", help="run app with random example data (all changes are non-persistent)"
@@ -46,6 +53,13 @@ def main() -> int:
         "--public",
         action="store_true",
         help="make the server publicly available (sould be only used on a trusted network)",
+    )
+    parser_demo.add_argument(
+        "--port",
+        metavar="NUMBER",
+        type=int,
+        default=5000,
+        help="port to bind to",
     )
 
     args = parser.parse_args(sys.argv[1:])
@@ -78,9 +92,9 @@ def upgrade(_: argparse.Namespace) -> None:
 def run(args: argparse.Namespace) -> None:
     with app.app_context():
         config.check_config_file(os.environ.copy())
-        app.run("0.0.0.0" if args.public else "127.0.0.1")
+        app.run("0.0.0.0" if args.public else "127.0.0.1", args.port)
 
 
 def run_demo(args: argparse.Namespace) -> None:
     with NamedTemporaryFile() as f:
-        demo.run(f"sqlite:///{f.name}", "0.0.0.0" if args.public else "127.0.0.1")
+        demo.run(f"sqlite:///{f.name}", "0.0.0.0" if args.public else "127.0.0.1", args.port)

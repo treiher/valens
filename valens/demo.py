@@ -19,14 +19,14 @@ from valens.models import (
 )
 
 
-def run(database: str, host: str = "127.0.0.1") -> None:
+def run(database: str, host: str = "127.0.0.1", port: int = 5000) -> None:
     app.config["DATABASE"] = database
     app.config["SECRET_KEY"] = b"TEST_KEY"
     with app.app_context():
         for user in users():
             db.session.add(user)
         db.session.commit()
-        app.run(host)
+        app.run(host, port)
 
 
 def users() -> list[User]:

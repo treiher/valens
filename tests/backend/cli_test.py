@@ -46,7 +46,7 @@ def test_main_run(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "run"])
     called = []
     monkeypatch.setattr(config, "check_config_file", lambda x: called.append("check_config_file"))
-    monkeypatch.setattr(app, "run", lambda x: called.append("run"))
+    monkeypatch.setattr(app, "run", lambda x, y: called.append("run"))
     assert cli.main() == 0
     assert called == ["check_config_file", "run"]
 
@@ -55,7 +55,7 @@ def test_main_run_public(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "run", "--public"])
     called = []
     monkeypatch.setattr(config, "check_config_file", lambda x: called.append("check_config_file"))
-    monkeypatch.setattr(app, "run", lambda x: called.append("run"))
+    monkeypatch.setattr(app, "run", lambda x, y: called.append("run"))
     assert cli.main() == 0
     assert called == ["check_config_file", "run"]
 
@@ -63,7 +63,7 @@ def test_main_run_public(monkeypatch: MonkeyPatch) -> None:
 def test_main_demo(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "demo"])
     demo_called = []
-    monkeypatch.setattr(demo, "run", lambda x, y: demo_called.append(True))
+    monkeypatch.setattr(demo, "run", lambda x, y, z: demo_called.append(True))
     assert cli.main() == 0
     assert demo_called
 
@@ -71,6 +71,6 @@ def test_main_demo(monkeypatch: MonkeyPatch) -> None:
 def test_main_demo_public(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "demo", "--public"])
     demo_called = []
-    monkeypatch.setattr(demo, "run", lambda x, y: demo_called.append(True))
+    monkeypatch.setattr(demo, "run", lambda x, y, z: demo_called.append(True))
     assert cli.main() == 0
     assert demo_called

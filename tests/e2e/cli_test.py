@@ -10,6 +10,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
+from valens.config import create_config_file
+
 from .const import HOST, PORT
 from .page import wait
 
@@ -23,12 +25,12 @@ def test_version() -> None:
 
 def test_config(tmp_path: Path) -> None:
     p = run(f"valens config -d {tmp_path}".split(), check=False, stdout=PIPE, stderr=STDOUT)
-    assert p.stdout.decode("utf-8") == f"Creating {tmp_path}/config.py\n"
+    assert p.stdout.decode("utf-8") == f"Created {tmp_path}/config.py\n"
     assert p.returncode == 0
 
 
 def test_upgrade(tmp_path: Path) -> None:
-    config = create_config(tmp_path)
+    config = create_config_file(tmp_path, tmp_path / "test.db")
     p = run(
         "valens upgrade".split(),
         check=False,
@@ -41,7 +43,7 @@ def test_upgrade(tmp_path: Path) -> None:
 
 
 def test_run(tmp_path: Path, driver: webdriver.Chrome) -> None:
-    config = create_config(tmp_path)
+    config = create_config_file(tmp_path, tmp_path / "test.db")
     with Popen(
         f"valens run --port {PORT}".split(),
         stdout=PIPE,
@@ -60,7 +62,7 @@ def test_run(tmp_path: Path, driver: webdriver.Chrome) -> None:
 
 
 def test_demo(tmp_path: Path, driver: webdriver.Chrome) -> None:
-    config = create_config(tmp_path)
+    config = create_config_file(tmp_path, tmp_path / "test.db")
     with Popen(
         f"valens demo --port {PORT}".split(),
         stdout=PIPE,
@@ -76,15 +78,6 @@ def test_demo(tmp_path: Path, driver: webdriver.Chrome) -> None:
             )
         )
         p.terminate()
-
-
-def create_config(tmp_path: Path) -> Path:
-    config = tmp_path / "config.py"
-    config.write_text(
-        f"DATABASE = 'sqlite:///{tmp_path}/valens.db'\nSECRET_KEY = {os.urandom(24)!r}\n",
-        encoding="utf-8",
-    )
-    return config
 
 
 def wait_for_output(out: IO[bytes], expected: str) -> None:

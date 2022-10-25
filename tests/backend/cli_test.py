@@ -19,14 +19,6 @@ def test_main_version(monkeypatch: MonkeyPatch) -> None:
 
 
 def test_main_config(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(sys, "argv", ["valens", "config"])
-    config_file = tmp_path / "config.py"
-    monkeypatch.setattr(cli, "CONFIG_FILE", config_file)
-    assert cli.main() == 0
-    assert "SECRET_KEY" in config_file.read_text()
-
-
-def test_main_config_directory(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "config", "-d", str(tmp_path)])
     config_file = tmp_path / "config.py"
     assert cli.main() == 0

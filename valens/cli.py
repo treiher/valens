@@ -8,8 +8,6 @@ from tempfile import NamedTemporaryFile
 
 from valens import app, config, database as db, demo, version
 
-CONFIG_FILE = Path("config.py")
-
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -74,13 +72,10 @@ def main() -> int:
 
 
 def create_config(args: argparse.Namespace) -> None:
-    config_file = args.directory / CONFIG_FILE
-    print(f"Creating {config_file}")
-    config_file.write_text(
-        f"DATABASE = 'sqlite:///{Path.home()}/.local/share/valens/valens.db'\n"
-        f"SECRET_KEY = {os.urandom(24)!r}\n",
-        encoding="utf-8",
+    config_file = config.create_config_file(
+        args.directory, Path.home() / ".local/share/valens/valens.db"
     )
+    print(f"Created {config_file}")
 
 
 def upgrade(_: argparse.Namespace) -> None:

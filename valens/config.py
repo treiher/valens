@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from flask import current_app
@@ -21,3 +22,12 @@ def check_config_file(environ: dict[str, str]) -> None:
         raise RuntimeError(f"config file '{config_file}' not found")
 
     check_app_config()
+
+
+def create_config_file(config_directory: Path, database_file: Path) -> Path:
+    config = config_directory / "config.py"
+    config.write_text(
+        f"DATABASE = 'sqlite:///{database_file}'\nSECRET_KEY = {os.urandom(24)!r}\n",
+        encoding="utf-8",
+    )
+    return config

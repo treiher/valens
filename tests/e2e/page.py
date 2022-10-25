@@ -263,6 +263,27 @@ class Page:
     def click_up_button(self) -> None:
         self._driver.find_element(by=By.CLASS_NAME, value="navbar-item").click()
 
+    def click_hamburger_button(self) -> None:
+        self._driver.find_element(by=By.CLASS_NAME, value="navbar-burger").click()
+
+    def click_hamburger_menu_item(self, icon: str) -> None:
+        self._driver.find_element(
+            by=By.XPATH,
+            value=f"//a[contains(@class, 'navbar-item')]/div/span/i[contains(@class, 'fa-{icon}')]",
+        ).click()
+
+    def click_plot_1m(self) -> None:
+        self._driver.find_element(by=By.XPATH, value="//a[contains(., '1M')]").click()
+
+    def click_plot_3m(self) -> None:
+        self._driver.find_element(by=By.XPATH, value="//a[contains(., '3M')]").click()
+
+    def click_plot_6m(self) -> None:
+        self._driver.find_element(by=By.XPATH, value="//a[contains(., '6M')]").click()
+
+    def click_plot_1y(self) -> None:
+        self._driver.find_element(by=By.XPATH, value="//a[contains(., '1Y')]").click()
+
     def click_fab(self) -> None:
         self._driver.find_element(by=By.XPATH, value="//button[contains(@class, 'is-fab')]").click()
         Dialog(self._driver).wait_for_opening()

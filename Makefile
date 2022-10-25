@@ -5,6 +5,7 @@ FONTAWESOME_VERSION := 6.1.1
 
 PYTHON_PACKAGES := valens tests
 FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js valens-frontend_bg.wasm fonts images js
+PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
 
 export SQLALCHEMY_WARN_20=1
 
@@ -54,7 +55,7 @@ test_backend:
 	touch $(addprefix valens/frontend/,$(FRONTEND_FILES))
 	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
 
-test_e2e: valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
+test_e2e: $(PACKAGE_FRONTEND_FILES)
 	python3 -m pytest -n$(shell nproc) -vv --driver chrome --headless tests/e2e
 
 test_installation: dist
@@ -83,9 +84,14 @@ third-party/fontawesome:
 	mv third-party/fontawesome-* third-party/fontawesome
 	rm -rf third-party/fontawesome/{css,js,less,metadata,sprites,svgs}
 
+.PHONY: screenshots
+
+screenshots: $(PACKAGE_FRONTEND_FILES)
+	tools/create_screenshots.py
+
 .PHONY: dist
 
-dist: valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
+dist: $(PACKAGE_FRONTEND_FILES)
 	python3 -m build
 
 valens/frontend:

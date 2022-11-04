@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from multiprocessing import Process
+import os
 from pathlib import Path
+from subprocess import PIPE, STDOUT, Popen
 from tempfile import TemporaryDirectory
 from typing import Generator
 
@@ -11,8 +12,10 @@ from selenium import webdriver
 import tests.data
 import tests.utils
 from valens import app
+from valens.config import create_config_file
 
-from .const import HOST, PORT
+from .const import PORT, VALENS
+from .io import wait_for_output
 from .page import (
     BodyFatPage,
     BodyWeightPage,
@@ -34,20 +37,26 @@ USERNAMES = [user.name for user in USERS]
 
 @pytest.fixture(autouse=True)
 def fixture_backend() -> Generator[None, None, None]:
-    def run_app(tmp_path: Path) -> None:
-        app.config["DATABASE"] = f"sqlite:///{tmp_path}/valens.db"
-        app.config["SECRET_KEY"] = b"TEST_KEY"
+    with TemporaryDirectory() as tmp_dir:
+        data_dir = Path(tmp_dir)
+        db_file = data_dir / "test.db"
+        config = create_config_file(data_dir, db_file)
 
         with app.app_context():
+            app.config["DATABASE"] = f"sqlite:///{db_file}"
+            app.config["SECRET_KEY"] = b"TEST_KEY"
             tests.utils.init_db_data()
-            app.run(HOST, PORT)
 
-    with TemporaryDirectory() as tmp_path:
-        p = Process(target=run_app, name="pytest-valens-backend", args=(tmp_path,))
-        p.daemon = True
-        p.start()
-        yield
-        p.terminate()
+        with Popen(
+            f"{VALENS} run --port {PORT}".split(),
+            stdout=PIPE,
+            stderr=STDOUT,
+            env={"VALENS_CONFIG": str(config), **os.environ},
+        ) as p:
+            assert p.stdout
+            wait_for_output(p.stdout, "Running on")
+            yield
+            p.terminate()
 
 
 @pytest.fixture(name="driver_args")

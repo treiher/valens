@@ -6,12 +6,15 @@ FONTAWESOME_VERSION := 6.1.1
 PYTHON_PACKAGES := valens tests
 FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js valens-frontend_bg.wasm fonts images js
 PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
+BUILD_DIR := build
+VERSION := $(shell python3 -c "import setuptools_scm; print(setuptools_scm.get_version())")
+WHEEL := dist/valens-$(VERSION)-py3-none-any.whl
 
 export SQLALCHEMY_WARN_20=1
 
 .PHONY: all
 
-all: check test test_installation
+all: check test
 
 .PHONY: check check_frontend check_backend check_black check_isort check_pylint check_mypy
 
@@ -43,9 +46,9 @@ format:
 	black -l 100 $(PYTHON_PACKAGES)
 	isort $(PYTHON_PACKAGES)
 
-.PHONY: test test_frontend test_backend test_e2e test_installation
+.PHONY: test test_frontend test_backend test_e2e
 
-test: test_frontend test_backend test_e2e test_installation
+test: test_frontend test_backend test_installation test_e2e
 
 test_frontend:
 	cargo test --manifest-path=frontend/Cargo.toml
@@ -55,15 +58,19 @@ test_backend:
 	touch $(addprefix valens/frontend/,$(FRONTEND_FILES))
 	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
 
-test_e2e: $(PACKAGE_FRONTEND_FILES)
+test_installation: $(BUILD_DIR)/venv/bin/valens
+	$(BUILD_DIR)/venv/bin/valens --version
+
+test_e2e: $(BUILD_DIR)/venv/bin/valens
 	python3 -m pytest -n$(shell nproc) -vv --driver chrome --headless tests/e2e
 
-test_installation: dist
-	$(eval TMPDIR := $(shell mktemp -d))
-	python3 -m venv $(TMPDIR)/venv
-	$(TMPDIR)/venv/bin/pip install dist/valens-`python3 -c 'import setuptools_scm; print(setuptools_scm.get_version())'`-py3-none-any.whl
-	$(TMPDIR)/venv/bin/valens --help
-	rm -rf $(TMPDIR)
+$(BUILD_DIR)/venv:
+	python3 -m venv $(BUILD_DIR)/venv
+
+$(BUILD_DIR)/venv/bin/valens: $(BUILD_DIR)/venv $(WHEEL)
+	$(BUILD_DIR)/venv/bin/pip install --force-reinstall dist/valens-$(VERSION)-py3-none-any.whl
+	test -f $(BUILD_DIR)/venv/bin/valens
+	touch --no-create $(BUILD_DIR)/venv/bin/valens
 
 .PHONY: update update_css update_fonts
 
@@ -91,13 +98,16 @@ screenshots: $(PACKAGE_FRONTEND_FILES)
 
 .PHONY: dist
 
-dist: $(PACKAGE_FRONTEND_FILES)
+dist: $(WHEEL)
+
+$(WHEEL): $(PACKAGE_FRONTEND_FILES)
 	python3 -m build
 
 valens/frontend:
 	mkdir -p valens/frontend
 
 valens/frontend/%: frontend/dist/%
+	rm -rf $@
 	cp -r $< $@
 
 $(addprefix frontend/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find frontend/src/ -type f -name '*.rs')
@@ -111,9 +121,10 @@ run_frontend:
 run_backend:
 	FLASK_ENV=development FLASK_APP=valens VALENS_CONFIG=${PWD}/config.py flask run -h 0.0.0.0
 
-.PHONY: clean
+.PHONY: clean clean_all
 
 clean:
+	rm -rf $(BUILD_DIR)
 	rm -rf valens.egg-info
 	rm -rf valens/frontend
 	cd frontend && trunk clean && cargo clean

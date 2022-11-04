@@ -690,7 +690,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         ],
                         div![
                             C!["control"],
-                            C!["has-icons-right"],
+                            C!["has-icons-left"],
                             C!["has-text-right"],
                             input_ev(Ev::Input, move |v| Msg::RPEChanged(i, v)),
                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
@@ -712,7 +712,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                     At::Placeholder => prev_rpe,
                                 },
                             ],
-                            span![C!["icon"], C!["is-small"], C!["is-right"], "@"],
+                            span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
                         ],
                     ]
                 })

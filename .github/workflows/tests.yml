@@ -75,6 +75,17 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Determine exact Python version
+        run:
+          echo "PYTHON_VERSION=$(python -c 'import platform; print(platform.python_version())')" >> $GITHUB_ENV
+      - name: Cache Python dependencies
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local/lib/python${{ env.python-version }}/site-packages
+            ~/.local/bin
+          key: ${{ runner.os }}-python${{ env.PYTHON_VERSION }}-${{ hashFiles('**/setup.cfg') }}
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:

@@ -72,7 +72,7 @@ disable = [
     'missing-docstring',
     'unnecessary-lambda',
     'inconsistent-return-statements',
-    'unsubscriptable-object',  # ISSUE: PyCQA/pylint#3045
+    'unsubscriptable-object',  # https://github.com/PyCQA/pylint/issues/3045
 ]
 
 [tool.pylint.basic]

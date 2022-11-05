@@ -135,7 +135,6 @@ def create_session() -> ResponseReturnValue:
     session["user_id"] = user.id
     session["username"] = user.name
     session["sex"] = user.sex
-    # ISSUE: PyCQA/pylint#3793
     session.permanent = True
 
     return jsonify(model_to_dict(user))

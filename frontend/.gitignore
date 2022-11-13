@@ -1,6 +1,5 @@
 **/*.rs.bk
 *.pdb
-Cargo.lock
 debug/
 dist/
 target/

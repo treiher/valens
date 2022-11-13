@@ -21,7 +21,10 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         exercises: Vec::new(),
         routines: Vec::new(),
         workouts: Vec::new(),
-        last_refresh: DateTime::<Utc>::from_utc(NaiveDateTime::from_timestamp(0, 0), Utc),
+        last_refresh: DateTime::<Utc>::from_utc(
+            NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
+            Utc,
+        ),
     }
 }
 

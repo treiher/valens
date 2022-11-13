@@ -84,7 +84,7 @@ pub fn update(
 ) {
     match msg {
         Msg::ShowAddWorkoutDialog => {
-            let local = Local::now().date().naive_local();
+            let local = Local::now().date_naive();
             model.dialog = Dialog::AddWorkout(Form {
                 date: (local.to_string(), Some(local)),
                 routine_id: (

@@ -10,7 +10,7 @@ pub struct Interval {
 }
 
 pub fn init_interval(dates: &[NaiveDate], show_all: bool) -> Interval {
-    let today = Local::today().naive_local();
+    let today = Local::now().date_naive();
     let mut first = dates.iter().copied().min().unwrap_or(today);
     let mut last = dates.iter().copied().max().unwrap_or(today);
 
@@ -156,7 +156,7 @@ pub fn view_interval_buttons<Ms>(
 where
     Ms: 'static,
 {
-    let today = Local::today().naive_local();
+    let today = Local::now().date_naive();
     let duration = (current.last - current.first) + Duration::days(2);
     let intervals = [
         (

@@ -118,7 +118,7 @@ pub fn update(
 ) {
     match msg {
         Msg::ShowAddBodyFatDialog => {
-            let local = Local::now().date().naive_local();
+            let local = Local::now().date_naive();
             model.dialog = Dialog::AddBodyFat(Form {
                 date: (
                     local.to_string(),

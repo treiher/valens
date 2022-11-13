@@ -46,7 +46,7 @@ pub fn update(msg: Msg, _model: &mut Model, orders: &mut impl Orders<Msg>) {
 
 pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     let sex = data_model.session.as_ref().unwrap().sex;
-    let local: NaiveDate = Local::now().date().naive_local();
+    let local: NaiveDate = Local::now().date_naive();
     let body_weight_subtitle;
     let body_weight_content;
     let body_fat_subtitle;

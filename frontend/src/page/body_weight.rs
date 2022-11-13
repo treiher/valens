@@ -86,7 +86,7 @@ pub fn update(
 ) {
     match msg {
         Msg::ShowAddBodyWeightDialog => {
-            let local = Local::now().date().naive_local();
+            let local = Local::now().date_naive();
             model.dialog = Dialog::AddBodyWeight(Form {
                 date: (
                     local.to_string(),

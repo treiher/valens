@@ -5,8 +5,8 @@ authors = ["Tobias Reiher <valens@ardeidae.de>"]
 edition = "2021"
 
 [dependencies]
-chrono = { version = "0.4.20", features = ["serde", "wasmbind"] }
-plotters = { version = "0.3.2", default_features = false, features = ["svg_backend", "datetime", "line_series", "histogram", "point_series"] }
+chrono = { version = "0.4.20", default-features = false, features = ["serde", "wasmbind"] }
+plotters = { version = "0.3.2", default-features = false, features = ["svg_backend", "datetime", "line_series", "histogram", "point_series"] }
 seed = "0.8"
 serde = "1.0"
 serde_json = "1.0"

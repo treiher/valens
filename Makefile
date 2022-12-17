@@ -115,6 +115,10 @@ $(addprefix frontend/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fon
 
 .PHONY: run run_frontend run_backend
 
+run:
+	tmux new-window $(MAKE) run_frontend
+	tmux new-window $(MAKE) run_backend
+
 run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
 

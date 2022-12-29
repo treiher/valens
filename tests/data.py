@@ -8,7 +8,8 @@ from valens.models import (
     Exercise,
     Period,
     Routine,
-    RoutineExercise,
+    RoutineActivity,
+    RoutineSection,
     Sex,
     User,
     Workout,
@@ -80,10 +81,83 @@ def users() -> list[User]:
                     user_id=1,
                     name="R1",
                     notes="First Routine",
-                    exercises=[
-                        RoutineExercise(position=1, exercise=exercise_3, sets=1),
-                        RoutineExercise(position=2, exercise=exercise_1, sets=2),
-                        RoutineExercise(position=3, exercise=exercise_3, sets=3),
+                    sections=[
+                        RoutineSection(
+                            position=1,
+                            rounds=1,
+                            parts=[
+                                RoutineActivity(
+                                    position=1,
+                                    exercise=exercise_3,
+                                    duration=0,
+                                    tempo=0,
+                                    automatic=False,
+                                ),
+                                RoutineActivity(
+                                    position=2,
+                                    duration=30,
+                                    tempo=0,
+                                    automatic=False,
+                                ),
+                            ],
+                        ),
+                        RoutineSection(
+                            position=2,
+                            rounds=2,
+                            parts=[
+                                RoutineActivity(
+                                    position=1,
+                                    exercise=exercise_1,
+                                    duration=0,
+                                    tempo=3,
+                                    automatic=False,
+                                ),
+                                RoutineActivity(
+                                    position=2,
+                                    duration=60,
+                                    tempo=0,
+                                    automatic=False,
+                                ),
+                                RoutineSection(
+                                    position=3,
+                                    rounds=2,
+                                    parts=[
+                                        RoutineActivity(
+                                            position=1,
+                                            exercise=exercise_1,
+                                            duration=0,
+                                            tempo=0,
+                                            automatic=False,
+                                        ),
+                                        RoutineActivity(
+                                            position=2,
+                                            duration=30,
+                                            tempo=0,
+                                            automatic=False,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                        RoutineSection(
+                            position=3,
+                            rounds=3,
+                            parts=[
+                                RoutineActivity(
+                                    position=1,
+                                    exercise=exercise_3,
+                                    duration=20,
+                                    tempo=0,
+                                    automatic=True,
+                                ),
+                                RoutineActivity(
+                                    position=2,
+                                    duration=10,
+                                    tempo=0,
+                                    automatic=True,
+                                ),
+                            ],
+                        ),
                     ],
                 ),
                 Routine(
@@ -91,8 +165,26 @@ def users() -> list[User]:
                     user_id=1,
                     name="R2",
                     notes=None,
-                    exercises=[
-                        RoutineExercise(position=1, exercise=exercise_3, sets=5),
+                    sections=[
+                        RoutineSection(
+                            position=1,
+                            rounds=5,
+                            parts=[
+                                RoutineActivity(
+                                    position=1,
+                                    exercise=exercise_3,
+                                    duration=20,
+                                    tempo=0,
+                                    automatic=True,
+                                ),
+                                RoutineActivity(
+                                    position=2,
+                                    duration=10,
+                                    tempo=0,
+                                    automatic=True,
+                                ),
+                            ],
+                        ),
                     ],
                 ),
             ],
@@ -193,9 +285,33 @@ def users() -> list[User]:
                     user_id=2,
                     name="R1",
                     notes="",
-                    exercises=[
-                        RoutineExercise(position=1, exercise=exercise_2, sets=3),
-                        RoutineExercise(position=2, exercise=exercise_4, sets=4),
+                    sections=[
+                        RoutineSection(
+                            position=1,
+                            rounds=3,
+                            parts=[
+                                RoutineActivity(
+                                    position=1,
+                                    exercise=exercise_2,
+                                    duration=0,
+                                    tempo=4,
+                                    automatic=False,
+                                ),
+                            ],
+                        ),
+                        RoutineSection(
+                            position=2,
+                            rounds=4,
+                            parts=[
+                                RoutineActivity(
+                                    position=1,
+                                    exercise=exercise_4,
+                                    duration=0,
+                                    tempo=3,
+                                    automatic=False,
+                                ),
+                            ],
+                        ),
                     ],
                 ),
                 Routine(id=4, user_id=2, name="Empty", notes="TBD"),

@@ -451,7 +451,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         view_chart(model, data_model),
         view_table(model, data_model),
-        common::view_fab(|_| Msg::ShowAddBodyFatDialog),
+        common::view_fab("plus", |_| Msg::ShowAddBodyFatDialog),
     ]
 }
 

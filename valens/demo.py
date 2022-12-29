@@ -11,7 +11,8 @@ from valens.models import (
     Exercise,
     Period,
     Routine,
-    RoutineExercise,
+    RoutineActivity,
+    RoutineSection,
     Sex,
     User,
     Workout,
@@ -157,8 +158,17 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
             id=(user_id - 1) * len(routine_names) + i,
             user_id=user_id,
             name=f"Training {t}",
-            exercises=[
-                RoutineExercise(position=p, exercise=e, sets=random.randint(1, 5))
+            sections=[
+                RoutineSection(
+                    position=p,
+                    rounds=random.randint(1, 5),
+                    parts=[
+                        RoutineActivity(
+                            position=1, exercise=e, duration=0, tempo=3, automatic=False
+                        ),
+                        RoutineActivity(position=2, duration=60, tempo=0, automatic=True),
+                    ],
+                )
                 for p, e in enumerate(random.sample(exercises, random.randint(5, 8)), start=1)
             ],
         )
@@ -182,23 +192,26 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
                 )
                 for p, (e, t, w) in enumerate(
                     [
-                        (routine_exercise.exercise, t, w)
-                        for routine_exercise in routines[quarter].exercises
+                        (routine_activity.exercise, t, w)
+                        for routine_section in routines[quarter].sections
+                        for routine_activity in routine_section.parts
+                        if isinstance(routine_activity, RoutineActivity)
+                        and routine_activity.exercise is not None
                         for t, w in [
                             (
                                 (
                                     random.randint(3, 4)
-                                    if exercise_names[routine_exercise.exercise.name].reps
+                                    if exercise_names[routine_activity.exercise.name].reps
                                     else 10 + 4 * week + 5 * random.randint(0, 2)
                                 )
-                                if exercise_names[routine_exercise.exercise.name].time
+                                if exercise_names[routine_activity.exercise.name].time
                                 else None,
                                 5 + week + random.randint(0, 2)
-                                if exercise_names[routine_exercise.exercise.name].weight
+                                if exercise_names[routine_activity.exercise.name].weight
                                 else None,
                             )
                         ]
-                        for _ in range(routine_exercise.sets)
+                        for _ in range(routine_section.rounds)
                     ],
                     start=1,
                 )

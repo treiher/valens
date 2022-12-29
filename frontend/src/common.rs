@@ -135,7 +135,10 @@ pub fn view_delete_confirmation_dialog<Ms>(
     )
 }
 
-pub fn view_fab<Ms>(message: impl FnOnce(web_sys::Event) -> Ms + 'static + Clone) -> Node<Ms>
+pub fn view_fab<Ms>(
+    icon: &str,
+    message: impl FnOnce(web_sys::Event) -> Ms + 'static + Clone,
+) -> Node<Ms>
 where
     Ms: 'static,
 {
@@ -145,7 +148,7 @@ where
         C!["is-medium"],
         C!["is-link"],
         ev(Ev::Click, message),
-        span![C!["icon"], i![C!["fas fa-plus"]]]
+        span![C!["icon"], i![C![format!("fas fa-{icon}")]]]
     ]
 }
 

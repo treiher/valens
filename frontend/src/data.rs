@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use chrono::{prelude::*, Duration};
 use seed::prelude::*;
 use serde_json::{json, Map};
@@ -130,14 +132,24 @@ pub struct Routine {
     pub id: u32,
     pub name: String,
     pub notes: Option<String>,
-    pub exercises: Vec<RoutineExercise>,
+    pub sections: Vec<RoutinePart>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct RoutineExercise {
-    pub position: u32,
-    pub exercise_id: u32,
-    pub sets: u32,
+#[serde(untagged)]
+pub enum RoutinePart {
+    RoutineSection {
+        position: u32,
+        rounds: u32,
+        parts: Vec<RoutinePart>,
+    },
+    RoutineActivity {
+        position: u32,
+        exercise_id: Option<u32>,
+        duration: u32,
+        tempo: u32,
+        automatic: bool,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -219,6 +231,34 @@ impl BodyFat {
     fn jackson_pollock(&self, sum: f32, k0: f32, k1: f32, k2: f32, ka: f32) -> f32 {
         let age = 30.; // assume an age of 30
         (495. / (k0 - (k1 * sum) + (k2 * sum * sum) - (ka * age))) - 450.
+    }
+}
+
+impl Routine {
+    pub fn exercises(&self) -> BTreeSet<u32> {
+        self.sections
+            .iter()
+            .flat_map(RoutinePart::exercises)
+            .collect::<BTreeSet<_>>()
+    }
+}
+
+impl RoutinePart {
+    fn exercises(&self) -> BTreeSet<u32> {
+        let mut result: BTreeSet<u32> = BTreeSet::new();
+        match self {
+            RoutinePart::RoutineSection { parts, .. } => {
+                for p in parts {
+                    result.extend(Self::exercises(p));
+                }
+            }
+            RoutinePart::RoutineActivity { exercise_id, .. } => {
+                if let Some(id) = exercise_id {
+                    result.insert(*id);
+                }
+            }
+        }
+        result
     }
 }
 
@@ -426,7 +466,7 @@ pub enum Msg {
     RoutinesRead(Result<Vec<Routine>, String>),
     CreateRoutine(String),
     RoutineCreated(Result<Routine, String>),
-    ModifyRoutine(u32, Option<String>, Option<Vec<RoutineExercise>>),
+    ModifyRoutine(u32, Option<String>, Option<Vec<RoutinePart>>),
     RoutineModified(Result<Routine, String>),
     DeleteRoutine(u32),
     RoutineDeleted(Result<(), String>),
@@ -1032,7 +1072,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         .json(&json!({
                             "name": routine_name,
                             "notes": "",
-                            "exercises": []
+                            "sections": []
                         }))
                         .expect("serialization failed"),
                     Msg::RoutineCreated,
@@ -1051,13 +1091,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .errors
                 .push("Failed to create routine: ".to_owned() + &message);
         }
-        Msg::ModifyRoutine(id, name, exercises) => {
+        Msg::ModifyRoutine(id, name, sections) => {
             let mut content = Map::new();
             if let Some(name) = name {
                 content.insert("name".into(), json!(name));
             }
-            if let Some(exercises) = exercises {
-                content.insert("exercises".into(), json!(exercises));
+            if let Some(sections) = sections {
+                content.insert("sections".into(), json!(sections));
             }
             orders.perform_cmd(async move {
                 fetch(

@@ -141,7 +141,7 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_routine_dialog(&model.dialog, &data_model.routines, model.loading),
-        common::view_fab(|_| Msg::ShowAddRoutineDialog),
+        common::view_fab("plus", |_| Msg::ShowAddRoutineDialog),
         view_table(data_model),
     ]
 }

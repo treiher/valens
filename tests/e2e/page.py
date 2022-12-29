@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import pprint
 from abc import abstractmethod
+from time import sleep
 from typing import Callable
 
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver as RemoteWebDriver
@@ -232,7 +234,7 @@ class RoutineExerciseDialog(Dialog):
         self.wait_for_closing()
 
 
-class Page:
+class Page:  # pylint: disable = too-many-public-methods
     def __init__(self, driver: webdriver.Chrome) -> None:
         self._driver = driver
 
@@ -286,17 +288,16 @@ class Page:
 
     def click_fab(self) -> None:
         self._driver.find_element(by=By.XPATH, value="//button[contains(@class, 'is-fab')]").click()
-        Dialog(self._driver).wait_for_opening()
 
     def click_edit(self, index: int) -> None:
         buttons = self._driver.find_elements(by=By.XPATH, value="//i[contains(@class, 'fa-edit')]")
         buttons[index].click()
-        Dialog(self._driver).wait_for_opening()
+        self.wait_for_dialog()
 
     def click_delete(self, index: int) -> None:
         buttons = self._driver.find_elements(by=By.XPATH, value="//i[contains(@class, 'fa-times')]")
         buttons[index].click()
-        Dialog(self._driver).wait_for_opening()
+        self.wait_for_dialog()
 
     def wait_for_table_value(self, index: int, text: str) -> None:
         wait(self._driver).until(
@@ -322,6 +323,9 @@ class Page:
         wait(self._driver).until(
             EC.text_to_be_present_in_element((By.XPATH, "//h1[contains(@class, 'title')]"), text)
         )
+
+    def wait_for_dialog(self) -> None:
+        Dialog(self._driver).wait_for_opening()
 
 
 class LoginPage(Page):
@@ -519,6 +523,106 @@ class RoutinePage(Page):
     @property
     def url(self) -> str:
         return f"routine/{self.routine_id}"
+
+    def get_sections(self) -> list[tuple[object, ...]]:
+        return [
+            tuple(
+                e.text if e.text else "A"
+                for e in m.find_elements(
+                    by=By.XPATH,
+                    value=".//*[text()!='' or @class='fas fa-a fa-inverse fa-stack-1x']",
+                )
+            )
+            for m in self._driver.find_elements(
+                by=By.XPATH,
+                value=(
+                    "//div[contains(@class, 'container')]"
+                    "/div[contains(@class, 'message') and contains(@class, 'is-grey')]"
+                ),
+            )
+        ]
+
+    def click_move_part_up_button(self, index: int) -> None:
+        self._click_button("arrow-up", index)
+
+    def click_move_part_down_button(self, index: int) -> None:
+        self._click_button("arrow-down", index)
+
+    def click_remove_part_button(self, index: int) -> None:
+        self._click_button("remove", index)
+
+    def click_auto_button(self, index: int) -> None:
+        buttons = self._driver.find_elements(
+            by=By.XPATH,
+            value="//button/span/span[@class='fa-stack']/i[contains(@class, 'fas fa-a')]",
+        )
+        buttons[index].click()
+
+    def click_add_activity_button(self, index: int) -> None:
+        self._click_button("person-running", index)
+
+    def click_add_rest_button(self, index: int) -> None:
+        self._click_button("person", index)
+
+    def click_add_section_button(self, index: int) -> None:
+        self._click_button("repeat", index)
+
+    def set_rounds(self, index: int, rounds: int) -> None:
+        self._set_input("repeat", index, rounds)
+
+    def set_exercise(self, index: int, text: str) -> None:
+        buttons = self._driver.find_elements(by=By.XPATH, value="//button[@class='input']")
+        (
+            ActionChains(self._driver)
+            .move_to_element(buttons[index])  # type: ignore[no-untyped-call]
+            .click()
+            .perform()
+        )
+        Dialog(self._driver).wait_for_opening()
+        self._driver.find_element(by=By.XPATH, value=f"//td[text()='{text}']").click()
+
+    def set_duration(self, index: int, duration: int) -> None:
+        self._set_input("clock-rotate-left", index, duration)
+
+    def set_tempo(self, index: int, tempo: int) -> None:
+        self._set_input("person-running", index, tempo)
+
+    def wait_for_editable_sections(self) -> None:
+        wait(self._driver).until(
+            EC.visibility_of_element_located((By.XPATH, "//i[contains(@class, 'fa-arrow-up')]"))
+        )
+
+    def wait_for_sections(self) -> None:
+        wait(self._driver).until_not(
+            EC.visibility_of_element_located((By.XPATH, "//i[contains(@class, 'fa-arrow-up')]"))
+        )
+        wait(self._driver).until(
+            EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'message')]"))
+        )
+
+    def _click_button(self, icon: str, index: int) -> None:
+        buttons = self._driver.find_elements(
+            by=By.XPATH, value=f"//button/span/i[@class='fas fa-{icon}']"
+        )
+        (
+            ActionChains(self._driver)
+            .move_to_element(buttons[index])  # type: ignore[no-untyped-call]
+            .click()
+            .perform()
+        )
+        sleep(0.01)
+
+    def _set_input(self, icon: str, index: int, value: int) -> None:
+        controls = [
+            e
+            for e in self._driver.find_elements(
+                by=By.XPATH, value="//div[contains(@class, 'control')]"
+            )
+            if e.find_elements(by=By.XPATH, value=f".//i[@class='fas fa-{icon}']")
+        ]
+        inp = controls[index].find_element(by=By.TAG_NAME, value="input")
+        clear(inp)
+        inp.send_keys(value)
 
 
 class ExercisesPage(Page):

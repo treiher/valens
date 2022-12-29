@@ -108,27 +108,53 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("post", "/api/exercises", {"invalid": "data"}),
         ("put", "/api/exercises/1", {"invalid": "data"}),
         ("post", "/api/routines", {"invalid": "data"}),
-        (
-            "post",
-            "/api/routines",
-            {
-                "name": "X",
-                "notes": "",
-                "exercises": [
-                    {"exercise_id": 1, "position": 1, "sets": 1},
-                    {"exercise_id": 3, "position": 3, "sets": 3},
-                ],
-            },
-        ),
+        ("post", "/api/routines", {"invalid": "data"}),
         ("put", "/api/routines/1", {"invalid": "data"}),
+        ("patch", "/api/routines/1", {"sections": [{"invalid": "data"}]}),
         (
             "patch",
             "/api/routines/1",
             {
-                "exercises": [
-                    {"exercise_id": 1, "position": 1, "sets": 1},
-                    {"exercise_id": 3, "position": 3, "sets": 3},
-                ],
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 1,
+                        "parts": [],
+                    },
+                    {
+                        "position": 3,
+                        "rounds": 2,
+                        "parts": [],
+                    },
+                ]
+            },
+        ),
+        (
+            "patch",
+            "/api/routines/1",
+            {
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": None,
+                                "duration": 0,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 3,
+                                "exercise_id": None,
+                                "duration": 30,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                        ],
+                    },
+                ]
             },
         ),
         ("post", "/api/workouts", {"invalid": "data"}),
@@ -391,18 +417,114 @@ def test_delete_user(client: Client) -> None:
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 1},
-                        {"exercise_id": 1, "position": 2, "sets": 2},
-                        {"exercise_id": 3, "position": 3, "sets": 3},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 1,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 0,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 30,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 60,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 3,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                        {
+                                            "position": 2,
+                                            "exercise_id": None,
+                                            "duration": 30,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 3,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
                     "id": 3,
                     "name": "R2",
                     "notes": None,
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 5,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        }
                     ],
                 },
             ],
@@ -632,9 +754,60 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                 "id": 5,
                 "name": "New Routine",
                 "notes": "Something New",
-                "exercises": [
-                    {"exercise_id": 1, "position": 1, "sets": 2},
-                    {"exercise_id": 3, "position": 2, "sets": 1},
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 1,
+                                "duration": 0,
+                                "tempo": 3,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "position": 1,
+                                        "exercise_id": None,
+                                        "duration": 30,
+                                        "tempo": 0,
+                                        "automatic": True,
+                                    },
+                                    {
+                                        "position": 2,
+                                        "exercise_id": 1,
+                                        "duration": 0,
+                                        "tempo": 0,
+                                        "automatic": True,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "position": 2,
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 20,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 10,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
                 ],
             },
             [
@@ -642,27 +815,174 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "id": 5,
                     "name": "New Routine",
                     "notes": "Something New",
-                    "exercises": [
-                        {"exercise_id": 1, "position": 1, "sets": 2},
-                        {"exercise_id": 3, "position": 2, "sets": 1},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": None,
+                                            "duration": 30,
+                                            "tempo": 0,
+                                            "automatic": True,
+                                        },
+                                        {
+                                            "position": 2,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": True,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 1},
-                        {"exercise_id": 1, "position": 2, "sets": 2},
-                        {"exercise_id": 3, "position": 3, "sets": 3},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 1,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 0,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 30,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 60,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 3,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                        {
+                                            "position": 2,
+                                            "exercise_id": None,
+                                            "duration": 30,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 3,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
                     "id": 3,
                     "name": "R2",
                     "notes": None,
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 5,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        }
                     ],
                 },
             ],
@@ -954,18 +1274,106 @@ def test_create_workout(client: Client) -> None:
             {
                 "name": "Changed Routine",
                 "notes": "First Changed Routine",
-                "exercises": [
-                    {"exercise_id": 1, "position": 1, "sets": 2},
-                    {"exercise_id": 3, "position": 2, "sets": 1},
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 1,
+                                "duration": 0,
+                                "tempo": 3,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "position": 1,
+                                        "exercise_id": 1,
+                                        "duration": 0,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "position": 2,
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 20,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 10,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
                 ],
             },
             {
                 "id": 1,
                 "name": "Changed Routine",
                 "notes": "First Changed Routine",
-                "exercises": [
-                    {"exercise_id": 1, "position": 1, "sets": 2},
-                    {"exercise_id": 3, "position": 2, "sets": 1},
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 1,
+                                "duration": 0,
+                                "tempo": 3,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "position": 1,
+                                        "exercise_id": 1,
+                                        "duration": 0,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "position": 2,
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 20,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 10,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
                 ],
             },
             [
@@ -973,24 +1381,88 @@ def test_create_workout(client: Client) -> None:
                     "id": 1,
                     "name": "Changed Routine",
                     "notes": "First Changed Routine",
-                    "exercises": [
-                        {"exercise_id": 1, "position": 1, "sets": 2},
-                        {"exercise_id": 3, "position": 2, "sets": 1},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
                     "id": 3,
                     "name": "R2",
                     "notes": None,
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 5,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        }
                     ],
                 },
             ],
             {
+                "id": 3,
                 "name": "R2",
                 "notes": "",
-                "exercises": [],
+                "sections": [],
             },
         ),
         (
@@ -1197,10 +1669,87 @@ def test_replace(
                 "id": 1,
                 "name": "Changed Routine",
                 "notes": "First Routine",
-                "exercises": [
-                    {"exercise_id": 3, "position": 1, "sets": 1},
-                    {"exercise_id": 1, "position": 2, "sets": 2},
-                    {"exercise_id": 3, "position": 3, "sets": 3},
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 0,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 30,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                        ],
+                    },
+                    {
+                        "position": 2,
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 1,
+                                "duration": 0,
+                                "tempo": 3,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 60,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 3,
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "position": 1,
+                                        "exercise_id": 1,
+                                        "duration": 0,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                    {
+                                        "position": 2,
+                                        "exercise_id": None,
+                                        "duration": 30,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "position": 3,
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 20,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 10,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
                 ],
             },
             [
@@ -1208,18 +1757,114 @@ def test_replace(
                     "id": 1,
                     "name": "Changed Routine",
                     "notes": "First Routine",
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 1},
-                        {"exercise_id": 1, "position": 2, "sets": 2},
-                        {"exercise_id": 3, "position": 3, "sets": 3},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 1,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 0,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 30,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 60,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 3,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                        {
+                                            "position": 2,
+                                            "exercise_id": None,
+                                            "duration": 30,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 3,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
                     "id": 3,
                     "name": "R2",
                     "notes": None,
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 5,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        }
                     ],
                 },
             ],
@@ -1236,10 +1881,87 @@ def test_replace(
                 "id": 1,
                 "name": "R1",
                 "notes": "Changed Notes",
-                "exercises": [
-                    {"exercise_id": 3, "position": 1, "sets": 1},
-                    {"exercise_id": 1, "position": 2, "sets": 2},
-                    {"exercise_id": 3, "position": 3, "sets": 3},
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 0,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 30,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                        ],
+                    },
+                    {
+                        "position": 2,
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 1,
+                                "duration": 0,
+                                "tempo": 3,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 60,
+                                "tempo": 0,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 3,
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "position": 1,
+                                        "exercise_id": 1,
+                                        "duration": 0,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                    {
+                                        "position": 2,
+                                        "exercise_id": None,
+                                        "duration": 30,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "position": 3,
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 20,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 10,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
                 ],
             },
             [
@@ -1247,18 +1969,114 @@ def test_replace(
                     "id": 1,
                     "name": "R1",
                     "notes": "Changed Notes",
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 1},
-                        {"exercise_id": 1, "position": 2, "sets": 2},
-                        {"exercise_id": 3, "position": 3, "sets": 3},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 1,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 0,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 30,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 60,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 3,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                        {
+                                            "position": 2,
+                                            "exercise_id": None,
+                                            "duration": 30,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 3,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
                     "id": 3,
                     "name": "R2",
                     "notes": None,
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 5,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        }
                     ],
                 },
             ],
@@ -1270,18 +2088,106 @@ def test_replace(
         (
             "/api/routines/1",
             {
-                "exercises": [
-                    {"exercise_id": 1, "position": 1, "sets": 2},
-                    {"exercise_id": 3, "position": 2, "sets": 1},
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 1,
+                                "duration": 0,
+                                "tempo": 3,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "position": 1,
+                                        "exercise_id": 1,
+                                        "duration": 0,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "position": 2,
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 20,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 10,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
                 ],
             },
             {
                 "id": 1,
                 "name": "R1",
                 "notes": "First Routine",
-                "exercises": [
-                    {"exercise_id": 1, "position": 1, "sets": 2},
-                    {"exercise_id": 3, "position": 2, "sets": 1},
+                "sections": [
+                    {
+                        "position": 1,
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 1,
+                                "duration": 0,
+                                "tempo": 3,
+                                "automatic": False,
+                            },
+                            {
+                                "position": 2,
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "position": 1,
+                                        "exercise_id": 1,
+                                        "duration": 0,
+                                        "tempo": 0,
+                                        "automatic": False,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "position": 2,
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "position": 1,
+                                "exercise_id": 3,
+                                "duration": 20,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                            {
+                                "position": 2,
+                                "exercise_id": None,
+                                "duration": 10,
+                                "tempo": 0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
                 ],
             },
             [
@@ -1289,21 +2195,84 @@ def test_replace(
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
-                    "exercises": [
-                        {"exercise_id": 1, "position": 1, "sets": 2},
-                        {"exercise_id": 3, "position": 2, "sets": 1},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
                     "id": 3,
                     "name": "R2",
                     "notes": None,
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 5},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 5,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        }
                     ],
                 },
             ],
-            {"name": "R2", "notes": "", "exercises": []},
+            {"name": "R2", "notes": "", "sections": []},
         ),
         (
             "/api/workouts/1",
@@ -1847,10 +2816,87 @@ def test_modify(
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
-                    "exercises": [
-                        {"exercise_id": 3, "position": 1, "sets": 1},
-                        {"exercise_id": 1, "position": 2, "sets": 2},
-                        {"exercise_id": 3, "position": 3, "sets": 3},
+                    "sections": [
+                        {
+                            "position": 1,
+                            "rounds": 1,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 0,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 30,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                            ],
+                        },
+                        {
+                            "position": 2,
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 1,
+                                    "duration": 0,
+                                    "tempo": 3,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 60,
+                                    "tempo": 0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "position": 3,
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "position": 1,
+                                            "exercise_id": 1,
+                                            "duration": 0,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                        {
+                                            "position": 2,
+                                            "exercise_id": None,
+                                            "duration": 30,
+                                            "tempo": 0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "position": 3,
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "position": 1,
+                                    "exercise_id": 3,
+                                    "duration": 20,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "position": 2,
+                                    "exercise_id": None,
+                                    "duration": 10,
+                                    "tempo": 0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
                     ],
                 },
             ],

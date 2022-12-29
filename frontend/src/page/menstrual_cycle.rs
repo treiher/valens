@@ -216,7 +216,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         view_chart(model, data_model),
         view_cycle_stats(model, data_model),
         view_period_table(model, data_model),
-        common::view_fab(|_| Msg::ShowAddPeriodDialog),
+        common::view_fab("plus", |_| Msg::ShowAddPeriodDialog),
     ]
 }
 

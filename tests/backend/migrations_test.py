@@ -4,7 +4,8 @@ import itertools
 import sqlite3
 from pathlib import Path
 
-from alembic.command import revision, upgrade
+import pytest
+from alembic.command import downgrade, revision, upgrade
 from alembic.config import Config
 from alembic.operations.ops import MigrationScript
 from pytest_alembic.tests import (  # pylint: disable = unused-import
@@ -16,7 +17,8 @@ from pytest_alembic.tests import (  # pylint: disable = unused-import
 
 from valens import app, database as db
 
-BASE_SCHEMA = Path("tests/data/base.sql")
+DATA_DIR = Path("tests/data")
+BASE_SCHEMA = DATA_DIR / "base.sql"
 
 
 def test_completeness(tmp_path: Path) -> None:
@@ -83,3 +85,37 @@ def test_completeness_constraints(tmp_path: Path) -> None:
         model_constraints = constraints(connection)
 
         assert migrated_constraints == model_constraints
+
+
+@pytest.mark.parametrize("source, target", [("4b6051594962", "b9f4e42c7135")])
+def test_up(tmp_path: Path, source: str, target: str) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    connection = sqlite3.connect(test_db)
+    connection.executescript((DATA_DIR / f"{source}.sql").read_text(encoding="utf-8"))
+    connection.commit()
+
+    with app.app_context():
+        upgrade(cfg, target)
+        assert "".join(
+            [f"{l.rstrip()}\n" for s in connection.iterdump() for l in s.split("\n")]
+        ) == (DATA_DIR / f"{target}_up_from_{source}.sql").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("source, target", [("b9f4e42c7135", "4b6051594962")])
+def test_down(tmp_path: Path, source: str, target: str) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    connection = sqlite3.connect(test_db)
+    connection.executescript((DATA_DIR / f"{source}.sql").read_text(encoding="utf-8"))
+    connection.commit()
+
+    with app.app_context():
+        downgrade(cfg, target)
+        assert "".join(
+            [f"{l.rstrip()}\n" for s in connection.iterdump() for l in s.split("\n")]
+        ) == (DATA_DIR / f"{target}_down_from_{source}.sql").read_text(encoding="utf-8")

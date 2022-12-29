@@ -145,7 +145,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_exercise_dialog(&model.dialog, &data_model.exercises, model.loading),
         view_table(data_model),
-        common::view_fab(|_| Msg::ShowAddExerciseDialog),
+        common::view_fab("plus", |_| Msg::ShowAddExerciseDialog),
     ]
 }
 

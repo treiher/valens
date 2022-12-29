@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import enum
 from datetime import date
-from enum import IntEnum
 from typing import Optional
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     Enum,
@@ -38,7 +39,7 @@ class Base(DeclarativeBase):
     )
 
 
-class Sex(IntEnum):
+class Sex(enum.IntEnum):
     FEMALE = 0
     MALE = 1
 
@@ -163,8 +164,8 @@ class Exercise(Base):
     sets: Mapped[list[WorkoutSet]] = relationship(
         "WorkoutSet", back_populates="exercise", cascade="all, delete-orphan"
     )
-    routine_exercises: Mapped[list[RoutineExercise]] = relationship(
-        "RoutineExercise", back_populates="exercise", cascade="all, delete-orphan"
+    routine_activities: Mapped[list[RoutineActivity]] = relationship(
+        "RoutineActivity", back_populates="exercise", cascade="all, delete-orphan"
     )
 
 
@@ -177,32 +178,86 @@ class Routine(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(String)
 
-    exercises: Mapped[list[RoutineExercise]] = relationship(
-        "RoutineExercise", back_populates="routine", cascade="all, delete-orphan"
+    sections: Mapped[list[RoutineSection]] = relationship(
+        "RoutineSection", back_populates="routine", cascade="all, delete-orphan"
     )
     workouts: Mapped[list[Workout]] = relationship("Workout", back_populates="routine")
 
 
-class RoutineExercise(Base):
-    __tablename__ = "routine_exercise"
-    __table_args__ = (
+class RoutinePart(Base):
+    __tablename__ = "routine_part"
+    __table_args__: tuple[CheckConstraint, ...] = (
         CheckConstraint("typeof(position) = 'integer'", name="position_type_integer"),
-        CheckConstraint("typeof(sets) = 'integer'", name="sets_type_integer"),
+        CheckConstraint("typeof(type) = 'text'", name="type_type_text"),
         CheckConstraint(column("position") > 0, name="position_gt_0"),
-        CheckConstraint(column("sets") > 0, name="sets_gt_0"),
     )
 
-    routine_id: Mapped[int] = mapped_column(
-        ForeignKey("routine.id", ondelete="CASCADE"), primary_key=True
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    routine_section_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("routine_section.id", ondelete="CASCADE")
     )
-    position: Mapped[int] = mapped_column(Integer, primary_key=True)
-    exercise_id: Mapped[int] = mapped_column(
-        ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False
-    )
-    sets: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    routine: Mapped[Routine] = relationship("Routine", back_populates="exercises")
-    exercise: Mapped[Exercise] = relationship("Exercise", back_populates="routine_exercises")
+    section: Mapped[RoutineSection] = relationship(
+        "RoutineSection",
+        back_populates="parts",
+        foreign_keys=[routine_section_id],
+    )
+
+    __mapper_args__ = {
+        "polymorphic_identity": "routine_part",
+        "polymorphic_on": type,
+    }
+
+
+class RoutineSection(RoutinePart):
+    __tablename__ = "routine_section"
+    __table_args__ = (
+        CheckConstraint("typeof(rounds) = 'integer'", name="rounds_type_integer"),
+        CheckConstraint(column("rounds") > 0, name="rounds_gt_0"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
+    routine_id: Mapped[Optional[int]] = mapped_column(ForeignKey("routine.id", ondelete="CASCADE"))
+    rounds: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    parts: Mapped[list[RoutinePart]] = relationship(
+        "RoutinePart",
+        back_populates="section",
+        foreign_keys=RoutinePart.routine_section_id,
+    )
+    routine: Mapped[Routine] = relationship("Routine", back_populates="sections")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "routine_section",
+        "inherit_condition": id == RoutinePart.id,
+    }
+
+
+class RoutineActivity(RoutinePart):
+    __tablename__ = "routine_activity"
+    __table_args__ = (
+        CheckConstraint("typeof(duration) = 'integer'", name="duration_type_integer"),
+        CheckConstraint(column("duration") >= 0, name="duration_ge_0"),
+        CheckConstraint("typeof(tempo) = 'integer'", name="tempo_type_integer"),
+        CheckConstraint(column("tempo") >= 0, name="tempo_ge_0"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
+    exercise_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE")
+    )
+    duration: Mapped[int] = mapped_column(Integer, nullable=False)
+    tempo: Mapped[int] = mapped_column(Integer, nullable=False)
+    automatic: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    exercise: Mapped[Exercise] = relationship("Exercise", back_populates="routine_activities")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "routine_activity",
+        "inherit_condition": id == RoutinePart.id,
+    }
 
 
 class Workout(Base):

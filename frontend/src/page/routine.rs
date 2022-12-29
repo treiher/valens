@@ -1,5 +1,4 @@
-use std::cmp;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use chrono::prelude::*;
 use seed::{prelude::*, *};
@@ -23,10 +22,7 @@ pub fn init(
         .unwrap_or("")
         .parse::<u32>()
         .unwrap_or(0);
-
-    if url.next_hash_path_part() == Some("add") {
-        orders.send_msg(Msg::ShowAddExerciseDialog);
-    }
+    let editing = url.next_hash_path_part() == Some("edit");
 
     orders.subscribe(Msg::DataEvent);
 
@@ -44,9 +40,15 @@ pub fn init(
                 .collect::<Vec<NaiveDate>>(),
             true,
         ),
-        routine_id,
+        id: routine_id,
+        sections: if let Some(routine) = routine {
+            routine.sections.iter().map(|p| p.into()).collect()
+        } else {
+            vec![]
+        },
         previous_exercises: init_previous_exercises(routine, data_model),
         dialog: Dialog::Hidden,
+        editing,
         loading: false,
     }
 }
@@ -54,7 +56,7 @@ pub fn init(
 fn init_previous_exercises(
     routine: &Option<&data::Routine>,
     data_model: &data::Model,
-) -> HashSet<u32> {
+) -> BTreeSet<u32> {
     if let Some(routine) = routine {
         let workouts = &data_model
             .workouts
@@ -64,15 +66,10 @@ fn init_previous_exercises(
         let all_exercises = &workouts
             .iter()
             .flat_map(|w| w.sets.iter().map(|s| s.exercise_id))
-            .collect::<HashSet<_>>();
-        let current_exercises = &routine
-            .exercises
-            .iter()
-            .map(|e| e.exercise_id)
-            .collect::<HashSet<_>>();
-        all_exercises - current_exercises
+            .collect::<BTreeSet<_>>();
+        all_exercises - &routine.exercises()
     } else {
-        HashSet::new()
+        BTreeSet::new()
     }
 }
 
@@ -82,25 +79,108 @@ fn init_previous_exercises(
 
 pub struct Model {
     interval: common::Interval,
-    routine_id: u32,
-    previous_exercises: HashSet<u32>,
+    id: u32,
+    sections: Vec<Form>,
+    previous_exercises: BTreeSet<u32>,
     dialog: Dialog,
+    editing: bool,
     loading: bool,
 }
 
 enum Dialog {
     Hidden,
-    AddExercise(Form),
-    EditExercise(Form),
-    DeleteExercise(u32),
+    SelectExercise(Vec<usize>, String),
     DeleteWorkout(u32),
 }
 
-struct Form {
-    position: (String, Option<u32>),
-    exercise_id: (String, Option<u32>),
-    sets: (String, Option<u32>),
-    current_position: u32,
+#[cfg_attr(test, derive(Debug, PartialEq))]
+enum Form {
+    Section {
+        rounds: (String, Option<u32>),
+        parts: Vec<Form>,
+    },
+    Activity {
+        exercise_id: Option<u32>,
+        duration: (String, Option<u32>),
+        tempo: (String, Option<u32>),
+        automatic: bool,
+    },
+}
+
+impl Form {
+    fn valid(&self) -> bool {
+        match self {
+            Form::Section { rounds, parts } => {
+                rounds.1.is_some() && parts.iter().all(|p| p.valid())
+            }
+            Form::Activity {
+                duration, tempo, ..
+            } => duration.1.is_some() && tempo.1.is_some(),
+        }
+    }
+}
+
+impl From<&data::RoutinePart> for Form {
+    fn from(part: &data::RoutinePart) -> Self {
+        match part {
+            data::RoutinePart::RoutineSection { rounds, parts, .. } => Form::Section {
+                rounds: (rounds.to_string(), Some(*rounds)),
+                parts: parts.iter().map(|p| p.into()).collect(),
+            },
+            data::RoutinePart::RoutineActivity {
+                exercise_id,
+                duration,
+                tempo,
+                automatic,
+                ..
+            } => Form::Activity {
+                exercise_id: *exercise_id,
+                duration: (
+                    if *duration == 0 {
+                        String::new()
+                    } else {
+                        duration.to_string()
+                    },
+                    Some(*duration),
+                ),
+                tempo: (
+                    if *tempo == 0 {
+                        String::new()
+                    } else {
+                        tempo.to_string()
+                    },
+                    Some(*tempo),
+                ),
+                automatic: *automatic,
+            },
+        }
+    }
+}
+
+fn to_routine_parts(parts: &[Form]) -> Vec<data::RoutinePart> {
+    parts
+        .iter()
+        .enumerate()
+        .map(|(i, p)| match p {
+            Form::Section { rounds, parts } => data::RoutinePart::RoutineSection {
+                position: u32::try_from(i + 1).unwrap_or(0),
+                rounds: rounds.1.unwrap(),
+                parts: to_routine_parts(parts),
+            },
+            Form::Activity {
+                exercise_id,
+                duration,
+                tempo,
+                automatic,
+            } => data::RoutinePart::RoutineActivity {
+                position: u32::try_from(i + 1).unwrap_or(0),
+                exercise_id: *exercise_id,
+                duration: duration.1.unwrap_or(0),
+                tempo: tempo.1.unwrap_or(0),
+                automatic: *automatic,
+            },
+        })
+        .collect()
 }
 
 // ------ ------
@@ -108,18 +188,26 @@ struct Form {
 // ------ ------
 
 pub enum Msg {
-    ShowAddExerciseDialog,
-    ShowEditExerciseDialog(u32),
-    ShowDeleteExerciseDialog(u32),
+    EditRoutine,
+    SaveRoutine,
+
+    ShowSelectExerciseDialog(Vec<usize>),
     ShowDeleteWorkoutDialog(u32),
     CloseDialog,
 
-    PositionChanged(String),
-    ExerciseChanged(String),
-    SetsChanged(String),
+    AddSection(Vec<usize>),
+    AddActivity(Vec<usize>, Option<u32>),
+    RemovePart(Vec<usize>),
+    MovePartDown(Vec<usize>),
+    MovePartUp(Vec<usize>),
+    RoundsChanged(Vec<usize>, String),
+    ExerciseChanged(Vec<usize>, u32),
+    DurationChanged(Vec<usize>, String),
+    TempoChanged(Vec<usize>, String),
+    AutomaticChanged(Vec<usize>),
 
-    SaveExercise,
-    DeleteExercise(u32),
+    SearchTermChanged(String),
+
     DeleteWorkout(u32),
     DataEvent(data::Event),
 
@@ -133,39 +221,26 @@ pub fn update(
     orders: &mut impl Orders<Msg>,
 ) {
     match msg {
-        Msg::ShowAddExerciseDialog => {
-            let exercise_id = data_model.exercises[0].id;
-            if let Some(routine) = &data_model
-                .routines
-                .iter()
-                .find(|r| r.id == model.routine_id)
-            {
-                let position = routine.exercises.len() + 1;
-                model.dialog = Dialog::AddExercise(Form {
-                    position: (position.to_string(), Some(position.try_into().unwrap())),
-                    exercise_id: (exercise_id.to_string(), Some(exercise_id)),
-                    sets: (String::new(), None),
-                    current_position: 0,
-                });
-            }
+        Msg::EditRoutine => {
+            model.editing = true;
+            Url::go_and_push(
+                &crate::Urls::new(&data_model.base_url)
+                    .routine()
+                    .add_hash_path_part(model.id.to_string())
+                    .add_hash_path_part("edit"),
+            );
         }
-        Msg::ShowEditExerciseDialog(position) => {
-            if let Some(routine) = &data_model
-                .routines
-                .iter()
-                .find(|r| r.id == model.routine_id)
-            {
-                let exercise = &routine.exercises[usize::try_from(position - 1).unwrap()];
-                model.dialog = Dialog::EditExercise(Form {
-                    position: (position.to_string(), Some(position)),
-                    exercise_id: (exercise.exercise_id.to_string(), Some(exercise.exercise_id)),
-                    sets: (exercise.sets.to_string(), Some(exercise.sets)),
-                    current_position: position,
-                });
-            }
+        Msg::SaveRoutine => {
+            model.loading = true;
+            orders.notify(data::Msg::ModifyRoutine(
+                model.id,
+                None,
+                Some(to_routine_parts(&model.sections)),
+            ));
         }
-        Msg::ShowDeleteExerciseDialog(position) => {
-            model.dialog = Dialog::DeleteExercise(position);
+
+        Msg::ShowSelectExerciseDialog(part_id) => {
+            model.dialog = Dialog::SelectExercise(part_id, String::new());
         }
         Msg::ShowDeleteWorkoutDialog(position) => {
             model.dialog = Dialog::DeleteWorkout(position);
@@ -176,187 +251,171 @@ pub fn update(
             Url::go_and_replace(
                 &crate::Urls::new(&data_model.base_url)
                     .routine()
-                    .add_hash_path_part(model.routine_id.to_string()),
+                    .add_hash_path_part(model.id.to_string()),
             );
         }
 
-        Msg::PositionChanged(position) => match model.dialog {
-            Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
-                match position.parse::<u32>() {
-                    Ok(parsed_position) => {
-                        form.position = (
-                            position,
-                            if parsed_position > 0 {
-                                Some(parsed_position)
+        Msg::AddSection(id) => {
+            let new_section = Form::Section {
+                rounds: (String::from("1"), Some(1)),
+                parts: vec![],
+            };
+            if id.is_empty() {
+                model.sections.push(new_section);
+            } else if let Some(Form::Section { parts, .. }) = get_part(&mut model.sections, &id) {
+                parts.push(new_section);
+            }
+        }
+        Msg::AddActivity(id, exercise_id) => {
+            let new_activity = Form::Activity {
+                exercise_id,
+                duration: if exercise_id.is_none() {
+                    (String::from("60"), Some(60))
+                } else {
+                    (String::new(), Some(0))
+                },
+                tempo: (String::new(), Some(0)),
+                automatic: exercise_id.is_none(),
+            };
+            if let Some(Form::Section { parts, .. }) = get_part(&mut model.sections, &id) {
+                parts.push(new_activity);
+            }
+        }
+        Msg::RemovePart(id) => {
+            if id.len() == 1 {
+                model.sections.remove(id[0]);
+            } else if let Some(Form::Section { parts, .. }) =
+                get_part(&mut model.sections, &id[1..])
+            {
+                parts.remove(id[0]);
+            }
+        }
+        Msg::MovePartDown(id) => {
+            if id.len() == 1 {
+                if id[0] == model.sections.len() - 1 {
+                    model.sections.rotate_right(1);
+                } else {
+                    model.sections.swap(id[0], id[0] + 1);
+                }
+            } else if let Some(Form::Section { parts, .. }) =
+                get_part(&mut model.sections, &id[1..])
+            {
+                if id[0] == parts.len() - 1 {
+                    parts.rotate_right(1);
+                } else {
+                    parts.swap(id[0], id[0] + 1);
+                }
+            }
+        }
+        Msg::MovePartUp(id) => {
+            if id.len() == 1 {
+                if id[0] == 0 {
+                    model.sections.rotate_left(1)
+                } else {
+                    model.sections.swap(id[0], id[0] - 1);
+                }
+            } else if let Some(Form::Section { parts, .. }) =
+                get_part(&mut model.sections, &id[1..])
+            {
+                if id[0] == 0 {
+                    parts.rotate_left(1);
+                } else {
+                    parts.swap(id[0], id[0] - 1);
+                }
+            }
+        }
+        Msg::RoundsChanged(id, rounds) => {
+            if let Some(Form::Section {
+                rounds: section_rounds,
+                ..
+            }) = get_part(&mut model.sections, &id)
+            {
+                match rounds.parse::<u32>() {
+                    Ok(parsed_rounds) => {
+                        *section_rounds = (
+                            rounds,
+                            if parsed_rounds > 0 {
+                                Some(parsed_rounds)
                             } else {
                                 None
                             },
                         )
                     }
-                    Err(_) => form.position = (position, None),
+                    Err(_) => *section_rounds = (rounds, None),
                 }
             }
-            Dialog::Hidden | Dialog::DeleteExercise(_) | Dialog::DeleteWorkout(_) => {
-                panic!();
+        }
+        Msg::ExerciseChanged(id, exercise_id) => {
+            if let Some(Form::Activity {
+                exercise_id: activity_exercise_id,
+                ..
+            }) = get_part(&mut model.sections, &id)
+            {
+                *activity_exercise_id = Some(exercise_id);
             }
-        },
-        Msg::ExerciseChanged(exercise_id) => match model.dialog {
-            Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
-                match exercise_id.parse::<u32>() {
-                    Ok(parsed_exercise_id) => {
-                        form.exercise_id = (
-                            exercise_id,
-                            if parsed_exercise_id > 0 {
-                                Some(parsed_exercise_id)
-                            } else {
-                                None
-                            },
-                        )
+        }
+        Msg::DurationChanged(id, duration) => {
+            if let Some(Form::Activity {
+                duration: activity_duration,
+                ..
+            }) = get_part(&mut model.sections, &id)
+            {
+                if duration.is_empty() {
+                    *activity_duration = (duration, Some(0));
+                } else {
+                    match duration.parse::<u32>() {
+                        Ok(parsed_duration) => {
+                            *activity_duration = (
+                                duration,
+                                if parsed_duration > 0 {
+                                    Some(parsed_duration)
+                                } else {
+                                    None
+                                },
+                            )
+                        }
+                        Err(_) => *activity_duration = (duration, None),
                     }
-                    Err(_) => form.exercise_id = (exercise_id, None),
                 }
             }
-            Dialog::Hidden | Dialog::DeleteExercise(_) | Dialog::DeleteWorkout(_) => {
-                panic!();
-            }
-        },
-        Msg::SetsChanged(sets) => match model.dialog {
-            Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
-                match sets.parse::<u32>() {
-                    Ok(parsed_sets) => {
-                        form.sets = (
-                            sets,
-                            if parsed_sets > 0 {
-                                Some(parsed_sets)
-                            } else {
-                                None
-                            },
-                        )
+        }
+        Msg::TempoChanged(id, tempo) => {
+            if let Some(Form::Activity {
+                tempo: activity_tempo,
+                ..
+            }) = get_part(&mut model.sections, &id)
+            {
+                if tempo.is_empty() {
+                    *activity_tempo = (tempo, Some(0));
+                } else {
+                    match tempo.parse::<u32>() {
+                        Ok(parsed_tempo) => {
+                            *activity_tempo = (
+                                tempo,
+                                if parsed_tempo > 0 {
+                                    Some(parsed_tempo)
+                                } else {
+                                    None
+                                },
+                            )
+                        }
+                        Err(_) => *activity_tempo = (tempo, None),
                     }
-                    Err(_) => form.sets = (sets, None),
                 }
             }
-            Dialog::Hidden | Dialog::DeleteExercise(_) | Dialog::DeleteWorkout(_) => {
-                panic!();
+        }
+        Msg::AutomaticChanged(id) => {
+            if let Some(Form::Activity { automatic, .. }) = get_part(&mut model.sections, &id) {
+                *automatic = not(*automatic);
             }
-        },
+        }
 
-        Msg::SaveExercise => {
-            model.loading = true;
-            if let Some(routine) = &data_model
-                .routines
-                .iter()
-                .find(|r| r.id == model.routine_id)
-            {
-                match model.dialog {
-                    Dialog::AddExercise(ref mut form) => {
-                        let position = form.position.1.unwrap();
-                        let mut exercises = vec![];
-                        if not(routine.exercises.is_empty()) {
-                            if usize::try_from(position).unwrap() <= routine.exercises.len() {
-                                exercises.extend(
-                                    routine.exercises[..position as usize - 1].iter().cloned(),
-                                );
-                            } else {
-                                exercises.extend(routine.exercises.clone());
-                            }
-                        }
-                        exercises.push(data::RoutineExercise {
-                            position,
-                            exercise_id: form.exercise_id.1.unwrap(),
-                            sets: form.sets.1.unwrap(),
-                        });
-                        if usize::try_from(position).unwrap() <= routine.exercises.len() {
-                            exercises.extend(
-                                routine.exercises[position as usize - 1..].iter().map(|e| {
-                                    data::RoutineExercise {
-                                        position: e.position + 1,
-                                        exercise_id: e.exercise_id,
-                                        sets: e.sets,
-                                    }
-                                }),
-                            );
-                        }
-                        orders.notify(data::Msg::ModifyRoutine(
-                            model.routine_id,
-                            None,
-                            Some(exercises),
-                        ));
-                    }
-                    Dialog::EditExercise(ref mut form) => {
-                        let position = form.position.1.unwrap();
-                        let position_idx = usize::try_from(position).unwrap() - 1;
-                        let current_position_idx =
-                            usize::try_from(form.current_position).unwrap() - 1;
-                        let unchanged_until_idx = cmp::min(position_idx, current_position_idx);
-                        let unchanged_from_idx = cmp::max(position_idx, current_position_idx) + 1;
-                        let mut exercises = vec![];
-                        exercises.extend(routine.exercises[..unchanged_until_idx].iter().cloned());
-                        if current_position_idx != position_idx {
-                            if current_position_idx < position_idx {
-                                exercises.extend(
-                                    routine.exercises[current_position_idx + 1..position_idx + 1]
-                                        .iter()
-                                        .map(|e| data::RoutineExercise {
-                                            position: e.position - 1,
-                                            exercise_id: e.exercise_id,
-                                            sets: e.sets,
-                                        }),
-                                );
-                            } else {
-                                exercises.extend(
-                                    routine.exercises[position_idx..current_position_idx]
-                                        .iter()
-                                        .map(|e| data::RoutineExercise {
-                                            position: e.position + 1,
-                                            exercise_id: e.exercise_id,
-                                            sets: e.sets,
-                                        }),
-                                );
-                            }
-                        }
-                        exercises.push(data::RoutineExercise {
-                            position,
-                            exercise_id: form.exercise_id.1.unwrap(),
-                            sets: form.sets.1.unwrap(),
-                        });
-                        exercises.extend(routine.exercises[unchanged_from_idx..].iter().cloned());
-                        orders.notify(data::Msg::ModifyRoutine(
-                            model.routine_id,
-                            None,
-                            Some(exercises),
-                        ));
-                    }
-                    Dialog::Hidden | Dialog::DeleteExercise(_) | Dialog::DeleteWorkout(_) => {
-                        panic!();
-                    }
-                };
+        Msg::SearchTermChanged(search_term) => {
+            if let Dialog::SelectExercise(_, dialog_search_term) = &mut model.dialog {
+                *dialog_search_term = search_term;
             }
         }
-        Msg::DeleteExercise(position) => {
-            model.loading = true;
-            if let Some(routine) = &data_model
-                .routines
-                .iter()
-                .find(|r| r.id == model.routine_id)
-            {
-                let position_idx = usize::try_from(position).unwrap() - 1;
-                let mut exercises = vec![];
-                exercises.extend(routine.exercises[..position_idx].iter().cloned());
-                exercises.extend(routine.exercises[position_idx + 1..].iter().map(|e| {
-                    data::RoutineExercise {
-                        position: e.position - 1,
-                        exercise_id: e.exercise_id,
-                        sets: e.sets,
-                    }
-                }));
-                orders.notify(data::Msg::ModifyRoutine(
-                    model.routine_id,
-                    None,
-                    Some(exercises),
-                ));
-            }
-        }
+
         Msg::DeleteWorkout(id) => {
             model.loading = true;
             orders.notify(data::Msg::DeleteWorkout(id));
@@ -369,21 +428,30 @@ pub fn update(
                         &data_model
                             .workouts
                             .iter()
-                            .filter(|w| w.routine_id == Some(model.routine_id))
+                            .filter(|w| w.routine_id == Some(model.id))
                             .map(|w| w.date)
                             .collect::<Vec<NaiveDate>>(),
                         true,
                     );
-                    let routine = &data_model
-                        .routines
-                        .iter()
-                        .find(|r| r.id == model.routine_id);
+                    let routine = &data_model.routines.iter().find(|r| r.id == model.id);
+                    model.sections = if let Some(routine) = routine {
+                        routine.sections.iter().map(|p| p.into()).collect()
+                    } else {
+                        vec![]
+                    };
                     model.previous_exercises = init_previous_exercises(routine, data_model);
                 }
                 data::Event::RoutineCreatedOk
                 | data::Event::RoutineModifiedOk
-                | data::Event::RoutineDeletedOk
-                | data::Event::WorkoutDeletedOk => {
+                | data::Event::RoutineDeletedOk => {
+                    model.editing = false;
+                    Url::go_and_push(
+                        &crate::Urls::new(&data_model.base_url)
+                            .routine()
+                            .add_hash_path_part(model.id.to_string()),
+                    );
+                }
+                data::Event::WorkoutDeletedOk => {
                     orders.skip().send_msg(Msg::CloseDialog);
                 }
                 _ => {}
@@ -402,234 +470,387 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if let Some(routine) = &data_model
-        .routines
-        .iter()
-        .find(|r| r.id == model.routine_id)
-    {
+    if let Some(routine) = &data_model.routines.iter().find(|r| r.id == model.id) {
+        let saving_disabled = not(model.sections.iter().all(|s| s.valid()));
         div![
             common::view_title(&span![&routine.name], 0),
-            view_exercise_dialog(&data_model.exercises, routine, &model.dialog, model.loading),
-            nodes![
-                view_routine_exercises(data_model, routine),
-                view_previous_exercises(model, data_model),
-                view_workouts(model, data_model),
-                common::view_fab(|_| Msg::ShowAddExerciseDialog),
-            ]
+            view_dialog(&model.dialog, &data_model.exercises, model.loading),
+            view_routine(data_model, &model.sections, model.editing),
+            if not(model.editing) {
+                nodes![
+                    view_previous_exercises(model, data_model),
+                    view_workouts(model, data_model),
+                    common::view_fab("edit", |_| Msg::EditRoutine),
+                ]
+            } else {
+                nodes![button![
+                    C!["button"],
+                    C!["is-fab"],
+                    C!["is-medium"],
+                    C!["is-link"],
+                    C![IF![model.loading => "is-loading"]],
+                    attrs![
+                        At::Disabled => saving_disabled.as_at_value(),
+                    ],
+                    ev(Ev::Click, |_| Msg::SaveRoutine),
+                    span![C!["icon"], i![C!["fas fa-save"]]]
+                ]]
+            },
         ]
     } else {
         empty![]
     }
 }
 
-fn view_exercise_dialog(
-    exercises: &[data::Exercise],
-    routine: &data::Routine,
-    dialog: &Dialog,
-    loading: bool,
-) -> Node<Msg> {
-    let title;
-    let form;
-    let max_position;
+fn view_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> Node<Msg> {
     match dialog {
-        Dialog::AddExercise(ref f) => {
-            title = "Add exercise";
-            form = f;
-            max_position = u32::try_from(routine.exercises.len()).unwrap() + 2;
-        }
-        Dialog::EditExercise(ref f) => {
-            title = "Edit exercise";
-            form = f;
-            max_position = u32::try_from(routine.exercises.len()).unwrap() + 1;
-        }
-        Dialog::DeleteExercise(position) => {
-            #[allow(clippy::clone_on_copy)]
-            let position = position.clone();
-            return common::view_delete_confirmation_dialog(
-                "exercise",
-                &ev(Ev::Click, move |_| Msg::DeleteExercise(position)),
-                &ev(Ev::Click, |_| Msg::CloseDialog),
-                loading,
-            );
-        }
+        Dialog::SelectExercise(part_id, search_term) => common::view_dialog(
+            "primary",
+            "Select exercise",
+            nodes![
+                div![
+                    C!["field"],
+                    div![
+                        C!["control"],
+                        C!["has-icons-left"],
+                        input_ev(Ev::Input, Msg::SearchTermChanged),
+                        span![C!["icon"], C!["is-left"], i![C!["fas fa-search"]]],
+                        input![
+                            C!["input"],
+                            attrs! {
+                                At::Type => "text",
+                                At::Value => search_term,
+                            }
+                        ],
+                    ]
+                ],
+                div![
+                    C!["table-container"],
+                    C!["mt-4"],
+                    table![
+                        C!["table"],
+                        C!["is-fullwidth"],
+                        C!["is-hoverable"],
+                        tbody![&exercises
+                            .iter()
+                            .filter(|e| e.name.to_lowercase().contains(&search_term.to_lowercase()))
+                            .map(|e| {
+                                tr![td![
+                                    C!["has-text-link"],
+                                    ev(Ev::Click, {
+                                        let part_id = part_id.clone();
+                                        let exercise_id = e.id;
+                                        move |_| Msg::ExerciseChanged(part_id, exercise_id)
+                                    }),
+                                    ev(Ev::Click, |_| Msg::CloseDialog),
+                                    e.name.to_string(),
+                                ]]
+                            })
+                            .collect::<Vec<_>>()],
+                    ]
+                ]
+            ],
+            &ev(Ev::Click, |_| Msg::CloseDialog),
+        ),
         Dialog::DeleteWorkout(id) => {
             #[allow(clippy::clone_on_copy)]
             let id = id.clone();
-            return common::view_delete_confirmation_dialog(
+            common::view_delete_confirmation_dialog(
                 "workout",
                 &ev(Ev::Click, move |_| Msg::DeleteWorkout(id)),
                 &ev(Ev::Click, |_| Msg::CloseDialog),
                 loading,
-            );
+            )
         }
         Dialog::Hidden => {
-            return empty![];
+            empty![]
         }
     }
-    let save_disabled = loading
-        || form.position.1.is_none()
-        || form.exercise_id.1.is_none()
-        || form.sets.1.is_none();
-    common::view_dialog(
-        "primary",
-        title,
-        nodes![
-            div![
-                C!["field"],
-                label![C!["label"], "Position"],
-                div![
-                    C!["control"],
-                    input_ev(Ev::Change, Msg::PositionChanged),
-                    div![
-                        C!["select"],
-                        select![(1..max_position)
-                            .map(|p| {
-                                option![
-                                    &p,
-                                    attrs![
-                                        At::Value => p,
-                                        At::Selected => (p == form.position.1.unwrap_or(0)).as_at_value()
-                                    ]
-                                ]
-                            })
-                            .collect::<Vec<_>>()],
-                    ],
-                ],
-            ],
-            div![
-                C!["field"],
-                label![C!["label"], "Exercise"],
-                div![
-                    C!["control"],
-                    input_ev(Ev::Change, Msg::ExerciseChanged),
-                    div![
-                        C!["select"],
-                        select![exercises
-                            .iter()
-                            .map(|e| {
-                                option![
-                                    &e.name,
-                                    attrs![
-                                        At::Value => e.id,
-                                        At::Selected => (e.id == form.exercise_id.1.unwrap_or(0)).as_at_value()
-                                    ]
-                                ]
-                            })
-                            .collect::<Vec<_>>()],
-                    ],
-                ],
-            ],
-            div![
-                C!["field"],
-                label![C!["label"], "Sets"],
-                div![
-                    C!["control"],
-                    input_ev(Ev::Input, Msg::SetsChanged),
-                    keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                        IF!(
-                            keyboard_event.key_code() == common::ENTER_KEY => {
-                                Msg::SaveExercise
-                            }
-                        )
-                    }),
-                    input![
-                        C!["input"],
-                        C![IF![form.sets.1.is_none() => "is-danger"]],
-                        attrs! {
-                            At::Type => "text",
-                            At::Value => form.sets.0,
-                        }
-                    ],
-                ]
-            ],
-            div![
-                C!["field"],
-                C!["is-grouped"],
-                C!["is-grouped-centered"],
-                C!["mt-5"],
-                div![
-                    C!["control"],
-                    button![
-                        C!["button"],
-                        C!["is-light"],
-                        ev(Ev::Click, |_| Msg::CloseDialog),
-                        "Cancel",
-                    ]
-                ],
-                div![
-                    C!["control"],
-                    button![
-                        C!["button"],
-                        C!["is-primary"],
-                        C![IF![loading => "is-loading"]],
-                        attrs![
-                            At::Disabled => save_disabled.as_at_value(),
-                        ],
-                        ev(Ev::Click, |_| Msg::SaveExercise),
-                        "Save",
-                    ]
-                ],
-            ],
-        ],
-        &ev(Ev::Click, |_| Msg::CloseDialog),
-    )
 }
 
-fn view_routine_exercises(data_model: &data::Model, routine: &data::Routine) -> Node<Msg> {
+fn view_routine(data_model: &data::Model, routine_sections: &[Form], editing: bool) -> Node<Msg> {
     div![
-        C!["table-container"],
-        C!["mt-2"],
-        table![
-            C!["table"],
-            C!["is-fullwidth"],
-            C!["is-hoverable"],
-            C!["has-text-centered"],
-            thead![tr![
-                th![],
-                th!["Exercise"],
-                th!["Sets"],
-                th![],
-            ]],
-            tbody![&routine
-                .exercises
-                .iter()
-                .map(|e| {
-                    #[allow(clippy::clone_on_copy)]
-                    let position = e.position;
-                    tr![
-                        td![format!("E{}", &e.position)],
-                        td![
-                                a![
-                                    attrs! {
-                                        At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
-                                    },
-                                    match &data_model.exercises.iter().find(|x| x.id == e.exercise_id) {
-                                        Some(exercise) => raw![&exercise.name],
-                                        None => vec![common::view_loading()]
+        C!["container"],
+        C!["m-2"],
+        &routine_sections
+            .iter()
+            .enumerate()
+            .map(|(i, s)| { view_routine_part(data_model, s, vec![i], editing) })
+            .collect::<Vec<_>>(),
+        IF![editing => view_add_section_button(vec![])]
+    ]
+}
+
+fn view_routine_part(
+    data_model: &data::Model,
+    part: &Form,
+    id: Vec<usize>,
+    editing: bool,
+) -> Node<Msg> {
+    match part {
+        Form::Section { rounds, parts } => {
+            div![
+                C!["message"],
+                C!["mt-3"],
+                C!["mb-0"],
+                C!["is-grey"],
+                C!["has-background-white-bis"],
+                div![
+                    C!["message-body"],
+                    C!["p-3"],
+                    if editing {
+                        div![
+                            C!["is-flex"],
+                            C!["is-justify-content-space-between"],
+                            div![
+                                C!["field"],
+                                C!["mb-0"],
+                                div![
+                                    C!["control"],
+                                    C!["has-icons-left"],
+                                    input_ev(Ev::Input, {
+                                        let id = id.clone();
+                                        move |v| Msg::RoundsChanged(id, v)
+                                    }),
+                                    span![
+                                        C!["icon"],
+                                        C!["is-small"],
+                                        C!["is-left"],
+                                        i![C!["fas fa-repeat"]]
+                                    ],
+                                    input![
+                                        C!["input"],
+                                        C!["has-text-right"],
+                                        C![IF![rounds.1.is_none() => "is-danger"]],
+                                        attrs! {
+                                            At::Type => "number",
+                                            At::Min => 1,
+                                            At::Max => 999,
+                                            At::Step => 1,
+                                            At::Size => 2,
+                                            At::Value => rounds.0,
+                                        }
+                                    ]
+                                ]
+                            ],
+                            view_position_buttons(id.clone())
+                        ]
+                    } else {
+                        span![
+                            C!["icon-text"],
+                            span![C!["icon"], i![C!["fas fa-repeat"]],],
+                            span![&rounds.0]
+                        ]
+                    },
+                    parts
+                        .iter()
+                        .enumerate()
+                        .map(|(i, p)| view_routine_part(
+                            data_model,
+                            p,
+                            [&[i], &id[..]].concat(),
+                            editing
+                        ))
+                        .collect::<Vec<_>>(),
+                    IF![editing => view_add_part_buttons(data_model,id)]
+                ],
+            ]
+        }
+        Form::Activity {
+            exercise_id,
+            duration,
+            tempo,
+            automatic,
+        } => {
+            div![
+                C!["message"],
+                C!["mt-3"],
+                C!["mb-0"],
+                if exercise_id.is_some() {
+                    C!["is-info"]
+                } else {
+                    C!["is-success"]
+                },
+                C!["has-background-white"],
+                div![
+                    C!["message-body"],
+                    C!["p-3"],
+                    if editing {
+                        div![
+                            C!["is-flex"],
+                            C!["is-justify-content-space-between"],
+                            if let Some(exercise_id) = exercise_id {
+                                div![
+                                    C!["field"],
+                                    if let Some(exercise) =
+                                        data_model.exercises.iter().find(|e| e.id == *exercise_id)
+                                    {
+                                        button![
+                                            C!["input"],
+                                            style! {St::Height => "auto"},
+                                            input_ev(Ev::Click, {
+                                                let id = id.clone();
+                                                move |_| Msg::ShowSelectExerciseDialog(id)
+                                            }),
+                                            &exercise.name
+                                        ]
+                                    } else {
+                                        plain![format!("Exercise#{exercise_id}")]
                                     }
                                 ]
-                        ],
-                        td![e.sets],
-                        td![p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
-                                C!["icon"],
-                                C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditExerciseDialog(position)),
-                                i![C!["fas fa-edit"]]
+                            } else {
+                                div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]]
+                            },
+                            view_position_buttons(id.clone())
+                        ]
+                    } else {
+                        div![
+                            C!["has-text-weight-bold"],
+                            if let Some(exercise_id) = exercise_id {
+                                if let Some(exercise) =
+                                    data_model.exercises.iter().find(|e| e.id == *exercise_id)
+                                {
+                                    a![
+                                        attrs! {
+                                            At::Href => {
+                                                crate::Urls::new(&data_model.base_url)
+                                                    .exercise()
+                                                    .add_hash_path_part(exercise_id.to_string())
+                                            }
+                                        },
+                                        &exercise.name,
+                                    ]
+                                } else {
+                                    plain![format!("Exercise#{exercise_id}")]
+                                }
+                            } else {
+                                plain!["Rest"]
+                            }
+                        ]
+                    },
+                    if editing {
+                        div![
+                            C!["is-flex"],
+                            C!["is-justify-content-flex-start"],
+                            div![
+                                C!["field"],
+                                C!["mb-0"],
+                                C!["mr-2"],
+                                div![
+                                    C!["control"],
+                                    C!["has-icons-left"],
+                                    C!["has-icons-right"],
+                                    input_ev(Ev::Input, {
+                                        let id = id.clone();
+                                        move |v| Msg::DurationChanged(id, v)
+                                    }),
+                                    span![
+                                        C!["icon"],
+                                        C!["is-small"],
+                                        C!["is-left"],
+                                        i![C!["fas fa-clock-rotate-left"]]
+                                    ],
+                                    input![
+                                        C!["input"],
+                                        C!["has-text-right"],
+                                        C![IF![duration.1.is_none() => "is-danger"]],
+                                        attrs! {
+                                            At::Type => "number",
+                                            At::Min => 1,
+                                            At::Max => 999,
+                                            At::Step => 1,
+                                            At::Size => 2,
+                                            At::Value => duration.0,
+                                        }
+                                    ],
+                                    span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                ]
                             ],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteExerciseDialog(position)),
-                                i![C!["fas fa-times"]]
+                            div![
+                                C!["field"],
+                                C!["mb-0"],
+                                C!["mr-2"],
+                                div![
+                                    C!["control"],
+                                    C!["has-icons-left"],
+                                    C!["has-icons-right"],
+                                    input_ev(Ev::Input, {
+                                        let id = id.clone();
+                                        move |v| Msg::TempoChanged(id, v)
+                                    }),
+                                    span![
+                                        C!["icon"],
+                                        C!["is-small"],
+                                        C!["is-left"],
+                                        i![C!["fas fa-person-running"]]
+                                    ],
+                                    input![
+                                        C!["input"],
+                                        C!["has-text-right"],
+                                        C![IF![tempo.1.is_none() => "is-danger"]],
+                                        attrs! {
+                                            At::Type => "number",
+                                            At::Min => 1,
+                                            At::Max => 999,
+                                            At::Step => 1,
+                                            At::Size => 2,
+                                            At::Value => tempo.0,
+                                        }
+                                    ],
+                                    span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                ]
+                            ],
+                            button![
+                                C!["button"],
+                                ev(Ev::Click, {
+                                    let id = id;
+                                    move |_| Msg::AutomaticChanged(id)
+                                }),
+                                span![
+                                    C!["icon"],
+                                    if *automatic {
+                                        C!["has-text-dark"]
+                                    } else {
+                                        C!["has-text-grey-lighter"]
+                                    },
+                                    automatic_icon()
+                                ]
                             ]
-                        ]]
-                    ]
-                })
-                .collect::<Vec<_>>()],
-        ]
-    ]
+                        ]
+                    } else {
+                        div![
+                            IF![
+                                if let Some(duration) = duration.1 { duration > 0 } else { false } => {
+                                    span![
+                                        C!["icon-text"],
+                                        C!["mr-4"],
+                                        span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
+                                        span![&duration.0, " s"]
+                                    ]
+                                }
+                            ],
+                            IF![
+                                if let Some(tempo) = tempo.1 { tempo > 0 } else { false } => {
+                                    span![
+                                        C!["icon-text"],
+                                        C!["mr-4"],
+                                        span![C!["mr-2"], i![C!["fas fa-person-running"]]],
+                                        span![&tempo.0, " s"]
+                                    ]
+                                }
+                            ],
+                            IF![
+                                *automatic => span![
+                                    C!["icon"],
+                                    automatic_icon(),
+                                ]
+                            ],
+                        ]
+                    }
+                ]
+            ]
+        }
+    }
 }
 
 fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg> {
@@ -672,7 +893,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .workouts
                 .iter()
                 .filter(|w| {
-                    w.routine_id == Some(model.routine_id)
+                    w.routine_id == Some(model.id)
                         && w.date >= model.interval.first
                         && w.date <= model.interval.last
                 })
@@ -684,7 +905,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
             &data_model
                 .workouts
                 .iter()
-                .filter(|w| w.routine_id == Some(model.routine_id))
+                .filter(|w| w.routine_id == Some(model.id))
                 .cloned()
                 .collect::<Vec<_>>(),
             &data_model.routines,
@@ -693,4 +914,284 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
             Msg::ShowDeleteWorkoutDialog
         ),
     ]
+}
+
+fn view_position_buttons(id: Vec<usize>) -> Node<Msg> {
+    div![
+        style! {St::WhiteSpace => "nowrap" },
+        button![
+            C!["button"],
+            C!["is-small"],
+            C!["ml-2"],
+            ev(Ev::Click, {
+                let id = id.clone();
+                move |_| Msg::MovePartDown(id)
+            }),
+            span![C!["icon"], i![C!["fas fa-arrow-down"]],]
+        ],
+        button![
+            C!["button"],
+            C!["is-small"],
+            C!["ml-2"],
+            ev(Ev::Click, {
+                let id = id.clone();
+                move |_| Msg::MovePartUp(id)
+            }),
+            span![C!["icon"], i![C!["fas fa-arrow-up"]],]
+        ],
+        button![
+            C!["button"],
+            C!["is-small"],
+            C!["is-danger"],
+            C!["ml-2"],
+            ev(Ev::Click, {
+                let id = id;
+                move |_| Msg::RemovePart(id)
+            }),
+            span![C!["icon"], i![C!["fas fa-remove"]],]
+        ],
+    ]
+}
+
+fn view_add_part_buttons(data_model: &data::Model, id: Vec<usize>) -> Node<Msg> {
+    div![
+        button![
+            C!["button"],
+            C!["is-link"],
+            C!["mt-2"],
+            C!["mr-2"],
+            ev(Ev::Click, {
+                let id = id.clone();
+                let exercise_id = if let Some(exercise) = data_model.exercises.first() {
+                    exercise.id
+                } else {
+                    0
+                };
+                move |_| Msg::AddActivity(id, Some(exercise_id))
+            }),
+            span![
+                i![C!["fas fa-person-running"]],
+                i![C!["ml-1"], C!["is-small fas fa-plus-circle"]],
+            ]
+        ],
+        button![
+            C!["button"],
+            C!["is-success"],
+            C!["mt-2"],
+            C!["mr-2"],
+            ev(Ev::Click, {
+                let id = id.clone();
+                move |_| Msg::AddActivity(id, None)
+            }),
+            span![
+                i![C!["fas fa-person"]],
+                i![C!["ml-1"], C!["fas fa-plus-circle"]],
+            ]
+        ],
+        view_add_section_button(id),
+    ]
+}
+
+fn view_add_section_button(id: Vec<usize>) -> Node<Msg> {
+    button![
+        C!["button"],
+        C!["has-text-light"],
+        C!["has-background-grey"],
+        C!["mt-2"],
+        C!["mr-2"],
+        ev(Ev::Click, {
+            let id = id;
+            move |_| Msg::AddSection(id)
+        }),
+        span![
+            i![C!["fas fa-repeat"]],
+            i![C!["ml-1"], C!["fas fa-plus-circle"]],
+        ]
+    ]
+}
+
+fn automatic_icon() -> Node<Msg> {
+    span![
+        C!["fa-stack"],
+        attrs! {
+            At::Style => "vertical-align: top;",
+        },
+        i![C!["fas fa-circle fa-stack-1x"]],
+        i![C!["fas fa-a fa-inverse fa-stack-1x"]]
+    ]
+}
+
+fn get_part<'a>(sections: &'a mut Vec<Form>, id: &[usize]) -> Option<&'a mut Form> {
+    if let Some(i) = id.last() {
+        if i < &sections.len() {
+            let p = &mut sections[*i];
+            if id.len() == 1 {
+                return Some(p);
+            }
+            if let Form::Section { rounds: _, parts } = p {
+                return get_part(parts, &id[..id.len() - 1]);
+            }
+        }
+    };
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_part_in_sections() {
+        let mut sections = vec![
+            Form::Section {
+                rounds: form_value(1),
+                parts: vec![Form::Activity {
+                    exercise_id: None,
+                    duration: form_value(2),
+                    tempo: form_value(3),
+                    automatic: false,
+                }],
+            },
+            Form::Section {
+                rounds: form_value(2),
+                parts: vec![Form::Activity {
+                    exercise_id: None,
+                    duration: form_value(3),
+                    tempo: form_value(4),
+                    automatic: false,
+                }],
+            },
+        ];
+        assert_eq!(
+            *get_part(&mut sections, &[0]).unwrap(),
+            Form::Section {
+                rounds: form_value(1),
+                parts: vec![Form::Activity {
+                    exercise_id: None,
+                    duration: form_value(2),
+                    tempo: form_value(3),
+                    automatic: false,
+                }],
+            }
+        );
+        assert_eq!(
+            *get_part(&mut sections, &[1]).unwrap(),
+            Form::Section {
+                rounds: form_value(2),
+                parts: vec![Form::Activity {
+                    exercise_id: None,
+                    duration: form_value(3),
+                    tempo: form_value(4),
+                    automatic: false,
+                }],
+            }
+        );
+        assert!(get_part(&mut sections, &[2]).is_none());
+        assert_eq!(
+            *get_part(&mut sections, &[0, 0]).unwrap(),
+            Form::Activity {
+                exercise_id: None,
+                duration: form_value(2),
+                tempo: form_value(3),
+                automatic: false,
+            },
+        );
+        assert!(get_part(&mut sections, &[1, 0]).is_none());
+        assert_eq!(
+            *get_part(&mut sections, &[0, 1]).unwrap(),
+            Form::Activity {
+                exercise_id: None,
+                duration: form_value(3),
+                tempo: form_value(4),
+                automatic: false,
+            },
+        );
+        assert!(get_part(&mut sections, &[1, 1]).is_none());
+    }
+
+    #[test]
+    fn get_part_in_nested_sections() {
+        let mut sections = vec![Form::Section {
+            rounds: form_value(1),
+            parts: vec![
+                Form::Activity {
+                    exercise_id: None,
+                    duration: form_value(2),
+                    tempo: form_value(3),
+                    automatic: false,
+                },
+                Form::Section {
+                    rounds: form_value(2),
+                    parts: vec![Form::Activity {
+                        exercise_id: None,
+                        duration: form_value(3),
+                        tempo: form_value(4),
+                        automatic: false,
+                    }],
+                },
+            ],
+        }];
+        assert_eq!(
+            *get_part(&mut sections, &[0]).unwrap(),
+            Form::Section {
+                rounds: form_value(1),
+                parts: vec![
+                    Form::Activity {
+                        exercise_id: None,
+                        duration: form_value(2),
+                        tempo: form_value(3),
+                        automatic: false,
+                    },
+                    Form::Section {
+                        rounds: form_value(2),
+                        parts: vec![Form::Activity {
+                            exercise_id: None,
+                            duration: form_value(3),
+                            tempo: form_value(4),
+                            automatic: false,
+                        }],
+                    },
+                ],
+            }
+        );
+        assert!(get_part(&mut sections, &[1]).is_none());
+        assert_eq!(
+            *get_part(&mut sections, &[0, 0]).unwrap(),
+            Form::Activity {
+                exercise_id: None,
+                duration: form_value(2),
+                tempo: form_value(3),
+                automatic: false,
+            },
+        );
+        assert_eq!(
+            *get_part(&mut sections, &[1, 0]).unwrap(),
+            Form::Section {
+                rounds: form_value(2),
+                parts: vec![Form::Activity {
+                    exercise_id: None,
+                    duration: form_value(3),
+                    tempo: form_value(4),
+                    automatic: false,
+                }],
+            },
+        );
+        assert!(get_part(&mut sections, &[2, 0]).is_none());
+        assert!(get_part(&mut sections, &[0, 0, 0]).is_none());
+        assert_eq!(
+            *get_part(&mut sections, &[0, 1, 0]).unwrap(),
+            Form::Activity {
+                exercise_id: None,
+                duration: form_value(3),
+                tempo: form_value(4),
+                automatic: false,
+            },
+        );
+        assert!(get_part(&mut sections, &[1, 1, 0]).is_none());
+        assert!(get_part(&mut sections, &[0, 0, 1, 0]).is_none());
+    }
+
+    fn form_value(number: u32) -> (String, Option<u32>) {
+        (number.to_string(), Some(number))
+    }
 }

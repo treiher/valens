@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from functools import wraps
+from functools import singledispatch, wraps
 from http import HTTPStatus
 from itertools import chain
 from typing import Any, Callable
@@ -18,7 +18,9 @@ from valens.models import (
     Exercise,
     Period,
     Routine,
-    RoutineExercise,
+    RoutineActivity,
+    RoutinePart,
+    RoutineSection,
     Sex,
     User,
     Workout,
@@ -30,6 +32,36 @@ bp = Blueprint("api", __name__, url_prefix="/api")
 
 class DeserializationError(Exception):
     pass
+
+
+@singledispatch
+def to_dict(
+    model: object, exclude: list[str] = None, include: list[str] = None
+) -> dict[str, object]:
+    return model_to_dict(model, exclude, include)
+
+
+@to_dict.register
+def _(model: Routine) -> dict[str, object]:
+    return {
+        **model_to_dict(model),
+        "sections": [{**to_dict(s)} for s in sorted(model.sections, key=lambda x: x.position)],
+    }
+
+
+@to_dict.register
+def _(model: RoutineSection) -> dict[str, object]:
+    return {
+        **model_to_dict(model, exclude=["id", "routine_id"], include=["position"]),
+        "parts": [{**to_dict(p)} for p in sorted(model.parts, key=lambda x: x.position)],
+    }
+
+
+@to_dict.register
+def _(model: RoutineActivity) -> dict[str, object]:
+    return {
+        **model_to_dict(model, exclude=["id"], include=["position"]),
+    }
 
 
 def model_to_dict(
@@ -46,22 +78,46 @@ def model_to_dict(
     }
 
 
-def to_routine_exercises(json: list[dict[str, Any]]) -> list[RoutineExercise]:  # type: ignore[misc]
-    exercises = [
-        RoutineExercise(
-            position=exercise["position"],
-            exercise_id=exercise["exercise_id"],
-            sets=exercise["sets"],
-        )
-        for exercise in json
+def to_routine_parts(json: list[dict[str, Any]]) -> list[RoutinePart]:  # type: ignore[misc]
+    parts = [
+        to_routine_section(part) if "rounds" in part else to_routine_activity(part) for part in json
     ]
 
-    if sorted(e.position for e in exercises) != list(range(1, len(exercises) + 1)):
+    if sorted(p.position for p in parts) != list(range(1, len(parts) + 1)):
         raise DeserializationError(
-            "exercise positions must be in ascending order without gaps, starting with 1"
+            "part positions must be in ascending order without gaps, starting with 1"
         )
 
-    return exercises
+    return parts
+
+
+def to_routine_sections(json: list[dict[str, Any]]) -> list[RoutineSection]:  # type: ignore[misc]
+    sections = [to_routine_section(section) for section in json]
+
+    if sorted(s.position for s in sections) != list(range(1, len(sections) + 1)):
+        raise DeserializationError(
+            "section positions must be in ascending order without gaps, starting with 1"
+        )
+
+    return sections
+
+
+def to_routine_section(json: dict[str, Any]) -> RoutineSection:  # type: ignore[misc]
+    return RoutineSection(
+        position=json["position"],
+        rounds=json["rounds"],
+        parts=to_routine_parts(json["parts"]),
+    )
+
+
+def to_routine_activity(json: dict[str, Any]) -> RoutineActivity:  # type: ignore[misc]
+    return RoutineActivity(
+        position=json["position"],
+        exercise_id=json["exercise_id"],
+        duration=json["duration"],
+        tempo=json["tempo"],
+        automatic=json["automatic"],
+    )
 
 
 def to_workout_sets(json: list[dict[str, Any]]) -> list[WorkoutSet]:  # type: ignore[misc]
@@ -137,7 +193,7 @@ def create_session() -> ResponseReturnValue:
     session["sex"] = user.sex
     session.permanent = True
 
-    return jsonify(model_to_dict(user))
+    return jsonify(to_dict(user))
 
 
 @bp.route("/session", methods=["DELETE"])
@@ -149,7 +205,7 @@ def delete_session() -> ResponseReturnValue:
 @bp.route("/users")
 def read_users() -> ResponseReturnValue:
     users = db.session.execute(select(User)).scalars().all()
-    return jsonify([model_to_dict(u) for u in users])
+    return jsonify([to_dict(u) for u in users])
 
 
 @bp.route("/users/<int:user_id>")
@@ -160,7 +216,7 @@ def read_user(user_id: int) -> ResponseReturnValue:
     except NoResultFound:
         return "", HTTPStatus.NOT_FOUND
 
-    return jsonify(model_to_dict(user))
+    return jsonify(to_dict(user))
 
 
 @bp.route("/users", methods=["POST"])
@@ -183,7 +239,7 @@ def create_user() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(user)),
+        jsonify(to_dict(user)),
         HTTPStatus.CREATED,
         {"Location": f"/users/{user.id}"},
     )
@@ -212,7 +268,7 @@ def replace_user(user_id: int) -> ResponseReturnValue:
     except IntegrityError as e:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
-    return jsonify(model_to_dict(user)), HTTPStatus.OK
+    return jsonify(to_dict(user)), HTTPStatus.OK
 
 
 @bp.route("/users/<int:user_id>", methods=["DELETE"])
@@ -236,7 +292,7 @@ def read_body_weight() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify([model_to_dict(bw) for bw in body_weight])
+    return jsonify([to_dict(bw) for bw in body_weight])
 
 
 @bp.route("/body_weight", methods=["POST"])
@@ -264,7 +320,7 @@ def create_body_weight() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(body_weight)),
+        jsonify(to_dict(body_weight)),
         HTTPStatus.CREATED,
         {"Location": f"/body_weight/{body_weight.date}"},
     )
@@ -302,7 +358,7 @@ def replace_body_weight(date_: str) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(body_weight)),
+        jsonify(to_dict(body_weight)),
         HTTPStatus.OK,
     )
 
@@ -337,7 +393,7 @@ def read_body_fat() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify([model_to_dict(bf) for bf in body_fat])
+    return jsonify([to_dict(bf) for bf in body_fat])
 
 
 @bp.route("/body_fat", methods=["POST"])
@@ -376,7 +432,7 @@ def create_body_fat() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(body_fat)),
+        jsonify(to_dict(body_fat)),
         HTTPStatus.CREATED,
         {"Location": f"/body_fat/{body_fat.date}"},
     )
@@ -423,7 +479,7 @@ def replace_body_fat(date_: str) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(body_fat)),
+        jsonify(to_dict(body_fat)),
         HTTPStatus.OK,
     )
 
@@ -458,7 +514,7 @@ def read_period() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify([model_to_dict(p) for p in period])
+    return jsonify([to_dict(p) for p in period])
 
 
 @bp.route("/period", methods=["POST"])
@@ -486,7 +542,7 @@ def create_period() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(period)),
+        jsonify(to_dict(period)),
         HTTPStatus.CREATED,
         {"Location": f"/period/{period.date}"},
     )
@@ -524,7 +580,7 @@ def replace_period(date_: str) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(period)),
+        jsonify(to_dict(period)),
         HTTPStatus.OK,
     )
 
@@ -559,7 +615,7 @@ def read_exercises() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify([model_to_dict(e) for e in exercises])
+    return jsonify([to_dict(e) for e in exercises])
 
 
 @bp.route("/exercises", methods=["POST"])
@@ -586,7 +642,7 @@ def create_exercise() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(exercise)),
+        jsonify(to_dict(exercise)),
         HTTPStatus.CREATED,
         {"Location": f"/exercises/{exercise.id}"},
     )
@@ -624,7 +680,7 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(model_to_dict(exercise)),
+        jsonify(to_dict(exercise)),
         HTTPStatus.OK,
     )
 
@@ -659,15 +715,7 @@ def read_routines() -> ResponseReturnValue:
         .scalars()
         .all()
     )
-    return jsonify(
-        [
-            {
-                **model_to_dict(r),
-                "exercises": [{**model_to_dict(e, exclude=["routine_id"])} for e in r.exercises],
-            }
-            for r in routines
-        ]
-    )
+    return jsonify([to_dict(r) for r in routines])
 
 
 @bp.route("/routines", methods=["POST"])
@@ -683,7 +731,7 @@ def create_routine() -> ResponseReturnValue:
             user_id=session["user_id"],
             name=data["name"],
             notes=data["notes"],
-            exercises=to_routine_exercises(data["exercises"]),
+            sections=to_routine_sections(data["sections"]),
         )
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -696,14 +744,7 @@ def create_routine() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(
-            {
-                **model_to_dict(routine),
-                "exercises": [
-                    {**model_to_dict(e, exclude=["routine_id"])} for e in routine.exercises
-                ],
-            }
-        ),
+        jsonify(to_dict(routine)),
         HTTPStatus.CREATED,
         {"Location": f"/routines/{routine.id}"},
     )
@@ -735,8 +776,8 @@ def update_routine(id_: int) -> ResponseReturnValue:
             routine.name = data["name"]
         if "notes" in data or request.method == "PUT":
             routine.notes = data["notes"]
-        if "exercises" in data or request.method == "PUT":
-            routine.exercises = to_routine_exercises(data["exercises"])
+        if "sections" in data or request.method == "PUT":
+            routine.sections = to_routine_sections(data["sections"])
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -746,12 +787,7 @@ def update_routine(id_: int) -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
 
     return (
-        jsonify(
-            {
-                **model_to_dict(routine),
-                "exercises": [model_to_dict(e, exclude=["routine_id"]) for e in routine.exercises],
-            }
-        ),
+        jsonify(to_dict(routine)),
         HTTPStatus.OK,
     )
 
@@ -788,7 +824,7 @@ def read_workouts() -> ResponseReturnValue:
     )
     return jsonify(
         [
-            {**model_to_dict(w), "sets": [model_to_dict(s, exclude=["workout_id"]) for s in w.sets]}
+            {**to_dict(w), "sets": [to_dict(s, exclude=["workout_id"]) for s in w.sets]}
             for w in workouts
         ]
     )
@@ -830,8 +866,8 @@ def create_workout() -> ResponseReturnValue:
     return (
         jsonify(
             {
-                **model_to_dict(workout),
-                "sets": [model_to_dict(e, exclude=["workout_id"]) for e in workout.sets],
+                **to_dict(workout),
+                "sets": [to_dict(e, exclude=["workout_id"]) for e in workout.sets],
             }
         ),
         HTTPStatus.CREATED,
@@ -875,8 +911,8 @@ def update_workout(id_: int) -> ResponseReturnValue:
     return (
         jsonify(
             {
-                **model_to_dict(workout),
-                "sets": [model_to_dict(e, exclude=["workout_id"]) for e in workout.sets],
+                **to_dict(workout),
+                "sets": [to_dict(e, exclude=["workout_id"]) for e in workout.sets],
             }
         ),
         HTTPStatus.OK,

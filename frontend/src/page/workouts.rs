@@ -146,20 +146,12 @@ pub fn update(
                         .iter()
                         .find(|r| r.id == form.routine_id.1.unwrap())
                         .unwrap();
+                    let mut pos = 1;
                     let sets = routine
-                        .exercises
+                        .sections
                         .iter()
-                        .flat_map(|e| (0..e.sets).map(move |_| e.clone()).collect::<Vec<_>>())
-                        .enumerate()
-                        .map(|(i, e)| data::WorkoutSet {
-                            position: i as u32 + 1,
-                            exercise_id: e.exercise_id,
-                            reps: None,
-                            time: None,
-                            weight: None,
-                            rpe: None,
-                        })
-                        .collect::<Vec<_>>();
+                        .flat_map(|p| to_workout_sets(p, &mut pos))
+                        .collect::<Vec<data::WorkoutSet>>();
                     orders.notify(data::Msg::CreateWorkout(
                         form.routine_id.1.unwrap(),
                         form.date.1.unwrap(),
@@ -227,7 +219,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             &data_model.base_url,
             Msg::ShowDeleteWorkoutDialog
         ),
-        common::view_fab(|_| Msg::ShowAddWorkoutDialog),
+        common::view_fab("plus", |_| Msg::ShowAddWorkoutDialog),
     ]
 }
 
@@ -535,4 +527,33 @@ pub fn view_table<Ms: 'static>(
                 .collect::<Vec<_>>()],
         ]
     ]
+}
+
+fn to_workout_sets(part: &data::RoutinePart, pos: &mut u32) -> Vec<data::WorkoutSet> {
+    let mut result = vec![];
+    match part {
+        data::RoutinePart::RoutineSection { rounds, parts, .. } => {
+            for _ in 0..*rounds {
+                for p in parts {
+                    for s in to_workout_sets(p, pos) {
+                        result.push(s);
+                    }
+                }
+            }
+        }
+        data::RoutinePart::RoutineActivity { exercise_id, .. } => {
+            if let Some(exercise_id) = exercise_id {
+                result.push(data::WorkoutSet {
+                    position: *pos,
+                    exercise_id: *exercise_id,
+                    reps: None,
+                    time: None,
+                    weight: None,
+                    rpe: None,
+                });
+                *pos += 1;
+            }
+        }
+    }
+    result
 }

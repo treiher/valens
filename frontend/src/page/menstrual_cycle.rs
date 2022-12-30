@@ -178,7 +178,7 @@ pub fn update(
         Msg::DataEvent(event) => {
             model.loading = false;
             match event {
-                data::Event::WorkoutsReadOk => {
+                data::Event::DataChanged => {
                     model.interval = common::init_interval(
                         &data_model
                             .period

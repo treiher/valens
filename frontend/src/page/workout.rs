@@ -420,7 +420,7 @@ pub fn update(
         }
         Msg::DataEvent(event) => {
             match event {
-                data::Event::WorkoutsReadOk => {
+                data::Event::DataChanged => {
                     let workout = &data_model
                         .workouts
                         .iter()

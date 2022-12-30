@@ -64,7 +64,7 @@ pub struct Session {
     pub sex: u8,
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct User {
     pub id: u32,
     pub name: String,
@@ -77,7 +77,7 @@ pub struct NewUser {
     pub sex: i8,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct BodyWeight {
     pub date: NaiveDate,
     pub weight: f32,
@@ -85,7 +85,7 @@ pub struct BodyWeight {
     pub avg_weight: Option<f32>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct BodyFat {
     pub date: NaiveDate,
     pub chest: Option<u8>,
@@ -97,7 +97,7 @@ pub struct BodyFat {
     pub midaxillary: Option<u8>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Period {
     pub date: NaiveDate,
     pub intensity: u8,
@@ -121,13 +121,13 @@ pub struct CycleStats {
     pub length_variation: Duration,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Exercise {
     pub id: u32,
     pub name: String,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct Routine {
     pub id: u32,
     pub name: String,
@@ -135,7 +135,7 @@ pub struct Routine {
     pub sections: Vec<RoutinePart>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum RoutinePart {
     RoutineSection {
@@ -152,7 +152,7 @@ pub enum RoutinePart {
     },
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct Workout {
     pub id: u32,
     pub routine_id: Option<u32>,
@@ -161,7 +161,7 @@ pub struct Workout {
     pub sets: Vec<WorkoutSet>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct WorkoutSet {
     pub position: u32,
     pub exercise_id: u32,
@@ -519,14 +519,13 @@ pub enum Event {
     RoutineModifiedErr,
     RoutineDeletedOk,
     RoutineDeletedErr,
-    WorkoutsReadOk,
-    WorkoutsReadErr,
     WorkoutCreatedOk,
     WorkoutCreatedErr,
     WorkoutModifiedOk,
     WorkoutModifiedErr,
     WorkoutDeletedOk,
     WorkoutDeletedErr,
+    DataChanged,
 }
 
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -643,7 +642,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             orders.perform_cmd(async { fetch("api/users", Msg::UsersRead).await });
         }
         Msg::UsersRead(Ok(users)) => {
-            model.users = users;
+            if model.users != users {
+                model.users = users;
+                orders.notify(Event::DataChanged);
+            }
         }
         Msg::UsersRead(Err(message)) => {
             model
@@ -721,9 +723,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch("api/body_weight?format=statistics", Msg::BodyWeightRead).await
             });
         }
-        Msg::BodyWeightRead(Ok(body_weight)) => {
-            model.body_weight = calculate_body_weight_stats(body_weight);
-            model.body_weight.sort_by(|a, b| a.date.cmp(&b.date));
+        Msg::BodyWeightRead(Ok(mut body_weight)) => {
+            body_weight.sort_by(|a, b| a.date.cmp(&b.date));
+            body_weight = calculate_body_weight_stats(body_weight);
+            if model.body_weight != body_weight {
+                model.body_weight = body_weight;
+                orders.notify(Event::DataChanged);
+            }
         }
         Msg::BodyWeightRead(Err(message)) => {
             model
@@ -802,9 +808,12 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch("api/body_fat?format=statistics", Msg::BodyFatRead).await
             });
         }
-        Msg::BodyFatRead(Ok(body_fat)) => {
-            model.body_fat = body_fat;
-            model.body_fat.sort_by(|a, b| a.date.cmp(&b.date));
+        Msg::BodyFatRead(Ok(mut body_fat)) => {
+            body_fat.sort_by(|a, b| a.date.cmp(&b.date));
+            if model.body_fat != body_fat {
+                model.body_fat = body_fat;
+                orders.notify(Event::DataChanged);
+            }
         }
         Msg::BodyFatRead(Err(message)) => {
             model
@@ -891,11 +900,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/period", Msg::PeriodRead).await });
         }
-        Msg::PeriodRead(Ok(period)) => {
-            model.period = period;
-            model.period.sort_by(|a, b| a.date.cmp(&b.date));
-            model.cycles = determine_cycles(&model.period);
-            model.current_cycle = determine_current_cycle(&model.cycles);
+        Msg::PeriodRead(Ok(mut period)) => {
+            period.sort_by(|a, b| a.date.cmp(&b.date));
+            if model.period != period {
+                model.period = period;
+                model.cycles = determine_cycles(&model.period);
+                model.current_cycle = determine_current_cycle(&model.cycles);
+                orders.notify(Event::DataChanged);
+            }
         }
         Msg::PeriodRead(Err(message)) => {
             model
@@ -974,9 +986,12 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/exercises", Msg::ExercisesRead).await });
         }
-        Msg::ExercisesRead(Ok(exercises)) => {
-            model.exercises = exercises;
-            model.exercises.sort_by(|a, b| a.name.cmp(&b.name));
+        Msg::ExercisesRead(Ok(mut exercises)) => {
+            exercises.sort_by(|a, b| a.name.cmp(&b.name));
+            if model.exercises != exercises {
+                model.exercises = exercises;
+                orders.notify(Event::DataChanged);
+            }
         }
         Msg::ExercisesRead(Err(message)) => {
             model
@@ -1055,9 +1070,12 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/routines", Msg::RoutinesRead).await });
         }
-        Msg::RoutinesRead(Ok(routines)) => {
-            model.routines = routines;
-            model.routines.sort_by(|a, b| b.id.cmp(&a.id));
+        Msg::RoutinesRead(Ok(mut routines)) => {
+            routines.sort_by(|a, b| b.id.cmp(&a.id));
+            if model.routines != routines {
+                model.routines = routines;
+                orders.notify(Event::DataChanged);
+            }
         }
         Msg::RoutinesRead(Err(message)) => {
             model
@@ -1147,13 +1165,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/workouts", Msg::WorkoutsRead).await });
         }
-        Msg::WorkoutsRead(Ok(workouts)) => {
-            orders.notify(Event::WorkoutsReadOk);
-            model.workouts = workouts;
-            model.workouts.sort_by(|a, b| a.date.cmp(&b.date));
+        Msg::WorkoutsRead(Ok(mut workouts)) => {
+            workouts.sort_by(|a, b| a.date.cmp(&b.date));
+            if model.workouts != workouts {
+                model.workouts = workouts;
+                orders.notify(Event::DataChanged);
+            }
         }
         Msg::WorkoutsRead(Err(message)) => {
-            orders.notify(Event::WorkoutsReadErr);
             model
                 .errors
                 .push("Failed to read workouts: ".to_owned() + &message);

@@ -68,7 +68,7 @@ $(BUILD_DIR)/venv:
 	python3 -m venv $(BUILD_DIR)/venv
 
 $(BUILD_DIR)/venv/bin/valens: $(BUILD_DIR)/venv $(WHEEL)
-	$(BUILD_DIR)/venv/bin/pip install --force-reinstall dist/valens-$(VERSION)-py3-none-any.whl
+	$(BUILD_DIR)/venv/bin/pip install --force-reinstall $(WHEEL)
 	test -f $(BUILD_DIR)/venv/bin/valens
 	touch --no-create $(BUILD_DIR)/venv/bin/valens
 

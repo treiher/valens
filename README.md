@@ -102,6 +102,74 @@ http {
 }
 ```
 
+## Development
+
+The following software is required:
+
+- Python 3
+- Rust toolchain
+- tmux (optional)
+
+### Setting up the development environment
+
+Add the WebAssembly target to the Rust toolchain.
+
+```console
+$ rustup target add wasm32-unknown-unknown
+```
+
+Install the Rust development tools.
+
+```console
+$ cargo install --locked trunk
+```
+
+Create a Python virtual environment.
+
+```console
+$ python3 -m venv .venv
+```
+
+Activate the virtual environment.
+
+```console
+$ . .venv/bin/activate
+```
+
+Install the Python development tools and install the package in editable mode.
+
+```console
+$ pip install -e ".[devel]"
+```
+
+Create a config file for the backend.
+
+```console
+$ make config
+```
+
+### Running development servers
+
+The current codebase can be executed by running development servers for the frontend and the backend. The development servers will automatically reload when the codebase is changed.
+
+Start both development servers at the same time (requires an active tmux session):
+
+```console
+$ make run
+```
+
+Alternatively, start the development servers for the frontend and the backend separately:
+
+```console
+$ make run_frontend
+```
+
+```console
+$ make run_backend
+```
+
+After a successful start of the development servers, the web app can be reached on `http://127.0.0.1:8000`.
+
 ## License
 
 This project is licensed under the terms of the [AGPL-3.0](https://github.com/treiher/valens/blob/main/LICENSE) license and includes [third-party software](https://github.com/treiher/valens/blob/main/THIRD-PARTY-LICENSES).

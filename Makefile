@@ -6,7 +6,8 @@ FONTAWESOME_VERSION := 6.1.1
 PYTHON_PACKAGES := valens tests
 FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js valens-frontend_bg.wasm fonts images js
 PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
-BUILD_DIR := build
+BUILD_DIR := $(PWD)/build
+CONFIG_FILE := $(BUILD_DIR)/config.py
 VERSION := $(shell python3 -c "import setuptools_scm; print(setuptools_scm.get_version())")
 WHEEL := dist/valens-$(VERSION)-py3-none-any.whl
 
@@ -113,6 +114,16 @@ valens/frontend/%: frontend/dist/%
 $(addprefix frontend/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find frontend/src/ -type f -name '*.rs')
 	cd frontend && trunk build --release --filehash false
 
+.PHONY: config
+
+config: $(CONFIG_FILE)
+
+$(CONFIG_FILE): $(BUILD_DIR)
+	valens config -d build
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
 .PHONY: run run_frontend run_backend
 
 run:
@@ -123,7 +134,7 @@ run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
 
 run_backend:
-	VALENS_CONFIG=${PWD}/config.py flask --app valens --debug run -h 0.0.0.0
+	VALENS_CONFIG=$(CONFIG_FILE) flask --app valens --debug run -h 0.0.0.0
 
 .PHONY: clean clean_all
 

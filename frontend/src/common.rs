@@ -489,7 +489,10 @@ pub fn plot_bar_chart(
             .x_label_area_size(30f32)
             .y_label_area_size(40f32)
             .right_y_label_area_size(30f32)
-            .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
+            .build_cartesian_2d(
+                (x_min..x_max).into_segmented(),
+                y_min - y_margin..y_max + y_margin,
+            )?
             .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
 
         chart

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Support for Python 3.8
 
+### Fixed
+
+- Missing last bar in bar chart
+
 ## [0.2.0] - 2022-11-04
 
 ### Changed

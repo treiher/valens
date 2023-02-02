@@ -31,7 +31,7 @@ def get_engine() -> Engine:
     return create_engine(current_app.config["DATABASE"])
 
 
-def get_scoped_session() -> scoped_session:
+def get_scoped_session() -> scoped_session[Session]:
     return scoped_session(
         sessionmaker(autocommit=False, autoflush=False, bind=get_engine(), future=True)
     )

@@ -6,7 +6,6 @@ from typing import Optional
 
 from sqlalchemy import (
     CheckConstraint,
-    Column,
     Date,
     Enum,
     Float,
@@ -17,8 +16,7 @@ from sqlalchemy import (
     UniqueConstraint,
     column,
 )
-from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy_repr import RepresentableBase
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Alembic's autogenerate does not support CHECK constraints
 # (https://github.com/sqlalchemy/alembic/issues/508). CHECK constraints get lost when running
@@ -28,17 +26,16 @@ from sqlalchemy_repr import RepresentableBase
 # when applying migrations despite the aforementioned limitations.
 
 
-meta = MetaData(
-    naming_convention={
-        "ix": "ix_%(column_0_label)s",
-        "uq": "uq_%(table_name)s_%(column_0_name)s",
-        "ck": "ck_%(table_name)s_%(constraint_name)s",
-        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-        "pk": "pk_%(table_name)s",
-    }
-)
-
-Base = declarative_base(cls=RepresentableBase, metadata=meta)
+class Base(DeclarativeBase):
+    metadata = MetaData(
+        naming_convention={
+            "ix": "ix_%(column_0_label)s",
+            "uq": "uq_%(table_name)s_%(column_0_name)s",
+            "ck": "ck_%(table_name)s_%(constraint_name)s",
+            "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+            "pk": "pk_%(table_name)s",
+        }
+    )
 
 
 class Sex(IntEnum):
@@ -49,26 +46,26 @@ class Sex(IntEnum):
 class User(Base):
     __tablename__ = "user"
 
-    id: int = Column(Integer, primary_key=True)
-    name: str = Column(String, unique=True, nullable=False)
-    sex: Sex = Column(Enum(Sex), nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    sex: Mapped[Sex] = mapped_column(Enum(Sex), nullable=False)
 
-    body_weight: list[BodyWeight] = relationship(
+    body_weight: Mapped[list[BodyWeight]] = relationship(
         "BodyWeight", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
-    body_fat: list[BodyFat] = relationship(
+    body_fat: Mapped[list[BodyFat]] = relationship(
         "BodyFat", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
-    period: list[Period] = relationship(
+    period: Mapped[list[Period]] = relationship(
         "Period", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
-    exercises: list[Exercise] = relationship(
+    exercises: Mapped[list[Exercise]] = relationship(
         "Exercise", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
-    routines: list[Routine] = relationship(
+    routines: Mapped[list[Routine]] = relationship(
         "Routine", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
-    workouts: list[Workout] = relationship(
+    workouts: Mapped[list[Workout]] = relationship(
         "Workout", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
 
@@ -80,9 +77,11 @@ class BodyWeight(Base):
         CheckConstraint(column("weight") > 0, name="weight_gt_0"),
     )
 
-    user_id: int = Column(ForeignKey("user.id", ondelete="CASCADE"), primary_key=True)
-    date: date = Column(Date, primary_key=True)
-    weight: float = Column(Float, nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    weight: Mapped[float] = mapped_column(Float, nullable=False)
 
 
 class BodyFat(Base):
@@ -125,15 +124,17 @@ class BodyFat(Base):
         CheckConstraint(column("midaxillary") > 0, name="midaxillary_gt_0"),
     )
 
-    user_id: int = Column(ForeignKey("user.id", ondelete="CASCADE"), primary_key=True)
-    date: date = Column(Date, primary_key=True)
-    chest: Optional[int] = Column(Integer)
-    abdominal: Optional[int] = Column(Integer)
-    tigh: Optional[int] = Column(Integer)
-    tricep: Optional[int] = Column(Integer)
-    subscapular: Optional[int] = Column(Integer)
-    suprailiac: Optional[int] = Column(Integer)
-    midaxillary: Optional[int] = Column(Integer)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    chest: Mapped[Optional[int]] = mapped_column(Integer)
+    abdominal: Mapped[Optional[int]] = mapped_column(Integer)
+    tigh: Mapped[Optional[int]] = mapped_column(Integer)
+    tricep: Mapped[Optional[int]] = mapped_column(Integer)
+    subscapular: Mapped[Optional[int]] = mapped_column(Integer)
+    suprailiac: Mapped[Optional[int]] = mapped_column(Integer)
+    midaxillary: Mapped[Optional[int]] = mapped_column(Integer)
 
 
 class Period(Base):
@@ -144,23 +145,25 @@ class Period(Base):
         CheckConstraint(column("intensity") <= 4, name="intensity_le_4"),
     )
 
-    user_id: int = Column(ForeignKey("user.id", ondelete="CASCADE"), primary_key=True)
-    date: date = Column(Date, primary_key=True)
-    intensity: int = Column(Integer, nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    intensity: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class Exercise(Base):
     __tablename__ = "exercise"
     __table_args__ = (UniqueConstraint("user_id", "name"),)
 
-    id: int = Column(Integer, primary_key=True)
-    user_id: int = Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    name: str = Column(String, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
 
-    sets: list[WorkoutSet] = relationship(
+    sets: Mapped[list[WorkoutSet]] = relationship(
         "WorkoutSet", back_populates="exercise", cascade="all, delete-orphan"
     )
-    routine_exercises: list[RoutineExercise] = relationship(
+    routine_exercises: Mapped[list[RoutineExercise]] = relationship(
         "RoutineExercise", back_populates="exercise", cascade="all, delete-orphan"
     )
 
@@ -169,15 +172,15 @@ class Routine(Base):
     __tablename__ = "routine"
     __table_args__ = (UniqueConstraint("user_id", "name"),)
 
-    id: int = Column(Integer, primary_key=True)
-    user_id: int = Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    name: str = Column(String, nullable=False)
-    notes: str = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(String)
 
-    exercises: list[RoutineExercise] = relationship(
+    exercises: Mapped[list[RoutineExercise]] = relationship(
         "RoutineExercise", back_populates="routine", cascade="all, delete-orphan"
     )
-    workouts: list[Workout] = relationship("Workout", back_populates="routine")
+    workouts: Mapped[list[Workout]] = relationship("Workout", back_populates="routine")
 
 
 class RoutineExercise(Base):
@@ -189,26 +192,30 @@ class RoutineExercise(Base):
         CheckConstraint(column("sets") > 0, name="sets_gt_0"),
     )
 
-    routine_id: int = Column(ForeignKey("routine.id", ondelete="CASCADE"), primary_key=True)
-    position: int = Column(Integer, primary_key=True)
-    exercise_id: int = Column(ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False)
-    sets: int = Column(Integer, nullable=False)
+    routine_id: Mapped[int] = mapped_column(
+        ForeignKey("routine.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False
+    )
+    sets: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    routine: Routine = relationship("Routine", back_populates="exercises")
-    exercise: Exercise = relationship("Exercise", back_populates="routine_exercises")
+    routine: Mapped[Routine] = relationship("Routine", back_populates="exercises")
+    exercise: Mapped[Exercise] = relationship("Exercise", back_populates="routine_exercises")
 
 
 class Workout(Base):
     __tablename__ = "workout"
 
-    id: int = Column(Integer, primary_key=True)
-    user_id: int = Column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    routine_id: int = Column(ForeignKey("routine.id", ondelete="CASCADE"))
-    date: date = Column(Date, nullable=False)
-    notes: str = Column(String)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    routine_id: Mapped[Optional[int]] = mapped_column(ForeignKey("routine.id", ondelete="CASCADE"))
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    notes: Mapped[Optional[str]] = mapped_column(String)
 
-    routine: Routine = relationship("Routine", back_populates="workouts")
-    sets: list[WorkoutSet] = relationship(
+    routine: Mapped[Routine] = relationship("Routine", back_populates="workouts")
+    sets: Mapped[list[WorkoutSet]] = relationship(
         "WorkoutSet", back_populates="workout", cascade="all, delete-orphan"
     )
 
@@ -244,13 +251,17 @@ class WorkoutSet(Base):
         CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
     )
 
-    workout_id: int = Column(ForeignKey("workout.id", ondelete="CASCADE"), primary_key=True)
-    position: int = Column(Integer, primary_key=True)
-    exercise_id: int = Column(ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False)
-    reps: Optional[int] = Column(Integer)
-    time: Optional[int] = Column(Integer)
-    weight: Optional[float] = Column(Float)
-    rpe: Optional[float] = Column(Float)
+    workout_id: Mapped[int] = mapped_column(
+        ForeignKey("workout.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False
+    )
+    reps: Mapped[Optional[int]] = mapped_column(Integer)
+    time: Mapped[Optional[int]] = mapped_column(Integer)
+    weight: Mapped[Optional[float]] = mapped_column(Float)
+    rpe: Mapped[Optional[float]] = mapped_column(Float)
 
-    workout: Workout = relationship("Workout", back_populates="sets")
-    exercise: Exercise = relationship("Exercise", back_populates="sets")
+    workout: Mapped[Workout] = relationship("Workout", back_populates="sets")
+    exercise: Mapped[Exercise] = relationship("Exercise", back_populates="sets")

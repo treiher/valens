@@ -90,6 +90,7 @@ def users() -> list[User]:
                     id=3,
                     user_id=1,
                     name="R2",
+                    notes=None,
                     exercises=[
                         RoutineExercise(position=1, exercise=exercise_3, sets=5),
                     ],
@@ -112,6 +113,7 @@ def users() -> list[User]:
                     id=3,
                     user_id=1,
                     date=datetime.date(2002, 2, 22),
+                    notes=None,
                     sets=[
                         WorkoutSet(position=1, exercise=exercise_3, reps=9),
                         WorkoutSet(position=2, exercise=exercise_3, reps=8),
@@ -125,6 +127,7 @@ def users() -> list[User]:
                     user_id=1,
                     routine_id=1,
                     date=datetime.date(2002, 2, 24),
+                    notes=None,
                     sets=[
                         WorkoutSet(position=1, exercise=exercise_3, reps=11, time=4, rpe=8.5),
                         WorkoutSet(position=2, exercise=exercise_1, reps=9, time=4, rpe=8),
@@ -189,6 +192,7 @@ def users() -> list[User]:
                     id=2,
                     user_id=2,
                     name="R1",
+                    notes="",
                     exercises=[
                         RoutineExercise(position=1, exercise=exercise_2, sets=3),
                         RoutineExercise(position=2, exercise=exercise_4, sets=4),
@@ -201,6 +205,7 @@ def users() -> list[User]:
                     id=2,
                     user_id=2,
                     date=datetime.date(2002, 2, 20),
+                    notes="",
                     sets=[
                         WorkoutSet(
                             position=1, exercise=exercise_2, reps=10, time=4, weight=10, rpe=8.5

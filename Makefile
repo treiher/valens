@@ -113,17 +113,6 @@ valens/frontend/%: frontend/dist/%
 
 $(addprefix frontend/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find frontend/src/ -type f -name '*.rs')
 	cd frontend && trunk build --release --filehash false
-
-.PHONY: config
-
-config: $(CONFIG_FILE)
-
-$(CONFIG_FILE): $(BUILD_DIR)
-	valens config -d build
-
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
 .PHONY: run run_frontend run_backend
 
 run:
@@ -133,8 +122,14 @@ run:
 run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
 
-run_backend:
+run_backend: $(CONFIG_FILE)
 	VALENS_CONFIG=$(CONFIG_FILE) flask --app valens --debug run -h 0.0.0.0
+
+$(CONFIG_FILE): $(BUILD_DIR)
+	valens config -d build
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 .PHONY: clean clean_all
 

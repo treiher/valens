@@ -142,12 +142,6 @@ Install the Python development tools and install the package in editable mode.
 $ pip install -e ".[devel]"
 ```
 
-Create a config file for the backend.
-
-```console
-$ make config
-```
-
 ### Running development servers
 
 The current codebase can be executed by running development servers for the frontend and the backend. The development servers will automatically reload when the codebase is changed.

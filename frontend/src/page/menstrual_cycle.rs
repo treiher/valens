@@ -20,7 +20,7 @@ pub fn init(
 
     orders.subscribe(Msg::DataEvent);
 
-    navbar.title = String::from("Period");
+    navbar.title = String::from("Menstrual cycle");
 
     Model {
         interval: common::init_interval(
@@ -112,7 +112,7 @@ pub fn update(
         }
         Msg::ClosePeriodDialog => {
             model.dialog = Dialog::Hidden;
-            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).period());
+            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).menstrual_cycle());
         }
 
         Msg::DateChanged(date) => match model.dialog {
@@ -211,9 +211,11 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_period_dialog(&model.dialog, model.loading),
+        view_current_cycle(data_model),
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         view_chart(model, data_model),
-        view_table(model, data_model),
+        view_cycle_stats(model, data_model),
+        view_period_table(model, data_model),
         common::view_fab(|_| Msg::ShowAddPeriodDialog),
     ]
 }
@@ -366,7 +368,57 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
     )
 }
 
-fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
+fn view_current_cycle(data_model: &data::Model) -> Node<Msg> {
+    let today = Local::now().date_naive();
+    if let Some(current_cycle) = &data_model.current_cycle {
+        div![
+            C!["box"],
+            C!["mx-4"],
+            p![C!["title"], C!["is-5"], "Current cycle"],
+            p![
+                C!["subtitle"],
+                C!["is-6"],
+                raw![&format!(
+                    "<strong>{}</strong> days, <strong>{} (&#177;{})</strong> days left",
+                    (today - current_cycle.begin).num_days(),
+                    current_cycle.time_left.num_days(),
+                    current_cycle.time_left_variation.num_days(),
+                )]
+            ]
+        ]
+    } else {
+        empty![]
+    }
+}
+
+fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let cycles = &data_model
+        .cycles
+        .iter()
+        .filter(|c| {
+            (c.begin >= model.interval.first && c.begin <= model.interval.last)
+                || (c.begin + c.length >= model.interval.first
+                    && c.begin + c.length <= model.interval.last)
+        })
+        .collect::<Vec<_>>();
+    let stats = data::calculate_cycle_stats(cycles);
+    div![
+        C!["box"],
+        C!["mx-4"],
+        p![C!["title"], C!["is-5"], "Avg. cycle length"],
+        p![
+            C!["subtitle"],
+            C!["is-6"],
+            raw![&format!(
+                "<strong>{} (&#177;{})</strong> days",
+                stats.length_median.num_days(),
+                stats.length_variation.num_days(),
+            )]
+        ]
+    ]
+}
+
+fn view_period_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],

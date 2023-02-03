@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Prediction of next menstrual cycle
+- Calculation of average and variation of menstrual cycle length
 - Support for Python 3.11
 
 ### Removed

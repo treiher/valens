@@ -375,8 +375,8 @@ class HomePage(Page):
     def click_body_fat(self) -> None:
         self._driver.find_element(by=By.LINK_TEXT, value="Body fat").click()
 
-    def click_period(self) -> None:
-        self._driver.find_element(by=By.LINK_TEXT, value="Period").click()
+    def click_menstrual_cycle(self) -> None:
+        self._driver.find_element(by=By.LINK_TEXT, value="Menstrual cycle").click()
 
 
 class BodyWeightPage(Page):
@@ -409,7 +409,7 @@ class BodyFatPage(Page):
         return "body_fat"
 
 
-class PeriodPage(Page):
+class MenstrualCyclePage(Page):
     def __init__(self, driver: webdriver.Chrome) -> None:
         super().__init__(driver)
         self.period_dialog = PeriodDialog(driver)
@@ -417,11 +417,11 @@ class PeriodPage(Page):
 
     @property
     def title(self) -> str:
-        return "Period"
+        return "Menstrual cycle"
 
     @property
     def url(self) -> str:
-        return "period"
+        return "menstrual_cycle"
 
 
 class WorkoutsPage(Page):

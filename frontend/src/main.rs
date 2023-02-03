@@ -36,7 +36,7 @@ const LOGIN: &str = "login";
 const ADMIN: &str = "admin";
 const BODY_WEIGHT: &str = "body_weight";
 const BODY_FAT: &str = "body_fat";
-const PERIOD: &str = "period";
+const MENSTRUAL_CYCLE: &str = "menstrual_cycle";
 const EXERCISES: &str = "exercises";
 const EXERCISE: &str = "exercise";
 const ROUTINES: &str = "routines";
@@ -61,8 +61,8 @@ impl<'a> Urls<'a> {
     pub fn body_fat(self) -> Url {
         self.base_url().set_hash_path(&[BODY_FAT])
     }
-    pub fn period(self) -> Url {
-        self.base_url().set_hash_path(&[PERIOD])
+    pub fn menstrual_cycle(self) -> Url {
+        self.base_url().set_hash_path(&[MENSTRUAL_CYCLE])
     }
     pub fn exercises(self) -> Url {
         self.base_url().set_hash_path(&[EXERCISES])
@@ -106,7 +106,7 @@ enum Page {
     Admin(page::admin::Model),
     BodyWeight(page::body_weight::Model),
     BodyFat(page::body_fat::Model),
-    Period(page::period::Model),
+    MenstrualCycle(page::menstrual_cycle::Model),
     Exercises(page::exercises::Model),
     Exercise(page::exercise::Model),
     Routines(page::routines::Model),
@@ -155,9 +155,9 @@ impl Page {
                     data_model,
                     navbar,
                 )),
-                Some(PERIOD) => Self::Period(page::period::init(
+                Some(MENSTRUAL_CYCLE) => Self::MenstrualCycle(page::menstrual_cycle::init(
                     url,
-                    &mut orders.proxy(Msg::Period),
+                    &mut orders.proxy(Msg::MenstrualCycle),
                     data_model,
                     navbar,
                 )),
@@ -236,7 +236,7 @@ enum Msg {
     Admin(page::admin::Msg),
     BodyWeight(page::body_weight::Msg),
     BodyFat(page::body_fat::Msg),
-    Period(page::period::Msg),
+    MenstrualCycle(page::menstrual_cycle::Msg),
     Exercises(page::exercises::Msg),
     Exercise(page::exercise::Msg),
     Routines(page::routines::Msg),
@@ -272,7 +272,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
             Some(Page::BodyWeight(_))
             | Some(Page::BodyFat(_))
-            | Some(Page::Period(_))
+            | Some(Page::MenstrualCycle(_))
             | Some(Page::Exercises(_))
             | Some(Page::Routines(_))
             | Some(Page::Workouts(_))
@@ -330,9 +330,14 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 )
             }
         }
-        Msg::Period(msg) => {
-            if let Some(Page::Period(page_model)) = &mut model.page {
-                page::period::update(msg, page_model, &model.data, &mut orders.proxy(Msg::Period))
+        Msg::MenstrualCycle(msg) => {
+            if let Some(Page::MenstrualCycle(page_model)) = &mut model.page {
+                page::menstrual_cycle::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::MenstrualCycle),
+                )
             }
         }
         Msg::Exercises(msg) => {
@@ -524,7 +529,8 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
                 page::body_weight::view(model, data_model).map_msg(Msg::BodyWeight),
             Some(Page::BodyFat(model)) =>
                 page::body_fat::view(model, data_model).map_msg(Msg::BodyFat),
-            Some(Page::Period(model)) => page::period::view(model, data_model).map_msg(Msg::Period),
+            Some(Page::MenstrualCycle(model)) =>
+                page::menstrual_cycle::view(model, data_model).map_msg(Msg::MenstrualCycle),
             Some(Page::Exercises(model)) =>
                 page::exercises::view(model, data_model).map_msg(Msg::Exercises),
             Some(Page::Exercise(model)) =>

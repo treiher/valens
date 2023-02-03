@@ -1,4 +1,4 @@
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 use seed::prelude::*;
 use serde_json::{json, Map};
 
@@ -18,6 +18,8 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         body_weight: Vec::new(),
         body_fat: Vec::new(),
         period: Vec::new(),
+        cycles: Vec::new(),
+        current_cycle: None,
         exercises: Vec::new(),
         routines: Vec::new(),
         workouts: Vec::new(),
@@ -45,6 +47,8 @@ pub struct Model {
     pub body_weight: Vec<BodyWeight>,
     pub body_fat: Vec<BodyFat>,
     pub period: Vec<Period>,
+    pub cycles: Vec<Cycle>,
+    pub current_cycle: Option<CurrentCycle>,
     pub exercises: Vec<Exercise>,
     pub routines: Vec<Routine>,
     pub workouts: Vec<Workout>,
@@ -95,6 +99,24 @@ pub struct BodyFat {
 pub struct Period {
     pub date: NaiveDate,
     pub intensity: u8,
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+pub struct Cycle {
+    pub begin: NaiveDate,
+    pub length: Duration,
+}
+
+pub struct CurrentCycle {
+    pub begin: NaiveDate,
+    pub time_left: Duration,
+    pub time_left_variation: Duration,
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+pub struct CycleStats {
+    pub length_median: Duration,
+    pub length_variation: Duration,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -272,6 +294,64 @@ fn calculate_body_weight_stats(mut body_weight: Vec<BodyWeight>) -> Vec<BodyWeig
     }
 
     body_weight
+}
+
+fn determine_cycles(period: &[Period]) -> Vec<Cycle> {
+    if period.is_empty() {
+        return vec![];
+    }
+
+    let mut result = vec![];
+    let mut begin = period[0].date;
+    let mut last = begin;
+
+    for p in &period[1..] {
+        if p.date - last > Duration::days(3) {
+            result.push(Cycle {
+                begin,
+                length: p.date - begin,
+            });
+            begin = p.date;
+        }
+        last = p.date;
+    }
+
+    result
+}
+
+fn determine_current_cycle(cycles: &[Cycle]) -> Option<CurrentCycle> {
+    if cycles.is_empty() {
+        return None;
+    }
+
+    let today = Local::now().date_naive();
+    let cycles = cycles
+        .iter()
+        .filter(|c| (c.begin >= today - Duration::days(182) && c.begin <= today))
+        .collect::<Vec<_>>();
+    let stats = calculate_cycle_stats(&cycles);
+
+    if let Some(last_cycle) = cycles.last() {
+        let begin = last_cycle.begin + last_cycle.length;
+        Some(CurrentCycle {
+            begin,
+            time_left: stats.length_median - (today - begin),
+            time_left_variation: stats.length_variation,
+        })
+    } else {
+        None
+    }
+}
+
+pub fn calculate_cycle_stats(cycles: &[&Cycle]) -> CycleStats {
+    let mut cycle_lengths = cycles.iter().map(|c| c.length).collect::<Vec<_>>();
+    cycle_lengths.sort();
+    CycleStats {
+        length_median: common::quartile(&cycle_lengths, common::Quartile::Q2),
+        length_variation: (common::quartile(&cycle_lengths, common::Quartile::Q3)
+            - common::quartile(&cycle_lengths, common::Quartile::Q1))
+            / 2,
+    }
 }
 
 // ------ ------
@@ -774,6 +854,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::PeriodRead(Ok(period)) => {
             model.period = period;
             model.period.sort_by(|a, b| a.date.cmp(&b.date));
+            model.cycles = determine_cycles(&model.period);
+            model.current_cycle = determine_current_cycle(&model.cycles);
         }
         Msg::PeriodRead(Err(message)) => {
             model
@@ -1155,4 +1237,52 @@ async fn fetch_no_content<'a, Ms>(
 
 pub fn view(model: &Model) -> Node<Msg> {
     common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::RemoveError))
+}
+
+// ------ ------
+//     Tests
+// ------ ------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn from_num_days(days: i32) -> NaiveDate {
+        NaiveDate::from_num_days_from_ce_opt(days).unwrap()
+    }
+
+    #[test]
+    fn test_determine_cycles() {
+        assert_eq!(determine_cycles(&[]), vec![]);
+        assert_eq!(
+            determine_cycles(&[
+                Period {
+                    date: from_num_days(1),
+                    intensity: 3,
+                },
+                Period {
+                    date: from_num_days(5),
+                    intensity: 4,
+                },
+                Period {
+                    date: from_num_days(8),
+                    intensity: 2,
+                },
+                Period {
+                    date: from_num_days(33),
+                    intensity: 1,
+                }
+            ]),
+            vec![
+                Cycle {
+                    begin: from_num_days(1),
+                    length: Duration::days(4),
+                },
+                Cycle {
+                    begin: from_num_days(5),
+                    length: Duration::days(28),
+                }
+            ]
+        )
+    }
 }

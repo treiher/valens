@@ -54,7 +54,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
 
     if let Some(body_weight) = &data_model.body_weight.last() {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
-        body_weight_content = last_update(local - body_weight.date);
+        body_weight_content = last("entry", local - body_weight.date);
     } else {
         body_weight_subtitle = String::new();
         body_weight_content = String::new();
@@ -66,14 +66,23 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         } else {
             String::new()
         };
-        body_fat_content = last_update(local - body_fat.date);
+        body_fat_content = last("entry", local - body_fat.date);
     } else {
         body_fat_subtitle = String::new();
         body_fat_content = String::new();
     }
 
-    let period_content = if let Some(period) = &data_model.period.last() {
-        last_update(local - period.date)
+    let menstrual_cycle_subtitle = if let Some(current_cycle) = &data_model.current_cycle {
+        format!(
+            "{} (±{}) days left",
+            current_cycle.time_left.num_days(),
+            current_cycle.time_left_variation.num_days(),
+        )
+    } else {
+        String::new()
+    };
+    let menstrual_cycle_content = if let Some(period) = &data_model.period.last() {
+        last("period", local - period.date)
     } else {
         String::new()
     };
@@ -111,7 +120,11 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         ),
         IF![
             data_model.session.as_ref().unwrap().sex == 0 => {
-                view_tile("Period", "", &period_content, crate::Urls::new(&data_model.base_url).period())
+                view_tile(
+                    "Menstrual cycle",
+                    &menstrual_cycle_subtitle,
+                    &menstrual_cycle_content,
+                    crate::Urls::new(&data_model.base_url).menstrual_cycle())
             }
         ],
     ]
@@ -171,17 +184,17 @@ fn view_tile(title: &str, subtitle: &str, content: &str, target: Url) -> Node<Ms
     ]
 }
 
-fn last_update(duration: chrono::Duration) -> String {
+fn last(text: &str, duration: chrono::Duration) -> String {
     if duration.num_days() == 0 {
-        return String::from("Last update <strong>today</strong>.");
+        return format!("Last {text} <strong>today</strong>.");
     }
 
     if duration.num_days() == 1 {
-        return String::from("Last update <strong>yesterday</strong>.");
+        return format!("Last {text} <strong>yesterday</strong>.");
     }
 
     format!(
-        "Last update <strong>{} days</strong> ago.",
+        "Last {text} <strong>{} days</strong> ago.",
         duration.num_days()
     )
 }

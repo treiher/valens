@@ -23,7 +23,7 @@ from .page import (
     ExercisesPage,
     HomePage,
     LoginPage,
-    PeriodPage,
+    MenstrualCyclePage,
     RoutinePage,
     RoutinesPage,
     WorkoutPage,
@@ -122,10 +122,10 @@ def test_home(driver: webdriver.Chrome) -> None:
     body_fat_page.click_up_button()
     home_page.wait_until_loaded()
 
-    home_page.click_period()
-    period_page = PeriodPage(driver)
-    period_page.wait_until_loaded()
-    period_page.click_up_button()
+    home_page.click_menstrual_cycle()
+    menstrual_cycle_page = MenstrualCyclePage(driver)
+    menstrual_cycle_page.wait_until_loaded()
+    menstrual_cycle_page.click_up_button()
     home_page.wait_until_loaded()
 
 
@@ -295,33 +295,33 @@ def test_body_fat_delete(driver: webdriver.Chrome) -> None:
     page.wait_for_table_value(1, date_2)
 
 
-def test_period_add(driver: webdriver.Chrome) -> None:
+def test_menstrual_cycle_add(driver: webdriver.Chrome) -> None:
     login(driver)
-    page = PeriodPage(driver)
+    page = MenstrualCyclePage(driver)
     page.load()
     page.click_fab()
 
     date = page.period_dialog.get_date()
-    period = "4"
+    intensity = "4"
 
     page.period_dialog.click_cancel()
 
     assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != period
+    assert page.get_table_value(2) != intensity
 
     page.click_fab()
-    page.period_dialog.set_period(period)
+    page.period_dialog.set_period(intensity)
 
     assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != period
+    assert page.get_table_value(2) != intensity
 
     page.period_dialog.click_save()
 
     page.wait_for_table_value(1, date)
-    page.wait_for_table_value(2, period)
+    page.wait_for_table_value(2, intensity)
 
 
-def test_period_edit(driver: webdriver.Chrome) -> None:
+def test_menstrual_cycle_edit(driver: webdriver.Chrome) -> None:
     period = USER.period[-1]
     date = str(period.date)
     intensity = str(period.intensity)
@@ -330,7 +330,7 @@ def test_period_edit(driver: webdriver.Chrome) -> None:
     assert intensity != new_intensity
 
     login(driver)
-    page = PeriodPage(driver)
+    page = MenstrualCyclePage(driver)
     page.load()
 
     page.wait_for_table_value(1, date)
@@ -351,14 +351,14 @@ def test_period_edit(driver: webdriver.Chrome) -> None:
     page.wait_for_table_value(2, new_intensity)
 
 
-def test_period_delete(driver: webdriver.Chrome) -> None:
+def test_menstrual_cycle_delete(driver: webdriver.Chrome) -> None:
     period = USER.period[-1]
     date_1 = str(period.date)
     intensity = str(period.intensity)
     date_2 = str(USER.period[-2].date)
 
     login(driver)
-    page = PeriodPage(driver)
+    page = MenstrualCyclePage(driver)
     page.load()
 
     page.wait_for_table_value(1, date_1)

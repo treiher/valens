@@ -576,3 +576,173 @@ fn chart_width() -> u32 {
         960,
     )
 }
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Quartile {
+    Q1 = 1,
+    Q2 = 2,
+    Q3 = 3,
+}
+
+pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
+    if durations.is_empty() {
+        return Duration::days(0);
+    }
+    let idx = durations.len() / 2;
+    match quartile_num {
+        Quartile::Q1 => quartile(&durations[..idx], Quartile::Q2),
+        Quartile::Q2 => {
+            if durations.len() % 2 == 0 {
+                (durations[idx - 1] + durations[idx]) / 2
+            } else {
+                durations[idx]
+            }
+        }
+        Quartile::Q3 => {
+            if durations.len() % 2 == 0 {
+                quartile(&durations[idx..], Quartile::Q2)
+            } else {
+                quartile(&durations[idx + 1..], Quartile::Q2)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quartile_one() {
+        assert_eq!(quartile(&[], Quartile::Q1), Duration::days(0));
+        assert_eq!(
+            quartile(&[Duration::days(2)], Quartile::Q1),
+            Duration::days(0)
+        );
+        assert_eq!(
+            quartile(&[Duration::days(4), Duration::days(12)], Quartile::Q1),
+            Duration::days(4)
+        );
+        assert_eq!(
+            quartile(
+                &[Duration::days(2), Duration::days(4), Duration::days(6)],
+                Quartile::Q1
+            ),
+            Duration::days(2)
+        );
+        assert_eq!(
+            quartile(
+                &[
+                    Duration::days(2),
+                    Duration::days(4),
+                    Duration::days(6),
+                    Duration::days(8)
+                ],
+                Quartile::Q1
+            ),
+            Duration::days(3)
+        );
+        assert_eq!(
+            quartile(
+                &[
+                    Duration::days(2),
+                    Duration::days(4),
+                    Duration::days(5),
+                    Duration::days(6),
+                    Duration::days(8)
+                ],
+                Quartile::Q1
+            ),
+            Duration::days(3)
+        );
+        assert_eq!(
+            quartile(
+                &[
+                    Duration::days(2),
+                    Duration::days(4),
+                    Duration::days(5),
+                    Duration::days(6),
+                    Duration::days(7),
+                    Duration::days(8)
+                ],
+                Quartile::Q1
+            ),
+            Duration::days(4)
+        );
+    }
+
+    #[test]
+    fn quartile_two() {
+        assert_eq!(quartile(&[], Quartile::Q2), Duration::days(0));
+        assert_eq!(
+            quartile(&[Duration::days(2)], Quartile::Q2),
+            Duration::days(2)
+        );
+        assert_eq!(
+            quartile(&[Duration::days(4), Duration::days(12)], Quartile::Q2),
+            Duration::days(8)
+        );
+        assert_eq!(
+            quartile(
+                &[Duration::days(2), Duration::days(4), Duration::days(6)],
+                Quartile::Q2
+            ),
+            Duration::days(4)
+        );
+    }
+
+    #[test]
+    fn quartile_three() {
+        assert_eq!(quartile(&[], Quartile::Q3), Duration::days(0));
+        assert_eq!(
+            quartile(&[Duration::days(2)], Quartile::Q3),
+            Duration::days(0)
+        );
+        assert_eq!(
+            quartile(
+                &[Duration::days(2), Duration::days(4), Duration::days(6)],
+                Quartile::Q3
+            ),
+            Duration::days(6)
+        );
+        assert_eq!(
+            quartile(
+                &[
+                    Duration::days(2),
+                    Duration::days(4),
+                    Duration::days(6),
+                    Duration::days(8)
+                ],
+                Quartile::Q3
+            ),
+            Duration::days(7)
+        );
+        assert_eq!(
+            quartile(
+                &[
+                    Duration::days(2),
+                    Duration::days(4),
+                    Duration::days(5),
+                    Duration::days(6),
+                    Duration::days(8)
+                ],
+                Quartile::Q3
+            ),
+            Duration::days(7)
+        );
+        assert_eq!(
+            quartile(
+                &[
+                    Duration::days(2),
+                    Duration::days(3),
+                    Duration::days(4),
+                    Duration::days(5),
+                    Duration::days(6),
+                    Duration::days(8)
+                ],
+                Quartile::Q3
+            ),
+            Duration::days(6)
+        );
+    }
+}

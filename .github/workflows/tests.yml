@@ -15,11 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          default: true
-          components: rustfmt, clippy
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
+          echo ~/.cargo/bin >> $GITHUB_PATH
       - name: Install dependencies
         run: |
           pip install setuptools_scm
@@ -71,11 +69,9 @@ jobs:
           cache-dependency-path: |
             setup.cfg
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          target: wasm32-unknown-unknown
-          default: true
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
+          echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: frontend
@@ -95,10 +91,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          default: true
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --profile minimal
+          echo ~/.cargo/bin >> $GITHUB_PATH
       - name: Check
         run: |
           make test_frontend
@@ -143,11 +138,9 @@ jobs:
           cache-dependency-path: |
             setup.cfg
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          target: wasm32-unknown-unknown
-          default: true
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
+          echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: frontend

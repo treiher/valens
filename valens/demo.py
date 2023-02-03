@@ -148,7 +148,7 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
     }
     exercises = [
         Exercise(user_id=user_id, name=name)
-        for name in random.sample(exercise_names.keys(), k=len(exercise_names))
+        for name in random.sample(sorted(exercise_names.keys()), k=len(exercise_names))
     ]
 
     routine_names = ["A", "B", "C", "D"]

@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+from alembic import command
 
 from valens import app, database as db
 
@@ -33,8 +34,13 @@ def test_init_explicit(test_db: Path) -> None:
     db.remove_session()
 
 
-def test_upgrade(test_db: Path) -> None:
+def test_upgrade(test_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert not test_db.exists()
-    db.init_db()
-    assert test_db.exists()
     db.upgrade_db()
+    assert test_db.exists()
+    assert capsys.readouterr().out == "Creating database\nNo upgrade necessary\n"
+    command.downgrade(db.alembic_cfg, "4cacd61cb0c5")
+    db.upgrade_db()
+    assert capsys.readouterr().out.startswith("Upgrading database from 4cacd61cb0c5 to ")
+    db.upgrade_db()
+    assert capsys.readouterr().out == "No upgrade necessary\n"

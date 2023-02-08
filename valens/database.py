@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-from alembic import command
+from alembic import command, runtime, script
 from alembic.config import Config
 from flask import current_app, g
 from sqlalchemy import create_engine, event, inspect, pool
@@ -54,6 +54,8 @@ def remove_session() -> None:
 
 
 def init_db() -> None:
+    print("Creating database")
+
     models.Base.query = get_scoped_session().query_property()
     models.Base.metadata.create_all(bind=get_engine())
 
@@ -61,5 +63,13 @@ def init_db() -> None:
 
 
 def upgrade_db() -> None:
-    init_db()
-    command.upgrade(alembic_cfg, "head")
+    current = runtime.migration.MigrationContext.configure(
+        get_session().connection()
+    ).get_current_revision()
+    head = script.ScriptDirectory.from_config(alembic_cfg).get_current_head()
+
+    if current != head:
+        print(f"Upgrading database from {current} to {head}")
+        command.upgrade(alembic_cfg, "head")
+    else:
+        print("No upgrade necessary")

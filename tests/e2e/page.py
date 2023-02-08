@@ -341,8 +341,9 @@ class LoginPage(Page):
         return [b.text for b in self._driver.find_elements(by=By.CLASS_NAME, value="button")]
 
     def login(self, username: str) -> None:
-        buttons = self._driver.find_elements(by=By.CLASS_NAME, value="button")
-        for button in buttons:
+        wait(self._driver).until(EC.element_to_be_clickable((By.CLASS_NAME, "button")))
+
+        for button in self._driver.find_elements(by=By.CLASS_NAME, value="button"):
             if button.text == username:
                 button.click()
                 HomePage(self._driver, username).wait_until_loaded()

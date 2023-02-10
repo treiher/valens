@@ -8,8 +8,8 @@ FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js v
 PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
-VERSION := $(shell python3 -c "import setuptools_scm; print(setuptools_scm.get_version())")
-WHEEL := dist/valens-$(VERSION)-py3-none-any.whl
+VERSION ?= $(shell python3 -c "import setuptools_scm; print(setuptools_scm.get_version())")
+WHEEL ?= dist/valens-$(VERSION)-py3-none-any.whl
 
 export SQLALCHEMY_WARN_20=1
 

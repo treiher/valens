@@ -4,7 +4,7 @@ from datetime import date
 from functools import singledispatch, wraps
 from http import HTTPStatus
 from itertools import chain
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from flask import Blueprint, jsonify, request, session
 from flask.typing import ResponseReturnValue
@@ -36,7 +36,7 @@ class DeserializationError(Exception):
 
 @singledispatch
 def to_dict(
-    model: object, exclude: list[str] = None, include: list[str] = None
+    model: object, exclude: Optional[list[str]] = None, include: Optional[list[str]] = None
 ) -> dict[str, object]:
     return model_to_dict(model, exclude, include)
 
@@ -65,7 +65,7 @@ def _(model: RoutineActivity) -> dict[str, object]:
 
 
 def model_to_dict(
-    model: object, exclude: list[str] = None, include: list[str] = None
+    model: object, exclude: Optional[list[str]] = None, include: Optional[list[str]] = None
 ) -> dict[str, object]:
     assert hasattr(model, "__table__")
     exclude = ["user_id"] if exclude is None else exclude

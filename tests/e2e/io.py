@@ -24,4 +24,4 @@ def wait_for_output(out: IO[bytes], expected: str) -> None:
             if expected in line:
                 break
     else:
-        raise Exception("expected output not found")
+        raise RuntimeError("expected output not found")

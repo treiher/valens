@@ -508,22 +508,7 @@ fn view_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> 
             "primary",
             "Select exercise",
             nodes![
-                div![
-                    C!["field"],
-                    div![
-                        C!["control"],
-                        C!["has-icons-left"],
-                        input_ev(Ev::Input, Msg::SearchTermChanged),
-                        span![C!["icon"], C!["is-left"], i![C!["fas fa-search"]]],
-                        input![
-                            C!["input"],
-                            attrs! {
-                                At::Type => "text",
-                                At::Value => search_term,
-                            }
-                        ],
-                    ]
-                ],
+                common::view_search_box(search_term, Msg::SearchTermChanged),
                 div![
                     C!["table-container"],
                     C!["mt-4"],

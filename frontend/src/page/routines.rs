@@ -17,6 +17,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
     navbar.title = String::from("Routines");
 
     Model {
+        search_term: String::new(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -27,6 +28,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 // ------ ------
 
 pub struct Model {
+    search_term: String,
     dialog: Dialog,
     loading: bool,
 }
@@ -53,6 +55,7 @@ pub enum Msg {
     ShowDeleteRoutineDialog(usize),
     CloseRoutineDialog,
 
+    SearchTermChanged(String),
     NameChanged(String),
 
     SaveRoutine,
@@ -89,6 +92,9 @@ pub fn update(
             Url::go_and_replace(&crate::Urls::new(&data_model.base_url).routines());
         }
 
+        Msg::SearchTermChanged(search_term) => {
+            model.search_term = search_term;
+        }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddRoutine(ref mut form) | Dialog::EditRoutine(ref mut form) => {
                 if data_model.routines.iter().all(|e| e.name != name) {
@@ -141,8 +147,12 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         view_routine_dialog(&model.dialog, &data_model.routines, model.loading),
+        div![
+            C!["px-4"],
+            common::view_search_box(&model.search_term, Msg::SearchTermChanged)
+        ],
+        view_table(&model.search_term, data_model),
         common::view_fab("plus", |_| Msg::ShowAddRoutineDialog),
-        view_table(data_model),
     ]
 }
 
@@ -233,7 +243,7 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: boo
     )
 }
 
-fn view_table(data_model: &data::Model) -> Node<Msg> {
+fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -241,15 +251,17 @@ fn view_table(data_model: &data::Model) -> Node<Msg> {
             C!["table"],
             C!["is-fullwidth"],
             C!["is-hoverable"],
-            thead![tr![th!["Name"], th![]]],
             tbody![&data_model
                 .routines
                 .iter()
                 .enumerate()
+                .filter(|(_, e)| e.name.to_lowercase().contains(&search_term.to_lowercase()))
                 .map(|(i, e)| {
                     let id = e.id;
-                    tr![
-                        td![a![
+                    tr![td![
+                        C!["is-flex"],
+                        C!["is-justify-content-space-between"],
+                        a![
                             attrs! {
                                 At::Href => {
                                     crate::Urls::new(&data_model.base_url)
@@ -258,8 +270,8 @@ fn view_table(data_model: &data::Model) -> Node<Msg> {
                                 }
                             },
                             e.name.to_string(),
-                        ]],
-                        td![p![
+                        ],
+                        p![
                             C!["is-flex is-flex-wrap-nowrap"],
                             a![
                                 C!["icon"],
@@ -273,8 +285,8 @@ fn view_table(data_model: &data::Model) -> Node<Msg> {
                                 ev(Ev::Click, move |_| Msg::ShowDeleteRoutineDialog(i)),
                                 i![C!["fas fa-times"]]
                             ]
-                        ]]
-                    ]
+                        ]
+                    ]]
                 })
                 .collect::<Vec<_>>()],
         ]

@@ -135,6 +135,31 @@ pub fn view_delete_confirmation_dialog<Ms>(
     )
 }
 
+pub fn view_search_box<Ms>(
+    search_term: &str,
+    search_term_changed: impl FnOnce(String) -> Ms + 'static + Clone,
+) -> Node<Ms>
+where
+    Ms: 'static,
+{
+    div![
+        C!["field"],
+        div![
+            C!["control"],
+            C!["has-icons-left"],
+            input_ev(Ev::Input, search_term_changed),
+            span![C!["icon"], C!["is-left"], i![C!["fas fa-search"]]],
+            input![
+                C!["input"],
+                attrs! {
+                    At::Type => "text",
+                    At::Value => search_term,
+                }
+            ],
+        ]
+    ]
+}
+
 pub fn view_fab<Ms>(
     icon: &str,
     message: impl FnOnce(web_sys::Event) -> Ms + 'static + Clone,

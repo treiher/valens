@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta
+from multiprocessing import Process
 from pathlib import Path
+from time import sleep
 from typing import Generator
 
 import pytest
@@ -28,7 +31,7 @@ def test_init_implicit(test_db: Path) -> None:
 
 def test_init_explicit(test_db: Path) -> None:
     assert not test_db.exists()
-    db.init_db()
+    db.init()
     assert test_db.exists()
     db.session.commit()
     db.remove_session()
@@ -36,11 +39,35 @@ def test_init_explicit(test_db: Path) -> None:
 
 def test_upgrade(test_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert not test_db.exists()
-    db.upgrade_db()
+    db.upgrade()
     assert test_db.exists()
-    assert capsys.readouterr().out == "Creating database\nNo upgrade necessary\n"
+    assert capsys.readouterr().out == "Creating database\n"
     command.downgrade(db.alembic_cfg, "4cacd61cb0c5")
-    db.upgrade_db()
+    db.upgrade()
     assert capsys.readouterr().out.startswith("Upgrading database from 4cacd61cb0c5 to ")
-    db.upgrade_db()
-    assert capsys.readouterr().out == "No upgrade necessary\n"
+    db.upgrade()
+    assert capsys.readouterr().out == ""
+
+
+def test_upgrade_in_progress(test_db: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert not test_db.exists()
+
+    db.upgrade()
+
+    assert test_db.exists()
+    assert capsys.readouterr().out == "Creating database\n"
+
+    command.downgrade(db.alembic_cfg, "4cacd61cb0c5")
+    db.upgrade_lock_file().touch()
+    wait = 3
+
+    def wait_and_remove_lock() -> None:
+        sleep(wait)
+        db.upgrade_lock_file().unlink()
+
+    expected_lock_release = datetime.now() + timedelta(seconds=wait)
+    Process(target=wait_and_remove_lock).start()
+    db.upgrade()
+
+    assert capsys.readouterr().out == "Waiting for completion of database upgrade\n"
+    assert datetime.now() >= expected_lock_release

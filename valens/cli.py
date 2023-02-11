@@ -81,7 +81,7 @@ def create_config(args: argparse.Namespace) -> None:
 def upgrade(_: argparse.Namespace) -> None:
     with app.app_context():
         config.check_config_file(os.environ.copy())
-        db.upgrade_db()
+        db.upgrade()
 
 
 def run(args: argparse.Namespace) -> None:

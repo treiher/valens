@@ -36,7 +36,7 @@ def test_upgrade(tmp_path: Path) -> None:
         stderr=STDOUT,
         env={"VALENS_CONFIG": str(config), **os.environ},
     )
-    assert p.stdout.decode("utf-8") == "Creating database\nNo upgrade necessary\n"
+    assert p.stdout.decode("utf-8") == "Creating database\n"
     assert p.returncode == 0
 
 

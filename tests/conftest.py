@@ -20,7 +20,7 @@ def alembic_engine() -> object:
     with NamedTemporaryFile() as tmp_file:
         app.config["DATABASE"] = f"sqlite:///{tmp_file.name}"
         with app.app_context():
-            db.init_db()
+            db.init()
             yield db.get_engine()
 
 

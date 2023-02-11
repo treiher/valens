@@ -79,7 +79,7 @@ def test_completeness_constraints(tmp_path: Path) -> None:
         models_db = f"{tmp_path}/models.db"
         app.config["DATABASE"] = f"sqlite:///{models_db}"
 
-        db.init_db()
+        db.init()
         connection = sqlite3.connect(models_db)
 
         model_constraints = constraints(connection)

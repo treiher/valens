@@ -29,9 +29,9 @@ def test_main_upgrade(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "argv", ["valens", "upgrade"])
     called = []
     monkeypatch.setattr(config, "check_config_file", lambda x: called.append("check_config_file"))
-    monkeypatch.setattr(db, "upgrade_db", lambda: called.append("upgrade_db"))
+    monkeypatch.setattr(db, "upgrade", lambda: called.append("upgrade"))
     assert cli.main() == 0
-    assert called == ["check_config_file", "upgrade_db"]
+    assert called == ["check_config_file", "upgrade"]
 
 
 def test_main_run(monkeypatch: MonkeyPatch) -> None:

@@ -52,7 +52,7 @@ def _(model: Routine) -> dict[str, object]:
 @to_dict.register
 def _(model: RoutineSection) -> dict[str, object]:
     return {
-        **model_to_dict(model, exclude=["id", "routine_id"], include=["position"]),
+        **model_to_dict(model, exclude=["id", "routine_id"]),
         "parts": [{**to_dict(p)} for p in sorted(model.parts, key=lambda x: x.position)],
     }
 
@@ -60,7 +60,7 @@ def _(model: RoutineSection) -> dict[str, object]:
 @to_dict.register
 def _(model: RoutineActivity) -> dict[str, object]:
     return {
-        **model_to_dict(model, exclude=["id"], include=["position"]),
+        **model_to_dict(model, exclude=["id"]),
     }
 
 
@@ -79,40 +79,31 @@ def model_to_dict(
 
 
 def to_routine_parts(json: list[dict[str, Any]]) -> list[RoutinePart]:  # type: ignore[misc]
-    parts = [
-        to_routine_section(part) if "rounds" in part else to_routine_activity(part) for part in json
+    return [
+        to_routine_section(part, position)
+        if "rounds" in part
+        else to_routine_activity(part, position)
+        for position, part in enumerate(json, start=1)
     ]
-
-    if sorted(p.position for p in parts) != list(range(1, len(parts) + 1)):
-        raise DeserializationError(
-            "part positions must be in ascending order without gaps, starting with 1"
-        )
-
-    return parts
 
 
 def to_routine_sections(json: list[dict[str, Any]]) -> list[RoutineSection]:  # type: ignore[misc]
-    sections = [to_routine_section(section) for section in json]
-
-    if sorted(s.position for s in sections) != list(range(1, len(sections) + 1)):
-        raise DeserializationError(
-            "section positions must be in ascending order without gaps, starting with 1"
-        )
-
-    return sections
+    return [to_routine_section(section, position) for position, section in enumerate(json, start=1)]
 
 
-def to_routine_section(json: dict[str, Any]) -> RoutineSection:  # type: ignore[misc]
+def to_routine_section(json: dict[str, Any], position: int) -> RoutineSection:  # type: ignore[misc]
     return RoutineSection(
-        position=json["position"],
+        position=position,
         rounds=json["rounds"],
         parts=to_routine_parts(json["parts"]),
     )
 
 
-def to_routine_activity(json: dict[str, Any]) -> RoutineActivity:  # type: ignore[misc]
+def to_routine_activity(  # type: ignore[misc]
+    json: dict[str, Any], position: int
+) -> RoutineActivity:
     return RoutineActivity(
-        position=json["position"],
+        position=position,
         exercise_id=json["exercise_id"],
         duration=json["duration"],
         tempo=json["tempo"],
@@ -121,24 +112,17 @@ def to_routine_activity(json: dict[str, Any]) -> RoutineActivity:  # type: ignor
 
 
 def to_workout_sets(json: list[dict[str, Any]]) -> list[WorkoutSet]:  # type: ignore[misc]
-    sets = [
+    return [
         WorkoutSet(
-            position=workout_set["position"],
+            position=position,
             exercise_id=workout_set["exercise_id"],
             reps=workout_set["reps"],
             time=workout_set["time"],
             weight=workout_set["weight"],
             rpe=workout_set["rpe"],
         )
-        for workout_set in json
+        for position, workout_set in enumerate(json, start=1)
     ]
-
-    if sorted(e.position for e in sets) != list(range(1, len(sets) + 1)):
-        raise DeserializationError(
-            "workout set positions must be in ascending order without gaps, starting with 1"
-        )
-
-    return sets
 
 
 def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]
@@ -824,7 +808,7 @@ def read_workouts() -> ResponseReturnValue:
     )
     return jsonify(
         [
-            {**to_dict(w), "sets": [to_dict(s, exclude=["workout_id"]) for s in w.sets]}
+            {**to_dict(w), "sets": [to_dict(s, exclude=["workout_id", "position"]) for s in w.sets]}
             for w in workouts
         ]
     )
@@ -867,7 +851,7 @@ def create_workout() -> ResponseReturnValue:
         jsonify(
             {
                 **to_dict(workout),
-                "sets": [to_dict(e, exclude=["workout_id"]) for e in workout.sets],
+                "sets": [to_dict(e, exclude=["workout_id", "position"]) for e in workout.sets],
             }
         ),
         HTTPStatus.CREATED,
@@ -912,7 +896,7 @@ def update_workout(id_: int) -> ResponseReturnValue:
         jsonify(
             {
                 **to_dict(workout),
-                "sets": [to_dict(e, exclude=["workout_id"]) for e in workout.sets],
+                "sets": [to_dict(e, exclude=["workout_id", "position"]) for e in workout.sets],
             }
         ),
         HTTPStatus.OK,

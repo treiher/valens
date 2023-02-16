@@ -153,12 +153,10 @@ pub struct Routine {
 #[serde(untagged)]
 pub enum RoutinePart {
     RoutineSection {
-        position: u32,
         rounds: u32,
         parts: Vec<RoutinePart>,
     },
     RoutineActivity {
-        position: u32,
         exercise_id: Option<u32>,
         duration: u32,
         tempo: u32,
@@ -177,7 +175,6 @@ pub struct Workout {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct WorkoutSet {
-    pub position: u32,
     pub exercise_id: u32,
     pub reps: Option<u32>,
     pub time: Option<u32>,

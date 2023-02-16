@@ -167,10 +167,8 @@ impl From<&data::RoutinePart> for Form {
 fn to_routine_parts(parts: &[Form]) -> Vec<data::RoutinePart> {
     parts
         .iter()
-        .enumerate()
-        .map(|(i, p)| match p {
+        .map(|p| match p {
             Form::Section { rounds, parts } => data::RoutinePart::RoutineSection {
-                position: u32::try_from(i + 1).unwrap_or(0),
                 rounds: rounds.1.unwrap(),
                 parts: to_routine_parts(parts),
             },
@@ -180,7 +178,6 @@ fn to_routine_parts(parts: &[Form]) -> Vec<data::RoutinePart> {
                 tempo,
                 automatic,
             } => data::RoutinePart::RoutineActivity {
-                position: u32::try_from(i + 1).unwrap_or(0),
                 exercise_id: *exercise_id,
                 duration: duration.1.unwrap_or(0),
                 tempo: if exercise_id.is_some() {

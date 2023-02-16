@@ -71,7 +71,6 @@ fn init_form(workout: &Option<&data::Workout>) -> Form {
                 .sets
                 .iter()
                 .map(|s| SetForm {
-                    position: s.position,
                     exercise_id: s.exercise_id,
                     reps: (
                         s.reps.map(|v| v.to_string()).unwrap_or_default(),
@@ -154,7 +153,6 @@ struct Form {
 
 #[derive(Clone)]
 struct SetForm {
-    position: u32,
     exercise_id: u32,
     reps: (String, bool, Option<u32>, bool),
     time: (String, bool, Option<u32>, bool),
@@ -407,7 +405,6 @@ pub fn update(
                         .sets
                         .iter()
                         .map(|s| data::WorkoutSet {
-                            position: s.position,
                             exercise_id: s.exercise_id,
                             reps: s.reps.2,
                             time: s.time.2,
@@ -564,6 +561,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .all(|s| s.reps.1 && s.time.1 && s.weight.1 && s.rpe.1);
     let save_disabled = not(changed) || not(valid);
     let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
+    let mut position = 0;
     for sets in (model.form.sets[..]).linear_group_by(|a, b| a.exercise_id == b.exercise_id) {
         form.push(div![
                 C!["field"],
@@ -587,7 +585,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     ],
                 ],
                 sets.iter().enumerate().map(|(j, s)| {
-                    let i = usize::try_from(s.position).unwrap() - 1;
+                    position += 1;
                     let (prev_reps, prev_time, prev_weight, prev_rpe) =
                         if let Some(prev_sets) = model.previous_sets.get(&s.exercise_id) {
                             if let Some(prev_set) = prev_sets.get(j) {
@@ -608,7 +606,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["control"],
                             C!["has-icons-right"],
                             C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::RepsChanged(i, v)),
+                            input_ev(Ev::Input, move |v| Msg::RepsChanged(position - 1, v)),
                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                 IF!(
                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
@@ -637,7 +635,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["control"],
                             C!["has-icons-right"],
                             C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::TimeChanged(i, v)),
+                            input_ev(Ev::Input, move |v| Msg::TimeChanged(position - 1, v)),
                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                 IF!(
                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
@@ -666,7 +664,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["control"],
                             C!["has-icons-right"],
                             C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::WeightChanged(i, v)),
+                            input_ev(Ev::Input, move |v| Msg::WeightChanged(position - 1, v)),
                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                 IF!(
                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
@@ -692,7 +690,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["control"],
                             C!["has-icons-left"],
                             C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::RPEChanged(i, v)),
+                            input_ev(Ev::Input, move |v| Msg::RPEChanged(position - 1, v)),
                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                 IF!(
                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {

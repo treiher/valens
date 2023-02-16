@@ -111,78 +111,9 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("post", "/api/routines", {"invalid": "data"}),
         ("put", "/api/routines/1", {"invalid": "data"}),
         ("patch", "/api/routines/1", {"sections": [{"invalid": "data"}]}),
-        (
-            "patch",
-            "/api/routines/1",
-            {
-                "sections": [
-                    {
-                        "position": 1,
-                        "rounds": 1,
-                        "parts": [],
-                    },
-                    {
-                        "position": 3,
-                        "rounds": 2,
-                        "parts": [],
-                    },
-                ]
-            },
-        ),
-        (
-            "patch",
-            "/api/routines/1",
-            {
-                "sections": [
-                    {
-                        "position": 1,
-                        "rounds": 1,
-                        "parts": [
-                            {
-                                "position": 1,
-                                "exercise_id": None,
-                                "duration": 0,
-                                "tempo": 0,
-                                "automatic": False,
-                            },
-                            {
-                                "position": 3,
-                                "exercise_id": None,
-                                "duration": 30,
-                                "tempo": 0,
-                                "automatic": False,
-                            },
-                        ],
-                    },
-                ]
-            },
-        ),
         ("post", "/api/workouts", {"invalid": "data"}),
         ("put", "/api/workouts/1", {"invalid": "data"}),
-        (
-            "patch",
-            "/api/workouts/1",
-            {
-                "sets": [
-                    {
-                        "position": 1,
-                        "exercise_id": 3,
-                        "reps": 10,
-                        "time": 4,
-                        "weight": None,
-                        "rpe": 8.0,
-                    },
-                    {
-                        "position": 3,
-                        "exercise_id": 1,
-                        "reps": None,
-                        "time": 60,
-                        "weight": None,
-                        "rpe": 9.0,
-                    },
-                ],
-            },
-        ),
+        ("patch", "/api/workouts/1", {"sets": [{"invalid": "data"}]}),
     ],
 )
 def test_invalid_data(client: Client, method: str, route: str, data: object) -> None:
@@ -419,18 +350,15 @@ def test_delete_user(client: Client) -> None:
                     "notes": "First Routine",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 1,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 0,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 30,
                                     "tempo": 0,
@@ -439,36 +367,30 @@ def test_delete_user(client: Client) -> None:
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 60,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 3,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
                                             "automatic": False,
                                         },
                                         {
-                                            "position": 2,
                                             "exercise_id": None,
                                             "duration": 30,
                                             "tempo": 0,
@@ -479,18 +401,15 @@ def test_delete_user(client: Client) -> None:
                             ],
                         },
                         {
-                            "position": 3,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -506,18 +425,15 @@ def test_delete_user(client: Client) -> None:
                     "notes": None,
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 5,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -540,7 +456,6 @@ def test_delete_user(client: Client) -> None:
                     "notes": "First Workout",
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 10,
                             "time": 4,
@@ -548,7 +463,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": 8.0,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -556,7 +470,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": 8.5,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -572,7 +485,6 @@ def test_delete_user(client: Client) -> None:
                     "notes": None,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 9,
                             "time": None,
@@ -580,7 +492,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 3,
                             "reps": 8,
                             "time": None,
@@ -588,7 +499,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 3,
                             "reps": 7,
                             "time": None,
@@ -596,7 +506,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 4,
                             "exercise_id": 3,
                             "reps": 6,
                             "time": None,
@@ -604,7 +513,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 5,
                             "exercise_id": 3,
                             "reps": 5,
                             "time": None,
@@ -620,7 +528,6 @@ def test_delete_user(client: Client) -> None:
                     "routine_id": 1,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 11,
                             "time": 4,
@@ -628,7 +535,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -636,7 +542,6 @@ def test_delete_user(client: Client) -> None:
                             "rpe": 8.0,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -756,29 +661,24 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                 "notes": "Something New",
                 "sections": [
                     {
-                        "position": 1,
                         "rounds": 2,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 1,
                                 "duration": 0,
                                 "tempo": 3,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "rounds": 2,
                                 "parts": [
                                     {
-                                        "position": 1,
                                         "exercise_id": None,
                                         "duration": 30,
                                         "tempo": 0,
                                         "automatic": True,
                                     },
                                     {
-                                        "position": 2,
                                         "exercise_id": 1,
                                         "duration": 0,
                                         "tempo": 0,
@@ -789,18 +689,15 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                         ],
                     },
                     {
-                        "position": 2,
                         "rounds": 3,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 20,
                                 "tempo": 0,
                                 "automatic": True,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 10,
                                 "tempo": 0,
@@ -817,29 +714,24 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "notes": "Something New",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": None,
                                             "duration": 30,
                                             "tempo": 0,
                                             "automatic": True,
                                         },
                                         {
-                                            "position": 2,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
@@ -850,18 +742,15 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -877,18 +766,15 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "notes": "First Routine",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 1,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 0,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 30,
                                     "tempo": 0,
@@ -897,36 +783,30 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 60,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 3,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
                                             "automatic": False,
                                         },
                                         {
-                                            "position": 2,
                                             "exercise_id": None,
                                             "duration": 30,
                                             "tempo": 0,
@@ -937,18 +817,15 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                             ],
                         },
                         {
-                            "position": 3,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -964,18 +841,15 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "notes": None,
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 5,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -1020,7 +894,6 @@ def test_create_workout(client: Client) -> None:
         "notes": "",
         "sets": [
             {
-                "position": 1,
                 "exercise_id": 3,
                 "reps": None,
                 "time": None,
@@ -1028,7 +901,6 @@ def test_create_workout(client: Client) -> None:
                 "rpe": None,
             },
             {
-                "position": 2,
                 "exercise_id": 1,
                 "reps": None,
                 "time": None,
@@ -1036,7 +908,6 @@ def test_create_workout(client: Client) -> None:
                 "rpe": None,
             },
             {
-                "position": 3,
                 "exercise_id": 1,
                 "reps": None,
                 "time": None,
@@ -1057,7 +928,6 @@ def test_create_workout(client: Client) -> None:
             "routine_id": 1,
             "sets": [
                 {
-                    "position": 1,
                     "exercise_id": 3,
                     "reps": 10,
                     "time": 4,
@@ -1065,7 +935,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": 8.0,
                 },
                 {
-                    "position": 2,
                     "exercise_id": 1,
                     "reps": 9,
                     "time": 4,
@@ -1073,7 +942,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": 8.5,
                 },
                 {
-                    "position": 3,
                     "exercise_id": 1,
                     "reps": None,
                     "time": 60,
@@ -1089,7 +957,6 @@ def test_create_workout(client: Client) -> None:
             "routine_id": None,
             "sets": [
                 {
-                    "position": 1,
                     "exercise_id": 3,
                     "reps": 9,
                     "time": None,
@@ -1097,7 +964,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": None,
                 },
                 {
-                    "position": 2,
                     "exercise_id": 3,
                     "reps": 8,
                     "time": None,
@@ -1105,7 +971,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": None,
                 },
                 {
-                    "position": 3,
                     "exercise_id": 3,
                     "reps": 7,
                     "time": None,
@@ -1113,7 +978,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": None,
                 },
                 {
-                    "position": 4,
                     "exercise_id": 3,
                     "reps": 6,
                     "time": None,
@@ -1121,7 +985,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": None,
                 },
                 {
-                    "position": 5,
                     "exercise_id": 3,
                     "reps": 5,
                     "time": None,
@@ -1137,7 +1000,6 @@ def test_create_workout(client: Client) -> None:
             "routine_id": 1,
             "sets": [
                 {
-                    "position": 1,
                     "exercise_id": 3,
                     "reps": 11,
                     "time": 4,
@@ -1145,7 +1007,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": 8.5,
                 },
                 {
-                    "position": 2,
                     "exercise_id": 1,
                     "reps": 9,
                     "time": 4,
@@ -1153,7 +1014,6 @@ def test_create_workout(client: Client) -> None:
                     "rpe": 8.0,
                 },
                 {
-                    "position": 3,
                     "exercise_id": 1,
                     "reps": None,
                     "time": 60,
@@ -1276,22 +1136,18 @@ def test_create_workout(client: Client) -> None:
                 "notes": "First Changed Routine",
                 "sections": [
                     {
-                        "position": 1,
                         "rounds": 3,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 1,
                                 "duration": 0,
                                 "tempo": 3,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "rounds": 2,
                                 "parts": [
                                     {
-                                        "position": 1,
                                         "exercise_id": 1,
                                         "duration": 0,
                                         "tempo": 0,
@@ -1302,18 +1158,15 @@ def test_create_workout(client: Client) -> None:
                         ],
                     },
                     {
-                        "position": 2,
                         "rounds": 2,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 20,
                                 "tempo": 0,
                                 "automatic": True,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 10,
                                 "tempo": 0,
@@ -1329,22 +1182,18 @@ def test_create_workout(client: Client) -> None:
                 "notes": "First Changed Routine",
                 "sections": [
                     {
-                        "position": 1,
                         "rounds": 3,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 1,
                                 "duration": 0,
                                 "tempo": 3,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "rounds": 2,
                                 "parts": [
                                     {
-                                        "position": 1,
                                         "exercise_id": 1,
                                         "duration": 0,
                                         "tempo": 0,
@@ -1355,18 +1204,15 @@ def test_create_workout(client: Client) -> None:
                         ],
                     },
                     {
-                        "position": 2,
                         "rounds": 2,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 20,
                                 "tempo": 0,
                                 "automatic": True,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 10,
                                 "tempo": 0,
@@ -1383,22 +1229,18 @@ def test_create_workout(client: Client) -> None:
                     "notes": "First Changed Routine",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
@@ -1409,18 +1251,15 @@ def test_create_workout(client: Client) -> None:
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -1436,18 +1275,15 @@ def test_create_workout(client: Client) -> None:
                     "notes": None,
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 5,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -1472,7 +1308,6 @@ def test_create_workout(client: Client) -> None:
                 "notes": "",
                 "sets": [
                     {
-                        "position": 1,
                         "exercise_id": 1,
                         "reps": 9,
                         "time": 4,
@@ -1480,7 +1315,6 @@ def test_create_workout(client: Client) -> None:
                         "rpe": 8.5,
                     },
                     {
-                        "position": 2,
                         "exercise_id": 1,
                         "reps": None,
                         "time": 60,
@@ -1496,7 +1330,6 @@ def test_create_workout(client: Client) -> None:
                 "notes": "",
                 "sets": [
                     {
-                        "position": 1,
                         "exercise_id": 1,
                         "reps": 9,
                         "time": 4,
@@ -1504,7 +1337,6 @@ def test_create_workout(client: Client) -> None:
                         "rpe": 8.5,
                     },
                     {
-                        "position": 2,
                         "exercise_id": 1,
                         "reps": None,
                         "time": 60,
@@ -1521,7 +1353,6 @@ def test_create_workout(client: Client) -> None:
                     "notes": "",
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -1529,7 +1360,6 @@ def test_create_workout(client: Client) -> None:
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -1545,7 +1375,6 @@ def test_create_workout(client: Client) -> None:
                     "routine_id": None,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 9,
                             "time": None,
@@ -1553,7 +1382,6 @@ def test_create_workout(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 3,
                             "reps": 8,
                             "time": None,
@@ -1561,7 +1389,6 @@ def test_create_workout(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 3,
                             "reps": 7,
                             "time": None,
@@ -1569,7 +1396,6 @@ def test_create_workout(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 4,
                             "exercise_id": 3,
                             "reps": 6,
                             "time": None,
@@ -1577,7 +1403,6 @@ def test_create_workout(client: Client) -> None:
                             "rpe": None,
                         },
                         {
-                            "position": 5,
                             "exercise_id": 3,
                             "reps": 5,
                             "time": None,
@@ -1593,7 +1418,6 @@ def test_create_workout(client: Client) -> None:
                     "routine_id": 1,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 11,
                             "time": 4,
@@ -1601,7 +1425,6 @@ def test_create_workout(client: Client) -> None:
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -1609,7 +1432,6 @@ def test_create_workout(client: Client) -> None:
                             "rpe": 8.0,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -1671,18 +1493,15 @@ def test_replace(
                 "notes": "First Routine",
                 "sections": [
                     {
-                        "position": 1,
                         "rounds": 1,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 0,
                                 "tempo": 0,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 30,
                                 "tempo": 0,
@@ -1691,36 +1510,30 @@ def test_replace(
                         ],
                     },
                     {
-                        "position": 2,
                         "rounds": 2,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 1,
                                 "duration": 0,
                                 "tempo": 3,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 60,
                                 "tempo": 0,
                                 "automatic": False,
                             },
                             {
-                                "position": 3,
                                 "rounds": 2,
                                 "parts": [
                                     {
-                                        "position": 1,
                                         "exercise_id": 1,
                                         "duration": 0,
                                         "tempo": 0,
                                         "automatic": False,
                                     },
                                     {
-                                        "position": 2,
                                         "exercise_id": None,
                                         "duration": 30,
                                         "tempo": 0,
@@ -1731,18 +1544,15 @@ def test_replace(
                         ],
                     },
                     {
-                        "position": 3,
                         "rounds": 3,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 20,
                                 "tempo": 0,
                                 "automatic": True,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 10,
                                 "tempo": 0,
@@ -1759,18 +1569,15 @@ def test_replace(
                     "notes": "First Routine",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 1,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 0,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 30,
                                     "tempo": 0,
@@ -1779,36 +1586,30 @@ def test_replace(
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 60,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 3,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
                                             "automatic": False,
                                         },
                                         {
-                                            "position": 2,
                                             "exercise_id": None,
                                             "duration": 30,
                                             "tempo": 0,
@@ -1819,18 +1620,15 @@ def test_replace(
                             ],
                         },
                         {
-                            "position": 3,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -1846,18 +1644,15 @@ def test_replace(
                     "notes": None,
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 5,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -1883,18 +1678,15 @@ def test_replace(
                 "notes": "Changed Notes",
                 "sections": [
                     {
-                        "position": 1,
                         "rounds": 1,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 0,
                                 "tempo": 0,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 30,
                                 "tempo": 0,
@@ -1903,36 +1695,30 @@ def test_replace(
                         ],
                     },
                     {
-                        "position": 2,
                         "rounds": 2,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 1,
                                 "duration": 0,
                                 "tempo": 3,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 60,
                                 "tempo": 0,
                                 "automatic": False,
                             },
                             {
-                                "position": 3,
                                 "rounds": 2,
                                 "parts": [
                                     {
-                                        "position": 1,
                                         "exercise_id": 1,
                                         "duration": 0,
                                         "tempo": 0,
                                         "automatic": False,
                                     },
                                     {
-                                        "position": 2,
                                         "exercise_id": None,
                                         "duration": 30,
                                         "tempo": 0,
@@ -1943,18 +1729,15 @@ def test_replace(
                         ],
                     },
                     {
-                        "position": 3,
                         "rounds": 3,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 20,
                                 "tempo": 0,
                                 "automatic": True,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 10,
                                 "tempo": 0,
@@ -1971,18 +1754,15 @@ def test_replace(
                     "notes": "Changed Notes",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 1,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 0,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 30,
                                     "tempo": 0,
@@ -1991,36 +1771,30 @@ def test_replace(
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 60,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 3,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
                                             "automatic": False,
                                         },
                                         {
-                                            "position": 2,
                                             "exercise_id": None,
                                             "duration": 30,
                                             "tempo": 0,
@@ -2031,18 +1805,15 @@ def test_replace(
                             ],
                         },
                         {
-                            "position": 3,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -2058,18 +1829,15 @@ def test_replace(
                     "notes": None,
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 5,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -2090,22 +1858,18 @@ def test_replace(
             {
                 "sections": [
                     {
-                        "position": 1,
                         "rounds": 3,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 1,
                                 "duration": 0,
                                 "tempo": 3,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "rounds": 2,
                                 "parts": [
                                     {
-                                        "position": 1,
                                         "exercise_id": 1,
                                         "duration": 0,
                                         "tempo": 0,
@@ -2116,18 +1880,15 @@ def test_replace(
                         ],
                     },
                     {
-                        "position": 2,
                         "rounds": 2,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 20,
                                 "tempo": 0,
                                 "automatic": True,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 10,
                                 "tempo": 0,
@@ -2143,22 +1904,18 @@ def test_replace(
                 "notes": "First Routine",
                 "sections": [
                     {
-                        "position": 1,
                         "rounds": 3,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 1,
                                 "duration": 0,
                                 "tempo": 3,
                                 "automatic": False,
                             },
                             {
-                                "position": 2,
                                 "rounds": 2,
                                 "parts": [
                                     {
-                                        "position": 1,
                                         "exercise_id": 1,
                                         "duration": 0,
                                         "tempo": 0,
@@ -2169,18 +1926,15 @@ def test_replace(
                         ],
                     },
                     {
-                        "position": 2,
                         "rounds": 2,
                         "parts": [
                             {
-                                "position": 1,
                                 "exercise_id": 3,
                                 "duration": 20,
                                 "tempo": 0,
                                 "automatic": True,
                             },
                             {
-                                "position": 2,
                                 "exercise_id": None,
                                 "duration": 10,
                                 "tempo": 0,
@@ -2197,22 +1951,18 @@ def test_replace(
                     "notes": "First Routine",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
@@ -2223,18 +1973,15 @@ def test_replace(
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -2250,18 +1997,15 @@ def test_replace(
                     "notes": None,
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 5,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -2286,7 +2030,6 @@ def test_replace(
                 "notes": "First Workout",
                 "sets": [
                     {
-                        "position": 1,
                         "exercise_id": 3,
                         "reps": 10,
                         "time": 4,
@@ -2294,7 +2037,6 @@ def test_replace(
                         "rpe": 8.0,
                     },
                     {
-                        "position": 2,
                         "exercise_id": 1,
                         "reps": 9,
                         "time": 4,
@@ -2302,7 +2044,6 @@ def test_replace(
                         "rpe": 8.5,
                     },
                     {
-                        "position": 3,
                         "exercise_id": 1,
                         "reps": None,
                         "time": 60,
@@ -2319,7 +2060,6 @@ def test_replace(
                     "notes": "First Workout",
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 10,
                             "time": 4,
@@ -2327,7 +2067,6 @@ def test_replace(
                             "rpe": 8.0,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2335,7 +2074,6 @@ def test_replace(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -2351,7 +2089,6 @@ def test_replace(
                     "notes": None,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 9,
                             "time": None,
@@ -2359,7 +2096,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 3,
                             "reps": 8,
                             "time": None,
@@ -2367,7 +2103,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 3,
                             "reps": 7,
                             "time": None,
@@ -2375,7 +2110,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 4,
                             "exercise_id": 3,
                             "reps": 6,
                             "time": None,
@@ -2383,7 +2117,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 5,
                             "exercise_id": 3,
                             "reps": 5,
                             "time": None,
@@ -2399,7 +2132,6 @@ def test_replace(
                     "routine_id": 1,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 11,
                             "time": 4,
@@ -2407,7 +2139,6 @@ def test_replace(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2415,7 +2146,6 @@ def test_replace(
                             "rpe": 8.0,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -2439,7 +2169,6 @@ def test_replace(
                 "notes": "",
                 "sets": [
                     {
-                        "position": 1,
                         "exercise_id": 3,
                         "reps": 10,
                         "time": 4,
@@ -2447,7 +2176,6 @@ def test_replace(
                         "rpe": 8.0,
                     },
                     {
-                        "position": 2,
                         "exercise_id": 1,
                         "reps": 9,
                         "time": 4,
@@ -2455,7 +2183,6 @@ def test_replace(
                         "rpe": 8.5,
                     },
                     {
-                        "position": 3,
                         "exercise_id": 1,
                         "reps": None,
                         "time": 60,
@@ -2472,7 +2199,6 @@ def test_replace(
                     "notes": "",
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 10,
                             "time": 4,
@@ -2480,7 +2206,6 @@ def test_replace(
                             "rpe": 8.0,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2488,7 +2213,6 @@ def test_replace(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -2504,7 +2228,6 @@ def test_replace(
                     "notes": None,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 9,
                             "time": None,
@@ -2512,7 +2235,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 3,
                             "reps": 8,
                             "time": None,
@@ -2520,7 +2242,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 3,
                             "reps": 7,
                             "time": None,
@@ -2528,7 +2249,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 4,
                             "exercise_id": 3,
                             "reps": 6,
                             "time": None,
@@ -2536,7 +2256,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 5,
                             "exercise_id": 3,
                             "reps": 5,
                             "time": None,
@@ -2552,7 +2271,6 @@ def test_replace(
                     "routine_id": 1,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 11,
                             "time": 4,
@@ -2560,7 +2278,6 @@ def test_replace(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2568,7 +2285,6 @@ def test_replace(
                             "rpe": 8.0,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -2585,7 +2301,6 @@ def test_replace(
             {
                 "sets": [
                     {
-                        "position": 1,
                         "exercise_id": 1,
                         "reps": 9,
                         "time": 4,
@@ -2593,7 +2308,6 @@ def test_replace(
                         "rpe": 8.5,
                     },
                     {
-                        "position": 2,
                         "exercise_id": 1,
                         "reps": None,
                         "time": 60,
@@ -2609,7 +2323,6 @@ def test_replace(
                 "notes": "First Workout",
                 "sets": [
                     {
-                        "position": 1,
                         "exercise_id": 1,
                         "reps": 9,
                         "time": 4,
@@ -2617,7 +2330,6 @@ def test_replace(
                         "rpe": 8.5,
                     },
                     {
-                        "position": 2,
                         "exercise_id": 1,
                         "reps": None,
                         "time": 60,
@@ -2634,7 +2346,6 @@ def test_replace(
                     "notes": "First Workout",
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2642,7 +2353,6 @@ def test_replace(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -2658,7 +2368,6 @@ def test_replace(
                     "notes": None,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 9,
                             "time": None,
@@ -2666,7 +2375,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 3,
                             "reps": 8,
                             "time": None,
@@ -2674,7 +2382,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 3,
                             "reps": 7,
                             "time": None,
@@ -2682,7 +2389,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 4,
                             "exercise_id": 3,
                             "reps": 6,
                             "time": None,
@@ -2690,7 +2396,6 @@ def test_replace(
                             "rpe": None,
                         },
                         {
-                            "position": 5,
                             "exercise_id": 3,
                             "reps": 5,
                             "time": None,
@@ -2706,7 +2411,6 @@ def test_replace(
                     "routine_id": 1,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 11,
                             "time": 4,
@@ -2714,7 +2418,6 @@ def test_replace(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2722,7 +2425,6 @@ def test_replace(
                             "rpe": 8.0,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -2818,18 +2520,15 @@ def test_modify(
                     "notes": "First Routine",
                     "sections": [
                         {
-                            "position": 1,
                             "rounds": 1,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 0,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 30,
                                     "tempo": 0,
@@ -2838,36 +2537,30 @@ def test_modify(
                             ],
                         },
                         {
-                            "position": 2,
                             "rounds": 2,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 1,
                                     "duration": 0,
                                     "tempo": 3,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 60,
                                     "tempo": 0,
                                     "automatic": False,
                                 },
                                 {
-                                    "position": 3,
                                     "rounds": 2,
                                     "parts": [
                                         {
-                                            "position": 1,
                                             "exercise_id": 1,
                                             "duration": 0,
                                             "tempo": 0,
                                             "automatic": False,
                                         },
                                         {
-                                            "position": 2,
                                             "exercise_id": None,
                                             "duration": 30,
                                             "tempo": 0,
@@ -2878,18 +2571,15 @@ def test_modify(
                             ],
                         },
                         {
-                            "position": 3,
                             "rounds": 3,
                             "parts": [
                                 {
-                                    "position": 1,
                                     "exercise_id": 3,
                                     "duration": 20,
                                     "tempo": 0,
                                     "automatic": True,
                                 },
                                 {
-                                    "position": 2,
                                     "exercise_id": None,
                                     "duration": 10,
                                     "tempo": 0,
@@ -2911,7 +2601,6 @@ def test_modify(
                     "notes": "First Workout",
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 10,
                             "time": 4,
@@ -2919,7 +2608,6 @@ def test_modify(
                             "rpe": 8.0,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2927,7 +2615,6 @@ def test_modify(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,
@@ -2943,7 +2630,6 @@ def test_modify(
                     "routine_id": 1,
                     "sets": [
                         {
-                            "position": 1,
                             "exercise_id": 3,
                             "reps": 11,
                             "time": 4,
@@ -2951,7 +2637,6 @@ def test_modify(
                             "rpe": 8.5,
                         },
                         {
-                            "position": 2,
                             "exercise_id": 1,
                             "reps": 9,
                             "time": 4,
@@ -2959,7 +2644,6 @@ def test_modify(
                             "rpe": 8.0,
                         },
                         {
-                            "position": 3,
                             "exercise_id": 1,
                             "reps": None,
                             "time": 60,

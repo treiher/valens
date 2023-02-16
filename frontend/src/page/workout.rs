@@ -425,7 +425,7 @@ pub fn update(
                     model.form = init_form(workout);
                     model.previous_sets = init_previous_sets(workout, data_model);
                 }
-                data::Event::WorkoutModifiedOk => {
+                data::Event::WorkoutModifiedOk | data::Event::WorkoutModifiedErr => {
                     model.loading = false;
                 }
                 _ => {}

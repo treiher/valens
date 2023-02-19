@@ -200,27 +200,31 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    div![
-        view_workouts_dialog(&data_model.routines, &model.dialog, model.loading),
-        common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        view_charts(
-            data_model
-                .workouts
-                .iter()
-                .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
-                .collect::<Vec<_>>()
-                .as_slice(),
-            &model.interval
-        ),
-        view_table(
-            &data_model.workouts,
-            &data_model.routines,
-            &model.interval,
-            &data_model.base_url,
-            Msg::ShowDeleteWorkoutDialog
-        ),
-        common::view_fab("plus", |_| Msg::ShowAddWorkoutDialog),
-    ]
+    if data_model.workouts.is_empty() && data_model.loading_workouts {
+        common::view_loading()
+    } else {
+        div![
+            view_workouts_dialog(&data_model.routines, &model.dialog, model.loading),
+            common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+            view_charts(
+                data_model
+                    .workouts
+                    .iter()
+                    .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                &model.interval
+            ),
+            view_table(
+                &data_model.workouts,
+                &data_model.routines,
+                &model.interval,
+                &data_model.base_url,
+                Msg::ShowDeleteWorkoutDialog
+            ),
+            common::view_fab("plus", |_| Msg::ShowAddWorkoutDialog),
+        ]
+    }
 }
 
 fn view_workouts_dialog(routines: &[data::Routine], dialog: &Dialog, loading: bool) -> Node<Msg> {

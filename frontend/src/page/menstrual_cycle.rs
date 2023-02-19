@@ -209,15 +209,19 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    div![
-        view_period_dialog(&model.dialog, model.loading),
-        view_current_cycle(data_model),
-        common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        view_chart(model, data_model),
-        view_cycle_stats(model, data_model),
-        view_period_table(model, data_model),
-        common::view_fab("plus", |_| Msg::ShowAddPeriodDialog),
-    ]
+    if data_model.period.is_empty() && data_model.loading_period {
+        common::view_loading()
+    } else {
+        div![
+            view_period_dialog(&model.dialog, model.loading),
+            view_current_cycle(data_model),
+            common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+            view_chart(model, data_model),
+            view_cycle_stats(model, data_model),
+            view_period_table(model, data_model),
+            common::view_fab("plus", |_| Msg::ShowAddPeriodDialog),
+        ]
+    }
 }
 
 fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {

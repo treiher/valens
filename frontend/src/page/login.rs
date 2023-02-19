@@ -1,5 +1,6 @@
 use seed::{prelude::*, *};
 
+use crate::common;
 use crate::data;
 
 // ------ ------
@@ -48,24 +49,28 @@ pub fn update(msg: Msg, _model: &mut Model, orders: &mut impl Orders<Msg>) {
 // ------ ------
 
 pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
-    div![
-        C!["container"],
-        C!["has-text-centered"],
-        &data_model
-            .users
-            .iter()
-            .map(|user| {
-                let user_id = u32::clone(&user.id);
-                div![
-                    C!["column"],
-                    button![
-                        C!["button"],
-                        C!["is-link"],
-                        ev(Ev::Click, move |_| Msg::LogIn(user_id)),
-                        &user.name,
+    if data_model.users.is_empty() && data_model.loading_users {
+        common::view_loading()
+    } else {
+        div![
+            C!["container"],
+            C!["has-text-centered"],
+            &data_model
+                .users
+                .iter()
+                .map(|user| {
+                    let user_id = u32::clone(&user.id);
+                    div![
+                        C!["column"],
+                        button![
+                            C!["button"],
+                            C!["is-link"],
+                            ev(Ev::Click, move |_| Msg::LogIn(user_id)),
+                            &user.name,
+                        ]
                     ]
-                ]
-            })
-            .collect::<Vec<_>>(),
-    ]
+                })
+                .collect::<Vec<_>>(),
+        ]
+    }
 }

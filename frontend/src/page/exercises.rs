@@ -148,15 +148,19 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    div![
-        view_exercise_dialog(&model.dialog, &data_model.exercises, model.loading),
+    if data_model.exercises.is_empty() && data_model.loading_exercises {
+        common::view_loading()
+    } else {
         div![
-            C!["px-4"],
-            common::view_search_box(&model.search_term, Msg::SearchTermChanged)
-        ],
-        view_table(&model.search_term, data_model),
-        common::view_fab("plus", |_| Msg::ShowAddExerciseDialog),
-    ]
+            view_exercise_dialog(&model.dialog, &data_model.exercises, model.loading),
+            div![
+                C!["px-4"],
+                common::view_search_box(&model.search_term, Msg::SearchTermChanged)
+            ],
+            view_table(&model.search_term, data_model),
+            common::view_fab("plus", |_| Msg::ShowAddExerciseDialog),
+        ]
+    }
 }
 
 fn view_exercise_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> Node<Msg> {

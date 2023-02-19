@@ -40,7 +40,7 @@ pub fn init(
                 .collect::<Vec<NaiveDate>>(),
             true,
         ),
-        id: routine_id,
+        routine_id,
         sections: if let Some(routine) = routine {
             routine.sections.iter().map(|p| p.into()).collect()
         } else {
@@ -79,7 +79,7 @@ fn init_previous_exercises(
 
 pub struct Model {
     interval: common::Interval,
-    id: u32,
+    routine_id: u32,
     sections: Vec<Form>,
     previous_exercises: BTreeSet<u32>,
     dialog: Dialog,
@@ -238,14 +238,14 @@ pub fn update(
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .routine()
-                    .add_hash_path_part(model.id.to_string())
+                    .add_hash_path_part(model.routine_id.to_string())
                     .add_hash_path_part("edit"),
             );
         }
         Msg::SaveRoutine => {
             model.loading = true;
             orders.notify(data::Msg::ModifyRoutine(
-                model.id,
+                model.routine_id,
                 None,
                 Some(to_routine_parts(&model.sections)),
             ));
@@ -263,7 +263,7 @@ pub fn update(
             Url::go_and_replace(
                 &crate::Urls::new(&data_model.base_url)
                     .routine()
-                    .add_hash_path_part(model.id.to_string()),
+                    .add_hash_path_part(model.routine_id.to_string()),
             );
         }
 
@@ -450,12 +450,15 @@ pub fn update(
                         &data_model
                             .workouts
                             .iter()
-                            .filter(|w| w.routine_id == Some(model.id))
+                            .filter(|w| w.routine_id == Some(model.routine_id))
                             .map(|w| w.date)
                             .collect::<Vec<NaiveDate>>(),
                         true,
                     );
-                    let routine = &data_model.routines.iter().find(|r| r.id == model.id);
+                    let routine = &data_model
+                        .routines
+                        .iter()
+                        .find(|r| r.id == model.routine_id);
                     if not(model.editing) {
                         model.sections = if let Some(routine) = routine {
                             routine.sections.iter().map(|p| p.into()).collect()
@@ -472,7 +475,7 @@ pub fn update(
                     Url::go_and_push(
                         &crate::Urls::new(&data_model.base_url)
                             .routine()
-                            .add_hash_path_part(model.id.to_string()),
+                            .add_hash_path_part(model.routine_id.to_string()),
                     );
                 }
                 data::Event::WorkoutDeletedOk => {
@@ -494,7 +497,13 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if let Some(routine) = &data_model.routines.iter().find(|r| r.id == model.id) {
+    if data_model.routines.is_empty() && data_model.loading_routines {
+        common::view_loading()
+    } else if let Some(routine) = &data_model
+        .routines
+        .iter()
+        .find(|r| r.id == model.routine_id)
+    {
         let saving_disabled = not(model.sections.iter().all(|s| s.valid()));
         div![
             common::view_title(&span![&routine.name], 0),
@@ -522,7 +531,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             },
         ]
     } else {
-        empty![]
+        common::view_error_not_found("Routine")
     }
 }
 
@@ -941,7 +950,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .workouts
                 .iter()
                 .filter(|w| {
-                    w.routine_id == Some(model.id)
+                    w.routine_id == Some(model.routine_id)
                         && w.date >= model.interval.first
                         && w.date <= model.interval.last
                 })
@@ -953,7 +962,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
             &data_model
                 .workouts
                 .iter()
-                .filter(|w| w.routine_id == Some(model.id))
+                .filter(|w| w.routine_id == Some(model.routine_id))
                 .cloned()
                 .collect::<Vec<_>>(),
             &data_model.routines,

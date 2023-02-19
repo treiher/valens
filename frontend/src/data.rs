@@ -17,14 +17,21 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         session: None,
         version: String::new(),
         users: Vec::new(),
+        loading_users: false,
         body_weight: Vec::new(),
+        loading_body_weight: false,
         body_fat: Vec::new(),
+        loading_body_fat: false,
         period: Vec::new(),
+        loading_period: false,
         cycles: Vec::new(),
         current_cycle: None,
         exercises: Vec::new(),
+        loading_exercises: false,
         routines: Vec::new(),
+        loading_routines: false,
         workouts: Vec::new(),
+        loading_workouts: false,
         last_refresh: DateTime::<Utc>::from_utc(
             NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
             Utc,
@@ -44,16 +51,23 @@ pub struct Model {
     pub session: Option<Session>,
     pub version: String,
     pub users: Vec<User>,
+    pub loading_users: bool,
 
     // ------ Session-dependent data ------
     pub body_weight: Vec<BodyWeight>,
+    pub loading_body_weight: bool,
     pub body_fat: Vec<BodyFat>,
+    pub loading_body_fat: bool,
     pub period: Vec<Period>,
+    pub loading_period: bool,
     pub cycles: Vec<Cycle>,
     pub current_cycle: Option<CurrentCycle>,
     pub exercises: Vec<Exercise>,
+    pub loading_exercises: bool,
     pub routines: Vec<Routine>,
+    pub loading_routines: bool,
     pub workouts: Vec<Workout>,
+    pub loading_workouts: bool,
     pub last_refresh: DateTime<Utc>,
 }
 
@@ -639,6 +653,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadUsers => {
+            model.loading_users = true;
             orders.perform_cmd(async { fetch("api/users", Msg::UsersRead).await });
         }
         Msg::UsersRead(Ok(users)) => {
@@ -646,11 +661,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.users = users;
                 orders.notify(Event::DataChanged);
             }
+            model.loading_users = false;
         }
         Msg::UsersRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read users: ".to_owned() + &message);
+            model.loading_users = false;
         }
         Msg::CreateUser(user) => {
             orders.perform_cmd(async move {
@@ -719,6 +736,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadBodyWeight => {
+            model.loading_body_weight = true;
             orders.skip().perform_cmd(async {
                 fetch("api/body_weight?format=statistics", Msg::BodyWeightRead).await
             });
@@ -730,11 +748,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.body_weight = body_weight;
                 orders.notify(Event::DataChanged);
             }
+            model.loading_body_weight = false;
         }
         Msg::BodyWeightRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read body weight: ".to_owned() + &message);
+            model.loading_body_weight = false;
         }
         Msg::CreateBodyWeight(body_weight) => {
             orders.perform_cmd(async move {
@@ -804,6 +824,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadBodyFat => {
+            model.loading_body_fat = true;
             orders.skip().perform_cmd(async {
                 fetch("api/body_fat?format=statistics", Msg::BodyFatRead).await
             });
@@ -814,11 +835,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.body_fat = body_fat;
                 orders.notify(Event::DataChanged);
             }
+            model.loading_body_fat = false;
         }
         Msg::BodyFatRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read body fat: ".to_owned() + &message);
+            model.loading_body_fat = false;
         }
         Msg::CreateBodyFat(body_fat) => {
             orders.perform_cmd(async move {
@@ -896,6 +919,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadPeriod => {
+            model.loading_period = true;
             orders
                 .skip()
                 .perform_cmd(async { fetch("api/period", Msg::PeriodRead).await });
@@ -908,11 +932,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.current_cycle = determine_current_cycle(&model.cycles);
                 orders.notify(Event::DataChanged);
             }
+            model.loading_period = false;
         }
         Msg::PeriodRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read period: ".to_owned() + &message);
+            model.loading_period = false;
         }
         Msg::CreatePeriod(period) => {
             orders.perform_cmd(async move {
@@ -982,6 +1008,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadExercises => {
+            model.loading_exercises = true;
             orders
                 .skip()
                 .perform_cmd(async { fetch("api/exercises", Msg::ExercisesRead).await });
@@ -992,11 +1019,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.exercises = exercises;
                 orders.notify(Event::DataChanged);
             }
+            model.loading_exercises = false;
         }
         Msg::ExercisesRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read exercises: ".to_owned() + &message);
+            model.loading_exercises = false;
         }
         Msg::CreateExercise(exercise_name) => {
             orders.perform_cmd(async move {
@@ -1066,6 +1095,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadRoutines => {
+            model.loading_routines = true;
             orders
                 .skip()
                 .perform_cmd(async { fetch("api/routines", Msg::RoutinesRead).await });
@@ -1076,11 +1106,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.routines = routines;
                 orders.notify(Event::DataChanged);
             }
+            model.loading_routines = false;
         }
         Msg::RoutinesRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read routines: ".to_owned() + &message);
+            model.loading_routines = false;
         }
         Msg::CreateRoutine(routine_name) => {
             orders.perform_cmd(async move {
@@ -1161,6 +1193,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadWorkouts => {
+            model.loading_workouts = true;
             orders
                 .skip()
                 .perform_cmd(async { fetch("api/workouts", Msg::WorkoutsRead).await });
@@ -1171,11 +1204,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.workouts = workouts;
                 orders.notify(Event::DataChanged);
             }
+            model.loading_workouts = false;
         }
         Msg::WorkoutsRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read workouts: ".to_owned() + &message);
+            model.loading_workouts = false;
         }
         Msg::CreateWorkout(routine_id, date, notes, sets) => {
             orders.perform_cmd(async move {

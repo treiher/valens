@@ -503,7 +503,9 @@ fn update_timer_handle(model: &mut Model, orders: &mut impl Orders<Msg>) {
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if let Some(workout) = data_model
+    if data_model.workouts.is_empty() && data_model.loading_workouts {
+        common::view_loading()
+    } else if let Some(workout) = data_model
         .workouts
         .iter()
         .find(|w| w.id == model.workout_id)
@@ -520,8 +522,6 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 view_workout_form(model, data_model)
             ]
         }
-    } else if data_model.workouts.is_empty() {
-        common::view_loading()
     } else {
         common::view_error_not_found("Workout")
     }

@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::data;
+use crate::{common, data};
 
 // ------ ------
 //     Init
@@ -52,7 +52,10 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     let body_fat_subtitle;
     let body_fat_content;
 
-    if let Some(body_weight) = &data_model.body_weight.last() {
+    if data_model.body_weight.is_empty() && data_model.loading_body_weight {
+        body_weight_subtitle = common::view_loading::<Msg>().to_string();
+        body_weight_content = String::new();
+    } else if let Some(body_weight) = &data_model.body_weight.last() {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
         body_weight_content = last("entry", local - body_weight.date);
     } else {
@@ -60,7 +63,10 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         body_weight_content = String::new();
     }
 
-    if let Some(body_fat) = &data_model.body_fat.last() {
+    if data_model.body_fat.is_empty() && data_model.loading_body_fat {
+        body_fat_subtitle = common::view_loading::<Msg>().to_string();
+        body_fat_content = String::new();
+    } else if let Some(body_fat) = &data_model.body_fat.last() {
         body_fat_subtitle = if let Some(jp3) = body_fat.jp3(sex) {
             format!("{:.1} %", jp3)
         } else {
@@ -72,7 +78,9 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         body_fat_content = String::new();
     }
 
-    let menstrual_cycle_subtitle = if let Some(current_cycle) = &data_model.current_cycle {
+    let menstrual_cycle_subtitle = if data_model.period.is_empty() && data_model.loading_period {
+        common::view_loading::<Msg>().to_string()
+    } else if let Some(current_cycle) = &data_model.current_cycle {
         format!(
             "{} (±{}) days left",
             current_cycle.time_left.num_days(),
@@ -171,7 +179,7 @@ fn view_tile(title: &str, subtitle: &str, content: &str, target: Url) -> Node<Ms
                 ],
                 IF![
                     !subtitle.is_empty() => {
-                        p![C!["subtitle"], C!["is-size-5"], subtitle]
+                        p![C!["subtitle"], C!["is-size-5"], raw![subtitle]]
                     }
                 ],
                 IF![

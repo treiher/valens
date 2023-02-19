@@ -261,6 +261,9 @@ class Page:  # pylint: disable = too-many-public-methods
                 (By.XPATH, "//div[contains(@class, 'navbar-item')]"), self.title
             )
         )
+        wait(self._driver).until(
+            EC.invisibility_of_element_located((By.XPATH, "//i[@class='fas fa-spinner fa-pulse']"))
+        )
 
     def click_up_button(self) -> None:
         self._driver.find_element(by=By.CLASS_NAME, value="navbar-item").click()

@@ -217,13 +217,17 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    div![
-        view_body_weight_dialog(&model.dialog, model.loading),
-        common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        view_chart(model, data_model),
-        view_table(model, data_model),
-        common::view_fab("plus", |_| Msg::ShowAddBodyWeightDialog),
-    ]
+    if data_model.body_weight.is_empty() && data_model.loading_body_weight {
+        common::view_loading()
+    } else {
+        div![
+            view_body_weight_dialog(&model.dialog, model.loading),
+            common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+            view_chart(model, data_model),
+            view_table(model, data_model),
+            common::view_fab("plus", |_| Msg::ShowAddBodyWeightDialog),
+        ]
+    }
 }
 
 fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {

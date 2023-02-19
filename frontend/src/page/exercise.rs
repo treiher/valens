@@ -128,7 +128,9 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if let Some(exercise) = data_model
+    if data_model.exercises.is_empty() && data_model.loading_exercises {
+        common::view_loading()
+    } else if let Some(exercise) = data_model
         .exercises
         .iter()
         .find(|e| e.id == model.exercise_id)
@@ -151,7 +153,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             view_dialog(&model.dialog, model.loading)
         ]
     } else {
-        empty![]
+        common::view_error_not_found("Exercise")
     }
 }
 

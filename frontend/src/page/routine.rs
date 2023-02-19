@@ -124,7 +124,14 @@ impl From<&data::RoutinePart> for Form {
     fn from(part: &data::RoutinePart) -> Self {
         match part {
             data::RoutinePart::RoutineSection { rounds, parts, .. } => Form::Section {
-                rounds: (rounds.to_string(), Some(*rounds)),
+                rounds: (
+                    if *rounds == 1 {
+                        String::new()
+                    } else {
+                        rounds.to_string()
+                    },
+                    Some(*rounds),
+                ),
                 parts: parts.iter().map(|p| p.into()).collect(),
             },
             data::RoutinePart::RoutineActivity {
@@ -262,7 +269,7 @@ pub fn update(
 
         Msg::AddSection(id) => {
             let new_section = Form::Section {
-                rounds: (String::from("1"), Some(1)),
+                rounds: (String::new(), Some(1)),
                 parts: vec![],
             };
             if id.is_empty() {
@@ -335,18 +342,22 @@ pub fn update(
                 ..
             }) = get_part(&mut model.sections, &id)
             {
-                match rounds.parse::<u32>() {
-                    Ok(parsed_rounds) => {
-                        *section_rounds = (
-                            rounds,
-                            if parsed_rounds > 0 {
-                                Some(parsed_rounds)
-                            } else {
-                                None
-                            },
-                        )
+                if rounds.is_empty() {
+                    *section_rounds = (rounds, Some(1));
+                } else {
+                    match rounds.parse::<u32>() {
+                        Ok(parsed_rounds) => {
+                            *section_rounds = (
+                                rounds,
+                                if parsed_rounds > 0 {
+                                    Some(parsed_rounds)
+                                } else {
+                                    None
+                                },
+                            )
+                        }
+                        Err(_) => *section_rounds = (rounds, None),
                     }
-                    Err(_) => *section_rounds = (rounds, None),
                 }
             }
         }
@@ -614,7 +625,7 @@ fn view_routine_part(
         Form::Section { rounds, parts } => {
             div![
                 C!["message"],
-                C!["mt-3"],
+                IF![editing || id.first() != Some(&0) => C!["mt-3"]],
                 C!["mb-0"],
                 C!["is-grey"],
                 C!["has-background-white-bis"],
@@ -652,18 +663,26 @@ fn view_routine_part(
                                             At::Step => 1,
                                             At::Size => 2,
                                             At::Value => rounds.0,
+                                            At::Placeholder => 1,
                                         }
                                     ]
                                 ]
                             ],
                             view_position_buttons(id.clone())
                         ]
+                    } else if let Some(rounds) = rounds.1 {
+                        if rounds > 1 {
+                            span![
+                                C!["icon-text"],
+                                C!["mb-3"],
+                                span![C!["icon"], i![C!["fas fa-repeat"]],],
+                                span![rounds]
+                            ]
+                        } else {
+                            empty![]
+                        }
                     } else {
-                        span![
-                            C!["icon-text"],
-                            span![C!["icon"], i![C!["fas fa-repeat"]],],
-                            span![&rounds.0]
-                        ]
+                        empty![]
                     },
                     parts
                         .iter()
@@ -687,7 +706,7 @@ fn view_routine_part(
         } => {
             div![
                 C!["message"],
-                C!["mt-3"],
+                IF![editing || id.first() != Some(&0) => C!["mt-3"]],
                 C!["mb-0"],
                 if exercise_id.is_some() {
                     C!["is-info"]

@@ -176,7 +176,11 @@ fn to_routine_parts(parts: &[Form]) -> Vec<data::RoutinePart> {
                 position: u32::try_from(i + 1).unwrap_or(0),
                 exercise_id: *exercise_id,
                 duration: duration.1.unwrap_or(0),
-                tempo: tempo.1.unwrap_or(0),
+                tempo: if exercise_id.is_some() {
+                    tempo.1.unwrap_or(0)
+                } else {
+                    0
+                },
                 automatic: *automatic,
             },
         })
@@ -751,39 +755,43 @@ fn view_routine_part(
                                     span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
                                 ]
                             ],
-                            div![
-                                C!["field"],
-                                C!["mb-0"],
-                                C!["mr-2"],
-                                div![
-                                    C!["control"],
-                                    C!["has-icons-left"],
-                                    C!["has-icons-right"],
-                                    input_ev(Ev::Input, {
-                                        let id = id.clone();
-                                        move |v| Msg::TempoChanged(id, v)
-                                    }),
-                                    span![
-                                        C!["icon"],
-                                        C!["is-small"],
-                                        C!["is-left"],
-                                        i![C!["fas fa-person-running"]]
-                                    ],
-                                    input![
-                                        C!["input"],
-                                        C!["has-text-right"],
-                                        C![IF![tempo.1.is_none() => "is-danger"]],
-                                        attrs! {
-                                            At::Type => "number",
-                                            At::Min => 1,
-                                            At::Max => 999,
-                                            At::Step => 1,
-                                            At::Size => 2,
-                                            At::Value => tempo.0,
-                                        }
-                                    ],
-                                    span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
-                                ]
+                            IF![
+                                exercise_id.is_some() => {
+                                    div![
+                                        C!["field"],
+                                        C!["mb-0"],
+                                        C!["mr-2"],
+                                        div![
+                                            C!["control"],
+                                            C!["has-icons-left"],
+                                            C!["has-icons-right"],
+                                            input_ev(Ev::Input, {
+                                                let id = id.clone();
+                                                move |v| Msg::TempoChanged(id, v)
+                                            }),
+                                            span![
+                                                C!["icon"],
+                                                C!["is-small"],
+                                                C!["is-left"],
+                                                i![C!["fas fa-person-running"]]
+                                            ],
+                                            input![
+                                                C!["input"],
+                                                C!["has-text-right"],
+                                                C![IF![tempo.1.is_none() => "is-danger"]],
+                                                attrs! {
+                                                    At::Type => "number",
+                                                    At::Min => 1,
+                                                    At::Max => 999,
+                                                    At::Step => 1,
+                                                    At::Size => 2,
+                                                    At::Value => tempo.0,
+                                                }
+                                            ],
+                                            span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                        ]
+                                    ]
+                                }
                             ],
                             button![
                                 C!["button"],

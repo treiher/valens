@@ -705,21 +705,23 @@ fn view_routine_part(
                             if let Some(exercise_id) = exercise_id {
                                 div![
                                     C!["field"],
-                                    if let Some(exercise) =
-                                        data_model.exercises.iter().find(|e| e.id == *exercise_id)
-                                    {
-                                        button![
-                                            C!["input"],
-                                            style! {St::Height => "auto"},
-                                            input_ev(Ev::Click, {
-                                                let id = id.clone();
-                                                move |_| Msg::ShowSelectExerciseDialog(id)
-                                            }),
-                                            &exercise.name
-                                        ]
-                                    } else {
-                                        plain![format!("Exercise#{exercise_id}")]
-                                    }
+                                    button![
+                                        C!["input"],
+                                        style! {St::Height => "auto"},
+                                        input_ev(Ev::Click, {
+                                            let id = id.clone();
+                                            move |_| Msg::ShowSelectExerciseDialog(id)
+                                        }),
+                                        if let Some(exercise) = data_model
+                                            .exercises
+                                            .iter()
+                                            .find(|e| e.id == *exercise_id)
+                                        {
+                                            exercise.name.clone()
+                                        } else {
+                                            format!("Exercise#{exercise_id}")
+                                        }
+                                    ]
                                 ]
                             } else {
                                 div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]]

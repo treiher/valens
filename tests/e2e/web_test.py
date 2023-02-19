@@ -683,6 +683,39 @@ def test_routine_edit(driver: webdriver.Chrome) -> None:
     assert sections[0] == ("8", exercise_2, "60 s", "4 s", "A", "Rest", "30 s")
 
 
+def test_routine_create_exercise(driver: webdriver.Chrome) -> None:
+    routine = USER.routines[0]
+    assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
+    exercise_1 = str(routine.sections[0].parts[0].exercise.name)
+    assert isinstance(routine.sections[1].parts[0], models.RoutineActivity)
+    exercise_2 = str(routine.sections[1].parts[0].exercise.name)
+    new_exercise = "New Exercise"
+
+    login(driver)
+    page = RoutinePage(driver, routine.id)
+    page.load()
+
+    page.wait_for_title(routine.name)
+
+    page.wait_for_link(exercise_1)
+    page.wait_for_link(exercise_2)
+
+    page.wait_for_sections()
+    sections = page.get_sections()
+    assert sections[0][1] == exercise_1
+
+    page.click_fab()
+
+    page.wait_for_editable_sections()
+    page.create_and_set_exercise(0, new_exercise)
+
+    page.click_fab()
+
+    page.wait_for_sections()
+    sections = page.get_sections()
+    assert sections[0][1] == new_exercise
+
+
 def test_routine_add_section(driver: webdriver.Chrome) -> None:
     routine = USER.routines[0]
     section_rounds = [str(s.rounds) for s in routine.sections]

@@ -569,7 +569,7 @@ class RoutinePage(Page):
         self._click_button("repeat", index)
 
     def set_rounds(self, index: int, rounds: int) -> None:
-        self._set_input("repeat", index, rounds)
+        self._set_input("repeat", index, str(rounds))
 
     def set_exercise(self, index: int, text: str) -> None:
         buttons = self._driver.find_elements(by=By.XPATH, value="//button[@class='input']")
@@ -582,11 +582,26 @@ class RoutinePage(Page):
         Dialog(self._driver).wait_for_opening()
         self._driver.find_element(by=By.XPATH, value=f"//td[text()='{text}']").click()
 
+    def create_and_set_exercise(self, index: int, text: str) -> None:
+        buttons = self._driver.find_elements(by=By.XPATH, value="//button[@class='input']")
+        (
+            ActionChains(self._driver)
+            .move_to_element(buttons[index])  # type: ignore[no-untyped-call]
+            .click()
+            .perform()
+        )
+        Dialog(self._driver).wait_for_opening()
+        self._set_input("search", 0, text)
+        self._click_button("plus", 0)
+        wait(self._driver).until(
+            EC.visibility_of_element_located((By.XPATH, f"//td[text()='{text}']"))
+        ).click()
+
     def set_duration(self, index: int, duration: int) -> None:
-        self._set_input("clock-rotate-left", index, duration)
+        self._set_input("clock-rotate-left", index, str(duration))
 
     def set_tempo(self, index: int, tempo: int) -> None:
-        self._set_input("person-running", index, tempo)
+        self._set_input("person-running", index, str(tempo))
 
     def wait_for_editable_sections(self) -> None:
         wait(self._driver).until(
@@ -613,7 +628,7 @@ class RoutinePage(Page):
         )
         sleep(0.01)
 
-    def _set_input(self, icon: str, index: int, value: int) -> None:
+    def _set_input(self, icon: str, index: int, value: str) -> None:
         controls = [
             e
             for e in self._driver.find_elements(
@@ -658,9 +673,11 @@ class ExercisePage(Page):
 
 def wait(driver: webdriver.Chrome) -> WebDriverWait:
     class Wait(WebDriverWait):
-        def until(self, method: Callable[[RemoteWebDriver], WebElement], message: str = "") -> None:
+        def until(
+            self, method: Callable[[RemoteWebDriver], WebElement], message: str = ""
+        ) -> WebElement:
             try:
-                super().until(method)
+                return super().until(method)
             except TimeoutException as e:
                 pprint.pp(
                     driver.get_log("browser"),  # type: ignore[no-untyped-call]
@@ -670,9 +687,9 @@ def wait(driver: webdriver.Chrome) -> WebDriverWait:
 
         def until_not(
             self, method: Callable[[RemoteWebDriver], WebElement], message: str = ""
-        ) -> None:
+        ) -> WebElement:
             try:
-                super().until_not(method)
+                return super().until_not(method)
             except TimeoutException as e:
                 pprint.pp(
                     driver.get_log("browser"),  # type: ignore[no-untyped-call]

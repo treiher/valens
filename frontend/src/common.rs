@@ -143,20 +143,18 @@ where
     Ms: 'static,
 {
     div![
-        C!["field"],
-        div![
-            C!["control"],
-            C!["has-icons-left"],
-            input_ev(Ev::Input, search_term_changed),
-            span![C!["icon"], C!["is-left"], i![C!["fas fa-search"]]],
-            input![
-                C!["input"],
-                attrs! {
-                    At::Type => "text",
-                    At::Value => search_term,
-                }
-            ],
-        ]
+        C!["control"],
+        C!["has-icons-left"],
+        C!["is-flex-grow-1"],
+        input_ev(Ev::Input, search_term_changed),
+        span![C!["icon"], C!["is-left"], i![C!["fas fa-search"]]],
+        input![
+            C!["input"],
+            attrs! {
+                At::Type => "text",
+                At::Value => search_term,
+            }
+        ],
     ]
 }
 

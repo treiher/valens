@@ -212,6 +212,7 @@ pub enum Msg {
 
     SearchTermChanged(String),
 
+    CreateExercise,
     DeleteWorkout(u32),
     DataEvent(data::Event),
 
@@ -420,6 +421,12 @@ pub fn update(
             }
         }
 
+        Msg::CreateExercise => {
+            model.loading = true;
+            if let Dialog::SelectExercise(_, search_term) = &model.dialog {
+                orders.notify(data::Msg::CreateExercise(search_term.trim().to_string()));
+            };
+        }
         Msg::DeleteWorkout(id) => {
             model.loading = true;
             orders.notify(data::Msg::DeleteWorkout(id));
@@ -438,11 +445,13 @@ pub fn update(
                         true,
                     );
                     let routine = &data_model.routines.iter().find(|r| r.id == model.id);
-                    model.sections = if let Some(routine) = routine {
-                        routine.sections.iter().map(|p| p.into()).collect()
-                    } else {
-                        vec![]
-                    };
+                    if not(model.editing) {
+                        model.sections = if let Some(routine) = routine {
+                            routine.sections.iter().map(|p| p.into()).collect()
+                        } else {
+                            vec![]
+                        };
+                    }
                     model.previous_exercises = init_previous_exercises(routine, data_model);
                 }
                 data::Event::RoutineCreatedOk
@@ -512,7 +521,29 @@ fn view_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> 
             "primary",
             "Select exercise",
             nodes![
-                common::view_search_box(search_term, Msg::SearchTermChanged),
+                div![
+                    C!["field"],
+                    C!["is-grouped"],
+                    common::view_search_box(search_term, Msg::SearchTermChanged),
+                    {
+                        let disabled = loading
+                            || search_term.is_empty()
+                            || exercises.iter().any(|e| e.name == *search_term.trim());
+                        div![
+                            C!["control"],
+                            button![
+                                C!["button"],
+                                C!["is-link"],
+                                C![IF![loading => "is-loading"]],
+                                attrs! {
+                                    At::Disabled => disabled.as_at_value()
+                                },
+                                ev(Ev::Click, |_| Msg::CreateExercise),
+                                span![C!["icon"], i![C!["fas fa-plus"]]]
+                            ]
+                        ]
+                    }
+                ],
                 div![
                     C!["table-container"],
                     C!["mt-4"],
@@ -522,7 +553,10 @@ fn view_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> 
                         C!["is-hoverable"],
                         tbody![&exercises
                             .iter()
-                            .filter(|e| e.name.to_lowercase().contains(&search_term.to_lowercase()))
+                            .filter(|e| e
+                                .name
+                                .to_lowercase()
+                                .contains(&search_term.to_lowercase().trim()))
                             .map(|e| {
                                 tr![td![
                                     C!["has-text-link"],

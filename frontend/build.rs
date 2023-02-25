@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn main() {
     let output = Command::new("python")
-        .args(&[
+        .args([
             "-c",
             "from setuptools_scm import get_version; print(get_version(root='..'))",
         ])

@@ -50,37 +50,37 @@ impl<'a> Urls<'a> {
         self.base_url()
     }
     pub fn login(self) -> Url {
-        self.base_url().set_hash_path(&[LOGIN])
+        self.base_url().set_hash_path([LOGIN])
     }
     pub fn admin(self) -> Url {
-        self.base_url().set_hash_path(&[ADMIN])
+        self.base_url().set_hash_path([ADMIN])
     }
     pub fn body_weight(self) -> Url {
-        self.base_url().set_hash_path(&[BODY_WEIGHT])
+        self.base_url().set_hash_path([BODY_WEIGHT])
     }
     pub fn body_fat(self) -> Url {
-        self.base_url().set_hash_path(&[BODY_FAT])
+        self.base_url().set_hash_path([BODY_FAT])
     }
     pub fn menstrual_cycle(self) -> Url {
-        self.base_url().set_hash_path(&[MENSTRUAL_CYCLE])
+        self.base_url().set_hash_path([MENSTRUAL_CYCLE])
     }
     pub fn exercises(self) -> Url {
-        self.base_url().set_hash_path(&[EXERCISES])
+        self.base_url().set_hash_path([EXERCISES])
     }
     pub fn exercise(self) -> Url {
-        self.base_url().set_hash_path(&[EXERCISE])
+        self.base_url().set_hash_path([EXERCISE])
     }
     pub fn routines(self) -> Url {
-        self.base_url().set_hash_path(&[ROUTINES])
+        self.base_url().set_hash_path([ROUTINES])
     }
     pub fn routine(self) -> Url {
-        self.base_url().set_hash_path(&[ROUTINE])
+        self.base_url().set_hash_path([ROUTINE])
     }
     pub fn workouts(self) -> Url {
-        self.base_url().set_hash_path(&[WORKOUTS])
+        self.base_url().set_hash_path([WORKOUTS])
     }
     pub fn workout(self) -> Url {
-        self.base_url().set_hash_path(&[WORKOUT])
+        self.base_url().set_hash_path([WORKOUT])
     }
 }
 

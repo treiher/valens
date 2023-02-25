@@ -573,7 +573,7 @@ fn view_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> 
                             .filter(|e| e
                                 .name
                                 .to_lowercase()
-                                .contains(&search_term.to_lowercase().trim()))
+                                .contains(search_term.to_lowercase().trim()))
                             .map(|e| {
                                 tr![td![
                                     C!["has-text-link"],

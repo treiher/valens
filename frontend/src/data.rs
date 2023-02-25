@@ -584,7 +584,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::SessionReceived(Ok(new_session)) => {
             model.session = Some(new_session);
             orders.send_msg(Msg::Refresh).request_url(
-                crate::Urls::new(&model.base_url.clone().set_hash_path(&[""; 0])).home(),
+                crate::Urls::new(&model.base_url.clone().set_hash_path([""; 0])).home(),
             );
         }
         Msg::SessionReceived(Err(message)) => {

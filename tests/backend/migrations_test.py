@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -15,13 +16,33 @@ from pytest_alembic.tests import (  # noqa: F401
     test_upgrade,
 )
 
+from tests.utils import dump_db
 from valens import app, database as db
 
 DATA_DIR = Path("tests/data")
 BASE_SCHEMA = DATA_DIR / "base.sql"
 
 
+def assert_db_equality(
+    tmp_path: Path, source: str, target: str, infix: str, migrate: Callable[[], None]
+) -> None:
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    connection = sqlite3.connect(test_db)
+    connection.executescript((DATA_DIR / f"{source}.sql").read_text(encoding="utf-8"))
+    connection.commit()
+
+    with app.app_context():
+        migrate()
+        filename = f"{target}_{infix}_{source}.sql"
+        dump = dump_db(connection)
+        (tmp_path / filename).write_text(dump)
+        assert dump == (DATA_DIR / filename).read_text(encoding="utf-8")
+
+
 def test_completeness(tmp_path: Path) -> None:
+    """Ensure that all constraints defined in the model are added during the upgrade."""
     # Based on alembic-autogen-check (https://github.com/4Catalyzer/alembic-autogen-check)
     # The MIT License (MIT), Copyright (c) 2019 4Catalyzer
 
@@ -89,33 +110,13 @@ def test_completeness_constraints(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(("source", "target"), [("4b6051594962", "b9f4e42c7135")])
 def test_up(tmp_path: Path, source: str, target: str) -> None:
-    cfg = Config("alembic.ini")
-    test_db = tmp_path / "test.db"
-    app.config["DATABASE"] = f"sqlite:///{test_db}"
-
-    connection = sqlite3.connect(test_db)
-    connection.executescript((DATA_DIR / f"{source}.sql").read_text(encoding="utf-8"))
-    connection.commit()
-
-    with app.app_context():
-        upgrade(cfg, target)
-        assert "".join(
-            [f"{l.rstrip()}\n" for s in connection.iterdump() for l in s.split("\n")]
-        ) == (DATA_DIR / f"{target}_up_from_{source}.sql").read_text(encoding="utf-8")
+    assert_db_equality(
+        tmp_path, source, target, "up_from", lambda: upgrade(Config("alembic.ini"), target)
+    )
 
 
 @pytest.mark.parametrize(("source", "target"), [("b9f4e42c7135", "4b6051594962")])
 def test_down(tmp_path: Path, source: str, target: str) -> None:
-    cfg = Config("alembic.ini")
-    test_db = tmp_path / "test.db"
-    app.config["DATABASE"] = f"sqlite:///{test_db}"
-
-    connection = sqlite3.connect(test_db)
-    connection.executescript((DATA_DIR / f"{source}.sql").read_text(encoding="utf-8"))
-    connection.commit()
-
-    with app.app_context():
-        downgrade(cfg, target)
-        assert "".join(
-            [f"{l.rstrip()}\n" for s in connection.iterdump() for l in s.split("\n")]
-        ) == (DATA_DIR / f"{target}_down_from_{source}.sql").read_text(encoding="utf-8")
+    assert_db_equality(
+        tmp_path, source, target, "down_from", lambda: downgrade(Config("alembic.ini"), target)
+    )

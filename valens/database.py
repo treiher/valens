@@ -1,3 +1,5 @@
+# ruff: noqa: T201
+
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -52,7 +54,7 @@ def get_session() -> Session:
     return g.db_session
 
 
-session: Session = LocalProxy(get_session)  # type: ignore
+session: Session = LocalProxy(get_session)  # type: ignore[assignment]
 
 
 def remove_session() -> None:
@@ -101,7 +103,7 @@ def _upgrade(connection: Connection) -> None:
 
 @event.listens_for(Engine, "connect")
 def _set_sqlite_pragma(
-    dbapi_connection: sqlite3.Connection, _: pool.base._ConnectionRecord
+    dbapi_connection: sqlite3.Connection, _: pool.base._ConnectionRecord  # noqa: SLF001
 ) -> None:
     if current_app.config["SQLITE_FOREIGN_KEY_SUPPORT"]:
         cursor = dbapi_connection.cursor()

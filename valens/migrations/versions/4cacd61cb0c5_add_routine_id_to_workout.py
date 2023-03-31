@@ -1,4 +1,5 @@
-"""Add routine_id to workout
+"""
+Add routine_id to workout.
 
 Revision ID: 4cacd61cb0c5
 Revises:

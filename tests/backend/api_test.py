@@ -1,10 +1,8 @@
-# pylint: disable = too-many-lines
-
 from __future__ import annotations
 
+from collections.abc import Generator
 from http import HTTPStatus
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from werkzeug.test import Client, TestResponse as Response
@@ -20,9 +18,8 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
     app.config["SECRET_KEY"] = b"TEST_KEY"
     app.config["TESTING"] = True
 
-    with app.test_client() as client:
-        with app.app_context():
-            yield client
+    with app.test_client() as client, app.app_context():
+        yield client
 
 
 def create_session(client: Client, user_id: int = 1) -> Response:
@@ -34,7 +31,7 @@ def delete_session(client: Client) -> Response:
 
 
 @pytest.mark.parametrize(
-    "method, route",
+    ("method", "route"),
     [
         ("get", "/api/users/1"),
         ("get", "/api/body_weight"),
@@ -64,7 +61,7 @@ def test_session_required(client: Client, method: str, route: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "method, route",
+    ("method", "route"),
     [
         ("post", "/api/session"),
         ("post", "/api/users"),
@@ -94,7 +91,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "method, route, data",
+    ("method", "route", "data"),
     [
         ("post", "/api/session", {"invalid": "data"}),
         ("post", "/api/users", {"invalid": "data"}),
@@ -285,7 +282,7 @@ def test_delete_user(client: Client) -> None:
 
 
 @pytest.mark.parametrize(
-    "user_id, route, data",
+    ("user_id", "route", "data"),
     [
         (
             1,
@@ -576,7 +573,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
 
 
 @pytest.mark.parametrize(
-    "route, data, result",
+    ("route", "data", "result"),
     [
         (
             "/api/body_weight",
@@ -918,7 +915,7 @@ def test_create_workout(client: Client) -> None:
     }
     created = {
         **data,
-        **{"id": 5},
+        **{"id": 5},  # noqa: PIE800
     }
     result = [
         {
@@ -1041,7 +1038,7 @@ def test_create_workout(client: Client) -> None:
 
 
 @pytest.mark.parametrize(
-    "route, data, response, result, conflicting_data",
+    ("route", "data", "response", "result", "conflicting_data"),
     [
         (
             "/api/body_weight/2002-02-20",
@@ -1480,7 +1477,7 @@ def test_replace(
 
 
 @pytest.mark.parametrize(
-    "route, data, response, result, conflicting_data",
+    ("route", "data", "response", "result", "conflicting_data"),
     [
         (
             "/api/routines/1",
@@ -2473,7 +2470,7 @@ def test_modify(
 
 
 @pytest.mark.parametrize(
-    "route, result",
+    ("route", "result"),
     [
         (
             "/api/body_weight/2002-02-21",

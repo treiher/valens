@@ -72,7 +72,7 @@ def model_to_dict(
     include = [] if include is None else include
     return {
         name: attr.isoformat() if isinstance(attr, date) else attr
-        for col in chain(getattr(model, "__table__").columns, (column(i) for i in include))
+        for col in chain(model.__table__.columns, (column(i) for i in include))
         if col.name not in exclude
         for name, attr in [(col.name, getattr(model, col.name))]
     }

@@ -1,8 +1,8 @@
+from collections.abc import Generator
 from datetime import datetime, timedelta
 from multiprocessing import Process
 from pathlib import Path
 from time import sleep
-from typing import Generator
 
 import pytest
 from alembic import command

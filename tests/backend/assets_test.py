@@ -1,6 +1,6 @@
+from collections.abc import Generator
 from http import HTTPStatus
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from werkzeug.test import Client
@@ -14,9 +14,8 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
     app.config["SECRET_KEY"] = b"TEST_KEY"
     app.config["TESTING"] = True
 
-    with app.test_client() as client:
-        with app.app_context():
-            yield client
+    with app.test_client() as client, app.app_context():
+        yield client
 
 
 @pytest.mark.parametrize(

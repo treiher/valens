@@ -1,4 +1,5 @@
-"""Add type checking
+"""
+Add type checking.
 
 Revision ID: 4b6051594962
 Revises: 3e7317eb4efa
@@ -6,7 +7,6 @@ Create Date: 2022-01-22
 
 """
 from alembic import op
-from sqlalchemy import CheckConstraint, column
 
 revision = "4b6051594962"
 down_revision = "3e7317eb4efa"
@@ -104,6 +104,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for constraint_name, table_name, condition in CHECK_CONSTRAINTS:
+    for constraint_name, table_name, _ in CHECK_CONSTRAINTS:
         with op.batch_alter_table(table_name) as batch_op:  # type: ignore[no-untyped-call]
             batch_op.drop_constraint(f"ck_{table_name}_{constraint_name}")

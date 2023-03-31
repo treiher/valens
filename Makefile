@@ -17,7 +17,7 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check_frontend check_backend check_black check_isort check_pylint check_mypy
+.PHONY: check check_frontend check_backend check_black check_ruff check_mypy
 
 check: check_frontend check_backend
 
@@ -26,16 +26,13 @@ check_frontend:
 	cargo check --manifest-path=frontend/Cargo.toml
 	cargo clippy --manifest-path=frontend/Cargo.toml -- --deny warnings
 
-check_backend: check_black check_isort check_pylint check_mypy
+check_backend: check_black check_ruff check_mypy
 
 check_black:
-	black --check --diff --line-length 100 $(PYTHON_PACKAGES)
+	black --check --diff $(PYTHON_PACKAGES)
 
-check_isort:
-	isort --check --diff $(PYTHON_PACKAGES)
-
-check_pylint:
-	pylint $(PYTHON_PACKAGES)
+check_ruff:
+	ruff check $(PYTHON_PACKAGES)
 
 check_mypy:
 	mypy --pretty $(PYTHON_PACKAGES)
@@ -44,8 +41,8 @@ check_mypy:
 
 format:
 	cargo fmt --manifest-path=frontend/Cargo.toml
-	black -l 100 $(PYTHON_PACKAGES)
-	isort $(PYTHON_PACKAGES)
+	ruff --fix-only $(PYTHON_PACKAGES) | true
+	black $(PYTHON_PACKAGES)
 
 .PHONY: test test_frontend test_backend test_e2e
 

@@ -6,7 +6,7 @@ build-backend = 'setuptools.build_meta'
 
 [tool.black]
 line-length = 100
-target-version = ['py36', 'py37', 'py38']
+target-version = ['py39', 'py310', 'py311']
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -23,86 +23,102 @@ exclude = '''
 )/
 '''
 
-[tool.coverage.paths]
-source = ['valens']
-
-[tool.coverage.run]
-branch = true
-
-[tool.coverage.report]
-show_missing = true
-fail_under = 100
-exclude_lines = [
-    'pragma: no cover',
-    'assert False',
-    'def __repr__',
-    'def __str__',
-    'if TYPE_CHECKING:',
-    'raise NotImplementedError',
-    'return NotImplemented',
+[tool.ruff]
+target-version = "py39"
+select = [
+    "F",    # pyflakes
+    "E",    # pycodestyle
+    "W",    # pycodestyle
+    "C90",  # mccabe
+    "I",    # isort
+    "N",    # pep8-naming
+    "D",    # pydocstyle
+    "UP",   # pyupgrade
+    "FBT",  # flake8-boolean-trap
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "T10",  # flake8-debugger
+    "EXE",  # flake8-executable
+    "ISC",  # flake8-implicit-str-concat
+    "PIE",  # flake8-pie
+    "T20",  # flake8-print
+    "PYI",  # flake8-pyi
+    "PT",   # flake8-pytest-style
+    "RSE",  # flake8-raise
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+    "INT",  # flake8-gettext
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "ERA",  # eradicate
+    "PGH",  # pygrep-hooks
+    "PL",   # pylint
+    "RUF",  # ruff
 ]
-
-[tool.isort]
-profile = 'black'
-line_length = 100
-combine_as_imports = true
-
-[tool.pydocstyle]
+fixable = [
+    "F",    # pyflakes
+    "E",    # pycodestyle
+    "W",    # pycodestyle
+    "C90",  # mccabe
+    "I",    # isort
+    "N",    # pep8-naming
+    "D",    # pydocstyle
+    "UP",   # pyupgrade
+    "FBT",  # flake8-boolean-trap
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "T10",  # flake8-debugger
+    "EXE",  # flake8-executable
+    "ISC",  # flake8-implicit-str-concat
+    "PIE",  # flake8-pie
+    "T20",  # flake8-print
+    "PYI",  # flake8-pyi
+    "PT",   # flake8-pytest-style
+    "RSE",  # flake8-raise
+    "RET",  # flake8-return
+    "SLF",  # flake8-self
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports
+    "INT",  # flake8-gettext
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "PGH",  # pygrep-hooks
+    "PL",   # pylint
+    "RUF",  # ruff
+]
 ignore = [
-    'D100',
-    'D101',
-    'D102',
-    'D103',
-    'D104',
-    'D105',
-    'D106',
-    'D107',
-    'D203',
-    'D212',
+    "D100",    # public-module
+    "D101",    # public-class
+    "D102",    # public-method
+    "D103",    # public-function
+    "D104",    # public-package
+    "D105",    # magic-method
+    "D106",    # public-nested-class
+    "D107",    # public-init
+    "D202",    # no-blank-line-after-function
+    "D203",    # one-blank-line-before-class
+    "D212",    # multi-line-summary-first-line
+    "E741",    # ambiguous-variable-name
+    "N812",    # lowercase-imported-as-non-lowercase
+    "UP007",   # typing-union
+    "B011",    # assert-false
+    "ARG005",  # unused-lambda-argument
+    "PLC0414", # useless-import-alias
+    "PLC1901", # compare-to-empty-string
+    "PLR2004", # magic-value-comparison
 ]
+line-length = 100
 
-[tool.pylint.master]
-jobs = 0
+[tool.ruff.isort]
+combine-as-imports = true
 
-[tool.pylint.messages_control]
-enable = [
-    'useless-suppression'
-]
-disable = [
-    'missing-docstring',
-    'unnecessary-lambda',
-    'inconsistent-return-statements',
-    'unsubscriptable-object',  # https://github.com/PyCQA/pylint/issues/3045
-]
-
-[tool.pylint.basic]
-good-names = [
-    'i',
-    'j',
-    'k',
-    'ex',
-    'log',
-    '_',
-]
-
-argument-rgx = '[a-z_][a-z0-9_]{1,30}$'
-variable-rgx = '[a-z0-9_]{1,30}$'
-
-[tool.pylint.design]
+[tool.ruff.pylint]
 max-args = 6
-max-attributes = 7
-max-bool-expr = 5
 max-branches = 12
-max-locals = 15
-max-parents = 7
-max-public-methods = 20
 max-returns = 10
 max-statements = 50
-min-public-methods = 0
-
-[tool.pylint.similarities]
-min-similarity-lines = 12
-ignore-imports = true
 
 [tool.mypy]
 check_untyped_defs = true
@@ -136,4 +152,23 @@ filterwarnings = [
     'ignore:Gtk.Widget.set_double_buffered is deprecated',
     'ignore:Gtk.Window.set_wmclass is deprecated',
     'ignore:Gtk.Widget.size_request is deprecated',
+]
+
+[tool.coverage.paths]
+source = ['valens']
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_lines = [
+    'pragma: no cover',
+    'assert False',
+    'def __repr__',
+    'def __str__',
+    'if TYPE_CHECKING:',
+    'raise NotImplementedError',
+    'return NotImplemented',
 ]

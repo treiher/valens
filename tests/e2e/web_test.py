@@ -1,12 +1,10 @@
-# pylint: disable = too-many-lines
-
 from __future__ import annotations
 
 import os
+from collections.abc import Generator
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from tempfile import TemporaryDirectory
-from typing import Generator
 
 import pytest
 from selenium import webdriver
@@ -38,7 +36,7 @@ USERNAMES = [user.name for user in USERS]
 
 
 @pytest.fixture(autouse=True)
-def fixture_backend() -> Generator[None, None, None]:
+def _fixture_backend() -> Generator[None, None, None]:
     with TemporaryDirectory() as tmp_dir:
         data_dir = Path(tmp_dir)
         db_file = data_dir / "test.db"

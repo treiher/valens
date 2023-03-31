@@ -20,7 +20,6 @@ def wait_for_output(out: IO[bytes], expected: str) -> None:
         except Empty:
             pass
         else:
-            print(line)
             if expected in line:
                 break
     else:

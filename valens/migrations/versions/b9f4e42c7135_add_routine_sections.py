@@ -1,4 +1,5 @@
-"""Add routine sections
+"""
+Add routine sections.
 
 Revision ID: b9f4e42c7135
 Revises: 4b6051594962
@@ -194,7 +195,7 @@ def downgrade() -> None:
             routine_part.join(routine_activity, routine_part.c.id == routine_activity.c.id)
             .select()
             .where(routine_part.c.routine_section_id == section.id)
-            .where(routine_activity.c.exercise_id != None)
+            .where(routine_activity.c.exercise_id != None)  # noqa: E711
         ):
             if section.routine_id is None:
                 continue

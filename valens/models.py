@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import datetime
 import enum
-from datetime import date
 from typing import Optional
 
 from sqlalchemy import (
@@ -81,7 +81,7 @@ class BodyWeight(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
     )
-    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
     weight: Mapped[float] = mapped_column(Float, nullable=False)
 
 
@@ -128,7 +128,7 @@ class BodyFat(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
     )
-    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
     chest: Mapped[Optional[int]] = mapped_column(Integer)
     abdominal: Mapped[Optional[int]] = mapped_column(Integer)
     tigh: Mapped[Optional[int]] = mapped_column(Integer)
@@ -149,7 +149,7 @@ class Period(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
     )
-    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
     intensity: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
@@ -266,7 +266,7 @@ class Workout(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     routine_id: Mapped[Optional[int]] = mapped_column(ForeignKey("routine.id", ondelete="CASCADE"))
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(String)
 
     routine: Mapped[Routine] = relationship("Routine", back_populates="workouts")

@@ -5,6 +5,7 @@ from abc import abstractmethod
 from time import sleep
 from typing import Callable
 
+import pytest
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
@@ -234,7 +235,7 @@ class RoutineExerciseDialog(Dialog):
         self.wait_for_closing()
 
 
-class Page:  # pylint: disable = too-many-public-methods
+class Page:
     def __init__(self, driver: webdriver.Chrome) -> None:
         self._driver = driver
 
@@ -352,7 +353,7 @@ class LoginPage(Page):
                 HomePage(self._driver, username).wait_until_loaded()
                 break
         else:
-            assert False
+            pytest.fail("user not found")
 
 
 class HomePage(Page):
@@ -677,7 +678,7 @@ class ExercisePage(Page):
 def wait(driver: webdriver.Chrome) -> WebDriverWait:
     class Wait(WebDriverWait):
         def until(
-            self, method: Callable[[RemoteWebDriver], WebElement], message: str = ""
+            self, method: Callable[[RemoteWebDriver], WebElement], _message: str = ""
         ) -> WebElement:
             try:
                 return super().until(method)
@@ -689,7 +690,7 @@ def wait(driver: webdriver.Chrome) -> WebDriverWait:
                 raise e
 
         def until_not(
-            self, method: Callable[[RemoteWebDriver], WebElement], message: str = ""
+            self, method: Callable[[RemoteWebDriver], WebElement], _message: str = ""
         ) -> WebElement:
             try:
                 return super().until_not(method)

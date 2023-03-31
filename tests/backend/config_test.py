@@ -7,9 +7,9 @@ from valens import app, config
 
 def test_missing_key() -> None:
     with app.app_context():
+        if "DATABASE" in app.config:
+            del app.config["DATABASE"]
         with pytest.raises(RuntimeError, match=r"'DATABASE' is not set in app config"):
-            if "DATABASE" in app.config:
-                del app.config["DATABASE"]
             config.check_app_config()
 
 

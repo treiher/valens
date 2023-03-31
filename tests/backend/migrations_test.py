@@ -8,7 +8,7 @@ import pytest
 from alembic.command import downgrade, revision, upgrade
 from alembic.config import Config
 from alembic.operations.ops import MigrationScript
-from pytest_alembic.tests import (  # pylint: disable = unused-import
+from pytest_alembic.tests import (  # noqa: F401
     test_model_definitions_match_ddl,
     test_single_head_revision,
     test_up_down_consistency,
@@ -87,7 +87,7 @@ def test_completeness_constraints(tmp_path: Path) -> None:
         assert migrated_constraints == model_constraints
 
 
-@pytest.mark.parametrize("source, target", [("4b6051594962", "b9f4e42c7135")])
+@pytest.mark.parametrize(("source", "target"), [("4b6051594962", "b9f4e42c7135")])
 def test_up(tmp_path: Path, source: str, target: str) -> None:
     cfg = Config("alembic.ini")
     test_db = tmp_path / "test.db"
@@ -104,7 +104,7 @@ def test_up(tmp_path: Path, source: str, target: str) -> None:
         ) == (DATA_DIR / f"{target}_up_from_{source}.sql").read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize("source, target", [("b9f4e42c7135", "4b6051594962")])
+@pytest.mark.parametrize(("source", "target"), [("b9f4e42c7135", "4b6051594962")])
 def test_down(tmp_path: Path, source: str, target: str) -> None:
     cfg = Config("alembic.ini")
     test_db = tmp_path / "test.db"

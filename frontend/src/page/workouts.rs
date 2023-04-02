@@ -547,8 +547,7 @@ fn to_workout_elements(part: &data::RoutinePart) -> Vec<data::WorkoutElement> {
         data::RoutinePart::RoutineActivity {
             exercise_id,
             reps,
-            duration,
-            tempo: _,
+            time,
             weight,
             rpe,
             automatic,
@@ -561,14 +560,14 @@ fn to_workout_elements(part: &data::RoutinePart) -> Vec<data::WorkoutElement> {
                     weight: None,
                     rpe: None,
                     target_reps: if *reps > 0 { Some(*reps) } else { None },
-                    target_time: if *duration > 0 { Some(*duration) } else { None },
+                    target_time: if *time > 0 { Some(*time) } else { None },
                     target_weight: if *weight > 0.0 { Some(*weight) } else { None },
                     target_rpe: if *rpe > 0.0 { Some(*rpe) } else { None },
                     automatic: *automatic,
                 }
             } else {
                 data::WorkoutElement::WorkoutRest {
-                    target_time: if *duration > 0 { Some(*duration) } else { None },
+                    target_time: if *time > 0 { Some(*time) } else { None },
                     automatic: *automatic,
                 }
             });

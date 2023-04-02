@@ -159,8 +159,7 @@ pub enum RoutinePart {
     RoutineActivity {
         exercise_id: Option<u32>,
         reps: u32,
-        duration: u32,
-        tempo: u32,
+        time: u32,
         weight: f32,
         rpe: f32,
         automatic: bool,

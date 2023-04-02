@@ -612,11 +612,8 @@ class RoutinePage(Page):
     def set_reps(self, index: int, text: str) -> None:
         self._set_input("rotate-left", index, text)
 
-    def set_duration(self, index: int, text: str) -> None:
+    def set_time(self, index: int, text: str) -> None:
         self._set_input("clock-rotate-left", index, text)
-
-    def set_tempo(self, index: int, text: str) -> None:
-        self._set_input("person-running", index, text)
 
     def set_weight(self, index: int, text: str) -> None:
         self._set_input("weight-hanging", index, text)

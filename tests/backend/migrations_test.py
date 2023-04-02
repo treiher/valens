@@ -116,6 +116,7 @@ def test_completeness_constraints(tmp_path: Path) -> None:
         ("4b6051594962", "b9f4e42c7135"),
         ("b9f4e42c7135", "8a0dc258bf2a"),
         ("8a0dc258bf2a", "22f3ddb25741"),
+        ("22f3ddb25741", "06f82ead211b"),
     ],
 )
 def test_up(tmp_path: Path, source: str, target: str) -> None:
@@ -130,6 +131,7 @@ def test_up(tmp_path: Path, source: str, target: str) -> None:
         ("b9f4e42c7135", "4b6051594962"),
         ("8a0dc258bf2a", "b9f4e42c7135"),
         ("22f3ddb25741", "8a0dc258bf2a"),
+        ("06f82ead211b", "22f3ddb25741"),
     ],
 )
 def test_down(tmp_path: Path, source: str, target: str) -> None:

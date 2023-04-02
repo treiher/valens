@@ -673,7 +673,7 @@ def test_routine_edit(driver: webdriver.Chrome) -> None:
     page.set_rounds(0, 8)
     page.set_exercise(0, exercise_2)
     page.set_reps(0, "10")
-    page.set_tempo(0, "4")
+    page.set_time(0, "4")
     page.set_weight(0, "18")
     page.set_rpe(0, "8")
     page.click_auto_button(0)
@@ -690,8 +690,7 @@ def test_routine_edit(driver: webdriver.Chrome) -> None:
     page.set_rounds(0, 8)
     page.set_exercise(0, exercise_1)
     page.set_reps(0, "")
-    page.set_tempo(0, "")
-    page.set_duration(0, "60")
+    page.set_time(0, "60")
     page.set_weight(0, "5.5")
     page.set_rpe(0, "8.5")
     page.click_auto_button(0)
@@ -797,8 +796,8 @@ def test_routine_add_exercise(driver: webdriver.Chrome) -> None:
     assert sections[0][0] == exercise_1
     assert sections[1][1] == exercise_2
     assert sections[0][3] == new_exercise
+    assert sections[1][8] == new_exercise
     assert sections[1][9] == new_exercise
-    assert sections[1][10] == new_exercise
     assert sections[2][7] == new_exercise
 
 
@@ -834,8 +833,8 @@ def test_routine_add_rest(driver: webdriver.Chrome) -> None:
     assert sections[0][0] == exercise_1
     assert sections[1][1] == exercise_2
     assert sections[0][3] == "Rest"
-    assert sections[1][9] == "Rest"
-    assert sections[1][12] == "Rest"
+    assert sections[1][8] == "Rest"
+    assert sections[1][11] == "Rest"
     assert sections[2][7] == "Rest"
 
 
@@ -948,7 +947,7 @@ def test_routine_move_nested_section_up(driver: webdriver.Chrome) -> None:
 
     sections = page.get_sections()
 
-    assert sections[1][6] == exercise
+    assert sections[1][5] == exercise
 
     page.click_fab()
 
@@ -959,7 +958,7 @@ def test_routine_move_nested_section_up(driver: webdriver.Chrome) -> None:
 
     page.wait_for_sections()
     sections = page.get_sections()
-    assert sections[1][4] == exercise
+    assert sections[1][3] == exercise
 
     page.click_fab()
 
@@ -981,7 +980,7 @@ def test_routine_move_nested_section_up(driver: webdriver.Chrome) -> None:
 
     page.wait_for_sections()
     sections = page.get_sections()
-    assert sections[1][6] == exercise
+    assert sections[1][5] == exercise
 
 
 def test_routine_move_nested_section_down(driver: webdriver.Chrome) -> None:
@@ -1000,7 +999,7 @@ def test_routine_move_nested_section_down(driver: webdriver.Chrome) -> None:
 
     sections = page.get_sections()
 
-    assert sections[1][6] == exercise
+    assert sections[1][5] == exercise
 
     page.click_fab()
 
@@ -1022,7 +1021,7 @@ def test_routine_move_nested_section_down(driver: webdriver.Chrome) -> None:
 
     page.wait_for_sections()
     sections = page.get_sections()
-    assert sections[1][4] == exercise
+    assert sections[1][3] == exercise
 
     page.click_fab()
 
@@ -1033,7 +1032,7 @@ def test_routine_move_nested_section_down(driver: webdriver.Chrome) -> None:
 
     page.wait_for_sections()
     sections = page.get_sections()
-    assert sections[1][6] == exercise
+    assert sections[1][5] == exercise
 
 
 def test_routine_move_exercise_up(driver: webdriver.Chrome) -> None:

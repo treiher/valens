@@ -653,14 +653,6 @@ pub fn valid_time(duration: u32) -> bool {
     duration > 0 && duration < 1000
 }
 
-pub fn valid_duration(duration: u32) -> bool {
-    valid_time(duration)
-}
-
-pub fn valid_tempo(tempo: u32) -> bool {
-    valid_time(tempo)
-}
-
 pub fn valid_weight(weight: f32) -> bool {
     weight > 0.0 && weight < 1000.0 && (weight * 10.0 % 1.0).abs() < f32::EPSILON
 }

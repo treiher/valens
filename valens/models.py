@@ -241,10 +241,8 @@ class RoutineActivity(RoutinePart):
     __table_args__ = (
         CheckConstraint("typeof(reps) = 'integer'", name="reps_type_integer"),
         CheckConstraint(column("reps") >= 0, name="reps_ge_0"),
-        CheckConstraint("typeof(duration) = 'integer'", name="duration_type_integer"),
-        CheckConstraint(column("duration") >= 0, name="duration_ge_0"),
-        CheckConstraint("typeof(tempo) = 'integer'", name="tempo_type_integer"),
-        CheckConstraint(column("tempo") >= 0, name="tempo_ge_0"),
+        CheckConstraint("typeof(time) = 'integer'", name="time_type_integer"),
+        CheckConstraint(column("time") >= 0, name="time_ge_0"),
         CheckConstraint("typeof(weight) = 'real'", name="weight_type_real"),
         CheckConstraint(column("weight") >= 0, name="weight_ge_0"),
         CheckConstraint("typeof(rpe) = 'real'", name="rpe_type_real"),
@@ -257,8 +255,7 @@ class RoutineActivity(RoutinePart):
         ForeignKey("exercise.id", ondelete="CASCADE")
     )
     reps: Mapped[int]
-    duration: Mapped[int]
-    tempo: Mapped[int]
+    time: Mapped[int]
     weight: Mapped[float]
     rpe: Mapped[float]
     automatic: Mapped[bool]

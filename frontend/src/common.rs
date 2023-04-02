@@ -296,6 +296,17 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     }
 }
 
+pub fn automatic_icon<Ms>() -> Node<Ms> {
+    span![
+        C!["fa-stack"],
+        attrs! {
+            At::Style => "vertical-align: top;",
+        },
+        i![C!["fas fa-circle fa-stack-1x"]],
+        i![C!["fas fa-a fa-inverse fa-stack-1x"]]
+    ]
+}
+
 pub fn view_chart<Ms>(labels: &[(&str, usize)], chart: Vec<Node<Ms>>) -> Node<Ms> {
     div![
         C!["container"],
@@ -632,6 +643,30 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
             }
         }
     }
+}
+
+pub fn valid_reps(reps: u32) -> bool {
+    reps > 0 && reps < 1000
+}
+
+pub fn valid_time(duration: u32) -> bool {
+    duration > 0 && duration < 1000
+}
+
+pub fn valid_duration(duration: u32) -> bool {
+    valid_time(duration)
+}
+
+pub fn valid_tempo(tempo: u32) -> bool {
+    valid_time(tempo)
+}
+
+pub fn valid_weight(weight: f32) -> bool {
+    weight > 0.0 && weight < 1000.0 && (weight * 10.0 % 1.0).abs() < f32::EPSILON
+}
+
+pub fn valid_rpe(rpe: f32) -> bool {
+    (0.0..=10.0).contains(&rpe) && (rpe % 0.5).abs() < f32::EPSILON
 }
 
 #[cfg(test)]

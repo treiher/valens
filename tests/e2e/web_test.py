@@ -461,7 +461,8 @@ def test_workout_change_entries(driver: webdriver.Chrome) -> None:
             str(s.weight) if s.weight is not None else "",
             (str(int(s.rpe) if s.rpe % 1 == 0 else s.rpe)) if s.rpe is not None else "",
         ]
-        for s in workout.sets
+        for s in workout.elements
+        if isinstance(s, models.WorkoutSet)
     ]
     new_values = ["1", "2", "3", "4"]
 
@@ -501,7 +502,8 @@ def test_workout_change_notes(driver: webdriver.Chrome) -> None:
             str(s.weight) if s.weight is not None else "",
             (str(int(s.rpe) if s.rpe % 1 == 0 else s.rpe)) if s.rpe is not None else "",
         ]
-        for s in workout.sets
+        for s in workout.elements
+        if isinstance(s, models.WorkoutSet)
     ]
     notes = workout.notes if workout.notes is not None else ""
     new_notes = "Test"

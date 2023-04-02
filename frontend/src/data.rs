@@ -158,8 +158,11 @@ pub enum RoutinePart {
     },
     RoutineActivity {
         exercise_id: Option<u32>,
+        reps: u32,
         duration: u32,
         tempo: u32,
+        weight: f32,
+        rpe: f32,
         automatic: bool,
     },
 }
@@ -170,16 +173,28 @@ pub struct Workout {
     pub routine_id: Option<u32>,
     pub date: NaiveDate,
     pub notes: Option<String>,
-    pub sets: Vec<WorkoutSet>,
+    pub elements: Vec<WorkoutElement>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-pub struct WorkoutSet {
-    pub exercise_id: u32,
-    pub reps: Option<u32>,
-    pub time: Option<u32>,
-    pub weight: Option<f32>,
-    pub rpe: Option<f32>,
+#[serde(untagged)]
+pub enum WorkoutElement {
+    WorkoutSet {
+        exercise_id: u32,
+        reps: Option<u32>,
+        time: Option<u32>,
+        weight: Option<f32>,
+        rpe: Option<f32>,
+        target_reps: Option<u32>,
+        target_time: Option<u32>,
+        target_weight: Option<f32>,
+        target_rpe: Option<f32>,
+        automatic: bool,
+    },
+    WorkoutRest {
+        target_time: Option<u32>,
+        automatic: bool,
+    },
 }
 
 impl BodyFat {
@@ -274,8 +289,25 @@ impl RoutinePart {
 }
 
 impl Workout {
+    pub fn exercises(&self) -> BTreeSet<u32> {
+        self.elements
+            .iter()
+            .flat_map(|e| match e {
+                WorkoutElement::WorkoutSet { exercise_id, .. } => Some(*exercise_id),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>()
+    }
+
     pub fn avg_reps(&self) -> Option<f32> {
-        let sets = &self.sets.iter().filter_map(|s| s.reps).collect::<Vec<_>>();
+        let sets = &self
+            .elements
+            .iter()
+            .filter_map(|e| match e {
+                WorkoutElement::WorkoutSet { reps, .. } => *reps,
+                _ => None,
+            })
+            .collect::<Vec<_>>();
         if sets.is_empty() {
             None
         } else {
@@ -284,7 +316,14 @@ impl Workout {
     }
 
     pub fn avg_time(&self) -> Option<f32> {
-        let sets = &self.sets.iter().filter_map(|s| s.time).collect::<Vec<_>>();
+        let sets = &self
+            .elements
+            .iter()
+            .filter_map(|e| match e {
+                WorkoutElement::WorkoutSet { time, .. } => *time,
+                _ => None,
+            })
+            .collect::<Vec<_>>();
         if sets.is_empty() {
             None
         } else {
@@ -294,9 +333,12 @@ impl Workout {
 
     pub fn avg_weight(&self) -> Option<f32> {
         let sets = &self
-            .sets
+            .elements
             .iter()
-            .filter_map(|s| s.weight)
+            .filter_map(|e| match e {
+                WorkoutElement::WorkoutSet { weight, .. } => *weight,
+                _ => None,
+            })
             .collect::<Vec<_>>();
         if sets.is_empty() {
             None
@@ -306,7 +348,14 @@ impl Workout {
     }
 
     pub fn avg_rpe(&self) -> Option<f32> {
-        let sets = &self.sets.iter().filter_map(|s| s.rpe).collect::<Vec<_>>();
+        let sets = &self
+            .elements
+            .iter()
+            .filter_map(|e| match e {
+                WorkoutElement::WorkoutSet { rpe, .. } => *rpe,
+                _ => None,
+            })
+            .collect::<Vec<_>>();
         if sets.is_empty() {
             None
         } else {
@@ -315,15 +364,27 @@ impl Workout {
     }
 
     pub fn volume(&self) -> u32 {
-        let sets = &self.sets.iter().filter_map(|s| s.reps).collect::<Vec<_>>();
+        let sets = &self
+            .elements
+            .iter()
+            .filter_map(|e| match e {
+                WorkoutElement::WorkoutSet { reps, .. } => *reps,
+                _ => None,
+            })
+            .collect::<Vec<_>>();
         sets.iter().sum::<u32>()
     }
 
     pub fn tut(&self) -> u32 {
         let sets = &self
-            .sets
+            .elements
             .iter()
-            .map(|s| s.reps.unwrap_or(1) * s.time.unwrap_or(0))
+            .map(|e| match e {
+                WorkoutElement::WorkoutSet { reps, time, .. } => {
+                    reps.unwrap_or(1) * time.unwrap_or(0)
+                }
+                _ => 0,
+            })
             .collect::<Vec<_>>();
         sets.iter().sum::<u32>()
     }
@@ -484,9 +545,9 @@ pub enum Msg {
 
     ReadWorkouts,
     WorkoutsRead(Result<Vec<Workout>, String>),
-    CreateWorkout(u32, NaiveDate, String, Vec<WorkoutSet>),
+    CreateWorkout(u32, NaiveDate, String, Vec<WorkoutElement>),
     WorkoutCreated(Result<Workout, String>),
-    ModifyWorkout(u32, Option<String>, Option<Vec<WorkoutSet>>),
+    ModifyWorkout(u32, Option<String>, Option<Vec<WorkoutElement>>),
     WorkoutModified(Result<Workout, String>),
     DeleteWorkout(u32),
     WorkoutDeleted(Result<(), String>),
@@ -1209,7 +1270,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to read workouts: ".to_owned() + &message);
             model.loading_workouts = false;
         }
-        Msg::CreateWorkout(routine_id, date, notes, sets) => {
+        Msg::CreateWorkout(routine_id, date, notes, elements) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new("api/workouts")
@@ -1218,7 +1279,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                             "routine_id": routine_id,
                             "date": date,
                             "notes": notes,
-                            "sets": sets
+                            "elements": elements
                         }))
                         .expect("serialization failed"),
                     Msg::WorkoutCreated,
@@ -1237,13 +1298,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .errors
                 .push("Failed to create workout: ".to_owned() + &message);
         }
-        Msg::ModifyWorkout(id, notes, sets) => {
+        Msg::ModifyWorkout(id, notes, elements) => {
             let mut content = Map::new();
             if let Some(notes) = notes {
                 content.insert("notes".into(), json!(notes));
             }
-            if let Some(sets) = sets {
-                content.insert("sets".into(), json!(sets));
+            if let Some(elements) = elements {
+                content.insert("elements".into(), json!(elements));
             }
             orders.perform_cmd(async move {
                 fetch(

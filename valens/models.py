@@ -5,12 +5,13 @@ import enum
 from typing import Optional
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
+    Constraint,
     Date,
     Enum,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     MetaData,
     String,
@@ -238,19 +239,29 @@ class RoutineSection(RoutinePart):
 class RoutineActivity(RoutinePart):
     __tablename__ = "routine_activity"
     __table_args__ = (
+        CheckConstraint("typeof(reps) = 'integer'", name="reps_type_integer"),
+        CheckConstraint(column("reps") >= 0, name="reps_ge_0"),
         CheckConstraint("typeof(duration) = 'integer'", name="duration_type_integer"),
         CheckConstraint(column("duration") >= 0, name="duration_ge_0"),
         CheckConstraint("typeof(tempo) = 'integer'", name="tempo_type_integer"),
         CheckConstraint(column("tempo") >= 0, name="tempo_ge_0"),
+        CheckConstraint("typeof(weight) = 'real'", name="weight_type_real"),
+        CheckConstraint(column("weight") >= 0, name="weight_ge_0"),
+        CheckConstraint("typeof(rpe) = 'real'", name="rpe_type_real"),
+        CheckConstraint(column("rpe") >= 0, name="rpe_ge_0"),
+        CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
     )
 
     id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
     exercise_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("exercise.id", ondelete="CASCADE")
     )
-    duration: Mapped[int] = mapped_column(Integer, nullable=False)
-    tempo: Mapped[int] = mapped_column(Integer, nullable=False)
-    automatic: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    reps: Mapped[int]
+    duration: Mapped[int]
+    tempo: Mapped[int]
+    weight: Mapped[float]
+    rpe: Mapped[float]
+    automatic: Mapped[bool]
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="routine_activities")
 
@@ -270,12 +281,44 @@ class Workout(Base):
     notes: Mapped[Optional[str]] = mapped_column(String)
 
     routine: Mapped[Routine] = relationship("Routine", back_populates="workouts")
-    sets: Mapped[list[WorkoutSet]] = relationship(
-        "WorkoutSet", back_populates="workout", cascade="all, delete-orphan"
+    elements: Mapped[list[WorkoutElement]] = relationship(
+        "WorkoutElement", back_populates="workout", cascade="all, delete-orphan"
     )
 
 
-class WorkoutSet(Base):
+class WorkoutElement(Base):
+    __tablename__ = "workout_element"
+    __table_args__: tuple[Constraint, ...] = (
+        CheckConstraint(
+            "typeof(position) = 'integer'",
+            name="position_type_integer",
+        ),
+        CheckConstraint("typeof(type) = 'text'", name="type_type_text"),
+        CheckConstraint(
+            "typeof(automatic) = 'integer'",
+            name="automatic_type_integer",
+        ),
+        CheckConstraint(column("position") > 0, name="position_gt_0"),
+        CheckConstraint(column("automatic") >= 0, name="rpe_ge_0"),
+        CheckConstraint(column("automatic") <= 1, name="rpe_le_1"),
+    )
+
+    workout_id: Mapped[int] = mapped_column(
+        ForeignKey("workout.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[str]
+    automatic: Mapped[bool] = mapped_column(default=False)
+
+    workout: Mapped[Workout] = relationship("Workout", back_populates="elements")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "activity",
+        "polymorphic_on": "type",
+    }
+
+
+class WorkoutSet(WorkoutElement):
     __tablename__ = "workout_set"
     __table_args__ = (
         CheckConstraint(
@@ -298,25 +341,85 @@ class WorkoutSet(Base):
             "typeof(rpe) = 'real' or typeof(rpe) = 'null'",
             name="rpe_type_real_or_null",
         ),
+        CheckConstraint(
+            "typeof(target_reps) = 'integer' or typeof(target_reps) = 'null'",
+            name="target_reps_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(target_time) = 'integer' or typeof(target_time) = 'null'",
+            name="target_time_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(target_weight) = 'real' or typeof(target_weight) = 'null'",
+            name="target_weight_type_real_or_null",
+        ),
+        CheckConstraint(
+            "typeof(target_rpe) = 'real' or typeof(target_rpe) = 'null'",
+            name="target_rpe_type_real_or_null",
+        ),
         CheckConstraint(column("position") > 0, name="position_gt_0"),
         CheckConstraint(column("reps") > 0, name="reps_gt_0"),
         CheckConstraint(column("time") > 0, name="time_gt_0"),
         CheckConstraint(column("weight") > 0, name="weight_gt_0"),
         CheckConstraint(column("rpe") >= 0, name="rpe_ge_0"),
         CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
+        CheckConstraint(column("target_reps") > 0, name="target_reps_gt_0"),
+        CheckConstraint(column("target_time") > 0, name="target_time_gt_0"),
+        CheckConstraint(column("target_weight") > 0, name="target_weight_gt_0"),
+        CheckConstraint(column("target_rpe") >= 0, name="target_rpe_ge_0"),
+        CheckConstraint(column("target_rpe") <= 10, name="target_rpe_le_10"),
+        ForeignKeyConstraint(
+            ["workout_id", "position"],
+            [WorkoutElement.workout_id, WorkoutElement.position],
+            ondelete="CASCADE",
+        ),
     )
 
-    workout_id: Mapped[int] = mapped_column(
-        ForeignKey("workout.id", ondelete="CASCADE"), primary_key=True
-    )
-    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workout_id: Mapped[int] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
     exercise_id: Mapped[int] = mapped_column(
         ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False
     )
-    reps: Mapped[Optional[int]] = mapped_column(Integer)
-    time: Mapped[Optional[int]] = mapped_column(Integer)
-    weight: Mapped[Optional[float]] = mapped_column(Float)
-    rpe: Mapped[Optional[float]] = mapped_column(Float)
+    reps: Mapped[Optional[int]]
+    time: Mapped[Optional[int]]
+    weight: Mapped[Optional[float]]
+    rpe: Mapped[Optional[float]]
+    target_reps: Mapped[Optional[int]]
+    target_time: Mapped[Optional[int]]
+    target_weight: Mapped[Optional[float]]
+    target_rpe: Mapped[Optional[float]]
 
-    workout: Mapped[Workout] = relationship("Workout", back_populates="sets")
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="sets")
+
+    __mapper_args__ = {
+        "polymorphic_identity": "set",
+    }
+
+
+class WorkoutRest(WorkoutElement):
+    __tablename__ = "workout_rest"
+    __table_args__ = (
+        CheckConstraint(
+            "typeof(position) = 'integer'",
+            name="position_type_integer",
+        ),
+        CheckConstraint(
+            "typeof(target_time) = 'integer' or typeof(target_time) = 'null'",
+            name="target_time_type_integer_or_null",
+        ),
+        CheckConstraint(column("position") > 0, name="position_gt_0"),
+        CheckConstraint(column("target_time") > 0, name="target_time_gt_0"),
+        ForeignKeyConstraint(
+            ["workout_id", "position"],
+            [WorkoutElement.workout_id, WorkoutElement.position],
+            ondelete="CASCADE",
+        ),
+    )
+
+    workout_id: Mapped[int] = mapped_column(primary_key=True)
+    position: Mapped[int] = mapped_column(primary_key=True)
+    target_time: Mapped[Optional[int]]
+
+    __mapper_args__ = {
+        "polymorphic_identity": "rest",
+    }

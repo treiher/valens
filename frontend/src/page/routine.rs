@@ -28,49 +28,19 @@ pub fn init(
 
     navbar.title = String::from("Routine");
 
-    let routine = &data_model.routines.iter().find(|r| r.id == routine_id);
-
-    Model {
-        interval: common::init_interval(
-            &data_model
-                .workouts
-                .iter()
-                .filter(|w| w.routine_id == Some(routine_id))
-                .map(|w| w.date)
-                .collect::<Vec<NaiveDate>>(),
-            true,
-        ),
+    let mut model = Model {
+        interval: common::init_interval(&[], true),
         routine_id,
-        sections: if let Some(routine) = routine {
-            routine.sections.iter().map(|p| p.into()).collect()
-        } else {
-            vec![]
-        },
-        previous_exercises: init_previous_exercises(routine, data_model),
+        sections: vec![],
+        previous_exercises: BTreeSet::new(),
         dialog: Dialog::Hidden,
         editing,
         loading: false,
-    }
-}
+    };
 
-fn init_previous_exercises(
-    routine: &Option<&data::Routine>,
-    data_model: &data::Model,
-) -> BTreeSet<u32> {
-    if let Some(routine) = routine {
-        let workouts = &data_model
-            .workouts
-            .iter()
-            .filter(|w| w.routine_id == Some(routine.id))
-            .collect::<Vec<_>>();
-        let all_exercises = &workouts
-            .iter()
-            .flat_map(|w| w.sets.iter().map(|s| s.exercise_id))
-            .collect::<BTreeSet<_>>();
-        all_exercises - &routine.exercises()
-    } else {
-        BTreeSet::new()
-    }
+    update_model(&mut model, data_model);
+
+    model
 }
 
 // ------ ------
@@ -96,13 +66,16 @@ enum Dialog {
 #[cfg_attr(test, derive(Debug, PartialEq))]
 enum Form {
     Section {
-        rounds: (String, Option<u32>),
+        rounds: InputField<u32>,
         parts: Vec<Form>,
     },
     Activity {
         exercise_id: Option<u32>,
-        duration: (String, Option<u32>),
-        tempo: (String, Option<u32>),
+        reps: InputField<u32>,
+        duration: InputField<u32>,
+        tempo: InputField<u32>,
+        weight: InputField<f32>,
+        rpe: InputField<f32>,
         automatic: bool,
     },
 }
@@ -110,12 +83,35 @@ enum Form {
 impl Form {
     fn valid(&self) -> bool {
         match self {
-            Form::Section { rounds, parts } => {
-                rounds.1.is_some() && parts.iter().all(|p| p.valid())
-            }
+            Form::Section { rounds, parts } => rounds.valid && parts.iter().all(|p| p.valid()),
             Form::Activity {
-                duration, tempo, ..
-            } => duration.1.is_some() && tempo.1.is_some(),
+                reps,
+                duration,
+                tempo,
+                weight,
+                rpe,
+                ..
+            } => reps.valid && duration.valid && tempo.valid && weight.valid && rpe.valid,
+        }
+    }
+}
+
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+struct InputField<T> {
+    input: String,
+    valid: bool,
+    parsed: Option<T>,
+    changed: bool,
+}
+
+impl<T> Default for InputField<T> {
+    fn default() -> Self {
+        InputField {
+            input: String::new(),
+            valid: true,
+            parsed: None,
+            changed: false,
         }
     }
 }
@@ -124,40 +120,79 @@ impl From<&data::RoutinePart> for Form {
     fn from(part: &data::RoutinePart) -> Self {
         match part {
             data::RoutinePart::RoutineSection { rounds, parts, .. } => Form::Section {
-                rounds: (
-                    if *rounds == 1 {
+                rounds: InputField {
+                    input: if *rounds == 1 {
                         String::new()
                     } else {
                         rounds.to_string()
                     },
-                    Some(*rounds),
-                ),
+                    valid: true,
+                    parsed: Some(*rounds),
+                    changed: false,
+                },
                 parts: parts.iter().map(|p| p.into()).collect(),
             },
             data::RoutinePart::RoutineActivity {
                 exercise_id,
+                reps,
                 duration,
                 tempo,
+                weight,
+                rpe,
                 automatic,
                 ..
             } => Form::Activity {
                 exercise_id: *exercise_id,
-                duration: (
-                    if *duration == 0 {
+                reps: InputField {
+                    input: if *reps == 0 {
+                        String::new()
+                    } else {
+                        reps.to_string()
+                    },
+                    valid: true,
+                    parsed: Some(*reps),
+                    changed: false,
+                },
+                duration: InputField {
+                    input: if *duration == 0 {
                         String::new()
                     } else {
                         duration.to_string()
                     },
-                    Some(*duration),
-                ),
-                tempo: (
-                    if *tempo == 0 {
+                    valid: true,
+                    parsed: Some(*duration),
+                    changed: false,
+                },
+                tempo: InputField {
+                    input: if *tempo == 0 {
                         String::new()
                     } else {
                         tempo.to_string()
                     },
-                    Some(*tempo),
-                ),
+                    valid: true,
+                    parsed: Some(*tempo),
+                    changed: false,
+                },
+                weight: InputField {
+                    input: if *weight == 0.0 {
+                        String::new()
+                    } else {
+                        weight.to_string()
+                    },
+                    valid: true,
+                    parsed: Some(*weight),
+                    changed: false,
+                },
+                rpe: InputField {
+                    input: if *rpe == 0.0 {
+                        String::new()
+                    } else {
+                        rpe.to_string()
+                    },
+                    valid: true,
+                    parsed: Some(*rpe),
+                    changed: false,
+                },
                 automatic: *automatic,
             },
         }
@@ -169,22 +204,28 @@ fn to_routine_parts(parts: &[Form]) -> Vec<data::RoutinePart> {
         .iter()
         .map(|p| match p {
             Form::Section { rounds, parts } => data::RoutinePart::RoutineSection {
-                rounds: rounds.1.unwrap(),
+                rounds: rounds.parsed.unwrap(),
                 parts: to_routine_parts(parts),
             },
             Form::Activity {
                 exercise_id,
+                reps,
                 duration,
                 tempo,
+                weight,
+                rpe,
                 automatic,
             } => data::RoutinePart::RoutineActivity {
                 exercise_id: *exercise_id,
-                duration: duration.1.unwrap_or(0),
+                reps: reps.parsed.unwrap_or(0),
+                duration: duration.parsed.unwrap_or(0),
                 tempo: if exercise_id.is_some() {
-                    tempo.1.unwrap_or(0)
+                    tempo.parsed.unwrap_or(0)
                 } else {
                     0
                 },
+                weight: weight.parsed.unwrap_or(0.0),
+                rpe: rpe.parsed.unwrap_or(0.0),
                 automatic: *automatic,
             },
         })
@@ -210,8 +251,11 @@ pub enum Msg {
     MovePartUp(Vec<usize>),
     RoundsChanged(Vec<usize>, String),
     ExerciseChanged(Vec<usize>, u32),
+    RepsChanged(Vec<usize>, String),
     DurationChanged(Vec<usize>, String),
     TempoChanged(Vec<usize>, String),
+    WeightChanged(Vec<usize>, String),
+    RPEChanged(Vec<usize>, String),
     AutomaticChanged(Vec<usize>),
 
     SearchTermChanged(String),
@@ -266,7 +310,12 @@ pub fn update(
 
         Msg::AddSection(id) => {
             let new_section = Form::Section {
-                rounds: (String::new(), Some(1)),
+                rounds: InputField {
+                    input: String::new(),
+                    valid: true,
+                    parsed: Some(1),
+                    changed: false,
+                },
                 parts: vec![],
             };
             if id.is_empty() {
@@ -278,12 +327,45 @@ pub fn update(
         Msg::AddActivity(id, exercise_id) => {
             let new_activity = Form::Activity {
                 exercise_id,
-                duration: if exercise_id.is_none() {
-                    (String::from("60"), Some(60))
-                } else {
-                    (String::new(), Some(0))
+                reps: InputField {
+                    input: String::new(),
+                    valid: true,
+                    parsed: Some(0),
+                    changed: false,
                 },
-                tempo: (String::new(), Some(0)),
+                duration: if exercise_id.is_none() {
+                    InputField {
+                        input: String::from("60"),
+                        valid: true,
+                        parsed: Some(60),
+                        changed: false,
+                    }
+                } else {
+                    InputField {
+                        input: String::new(),
+                        valid: true,
+                        parsed: Some(0),
+                        changed: false,
+                    }
+                },
+                tempo: InputField {
+                    input: String::new(),
+                    valid: true,
+                    parsed: Some(0),
+                    changed: false,
+                },
+                weight: InputField {
+                    input: String::new(),
+                    valid: true,
+                    parsed: Some(0.0),
+                    changed: false,
+                },
+                rpe: InputField {
+                    input: String::new(),
+                    valid: true,
+                    parsed: Some(0.0),
+                    changed: false,
+                },
                 automatic: exercise_id.is_none(),
             };
             if let Some(Form::Section { parts, .. }) = get_part(&mut model.sections, &id) {
@@ -333,86 +415,216 @@ pub fn update(
                 }
             }
         }
-        Msg::RoundsChanged(id, rounds) => {
-            if let Some(Form::Section {
-                rounds: section_rounds,
-                ..
-            }) = get_part(&mut model.sections, &id)
-            {
-                if rounds.is_empty() {
-                    *section_rounds = (rounds, Some(1));
+        Msg::RoundsChanged(id, input) => {
+            if let Some(Form::Section { rounds, .. }) = get_part(&mut model.sections, &id) {
+                if input.is_empty() {
+                    *rounds = InputField {
+                        input,
+                        valid: true,
+                        parsed: Some(1),
+                        changed: true,
+                    };
                 } else {
-                    match rounds.parse::<u32>() {
+                    match input.parse::<u32>() {
                         Ok(parsed_rounds) => {
-                            *section_rounds = (
-                                rounds,
-                                if parsed_rounds > 0 {
+                            *rounds = InputField {
+                                input,
+                                valid: true,
+                                parsed: if parsed_rounds > 0 {
                                     Some(parsed_rounds)
                                 } else {
                                     None
                                 },
-                            )
+                                changed: true,
+                            }
                         }
-                        Err(_) => *section_rounds = (rounds, None),
+                        Err(_) => {
+                            *rounds = InputField {
+                                input,
+                                valid: false,
+                                parsed: None,
+                                changed: true,
+                            }
+                        }
                     }
                 }
             }
         }
-        Msg::ExerciseChanged(id, exercise_id) => {
-            if let Some(Form::Activity {
-                exercise_id: activity_exercise_id,
-                ..
-            }) = get_part(&mut model.sections, &id)
-            {
-                *activity_exercise_id = Some(exercise_id);
+        Msg::ExerciseChanged(id, input) => {
+            if let Some(Form::Activity { exercise_id, .. }) = get_part(&mut model.sections, &id) {
+                *exercise_id = Some(input);
             }
         }
-        Msg::DurationChanged(id, duration) => {
+        Msg::RepsChanged(id, input) => {
+            if let Some(Form::Activity { reps, duration, .. }) = get_part(&mut model.sections, &id)
+            {
+                if input.is_empty() {
+                    *reps = InputField {
+                        input,
+                        valid: true,
+                        parsed: Some(0),
+                        changed: true,
+                    };
+                } else {
+                    match input.parse::<u32>() {
+                        Ok(parsed_reps) => {
+                            let valid =
+                                common::valid_reps(parsed_reps) && duration.input.is_empty();
+                            *reps = InputField {
+                                input,
+                                valid,
+                                parsed: if valid { Some(parsed_reps) } else { None },
+                                changed: true,
+                            }
+                        }
+                        Err(_) => {
+                            *reps = InputField {
+                                input,
+                                valid: false,
+                                parsed: None,
+                                changed: true,
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Msg::DurationChanged(id, input) => {
             if let Some(Form::Activity {
-                duration: activity_duration,
+                duration,
+                reps,
+                tempo,
                 ..
             }) = get_part(&mut model.sections, &id)
             {
-                if duration.is_empty() {
-                    *activity_duration = (duration, Some(0));
+                if input.is_empty() {
+                    *duration = InputField {
+                        input,
+                        valid: true,
+                        parsed: Some(0),
+                        changed: true,
+                    };
                 } else {
-                    match duration.parse::<u32>() {
+                    match input.parse::<u32>() {
                         Ok(parsed_duration) => {
-                            *activity_duration = (
-                                duration,
-                                if parsed_duration > 0 {
-                                    Some(parsed_duration)
-                                } else {
-                                    None
-                                },
-                            )
+                            let valid = common::valid_duration(parsed_duration)
+                                && reps.input.is_empty()
+                                && tempo.input.is_empty();
+                            *duration = InputField {
+                                input,
+                                valid,
+                                parsed: if valid { Some(parsed_duration) } else { None },
+                                changed: true,
+                            }
                         }
-                        Err(_) => *activity_duration = (duration, None),
+                        Err(_) => {
+                            *duration = InputField {
+                                input,
+                                valid: false,
+                                parsed: None,
+                                changed: true,
+                            }
+                        }
                     }
                 }
             }
         }
-        Msg::TempoChanged(id, tempo) => {
+        Msg::TempoChanged(id, input) => {
             if let Some(Form::Activity {
-                tempo: activity_tempo,
-                ..
+                tempo, duration, ..
             }) = get_part(&mut model.sections, &id)
             {
-                if tempo.is_empty() {
-                    *activity_tempo = (tempo, Some(0));
+                if input.is_empty() {
+                    *tempo = InputField {
+                        input,
+                        valid: true,
+                        parsed: Some(0),
+                        changed: true,
+                    };
                 } else {
-                    match tempo.parse::<u32>() {
+                    match input.parse::<u32>() {
                         Ok(parsed_tempo) => {
-                            *activity_tempo = (
-                                tempo,
-                                if parsed_tempo > 0 {
-                                    Some(parsed_tempo)
-                                } else {
-                                    None
-                                },
-                            )
+                            let valid =
+                                common::valid_tempo(parsed_tempo) && duration.input.is_empty();
+                            *tempo = InputField {
+                                input,
+                                valid,
+                                parsed: if valid { Some(parsed_tempo) } else { None },
+                                changed: true,
+                            }
                         }
-                        Err(_) => *activity_tempo = (tempo, None),
+                        Err(_) => {
+                            *tempo = InputField {
+                                input,
+                                valid: false,
+                                parsed: None,
+                                changed: true,
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Msg::WeightChanged(id, input) => {
+            if let Some(Form::Activity { weight, .. }) = get_part(&mut model.sections, &id) {
+                if input.is_empty() {
+                    *weight = InputField {
+                        input,
+                        valid: true,
+                        parsed: Some(0.0),
+                        changed: true,
+                    };
+                } else {
+                    match input.parse::<f32>() {
+                        Ok(parsed_weight) => {
+                            let valid = common::valid_weight(parsed_weight);
+                            *weight = InputField {
+                                input,
+                                valid,
+                                parsed: if valid { Some(parsed_weight) } else { None },
+                                changed: true,
+                            }
+                        }
+                        Err(_) => {
+                            *weight = InputField {
+                                input,
+                                valid: false,
+                                parsed: None,
+                                changed: true,
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Msg::RPEChanged(id, input) => {
+            if let Some(Form::Activity { rpe, .. }) = get_part(&mut model.sections, &id) {
+                if input.is_empty() {
+                    *rpe = InputField {
+                        input,
+                        valid: true,
+                        parsed: Some(0.0),
+                        changed: true,
+                    };
+                } else {
+                    match input.parse::<f32>() {
+                        Ok(parsed_rpe) => {
+                            let valid = common::valid_rpe(parsed_rpe);
+                            *rpe = InputField {
+                                input,
+                                valid,
+                                parsed: if valid { Some(parsed_rpe) } else { None },
+                                changed: true,
+                            }
+                        }
+                        Err(_) => {
+                            *rpe = InputField {
+                                input,
+                                valid: false,
+                                parsed: None,
+                                changed: true,
+                            }
+                        }
                     }
                 }
             }
@@ -443,27 +655,7 @@ pub fn update(
             model.loading = false;
             match event {
                 data::Event::DataChanged => {
-                    model.interval = common::init_interval(
-                        &data_model
-                            .workouts
-                            .iter()
-                            .filter(|w| w.routine_id == Some(model.routine_id))
-                            .map(|w| w.date)
-                            .collect::<Vec<NaiveDate>>(),
-                        true,
-                    );
-                    let routine = &data_model
-                        .routines
-                        .iter()
-                        .find(|r| r.id == model.routine_id);
-                    if not(model.editing) {
-                        model.sections = if let Some(routine) = routine {
-                            routine.sections.iter().map(|p| p.into()).collect()
-                        } else {
-                            vec![]
-                        };
-                    }
-                    model.previous_exercises = init_previous_exercises(routine, data_model);
+                    update_model(model, data_model);
                 }
                 data::Event::RoutineCreatedOk
                 | data::Event::RoutineModifiedOk
@@ -487,6 +679,40 @@ pub fn update(
             model.interval.last = last;
         }
     }
+}
+
+fn update_model(model: &mut Model, data_model: &data::Model) {
+    model.interval = common::init_interval(
+        &data_model
+            .workouts
+            .iter()
+            .filter(|w| w.routine_id == Some(model.routine_id))
+            .map(|w| w.date)
+            .collect::<Vec<NaiveDate>>(),
+        true,
+    );
+
+    let routine = &data_model
+        .routines
+        .iter()
+        .find(|r| r.id == model.routine_id);
+
+    if let Some(routine) = routine {
+        model.sections = routine.sections.iter().map(|p| p.into()).collect();
+        let workouts = &data_model
+            .workouts
+            .iter()
+            .filter(|w| w.routine_id == Some(routine.id))
+            .collect::<Vec<_>>();
+        let all_exercises = &workouts
+            .iter()
+            .flat_map(|w| w.exercises())
+            .collect::<BTreeSet<_>>();
+        model.previous_exercises = all_exercises - &routine.exercises();
+    } else {
+        model.sections = vec![];
+        model.previous_exercises = BTreeSet::new();
+    };
 }
 
 // ------ ------
@@ -661,14 +887,15 @@ fn view_routine_part(
                                     input![
                                         C!["input"],
                                         C!["has-text-right"],
-                                        C![IF![rounds.1.is_none() => "is-danger"]],
+                                        C![IF![not(rounds.valid) => "is-danger"]],
+                                        C![IF![rounds.changed => "is-info"]],
                                         attrs! {
                                             At::Type => "number",
                                             At::Min => 1,
                                             At::Max => 999,
                                             At::Step => 1,
                                             At::Size => 2,
-                                            At::Value => rounds.0,
+                                            At::Value => rounds.input,
                                             At::Placeholder => 1,
                                         }
                                     ]
@@ -676,7 +903,7 @@ fn view_routine_part(
                             ],
                             view_position_buttons(id.clone())
                         ]
-                    } else if let Some(rounds) = rounds.1 {
+                    } else if let Some(rounds) = rounds.parsed {
                         if rounds > 1 {
                             span![
                                 C!["icon-text"],
@@ -706,8 +933,11 @@ fn view_routine_part(
         }
         Form::Activity {
             exercise_id,
+            reps,
             duration,
             tempo,
+            weight,
+            rpe,
             automatic,
         } => {
             div![
@@ -781,7 +1011,47 @@ fn view_routine_part(
                     if editing {
                         div![
                             C!["is-flex"],
+                            C!["is-flex-wrap-wrap"],
+                            C!["is-flex-gap-row-gap-2"],
                             C!["is-justify-content-flex-start"],
+                            IF![
+                                exercise_id.is_some() =>
+                                div![
+                                    C!["field"],
+                                    C!["mb-0"],
+                                    C!["mr-2"],
+                                    div![
+                                        C!["control"],
+                                        C!["has-icons-left"],
+                                        C!["has-icons-right"],
+                                        input_ev(Ev::Input, {
+                                            let id = id.clone();
+                                            move |v| Msg::RepsChanged(id, v)
+                                        }),
+                                        span![
+                                            C!["icon"],
+                                            C!["is-small"],
+                                            C!["is-left"],
+                                            i![C!["fas fa-rotate-left"]]
+                                        ],
+                                        input![
+                                            C!["input"],
+                                            C!["has-text-right"],
+                                            C![IF![not(reps.valid) => "is-danger"]],
+                                            C![IF![reps.changed => "is-info"]],
+                                            attrs! {
+                                                At::Type => "number",
+                                                At::Min => 0,
+                                                At::Max => 999,
+                                                At::Step => 1,
+                                                At::Size => 2,
+                                                At::Value => reps.input,
+                                            }
+                                        ],
+                                        span![C!["icon"], C!["is-small"], C!["is-right"], "✕"],
+                                    ]
+                                ]
+                            ],
                             div![
                                 C!["field"],
                                 C!["mb-0"],
@@ -803,56 +1073,121 @@ fn view_routine_part(
                                     input![
                                         C!["input"],
                                         C!["has-text-right"],
-                                        C![IF![duration.1.is_none() => "is-danger"]],
+                                        C![IF![not(duration.valid) => "is-danger"]],
+                                        C![IF![duration.changed => "is-info"]],
                                         attrs! {
                                             At::Type => "number",
                                             At::Min => 1,
                                             At::Max => 999,
                                             At::Step => 1,
                                             At::Size => 2,
-                                            At::Value => duration.0,
+                                            At::Value => duration.input,
                                         }
                                     ],
                                     span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
                                 ]
                             ],
                             IF![
-                                exercise_id.is_some() => {
+                                exercise_id.is_some() =>
+                                div![
+                                    C!["field"],
+                                    C!["mb-0"],
+                                    C!["mr-2"],
                                     div![
-                                        C!["field"],
-                                        C!["mb-0"],
-                                        C!["mr-2"],
-                                        div![
-                                            C!["control"],
-                                            C!["has-icons-left"],
-                                            C!["has-icons-right"],
-                                            input_ev(Ev::Input, {
-                                                let id = id.clone();
-                                                move |v| Msg::TempoChanged(id, v)
-                                            }),
-                                            span![
-                                                C!["icon"],
-                                                C!["is-small"],
-                                                C!["is-left"],
-                                                i![C!["fas fa-person-running"]]
-                                            ],
-                                            input![
-                                                C!["input"],
-                                                C!["has-text-right"],
-                                                C![IF![tempo.1.is_none() => "is-danger"]],
-                                                attrs! {
-                                                    At::Type => "number",
-                                                    At::Min => 1,
-                                                    At::Max => 999,
-                                                    At::Step => 1,
-                                                    At::Size => 2,
-                                                    At::Value => tempo.0,
-                                                }
-                                            ],
-                                            span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
-                                        ]
+                                        C!["control"],
+                                        C!["has-icons-left"],
+                                        C!["has-icons-right"],
+                                        input_ev(Ev::Input, {
+                                            let id = id.clone();
+                                            move |v| Msg::TempoChanged(id, v)
+                                        }),
+                                        span![
+                                            C!["icon"],
+                                            C!["is-small"],
+                                            C!["is-left"],
+                                            i![C!["fas fa-person-running"]]
+                                        ],
+                                        input![
+                                            C!["input"],
+                                            C!["has-text-right"],
+                                            C![IF![not(tempo.valid) => "is-danger"]],
+                                            C![IF![tempo.changed => "is-info"]],
+                                            attrs! {
+                                                At::Type => "number",
+                                                At::Min => 1,
+                                                At::Max => 999,
+                                                At::Step => 1,
+                                                At::Size => 2,
+                                                At::Value => tempo.input,
+                                            }
+                                        ],
+                                        span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
                                     ]
-                                }
+                                ]
+                            ],
+                            IF![
+                                exercise_id.is_some() =>
+                                div![
+                                    C!["field"],
+                                    C!["mb-0"],
+                                    C!["mr-2"],
+                                    div![
+                                        C!["control"],
+                                        C!["has-icons-left"],
+                                        C!["has-icons-right"],
+                                        input_ev(Ev::Input, {
+                                            let id = id.clone();
+                                            move |v| Msg::WeightChanged(id, v)
+                                        }),
+                                        span![
+                                            C!["icon"],
+                                            C!["is-small"],
+                                            C!["is-left"],
+                                            i![C!["fas fa-weight-hanging"]]
+                                        ],
+                                        input![
+                                            C!["input"],
+                                            C!["has-text-right"],
+                                            C![IF![not(weight.valid) => "is-danger"]],
+                                            C![IF![weight.changed => "is-info"]],
+                                            attrs! {
+                                                At::from("inputmode") => "numeric",
+                                                At::Size => 3,
+                                                At::Value => weight.input,
+                                            }
+                                        ],
+                                        span![C!["icon"], C!["is-small"], C!["is-right"], "kg"],
+                                    ]
+                                ]
+                            ],
+                            IF![
+                                exercise_id.is_some() =>
+                                div![
+                                    C!["field"],
+                                    C!["mb-0"],
+                                    C!["mr-2"],
+                                    div![
+                                        C!["control"],
+                                        C!["has-icons-left"],
+                                        C!["has-icons-right"],
+                                        input_ev(Ev::Input, {
+                                            let id = id.clone();
+                                            move |v| Msg::RPEChanged(id, v)
+                                        }),
+                                        span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
+                                        input![
+                                            C!["input"],
+                                            C!["has-text-right"],
+                                            C![IF![not(rpe.valid) => "is-danger"]],
+                                            C![IF![rpe.changed => "is-info"]],
+                                            attrs! {
+                                                At::from("inputmode") => "numeric",
+                                                At::Size => 3,
+                                                At::Value => rpe.input,
+                                            }
+                                        ],
+                                    ]
+                                ]
                             ],
                             button![
                                 C!["button"],
@@ -867,36 +1202,66 @@ fn view_routine_part(
                                     } else {
                                         C!["has-text-grey-lighter"]
                                     },
-                                    automatic_icon()
+                                    common::automatic_icon()
                                 ]
                             ]
                         ]
                     } else {
                         div![
                             IF![
-                                if let Some(duration) = duration.1 { duration > 0 } else { false } => {
+                                if let Some(reps) = reps.parsed { reps > 0 } else { false } => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
-                                        span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
-                                        span![&duration.0, " s"]
+                                        span![C!["mr-2"], i![C!["fas fa-rotate-left"]]],
+                                        span![&reps.input]
                                     ]
                                 }
                             ],
                             IF![
-                                if let Some(tempo) = tempo.1 { tempo > 0 } else { false } => {
+                                if let Some(duration) = duration.parsed { duration > 0 } else { false } => {
+                                    span![
+                                        C!["icon-text"],
+                                        C!["mr-4"],
+                                        span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
+                                        span![&duration.input, " s"]
+                                    ]
+                                }
+                            ],
+                            IF![
+                                if let Some(tempo) = tempo.parsed { tempo > 0 } else { false } => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
                                         span![C!["mr-2"], i![C!["fas fa-person-running"]]],
-                                        span![&tempo.0, " s"]
+                                        span![&tempo.input, " s"]
+                                    ]
+                                }
+                            ],
+                            IF![
+                                if let Some(weight) = weight.parsed { weight > 0.0 } else { false } => {
+                                    span![
+                                        C!["icon-text"],
+                                        C!["mr-4"],
+                                        span![C!["mr-2"], i![C!["fas fa-weight-hanging"]]],
+                                        span![&weight.input, " kg"]
+                                    ]
+                                }
+                            ],
+                            IF![
+                                if let Some(rpe) = rpe.parsed { rpe > 0.0 } else { false } => {
+                                    span![
+                                        C!["icon-text"],
+                                        C!["mr-4"],
+                                        span![C!["mr-2"], "@"],
+                                        span![&rpe.input]
                                     ]
                                 }
                             ],
                             IF![
                                 *automatic => span![
                                     C!["icon"],
-                                    automatic_icon(),
+                                    common::automatic_icon(),
                                 ]
                             ],
                         ]
@@ -1064,17 +1429,6 @@ fn view_add_section_button(id: Vec<usize>) -> Node<Msg> {
     ]
 }
 
-fn automatic_icon() -> Node<Msg> {
-    span![
-        C!["fa-stack"],
-        attrs! {
-            At::Style => "vertical-align: top;",
-        },
-        i![C!["fas fa-circle fa-stack-1x"]],
-        i![C!["fas fa-a fa-inverse fa-stack-1x"]]
-    ]
-}
-
 fn get_part<'a>(sections: &'a mut Vec<Form>, id: &[usize]) -> Option<&'a mut Form> {
     if let Some(i) = id.last() {
         if i < &sections.len() {
@@ -1101,8 +1455,11 @@ mod tests {
                 rounds: form_value(1),
                 parts: vec![Form::Activity {
                     exercise_id: None,
+                    reps: form_value(1),
                     duration: form_value(2),
                     tempo: form_value(3),
+                    weight: form_value(4.0),
+                    rpe: form_value(5.0),
                     automatic: false,
                 }],
             },
@@ -1110,8 +1467,11 @@ mod tests {
                 rounds: form_value(2),
                 parts: vec![Form::Activity {
                     exercise_id: None,
+                    reps: form_value(2),
                     duration: form_value(3),
                     tempo: form_value(4),
+                    weight: form_value(5.0),
+                    rpe: form_value(6.0),
                     automatic: false,
                 }],
             },
@@ -1122,8 +1482,11 @@ mod tests {
                 rounds: form_value(1),
                 parts: vec![Form::Activity {
                     exercise_id: None,
+                    reps: form_value(1),
                     duration: form_value(2),
                     tempo: form_value(3),
+                    weight: form_value(4.0),
+                    rpe: form_value(5.0),
                     automatic: false,
                 }],
             }
@@ -1134,8 +1497,11 @@ mod tests {
                 rounds: form_value(2),
                 parts: vec![Form::Activity {
                     exercise_id: None,
+                    reps: form_value(2),
                     duration: form_value(3),
                     tempo: form_value(4),
+                    weight: form_value(5.0),
+                    rpe: form_value(6.0),
                     automatic: false,
                 }],
             }
@@ -1145,8 +1511,11 @@ mod tests {
             *get_part(&mut sections, &[0, 0]).unwrap(),
             Form::Activity {
                 exercise_id: None,
+                reps: form_value(1),
                 duration: form_value(2),
                 tempo: form_value(3),
+                weight: form_value(4.0),
+                rpe: form_value(5.0),
                 automatic: false,
             },
         );
@@ -1155,8 +1524,11 @@ mod tests {
             *get_part(&mut sections, &[0, 1]).unwrap(),
             Form::Activity {
                 exercise_id: None,
+                reps: form_value(2),
                 duration: form_value(3),
                 tempo: form_value(4),
+                weight: form_value(5.0),
+                rpe: form_value(6.0),
                 automatic: false,
             },
         );
@@ -1170,16 +1542,22 @@ mod tests {
             parts: vec![
                 Form::Activity {
                     exercise_id: None,
+                    reps: form_value(1),
                     duration: form_value(2),
                     tempo: form_value(3),
+                    weight: form_value(4.0),
+                    rpe: form_value(5.0),
                     automatic: false,
                 },
                 Form::Section {
                     rounds: form_value(2),
                     parts: vec![Form::Activity {
                         exercise_id: None,
+                        reps: form_value(2),
                         duration: form_value(3),
                         tempo: form_value(4),
+                        weight: form_value(5.0),
+                        rpe: form_value(6.0),
                         automatic: false,
                     }],
                 },
@@ -1192,16 +1570,22 @@ mod tests {
                 parts: vec![
                     Form::Activity {
                         exercise_id: None,
+                        reps: form_value(1),
                         duration: form_value(2),
                         tempo: form_value(3),
+                        weight: form_value(4.0),
+                        rpe: form_value(5.0),
                         automatic: false,
                     },
                     Form::Section {
                         rounds: form_value(2),
                         parts: vec![Form::Activity {
                             exercise_id: None,
+                            reps: form_value(2),
                             duration: form_value(3),
                             tempo: form_value(4),
+                            weight: form_value(5.0),
+                            rpe: form_value(6.0),
                             automatic: false,
                         }],
                     },
@@ -1213,8 +1597,11 @@ mod tests {
             *get_part(&mut sections, &[0, 0]).unwrap(),
             Form::Activity {
                 exercise_id: None,
+                reps: form_value(1),
                 duration: form_value(2),
                 tempo: form_value(3),
+                weight: form_value(4.0),
+                rpe: form_value(5.0),
                 automatic: false,
             },
         );
@@ -1224,8 +1611,11 @@ mod tests {
                 rounds: form_value(2),
                 parts: vec![Form::Activity {
                     exercise_id: None,
+                    reps: form_value(2),
                     duration: form_value(3),
                     tempo: form_value(4),
+                    weight: form_value(5.0),
+                    rpe: form_value(6.0),
                     automatic: false,
                 }],
             },
@@ -1236,8 +1626,11 @@ mod tests {
             *get_part(&mut sections, &[0, 1, 0]).unwrap(),
             Form::Activity {
                 exercise_id: None,
+                reps: form_value(2),
                 duration: form_value(3),
                 tempo: form_value(4),
+                weight: form_value(5.0),
+                rpe: form_value(6.0),
                 automatic: false,
             },
         );
@@ -1245,7 +1638,12 @@ mod tests {
         assert!(get_part(&mut sections, &[0, 0, 1, 0]).is_none());
     }
 
-    fn form_value(number: u32) -> (String, Option<u32>) {
-        (number.to_string(), Some(number))
+    fn form_value<T: std::fmt::Display>(number: T) -> InputField<T> {
+        InputField {
+            input: number.to_string(),
+            valid: true,
+            parsed: Some(number),
+            changed: false,
+        }
     }
 }

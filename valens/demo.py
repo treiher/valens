@@ -164,9 +164,24 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
                     rounds=random.randint(1, 5),
                     parts=[
                         RoutineActivity(
-                            position=1, exercise=e, duration=0, tempo=3, automatic=False
+                            position=1,
+                            exercise=e,
+                            reps=0,
+                            duration=0,
+                            tempo=3,
+                            weight=0.0,
+                            rpe=0.0,
+                            automatic=False,
                         ),
-                        RoutineActivity(position=2, duration=60, tempo=0, automatic=True),
+                        RoutineActivity(
+                            position=2,
+                            reps=0,
+                            duration=60,
+                            tempo=0,
+                            weight=0.0,
+                            rpe=0.0,
+                            automatic=True,
+                        ),
                     ],
                 )
                 for p, e in enumerate(random.sample(exercises, random.randint(5, 8)), start=1)
@@ -181,7 +196,7 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
             date=datetime.date.today()
             - datetime.timedelta(days=len(routines) * 13 * 7)
             + datetime.timedelta(days=(quarter * 13 * 7) + (week * 7) + day),
-            sets=[
+            elements=[
                 WorkoutSet(
                     position=p,
                     exercise=e,

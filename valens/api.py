@@ -24,6 +24,8 @@ from valens.models import (
     Sex,
     User,
     Workout,
+    WorkoutElement,
+    WorkoutRest,
     WorkoutSet,
 )
 
@@ -61,6 +63,13 @@ def _(model: RoutineSection) -> dict[str, object]:
 def _(model: RoutineActivity) -> dict[str, object]:
     return {
         **model_to_dict(model, exclude=["id"]),
+    }
+
+
+@to_dict.register
+def _(model: WorkoutElement) -> dict[str, object]:
+    return {
+        **model_to_dict(model, exclude=["workout_id", "position"], include=["automatic"]),
     }
 
 
@@ -105,23 +114,37 @@ def to_routine_activity(  # type: ignore[misc]
     return RoutineActivity(
         position=position,
         exercise_id=json["exercise_id"],
+        reps=json["reps"],
         duration=json["duration"],
         tempo=json["tempo"],
+        weight=json["weight"],
+        rpe=json["rpe"],
         automatic=json["automatic"],
     )
 
 
-def to_workout_sets(json: list[dict[str, Any]]) -> list[WorkoutSet]:  # type: ignore[misc]
+def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # type: ignore[misc]
     return [
         WorkoutSet(
             position=position,
-            exercise_id=workout_set["exercise_id"],
-            reps=workout_set["reps"],
-            time=workout_set["time"],
-            weight=workout_set["weight"],
-            rpe=workout_set["rpe"],
+            exercise_id=element["exercise_id"],
+            reps=element["reps"],
+            time=element["time"],
+            weight=element["weight"],
+            rpe=element["rpe"],
+            target_reps=element["target_reps"],
+            target_time=element["target_time"],
+            target_weight=element["target_weight"],
+            target_rpe=element["target_rpe"],
+            automatic=element["automatic"],
         )
-        for position, workout_set in enumerate(json, start=1)
+        if "exercise_id" in element
+        else WorkoutRest(
+            position=position,
+            target_time=element["target_time"],
+            automatic=element["automatic"],
+        )
+        for position, element in enumerate(json, start=1)
     ]
 
 
@@ -808,7 +831,10 @@ def read_workouts() -> ResponseReturnValue:
     )
     return jsonify(
         [
-            {**to_dict(w), "sets": [to_dict(s, exclude=["workout_id", "position"]) for s in w.sets]}
+            {
+                **to_dict(w),
+                "elements": [to_dict(e) for e in w.elements],
+            }
             for w in workouts
         ]
     )
@@ -838,7 +864,7 @@ def create_workout() -> ResponseReturnValue:
             routine=routine,
             date=date.fromisoformat(data["date"]),
             notes=data["notes"],
-            sets=to_workout_sets(data["sets"]),
+            elements=to_workout_elements(data["elements"]),
         )
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -851,7 +877,7 @@ def create_workout() -> ResponseReturnValue:
         jsonify(
             {
                 **to_dict(workout),
-                "sets": [to_dict(e, exclude=["workout_id", "position"]) for e in workout.sets],
+                "elements": [to_dict(e) for e in workout.elements],
             }
         ),
         HTTPStatus.CREATED,
@@ -880,13 +906,19 @@ def update_workout(id_: int) -> ResponseReturnValue:
 
     assert isinstance(data, dict)
 
+    if "elements" in data or request.method == "PUT":
+        for e in workout.elements:
+            db.session.delete(e)
+
+        db.session.flush()
+
     try:
         if "date" in data or request.method == "PUT":
             workout.date = date.fromisoformat(data["date"])
         if "notes" in data or request.method == "PUT":
             workout.notes = data["notes"]
-        if "sets" in data or request.method == "PUT":
-            workout.sets = to_workout_sets(data["sets"])
+        if "elements" in data or request.method == "PUT":
+            workout.elements = to_workout_elements(data["elements"])
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -896,7 +928,7 @@ def update_workout(id_: int) -> ResponseReturnValue:
         jsonify(
             {
                 **to_dict(workout),
-                "sets": [to_dict(e, exclude=["workout_id", "position"]) for e in workout.sets],
+                "elements": [to_dict(e) for e in workout.elements],
             }
         ),
         HTTPStatus.OK,

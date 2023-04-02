@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
-use slice_group_by::GroupBy;
 
 use crate::common;
 use crate::data;
@@ -36,8 +35,7 @@ pub fn init(
 
     Model {
         workout_id,
-        form: init_form(workout),
-        previous_sets: init_previous_sets(workout, data_model),
+        form: init_form(workout, data_model),
         timer_dialog: SMTDialog {
             visible: false,
             stopwatch: Stopwatch {
@@ -62,57 +60,133 @@ pub fn init(
     }
 }
 
-fn init_form(workout: &Option<&data::Workout>) -> Form {
+fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form {
+    let previous_sets = previous_sets(workout, data_model);
     if let Some(workout) = workout {
+        let mut sections = vec![];
+        let mut exercises = vec![];
+        let mut position = 0;
+        let mut prev_set_positions: HashMap<u32, usize> = HashMap::new();
+        for e in workout.elements.iter() {
+            match e {
+                data::WorkoutElement::WorkoutSet {
+                    exercise_id,
+                    reps,
+                    time,
+                    weight,
+                    rpe,
+                    target_reps,
+                    target_time,
+                    target_weight,
+                    target_rpe,
+                    automatic,
+                } => {
+                    let prev_set_position = prev_set_positions
+                        .entry(*exercise_id)
+                        .and_modify(|position| *position += 1)
+                        .or_insert(0);
+                    let (prev_reps, prev_time, prev_weight, prev_rpe) =
+                        if let Some(prev_sets) = previous_sets.get(exercise_id) {
+                            if let Some(data::WorkoutElement::WorkoutSet {
+                                reps,
+                                time,
+                                weight,
+                                rpe,
+                                ..
+                            }) = prev_sets.get(*prev_set_position)
+                            {
+                                (*reps, *time, *weight, *rpe)
+                            } else {
+                                (None, None, None, None)
+                            }
+                        } else {
+                            (None, None, None, None)
+                        };
+                    exercises.push(ExerciseForm {
+                        position,
+                        exercise_id: *exercise_id,
+                        exercise_name: data_model
+                            .exercises
+                            .iter()
+                            .find(|e| e.id == *exercise_id)
+                            .map(|e| e.name.clone())
+                            .unwrap_or_else(|| format!("Exercise#{exercise_id}")),
+                        reps: InputField {
+                            input: reps.map(|v| v.to_string()).unwrap_or_default(),
+                            valid: true,
+                            parsed: *reps,
+                            changed: false,
+                        },
+                        time: InputField {
+                            input: time.map(|v| v.to_string()).unwrap_or_default(),
+                            valid: true,
+                            parsed: *time,
+                            changed: false,
+                        },
+                        weight: InputField {
+                            input: weight.map(|v| v.to_string()).unwrap_or_default(),
+                            valid: true,
+                            parsed: *weight,
+                            changed: false,
+                        },
+                        rpe: InputField {
+                            input: rpe.map(|v| v.to_string()).unwrap_or_default(),
+                            valid: true,
+                            parsed: *rpe,
+                            changed: false,
+                        },
+                        target_reps: *target_reps,
+                        target_time: *target_time,
+                        target_weight: *target_weight,
+                        target_rpe: *target_rpe,
+                        prev_reps,
+                        prev_time,
+                        prev_weight,
+                        prev_rpe,
+                        automatic: *automatic,
+                    });
+                    position += 1;
+                }
+                data::WorkoutElement::WorkoutRest {
+                    target_time,
+                    automatic,
+                } => {
+                    if not(exercises.is_empty()) {
+                        sections.push(FormSection::Set { exercises });
+                        position = 0;
+                    }
+                    exercises = vec![];
+                    sections.push(FormSection::Rest {
+                        target_time: target_time.unwrap_or(0),
+                        automatic: *automatic,
+                    });
+                }
+            }
+        }
+
+        if not(exercises.is_empty()) {
+            sections.push(FormSection::Set { exercises });
+        }
+
         Form {
             notes: workout.notes.clone().unwrap_or_default(),
             notes_changed: false,
-            sets: workout
-                .sets
-                .iter()
-                .map(|s| SetForm {
-                    exercise_id: s.exercise_id,
-                    reps: (
-                        s.reps.map(|v| v.to_string()).unwrap_or_default(),
-                        true,
-                        s.reps,
-                        false,
-                    ),
-                    time: (
-                        s.time.map(|v| v.to_string()).unwrap_or_default(),
-                        true,
-                        s.time,
-                        false,
-                    ),
-                    weight: (
-                        s.weight.map(|v| v.to_string()).unwrap_or_default(),
-                        true,
-                        s.weight,
-                        false,
-                    ),
-                    rpe: (
-                        s.rpe.map(|v| v.to_string()).unwrap_or_default(),
-                        true,
-                        s.rpe,
-                        false,
-                    ),
-                })
-                .collect::<Vec<_>>(),
+            sections,
         }
     } else {
         Form {
             notes: String::new(),
             notes_changed: false,
-            sets: vec![],
+            sections: vec![],
         }
     }
 }
 
-fn init_previous_sets(
+fn previous_sets(
     workout: &Option<&data::Workout>,
     data_model: &data::Model,
-) -> HashMap<u32, Vec<data::WorkoutSet>> {
-    let mut sets: HashMap<u32, Vec<data::WorkoutSet>> = HashMap::new();
+) -> HashMap<u32, Vec<data::WorkoutElement>> {
+    let mut sets: HashMap<u32, Vec<data::WorkoutElement>> = HashMap::new();
     if let Some(workout) = workout {
         if let Some(previous_workout) = &data_model
             .workouts
@@ -124,8 +198,10 @@ fn init_previous_sets(
             })
             .last()
         {
-            for s in &previous_workout.sets {
-                sets.entry(s.exercise_id).or_default().push(s.clone());
+            for e in &previous_workout.elements {
+                if let data::WorkoutElement::WorkoutSet { exercise_id, .. } = e {
+                    sets.entry(*exercise_id).or_default().push(e.clone());
+                }
             }
         }
     }
@@ -139,7 +215,6 @@ fn init_previous_sets(
 pub struct Model {
     workout_id: u32,
     form: Form,
-    previous_sets: HashMap<u32, Vec<data::WorkoutSet>>,
     timer_dialog: SMTDialog,
     timer_handle: Option<StreamHandle>,
     loading: bool,
@@ -148,16 +223,77 @@ pub struct Model {
 struct Form {
     notes: String,
     notes_changed: bool,
-    sets: Vec<SetForm>,
+    sections: Vec<FormSection>,
+}
+
+impl Form {
+    fn changed(&self) -> bool {
+        self.notes_changed
+            || self
+                .sections
+                .iter()
+                .filter_map(|s| match s {
+                    FormSection::Set { exercises } => Some(exercises),
+                    _ => None,
+                })
+                .flatten()
+                .any(|e| e.reps.changed || e.time.changed || e.weight.changed || e.rpe.changed)
+    }
+
+    fn valid(&self) -> bool {
+        self.sections
+            .iter()
+            .filter_map(|s| match s {
+                FormSection::Set { exercises } => Some(exercises),
+                _ => None,
+            })
+            .flatten()
+            .all(|s| s.reps.valid && s.time.valid && s.weight.valid && s.rpe.valid)
+    }
+}
+
+enum FormSection {
+    Set { exercises: Vec<ExerciseForm> },
+    Rest { target_time: u32, automatic: bool },
 }
 
 #[derive(Clone)]
-struct SetForm {
+struct ExerciseForm {
+    position: usize,
     exercise_id: u32,
-    reps: (String, bool, Option<u32>, bool),
-    time: (String, bool, Option<u32>, bool),
-    weight: (String, bool, Option<f32>, bool),
-    rpe: (String, bool, Option<f32>, bool),
+    exercise_name: String,
+    reps: InputField<u32>,
+    time: InputField<u32>,
+    weight: InputField<f32>,
+    rpe: InputField<f32>,
+    target_reps: Option<u32>,
+    target_time: Option<u32>,
+    target_weight: Option<f32>,
+    target_rpe: Option<f32>,
+    prev_reps: Option<u32>,
+    prev_time: Option<u32>,
+    prev_weight: Option<f32>,
+    prev_rpe: Option<f32>,
+    automatic: bool,
+}
+
+#[derive(Clone)]
+struct InputField<T> {
+    input: String,
+    valid: bool,
+    parsed: Option<T>,
+    changed: bool,
+}
+
+impl<T> Default for InputField<T> {
+    fn default() -> Self {
+        InputField {
+            input: String::new(),
+            valid: true,
+            parsed: None,
+            changed: false,
+        }
+    }
 }
 
 struct SMTDialog {
@@ -303,11 +439,14 @@ impl Timer {
 // ------ ------
 
 pub enum Msg {
-    RepsChanged(usize, String),
-    TimeChanged(usize, String),
-    WeightChanged(usize, String),
-    RPEChanged(usize, String),
+    RepsChanged(usize, usize, String),
+    TimeChanged(usize, usize, String),
+    WeightChanged(usize, usize, String),
+    RPEChanged(usize, usize, String),
     NotesChanged(String),
+
+    EnterTargetValues(usize, usize),
+    EnterPreviousValues(usize, usize),
 
     SaveWorkout,
     DataEvent(data::Event),
@@ -336,62 +475,188 @@ pub fn update(
     orders: &mut impl Orders<Msg>,
 ) {
     match msg {
-        Msg::RepsChanged(index, reps) => match reps.parse::<u32>() {
-            Ok(parsed_reps) => {
-                let valid = parsed_reps > 0 && parsed_reps < 1000;
-                model.form.sets[index].reps = (
-                    reps,
-                    valid,
-                    if valid { Some(parsed_reps) } else { None },
-                    true,
-                )
+        Msg::RepsChanged(section_idx, exercise_idx, input) => {
+            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+                let ExerciseForm { reps, .. } = &mut exercises[exercise_idx];
+                match input.parse::<u32>() {
+                    Ok(parsed_reps) => {
+                        let valid = common::valid_reps(parsed_reps);
+                        let parsed = if valid { Some(parsed_reps) } else { None };
+                        *reps = InputField {
+                            input,
+                            valid,
+                            parsed,
+                            changed: true,
+                        }
+                    }
+                    Err(_) => {
+                        *reps = InputField {
+                            input: input.clone(),
+                            valid: input.is_empty(),
+                            parsed: None,
+                            changed: true,
+                        }
+                    }
+                }
             }
-            Err(_) => model.form.sets[index].reps = (reps.clone(), reps.is_empty(), None, true),
-        },
-        Msg::TimeChanged(index, time) => match time.parse::<u32>() {
-            Ok(parsed_time) => {
-                let valid = parsed_time > 0 && parsed_time < 1000;
-                model.form.sets[index].time = (
-                    time,
-                    valid,
-                    if valid { Some(parsed_time) } else { None },
-                    true,
-                )
+        }
+        Msg::TimeChanged(section_idx, exercise_idx, input) => {
+            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+                let ExerciseForm { time, .. } = &mut exercises[exercise_idx];
+                match input.parse::<u32>() {
+                    Ok(parsed_time) => {
+                        let valid = common::valid_time(parsed_time);
+                        let parsed = if valid { Some(parsed_time) } else { None };
+                        *time = InputField {
+                            input,
+                            valid,
+                            parsed,
+                            changed: true,
+                        }
+                    }
+                    Err(_) => {
+                        *time = InputField {
+                            input: input.clone(),
+                            valid: input.is_empty(),
+                            parsed: None,
+                            changed: true,
+                        }
+                    }
+                }
             }
-            Err(_) => model.form.sets[index].time = (time.clone(), time.is_empty(), None, true),
-        },
-        Msg::WeightChanged(index, weight) => match weight.parse::<f32>() {
-            Ok(parsed_weight) => {
-                let valid = parsed_weight > 0.0
-                    && parsed_weight < 1000.0
-                    && (parsed_weight * 10.0 % 1.0).abs() < f32::EPSILON;
-                model.form.sets[index].weight = (
-                    weight,
-                    valid,
-                    if valid { Some(parsed_weight) } else { None },
-                    true,
-                )
+        }
+        Msg::WeightChanged(section_idx, exercise_idx, input) => {
+            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+                let ExerciseForm { weight, .. } = &mut exercises[exercise_idx];
+                match input.parse::<f32>() {
+                    Ok(parsed_weight) => {
+                        let valid = common::valid_weight(parsed_weight);
+                        let parsed = if valid { Some(parsed_weight) } else { None };
+                        *weight = InputField {
+                            input,
+                            valid,
+                            parsed,
+                            changed: true,
+                        }
+                    }
+                    Err(_) => {
+                        *weight = InputField {
+                            input: input.clone(),
+                            valid: input.is_empty(),
+                            parsed: None,
+                            changed: true,
+                        }
+                    }
+                }
             }
-            Err(_) => {
-                model.form.sets[index].weight = (weight.clone(), weight.is_empty(), None, true)
+        }
+        Msg::RPEChanged(section_idx, exercise_idx, input) => {
+            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+                let ExerciseForm { rpe, .. } = &mut exercises[exercise_idx];
+                match input.parse::<f32>() {
+                    Ok(parsed_rpe) => {
+                        let valid = common::valid_rpe(parsed_rpe);
+                        let parsed = if valid { Some(parsed_rpe) } else { None };
+                        *rpe = InputField {
+                            input,
+                            valid,
+                            parsed,
+                            changed: true,
+                        }
+                    }
+                    Err(_) => {
+                        *rpe = InputField {
+                            input: input.clone(),
+                            valid: input.is_empty(),
+                            parsed: None,
+                            changed: true,
+                        }
+                    }
+                }
             }
-        },
-        Msg::RPEChanged(index, rpe) => match rpe.parse::<f32>() {
-            Ok(parsed_rpe) => {
-                let valid =
-                    (0.0..=10.0).contains(&parsed_rpe) && (parsed_rpe % 0.5).abs() < f32::EPSILON;
-                model.form.sets[index].rpe = (
-                    rpe,
-                    valid,
-                    if valid { Some(parsed_rpe) } else { None },
-                    true,
-                )
-            }
-            Err(_) => model.form.sets[index].rpe = (rpe.clone(), rpe.is_empty(), None, true),
-        },
+        }
         Msg::NotesChanged(notes) => {
             model.form.notes = notes;
             model.form.notes_changed = true;
+        }
+
+        Msg::EnterTargetValues(section_idx, exercise_idx) => {
+            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+                let ExerciseForm {
+                    reps,
+                    time,
+                    weight,
+                    rpe,
+                    target_reps,
+                    target_time,
+                    target_weight,
+                    target_rpe,
+                    ..
+                } = &mut exercises[exercise_idx];
+                *reps = InputField {
+                    input: target_reps.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *target_reps,
+                    changed: reps.changed || reps.parsed != *target_reps,
+                };
+                *time = InputField {
+                    input: target_time.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *target_time,
+                    changed: time.changed || time.parsed != *target_time,
+                };
+                *weight = InputField {
+                    input: target_weight.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *target_weight,
+                    changed: weight.changed || weight.parsed != *target_weight,
+                };
+                *rpe = InputField {
+                    input: target_rpe.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *target_rpe,
+                    changed: rpe.changed || rpe.parsed != *target_rpe,
+                };
+            }
+        }
+        Msg::EnterPreviousValues(section_idx, exercise_idx) => {
+            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+                let ExerciseForm {
+                    reps,
+                    time,
+                    weight,
+                    rpe,
+                    prev_reps,
+                    prev_time,
+                    prev_weight,
+                    prev_rpe,
+                    ..
+                } = &mut exercises[exercise_idx];
+                *reps = InputField {
+                    input: prev_reps.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *prev_reps,
+                    changed: reps.changed || reps.parsed != *prev_reps,
+                };
+                *time = InputField {
+                    input: prev_time.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *prev_time,
+                    changed: time.changed || time.parsed != *prev_time,
+                };
+                *weight = InputField {
+                    input: prev_weight.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *prev_weight,
+                    changed: weight.changed || weight.parsed != *prev_weight,
+                };
+                *rpe = InputField {
+                    input: prev_rpe.map(|v| v.to_string()).unwrap_or_default(),
+                    valid: true,
+                    parsed: *prev_rpe,
+                    changed: rpe.changed || rpe.parsed != *prev_rpe,
+                };
+            }
         }
 
         Msg::SaveWorkout => {
@@ -402,14 +667,35 @@ pub fn update(
                 Some(
                     model
                         .form
-                        .sets
+                        .sections
                         .iter()
-                        .map(|s| data::WorkoutSet {
-                            exercise_id: s.exercise_id,
-                            reps: s.reps.2,
-                            time: s.time.2,
-                            weight: s.weight.2,
-                            rpe: s.rpe.2,
+                        .flat_map(|s| match s {
+                            FormSection::Set { exercises } => exercises
+                                .iter()
+                                .map(|e| data::WorkoutElement::WorkoutSet {
+                                    exercise_id: e.exercise_id,
+                                    reps: e.reps.parsed,
+                                    time: e.time.parsed,
+                                    weight: e.weight.parsed,
+                                    rpe: e.rpe.parsed,
+                                    target_reps: e.target_reps,
+                                    target_time: e.target_time,
+                                    target_weight: e.target_weight,
+                                    target_rpe: e.target_rpe,
+                                    automatic: e.automatic,
+                                })
+                                .collect(),
+                            FormSection::Rest {
+                                target_time,
+                                automatic,
+                            } => vec![data::WorkoutElement::WorkoutRest {
+                                target_time: if *target_time > 0 {
+                                    Some(*target_time)
+                                } else {
+                                    None
+                                },
+                                automatic: *automatic,
+                            }],
                         })
                         .collect::<Vec<_>>(),
                 ),
@@ -422,8 +708,7 @@ pub fn update(
                         .workouts
                         .iter()
                         .find(|w| w.id == model.workout_id);
-                    model.form = init_form(workout);
-                    model.previous_sets = init_previous_sets(workout, data_model);
+                    model.form = init_form(workout, data_model);
                 }
                 data::Event::WorkoutModifiedOk | data::Event::WorkoutModifiedErr => {
                     model.loading = false;
@@ -548,173 +833,226 @@ fn view_title(workout: &data::Workout, data_model: &data::Model) -> Node<Msg> {
 }
 
 fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    let changed = model.form.notes_changed
-        || model
-            .form
-            .sets
-            .iter()
-            .any(|s| s.reps.3 || s.time.3 || s.weight.3 || s.rpe.3);
-    let valid = model
-        .form
-        .sets
-        .iter()
-        .all(|s| s.reps.1 && s.time.1 && s.weight.1 && s.rpe.1);
-    let save_disabled = not(changed) || not(valid);
+    let valid = model.form.valid();
+    let save_disabled = not(model.form.changed()) || not(valid);
     let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
-    let mut position = 0;
-    for sets in (model.form.sets[..]).linear_group_by(|a, b| a.exercise_id == b.exercise_id) {
-        form.push(div![
-                C!["field"],
-                label![
-                    C!["label"],
-                    a![
-                        attrs! {
-                            At::Href => {
-                                crate::Urls::new(&data_model.base_url)
-                                    .exercise()
-                                    .add_hash_path_part(sets.first().unwrap().exercise_id.to_string())
-                            },
-                            At::from("tabindex") => -1
-                        },
-                        &data_model
-                            .exercises
-                            .iter()
-                            .find(|e| e.id == sets.first().unwrap().exercise_id)
-                            .map(|e| e.name.clone())
-                            .unwrap_or_default()
-                    ],
-                ],
-                sets.iter().enumerate().map(|(j, s)| {
-                    position += 1;
-                    let (prev_reps, prev_time, prev_weight, prev_rpe) =
-                        if let Some(prev_sets) = model.previous_sets.get(&s.exercise_id) {
-                            if let Some(prev_set) = prev_sets.get(j) {
-                                (prev_set.reps.map(|v| v.to_string()).unwrap_or_default(),
-                                prev_set.time.map(|v| v.to_string()).unwrap_or_default(),
-                                prev_set.weight.map(|v| v.to_string()).unwrap_or_default(),
-                                prev_set.rpe.map(|v| v.to_string()).unwrap_or_default())
-                            } else {
-                                (String::new(),String::new(),String::new(),String::new())
-                            }
-                        } else {
-                            (String::new(),String::new(),String::new(),String::new())
-                        };
+    for (section_idx, section) in model.form.sections.iter().enumerate() {
+        match section {
+            FormSection::Set {
+                exercises: exercise_forms,
+            } => {
+                form.push(
                     div![
-                        C!["field"],
-                        C!["has-addons"],
+                        C!["message"],
+                        C!["is-info"],
+                        C!["has-background-white-bis"],
                         div![
-                            C!["control"],
-                            C!["has-icons-right"],
-                            C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::RepsChanged(position - 1, v)),
-                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                IF!(
-                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                        Msg::SaveWorkout
+                            C!["message-body"],
+                            C!["p-3"],
+                            exercise_forms.iter().map(|s| {
+                                let position = s.position;
+                                div![
+                                    C!["field"],
+                                    div![
+                                        C!["has-text-weight-bold"],
+                                        C!["mb-2"],
+                                        a![
+                                            attrs! {
+                                                At::Href => {
+                                                    crate::Urls::new(&data_model.base_url)
+                                                        .exercise()
+                                                        .add_hash_path_part(s.exercise_id.to_string())
+                                                },
+                                                At::from("tabindex") => -1
+                                            },
+                                            &s.exercise_name
+                                        ],
+                                    ],
+                                    div![
+                                        C!["field"],
+                                        C!["has-addons"],
+                                        div![
+                                            C!["control"],
+                                            C!["has-icons-right"],
+                                            C!["has-text-right"],
+                                            input_ev(Ev::Input, move |v| Msg::RepsChanged(section_idx, position, v)),
+                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                IF!(
+                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                        Msg::SaveWorkout
+                                                    }
+                                                )
+                                            }),
+                                            input![
+                                                C!["input"],
+                                                C!["has-text-right"],
+                                                C![IF![not(s.reps.valid) => "is-danger"]],
+                                                C![IF![s.reps.changed => "is-info"]],
+                                                attrs! {
+                                                    At::Type => "number",
+                                                    At::Min => 0,
+                                                    At::Max => 999,
+                                                    At::Step => 1,
+                                                    At::Size => 2,
+                                                    At::Value => s.reps.input,
+                                                }
+                                            ],
+                                            span![C!["icon"], C!["is-small"], C!["is-right"], "✕"],
+                                        ],
+                                        div![
+                                            C!["control"],
+                                            C!["has-icons-right"],
+                                            C!["has-text-right"],
+                                            input_ev(Ev::Input, move |v| Msg::TimeChanged(section_idx, position, v)),
+                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                IF!(
+                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                        Msg::SaveWorkout
+                                                    }
+                                                )
+                                            }),
+                                            input![
+                                                C!["input"],
+                                                C!["has-text-right"],
+                                                C![IF![not(s.time.valid) => "is-danger"]],
+                                                C![IF![s.time.changed => "is-info"]],
+                                                attrs! {
+                                                    At::Type => "number",
+                                                    At::Min => 0,
+                                                    At::Max => 999,
+                                                    At::Step => 1,
+                                                    At::Size => 2,
+                                                    At::Value => s.time.input,
+                                                },
+                                            ],
+                                            span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                        ],
+                                        div![
+                                            C!["control"],
+                                            C!["has-icons-right"],
+                                            C!["has-text-right"],
+                                            input_ev(Ev::Input, move |v| Msg::WeightChanged(section_idx, position, v)),
+                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                IF!(
+                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                        Msg::SaveWorkout
+                                                    }
+                                                )
+                                            }),
+                                            input![
+                                                C!["input"],
+                                                C!["has-text-right"],
+                                                C![IF![not(s.weight.valid) => "is-danger"]],
+                                                C![IF![s.weight.changed => "is-info"]],
+                                                attrs! {
+                                                    At::from("inputmode") => "numeric",
+                                                    At::Size => 3,
+                                                    At::Value => s.weight.input,
+                                                },
+                                            ],
+                                            span![C!["icon"], C!["is-small"], C!["is-right"], "kg"],
+                                        ],
+                                        div![
+                                            C!["control"],
+                                            C!["has-icons-left"],
+                                            C!["has-text-right"],
+                                            input_ev(Ev::Input, move |v| Msg::RPEChanged(section_idx, position, v)),
+                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                IF!(
+                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                        Msg::SaveWorkout
+                                                    }
+                                                )
+                                            }),
+                                            input![
+                                                C!["input"],
+                                                C!["has-text-right"],
+                                                C![IF![not(s.rpe.valid) => "is-danger"]],
+                                                C![IF![s.rpe.changed => "is-info"]],
+                                                attrs! {
+                                                    At::from("inputmode") => "numeric",
+                                                    At::Size => 2,
+                                                    At::Value => s.rpe.input,
+                                                },
+                                            ],
+                                            span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
+                                        ],
+                                    ],
+                                    {
+                                        let target = format_set(s.target_reps, s.target_time, s.target_weight, s.target_rpe);
+                                        let previous = format_set(s.prev_reps, s.prev_time, s.prev_weight, s.prev_rpe);
+                                        p![
+                                            IF![not(target.is_empty()) =>
+                                                span![
+                                                    C!["icon-text"],
+                                                    C!["mr-4"],
+                                                    span![C!["icon"], i![C!["fas fa-bullseye"]]],
+                                                    a![
+                                                        ev(Ev::Click, move |_| Msg::EnterTargetValues(section_idx, position)),
+                                                        target
+                                                    ]
+                                                ]
+                                            ],
+                                            IF![not(previous.is_empty()) =>
+                                                span![
+                                                    C!["icon-text"],
+                                                    C!["mr-4"],
+                                                    span![C!["icon"], i![C!["fas fa-clipboard-list"]]],
+                                                    a![
+                                                        ev(Ev::Click, move |_| Msg::EnterPreviousValues(section_idx, position)),
+                                                        previous
+                                                    ]
+                                                ]
+                                            ],
+                                            IF![
+                                                s.automatic =>
+                                                span![
+                                                    C!["icon"],
+                                                    common::automatic_icon()
+                                                ]
+                                            ]
+                                        ]
                                     }
-                                )
-                            }),
-                            input![
-                                C!["input"],
-                                C!["has-text-right"],
-                                C![IF![not(s.reps.1) => "is-danger"]],
-                                C![IF![s.reps.3 => "is-info"]],
-                                attrs! {
-                                    At::Type => "number",
-                                    At::Min => 0,
-                                    At::Max => 999,
-                                    At::Step => 1,
-                                    At::Size => 2,
-                                    At::Value => s.reps.0,
-                                    At::Placeholder => prev_reps,
-                                }
-                            ],
-                            span![C!["icon"], C!["is-small"], C!["is-right"], "✕"],
-                        ],
-                        div![
-                            C!["control"],
-                            C!["has-icons-right"],
-                            C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::TimeChanged(position - 1, v)),
-                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                IF!(
-                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                        Msg::SaveWorkout
-                                    }
-                                )
-                            }),
-                            input![
-                                C!["input"],
-                                C!["has-text-right"],
-                                C![IF![not(s.time.1) => "is-danger"]],
-                                C![IF![s.time.3 => "is-info"]],
-                                attrs! {
-                                    At::Type => "number",
-                                    At::Min => 0,
-                                    At::Max => 999,
-                                    At::Step => 1,
-                                    At::Size => 2,
-                                    At::Value => s.time.0,
-                                    At::Placeholder => prev_time,
-                                },
-                            ],
-                            span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
-                        ],
-                        div![
-                            C!["control"],
-                            C!["has-icons-right"],
-                            C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::WeightChanged(position - 1, v)),
-                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                IF!(
-                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                        Msg::SaveWorkout
-                                    }
-                                )
-                            }),
-                            input![
-                                C!["input"],
-                                C!["has-text-right"],
-                                C![IF![not(s.weight.1) => "is-danger"]],
-                                C![IF![s.weight.3 => "is-info"]],
-                                attrs! {
-                                    At::from("inputmode") => "numeric",
-                                    At::Size => 3,
-                                    At::Value => s.weight.0,
-                                    At::Placeholder => prev_weight,
-                                },
-                            ],
-                            span![C!["icon"], C!["is-small"], C!["is-right"], "kg"],
-                        ],
-                        div![
-                            C!["control"],
-                            C!["has-icons-left"],
-                            C!["has-text-right"],
-                            input_ev(Ev::Input, move |v| Msg::RPEChanged(position - 1, v)),
-                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                IF!(
-                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                        Msg::SaveWorkout
-                                    }
-                                )
-                            }),
-                            input![
-                                C!["input"],
-                                C!["has-text-right"],
-                                C![IF![not(s.rpe.1) => "is-danger"]],
-                                C![IF![s.rpe.3 => "is-info"]],
-                                attrs! {
-                                    At::from("inputmode") => "numeric",
-                                    At::Size => 2,
-                                    At::Value => s.rpe.0,
-                                    At::Placeholder => prev_rpe,
-                                },
-                            ],
-                            span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
-                        ],
+                                ]
+                            })
+                        ]
                     ]
-                })
-            ]);
+                );
+            }
+            FormSection::Rest {
+                target_time,
+                automatic,
+            } => {
+                form.push(div![
+                    C!["message"],
+                    C!["is-success"],
+                    C!["has-background-white-bis"],
+                    div![
+                        C!["message-body"],
+                        C!["p-3"],
+                        div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"],],
+                        div![
+                            IF![
+                                *target_time > 0 =>
+                                span![
+                                    C!["icon-text"],
+                                    C!["mr-4"],
+                                    span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
+                                    span![target_time, " s"]
+                                ]
+                            ],
+                            IF![
+                                *automatic =>
+                                span![
+                                    C!["icon"],
+                                    common::automatic_icon()
+                                ]
+                            ]
+                        ]
+                    ]
+                ]);
+            }
+        }
     }
     div![
         C!["container"],
@@ -937,4 +1275,33 @@ fn view_timer_dialog(dialog: &SMTDialog) -> Node<Msg> {
             ]
         ]
     ]
+}
+
+fn format_set(
+    reps: Option<u32>,
+    time: Option<u32>,
+    weight: Option<f32>,
+    rpe: Option<f32>,
+) -> String {
+    let mut parts = vec![];
+
+    if let Some(reps) = reps {
+        parts.push(reps.to_string());
+    }
+
+    if let Some(time) = time {
+        parts.push(format!("{time} s"));
+    }
+
+    if let Some(weight) = weight {
+        parts.push(format!("{weight} kg"));
+    }
+
+    let mut result = parts.join(" × ");
+
+    if let Some(rpe) = rpe {
+        result.push_str(&format!(" @ {rpe}"));
+    }
+
+    result
 }

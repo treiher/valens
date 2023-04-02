@@ -149,8 +149,8 @@ pub fn update(
                     let sets = routine
                         .sections
                         .iter()
-                        .flat_map(to_workout_sets)
-                        .collect::<Vec<data::WorkoutSet>>();
+                        .flat_map(to_workout_elements)
+                        .collect::<Vec<data::WorkoutElement>>();
                     orders.notify(data::Msg::CreateWorkout(
                         form.routine_id.1.unwrap(),
                         form.date.1.unwrap(),
@@ -532,28 +532,46 @@ pub fn view_table<Ms: 'static>(
     ]
 }
 
-fn to_workout_sets(part: &data::RoutinePart) -> Vec<data::WorkoutSet> {
+fn to_workout_elements(part: &data::RoutinePart) -> Vec<data::WorkoutElement> {
     let mut result = vec![];
     match part {
         data::RoutinePart::RoutineSection { rounds, parts, .. } => {
             for _ in 0..*rounds {
                 for p in parts {
-                    for s in to_workout_sets(p) {
+                    for s in to_workout_elements(p) {
                         result.push(s);
                     }
                 }
             }
         }
-        data::RoutinePart::RoutineActivity { exercise_id, .. } => {
-            if let Some(exercise_id) = exercise_id {
-                result.push(data::WorkoutSet {
+        data::RoutinePart::RoutineActivity {
+            exercise_id,
+            reps,
+            duration,
+            tempo: _,
+            weight,
+            rpe,
+            automatic,
+        } => {
+            result.push(if let Some(exercise_id) = exercise_id {
+                data::WorkoutElement::WorkoutSet {
                     exercise_id: *exercise_id,
                     reps: None,
                     time: None,
                     weight: None,
                     rpe: None,
-                });
-            }
+                    target_reps: if *reps > 0 { Some(*reps) } else { None },
+                    target_time: if *duration > 0 { Some(*duration) } else { None },
+                    target_weight: if *weight > 0.0 { Some(*weight) } else { None },
+                    target_rpe: if *rpe > 0.0 { Some(*rpe) } else { None },
+                    automatic: *automatic,
+                }
+            } else {
+                data::WorkoutElement::WorkoutRest {
+                    target_time: if *duration > 0 { Some(*duration) } else { None },
+                    automatic: *automatic,
+                }
+            });
         }
     }
     result

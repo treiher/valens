@@ -30,7 +30,7 @@ pub fn init(
             &data_model
                 .workouts
                 .iter()
-                .filter(|w| w.sets.iter().any(|s| s.exercise_id == exercise_id))
+                .filter(|w| w.exercises().contains(&exercise_id))
                 .map(|w| w.date)
                 .collect::<Vec<NaiveDate>>(),
             false,
@@ -103,7 +103,7 @@ pub fn update(
                         &data_model
                             .workouts
                             .iter()
-                            .filter(|w| w.sets.iter().any(|s| s.exercise_id == model.exercise_id))
+                            .filter(|w| w.exercises().contains(&model.exercise_id))
                             .map(|w| w.date)
                             .collect::<Vec<NaiveDate>>(),
                         false,
@@ -180,7 +180,7 @@ fn exercise_workouts(model: &Model, data_model: &data::Model) -> Vec<data::Worko
         .workouts
         .iter()
         .filter(|w| {
-            w.sets.iter().any(|s| s.exercise_id == model.exercise_id)
+            w.exercises().contains(&model.exercise_id)
                 && w.date >= model.interval.first
                 && w.date <= model.interval.last
         })
@@ -189,10 +189,15 @@ fn exercise_workouts(model: &Model, data_model: &data::Model) -> Vec<data::Worko
             routine_id: w.routine_id,
             date: w.date,
             notes: w.notes.clone(),
-            sets: w
-                .sets
+            elements: w
+                .elements
                 .iter()
-                .filter(|s| s.exercise_id == model.exercise_id)
+                .filter(|e| match e {
+                    data::WorkoutElement::WorkoutSet { exercise_id, .. } => {
+                        *exercise_id == model.exercise_id
+                    }
+                    _ => false,
+                })
                 .cloned()
                 .collect::<Vec<_>>(),
         })

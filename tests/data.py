@@ -89,14 +89,20 @@ def users() -> list[User]:
                                 RoutineActivity(
                                     position=1,
                                     exercise=exercise_3,
+                                    reps=0,
                                     duration=0,
                                     tempo=0,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=False,
                                 ),
                                 RoutineActivity(
                                     position=2,
+                                    reps=0,
                                     duration=30,
                                     tempo=0,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=False,
                                 ),
                             ],
@@ -108,14 +114,20 @@ def users() -> list[User]:
                                 RoutineActivity(
                                     position=1,
                                     exercise=exercise_1,
+                                    reps=0,
                                     duration=0,
                                     tempo=3,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=False,
                                 ),
                                 RoutineActivity(
                                     position=2,
+                                    reps=0,
                                     duration=60,
                                     tempo=0,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=False,
                                 ),
                                 RoutineSection(
@@ -125,14 +137,20 @@ def users() -> list[User]:
                                         RoutineActivity(
                                             position=1,
                                             exercise=exercise_1,
+                                            reps=0,
                                             duration=0,
                                             tempo=0,
+                                            weight=0.0,
+                                            rpe=0.0,
                                             automatic=False,
                                         ),
                                         RoutineActivity(
                                             position=2,
+                                            reps=0,
                                             duration=30,
                                             tempo=0,
+                                            weight=0.0,
+                                            rpe=0.0,
                                             automatic=False,
                                         ),
                                     ],
@@ -146,14 +164,20 @@ def users() -> list[User]:
                                 RoutineActivity(
                                     position=1,
                                     exercise=exercise_3,
+                                    reps=0,
                                     duration=20,
                                     tempo=0,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=True,
                                 ),
                                 RoutineActivity(
                                     position=2,
+                                    reps=0,
                                     duration=10,
                                     tempo=0,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=True,
                                 ),
                             ],
@@ -173,14 +197,20 @@ def users() -> list[User]:
                                 RoutineActivity(
                                     position=1,
                                     exercise=exercise_3,
+                                    reps=0,
                                     duration=20,
                                     tempo=0,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=True,
                                 ),
                                 RoutineActivity(
                                     position=2,
+                                    reps=0,
                                     duration=10,
                                     tempo=0,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=True,
                                 ),
                             ],
@@ -195,7 +225,7 @@ def users() -> list[User]:
                     routine_id=1,
                     date=datetime.date(2002, 2, 20),
                     notes="First Workout",
-                    sets=[
+                    elements=[
                         WorkoutSet(position=1, exercise=exercise_3, reps=10, time=4, rpe=8.0),
                         WorkoutSet(position=2, exercise=exercise_1, reps=9, time=4, rpe=8.5),
                         WorkoutSet(position=3, exercise=exercise_1, time=60, rpe=9.0),
@@ -206,7 +236,7 @@ def users() -> list[User]:
                     user_id=1,
                     date=datetime.date(2002, 2, 22),
                     notes=None,
-                    sets=[
+                    elements=[
                         WorkoutSet(position=1, exercise=exercise_3, reps=9),
                         WorkoutSet(position=2, exercise=exercise_3, reps=8),
                         WorkoutSet(position=3, exercise=exercise_3, reps=7),
@@ -220,7 +250,7 @@ def users() -> list[User]:
                     routine_id=1,
                     date=datetime.date(2002, 2, 24),
                     notes=None,
-                    sets=[
+                    elements=[
                         WorkoutSet(position=1, exercise=exercise_3, reps=11, time=4, rpe=8.5),
                         WorkoutSet(position=2, exercise=exercise_1, reps=9, time=4, rpe=8),
                         WorkoutSet(position=3, exercise=exercise_1, time=60, rpe=8.5),
@@ -293,8 +323,11 @@ def users() -> list[User]:
                                 RoutineActivity(
                                     position=1,
                                     exercise=exercise_2,
+                                    reps=0,
                                     duration=0,
                                     tempo=4,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=False,
                                 ),
                             ],
@@ -306,8 +339,11 @@ def users() -> list[User]:
                                 RoutineActivity(
                                     position=1,
                                     exercise=exercise_4,
+                                    reps=0,
                                     duration=0,
                                     tempo=3,
+                                    weight=0.0,
+                                    rpe=0.0,
                                     automatic=False,
                                 ),
                             ],
@@ -322,7 +358,7 @@ def users() -> list[User]:
                     user_id=2,
                     date=datetime.date(2002, 2, 20),
                     notes="",
-                    sets=[
+                    elements=[
                         WorkoutSet(
                             position=1, exercise=exercise_2, reps=10, time=4, weight=10, rpe=8.5
                         ),

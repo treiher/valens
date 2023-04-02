@@ -466,26 +466,20 @@ class WorkoutPage(Page):
 
     def get_sets(self) -> list[list[str]]:
         return [
-            [i.get_attribute("value") for i in subfield.find_elements(By.TAG_NAME, "input")]
-            for field in self._driver.find_elements(By.XPATH, "//form/div[@class='field']")
-            if field.find_element(By.TAG_NAME, "label").text != "Notes"
-            for subfield in field.find_elements(By.CLASS_NAME, "field")
+            [i.get_attribute("value") for i in field.find_elements(By.TAG_NAME, "input")]
+            for field in self._driver.find_elements(By.XPATH, "//div[@class='field has-addons']")
         ]
 
     def set_set(self, index: int, values: list[str]) -> None:
         i = 0
 
-        for field in self._driver.find_elements(By.XPATH, "//form/div[@class='field']"):
-            if field.find_element(By.TAG_NAME, "label").text == "Notes":
-                continue
-
+        for field in self._driver.find_elements(By.XPATH, "//div[@class='field has-addons']"):
             if i == index:
-                for subfield in field.find_elements(By.CLASS_NAME, "field"):
-                    input_fields = subfield.find_elements(By.TAG_NAME, "input")
-                    assert len(input_fields) == len(values)
-                    for inp, val in zip(input_fields, values):
-                        clear(inp)
-                        inp.send_keys(val)
+                input_fields = field.find_elements(By.TAG_NAME, "input")
+                assert len(input_fields) == len(values)
+                for inp, val in zip(input_fields, values):
+                    clear(inp)
+                    inp.send_keys(val)
                 return
 
             i = i + 1

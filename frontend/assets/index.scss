@@ -101,6 +101,7 @@ table.is-centered {
     margin-right: auto;
 }
 
+@import "index.sass";
 @import "../../third-party/bulma/bulma.sass";
 
 $fieldset-background-color: $scheme-main !default;

@@ -77,6 +77,8 @@ def test_completeness(tmp_path: Path) -> None:
 
 
 def test_completeness_constraints(tmp_path: Path) -> None:
+    """Ensure that all constraints defined in the model are added during the upgrade."""
+
     def constraints(connection: sqlite3.Connection) -> list[str]:
         return sorted(
             [
@@ -108,14 +110,28 @@ def test_completeness_constraints(tmp_path: Path) -> None:
         assert migrated_constraints == model_constraints
 
 
-@pytest.mark.parametrize(("source", "target"), [("4b6051594962", "b9f4e42c7135")])
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [
+        ("4b6051594962", "b9f4e42c7135"),
+        ("b9f4e42c7135", "8a0dc258bf2a"),
+        ("8a0dc258bf2a", "22f3ddb25741"),
+    ],
+)
 def test_up(tmp_path: Path, source: str, target: str) -> None:
     assert_db_equality(
         tmp_path, source, target, "up_from", lambda: upgrade(Config("alembic.ini"), target)
     )
 
 
-@pytest.mark.parametrize(("source", "target"), [("b9f4e42c7135", "4b6051594962")])
+@pytest.mark.parametrize(
+    ("source", "target"),
+    [
+        ("b9f4e42c7135", "4b6051594962"),
+        ("8a0dc258bf2a", "b9f4e42c7135"),
+        ("22f3ddb25741", "8a0dc258bf2a"),
+    ],
+)
 def test_down(tmp_path: Path, source: str, target: str) -> None:
     assert_db_equality(
         tmp_path, source, target, "down_from", lambda: downgrade(Config("alembic.ini"), target)

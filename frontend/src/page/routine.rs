@@ -57,6 +57,12 @@ pub struct Model {
     loading: bool,
 }
 
+impl Model {
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.sections.iter().any(|s| s.changed())
+    }
+}
+
 enum Dialog {
     Hidden,
     SelectExercise(Vec<usize>, String),
@@ -81,6 +87,20 @@ enum Form {
 }
 
 impl Form {
+    fn changed(&self) -> bool {
+        match self {
+            Form::Section { rounds, parts } => rounds.changed || parts.iter().any(|p| p.changed()),
+            Form::Activity {
+                reps,
+                duration,
+                tempo,
+                weight,
+                rpe,
+                ..
+            } => reps.changed || duration.changed || tempo.changed || weight.changed || rpe.changed,
+        }
+    }
+
     fn valid(&self) -> bool {
         match self {
             Form::Section { rounds, parts } => rounds.valid && parts.iter().all(|p| p.valid()),

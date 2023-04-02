@@ -220,6 +220,12 @@ pub struct Model {
     loading: bool,
 }
 
+impl Model {
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.form.changed()
+    }
+}
+
 struct Form {
     notes: String,
     notes_changed: bool,

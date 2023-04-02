@@ -9,6 +9,7 @@ import pytest
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver as RemoteWebDriver
@@ -249,8 +250,13 @@ class Page:
     def url(self) -> str:
         raise NotImplementedError
 
-    def load(self) -> None:
+    def load(self, *, accept_unsaved_changes: bool = False) -> None:
         self._driver.get(f"http://{HOST}:{PORT}/#{self.url}")
+
+        if accept_unsaved_changes:
+            alert = self.wait_for_alert()
+            alert.accept()
+
         wait(self._driver).until(
             EC.presence_of_element_located((By.XPATH, "/html/body/div[@id='app']/nav/div/div"))
         )
@@ -330,6 +336,9 @@ class Page:
 
     def wait_for_dialog(self) -> None:
         Dialog(self._driver).wait_for_opening()
+
+    def wait_for_alert(self) -> Alert:
+        return wait(self._driver).until(EC.alert_is_present())
 
 
 class LoginPage(Page):
@@ -463,6 +472,11 @@ class WorkoutPage(Page):
 
     def click_save(self) -> None:
         self._driver.find_element(by=By.XPATH, value="//button[contains(@class, 'is-fab')]").click()
+        wait(self._driver).until(
+            EC.invisibility_of_element_located(
+                (By.XPATH, "//button[contains(@class, 'is-loading')]")
+            )
+        )
 
     def get_sets(self) -> list[list[str]]:
         return [
@@ -595,11 +609,20 @@ class RoutinePage(Page):
             EC.visibility_of_element_located((By.XPATH, f"//td[text()='{text}']"))
         ).click()
 
-    def set_duration(self, index: int, duration: int) -> None:
-        self._set_input("clock-rotate-left", index, str(duration))
+    def set_reps(self, index: int, text: str) -> None:
+        self._set_input("rotate-left", index, text)
 
-    def set_tempo(self, index: int, tempo: int) -> None:
-        self._set_input("person-running", index, str(tempo))
+    def set_duration(self, index: int, text: str) -> None:
+        self._set_input("clock-rotate-left", index, text)
+
+    def set_tempo(self, index: int, text: str) -> None:
+        self._set_input("person-running", index, text)
+
+    def set_weight(self, index: int, text: str) -> None:
+        self._set_input("weight-hanging", index, text)
+
+    def set_rpe(self, index: int, text: str) -> None:
+        self._set_input("@", index, text)
 
     def wait_for_editable_sections(self) -> None:
         wait(self._driver).until(
@@ -633,6 +656,7 @@ class RoutinePage(Page):
                 by=By.XPATH, value="//div[contains(@class, 'control')]"
             )
             if e.find_elements(by=By.XPATH, value=f".//i[@class='fas fa-{icon}']")
+            or e.find_elements(by=By.XPATH, value=f".//span[text()='{icon}']")
         ]
         inp = controls[index].find_element(by=By.TAG_NAME, value="input")
         clear(inp)

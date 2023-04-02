@@ -12,6 +12,8 @@ mod page;
 fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
     orders
         .skip()
+        .stream(streams::window_event(Ev::BeforeUnload, Msg::BeforeUnload))
+        .subscribe(Msg::UrlRequested)
         .subscribe(Msg::UrlChanged)
         .subscribe(Msg::Data)
         .stream(streams::window_event(Ev::Click, |_| Msg::HideMenu))
@@ -222,6 +224,8 @@ impl Page {
 // ------ ------
 
 enum Msg {
+    BeforeUnload(web_sys::Event),
+    UrlRequested(subs::UrlRequested),
     UrlChanged(subs::UrlChanged),
 
     ToggleMenu,
@@ -250,6 +254,25 @@ enum Msg {
 
 fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
+        Msg::BeforeUnload(event) => {
+            if warn_about_unsaved_changes(model) {
+                let event = event.unchecked_into::<web_sys::BeforeUnloadEvent>();
+                event.prevent_default();
+                event.set_return_value("");
+            }
+        }
+        Msg::UrlRequested(subs::UrlRequested(_, url_request)) => {
+            if warn_about_unsaved_changes(model) {
+                if Ok(true)
+                    == window().confirm_with_message(
+                        "Do you want to leave this page? Changes will not be saved.",
+                    )
+                {
+                    return;
+                }
+                url_request.handled_and_prevent_refresh();
+            }
+        }
         Msg::UrlChanged(subs::UrlChanged(url)) => {
             model.page = Some(Page::init(url, orders, &mut model.navbar, &model.data));
             orders.send_msg(Msg::Data(data::Msg::ClearErrors));
@@ -402,6 +425,20 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::Data(msg) => data::update(msg, &mut model.data, &mut orders.proxy(Msg::Data)),
+    }
+}
+
+fn warn_about_unsaved_changes(model: &Model) -> bool {
+    if let Some(page) = &model.page {
+        if let Page::Routine(model) = page {
+            model.has_unsaved_changes()
+        } else if let Page::Workout(model) = page {
+            model.has_unsaved_changes()
+        } else {
+            false
+        }
+    } else {
+        false
     }
 }
 

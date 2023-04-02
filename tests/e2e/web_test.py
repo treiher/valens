@@ -477,7 +477,7 @@ def test_workout_change_entries(driver: webdriver.Chrome) -> None:
 
     assert page.get_sets() == [new_values, *sets[1:]]
 
-    page.load()
+    page.load(accept_unsaved_changes=True)
 
     page.wait_for_title(str(workout.date))
     assert page.get_sets() == sets
@@ -523,7 +523,7 @@ def test_workout_change_notes(driver: webdriver.Chrome) -> None:
     assert page.get_sets() == sets
     assert page.get_notes() == new_notes
 
-    page.load()
+    page.load(accept_unsaved_changes=True)
 
     page.wait_for_title(str(workout.date))
     assert page.get_sets() == sets
@@ -670,17 +670,37 @@ def test_routine_edit(driver: webdriver.Chrome) -> None:
     page.click_fab()
 
     page.wait_for_editable_sections()
-    page.click_auto_button(0)
     page.set_rounds(0, 8)
     page.set_exercise(0, exercise_2)
-    page.set_duration(0, 60)
-    page.set_tempo(0, 4)
+    page.set_reps(0, "10")
+    page.set_tempo(0, "4")
+    page.set_weight(0, "18")
+    page.set_rpe(0, "8")
+    page.click_auto_button(0)
 
     page.click_fab()
 
     page.wait_for_sections()
     sections = page.get_sections()
-    assert sections[0] == ("8", exercise_2, "60 s", "4 s", "A", "Rest", "30 s")
+    assert sections[0] == ("8", exercise_2, "10", "4 s", "18 kg", "@", "8", "A", "Rest", "30 s")
+
+    page.click_fab()
+
+    page.wait_for_editable_sections()
+    page.set_rounds(0, 8)
+    page.set_exercise(0, exercise_1)
+    page.set_reps(0, "")
+    page.set_tempo(0, "")
+    page.set_duration(0, "60")
+    page.set_weight(0, "5.5")
+    page.set_rpe(0, "8.5")
+    page.click_auto_button(0)
+
+    page.click_fab()
+
+    page.wait_for_sections()
+    sections = page.get_sections()
+    assert sections[0] == ("8", exercise_1, "60 s", "5.5 kg", "@", "8.5", "Rest", "30 s")
 
 
 def test_routine_create_exercise(driver: webdriver.Chrome) -> None:

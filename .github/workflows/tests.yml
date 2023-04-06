@@ -6,7 +6,7 @@ on:
     - cron: '0 2 * * *'
 
 env:
-  RUST_VERSION: "1.64"
+  RUST_VERSION: "1.68.2"
 
 jobs:
   check_frontend:

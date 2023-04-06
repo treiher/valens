@@ -31,7 +31,7 @@ pub fn init(
         "Stopwatch / Metronome / Timer"
     ]];
 
-    let workout = &data_model.workouts.iter().find(|w| w.id == workout_id);
+    let workout = &data_model.workouts.get(&workout_id);
 
     Model {
         workout_id,
@@ -107,8 +107,7 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
                         exercise_id: *exercise_id,
                         exercise_name: data_model
                             .exercises
-                            .iter()
-                            .find(|e| e.id == *exercise_id)
+                            .get(exercise_id)
                             .map(|e| e.name.clone())
                             .unwrap_or_else(|| format!("Exercise#{exercise_id}")),
                         reps: InputField {
@@ -190,7 +189,7 @@ fn previous_sets(
     if let Some(workout) = workout {
         if let Some(previous_workout) = &data_model
             .workouts
-            .iter()
+            .values()
             .filter(|w| {
                 w.id != workout.id
                     && w.date <= workout.date
@@ -709,14 +708,10 @@ pub fn update(
         }
         Msg::DataEvent(event) => {
             match event {
-                data::Event::DataChanged => {
-                    let workout = &data_model
-                        .workouts
-                        .iter()
-                        .find(|w| w.id == model.workout_id);
-                    model.form = init_form(workout, data_model);
-                }
-                data::Event::WorkoutModifiedOk | data::Event::WorkoutModifiedErr => {
+                data::Event::DataChanged
+                | data::Event::WorkoutModifiedOk
+                | data::Event::WorkoutModifiedErr => {
+                    model.form = init_form(&data_model.workouts.get(&model.workout_id), data_model);
                     model.loading = false;
                 }
                 _ => {}
@@ -793,11 +788,7 @@ fn update_timer_handle(model: &mut Model, orders: &mut impl Orders<Msg>) {
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.workouts.is_empty() && data_model.loading_workouts {
         common::view_loading()
-    } else if let Some(workout) = data_model
-        .workouts
-        .iter()
-        .find(|w| w.id == model.workout_id)
-    {
+    } else if let Some(workout) = data_model.workouts.get(&model.workout_id) {
         if model.timer_dialog.visible {
             div![
                 Node::NoChange,
@@ -816,11 +807,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 }
 
 fn view_title(workout: &data::Workout, data_model: &data::Model) -> Node<Msg> {
-    let title = if let Some(routine) = data_model
-        .routines
-        .iter()
-        .find(|r| Some(r.id) == workout.routine_id)
-    {
+    let title = if let Some(routine) = data_model.routines.get(&workout.routine_id.unwrap_or(0)) {
         span![
             workout.date.to_string(),
             " (",

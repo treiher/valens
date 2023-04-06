@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use seed::{prelude::*, *};
 
 use crate::common;
@@ -37,7 +39,7 @@ enum Dialog {
     Hidden,
     AddRoutine(Form),
     EditRoutine(Form),
-    DeleteRoutine(usize),
+    DeleteRoutine(u32),
 }
 
 struct Form {
@@ -51,8 +53,8 @@ struct Form {
 
 pub enum Msg {
     ShowAddRoutineDialog,
-    ShowEditRoutineDialog(usize),
-    ShowDeleteRoutineDialog(usize),
+    ShowEditRoutineDialog(u32),
+    ShowDeleteRoutineDialog(u32),
     CloseRoutineDialog,
 
     SearchTermChanged(String),
@@ -76,16 +78,16 @@ pub fn update(
                 name: (String::new(), None),
             });
         }
-        Msg::ShowEditRoutineDialog(index) => {
-            let id = data_model.routines[index].id;
-            let name = data_model.routines[index].name.clone();
+        Msg::ShowEditRoutineDialog(id) => {
+            let id = data_model.routines[&id].id;
+            let name = data_model.routines[&id].name.clone();
             model.dialog = Dialog::EditRoutine(Form {
                 id,
                 name: (name.clone(), Some(name)),
             });
         }
-        Msg::ShowDeleteRoutineDialog(index) => {
-            model.dialog = Dialog::DeleteRoutine(index);
+        Msg::ShowDeleteRoutineDialog(id) => {
+            model.dialog = Dialog::DeleteRoutine(id);
         }
         Msg::CloseRoutineDialog => {
             model.dialog = Dialog::Hidden;
@@ -97,7 +99,7 @@ pub fn update(
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddRoutine(ref mut form) | Dialog::EditRoutine(ref mut form) => {
-                if data_model.routines.iter().all(|e| e.name != name) {
+                if data_model.routines.values().all(|e| e.name != name) {
                     form.name = (name.clone(), Some(name));
                 } else {
                     form.name = (name, None);
@@ -160,7 +162,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: bool) -> Node<Msg> {
+fn view_routine_dialog(
+    dialog: &Dialog,
+    routines: &BTreeMap<u32, data::Routine>,
+    loading: bool,
+) -> Node<Msg> {
     let title;
     let form;
     match dialog {
@@ -172,8 +178,8 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: boo
             title = "Edit routine";
             form = f;
         }
-        Dialog::DeleteRoutine(index) => {
-            let routine = &routines[*index];
+        Dialog::DeleteRoutine(id) => {
+            let routine = &routines[id];
             let id = routine.id;
             return common::view_delete_confirmation_dialog(
                 "routine",
@@ -257,10 +263,10 @@ fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
             C!["is-hoverable"],
             tbody![&data_model
                 .routines
-                .iter()
-                .enumerate()
-                .filter(|(_, e)| e.name.to_lowercase().contains(&search_term.to_lowercase()))
-                .map(|(i, e)| {
+                .values()
+                .rev()
+                .filter(|e| e.name.to_lowercase().contains(&search_term.to_lowercase()))
+                .map(|e| {
                     let id = e.id;
                     tr![td![
                         C!["is-flex"],
@@ -280,13 +286,13 @@ fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
                             a![
                                 C!["icon"],
                                 C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditRoutineDialog(i)),
+                                ev(Ev::Click, move |_| Msg::ShowEditRoutineDialog(id)),
                                 i![C!["fas fa-edit"]]
                             ],
                             a![
                                 C!["icon"],
                                 C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteRoutineDialog(i)),
+                                ev(Ev::Click, move |_| Msg::ShowDeleteRoutineDialog(id)),
                                 i![C!["fas fa-times"]]
                             ]
                         ]

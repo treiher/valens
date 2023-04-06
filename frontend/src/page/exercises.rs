@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use seed::{prelude::*, *};
 
 use crate::common;
@@ -37,7 +39,7 @@ enum Dialog {
     Hidden,
     AddExercise(Form),
     EditExercise(Form),
-    DeleteExercise(usize),
+    DeleteExercise(u32),
 }
 
 struct Form {
@@ -51,8 +53,8 @@ struct Form {
 
 pub enum Msg {
     ShowAddExerciseDialog,
-    ShowEditExerciseDialog(usize),
-    ShowDeleteExerciseDialog(usize),
+    ShowEditExerciseDialog(u32),
+    ShowDeleteExerciseDialog(u32),
     CloseExerciseDialog,
 
     SearchTermChanged(String),
@@ -76,16 +78,16 @@ pub fn update(
                 name: (String::new(), None),
             });
         }
-        Msg::ShowEditExerciseDialog(index) => {
-            let id = data_model.exercises[index].id;
-            let name = data_model.exercises[index].name.clone();
+        Msg::ShowEditExerciseDialog(id) => {
+            let id = data_model.exercises[&id].id;
+            let name = data_model.exercises[&id].name.clone();
             model.dialog = Dialog::EditExercise(Form {
                 id,
                 name: (name.clone(), Some(name)),
             });
         }
-        Msg::ShowDeleteExerciseDialog(index) => {
-            model.dialog = Dialog::DeleteExercise(index);
+        Msg::ShowDeleteExerciseDialog(id) => {
+            model.dialog = Dialog::DeleteExercise(id);
         }
         Msg::CloseExerciseDialog => {
             model.dialog = Dialog::Hidden;
@@ -97,7 +99,7 @@ pub fn update(
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
-                if data_model.exercises.iter().all(|e| e.name != name) {
+                if data_model.exercises.values().all(|e| e.name != name) {
                     form.name = (name.clone(), Some(name));
                 } else {
                     form.name = (name, None);
@@ -163,7 +165,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_exercise_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> Node<Msg> {
+fn view_exercise_dialog(
+    dialog: &Dialog,
+    exercises: &BTreeMap<u32, data::Exercise>,
+    loading: bool,
+) -> Node<Msg> {
     let title;
     let form;
     match dialog {
@@ -175,8 +181,8 @@ fn view_exercise_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: 
             title = "Edit exercise";
             form = f;
         }
-        Dialog::DeleteExercise(index) => {
-            let exercise = &exercises[*index];
+        Dialog::DeleteExercise(id) => {
+            let exercise = &exercises[id];
             let id = exercise.id;
             return common::view_delete_confirmation_dialog(
                 "exercise",
@@ -251,6 +257,13 @@ fn view_exercise_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: 
 }
 
 fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
+    let mut exercises = data_model
+        .exercises
+        .values()
+        .filter(|e| e.name.to_lowercase().contains(&search_term.to_lowercase()))
+        .collect::<Vec<_>>();
+    exercises.sort_by(|a, b| a.name.cmp(&b.name));
+
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -258,12 +271,9 @@ fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
             C!["table"],
             C!["is-fullwidth"],
             C!["is-hoverable"],
-            tbody![&data_model
-                .exercises
+            tbody![exercises
                 .iter()
-                .enumerate()
-                .filter(|(_, e)| e.name.to_lowercase().contains(&search_term.to_lowercase()))
-                .map(|(i, e)| {
+                .map(|e| {
                     let id = e.id;
                     tr![td![
                         C!["is-flex"],
@@ -283,13 +293,13 @@ fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
                             a![
                                 C!["icon"],
                                 C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditExerciseDialog(i)),
+                                ev(Ev::Click, move |_| Msg::ShowEditExerciseDialog(id)),
                                 i![C!["fas fa-edit"]]
                             ],
                             a![
                                 C!["icon"],
                                 C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteExerciseDialog(i)),
+                                ev(Ev::Click, move |_| Msg::ShowDeleteExerciseDialog(id)),
                                 i![C!["fas fa-times"]]
                             ]
                         ]

@@ -57,9 +57,9 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
             C!["has-text-centered"],
             &data_model
                 .users
-                .iter()
+                .values()
                 .map(|user| {
-                    let user_id = u32::clone(&user.id);
+                    let user_id = user.id;
                     div![
                         C!["column"],
                         button![

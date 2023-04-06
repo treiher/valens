@@ -26,8 +26,8 @@ pub fn init(
         interval: common::init_interval(
             &data_model
                 .body_fat
-                .iter()
-                .map(|bf| bf.date)
+                .keys()
+                .cloned()
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
@@ -90,7 +90,7 @@ impl Form {
 
 pub enum Msg {
     ShowAddBodyFatDialog,
-    ShowEditBodyFatDialog(usize),
+    ShowEditBodyFatDialog(NaiveDate),
     ShowDeleteBodyFatDialog(NaiveDate),
     CloseBodyFatDialog,
 
@@ -122,7 +122,7 @@ pub fn update(
             model.dialog = Dialog::AddBodyFat(Form {
                 date: (
                     local.to_string(),
-                    if data_model.body_fat.iter().all(|bf| bf.date != local) {
+                    if data_model.body_fat.keys().all(|date| *date != local) {
                         Some(local)
                     } else {
                         None
@@ -137,15 +137,15 @@ pub fn update(
                 midaxillary: (String::new(), None),
             });
         }
-        Msg::ShowEditBodyFatDialog(index) => {
-            let date = data_model.body_fat[index].date;
-            let chest = data_model.body_fat[index].chest;
-            let abdominal = data_model.body_fat[index].abdominal;
-            let tigh = data_model.body_fat[index].tigh;
-            let tricep = data_model.body_fat[index].tricep;
-            let subscapular = data_model.body_fat[index].subscapular;
-            let suprailiac = data_model.body_fat[index].suprailiac;
-            let midaxillary = data_model.body_fat[index].midaxillary;
+        Msg::ShowEditBodyFatDialog(date) => {
+            let date = data_model.body_fat[&date].date;
+            let chest = data_model.body_fat[&date].chest;
+            let abdominal = data_model.body_fat[&date].abdominal;
+            let tigh = data_model.body_fat[&date].tigh;
+            let tricep = data_model.body_fat[&date].tricep;
+            let subscapular = data_model.body_fat[&date].subscapular;
+            let suprailiac = data_model.body_fat[&date].suprailiac;
+            let midaxillary = data_model.body_fat[&date].midaxillary;
             model.dialog = Dialog::EditBodyFat(Form {
                 date: (date.to_string(), Some(date)),
                 chest: (
@@ -218,7 +218,7 @@ pub fn update(
             Dialog::AddBodyFat(ref mut form) => {
                 match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                     Ok(parsed_date) => {
-                        if data_model.body_fat.iter().all(|bf| bf.date != parsed_date) {
+                        if data_model.body_fat.keys().all(|date| *date != parsed_date) {
                             form.date = (date, Some(parsed_date));
                         } else {
                             form.date = (date, None);
@@ -415,8 +415,8 @@ pub fn update(
                     model.interval = common::init_interval(
                         &data_model
                             .body_fat
-                            .iter()
-                            .map(|bf| bf.date)
+                            .keys()
+                            .cloned()
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
@@ -692,12 +692,12 @@ fn view_body_fat_form_field(
 fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
     let body_fat = data_model
         .body_fat
-        .iter()
+        .values()
         .filter(|bf| bf.date >= model.interval.first && bf.date <= model.interval.last)
         .collect::<Vec<_>>();
     let body_weight = data_model
         .body_weight
-        .iter()
+        .values()
         .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
         .collect::<Vec<_>>();
     let sex = data_model.session.as_ref().unwrap().sex;
@@ -781,13 +781,11 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ]],
             tbody![&data_model
                 .body_fat
-                .iter()
-                .enumerate()
+                .values()
                 .rev()
-                .filter(|(_, bf)| bf.date >= model.interval.first && bf.date <= model.interval.last)
-                .map(|(i, bf)| {
-                    #[allow(clippy::clone_on_copy)]
-                    let date = bf.date.clone();
+                .filter(|bf| bf.date >= model.interval.first && bf.date <= model.interval.last)
+                .map(|bf| {
+                    let date = bf.date;
                     tr![
                         td![span![
                             style! {St::WhiteSpace => "nowrap" },
@@ -821,7 +819,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             a![
                                 C!["icon"],
                                 C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditBodyFatDialog(i)),
+                                ev(Ev::Click, move |_| Msg::ShowEditBodyFatDialog(date)),
                                 i![C!["fas fa-edit"]]
                             ],
                             a![

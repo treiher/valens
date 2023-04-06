@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 use chrono::prelude::*;
@@ -61,6 +62,12 @@ impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
         self.sections.iter().any(|s| s.changed())
     }
+
+    pub fn mark_as_unchanged(&mut self) {
+        for s in &mut self.sections {
+            s.mark_as_unchanged();
+        }
+    }
 }
 
 enum Dialog {
@@ -96,6 +103,29 @@ impl Form {
                 rpe,
                 ..
             } => reps.changed || time.changed || weight.changed || rpe.changed,
+        }
+    }
+
+    fn mark_as_unchanged(&mut self) {
+        match self {
+            Form::Section { rounds, parts } => {
+                rounds.changed = false;
+                for p in parts {
+                    p.mark_as_unchanged();
+                }
+            }
+            Form::Activity {
+                reps,
+                time,
+                weight,
+                rpe,
+                ..
+            } => {
+                reps.changed = false;
+                time.changed = false;
+                weight.changed = false;
+                rpe.changed = false;
+            }
         }
     }
 
@@ -608,6 +638,7 @@ pub fn update(
                 | data::Event::RoutineModifiedOk
                 | data::Event::RoutineDeletedOk => {
                     model.editing = false;
+                    model.mark_as_unchanged();
                     Url::go_and_push(
                         &crate::Urls::new(&data_model.base_url)
                             .routine()
@@ -632,23 +663,20 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
     model.interval = common::init_interval(
         &data_model
             .workouts
-            .iter()
+            .values()
             .filter(|w| w.routine_id == Some(model.routine_id))
             .map(|w| w.date)
             .collect::<Vec<NaiveDate>>(),
         true,
     );
 
-    let routine = &data_model
-        .routines
-        .iter()
-        .find(|r| r.id == model.routine_id);
+    let routine = &data_model.routines.get(&model.routine_id);
 
     if let Some(routine) = routine {
         model.sections = routine.sections.iter().map(|p| p.into()).collect();
         let workouts = &data_model
             .workouts
-            .iter()
+            .values()
             .filter(|w| w.routine_id == Some(routine.id))
             .collect::<Vec<_>>();
         let all_exercises = &workouts
@@ -669,11 +697,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.routines.is_empty() && data_model.loading_routines {
         common::view_loading()
-    } else if let Some(routine) = &data_model
-        .routines
-        .iter()
-        .find(|r| r.id == model.routine_id)
-    {
+    } else if let Some(routine) = &data_model.routines.get(&model.routine_id) {
         let saving_disabled = not(model.sections.iter().all(|s| s.valid()));
         div![
             common::view_title(&span![&routine.name], 0),
@@ -705,66 +729,78 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_dialog(dialog: &Dialog, exercises: &[data::Exercise], loading: bool) -> Node<Msg> {
+fn view_dialog(
+    dialog: &Dialog,
+    exercises: &BTreeMap<u32, data::Exercise>,
+    loading: bool,
+) -> Node<Msg> {
     match dialog {
-        Dialog::SelectExercise(part_id, search_term) => common::view_dialog(
-            "primary",
-            "Select exercise",
-            nodes![
-                div![
-                    C!["field"],
-                    C!["is-grouped"],
-                    common::view_search_box(search_term, Msg::SearchTermChanged),
-                    {
-                        let disabled = loading
-                            || search_term.is_empty()
-                            || exercises.iter().any(|e| e.name == *search_term.trim());
-                        div![
-                            C!["control"],
-                            button![
-                                C!["button"],
-                                C!["is-link"],
-                                C![IF![loading => "is-loading"]],
-                                attrs! {
-                                    At::Disabled => disabled.as_at_value()
-                                },
-                                ev(Ev::Click, |_| Msg::CreateExercise),
-                                span![C!["icon"], i![C!["fas fa-plus"]]]
+        Dialog::SelectExercise(part_id, search_term) => {
+            let mut exercises = exercises
+                .values()
+                .filter(|e| {
+                    e.name
+                        .to_lowercase()
+                        .contains(search_term.to_lowercase().trim())
+                })
+                .collect::<Vec<_>>();
+            exercises.sort_by(|a, b| a.name.cmp(&b.name));
+
+            common::view_dialog(
+                "primary",
+                "Select exercise",
+                nodes![
+                    div![
+                        C!["field"],
+                        C!["is-grouped"],
+                        common::view_search_box(search_term, Msg::SearchTermChanged),
+                        {
+                            let disabled = loading
+                                || search_term.is_empty()
+                                || exercises.iter().any(|e| e.name == *search_term.trim());
+                            div![
+                                C!["control"],
+                                button![
+                                    C!["button"],
+                                    C!["is-link"],
+                                    C![IF![loading => "is-loading"]],
+                                    attrs! {
+                                        At::Disabled => disabled.as_at_value()
+                                    },
+                                    ev(Ev::Click, |_| Msg::CreateExercise),
+                                    span![C!["icon"], i![C!["fas fa-plus"]]]
+                                ]
                             ]
+                        }
+                    ],
+                    div![
+                        C!["table-container"],
+                        C!["mt-4"],
+                        table![
+                            C!["table"],
+                            C!["is-fullwidth"],
+                            C!["is-hoverable"],
+                            tbody![&exercises
+                                .iter()
+                                .map(|e| {
+                                    tr![td![
+                                        C!["has-text-link"],
+                                        ev(Ev::Click, {
+                                            let part_id = part_id.clone();
+                                            let exercise_id = e.id;
+                                            move |_| Msg::ExerciseChanged(part_id, exercise_id)
+                                        }),
+                                        ev(Ev::Click, |_| Msg::CloseDialog),
+                                        e.name.to_string(),
+                                    ]]
+                                })
+                                .collect::<Vec<_>>()],
                         ]
-                    }
-                ],
-                div![
-                    C!["table-container"],
-                    C!["mt-4"],
-                    table![
-                        C!["table"],
-                        C!["is-fullwidth"],
-                        C!["is-hoverable"],
-                        tbody![&exercises
-                            .iter()
-                            .filter(|e| e
-                                .name
-                                .to_lowercase()
-                                .contains(search_term.to_lowercase().trim()))
-                            .map(|e| {
-                                tr![td![
-                                    C!["has-text-link"],
-                                    ev(Ev::Click, {
-                                        let part_id = part_id.clone();
-                                        let exercise_id = e.id;
-                                        move |_| Msg::ExerciseChanged(part_id, exercise_id)
-                                    }),
-                                    ev(Ev::Click, |_| Msg::CloseDialog),
-                                    e.name.to_string(),
-                                ]]
-                            })
-                            .collect::<Vec<_>>()],
                     ]
-                ]
-            ],
-            &ev(Ev::Click, |_| Msg::CloseDialog),
-        ),
+                ],
+                &ev(Ev::Click, |_| Msg::CloseDialog),
+            )
+        }
         Dialog::DeleteWorkout(id) => {
             #[allow(clippy::clone_on_copy)]
             let id = id.clone();
@@ -913,10 +949,8 @@ fn view_routine_part(
                                             let id = id.clone();
                                             move |_| Msg::ShowSelectExerciseDialog(id)
                                         }),
-                                        if let Some(exercise) = data_model
-                                            .exercises
-                                            .iter()
-                                            .find(|e| e.id == *exercise_id)
+                                        if let Some(exercise) =
+                                            data_model.exercises.get(exercise_id)
                                         {
                                             exercise.name.clone()
                                         } else {
@@ -933,9 +967,7 @@ fn view_routine_part(
                         div![
                             C!["has-text-weight-bold"],
                             if let Some(exercise_id) = exercise_id {
-                                if let Some(exercise) =
-                                    data_model.exercises.iter().find(|e| e.id == *exercise_id)
-                                {
+                                if let Some(exercise) = data_model.exercises.get(exercise_id) {
                                     a![
                                         attrs! {
                                             At::Href => {
@@ -1187,7 +1219,7 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
                             attrs! {
                                 At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(exercise_id.to_string()),
                             },
-                            &data_model.exercises.iter().find(|e| e.id == *exercise_id).unwrap().name
+                            &data_model.exercises.get(exercise_id).unwrap().name
                         ]
                     ]
                 })
@@ -1208,7 +1240,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
         workouts::view_charts(
             data_model
                 .workouts
-                .iter()
+                .values()
                 .filter(|w| {
                     w.routine_id == Some(model.routine_id)
                         && w.date >= model.interval.first
@@ -1221,10 +1253,9 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
         workouts::view_table(
             &data_model
                 .workouts
-                .iter()
+                .values()
                 .filter(|w| w.routine_id == Some(model.routine_id))
-                .cloned()
-                .collect::<Vec<_>>(),
+                .collect::<Vec<&data::Workout>>(),
             &data_model.routines,
             &model.interval,
             &data_model.base_url,
@@ -1271,6 +1302,9 @@ fn view_position_buttons(id: Vec<usize>) -> Node<Msg> {
 }
 
 fn view_add_part_buttons(data_model: &data::Model, id: Vec<usize>) -> Node<Msg> {
+    let mut exercises = data_model.exercises.values().collect::<Vec<_>>();
+    exercises.sort_by(|a, b| a.name.cmp(&b.name));
+
     div![
         button![
             C!["button"],
@@ -1279,11 +1313,7 @@ fn view_add_part_buttons(data_model: &data::Model, id: Vec<usize>) -> Node<Msg> 
             C!["mr-2"],
             ev(Ev::Click, {
                 let id = id.clone();
-                let exercise_id = if let Some(exercise) = data_model.exercises.first() {
-                    exercise.id
-                } else {
-                    0
-                };
+                let exercise_id = exercises.first().map(|e| e.id).unwrap_or(0);
                 move |_| Msg::AddActivity(id, Some(exercise_id))
             }),
             span![

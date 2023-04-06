@@ -34,7 +34,7 @@ enum Dialog {
     Hidden,
     AddUser(data::NewUser, String),
     EditUser(data::User, String),
-    DeleteUser(usize),
+    DeleteUser(u32),
 }
 
 // ------ ------
@@ -43,15 +43,15 @@ enum Dialog {
 
 pub enum Msg {
     ShowAddUserDialog,
-    ShowEditUserDialog(usize),
-    ShowDeleteUserDialog(usize),
+    ShowEditUserDialog(u32),
+    ShowDeleteUserDialog(u32),
     CloseUserDialog,
 
     NameChanged(String),
     SexChanged(String),
 
     SaveUser,
-    DeleteUser(usize),
+    DeleteUser(u32),
     DataEvent(data::Event),
 }
 
@@ -74,11 +74,11 @@ pub fn update(
                 String::new(),
             );
         }
-        Msg::ShowEditUserDialog(index) => {
-            model.dialog = Dialog::EditUser(data_model.users[index].clone(), String::new());
+        Msg::ShowEditUserDialog(id) => {
+            model.dialog = Dialog::EditUser(data_model.users[&id].clone(), String::new());
         }
-        Msg::ShowDeleteUserDialog(index) => {
-            model.dialog = Dialog::DeleteUser(index);
+        Msg::ShowDeleteUserDialog(id) => {
+            model.dialog = Dialog::DeleteUser(id);
         }
         Msg::CloseUserDialog => {
             model.dialog = Dialog::Hidden;
@@ -90,7 +90,7 @@ pub fn update(
                     *error = ERROR_EMPTY_NAME.into()
                 } else if data_model
                     .users
-                    .iter()
+                    .values()
                     .any(|u| u.name.trim() == name.trim())
                 {
                     *error = ERROR_NAME_CONFLICT.into()
@@ -104,7 +104,7 @@ pub fn update(
                     *error = ERROR_EMPTY_NAME.into()
                 } else if data_model
                     .users
-                    .iter()
+                    .values()
                     .any(|u| u.name.trim() == name.trim() && u.id != user.id)
                 {
                     *error = ERROR_NAME_CONFLICT.into()
@@ -145,9 +145,8 @@ pub fn update(
                 }
             }
         }
-        Msg::DeleteUser(index) => {
+        Msg::DeleteUser(id) => {
             model.loading = true;
-            let id = data_model.users[index].id;
             orders.notify(data::Msg::DeleteUser(id));
         }
         Msg::DataEvent(event) => {
@@ -175,10 +174,10 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 view_user_dialog(&model.dialog, model.loading)
             }
         ],
-        if let Dialog::DeleteUser(index) = model.dialog {
+        if let Dialog::DeleteUser(id) = model.dialog {
             common::view_delete_confirmation_dialog(
                 "user",
-                &ev(Ev::Click, move |_| Msg::DeleteUser(index)),
+                &ev(Ev::Click, move |_| Msg::DeleteUser(id)),
                 &ev(Ev::Click, |_| Msg::CloseUserDialog),
                 model.loading,
             )
@@ -196,9 +195,9 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 thead![tr![th!["Name"], th!["Sex"], th![]]],
                 tbody![&data_model
                     .users
-                    .iter()
-                    .enumerate()
-                    .map(|(i, user)| {
+                    .values()
+                    .map(|user| {
+                        let id = user.id;
                         let sex = &user.sex.to_string();
                         let sex = match &user.sex {
                             0 => "female",
@@ -212,13 +211,13 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                 a![
                                     C!["icon"],
                                     C!["mr-2"],
-                                    ev(Ev::Click, move |_| Msg::ShowEditUserDialog(i)),
+                                    ev(Ev::Click, move |_| Msg::ShowEditUserDialog(id)),
                                     i![C!["fas fa-user-edit"]]
                                 ],
                                 a![
                                     C!["icon"],
                                     C!["ml-2"],
-                                    ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(i)),
+                                    ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(id)),
                                     i![C!["fas fa-user-times"]]
                                 ]
                             ]

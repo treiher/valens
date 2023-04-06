@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
@@ -26,7 +28,7 @@ pub fn init(
         interval: common::init_interval(
             &data_model
                 .workouts
-                .iter()
+                .values()
                 .map(|w| w.date)
                 .collect::<Vec<NaiveDate>>(),
             false,
@@ -87,10 +89,7 @@ pub fn update(
             let local = Local::now().date_naive();
             model.dialog = Dialog::AddWorkout(Form {
                 date: (local.to_string(), Some(local)),
-                routine_id: (
-                    String::new(),
-                    data_model.routines.first().map(|routine| routine.id),
-                ),
+                routine_id: (String::new(), data_model.routines.keys().max().copied()),
             });
         }
         Msg::ShowDeleteWorkoutDialog(id) => {
@@ -105,7 +104,7 @@ pub fn update(
             Dialog::AddWorkout(ref mut form) => {
                 match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                     Ok(parsed_date) => {
-                        if data_model.workouts.iter().all(|p| p.date != parsed_date) {
+                        if data_model.workouts.values().all(|w| w.date != parsed_date) {
                             form.date = (date, Some(parsed_date));
                         } else {
                             form.date = (date, None);
@@ -143,8 +142,7 @@ pub fn update(
                 Dialog::AddWorkout(ref mut form) => {
                     let routine = data_model
                         .routines
-                        .iter()
-                        .find(|r| r.id == form.routine_id.1.unwrap())
+                        .get(&form.routine_id.1.unwrap())
                         .unwrap();
                     let sets = routine
                         .sections
@@ -174,7 +172,7 @@ pub fn update(
                     model.interval = common::init_interval(
                         &data_model
                             .workouts
-                            .iter()
+                            .values()
                             .map(|w| w.date)
                             .collect::<Vec<NaiveDate>>(),
                         false,
@@ -203,19 +201,29 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_loading()
     } else {
         div![
-            view_workouts_dialog(&data_model.routines, &model.dialog, model.loading),
+            view_workouts_dialog(
+                &data_model
+                    .routines
+                    .values()
+                    .collect::<Vec<&data::Routine>>(),
+                &model.dialog,
+                model.loading
+            ),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
             view_charts(
                 data_model
                     .workouts
-                    .iter()
+                    .values()
                     .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
                     .collect::<Vec<_>>()
                     .as_slice(),
                 &model.interval
             ),
             view_table(
-                &data_model.workouts,
+                &data_model
+                    .workouts
+                    .values()
+                    .collect::<Vec<&data::Workout>>(),
                 &data_model.routines,
                 &model.interval,
                 &data_model.base_url,
@@ -226,7 +234,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_workouts_dialog(routines: &[data::Routine], dialog: &Dialog, loading: bool) -> Node<Msg> {
+fn view_workouts_dialog(routines: &[&data::Routine], dialog: &Dialog, loading: bool) -> Node<Msg> {
     let title;
     let form;
     let date_disabled;
@@ -282,6 +290,7 @@ fn view_workouts_dialog(routines: &[data::Routine], dialog: &Dialog, loading: bo
                         C!["select"],
                         select![routines
                             .iter()
+                            .rev()
                             .map(|r| {
                                 option![
                                     &r.name,
@@ -450,8 +459,8 @@ pub fn view_charts<Ms>(workouts: &[&data::Workout], interval: &common::Interval)
 }
 
 pub fn view_table<Ms: 'static>(
-    workouts: &[data::Workout],
-    routines: &[data::Routine],
+    workouts: &[&data::Workout],
+    routines: &BTreeMap<u32, data::Routine>,
     interval: &common::Interval,
     base_url: &Url,
     delete_workout_message: fn(u32) -> Ms,
@@ -496,7 +505,7 @@ pub fn view_table<Ms: 'static>(
                                     attrs! {
                                         At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(w.routine_id.unwrap().to_string()),
                                     },
-                                    match &routines.iter().find(|r| r.id == routine_id) {
+                                    match &routines.get(&routine_id) {
                                         Some(routine) => raw![&routine.name],
                                         None => vec![common::view_loading()]
                                     }

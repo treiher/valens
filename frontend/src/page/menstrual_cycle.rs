@@ -26,8 +26,8 @@ pub fn init(
         interval: common::init_interval(
             &data_model
                 .period
-                .iter()
-                .map(|p| p.date)
+                .keys()
+                .cloned()
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
@@ -64,7 +64,7 @@ struct Form {
 
 pub enum Msg {
     ShowAddPeriodDialog,
-    ShowEditPeriodDialog(usize),
+    ShowEditPeriodDialog(NaiveDate),
     ShowDeletePeriodDialog(NaiveDate),
     ClosePeriodDialog,
 
@@ -90,7 +90,7 @@ pub fn update(
             model.dialog = Dialog::AddPeriod(Form {
                 date: (
                     local.to_string(),
-                    if data_model.period.iter().all(|p| p.date != local) {
+                    if data_model.period.keys().all(|date| *date != local) {
                         Some(local)
                     } else {
                         None
@@ -99,9 +99,9 @@ pub fn update(
                 intensity: (String::new(), None),
             });
         }
-        Msg::ShowEditPeriodDialog(index) => {
-            let date = data_model.period[index].date;
-            let intensity = data_model.period[index].intensity;
+        Msg::ShowEditPeriodDialog(date) => {
+            let date = data_model.period[&date].date;
+            let intensity = data_model.period[&date].intensity;
             model.dialog = Dialog::EditPeriod(Form {
                 date: (date.to_string(), Some(date)),
                 intensity: (intensity.to_string(), Some(intensity)),
@@ -118,7 +118,7 @@ pub fn update(
         Msg::DateChanged(date) => match model.dialog {
             Dialog::AddPeriod(ref mut form) => match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                 Ok(parsed_date) => {
-                    if data_model.period.iter().all(|p| p.date != parsed_date) {
+                    if data_model.period.keys().all(|date| *date != parsed_date) {
                         form.date = (date, Some(parsed_date));
                     } else {
                         form.date = (date, None);
@@ -182,8 +182,8 @@ pub fn update(
                     model.interval = common::init_interval(
                         &data_model
                             .period
-                            .iter()
-                            .map(|p| p.date)
+                            .keys()
+                            .cloned()
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
@@ -330,12 +330,12 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
 fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
     let period = data_model
         .period
-        .iter()
+        .values()
         .filter(|p| p.date >= model.interval.first && p.date <= model.interval.last)
         .collect::<Vec<_>>();
     let body_weight = data_model
         .body_weight
-        .iter()
+        .values()
         .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
         .collect::<Vec<_>>();
 
@@ -434,17 +434,15 @@ fn view_period_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
             thead![tr![th!["Date"], th!["Intensity"], th![]]],
             tbody![&data_model
                 .period
-                .iter()
-                .enumerate()
+                .values()
                 .rev()
-                .filter(|(_, p)| p.date >= model.interval.first && p.date <= model.interval.last)
-                .map(|(i, p)| {
-                    #[allow(clippy::clone_on_copy)]
-                    let date = p.date.clone();
+                .filter(|p| p.date >= model.interval.first && p.date <= model.interval.last)
+                .map(|p| {
+                    let date = p.date;
                     tr![
                         td![span![
                             style! {St::WhiteSpace => "nowrap" },
-                            p.date.to_string(),
+                            date.to_string(),
                         ]],
                         td![format!("{:.1}", p.intensity)],
                         td![p![
@@ -452,7 +450,7 @@ fn view_period_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             a![
                                 C!["icon"],
                                 C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditPeriodDialog(i)),
+                                ev(Ev::Click, move |_| Msg::ShowEditPeriodDialog(date)),
                                 i![C!["fas fa-edit"]]
                             ],
                             a![

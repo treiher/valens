@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{prelude::*, Duration};
 use seed::prelude::*;
@@ -16,26 +16,27 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         errors: Vec::new(),
         session: None,
         version: String::new(),
-        users: Vec::new(),
+        users: BTreeMap::new(),
         loading_users: false,
-        body_weight: Vec::new(),
+        body_weight: BTreeMap::new(),
         loading_body_weight: false,
-        body_fat: Vec::new(),
+        body_fat: BTreeMap::new(),
         loading_body_fat: false,
-        period: Vec::new(),
+        period: BTreeMap::new(),
         loading_period: false,
-        cycles: Vec::new(),
-        current_cycle: None,
-        exercises: Vec::new(),
+        exercises: BTreeMap::new(),
         loading_exercises: false,
-        routines: Vec::new(),
+        routines: BTreeMap::new(),
         loading_routines: false,
-        workouts: Vec::new(),
+        workouts: BTreeMap::new(),
         loading_workouts: false,
         last_refresh: DateTime::<Utc>::from_utc(
             NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
             Utc,
         ),
+        body_weight_stats: BTreeMap::new(),
+        cycles: Vec::new(),
+        current_cycle: None,
     }
 }
 
@@ -50,25 +51,28 @@ pub struct Model {
     // ------ Data -----
     pub session: Option<Session>,
     pub version: String,
-    pub users: Vec<User>,
+    pub users: BTreeMap<u32, User>,
     pub loading_users: bool,
 
     // ------ Session-dependent data ------
-    pub body_weight: Vec<BodyWeight>,
+    pub body_weight: BTreeMap<NaiveDate, BodyWeight>,
     pub loading_body_weight: bool,
-    pub body_fat: Vec<BodyFat>,
+    pub body_fat: BTreeMap<NaiveDate, BodyFat>,
     pub loading_body_fat: bool,
-    pub period: Vec<Period>,
+    pub period: BTreeMap<NaiveDate, Period>,
     pub loading_period: bool,
-    pub cycles: Vec<Cycle>,
-    pub current_cycle: Option<CurrentCycle>,
-    pub exercises: Vec<Exercise>,
+    pub exercises: BTreeMap<u32, Exercise>,
     pub loading_exercises: bool,
-    pub routines: Vec<Routine>,
+    pub routines: BTreeMap<u32, Routine>,
     pub loading_routines: bool,
-    pub workouts: Vec<Workout>,
+    pub workouts: BTreeMap<u32, Workout>,
     pub loading_workouts: bool,
     pub last_refresh: DateTime<Utc>,
+
+    // ------ Derived data ------
+    pub body_weight_stats: BTreeMap<NaiveDate, BodyWeightStats>,
+    pub cycles: Vec<Cycle>,
+    pub current_cycle: Option<CurrentCycle>,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -95,7 +99,10 @@ pub struct NewUser {
 pub struct BodyWeight {
     pub date: NaiveDate,
     pub weight: f32,
-    #[serde(skip)]
+}
+
+pub struct BodyWeightStats {
+    pub date: NaiveDate,
     pub avg_weight: Option<f32>,
 }
 
@@ -389,32 +396,48 @@ impl Workout {
     }
 }
 
-fn calculate_body_weight_stats(mut body_weight: Vec<BodyWeight>) -> Vec<BodyWeight> {
+fn calculate_body_weight_stats(
+    body_weight: &BTreeMap<NaiveDate, BodyWeight>,
+) -> BTreeMap<NaiveDate, BodyWeightStats> {
+    let body_weight = body_weight.values().collect::<Vec<_>>();
+
     // centered rolling mean
     let window = 9;
     let length = body_weight.len();
-    for i in 0..length {
-        if i >= window / 2 && i < length - window / 2 {
-            let avg_weight = body_weight[i - window / 2..=i + window / 2]
-                .iter()
-                .map(|bw| bw.weight)
-                .sum::<f32>()
-                / window as f32;
-            body_weight[i].avg_weight = Some(avg_weight);
-        }
-    }
-
     body_weight
+        .iter()
+        .enumerate()
+        .map(|(i, bw)| {
+            (
+                bw.date,
+                BodyWeightStats {
+                    date: bw.date,
+                    avg_weight: if i >= window / 2 && i < length - window / 2 {
+                        let avg_weight = body_weight[i - window / 2..=i + window / 2]
+                            .iter()
+                            .map(|bw| bw.weight)
+                            .sum::<f32>()
+                            / window as f32;
+                        Some(avg_weight)
+                    } else {
+                        None
+                    },
+                },
+            )
+        })
+        .collect()
 }
 
-fn determine_cycles(period: &[Period]) -> Vec<Cycle> {
+fn determine_cycles(period: &BTreeMap<NaiveDate, Period>) -> Vec<Cycle> {
     if period.is_empty() {
         return vec![];
     }
 
     let mut result = vec![];
-    let mut begin = period[0].date;
+    let mut begin = period.keys().min().cloned().unwrap();
     let mut last = begin;
+
+    let period = period.values().collect::<Vec<_>>();
 
     for p in &period[1..] {
         if p.date - last > Duration::days(3) {
@@ -495,7 +518,7 @@ pub enum Msg {
     ReplaceUser(User),
     UserReplaced(Result<User, String>),
     DeleteUser(u32),
-    UserDeleted(Result<(), String>),
+    UserDeleted(Result<u32, String>),
 
     ReadBodyWeight,
     BodyWeightRead(Result<Vec<BodyWeight>, String>),
@@ -504,7 +527,7 @@ pub enum Msg {
     ReplaceBodyWeight(BodyWeight),
     BodyWeightReplaced(Result<BodyWeight, String>),
     DeleteBodyWeight(NaiveDate),
-    BodyWeightDeleted(Result<(), String>),
+    BodyWeightDeleted(Result<NaiveDate, String>),
 
     ReadBodyFat,
     BodyFatRead(Result<Vec<BodyFat>, String>),
@@ -513,7 +536,7 @@ pub enum Msg {
     ReplaceBodyFat(BodyFat),
     BodyFatReplaced(Result<BodyFat, String>),
     DeleteBodyFat(NaiveDate),
-    BodyFatDeleted(Result<(), String>),
+    BodyFatDeleted(Result<NaiveDate, String>),
 
     ReadPeriod,
     PeriodRead(Result<Vec<Period>, String>),
@@ -522,7 +545,7 @@ pub enum Msg {
     ReplacePeriod(Period),
     PeriodReplaced(Result<Period, String>),
     DeletePeriod(NaiveDate),
-    PeriodDeleted(Result<(), String>),
+    PeriodDeleted(Result<NaiveDate, String>),
 
     ReadExercises,
     ExercisesRead(Result<Vec<Exercise>, String>),
@@ -531,7 +554,7 @@ pub enum Msg {
     ReplaceExercise(Exercise),
     ExerciseReplaced(Result<Exercise, String>),
     DeleteExercise(u32),
-    ExerciseDeleted(Result<(), String>),
+    ExerciseDeleted(Result<u32, String>),
 
     ReadRoutines,
     RoutinesRead(Result<Vec<Routine>, String>),
@@ -540,7 +563,7 @@ pub enum Msg {
     ModifyRoutine(u32, Option<String>, Option<Vec<RoutinePart>>),
     RoutineModified(Result<Routine, String>),
     DeleteRoutine(u32),
-    RoutineDeleted(Result<(), String>),
+    RoutineDeleted(Result<u32, String>),
 
     ReadWorkouts,
     WorkoutsRead(Result<Vec<Workout>, String>),
@@ -549,7 +572,7 @@ pub enum Msg {
     ModifyWorkout(u32, Option<String>, Option<Vec<WorkoutElement>>),
     WorkoutModified(Result<Workout, String>),
     DeleteWorkout(u32),
-    WorkoutDeleted(Result<(), String>),
+    WorkoutDeleted(Result<u32, String>),
 }
 
 #[derive(Clone)]
@@ -674,6 +697,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     fetch_no_content(
                         Request::new("api/session").method(Method::Delete),
                         Msg::SessionDeleted,
+                        (),
                     )
                     .await
                 });
@@ -714,6 +738,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             orders.perform_cmd(async { fetch("api/users", Msg::UsersRead).await });
         }
         Msg::UsersRead(Ok(users)) => {
+            let users = users.into_iter().map(|e| (e.id, e)).collect();
             if model.users != users {
                 model.users = users;
                 orders.notify(Event::DataChanged);
@@ -738,8 +763,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::UserCreated(Ok(_)) => {
-            orders.notify(Event::UserCreatedOk).send_msg(Msg::ReadUsers);
+        Msg::UserCreated(Ok(user)) => {
+            model.users.insert(user.id, user);
+            orders.notify(Event::UserCreatedOk);
         }
         Msg::UserCreated(Err(message)) => {
             orders.notify(Event::UserCreatedErr);
@@ -762,10 +788,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::UserReplaced(Ok(_)) => {
-            orders
-                .notify(Event::UserReplacedOk)
-                .send_msg(Msg::ReadUsers);
+        Msg::UserReplaced(Ok(user)) => {
+            model.users.insert(user.id, user);
+            orders.notify(Event::UserReplacedOk);
         }
         Msg::UserReplaced(Err(message)) => {
             orders.notify(Event::UserReplacedErr);
@@ -778,12 +803,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch_no_content(
                     Request::new(format!("api/users/{}", id)).method(Method::Delete),
                     Msg::UserDeleted,
+                    id,
                 )
                 .await
             });
         }
-        Msg::UserDeleted(Ok(_)) => {
-            orders.notify(Event::UserDeletedOk).send_msg(Msg::ReadUsers);
+        Msg::UserDeleted(Ok(id)) => {
+            model.users.remove(&id);
+            orders.notify(Event::UserDeletedOk);
         }
         Msg::UserDeleted(Err(message)) => {
             orders.notify(Event::UserDeletedErr);
@@ -798,11 +825,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch("api/body_weight?format=statistics", Msg::BodyWeightRead).await
             });
         }
-        Msg::BodyWeightRead(Ok(mut body_weight)) => {
-            body_weight.sort_by(|a, b| a.date.cmp(&b.date));
-            body_weight = calculate_body_weight_stats(body_weight);
+        Msg::BodyWeightRead(Ok(body_weight)) => {
+            let body_weight = body_weight.into_iter().map(|e| (e.date, e)).collect();
             if model.body_weight != body_weight {
                 model.body_weight = body_weight;
+                model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
                 orders.notify(Event::DataChanged);
             }
             model.loading_body_weight = false;
@@ -825,10 +852,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::BodyWeightCreated(Ok(_)) => {
-            orders
-                .notify(Event::BodyWeightCreatedOk)
-                .send_msg(Msg::ReadBodyWeight);
+        Msg::BodyWeightCreated(Ok(body_weight)) => {
+            model.body_weight.insert(body_weight.date, body_weight);
+            model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
+            orders.notify(Event::BodyWeightCreatedOk);
         }
         Msg::BodyWeightCreated(Err(message)) => {
             orders.notify(Event::BodyWeightCreatedErr);
@@ -848,10 +875,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::BodyWeightReplaced(Ok(_)) => {
-            orders
-                .notify(Event::BodyWeightReplacedOk)
-                .send_msg(Msg::ReadBodyWeight);
+        Msg::BodyWeightReplaced(Ok(body_weight)) => {
+            model.body_weight.insert(body_weight.date, body_weight);
+            model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
+            orders.notify(Event::BodyWeightReplacedOk);
         }
         Msg::BodyWeightReplaced(Err(message)) => {
             orders.notify(Event::BodyWeightReplacedErr);
@@ -864,14 +891,15 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch_no_content(
                     Request::new(format!("api/body_weight/{}", date)).method(Method::Delete),
                     Msg::BodyWeightDeleted,
+                    date,
                 )
                 .await
             });
         }
-        Msg::BodyWeightDeleted(Ok(_)) => {
-            orders
-                .notify(Event::BodyWeightDeletedOk)
-                .send_msg(Msg::ReadBodyWeight);
+        Msg::BodyWeightDeleted(Ok(date)) => {
+            model.body_weight.remove(&date);
+            model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
+            orders.notify(Event::BodyWeightDeletedOk);
         }
         Msg::BodyWeightDeleted(Err(message)) => {
             orders.notify(Event::BodyWeightDeletedErr);
@@ -886,8 +914,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch("api/body_fat?format=statistics", Msg::BodyFatRead).await
             });
         }
-        Msg::BodyFatRead(Ok(mut body_fat)) => {
-            body_fat.sort_by(|a, b| a.date.cmp(&b.date));
+        Msg::BodyFatRead(Ok(body_fat)) => {
+            let body_fat = body_fat.into_iter().map(|e| (e.date, e)).collect();
             if model.body_fat != body_fat {
                 model.body_fat = body_fat;
                 orders.notify(Event::DataChanged);
@@ -912,10 +940,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::BodyFatCreated(Ok(_)) => {
-            orders
-                .notify(Event::BodyFatCreatedOk)
-                .send_msg(Msg::ReadBodyFat);
+        Msg::BodyFatCreated(Ok(body_fat)) => {
+            model.body_fat.insert(body_fat.date, body_fat);
+            orders.notify(Event::BodyFatCreatedOk);
         }
         Msg::BodyFatCreated(Err(message)) => {
             orders.notify(Event::BodyFatCreatedErr);
@@ -943,10 +970,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::BodyFatReplaced(Ok(_)) => {
-            orders
-                .notify(Event::BodyFatReplacedOk)
-                .send_msg(Msg::ReadBodyFat);
+        Msg::BodyFatReplaced(Ok(body_fat)) => {
+            model.body_fat.insert(body_fat.date, body_fat);
+            orders.notify(Event::BodyFatReplacedOk);
         }
         Msg::BodyFatReplaced(Err(message)) => {
             orders.notify(Event::BodyFatReplacedErr);
@@ -959,14 +985,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch_no_content(
                     Request::new(format!("api/body_fat/{}", date)).method(Method::Delete),
                     Msg::BodyFatDeleted,
+                    date,
                 )
                 .await
             });
         }
-        Msg::BodyFatDeleted(Ok(_)) => {
-            orders
-                .notify(Event::BodyFatDeletedOk)
-                .send_msg(Msg::ReadBodyFat);
+        Msg::BodyFatDeleted(Ok(date)) => {
+            model.body_fat.remove(&date);
+            orders.notify(Event::BodyFatDeletedOk);
         }
         Msg::BodyFatDeleted(Err(message)) => {
             orders.notify(Event::BodyFatDeletedErr);
@@ -981,8 +1007,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/period", Msg::PeriodRead).await });
         }
-        Msg::PeriodRead(Ok(mut period)) => {
-            period.sort_by(|a, b| a.date.cmp(&b.date));
+        Msg::PeriodRead(Ok(period)) => {
+            let period = period.into_iter().map(|e| (e.date, e)).collect();
             if model.period != period {
                 model.period = period;
                 model.cycles = determine_cycles(&model.period);
@@ -1009,10 +1035,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::PeriodCreated(Ok(_)) => {
-            orders
-                .notify(Event::PeriodCreatedOk)
-                .send_msg(Msg::ReadPeriod);
+        Msg::PeriodCreated(Ok(period)) => {
+            model.period.insert(period.date, period);
+            model.cycles = determine_cycles(&model.period);
+            model.current_cycle = determine_current_cycle(&model.cycles);
+            orders.notify(Event::PeriodCreatedOk);
         }
         Msg::PeriodCreated(Err(message)) => {
             orders.notify(Event::PeriodCreatedErr);
@@ -1032,10 +1059,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::PeriodReplaced(Ok(_)) => {
-            orders
-                .notify(Event::PeriodReplacedOk)
-                .send_msg(Msg::ReadPeriod);
+        Msg::PeriodReplaced(Ok(period)) => {
+            model.period.insert(period.date, period);
+            model.cycles = determine_cycles(&model.period);
+            model.current_cycle = determine_current_cycle(&model.cycles);
+            orders.notify(Event::PeriodReplacedOk);
         }
         Msg::PeriodReplaced(Err(message)) => {
             orders.notify(Event::PeriodReplacedErr);
@@ -1048,14 +1076,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch_no_content(
                     Request::new(format!("api/period/{}", date)).method(Method::Delete),
                     Msg::PeriodDeleted,
+                    date,
                 )
                 .await
             });
         }
-        Msg::PeriodDeleted(Ok(_)) => {
-            orders
-                .notify(Event::PeriodDeletedOk)
-                .send_msg(Msg::ReadPeriod);
+        Msg::PeriodDeleted(Ok(date)) => {
+            model.period.remove(&date);
+            model.cycles = determine_cycles(&model.period);
+            model.current_cycle = determine_current_cycle(&model.cycles);
+            orders.notify(Event::PeriodDeletedOk);
         }
         Msg::PeriodDeleted(Err(message)) => {
             orders.notify(Event::PeriodDeletedErr);
@@ -1070,8 +1100,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/exercises", Msg::ExercisesRead).await });
         }
-        Msg::ExercisesRead(Ok(mut exercises)) => {
-            exercises.sort_by(|a, b| a.name.cmp(&b.name));
+        Msg::ExercisesRead(Ok(exercises)) => {
+            let exercises = exercises.into_iter().map(|e| (e.id, e)).collect();
             if model.exercises != exercises {
                 model.exercises = exercises;
                 orders.notify(Event::DataChanged);
@@ -1096,10 +1126,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::ExerciseCreated(Ok(_)) => {
-            orders
-                .notify(Event::ExerciseCreatedOk)
-                .send_msg(Msg::ReadExercises);
+        Msg::ExerciseCreated(Ok(exercise)) => {
+            model.exercises.insert(exercise.id, exercise);
+            orders.notify(Event::ExerciseCreatedOk);
         }
         Msg::ExerciseCreated(Err(message)) => {
             orders.notify(Event::ExerciseCreatedErr);
@@ -1119,10 +1148,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::ExerciseReplaced(Ok(_)) => {
-            orders
-                .notify(Event::ExerciseReplacedOk)
-                .send_msg(Msg::ReadExercises);
+        Msg::ExerciseReplaced(Ok(exercise)) => {
+            model.exercises.insert(exercise.id, exercise);
+            orders.notify(Event::ExerciseReplacedOk);
         }
         Msg::ExerciseReplaced(Err(message)) => {
             orders.notify(Event::ExerciseReplacedErr);
@@ -1135,14 +1163,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch_no_content(
                     Request::new(format!("api/exercises/{}", id)).method(Method::Delete),
                     Msg::ExerciseDeleted,
+                    id,
                 )
                 .await
             });
         }
-        Msg::ExerciseDeleted(Ok(_)) => {
-            orders
-                .notify(Event::ExerciseDeletedOk)
-                .send_msg(Msg::ReadExercises);
+        Msg::ExerciseDeleted(Ok(id)) => {
+            model.exercises.remove(&id);
+            orders.notify(Event::ExerciseDeletedOk);
         }
         Msg::ExerciseDeleted(Err(message)) => {
             orders.notify(Event::ExerciseDeletedErr);
@@ -1157,8 +1185,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/routines", Msg::RoutinesRead).await });
         }
-        Msg::RoutinesRead(Ok(mut routines)) => {
-            routines.sort_by(|a, b| b.id.cmp(&a.id));
+        Msg::RoutinesRead(Ok(routines)) => {
+            let routines = routines.into_iter().map(|r| (r.id, r)).collect();
             if model.routines != routines {
                 model.routines = routines;
                 orders.notify(Event::DataChanged);
@@ -1187,10 +1215,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::RoutineCreated(Ok(_)) => {
-            orders
-                .notify(Event::RoutineCreatedOk)
-                .send_msg(Msg::ReadRoutines);
+        Msg::RoutineCreated(Ok(routine)) => {
+            model.routines.insert(routine.id, routine);
+            orders.notify(Event::RoutineCreatedOk);
         }
         Msg::RoutineCreated(Err(message)) => {
             orders.notify(Event::RoutineCreatedErr);
@@ -1217,10 +1244,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::RoutineModified(Ok(_)) => {
-            orders
-                .notify(Event::RoutineModifiedOk)
-                .send_msg(Msg::ReadRoutines);
+        Msg::RoutineModified(Ok(routine)) => {
+            model.routines.insert(routine.id, routine);
+            orders.notify(Event::RoutineModifiedOk);
         }
         Msg::RoutineModified(Err(message)) => {
             orders.notify(Event::RoutineModifiedErr);
@@ -1233,14 +1259,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch_no_content(
                     Request::new(format!("api/routines/{}", id)).method(Method::Delete),
                     Msg::RoutineDeleted,
+                    id,
                 )
                 .await
             });
         }
-        Msg::RoutineDeleted(Ok(_)) => {
-            orders
-                .notify(Event::RoutineDeletedOk)
-                .send_msg(Msg::ReadRoutines);
+        Msg::RoutineDeleted(Ok(id)) => {
+            model.routines.remove(&id);
+            orders.notify(Event::RoutineDeletedOk);
         }
         Msg::RoutineDeleted(Err(message)) => {
             orders.notify(Event::RoutineDeletedErr);
@@ -1255,8 +1281,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .skip()
                 .perform_cmd(async { fetch("api/workouts", Msg::WorkoutsRead).await });
         }
-        Msg::WorkoutsRead(Ok(mut workouts)) => {
-            workouts.sort_by(|a, b| a.date.cmp(&b.date));
+        Msg::WorkoutsRead(Ok(workouts)) => {
+            let workouts = workouts.into_iter().map(|w| (w.id, w)).collect();
             if model.workouts != workouts {
                 model.workouts = workouts;
                 orders.notify(Event::DataChanged);
@@ -1286,10 +1312,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::WorkoutCreated(Ok(_)) => {
-            orders
-                .notify(Event::WorkoutCreatedOk)
-                .send_msg(Msg::ReadWorkouts);
+        Msg::WorkoutCreated(Ok(workout)) => {
+            model.workouts.insert(workout.id, workout);
+            orders.notify(Event::WorkoutCreatedOk);
         }
         Msg::WorkoutCreated(Err(message)) => {
             orders.notify(Event::WorkoutCreatedErr);
@@ -1316,10 +1341,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .await
             });
         }
-        Msg::WorkoutModified(Ok(_)) => {
-            orders
-                .notify(Event::WorkoutModifiedOk)
-                .send_msg(Msg::ReadWorkouts);
+        Msg::WorkoutModified(Ok(workout)) => {
+            model.workouts.insert(workout.id, workout);
+            orders.notify(Event::WorkoutModifiedOk);
         }
         Msg::WorkoutModified(Err(message)) => {
             orders.notify(Event::WorkoutModifiedErr);
@@ -1332,14 +1356,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 fetch_no_content(
                     Request::new(format!("api/workouts/{}", id)).method(Method::Delete),
                     Msg::WorkoutDeleted,
+                    id,
                 )
                 .await
             });
         }
-        Msg::WorkoutDeleted(Ok(_)) => {
-            orders
-                .notify(Event::WorkoutDeletedOk)
-                .send_msg(Msg::ReadWorkouts);
+        Msg::WorkoutDeleted(Ok(id)) => {
+            model.workouts.remove(&id);
+            orders.notify(Event::WorkoutDeletedOk);
         }
         Msg::WorkoutDeleted(Err(message)) => {
             orders.notify(Event::WorkoutDeletedErr);
@@ -1369,13 +1393,14 @@ where
     }
 }
 
-async fn fetch_no_content<'a, Ms>(
+async fn fetch_no_content<'a, Ms, T>(
     request: impl Into<Request<'a>>,
-    message: fn(Result<(), String>) -> Ms,
+    message: fn(Result<T, String>) -> Ms,
+    id: T,
 ) -> Ms {
     match seed::browser::fetch::fetch(request).await {
         Ok(response) => match response.check_status() {
-            Ok(_) => message(Ok(())),
+            Ok(_) => message(Ok(id)),
             Err(error) => message(Err(format!("unexpected response: {:?}", error))),
         },
         Err(_) => message(Err("no connection".into())),
@@ -1404,26 +1429,29 @@ mod tests {
 
     #[test]
     fn test_determine_cycles() {
-        assert_eq!(determine_cycles(&[]), vec![]);
+        assert_eq!(determine_cycles(&BTreeMap::new()), vec![]);
         assert_eq!(
-            determine_cycles(&[
-                Period {
-                    date: from_num_days(1),
-                    intensity: 3,
-                },
-                Period {
-                    date: from_num_days(5),
-                    intensity: 4,
-                },
-                Period {
-                    date: from_num_days(8),
-                    intensity: 2,
-                },
-                Period {
-                    date: from_num_days(33),
-                    intensity: 1,
-                }
-            ]),
+            determine_cycles(&BTreeMap::from(
+                [
+                    Period {
+                        date: from_num_days(1),
+                        intensity: 3,
+                    },
+                    Period {
+                        date: from_num_days(5),
+                        intensity: 4,
+                    },
+                    Period {
+                        date: from_num_days(8),
+                        intensity: 2,
+                    },
+                    Period {
+                        date: from_num_days(33),
+                        intensity: 1,
+                    }
+                ]
+                .map(|p| (p.date, p))
+            )),
             vec![
                 Cycle {
                     begin: from_num_days(1),

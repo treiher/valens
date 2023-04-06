@@ -383,7 +383,10 @@ pub fn plot_line_chart(
             .draw()?;
 
         for (series, color_idx) in data {
+            let mut series = series.iter().collect::<Vec<_>>();
+            series.sort_by_key(|e| e.0);
             let color = Palette99::pick(*color_idx).mix(0.9);
+
             chart.draw_series(LineSeries::new(
                 series.iter().map(|(x, y)| (*x, *y)),
                 color.stroke_width(2),
@@ -456,7 +459,10 @@ pub fn plot_dual_line_chart(
             .draw()?;
 
         for (series, color_idx) in secondary_data {
+            let mut series = series.iter().collect::<Vec<_>>();
+            series.sort_by_key(|e| e.0);
             let color = Palette99::pick(*color_idx).mix(0.9);
+
             chart.draw_secondary_series(LineSeries::new(
                 series.iter().map(|(x, y)| (*x, *y)),
                 color.stroke_width(2),
@@ -470,7 +476,10 @@ pub fn plot_dual_line_chart(
         }
 
         for (series, color_idx) in data {
+            let mut series = series.iter().collect::<Vec<_>>();
+            series.sort_by_key(|e| e.0);
             let color = Palette99::pick(*color_idx).mix(0.9);
+
             chart.draw_series(LineSeries::new(
                 series.iter().map(|(x, y)| (*x, *y)),
                 color.stroke_width(2),
@@ -549,16 +558,22 @@ pub fn plot_bar_chart(
             .draw()?;
 
         for (series, color_idx) in data {
+            let mut series = series.iter().collect::<Vec<_>>();
+            series.sort_by_key(|e| e.0);
             let color = Palette99::pick(*color_idx).mix(0.9).filled();
             let histogram = Histogram::vertical(&chart)
                 .style(color)
                 .margin(0) // https://github.com/plotters-rs/plotters/issues/300
                 .data(series.iter().map(|(x, y)| (*x, *y)));
+
             chart.draw_series(histogram)?;
         }
 
         for (series, color_idx) in secondary_data {
+            let mut series = series.iter().collect::<Vec<_>>();
+            series.sort_by_key(|e| e.0);
             let color = Palette99::pick(*color_idx).mix(0.9);
+
             chart.draw_secondary_series(LineSeries::new(
                 series.iter().map(|(x, y)| (*x, *y)),
                 color.stroke_width(2),

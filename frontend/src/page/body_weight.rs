@@ -1,3 +1,5 @@
+use std::iter::zip;
+
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
@@ -26,8 +28,8 @@ pub fn init(
         interval: common::init_interval(
             &data_model
                 .body_weight
-                .iter()
-                .map(|bw| bw.date)
+                .keys()
+                .cloned()
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
@@ -64,7 +66,7 @@ struct Form {
 
 pub enum Msg {
     ShowAddBodyWeightDialog,
-    ShowEditBodyWeightDialog(usize),
+    ShowEditBodyWeightDialog(NaiveDate),
     ShowDeleteBodyWeightDialog(NaiveDate),
     CloseBodyWeightDialog,
 
@@ -90,7 +92,7 @@ pub fn update(
             model.dialog = Dialog::AddBodyWeight(Form {
                 date: (
                     local.to_string(),
-                    if data_model.body_weight.iter().all(|bw| bw.date != local) {
+                    if data_model.body_weight.keys().all(|date| *date != local) {
                         Some(local)
                     } else {
                         None
@@ -99,9 +101,9 @@ pub fn update(
                 weight: (String::new(), None),
             });
         }
-        Msg::ShowEditBodyWeightDialog(index) => {
-            let date = data_model.body_weight[index].date;
-            let weight = data_model.body_weight[index].weight;
+        Msg::ShowEditBodyWeightDialog(date) => {
+            let date = data_model.body_weight[&date].date;
+            let weight = data_model.body_weight[&date].weight;
             model.dialog = Dialog::EditBodyWeight(Form {
                 date: (date.to_string(), Some(date)),
                 weight: (weight.to_string(), Some(weight)),
@@ -121,8 +123,8 @@ pub fn update(
                     Ok(parsed_date) => {
                         if data_model
                             .body_weight
-                            .iter()
-                            .all(|bw| bw.date != parsed_date)
+                            .keys()
+                            .all(|date| *date != parsed_date)
                         {
                             form.date = (date, Some(parsed_date));
                         } else {
@@ -164,14 +166,12 @@ pub fn update(
                     orders.notify(data::Msg::CreateBodyWeight(data::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
-                        avg_weight: None,
                     }));
                 }
                 Dialog::EditBodyWeight(ref mut form) => {
                     orders.notify(data::Msg::ReplaceBodyWeight(data::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
-                        avg_weight: None,
                     }));
                 }
                 Dialog::Hidden | Dialog::DeleteBodyWeight(_) => {
@@ -190,8 +190,8 @@ pub fn update(
                     model.interval = common::init_interval(
                         &data_model
                             .body_weight
-                            .iter()
-                            .map(|bw| bw.date)
+                            .keys()
+                            .cloned()
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
@@ -338,25 +338,29 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
 }
 
 fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    let data = data_model
-        .body_weight
-        .iter()
-        .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
-        .collect::<Vec<_>>();
-
     common::view_chart(
         vec![("Weight (kg)", 1), ("Avg. weight (kg)", 2)].as_slice(),
         match common::plot_line_chart(
             vec![
                 (
-                    data.iter()
+                    data_model
+                        .body_weight
+                        .values()
+                        .filter(|bw| {
+                            bw.date >= model.interval.first && bw.date <= model.interval.last
+                        })
                         .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
                     1,
                 ),
                 (
-                    data.iter()
-                        .filter_map(|bw| bw.avg_weight.map(|avg_weight| (bw.date, avg_weight)))
+                    data_model
+                        .body_weight_stats
+                        .values()
+                        .filter(|bws| {
+                            bws.date >= model.interval.first && bws.date <= model.interval.last
+                        })
+                        .filter_map(|bws| bws.avg_weight.map(|avg_weight| (bws.date, avg_weight)))
                         .collect::<Vec<_>>(),
                     2,
                 ),
@@ -391,40 +395,39 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 th!["Avg. weight (kg)"],
                 th![]
             ]],
-            tbody![&data_model
-                .body_weight
-                .iter()
-                .enumerate()
-                .rev()
-                .filter(|(_, bw)| bw.date >= model.interval.first && bw.date <= model.interval.last)
-                .map(|(i, bw)| {
-                    #[allow(clippy::clone_on_copy)]
-                    let date = bw.date.clone();
-                    tr![
-                        td![span![
-                            style! {St::WhiteSpace => "nowrap" },
-                            bw.date.to_string(),
-                        ]],
-                        td![format!("{:.1}", bw.weight)],
-                        td![common::value_or_dash(bw.avg_weight)],
-                        td![p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
-                                C!["icon"],
-                                C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditBodyWeightDialog(i)),
-                                i![C!["fas fa-edit"]]
-                            ],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteBodyWeightDialog(date)),
-                                i![C!["fas fa-times"]]
-                            ]
-                        ]]
-                    ]
-                })
-                .collect::<Vec<_>>()],
+            tbody![zip(
+                data_model.body_weight.values(),
+                data_model.body_weight_stats.values()
+            )
+            .rev()
+            .filter(|(bw, _)| bw.date >= model.interval.first && bw.date <= model.interval.last)
+            .map(|(bw, bws)| {
+                let date = bw.date;
+                tr![
+                    td![span![
+                        style! {St::WhiteSpace => "nowrap" },
+                        bw.date.to_string(),
+                    ]],
+                    td![format!("{:.1}", bw.weight)],
+                    td![common::value_or_dash(bws.avg_weight)],
+                    td![p![
+                        C!["is-flex is-flex-wrap-nowrap"],
+                        a![
+                            C!["icon"],
+                            C!["mr-1"],
+                            ev(Ev::Click, move |_| Msg::ShowEditBodyWeightDialog(date)),
+                            i![C!["fas fa-edit"]]
+                        ],
+                        a![
+                            C!["icon"],
+                            C!["ml-1"],
+                            ev(Ev::Click, move |_| Msg::ShowDeleteBodyWeightDialog(date)),
+                            i![C!["fas fa-times"]]
+                        ]
+                    ]]
+                ]
+            })
+            .collect::<Vec<_>>()],
         ]
     ]
 }

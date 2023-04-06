@@ -55,7 +55,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.body_weight.is_empty() && data_model.loading_body_weight {
         body_weight_subtitle = common::view_loading::<Msg>().to_string();
         body_weight_content = String::new();
-    } else if let Some(body_weight) = &data_model.body_weight.last() {
+    } else if let Some((_, body_weight)) = &data_model.body_weight.last_key_value() {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
         body_weight_content = last("entry", local - body_weight.date);
     } else {
@@ -66,7 +66,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.body_fat.is_empty() && data_model.loading_body_fat {
         body_fat_subtitle = common::view_loading::<Msg>().to_string();
         body_fat_content = String::new();
-    } else if let Some(body_fat) = &data_model.body_fat.last() {
+    } else if let Some((_, body_fat)) = &data_model.body_fat.last_key_value() {
         body_fat_subtitle = if let Some(jp3) = body_fat.jp3(sex) {
             format!("{:.1} %", jp3)
         } else {
@@ -89,8 +89,8 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else {
         String::new()
     };
-    let menstrual_cycle_content = if let Some(period) = &data_model.period.last() {
-        last("period", local - period.date)
+    let menstrual_cycle_content = if let Some(date) = data_model.period.keys().max() {
+        last("period", local - *date)
     } else {
         String::new()
     };

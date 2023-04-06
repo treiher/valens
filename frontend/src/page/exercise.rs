@@ -29,7 +29,7 @@ pub fn init(
         interval: common::init_interval(
             &data_model
                 .workouts
-                .iter()
+                .values()
                 .filter(|w| w.exercises().contains(&exercise_id))
                 .map(|w| w.date)
                 .collect::<Vec<NaiveDate>>(),
@@ -102,7 +102,7 @@ pub fn update(
                     model.interval = common::init_interval(
                         &data_model
                             .workouts
-                            .iter()
+                            .values()
                             .filter(|w| w.exercises().contains(&model.exercise_id))
                             .map(|w| w.date)
                             .collect::<Vec<NaiveDate>>(),
@@ -130,11 +130,7 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.exercises.is_empty() && data_model.loading_exercises {
         common::view_loading()
-    } else if let Some(exercise) = data_model
-        .exercises
-        .iter()
-        .find(|e| e.id == model.exercise_id)
-    {
+    } else if let Some(exercise) = data_model.exercises.get(&model.exercise_id) {
         let workouts = exercise_workouts(model, data_model);
         div![
             common::view_title(&span![&exercise.name], 5),
@@ -144,7 +140,9 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 &model.interval,
             ),
             workouts::view_table(
-                exercise_workouts(model, data_model).as_slice(),
+                &exercise_workouts(model, data_model)
+                    .iter()
+                    .collect::<Vec<&data::Workout>>(),
                 &data_model.routines,
                 &model.interval,
                 &data_model.base_url,
@@ -178,7 +176,7 @@ fn view_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
 fn exercise_workouts(model: &Model, data_model: &data::Model) -> Vec<data::Workout> {
     data_model
         .workouts
-        .iter()
+        .values()
         .filter(|w| {
             w.exercises().contains(&model.exercise_id)
                 && w.date >= model.interval.first

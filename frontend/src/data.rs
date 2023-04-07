@@ -650,6 +650,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.exercises.clear();
             model.routines.clear();
             model.workouts.clear();
+            model.body_weight_stats.clear();
+            model.cycles.clear();
+            model.current_cycle = None;
         }
 
         Msg::RequestSession(user_id) => {

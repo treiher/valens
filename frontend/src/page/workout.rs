@@ -36,6 +36,7 @@ pub fn init(
     Model {
         workout_id,
         form: init_form(workout, data_model),
+        guide: None,
         timer_dialog: SMTDialog {
             visible: false,
             stopwatch: Stopwatch {
@@ -67,6 +68,7 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
         let mut exercises = vec![];
         let mut position = 0;
         let mut prev_set_positions: HashMap<u32, usize> = HashMap::new();
+
         for e in workout.elements.iter() {
             match e {
                 data::WorkoutElement::WorkoutSet {
@@ -81,6 +83,13 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
                     target_rpe,
                     automatic,
                 } => {
+                    if target_time.is_some() && target_reps.is_none() {
+                        if not(exercises.is_empty()) {
+                            sections.push(FormSection::Set { exercises });
+                            position = 0;
+                        }
+                        exercises = vec![];
+                    }
                     let prev_set_position = prev_set_positions
                         .entry(*exercise_id)
                         .and_modify(|position| *position += 1)
@@ -145,6 +154,13 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
                         automatic: *automatic,
                     });
                     position += 1;
+                    if target_time.is_some() && target_reps.is_none() {
+                        if not(exercises.is_empty()) {
+                            sections.push(FormSection::Set { exercises });
+                            position = 0;
+                        }
+                        exercises = vec![];
+                    }
                 }
                 data::WorkoutElement::WorkoutRest {
                     target_time,
@@ -214,6 +230,7 @@ fn previous_sets(
 pub struct Model {
     workout_id: u32,
     form: Form,
+    guide: Option<Guide>,
     timer_dialog: SMTDialog,
     timer_handle: Option<StreamHandle>,
     loading: bool,
@@ -221,7 +238,7 @@ pub struct Model {
 
 impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
-        self.form.changed()
+        self.form.changed() || self.guide.is_some()
     }
 }
 
@@ -299,6 +316,13 @@ impl<T> Default for InputField<T> {
             changed: false,
         }
     }
+}
+
+struct Guide {
+    section_idx: usize,
+    section_start_time: DateTime<Utc>,
+    timer: Timer,
+    element: ElRef<web_sys::Element>,
 }
 
 struct SMTDialog {
@@ -409,22 +433,45 @@ struct Timer {
 }
 
 impl Timer {
+    fn is_set(&self) -> bool {
+        self.reset_time > 0
+    }
+
     fn is_active(&self) -> bool {
         self.target_time.is_some()
     }
 
+    fn start(&mut self) {
+        self.target_time = Some(Utc::now() + Duration::seconds(self.time.1.unwrap()));
+    }
+
+    fn pause(&mut self) {
+        self.target_time = None;
+    }
+
     fn start_pause(&mut self) {
-        self.target_time = match self.target_time {
-            Some(_) => None,
-            None => Some(Utc::now() + Duration::seconds(self.time.1.unwrap())),
-        };
+        if self.target_time.is_some() {
+            self.pause();
+        } else {
+            self.start();
+        }
+    }
+
+    fn set(&mut self, time: i64) {
+        self.time = (time.to_string(), Some(time));
+        self.reset_time = time;
+        if self.target_time.is_some() {
+            self.target_time = Some(Utc::now() + Duration::seconds(time));
+        }
+    }
+
+    fn unset(&mut self) {
+        self.reset_time = 0;
+        self.target_time = None;
     }
 
     fn reset(&mut self) {
-        self.time = (self.reset_time.to_string(), Some(self.reset_time));
-        if self.target_time.is_some() {
-            self.target_time = Some(Utc::now() + Duration::seconds(self.reset_time));
-        }
+        self.set(self.reset_time);
     }
 
     fn update(&mut self) {
@@ -452,6 +499,13 @@ pub enum Msg {
 
     EnterTargetValues(usize, usize),
     EnterPreviousValues(usize, usize),
+
+    StartGuidedWorkout,
+    UpdateGuidedWorkout,
+    StartPauseGuideTimer,
+    GoToPreviousSection,
+    GoToNextSection,
+    ScrollToSection,
 
     SaveWorkout,
     DataEvent(data::Event),
@@ -664,6 +718,95 @@ pub fn update(
             }
         }
 
+        Msg::StartGuidedWorkout => {
+            model.guide = Some(Guide {
+                section_idx: 0,
+                section_start_time: Utc::now(),
+                timer: Timer {
+                    time: (String::new(), None),
+                    reset_time: 0,
+                    target_time: None,
+                },
+                element: ElRef::new(),
+            });
+            update_guide_timer(model);
+            update_timer_handle(model, orders);
+        }
+        Msg::UpdateGuidedWorkout => {
+            if let Some(guide) = &mut model.guide {
+                match &model.form.sections[guide.section_idx] {
+                    FormSection::Set { exercises } => {
+                        let exercise = &exercises[0];
+                        if exercise.target_time.is_none() || exercise.target_reps.is_some() {
+                            guide.timer.reset_time = 0;
+                        } else if let Some(target_time) = exercise.target_time {
+                            if let Some(time) = guide.timer.time.1 {
+                                if time <= 0 {
+                                    if exercise.target_time != exercise.time.parsed {
+                                        orders.send_msg(Msg::TimeChanged(
+                                            guide.section_idx,
+                                            0,
+                                            target_time.to_string(),
+                                        ));
+                                    }
+                                    orders.send_msg(Msg::GoToNextSection);
+                                }
+                            }
+                        }
+                    }
+                    FormSection::Rest { automatic, .. } => {
+                        if let Some(time) = guide.timer.time.1 {
+                            if time <= 0 && *automatic {
+                                orders.send_msg(Msg::GoToNextSection);
+                            }
+                        }
+                    }
+                }
+                guide.timer.update();
+            }
+        }
+        Msg::StartPauseGuideTimer => {
+            if let Some(guide) = &mut model.guide {
+                guide.timer.start_pause();
+            }
+            update_timer_handle(model, orders);
+        }
+        Msg::GoToPreviousSection => {
+            if let Some(guide) = &mut model.guide {
+                guide.section_idx -= 1;
+                guide.section_start_time = Utc::now();
+            }
+            update_guide_timer(model);
+            update_timer_handle(model, orders);
+            orders.force_render_now().send_msg(Msg::ScrollToSection);
+        }
+        Msg::GoToNextSection => {
+            if let Some(guide) = &mut model.guide {
+                guide.section_idx += 1;
+                if guide.section_idx == model.form.sections.len() {
+                    model.guide = None;
+                } else {
+                    guide.section_start_time = Utc::now();
+                }
+            }
+            update_guide_timer(model);
+            update_timer_handle(model, orders);
+            orders
+                .force_render_now()
+                .send_msg(Msg::UpdateGuidedWorkout)
+                .send_msg(Msg::ScrollToSection);
+        }
+        Msg::ScrollToSection => {
+            if let Some(guide) = &mut model.guide {
+                let mut options = web_sys::ScrollIntoViewOptions::new();
+                options.behavior(web_sys::ScrollBehavior::Smooth);
+                options.block(web_sys::ScrollLogicalPosition::Center);
+                if let Some(element) = guide.element.get() {
+                    element.scroll_into_view_with_scroll_into_view_options(&options);
+                }
+            }
+        }
+
         Msg::SaveWorkout => {
             model.loading = true;
             orders.notify(data::Msg::ModifyWorkout(
@@ -776,8 +919,37 @@ fn update_timer_handle(model: &mut Model, orders: &mut impl Orders<Msg>) {
         || model.timer_dialog.timer.is_active()
     {
         Some(orders.stream_with_handle(streams::interval(100, || Msg::UpdateSMTDialog)))
+    } else if let Some(guide) = &model.guide {
+        if guide.timer.is_active() {
+            Some(orders.stream_with_handle(streams::interval(1000, || Msg::UpdateGuidedWorkout)))
+        } else {
+            None
+        }
     } else {
         None
+    }
+}
+
+fn update_guide_timer(model: &mut Model) {
+    if let Some(guide) = &mut model.guide {
+        guide.timer.unset();
+        match &model.form.sections[guide.section_idx] {
+            FormSection::Set { exercises } => {
+                let exercise = &exercises[0];
+                if let Some(target_time) = exercise.target_time {
+                    guide.timer.set(target_time as i64);
+                    if exercise.automatic {
+                        guide.timer.start();
+                    }
+                }
+            }
+            FormSection::Rest { target_time, .. } => {
+                if *target_time > 0 {
+                    guide.timer.set(*target_time as i64);
+                    guide.timer.start();
+                }
+            }
+        }
     }
 }
 
@@ -829,13 +1001,38 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
     let valid = model.form.valid();
     let save_disabled = not(model.form.changed()) || not(valid);
     let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
+
     for (section_idx, section) in model.form.sections.iter().enumerate() {
+        if let Some(guide) = &model.guide {
+            if guide.section_idx == section_idx && section_idx != 0 {
+                form.push(div![
+                    C!["has-text-centered"],
+                    C!["m-5"],
+                    button![
+                        C!["button"],
+                        C!["is-link"],
+                        ev(Ev::Click, |_| Msg::GoToPreviousSection),
+                        span![C!["icon"], i![C!["fas fa-angles-up"]]]
+                    ]
+                ])
+            }
+        }
+
         match section {
             FormSection::Set {
                 exercises: exercise_forms,
             } => {
                 form.push(
                     div![
+                        if let Some(guide) = &model.guide {
+                            if guide.section_idx == section_idx && section_idx != 0 {
+                                    el_ref(&guide.element)
+                            } else {
+                                el_ref(&ElRef::new())
+                            }
+                        } else {
+                            el_ref(&ElRef::new())
+                        },
                         C!["message"],
                         C!["is-info"],
                         C!["has-background-white-bis"],
@@ -844,24 +1041,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["p-3"],
                             exercise_forms.iter().map(|s| {
                                 let position = s.position;
-                                div![
-                                    C!["field"],
-                                    div![
-                                        C!["has-text-weight-bold"],
-                                        C!["mb-2"],
-                                        a![
-                                            attrs! {
-                                                At::Href => {
-                                                    crate::Urls::new(&data_model.base_url)
-                                                        .exercise()
-                                                        .add_hash_path_part(s.exercise_id.to_string())
-                                                },
-                                                At::from("tabindex") => -1
-                                            },
-                                            &s.exercise_name
-                                        ],
-                                    ],
-                                    div![
+                                let input_fields = div![
                                         C!["field"],
                                         C!["has-addons"],
                                         div![
@@ -970,7 +1150,33 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                             ],
                                             span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
                                         ],
+                                    ];
+                                div![
+                                    C!["field"],
+                                    div![
+                                        C!["has-text-weight-bold"],
+                                        C!["mb-2"],
+                                        a![
+                                            attrs! {
+                                                At::Href => {
+                                                    crate::Urls::new(&data_model.base_url)
+                                                        .exercise()
+                                                        .add_hash_path_part(s.exercise_id.to_string())
+                                                },
+                                                At::from("tabindex") => -1
+                                            },
+                                            &s.exercise_name
+                                        ],
                                     ],
+                                    if let Some(guide) = &model.guide {
+                                        if guide.timer.is_set() && guide.section_idx == section_idx {
+                                            view_guide_timer(guide)
+                                        } else {
+                                            input_fields
+                                        }
+                                    } else {
+                                        input_fields
+                                    },
                                     {
                                         let target = format_set(s.target_reps, s.target_time, s.target_weight, s.target_rpe);
                                         let previous = format_set(s.prev_reps, s.prev_time, s.prev_weight, s.prev_rpe);
@@ -1017,13 +1223,31 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 automatic,
             } => {
                 form.push(div![
+                    if let Some(guide) = &model.guide {
+                        if guide.section_idx == section_idx && section_idx != 0 {
+                            el_ref(&guide.element)
+                        } else {
+                            el_ref(&ElRef::new())
+                        }
+                    } else {
+                        el_ref(&ElRef::new())
+                    },
                     C!["message"],
                     C!["is-success"],
                     C!["has-background-white-bis"],
                     div![
                         C!["message-body"],
                         C!["p-3"],
-                        div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"],],
+                        div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]],
+                        if let Some(guide) = &model.guide {
+                            if guide.timer.is_set() && guide.section_idx == section_idx {
+                                view_guide_timer(guide)
+                            } else {
+                                empty![]
+                            }
+                        } else {
+                            empty![]
+                        },
                         div![
                             IF![
                                 *target_time > 0 =>
@@ -1041,15 +1265,48 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                     common::automatic_icon()
                                 ]
                             ]
-                        ]
+                        ],
+                    ]
+                ]);
+            }
+        }
+
+        if let Some(guide) = &model.guide {
+            if guide.section_idx == section_idx {
+                form.push(div![
+                    C!["has-text-centered"],
+                    C!["m-5"],
+                    button![
+                        C!["button"],
+                        C!["is-link"],
+                        ev(Ev::Click, |_| Msg::GoToNextSection),
+                        if section_idx < model.form.sections.len() - 1 {
+                            span![C!["icon"], i![C!["fas fa-angles-down"]]]
+                        } else {
+                            span![C!["icon"], i![C!["fas fa-check"]]]
+                        },
                     ]
                 ]);
             }
         }
     }
+
     div![
         C!["container"],
         C!["mx-2"],
+        IF![
+            model.guide.is_none() =>
+            div![
+                C!["has-text-centered"],
+                C!["m-5"],
+                button![
+                    C!["button"],
+                    C!["is-link"],
+                    ev(Ev::Click, |_| Msg::StartGuidedWorkout),
+                    span![C!["icon"], i![C!["fas fa-play"]]]
+                ]
+            ]
+        ],
         form![
             attrs! {
                 At::Action => "javascript:void(0);",
@@ -1080,6 +1337,16 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ev(Ev::Click, |_| Msg::SaveWorkout),
             span![C!["icon"], i![C!["fas fa-save"]]]
         ]
+    ]
+}
+
+fn view_guide_timer(guide: &Guide) -> Node<Msg> {
+    div![
+        C!["is-size-1"],
+        C!["has-text-centered"],
+        ev(Ev::Click, |_| Msg::StartPauseGuideTimer),
+        &guide.timer.time.0,
+        " s"
     ]
 }
 

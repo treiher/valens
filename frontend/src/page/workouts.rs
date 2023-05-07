@@ -200,6 +200,38 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.workouts.is_empty() && data_model.loading_workouts {
         common::view_loading()
     } else {
+        let weighted_sum_of_load = data_model
+            .workout_stats
+            .weighted_sum_of_load
+            .iter()
+            .filter(|(date, _)| *date >= model.interval.first && *date <= model.interval.last)
+            .cloned()
+            .collect::<Vec<_>>();
+        let total_set_volume_per_week = data_model
+            .workout_stats
+            .total_set_volume_per_week
+            .iter()
+            .filter(|(date, _)| {
+                *date >= model.interval.first
+                    && *date <= model.interval.last.week(Weekday::Mon).last_day()
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let avg_rpe_per_week = data_model
+            .workout_stats
+            .avg_rpe_per_week
+            .iter()
+            .filter(|(date, _)| {
+                *date >= model.interval.first
+                    && *date <= model.interval.last.week(Weekday::Mon).last_day()
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let workouts = data_model
+            .workouts
+            .values()
+            .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
+            .collect::<Vec<_>>();
         div![
             view_workouts_dialog(
                 &data_model
@@ -211,21 +243,14 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
             view_charts(
-                data_model
-                    .workouts
-                    .values()
-                    .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
-                    .collect::<Vec<_>>()
-                    .as_slice(),
+                weighted_sum_of_load,
+                total_set_volume_per_week,
+                avg_rpe_per_week,
                 &model.interval
             ),
             view_table(
-                &data_model
-                    .workouts
-                    .values()
-                    .collect::<Vec<&data::Workout>>(),
+                &workouts,
                 &data_model.routines,
-                &model.interval,
                 &data_model.base_url,
                 Msg::ShowDeleteWorkoutDialog
             ),
@@ -336,124 +361,42 @@ fn view_workouts_dialog(routines: &[&data::Routine], dialog: &Dialog, loading: b
     )
 }
 
-pub fn view_charts<Ms>(workouts: &[&data::Workout], interval: &common::Interval) -> Vec<Node<Ms>> {
+pub fn view_charts<Ms>(
+    weighted_sum_of_load: Vec<(NaiveDate, f32)>,
+    total_set_volume_per_week: Vec<(NaiveDate, f32)>,
+    avg_rpe_per_week: Vec<(NaiveDate, f32)>,
+    interval: &common::Interval,
+) -> Vec<Node<Ms>> {
     nodes![
         common::view_chart(
-            vec![("Repetitions", 3), ("+ Repetititions in reserve", 4)].as_slice(),
-            match common::plot_line_chart(
-                vec![
-                    (
-                        workouts
-                            .iter()
-                            .filter_map(|w| w.avg_reps().map(|avg_reps| (w.date, avg_reps)))
-                            .collect::<Vec<_>>(),
-                        3,
-                    ),
-                    (
-                        workouts
-                            .iter()
-                            .filter_map(|w| {
-                                if let (Some(avg_reps), Some(avg_rpe)) = (w.avg_reps(), w.avg_rpe())
-                                {
-                                    Some((w.date, avg_reps + 10.0 - avg_rpe))
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect::<Vec<_>>(),
-                        4,
-                    ),
-                ]
-                .as_slice(),
+            &[("Load (weighted sum)", common::COLOR_LOAD)],
+            common::plot_line_chart(
+                &[(weighted_sum_of_load, common::COLOR_LOAD)],
                 interval.first,
                 interval.last,
                 Some(0.),
                 None,
-            ) {
-                Ok(result) => raw![&result],
-                Err(err) => {
-                    error!("failed to plot chart:", err);
-                    raw![""]
-                }
-            },
+            )
         ),
         common::view_chart(
-            vec![("Weight (kg)", 1)].as_slice(),
-            match common::plot_line_chart(
-                vec![(
-                    workouts
-                        .iter()
-                        .filter_map(|w| w.avg_weight().map(|avg_weight| (w.date, avg_weight)))
-                        .collect::<Vec<_>>(),
-                    1,
-                )]
-                .as_slice(),
+            &[("Set volume (weekly total)", common::COLOR_SET_VOLUME)],
+            common::plot_line_chart(
+                &[(total_set_volume_per_week, common::COLOR_SET_VOLUME)],
                 interval.first,
                 interval.last,
                 Some(0.),
                 None,
-            ) {
-                Ok(result) => raw![&result],
-                Err(err) => {
-                    error!("failed to plot chart:", err);
-                    raw![""]
-                }
-            },
+            )
         ),
         common::view_chart(
-            vec![("Time (s)", 5)].as_slice(),
-            match common::plot_line_chart(
-                vec![(
-                    workouts
-                        .iter()
-                        .filter_map(|w| w.avg_time().map(|avg_time| (w.date, avg_time)))
-                        .collect::<Vec<_>>(),
-                    5,
-                )]
-                .as_slice(),
+            &[("Intensity (weekly average RPE)", common::COLOR_INTENSITY)],
+            common::plot_line_chart(
+                &[(avg_rpe_per_week, common::COLOR_INTENSITY)],
                 interval.first,
                 interval.last,
-                Some(0.),
+                Some(5.),
                 None,
-            ) {
-                Ok(result) => raw![&result],
-                Err(err) => {
-                    error!("failed to plot chart:", err);
-                    raw![""]
-                }
-            },
-        ),
-        common::view_chart(
-            vec![("Volume", 6), ("Time under tension (s)", 0)].as_slice(),
-            match common::plot_line_chart(
-                vec![
-                    (
-                        workouts
-                            .iter()
-                            .map(|w| (w.date, w.volume() as f32))
-                            .collect::<Vec<_>>(),
-                        6,
-                    ),
-                    (
-                        workouts
-                            .iter()
-                            .map(|w| (w.date, w.tut() as f32))
-                            .collect::<Vec<_>>(),
-                        0,
-                    ),
-                ]
-                .as_slice(),
-                interval.first,
-                interval.last,
-                Some(0.),
-                None,
-            ) {
-                Ok(result) => raw![&result],
-                Err(err) => {
-                    error!("failed to plot chart:", err);
-                    raw![""]
-                }
-            },
+            )
         ),
     ]
 }
@@ -461,7 +404,6 @@ pub fn view_charts<Ms>(workouts: &[&data::Workout], interval: &common::Interval)
 pub fn view_table<Ms: 'static>(
     workouts: &[&data::Workout],
     routines: &BTreeMap<u32, data::Routine>,
-    interval: &common::Interval,
     base_url: &Url,
     delete_workout_message: fn(u32) -> Ms,
 ) -> Node<Ms> {
@@ -476,19 +418,20 @@ pub fn view_table<Ms: 'static>(
             thead![tr![
                 th!["Date"],
                 th!["Routine"],
-                th!["Avg. reps"],
-                th!["Avg. time (s)"],
-                th!["Avg. weight (kg)"],
-                th!["Avg. RPE"],
-                th!["Avg. reps+RIR"],
-                th!["Volume"],
+                th!["Load"],
+                th!["Set volume"],
+                th!["Intensity (RPE)"],
+                th!["Volume load"],
                 th!["TUT"],
+                th!["Reps"],
+                th!["Reps+RIR"],
+                th!["Weight (kg)"],
+                th!["Time (s)"],
                 th![]
             ]],
             tbody![workouts
                 .iter()
                 .rev()
-                .filter(|w| w.date >= interval.first && w.date <= interval.last)
                 .map(|w| {
                     #[allow(clippy::clone_on_copy)]
                     let id = w.id;
@@ -514,17 +457,19 @@ pub fn view_table<Ms: 'static>(
                                 plain!["-"]
                             }
                         ],
-                        td![common::value_or_dash(w.avg_reps())],
-                        td![common::value_or_dash(w.avg_time())],
-                        td![common::value_or_dash(w.avg_weight())],
+                        td![&w.load()],
+                        td![&w.set_volume()],
                         td![common::value_or_dash(w.avg_rpe())],
+                        td![&w.volume_load()],
+                        td![&w.tut()],
+                        td![common::value_or_dash(w.avg_reps())],
                         td![if let (Some(avg_reps), Some(avg_rpe)) = (w.avg_reps(), w.avg_rpe()) {
                             format!("{:.1}", avg_reps + 10.0 - avg_rpe)
                         } else {
                             "-".into()
                         }],
-                        td![&w.volume()],
-                        td![&w.tut()],
+                        td![common::value_or_dash(w.avg_weight())],
+                        td![common::value_or_dash(w.avg_time())],
                         td![p![
                             C!["is-flex is-flex-wrap-nowrap"],
                             a![

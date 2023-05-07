@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Warning about unsaved changes before leaving page
 - Possibility to create exercises while editing routines
 - Loading indicator to all pages
+- Charts for load and set volume
 - Automatic upgrade of database
 - Support for Python 3.11
 
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improve performance by reducing network usage
 - Improve workout page
+- Display weekly totals/averages in charts on workouts page
 
 ### Removed
 

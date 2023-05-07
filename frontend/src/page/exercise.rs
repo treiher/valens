@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
@@ -135,16 +137,10 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             common::view_title(&span![&exercise.name], 5),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-            workouts::view_charts(
-                workouts.iter().collect::<Vec<_>>().as_slice(),
-                &model.interval,
-            ),
+            view_charts(&workouts.iter().collect::<Vec<_>>(), &model.interval),
             workouts::view_table(
-                &exercise_workouts(model, data_model)
-                    .iter()
-                    .collect::<Vec<&data::Workout>>(),
+                &workouts.iter().collect::<Vec<_>>(),
                 &data_model.routines,
-                &model.interval,
                 &data_model.base_url,
                 Msg::ShowDeleteWorkoutDialog
             ),
@@ -153,6 +149,163 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else {
         common::view_error_not_found("Exercise")
     }
+}
+
+pub fn view_charts<Ms>(workouts: &[&data::Workout], interval: &common::Interval) -> Vec<Node<Ms>> {
+    let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut volume_load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut tut: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut reps_rpe: BTreeMap<NaiveDate, (Vec<f32>, Vec<f32>)> = BTreeMap::new();
+    let mut weight: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
+    let mut time: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
+    for workout in workouts {
+        set_volume
+            .entry(workout.date)
+            .and_modify(|e| *e += workout.set_volume() as f32)
+            .or_insert(workout.set_volume() as f32);
+        volume_load
+            .entry(workout.date)
+            .and_modify(|e| *e += workout.volume_load() as f32)
+            .or_insert(workout.volume_load() as f32);
+        tut.entry(workout.date)
+            .and_modify(|e| *e += workout.tut() as f32)
+            .or_insert(workout.tut() as f32);
+        if let Some(avg_reps) = workout.avg_reps() {
+            reps_rpe
+                .entry(workout.date)
+                .and_modify(|e| e.0.push(avg_reps))
+                .or_insert((vec![avg_reps], vec![]));
+        }
+        if let Some(avg_rpe) = workout.avg_rpe() {
+            reps_rpe
+                .entry(workout.date)
+                .and_modify(|e| e.1.push(avg_rpe));
+        }
+        if let Some(avg_weight) = workout.avg_weight() {
+            weight
+                .entry(workout.date)
+                .and_modify(|e| e.push(avg_weight))
+                .or_insert(vec![avg_weight]);
+        }
+        if let Some(avg_time) = workout.avg_time() {
+            time.entry(workout.date)
+                .and_modify(|e| e.push(avg_time))
+                .or_insert(vec![avg_time]);
+        }
+    }
+    nodes![
+        common::view_chart(
+            &[("Set volume", common::COLOR_SET_VOLUME)],
+            common::plot_line_chart(
+                &[(
+                    set_volume.into_iter().collect::<Vec<_>>(),
+                    common::COLOR_SET_VOLUME,
+                )],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+        common::view_chart(
+            &[("Volume load", common::COLOR_VOLUME_LOAD)],
+            common::plot_line_chart(
+                &[(
+                    volume_load.into_iter().collect::<Vec<_>>(),
+                    common::COLOR_VOLUME_LOAD,
+                )],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+        common::view_chart(
+            &[("Time under tension (s)", common::COLOR_TUT)],
+            common::plot_line_chart(
+                &[(tut.into_iter().collect::<Vec<_>>(), common::COLOR_TUT,)],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+        common::view_chart(
+            &[
+                ("Repetitions", common::COLOR_REPS),
+                ("+ Repetititions in reserve", common::COLOR_REPS_RIR)
+            ],
+            common::plot_line_chart(
+                &[
+                    (
+                        reps_rpe
+                            .iter()
+                            .map(|(date, (avg_reps, _))| {
+                                (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
+                            })
+                            .collect::<Vec<_>>(),
+                        common::COLOR_REPS,
+                    ),
+                    (
+                        reps_rpe
+                            .into_iter()
+                            .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
+                                let avg_reps = avg_reps_values.iter().sum::<f32>()
+                                    / avg_reps_values.len() as f32;
+                                let avg_rpe = avg_rpe_values.iter().sum::<f32>()
+                                    / avg_rpe_values.len() as f32;
+                                if not(avg_rpe_values.is_empty()) {
+                                    Some((date, avg_reps + 10.0 - avg_rpe))
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<Vec<_>>(),
+                        common::COLOR_REPS_RIR,
+                    ),
+                ],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+        common::view_chart(
+            &[("Weight (kg)", common::COLOR_WEIGHT)],
+            common::plot_line_chart(
+                &[(
+                    weight
+                        .into_iter()
+                        .map(|(date, values)| {
+                            (date, values.iter().sum::<f32>() / values.len() as f32)
+                        })
+                        .collect::<Vec<_>>(),
+                    common::COLOR_WEIGHT,
+                )],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+        common::view_chart(
+            &[("Time (s)", common::COLOR_TIME)],
+            common::plot_line_chart(
+                &[(
+                    time.into_iter()
+                        .map(|(date, values)| {
+                            (date, values.iter().sum::<f32>() / values.len() as f32)
+                        })
+                        .collect::<Vec<_>>(),
+                    common::COLOR_TIME,
+                )],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+    ]
 }
 
 fn view_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {

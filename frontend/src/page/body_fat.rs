@@ -703,42 +703,39 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
     let sex = data_model.session.as_ref().unwrap().sex;
 
     common::view_chart(
-        vec![("JP3 (%)", 4), ("JP7 (%)", 0), ("Weight (kg)", 1)].as_slice(),
-        match common::plot_dual_line_chart(
-            vec![
+        vec![
+            ("JP3 (%)", common::COLOR_BODY_FAT_JP3),
+            ("JP7 (%)", common::COLOR_BODY_FAT_JP7),
+            ("Weight (kg)", common::COLOR_BODY_WEIGHT),
+        ]
+        .as_slice(),
+        common::plot_dual_line_chart(
+            &[
                 (
                     body_fat
                         .iter()
                         .filter_map(|bf| bf.jp3(sex).map(|jp3| (bf.date, jp3)))
                         .collect::<Vec<_>>(),
-                    4,
+                    common::COLOR_BODY_FAT_JP3,
                 ),
                 (
                     body_fat
                         .iter()
                         .filter_map(|bf| bf.jp7(sex).map(|jp7| (bf.date, jp7)))
                         .collect::<Vec<_>>(),
-                    0,
+                    common::COLOR_BODY_FAT_JP7,
                 ),
-            ]
-            .as_slice(),
-            vec![(
+            ],
+            &[(
                 body_weight
                     .iter()
                     .map(|bw| (bw.date, bw.weight))
                     .collect::<Vec<_>>(),
-                1,
-            )]
-            .as_slice(),
+                common::COLOR_BODY_WEIGHT,
+            )],
             model.interval.first,
             model.interval.last,
-        ) {
-            Ok(result) => raw![&result],
-            Err(err) => {
-                error!("failed to plot chart:", err);
-                raw![""]
-            }
-        },
+        ),
     )
 }
 

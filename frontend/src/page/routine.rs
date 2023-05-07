@@ -1231,35 +1231,97 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
 }
 
 fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let workouts = data_model
+        .workouts
+        .values()
+        .filter(|w| {
+            w.routine_id == Some(model.routine_id)
+                && w.date >= model.interval.first
+                && w.date <= model.interval.last
+        })
+        .collect::<Vec<_>>();
     div![
         C!["container"],
         C!["has-text-centered"],
         C!["mt-6"],
         h1![C!["title"], C!["is-5"], "Workouts"],
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-        workouts::view_charts(
-            data_model
-                .workouts
-                .values()
-                .filter(|w| {
-                    w.routine_id == Some(model.routine_id)
-                        && w.date >= model.interval.first
-                        && w.date <= model.interval.last
-                })
-                .collect::<Vec<_>>()
-                .as_slice(),
-            &model.interval,
-        ),
+        view_charts(&workouts, &model.interval),
         workouts::view_table(
-            &data_model
-                .workouts
-                .values()
-                .filter(|w| w.routine_id == Some(model.routine_id))
-                .collect::<Vec<&data::Workout>>(),
+            &workouts,
             &data_model.routines,
-            &model.interval,
             &data_model.base_url,
             Msg::ShowDeleteWorkoutDialog
+        ),
+    ]
+}
+pub fn view_charts<Ms>(workouts: &[&data::Workout], interval: &common::Interval) -> Vec<Node<Ms>> {
+    let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut intensity: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
+    for workout in workouts {
+        load.entry(workout.date)
+            .and_modify(|e| *e += workout.load() as f32)
+            .or_insert(workout.load() as f32);
+        set_volume
+            .entry(workout.date)
+            .and_modify(|e| *e += workout.set_volume() as f32)
+            .or_insert(workout.set_volume() as f32);
+        if let Some(avg_rpe) = workout.avg_rpe() {
+            intensity
+                .entry(workout.date)
+                .and_modify(|e| e.push(avg_rpe))
+                .or_insert(vec![avg_rpe]);
+        }
+    }
+    nodes![
+        common::view_chart(
+            &[("Load", common::COLOR_LOAD)],
+            common::plot_line_chart(
+                &[(load.into_iter().collect::<Vec<_>>(), common::COLOR_LOAD)],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+        common::view_chart(
+            &[("Set volume", common::COLOR_SET_VOLUME)],
+            common::plot_line_chart(
+                &[(
+                    set_volume.into_iter().collect::<Vec<_>>(),
+                    common::COLOR_SET_VOLUME,
+                )],
+                interval.first,
+                interval.last,
+                Some(0.),
+                None,
+            )
+        ),
+        common::view_chart(
+            &[("Intensity (RPE)", common::COLOR_INTENSITY)],
+            common::plot_line_chart(
+                &[(
+                    intensity
+                        .into_iter()
+                        .map(|(date, values)| {
+                            (
+                                date,
+                                if not(values.is_empty()) {
+                                    values.iter().sum::<f32>() / values.len() as f32
+                                } else {
+                                    0.0
+                                },
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                    common::COLOR_INTENSITY,
+                )],
+                interval.first,
+                interval.last,
+                Some(5.),
+                None,
+            )
         ),
     ]
 }

@@ -340,35 +340,31 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .collect::<Vec<_>>();
 
     common::view_chart(
-        vec![("Intensity", 0), ("Weight (kg)", 1)].as_slice(),
-        match common::plot_bar_chart(
-            vec![(
+        vec![
+            ("Intensity", common::COLOR_PERIOD_INTENSITY),
+            ("Weight (kg)", common::COLOR_BODY_WEIGHT),
+        ]
+        .as_slice(),
+        common::plot_bar_chart(
+            &[(
                 period
                     .iter()
                     .map(|p| (p.date, p.intensity as f32))
                     .collect::<Vec<_>>(),
-                0,
-            )]
-            .as_slice(),
-            vec![(
+                common::COLOR_PERIOD_INTENSITY,
+            )],
+            &[(
                 body_weight
                     .iter()
                     .map(|bw| (bw.date, bw.weight))
                     .collect::<Vec<_>>(),
-                1,
-            )]
-            .as_slice(),
+                common::COLOR_BODY_WEIGHT,
+            )],
             model.interval.first,
             model.interval.last,
             Some(0.),
             Some(4.),
-        ) {
-            Ok(result) => raw![&result],
-            Err(err) => {
-                error!("failed to plot chart:", err);
-                raw![""]
-            }
-        },
+        ),
     )
 }
 

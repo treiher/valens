@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::iter::zip;
 
 use chrono::{prelude::*, Duration};
 use seed::prelude::*;
@@ -37,6 +38,11 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         body_weight_stats: BTreeMap::new(),
         cycles: Vec::new(),
         current_cycle: None,
+        workout_stats: WorkoutStats {
+            weighted_sum_of_load: Vec::new(),
+            avg_rpe_per_week: Vec::new(),
+            total_set_volume_per_week: Vec::new(),
+        },
     }
 }
 
@@ -73,6 +79,7 @@ pub struct Model {
     pub body_weight_stats: BTreeMap<NaiveDate, BodyWeightStats>,
     pub cycles: Vec<Cycle>,
     pub current_cycle: Option<CurrentCycle>,
+    pub workout_stats: WorkoutStats,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -140,6 +147,20 @@ pub struct CurrentCycle {
 pub struct CycleStats {
     pub length_median: Duration,
     pub length_variation: Duration,
+}
+
+pub struct WorkoutStats {
+    pub weighted_sum_of_load: Vec<(NaiveDate, f32)>,
+    pub avg_rpe_per_week: Vec<(NaiveDate, f32)>,
+    pub total_set_volume_per_week: Vec<(NaiveDate, f32)>,
+}
+
+impl WorkoutStats {
+    pub fn clear(&mut self) {
+        self.weighted_sum_of_load.clear();
+        self.avg_rpe_per_week.clear();
+        self.total_set_volume_per_week.clear();
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -369,12 +390,64 @@ impl Workout {
         }
     }
 
-    pub fn volume(&self) -> u32 {
+    pub fn load(&self) -> u32 {
         let sets = &self
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet { reps, .. } => *reps,
+                WorkoutElement::WorkoutSet {
+                    reps, time, rpe, ..
+                } => Some(if let Some(rpe) = *rpe {
+                    if rpe > 5.0 {
+                        (2.0_f32).powf(rpe - 5.0).round() as u32
+                    } else {
+                        1
+                    }
+                } else if reps.is_some() || time.is_some() {
+                    1
+                } else {
+                    0
+                }),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        sets.iter().sum::<u32>()
+    }
+
+    pub fn set_volume(&self) -> u32 {
+        let sets = &self
+            .elements
+            .iter()
+            .filter_map(|e| match e {
+                WorkoutElement::WorkoutSet { rpe, .. } => {
+                    if rpe.unwrap_or(0.0) >= 7.0 {
+                        Some(1)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        sets.iter().sum::<u32>()
+    }
+
+    pub fn volume_load(&self) -> u32 {
+        let sets = &self
+            .elements
+            .iter()
+            .filter_map(|e| match e {
+                WorkoutElement::WorkoutSet { reps, weight, .. } => {
+                    if let Some(reps) = reps {
+                        if let Some(weight) = weight {
+                            Some((*reps as f32 * weight).round() as u32)
+                        } else {
+                            Some(*reps)
+                        }
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -486,6 +559,101 @@ pub fn calculate_cycle_stats(cycles: &[&Cycle]) -> CycleStats {
             - common::quartile(&cycle_lengths, common::Quartile::Q1))
             / 2,
     }
+}
+
+fn calculate_workout_stats(workouts: &[&Workout]) -> WorkoutStats {
+    WorkoutStats {
+        weighted_sum_of_load: calculate_weighted_sum_of_load(workouts),
+        total_set_volume_per_week: calculate_total_set_volume_per_week(workouts),
+        avg_rpe_per_week: calculate_avg_rpe_per_week(workouts),
+    }
+}
+
+fn calculate_weighted_sum_of_load(workouts: &[&Workout]) -> Vec<(NaiveDate, f32)> {
+    let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+
+    let today = Local::now().date_naive();
+    let mut day = workouts.get(0).map(|w| w.date).unwrap_or(today);
+    while day <= today {
+        result.insert(day, 0.0);
+        day += Duration::days(1);
+    }
+
+    for w in workouts {
+        result
+            .entry(w.date)
+            .and_modify(|e| *e += w.load() as f32)
+            .or_insert(w.load() as f32);
+    }
+
+    let weighting: [f32; 10] = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
+    let mut window: [f32; 10] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+
+    result
+        .into_iter()
+        .map(|(date, load)| {
+            window.rotate_right(1);
+            window[0] = load;
+            (
+                date,
+                zip(window, weighting)
+                    .map(|(load, weight)| load * weight)
+                    .sum(),
+            )
+        })
+        .collect()
+}
+
+fn calculate_total_set_volume_per_week(workouts: &[&Workout]) -> Vec<(NaiveDate, f32)> {
+    let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+
+    let today = Local::now().date_naive();
+    let mut day = workouts.get(0).map(|w| w.date).unwrap_or(today);
+    while day <= today.week(Weekday::Mon).last_day() {
+        result.insert(day.week(Weekday::Mon).last_day(), 0.0);
+        day += Duration::days(7);
+    }
+
+    for w in workouts {
+        result
+            .entry(w.date.week(Weekday::Mon).last_day())
+            .and_modify(|e| *e += w.set_volume() as f32);
+    }
+
+    result.into_iter().collect()
+}
+
+fn calculate_avg_rpe_per_week(workouts: &[&Workout]) -> Vec<(NaiveDate, f32)> {
+    let mut result: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
+
+    let today = Local::now().date_naive();
+    let mut day = workouts.get(0).map(|w| w.date).unwrap_or(today);
+    while day <= today.week(Weekday::Mon).last_day() {
+        result.insert(day.week(Weekday::Mon).last_day(), vec![]);
+        day += Duration::days(7);
+    }
+
+    for w in workouts {
+        if let Some(avg_rpe) = w.avg_rpe() {
+            result
+                .entry(w.date.week(Weekday::Mon).last_day())
+                .and_modify(|e| e.push(avg_rpe));
+        }
+    }
+
+    result
+        .into_iter()
+        .map(|(date, values)| {
+            (
+                date,
+                if not(values.is_empty()) {
+                    values.iter().sum::<f32>() / values.len() as f32
+                } else {
+                    0.0
+                },
+            )
+        })
+        .collect()
 }
 
 // ------ ------
@@ -653,6 +821,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.body_weight_stats.clear();
             model.cycles.clear();
             model.current_cycle = None;
+            model.workout_stats.clear();
         }
 
         Msg::RequestSession(user_id) => {
@@ -1288,6 +1457,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let workouts = workouts.into_iter().map(|w| (w.id, w)).collect();
             if model.workouts != workouts {
                 model.workouts = workouts;
+                model.workout_stats =
+                    calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
                 orders.notify(Event::DataChanged);
             }
             model.loading_workouts = false;
@@ -1317,6 +1488,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::WorkoutCreated(Ok(workout)) => {
             model.workouts.insert(workout.id, workout);
+            model.workout_stats =
+                calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
             orders.notify(Event::WorkoutCreatedOk);
         }
         Msg::WorkoutCreated(Err(message)) => {
@@ -1346,6 +1519,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::WorkoutModified(Ok(workout)) => {
             model.workouts.insert(workout.id, workout);
+            model.workout_stats =
+                calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
             orders.notify(Event::WorkoutModifiedOk);
         }
         Msg::WorkoutModified(Err(message)) => {
@@ -1366,6 +1541,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::WorkoutDeleted(Ok(id)) => {
             model.workouts.remove(&id);
+            model.workout_stats =
+                calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
             orders.notify(Event::WorkoutDeletedOk);
         }
         Msg::WorkoutDeleted(Err(message)) => {

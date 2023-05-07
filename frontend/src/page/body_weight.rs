@@ -339,9 +339,13 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
 
 fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
     common::view_chart(
-        vec![("Weight (kg)", 1), ("Avg. weight (kg)", 2)].as_slice(),
-        match common::plot_line_chart(
-            vec![
+        vec![
+            ("Weight (kg)", common::COLOR_BODY_WEIGHT),
+            ("Avg. weight (kg)", common::COLOR_AVG_BODY_WEIGHT),
+        ]
+        .as_slice(),
+        common::plot_line_chart(
+            &[
                 (
                     data_model
                         .body_weight
@@ -351,7 +355,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         })
                         .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
-                    1,
+                    common::COLOR_BODY_WEIGHT,
                 ),
                 (
                     data_model
@@ -362,21 +366,14 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         })
                         .filter_map(|bws| bws.avg_weight.map(|avg_weight| (bws.date, avg_weight)))
                         .collect::<Vec<_>>(),
-                    2,
+                    common::COLOR_AVG_BODY_WEIGHT,
                 ),
-            ]
-            .as_slice(),
+            ],
             model.interval.first,
             model.interval.last,
             None,
             None,
-        ) {
-            Ok(result) => raw![&result],
-            Err(err) => {
-                error!("failed to plot chart:", err);
-                raw![""]
-            }
-        },
+        ),
     )
 }
 

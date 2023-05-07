@@ -4,6 +4,21 @@ use seed::{prelude::*, *};
 
 pub const ENTER_KEY: u32 = 13;
 
+pub const COLOR_BODY_WEIGHT: usize = 1;
+pub const COLOR_AVG_BODY_WEIGHT: usize = 2;
+pub const COLOR_BODY_FAT_JP3: usize = 4;
+pub const COLOR_BODY_FAT_JP7: usize = 0;
+pub const COLOR_PERIOD_INTENSITY: usize = 0;
+pub const COLOR_LOAD: usize = 1;
+pub const COLOR_INTENSITY: usize = 0;
+pub const COLOR_SET_VOLUME: usize = 3;
+pub const COLOR_VOLUME_LOAD: usize = 6;
+pub const COLOR_TUT: usize = 2;
+pub const COLOR_REPS: usize = 3;
+pub const COLOR_REPS_RIR: usize = 4;
+pub const COLOR_WEIGHT: usize = 8;
+pub const COLOR_TIME: usize = 5;
+
 pub struct Interval {
     pub first: NaiveDate,
     pub last: NaiveDate,
@@ -307,7 +322,10 @@ pub fn automatic_icon<Ms>() -> Node<Ms> {
     ]
 }
 
-pub fn view_chart<Ms>(labels: &[(&str, usize)], chart: Vec<Node<Ms>>) -> Node<Ms> {
+pub fn view_chart<Ms>(
+    labels: &[(&str, usize)],
+    chart: Result<String, Box<dyn std::error::Error>>,
+) -> Node<Ms> {
     div![
         C!["container"],
         C!["has-text-centered"],
@@ -335,7 +353,10 @@ pub fn view_chart<Ms>(labels: &[(&str, usize)], chart: Vec<Node<Ms>>) -> Node<Ms
                 })
                 .collect::<Vec<_>>(),
         ],
-        chart,
+        raw![&chart.unwrap_or_else(|err| {
+            error!("failed to plot chart:", err);
+            String::new()
+        })],
     ]
 }
 

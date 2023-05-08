@@ -232,6 +232,7 @@ class RoutineSection(RoutinePart):
 
     __mapper_args__ = {
         "polymorphic_identity": "routine_section",
+        "polymorphic_load": "selectin",
         "inherit_condition": id == RoutinePart.id,
     }
 
@@ -264,6 +265,7 @@ class RoutineActivity(RoutinePart):
 
     __mapper_args__ = {
         "polymorphic_identity": "routine_activity",
+        "polymorphic_load": "selectin",
         "inherit_condition": id == RoutinePart.id,
     }
 
@@ -390,6 +392,7 @@ class WorkoutSet(WorkoutElement):
 
     __mapper_args__ = {
         "polymorphic_identity": "set",
+        "polymorphic_load": "selectin",
     }
 
 
@@ -419,4 +422,5 @@ class WorkoutRest(WorkoutElement):
 
     __mapper_args__ = {
         "polymorphic_identity": "rest",
+        "polymorphic_load": "selectin",
     }

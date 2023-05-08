@@ -10,6 +10,7 @@ from flask import Blueprint, jsonify, request, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import column, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.orm import selectinload
 
 from valens import database as db, version
 from valens.models import (
@@ -47,7 +48,7 @@ def to_dict(
 def _(model: Routine) -> dict[str, object]:
     return {
         **model_to_dict(model),
-        "sections": [{**to_dict(s)} for s in sorted(model.sections, key=lambda x: x.position)],
+        "sections": [to_dict(s) for s in sorted(model.sections, key=lambda x: x.position)],
     }
 
 
@@ -55,7 +56,7 @@ def _(model: Routine) -> dict[str, object]:
 def _(model: RoutineSection) -> dict[str, object]:
     return {
         **model_to_dict(model, exclude=["id", "routine_id"]),
-        "parts": [{**to_dict(p)} for p in sorted(model.parts, key=lambda x: x.position)],
+        "parts": [to_dict(p) for p in sorted(model.parts, key=lambda x: x.position)],
     }
 
 
@@ -63,6 +64,14 @@ def _(model: RoutineSection) -> dict[str, object]:
 def _(model: RoutineActivity) -> dict[str, object]:
     return {
         **model_to_dict(model, exclude=["id"]),
+    }
+
+
+@to_dict.register
+def _(model: Workout) -> dict[str, object]:
+    return {
+        **model_to_dict(model),
+        "elements": [to_dict(e) for e in model.elements],
     }
 
 
@@ -717,7 +726,11 @@ def delete_exercise(id_: int) -> ResponseReturnValue:
 @session_required
 def read_routines() -> ResponseReturnValue:
     routines = (
-        db.session.execute(select(Routine).where(Routine.user_id == session["user_id"]))
+        db.session.execute(
+            select(Routine)
+            .where(Routine.user_id == session["user_id"])
+            .options(selectinload(Routine.sections))
+        )
         .scalars()
         .all()
     )
@@ -824,19 +837,15 @@ def delete_routine(id_: int) -> ResponseReturnValue:
 @session_required
 def read_workouts() -> ResponseReturnValue:
     workouts = (
-        db.session.execute(select(Workout).where(Workout.user_id == session["user_id"]))
+        db.session.execute(
+            select(Workout)
+            .where(Workout.user_id == session["user_id"])
+            .options(selectinload(Workout.elements))
+        )
         .scalars()
         .all()
     )
-    return jsonify(
-        [
-            {
-                **to_dict(w),
-                "elements": [to_dict(e) for e in w.elements],
-            }
-            for w in workouts
-        ]
-    )
+    return jsonify([to_dict(w) for w in workouts])
 
 
 @bp.route("/workouts", methods=["POST"])
@@ -873,12 +882,7 @@ def create_workout() -> ResponseReturnValue:
     db.session.commit()
 
     return (
-        jsonify(
-            {
-                **to_dict(workout),
-                "elements": [to_dict(e) for e in workout.elements],
-            }
-        ),
+        jsonify(to_dict(workout)),
         HTTPStatus.CREATED,
         {"Location": f"/workouts/{workout.id}"},
     )
@@ -924,12 +928,7 @@ def update_workout(id_: int) -> ResponseReturnValue:
     db.session.commit()
 
     return (
-        jsonify(
-            {
-                **to_dict(workout),
-                "elements": [to_dict(e) for e in workout.elements],
-            }
-        ),
+        jsonify(to_dict(workout)),
         HTTPStatus.OK,
     )
 

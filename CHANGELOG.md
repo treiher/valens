@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Possibility to create exercises while editing routines
 - Loading indicator to all pages
 - Charts for load and set volume
+- Beeps when timer expires
 - Automatic upgrade of database
 - Support for Python 3.11
 

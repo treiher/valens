@@ -32,11 +32,19 @@ pub fn init(
     ]];
 
     let workout = &data_model.workouts.get(&workout_id);
+    let audio_context = match web_sys::AudioContext::new() {
+        Ok(ctx) => Some(ctx),
+        Err(err) => {
+            error!("failed to create audio context:", err);
+            None
+        }
+    };
 
     Model {
         workout_id,
         form: init_form(workout, data_model),
         guide: None,
+        guide_stream: None,
         timer_dialog: SMTDialog {
             visible: false,
             stopwatch: Stopwatch {
@@ -44,19 +52,21 @@ pub fn init(
                 start_time: None,
             },
             metronome: Metronome {
-                audio_context: None,
                 interval: 1,
                 stressed_beat: 1,
                 beat_number: 0,
                 next_beat_time: 0.,
+                is_active: false,
             },
             timer: Timer {
                 time: (String::from("60"), Some(60)),
                 reset_time: 60,
                 target_time: None,
+                beep_time: 0.,
             },
         },
-        timer_handle: None,
+        timer_stream: None,
+        audio_context,
         loading: false,
     }
 }
@@ -231,8 +241,10 @@ pub struct Model {
     workout_id: u32,
     form: Form,
     guide: Option<Guide>,
+    guide_stream: Option<StreamHandle>,
     timer_dialog: SMTDialog,
-    timer_handle: Option<StreamHandle>,
+    timer_stream: Option<StreamHandle>,
+    audio_context: Option<web_sys::AudioContext>,
     loading: bool,
 }
 
@@ -374,52 +386,48 @@ impl Stopwatch {
 }
 
 struct Metronome {
-    audio_context: Option<web_sys::AudioContext>,
     interval: u32,
     stressed_beat: u32,
     beat_number: u32,
     next_beat_time: f64,
+    is_active: bool,
 }
 
 impl Metronome {
     fn is_active(&self) -> bool {
-        self.audio_context.is_some()
+        self.is_active
     }
 
-    fn start_pause(&mut self) {
+    fn start_pause(&mut self, audio_context: &Option<web_sys::AudioContext>) {
         if self.is_active() {
-            self.audio_context = None;
-            self.beat_number = 0;
-            self.next_beat_time = 0.5;
+            self.is_active = false;
         } else {
-            self.audio_context = web_sys::AudioContext::new().ok();
+            self.is_active = true;
+            if let Some(audio_context) = audio_context {
+                self.beat_number = 0;
+                self.next_beat_time = audio_context.current_time() + 0.5;
+            }
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, audio_context: &Option<web_sys::AudioContext>) {
         if self.is_active() {
-            if let Some(audio_context) = &self.audio_context {
-                if let Ok(oscillator) = audio_context.create_oscillator() {
-                    if let Err(err) =
-                        oscillator.connect_with_audio_node(&audio_context.destination())
-                    {
-                        error!("failed to connect oscillator:", err);
-                    }
-                    while self.next_beat_time < audio_context.current_time() + 0.5 {
+            if let Some(audio_context) = audio_context {
+                while self.next_beat_time < audio_context.current_time() + 0.5 {
+                    if let Err(err) = play_beep(
+                        audio_context,
                         if self.beat_number % self.stressed_beat == 0 {
-                            oscillator.frequency().set_value(1000.);
+                            1000.
                         } else {
-                            oscillator.frequency().set_value(500.);
-                        }
-                        if let Err(err) = oscillator.start_with_when(self.next_beat_time) {
-                            error!("failed to start oscillator:", err);
-                        }
-                        if let Err(err) = oscillator.stop_with_when(self.next_beat_time + 0.05) {
-                            error!("failed to stop oscillator:", err);
-                        }
-                        self.next_beat_time += self.interval as f64;
-                        self.beat_number += 1;
+                            500.
+                        },
+                        self.next_beat_time,
+                        0.05,
+                    ) {
+                        error!("failed to play beep:", err);
                     }
+                    self.next_beat_time += self.interval as f64;
+                    self.beat_number += 1;
                 }
             }
         }
@@ -430,6 +438,7 @@ struct Timer {
     time: (String, Option<i64>),
     reset_time: i64,
     target_time: Option<DateTime<Utc>>,
+    beep_time: f64,
 }
 
 impl Timer {
@@ -468,22 +477,55 @@ impl Timer {
     fn unset(&mut self) {
         self.reset_time = 0;
         self.target_time = None;
+        self.beep_time = 0.;
     }
 
     fn reset(&mut self) {
         self.set(self.reset_time);
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, audio_context: &Option<web_sys::AudioContext>) {
         if let Some(target_time) = self.target_time {
             let time = (target_time
                 .signed_duration_since(Utc::now())
                 .num_milliseconds() as f64
                 / 1000.)
                 .round() as i64;
+            if (0..=3).contains(&time) && Some(time) != self.time.1 {
+                if let Some(audio_context) = audio_context {
+                    if let Err(err) = play_beep(
+                        audio_context,
+                        2000.,
+                        if time == 3 {
+                            self.beep_time = audio_context.current_time() + 0.01;
+                            self.beep_time
+                        } else {
+                            self.beep_time += 1.;
+                            self.beep_time
+                        },
+                        if time == 0 { 0.5 } else { 0.15 },
+                    ) {
+                        error!("failed to play beep:", err);
+                    }
+                }
+            }
             self.time = (time.to_string(), Some(time));
         }
     }
+}
+
+fn play_beep(
+    audio_context: &web_sys::AudioContext,
+    frequency: f32,
+    start: f64,
+    length: f64,
+) -> Result<(), JsValue> {
+    let oscillator = audio_context.create_oscillator()?;
+    oscillator.connect_with_audio_node(&audio_context.destination())?;
+    oscillator.frequency().set_value(frequency);
+    oscillator.start_with_when(start)?;
+    oscillator.stop_with_when(start + length)?;
+    Ok(())
 }
 
 // ------ ------
@@ -726,11 +768,12 @@ pub fn update(
                     time: (String::new(), None),
                     reset_time: 0,
                     target_time: None,
+                    beep_time: 0.,
                 },
                 element: ElRef::new(),
             });
             update_guide_timer(model);
-            update_timer_handle(model, orders);
+            update_streams(model, orders);
         }
         Msg::UpdateGuidedWorkout => {
             if let Some(guide) = &mut model.guide {
@@ -762,14 +805,14 @@ pub fn update(
                         }
                     }
                 }
-                guide.timer.update();
+                guide.timer.update(&model.audio_context);
             }
         }
         Msg::StartPauseGuideTimer => {
             if let Some(guide) = &mut model.guide {
                 guide.timer.start_pause();
             }
-            update_timer_handle(model, orders);
+            update_streams(model, orders);
         }
         Msg::GoToPreviousSection => {
             if let Some(guide) = &mut model.guide {
@@ -777,7 +820,7 @@ pub fn update(
                 guide.section_start_time = Utc::now();
             }
             update_guide_timer(model);
-            update_timer_handle(model, orders);
+            update_streams(model, orders);
             orders.force_render_now().send_msg(Msg::ScrollToSection);
         }
         Msg::GoToNextSection => {
@@ -790,7 +833,7 @@ pub fn update(
                 }
             }
             update_guide_timer(model);
-            update_timer_handle(model, orders);
+            update_streams(model, orders);
             orders
                 .force_render_now()
                 .send_msg(Msg::UpdateGuidedWorkout)
@@ -869,25 +912,28 @@ pub fn update(
         }
         Msg::UpdateSMTDialog => {
             model.timer_dialog.stopwatch.update();
-            model.timer_dialog.metronome.update();
-            model.timer_dialog.timer.update();
+            model.timer_dialog.metronome.update(&model.audio_context);
+            model.timer_dialog.timer.update(&model.audio_context);
         }
 
         Msg::StartPauseStopwatch => {
             model.timer_dialog.stopwatch.start_pause();
-            update_timer_handle(model, orders);
+            update_streams(model, orders);
         }
         Msg::ResetStopwatch => {
             model.timer_dialog.stopwatch.reset();
         }
         Msg::ToggleStopwatch => {
             model.timer_dialog.stopwatch.toggle();
-            update_timer_handle(model, orders);
+            update_streams(model, orders);
         }
 
         Msg::StartPauseMetronome => {
-            model.timer_dialog.metronome.start_pause();
-            update_timer_handle(model, orders);
+            model
+                .timer_dialog
+                .metronome
+                .start_pause(&model.audio_context);
+            update_streams(model, orders);
         }
         Msg::MetronomeIntervalChanged(interval) => {
             model.timer_dialog.metronome.interval = interval.parse::<u32>().unwrap_or(1)
@@ -898,7 +944,7 @@ pub fn update(
 
         Msg::StartPauseTimer => {
             model.timer_dialog.timer.start_pause();
-            update_timer_handle(model, orders);
+            update_streams(model, orders);
         }
         Msg::ResetTimer => {
             model.timer_dialog.timer.reset();
@@ -913,13 +959,8 @@ pub fn update(
     }
 }
 
-fn update_timer_handle(model: &mut Model, orders: &mut impl Orders<Msg>) {
-    model.timer_handle = if model.timer_dialog.stopwatch.is_active()
-        || model.timer_dialog.metronome.is_active()
-        || model.timer_dialog.timer.is_active()
-    {
-        Some(orders.stream_with_handle(streams::interval(100, || Msg::UpdateSMTDialog)))
-    } else if let Some(guide) = &model.guide {
+fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
+    model.guide_stream = if let Some(guide) = &model.guide {
         if guide.timer.is_active() {
             Some(orders.stream_with_handle(streams::interval(1000, || Msg::UpdateGuidedWorkout)))
         } else {
@@ -927,7 +968,15 @@ fn update_timer_handle(model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
     } else {
         None
-    }
+    };
+    model.timer_stream = if model.timer_dialog.stopwatch.is_active()
+        || model.timer_dialog.metronome.is_active()
+        || model.timer_dialog.timer.is_active()
+    {
+        Some(orders.stream_with_handle(streams::interval(100, || Msg::UpdateSMTDialog)))
+    } else {
+        None
+    };
 }
 
 fn update_guide_timer(model: &mut Model) {

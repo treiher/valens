@@ -201,7 +201,7 @@ where
     Ms: 'static,
 {
     let today = Local::now().date_naive();
-    let duration = (current.last - current.first) + Duration::days(2);
+    let duration = current.last - current.first + Duration::days(1);
     let intervals = [
         (
             "ALL",
@@ -213,48 +213,80 @@ where
             "1Y",
             today - Duration::days(365),
             today,
-            current.last == today && duration == Duration::days(367),
+            current.last == today && duration == Duration::days(366),
         ),
         (
             "6M",
             today - Duration::days(182),
             today,
-            current.last == today && duration == Duration::days(184),
+            current.last == today && duration == Duration::days(183),
         ),
         (
             "3M",
             today - Duration::days(91),
             today,
-            current.last == today && duration == Duration::days(93),
+            current.last == today && duration == Duration::days(92),
         ),
         (
             "1M",
             today - Duration::days(30),
             today,
-            current.last == today && duration == Duration::days(32),
+            current.last == today && duration == Duration::days(31),
         ),
         (
             "+",
-            current.first + duration / 4,
-            current.last - duration / 4,
+            if current.first + Duration::days(6) <= current.last - duration / 2 {
+                current.first + duration / 4
+            } else {
+                current.first
+            },
+            if current.first + Duration::days(6) <= current.last - duration / 2 {
+                current.last - duration / 4
+            } else {
+                current.first + Duration::days(6)
+            },
             false,
         ),
         (
             "−",
-            current.first - duration / 2,
-            current.last + duration / 2,
+            if current.first - duration / 2 > all.first {
+                current.first - duration / 2
+            } else {
+                all.first
+            },
+            if current.last + duration / 2 < today {
+                current.last + duration / 2
+            } else {
+                today
+            },
             false,
         ),
         (
             "<",
-            current.first - duration / 4,
-            current.last - duration / 4,
+            if current.first - duration / 4 > all.first {
+                current.first - duration / 4
+            } else {
+                all.first
+            },
+            if current.first - duration / 4 > all.first {
+                current.last - duration / 4
+            } else {
+                all.first + duration - Duration::days(1)
+            },
             false,
         ),
         (
             ">",
-            current.first + duration / 4,
-            current.last + duration / 4,
+            if current.last + duration / 4 < today {
+                current.first + duration / 4
+            } else {
+                today - duration + Duration::days(1)
+            },
+            if current.last + duration / 4 < today {
+                current.last + duration / 4
+            } else {
+                today
+            },
             false,
         ),
     ];

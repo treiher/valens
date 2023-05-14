@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Loading indicator to all pages
 - Charts for load and set volume
 - Calendar
+- Interval button for showing all values
 - Beeps when timer expires
 - Automatic upgrade of database
 - Support for Python 3.11

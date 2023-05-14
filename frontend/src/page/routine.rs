@@ -1240,12 +1240,17 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 && w.date <= model.interval.last
         })
         .collect::<Vec<_>>();
+    let dates = workouts.iter().map(|w| w.date);
+    let routine_interval = common::Interval {
+        first: dates.clone().min().unwrap_or_default(),
+        last: dates.max().unwrap_or_default(),
+    };
     div![
         C!["container"],
         C!["has-text-centered"],
         C!["mt-6"],
         h1![C!["title"], C!["is-5"], "Workouts"],
-        common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+        common::view_interval_buttons(&model.interval, &routine_interval, Msg::ChangeInterval),
         view_charts(&workouts, &model.interval),
         workouts::view_calendar(&workouts, &model.interval),
         workouts::view_table(

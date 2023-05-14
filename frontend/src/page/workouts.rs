@@ -228,6 +228,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .values()
             .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
             .collect::<Vec<_>>();
+        let dates = data_model.workouts.values().map(|w| w.date);
+        let workouts_interval = common::Interval {
+            first: dates.clone().min().unwrap_or_default(),
+            last: dates.max().unwrap_or_default(),
+        };
         div![
             view_workouts_dialog(
                 &data_model
@@ -237,7 +242,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 &model.dialog,
                 model.loading
             ),
-            common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+            common::view_interval_buttons(&model.interval, &workouts_interval, Msg::ChangeInterval),
             view_charts(
                 weighted_sum_of_load,
                 total_set_volume_per_week,

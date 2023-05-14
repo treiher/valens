@@ -220,9 +220,18 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.body_weight.is_empty() && data_model.loading_body_weight {
         common::view_loading()
     } else {
+        let dates = data_model.body_weight.values().map(|w| w.date);
+        let body_weight_interval = common::Interval {
+            first: dates.clone().min().unwrap_or_default(),
+            last: dates.max().unwrap_or_default(),
+        };
         div![
             view_body_weight_dialog(&model.dialog, model.loading),
-            common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+            common::view_interval_buttons(
+                &model.interval,
+                &body_weight_interval,
+                Msg::ChangeInterval
+            ),
             view_chart(model, data_model),
             view_calendar(data_model, &model.interval),
             view_table(model, data_model),

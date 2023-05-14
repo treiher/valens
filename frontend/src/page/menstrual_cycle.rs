@@ -212,10 +212,15 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.period.is_empty() && data_model.loading_period {
         common::view_loading()
     } else {
+        let dates = data_model.period.values().map(|w| w.date);
+        let period_interval = common::Interval {
+            first: dates.clone().min().unwrap_or_default(),
+            last: dates.max().unwrap_or_default(),
+        };
         div![
             view_period_dialog(&model.dialog, model.loading),
             view_current_cycle(data_model),
-            common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+            common::view_interval_buttons(&model.interval, &period_interval, Msg::ChangeInterval),
             view_chart(model, data_model),
             view_cycle_stats(model, data_model),
             view_calendar(data_model, &model.interval),

@@ -194,6 +194,7 @@ where
 
 pub fn view_interval_buttons<Ms>(
     current: &Interval,
+    all: &Interval,
     message: fn(NaiveDate, NaiveDate) -> Ms,
 ) -> Node<Ms>
 where
@@ -202,6 +203,12 @@ where
     let today = Local::now().date_naive();
     let duration = (current.last - current.first) + Duration::days(2);
     let intervals = [
+        (
+            "ALL",
+            all.first,
+            all.last,
+            all.first == current.first && all.last == current.last,
+        ),
         (
             "1Y",
             today - Duration::days(365),

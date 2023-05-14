@@ -134,10 +134,18 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_loading()
     } else if let Some(exercise) = data_model.exercises.get(&model.exercise_id) {
         let exercise_workouts = exercise_workouts(model, data_model);
-        let workouts = exercise_workouts.iter().collect::<Vec<_>>();
+        let dates = exercise_workouts.iter().map(|w| w.date);
+        let exercise_interval = common::Interval {
+            first: dates.clone().min().unwrap_or_default(),
+            last: dates.max().unwrap_or_default(),
+        };
+        let workouts = exercise_workouts
+            .iter()
+            .filter(|w| w.date >= model.interval.first && w.date <= model.interval.last)
+            .collect::<Vec<_>>();
         div![
             common::view_title(&span![&exercise.name], 5),
-            common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
+            common::view_interval_buttons(&model.interval, &exercise_interval, Msg::ChangeInterval),
             view_charts(&workouts, &model.interval),
             view_calendar(&workouts, &model.interval),
             workouts::view_table(
@@ -372,11 +380,7 @@ fn exercise_workouts(model: &Model, data_model: &data::Model) -> Vec<data::Worko
     data_model
         .workouts
         .values()
-        .filter(|w| {
-            w.exercises().contains(&model.exercise_id)
-                && w.date >= model.interval.first
-                && w.date <= model.interval.last
-        })
+        .filter(|w| w.exercises().contains(&model.exercise_id))
         .map(|w| data::Workout {
             id: w.id,
             routine_id: w.routine_id,

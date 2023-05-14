@@ -133,13 +133,15 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.exercises.is_empty() && data_model.loading_exercises {
         common::view_loading()
     } else if let Some(exercise) = data_model.exercises.get(&model.exercise_id) {
-        let workouts = exercise_workouts(model, data_model);
+        let exercise_workouts = exercise_workouts(model, data_model);
+        let workouts = exercise_workouts.iter().collect::<Vec<_>>();
         div![
             common::view_title(&span![&exercise.name], 5),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
-            view_charts(&workouts.iter().collect::<Vec<_>>(), &model.interval),
+            view_charts(&workouts, &model.interval),
+            view_calendar(&workouts, &model.interval),
             workouts::view_table(
-                &workouts.iter().collect::<Vec<_>>(),
+                &workouts,
                 &data_model.routines,
                 &data_model.base_url,
                 Msg::ShowDeleteWorkoutDialog
@@ -306,6 +308,46 @@ pub fn view_charts<Ms>(workouts: &[&data::Workout], interval: &common::Interval)
             )
         ),
     ]
+}
+
+fn view_calendar(workouts: &[&data::Workout], interval: &common::Interval) -> Node<Msg> {
+    let mut volume_load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
+    for workout in workouts {
+        if (interval.first..=interval.last).contains(&workout.date) {
+            volume_load
+                .entry(workout.date)
+                .and_modify(|e| *e += workout.volume_load())
+                .or_insert(workout.volume_load());
+        }
+    }
+    let min = volume_load
+        .values()
+        .min_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(0);
+    let max = volume_load
+        .values()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(0);
+
+    common::view_calendar(
+        volume_load
+            .iter()
+            .map(|(date, volume_load)| {
+                (
+                    *date,
+                    common::COLOR_VOLUME_LOAD,
+                    if max > min {
+                        ((volume_load - min) as f64 / (max - min) as f64) * 0.8 + 0.2
+                    } else {
+                        1.0
+                    },
+                )
+            })
+            .collect(),
+        interval,
+    )
 }
 
 fn view_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {

@@ -1247,6 +1247,7 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
         h1![C!["title"], C!["is-5"], "Workouts"],
         common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
         view_charts(&workouts, &model.interval),
+        workouts::view_calendar(&workouts, &model.interval),
         workouts::view_table(
             &workouts,
             &data_model.routines,

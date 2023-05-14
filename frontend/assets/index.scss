@@ -124,6 +124,31 @@ $fieldset-radius: $radius !default;
     padding: 0 5px;
 }
 
+// Calendar
+
+div.is-calendar {
+    direction: rtl;
+    table {
+        direction: ltr;
+        tr {
+            td {
+                color: $white;
+                background-color: $grey-lighter;
+                border: 1px solid $white;
+                text-align: center;
+                div {
+                    width: 10pt;
+                }
+            }
+            td.is-calendar-label {
+                color: inherit;
+                background-color: inherit;
+                text-align: left;
+            }
+        }
+    }
+}
+
 // Font Awesome
 
 $fa-font-path: "fonts";

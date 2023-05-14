@@ -244,6 +244,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 avg_rpe_per_week,
                 &model.interval
             ),
+            view_calendar(&workouts, &model.interval),
             view_table(
                 &workouts,
                 &data_model.routines,
@@ -253,6 +254,44 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             common::view_fab("plus", |_| Msg::ShowAddWorkoutDialog),
         ]
     }
+}
+
+pub fn view_calendar<Ms>(workouts: &[&data::Workout], interval: &common::Interval) -> Node<Ms> {
+    let mut load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
+    for workout in workouts {
+        if (interval.first..=interval.last).contains(&workout.date) {
+            load.entry(workout.date)
+                .and_modify(|e| *e += workout.load())
+                .or_insert(workout.load());
+        }
+    }
+    let min = load
+        .values()
+        .min_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(0);
+    let max = load
+        .values()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(0);
+
+    common::view_calendar(
+        load.iter()
+            .map(|(date, load)| {
+                (
+                    *date,
+                    common::COLOR_LOAD,
+                    if max > min {
+                        ((load - min) as f64 / (max - min) as f64) * 0.8 + 0.2
+                    } else {
+                        1.0
+                    },
+                )
+            })
+            .collect(),
+        interval,
+    )
 }
 
 fn view_workouts_dialog(routines: &[&data::Routine], dialog: &Dialog, loading: bool) -> Node<Msg> {

@@ -224,6 +224,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             view_body_weight_dialog(&model.dialog, model.loading),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
             view_chart(model, data_model),
+            view_calendar(data_model, &model.interval),
             view_table(model, data_model),
             common::view_fab("plus", |_| Msg::ShowAddBodyWeightDialog),
         ]
@@ -374,6 +375,45 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             None,
             None,
         ),
+    )
+}
+
+fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<Msg> {
+    let body_weight_values = data_model
+        .body_weight
+        .values()
+        .filter(|bw| (interval.first..=interval.last).contains(&bw.date))
+        .map(|bw| bw.weight)
+        .collect::<Vec<_>>();
+    let min = body_weight_values
+        .iter()
+        .min_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(1.);
+    let max = body_weight_values
+        .iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(1.);
+
+    common::view_calendar(
+        data_model
+            .body_weight
+            .values()
+            .filter(|bw| (interval.first..=interval.last).contains(&bw.date))
+            .map(|bw| {
+                (
+                    bw.date,
+                    common::COLOR_BODY_WEIGHT,
+                    if max > min {
+                        ((bw.weight - min) / (max - min)) as f64 * 0.8 + 0.2
+                    } else {
+                        1.0
+                    },
+                )
+            })
+            .collect(),
+        interval,
     )
 }
 

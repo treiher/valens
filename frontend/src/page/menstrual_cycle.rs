@@ -218,6 +218,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
             view_chart(model, data_model),
             view_cycle_stats(model, data_model),
+            view_calendar(data_model, &model.interval),
             view_period_table(model, data_model),
             common::view_fab("plus", |_| Msg::ShowAddPeriodDialog),
         ]
@@ -416,6 +417,24 @@ fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
             )]
         ]
     ]
+}
+
+fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<Msg> {
+    common::view_calendar(
+        data_model
+            .period
+            .values()
+            .filter(|p| (interval.first..=interval.last).contains(&p.date))
+            .map(|p| {
+                (
+                    p.date,
+                    common::COLOR_PERIOD_INTENSITY,
+                    p.intensity as f64 * 0.25,
+                )
+            })
+            .collect(),
+        interval,
+    )
 }
 
 fn view_period_table(model: &Model, data_model: &data::Model) -> Node<Msg> {

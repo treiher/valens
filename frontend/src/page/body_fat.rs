@@ -453,6 +453,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ),
             common::view_interval_buttons(&model.interval, Msg::ChangeInterval),
             view_chart(model, data_model),
+            view_calendar(data_model, &model.interval),
             view_table(model, data_model),
             common::view_fab("plus", |_| Msg::ShowAddBodyFatDialog),
         ]
@@ -736,6 +737,48 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             model.interval.first,
             model.interval.last,
         ),
+    )
+}
+
+fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<Msg> {
+    let sex = data_model.session.as_ref().unwrap().sex;
+    let body_fat_values = data_model
+        .body_fat
+        .values()
+        .filter(|bf| (interval.first..=interval.last).contains(&bf.date))
+        .filter_map(|bf| bf.jp3(sex))
+        .collect::<Vec<_>>();
+    let min = body_fat_values
+        .iter()
+        .min_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(1.);
+    let max = body_fat_values
+        .iter()
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .copied()
+        .unwrap_or(1.);
+
+    common::view_calendar(
+        data_model
+            .body_fat
+            .values()
+            .filter(|bf| (interval.first..=interval.last).contains(&bf.date))
+            .filter_map(|bf| {
+                bf.jp3(sex).map(|jp3| {
+                    (
+                        bf.date,
+                        common::COLOR_BODY_FAT_JP3,
+                        if max > min {
+                            ((jp3 - min) / (max - min)) as f64 * 0.8 + 0.2
+                        } else {
+                            1.0
+                        },
+                    )
+                })
+            })
+            .collect(),
+        interval,
     )
 }
 

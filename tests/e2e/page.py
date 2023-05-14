@@ -311,7 +311,9 @@ class Page:
 
     def wait_for_table_value(self, index: int, text: str) -> None:
         wait(self._driver).until(
-            EC.text_to_be_present_in_element((By.XPATH, f"//tr/td[{index}]"), text)
+            EC.text_to_be_present_in_element(
+                (By.XPATH, f"//table[contains(@class, 'is-hoverable')]/tbody/tr/td[{index}]"), text
+            )
         )
 
     def get_table_value(self, index: int) -> str:

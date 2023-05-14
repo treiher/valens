@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
 use seed::{prelude::*, *};
@@ -319,6 +321,108 @@ pub fn automatic_icon<Ms>() -> Node<Ms> {
         },
         i![C!["fas fa-circle fa-stack-1x"]],
         i![C!["fas fa-a fa-inverse fa-stack-1x"]]
+    ]
+}
+
+pub fn view_calendar<Ms>(entries: Vec<(NaiveDate, usize, f64)>, interval: &Interval) -> Node<Ms> {
+    let mut calendar: BTreeMap<NaiveDate, (usize, f64)> = BTreeMap::new();
+
+    let mut day = interval.first.week(Weekday::Mon).first_day();
+    while day <= interval.last.week(Weekday::Mon).last_day() {
+        calendar.insert(day, (0, 0.));
+        day += Duration::days(1);
+    }
+
+    for (date, color, opacity) in entries {
+        calendar.entry(date).and_modify(|e| *e = (color, opacity));
+    }
+
+    let mut weekdays: [Vec<(NaiveDate, usize, f64)>; 7] = Default::default();
+    let mut months: Vec<(NaiveDate, usize)> = vec![];
+    let mut month: NaiveDate = Default::default();
+    let mut num_weeks: usize = 0;
+    for (i, (date, (color, opacity))) in calendar.iter().enumerate() {
+        weekdays[i % 7].push((*date, *color, *opacity));
+        if i % 7 == 0 || i == calendar.len() - 1 {
+            if i == 0 {
+                month = *date;
+            } else if month.month() != date.month() || i == calendar.len() - 1 {
+                months.push((month, num_weeks));
+                num_weeks = 0;
+                month = *date;
+            }
+            num_weeks += 1;
+        }
+    }
+
+    div![
+        C!["table-container"],
+        C!["is-calendar"],
+        C!["py-2"],
+        table![
+            C!["table"],
+            C!["is-size-7"],
+            C!["mx-auto"],
+            tbody![
+                tr![
+                    months.iter().map(|(date, col_span)| {
+                        let year = date.year();
+                        let month = date.month();
+                        td![
+                            C!["is-calendar-label"],
+                            attrs! {
+                                At::ColSpan => col_span,
+                            },
+                            if *col_span > 1 {
+                                format!("{year}-{month:02}")
+                            } else {
+                                String::new()
+                            }
+                        ]
+                    }),
+                    td![C!["is-calendar-label"]]
+                ],
+                (0..weekdays.len())
+                    .map(|weekday| {
+                        tr![
+                            weekdays[weekday]
+                                .iter()
+                                .map(|(date, color, opacity)| td![
+                                    if *opacity > 0. {
+                                        style! {
+                                            St::BackgroundColor => {
+                                                let (r, g, b) = Palette99::pick(*color).rgb();
+                                                format!("rgba({r}, {g}, {b}, {opacity})")
+                                            }
+                                        }
+                                    } else if *date < interval.first || *date > interval.last {
+                                        style! {
+                                            St::BackgroundColor => "#FFFFFF"
+                                        }
+                                    } else {
+                                        style! {}
+                                    },
+                                    div![date.day()]
+                                ])
+                                .collect::<Vec<_>>(),
+                            td![
+                                C!["is-calendar-label"],
+                                match weekday {
+                                    0 => "Mon",
+                                    1 => "Tue",
+                                    2 => "Wed",
+                                    3 => "Thu",
+                                    4 => "Fri",
+                                    5 => "Sat",
+                                    6 => "Sun",
+                                    _ => "",
+                                }
+                            ]
+                        ]
+                    })
+                    .collect::<Vec<_>>()
+            ]
+        ]
     ]
 }
 

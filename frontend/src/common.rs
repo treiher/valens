@@ -292,28 +292,36 @@ where
     ];
 
     div![
-        C!["field"],
-        C!["has-addons"],
-        C!["has-addons-centered"],
-        intervals
-            .iter()
-            .map(|(name, first, last, is_active)| {
-                #[allow(clippy::clone_on_copy)]
-                let f = first.clone();
-                #[allow(clippy::clone_on_copy)]
-                let l = last.clone();
-                p![
-                    C!["control"],
-                    a![
-                        C!["button"],
-                        C!["is-small"],
-                        C![IF![*is_active => "is-link"]],
-                        ev(Ev::Click, move |_| message(f, l)),
-                        name,
+        div![
+            C!["field"],
+            C!["has-addons"],
+            C!["has-addons-centered"],
+            intervals
+                .iter()
+                .map(|(name, first, last, is_active)| {
+                    #[allow(clippy::clone_on_copy)]
+                    let f = first.clone();
+                    #[allow(clippy::clone_on_copy)]
+                    let l = last.clone();
+                    p![
+                        C!["control"],
+                        a![
+                            C!["button"],
+                            C!["is-small"],
+                            C![IF![*is_active => "is-link"]],
+                            ev(Ev::Click, move |_| message(f, l)),
+                            name,
+                        ]
                     ]
-                ]
-            })
-            .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        ],
+        div![
+            C!["mb-4"],
+            C!["is-size-6"],
+            C!["has-text-centered"],
+            format!("{} – {}", current.first, current.last)
+        ]
     ]
 }
 

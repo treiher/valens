@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Adding workout on same date as existing workout
 - Missing last bar in bar chart
 - Disabled save button on workout page in case of error
 

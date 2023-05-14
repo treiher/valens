@@ -104,11 +104,7 @@ pub fn update(
             Dialog::AddWorkout(ref mut form) => {
                 match NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
                     Ok(parsed_date) => {
-                        if data_model.workouts.values().all(|w| w.date != parsed_date) {
-                            form.date = (date, Some(parsed_date));
-                        } else {
-                            form.date = (date, None);
-                        }
+                        form.date = (date, Some(parsed_date));
                     }
                     Err(_) => form.date = (date, None),
                 }

@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display weekly totals/averages in charts on workouts page
 - Limit minimum interval to one week
 - Limit possible intervals by first value entry and current day
+- Go to workout page after adding workout
 
 ### Removed
 

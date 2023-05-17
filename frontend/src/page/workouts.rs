@@ -174,7 +174,16 @@ pub fn update(
                         false,
                     );
                 }
-                data::Event::WorkoutCreatedOk | data::Event::WorkoutDeletedOk => {
+                data::Event::WorkoutCreatedOk => {
+                    if let Some((workout_id, _)) = data_model.workouts.last_key_value() {
+                        orders.request_url(
+                            crate::Urls::new(&data_model.base_url)
+                                .workout()
+                                .add_hash_path_part(workout_id.to_string()),
+                        );
+                    }
+                }
+                data::Event::WorkoutDeletedOk => {
                     orders.skip().send_msg(Msg::CloseWorkoutDialog);
                 }
                 _ => {}

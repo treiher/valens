@@ -419,8 +419,11 @@ def test_workouts_add(driver: webdriver.Chrome) -> None:
 
     page.workouts_dialog.click_save()
 
-    page.wait_for_table_value(1, date)
-    page.wait_for_table_value(2, routine)
+    workout_page = WorkoutPage(driver, 0)
+
+    workout_page.wait_until_loaded()
+
+    page.wait_for_title(str(date))
 
 
 def test_workouts_delete(driver: webdriver.Chrome) -> None:

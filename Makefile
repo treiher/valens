@@ -3,7 +3,7 @@ SHELL = /bin/bash
 BULMA_VERSION := 0.9.4
 FONTAWESOME_VERSION := 6.1.1
 
-PYTHON_PACKAGES := valens tests
+PYTHON_PACKAGES := valens tests fabfile.py
 FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js valens-frontend_bg.wasm fonts images js
 PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
 BUILD_DIR := $(PWD)/build

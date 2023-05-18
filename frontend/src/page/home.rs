@@ -55,12 +55,14 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     let training_subtitle =
         if data_model.training_sessions.is_empty() && data_model.loading_training_sessions {
             common::view_loading::<Msg>().to_string()
-        } else if let Some((_, load)) = &data_model.training_stats.weighted_sum_of_load.last() {
-            if *load > 0. {
-                format!("{load:.0} load")
+        } else if let Some(load_ratio) = &data_model.training_stats.load_ratio() {
+            String::from(if *load_ratio > data::TrainingStats::LOAD_RATIO_HIGH {
+                "high load"
+            } else if *load_ratio < data::TrainingStats::LOAD_RATIO_LOW {
+                "low load"
             } else {
-                String::new()
-            }
+                "optimal load"
+            })
         } else {
             String::new()
         };

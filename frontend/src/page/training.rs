@@ -207,9 +207,16 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.training_sessions.is_empty() && data_model.loading_training_sessions {
         common::view_page_loading()
     } else {
-        let weighted_sum_of_load = data_model
+        let short_term_load = data_model
             .training_stats
-            .weighted_sum_of_load
+            .short_term_load
+            .iter()
+            .filter(|(date, _)| *date >= model.interval.first && *date <= model.interval.last)
+            .cloned()
+            .collect::<Vec<_>>();
+        let long_term_load = data_model
+            .training_stats
+            .long_term_load
             .iter()
             .filter(|(date, _)| *date >= model.interval.first && *date <= model.interval.last)
             .cloned()
@@ -300,7 +307,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 Msg::ChangeInterval
             ),
             view_charts(
-                weighted_sum_of_load,
+                short_term_load,
+                long_term_load,
                 total_set_volume_per_week,
                 avg_rpe_per_week,
                 &model.interval
@@ -465,16 +473,35 @@ fn view_training_sessions_dialog(
 }
 
 pub fn view_charts<Ms>(
-    weighted_sum_of_load: Vec<(NaiveDate, f32)>,
+    short_term_load: Vec<(NaiveDate, f32)>,
+    long_term_load: Vec<(NaiveDate, f32)>,
     total_set_volume_per_week: Vec<(NaiveDate, f32)>,
     avg_rpe_per_week: Vec<(NaiveDate, f32)>,
     interval: &common::Interval,
 ) -> Vec<Node<Ms>> {
+    let long_term_load_high = long_term_load
+        .iter()
+        .copied()
+        .map(|(d, l)| (d, l * data::TrainingStats::LOAD_RATIO_HIGH))
+        .collect::<Vec<_>>();
+    let long_term_load_low = long_term_load
+        .iter()
+        .copied()
+        .map(|(d, l)| (d, l * data::TrainingStats::LOAD_RATIO_LOW))
+        .collect::<Vec<_>>();
     nodes![
         common::view_chart(
-            &[("Load (weighted sum)", common::COLOR_LOAD)],
+            &[
+                ("Short-term load", common::COLOR_LOAD),
+                ("Long-term load", common::COLOR_LONG_TERM_LOAD)
+            ],
             common::plot_line_chart(
-                &[(weighted_sum_of_load, common::COLOR_LOAD)],
+                &[
+                    (long_term_load_low, common::COLOR_LONG_TERM_LOAD_BOUNDS),
+                    (long_term_load_high, common::COLOR_LONG_TERM_LOAD_BOUNDS),
+                    (long_term_load, common::COLOR_LONG_TERM_LOAD),
+                    (short_term_load, common::COLOR_LOAD)
+                ],
                 interval.first,
                 interval.last,
                 Some(0.),

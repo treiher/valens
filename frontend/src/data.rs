@@ -39,7 +39,8 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         cycles: Vec::new(),
         current_cycle: None,
         training_stats: TrainingStats {
-            weighted_sum_of_load: Vec::new(),
+            short_term_load: Vec::new(),
+            long_term_load: Vec::new(),
             avg_rpe_per_week: Vec::new(),
             total_set_volume_per_week: Vec::new(),
         },
@@ -150,14 +151,29 @@ pub struct CycleStats {
 }
 
 pub struct TrainingStats {
-    pub weighted_sum_of_load: Vec<(NaiveDate, f32)>,
+    pub short_term_load: Vec<(NaiveDate, f32)>,
+    pub long_term_load: Vec<(NaiveDate, f32)>,
     pub avg_rpe_per_week: Vec<(NaiveDate, f32)>,
     pub total_set_volume_per_week: Vec<(NaiveDate, f32)>,
 }
 
 impl TrainingStats {
+    pub const LOAD_RATIO_LOW: f32 = 0.8;
+    pub const LOAD_RATIO_HIGH: f32 = 1.5;
+
+    pub fn load_ratio(&self) -> Option<f32> {
+        let long_term_load = self.long_term_load.last().map(|(_, l)| *l).unwrap_or(0.);
+        if long_term_load > 0. {
+            let short_term_load = self.short_term_load.last().map(|(_, l)| *l).unwrap_or(0.);
+            Some(short_term_load / long_term_load)
+        } else {
+            None
+        }
+    }
+
     pub fn clear(&mut self) {
-        self.weighted_sum_of_load.clear();
+        self.short_term_load.clear();
+        self.long_term_load.clear();
         self.avg_rpe_per_week.clear();
         self.total_set_volume_per_week.clear();
     }
@@ -562,14 +578,20 @@ pub fn calculate_cycle_stats(cycles: &[&Cycle]) -> CycleStats {
 }
 
 fn calculate_training_stats(training_sessions: &[&TrainingSession]) -> TrainingStats {
+    let short_term_load = calculate_weighted_sum_of_load(training_sessions, 7);
+    let long_term_load = calculate_average_weighted_sum_of_load(&short_term_load, 28);
     TrainingStats {
-        weighted_sum_of_load: calculate_weighted_sum_of_load(training_sessions),
+        short_term_load,
+        long_term_load,
         total_set_volume_per_week: calculate_total_set_volume_per_week(training_sessions),
         avg_rpe_per_week: calculate_avg_rpe_per_week(training_sessions),
     }
 }
 
-fn calculate_weighted_sum_of_load(training_sessions: &[&TrainingSession]) -> Vec<(NaiveDate, f32)> {
+fn calculate_weighted_sum_of_load(
+    training_sessions: &[&TrainingSession],
+    window_size: usize,
+) -> Vec<(NaiveDate, f32)> {
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
 
     let today = Local::now().date_naive();
@@ -586,8 +608,10 @@ fn calculate_weighted_sum_of_load(training_sessions: &[&TrainingSession]) -> Vec
             .or_insert(t.load() as f32);
     }
 
-    let weighting: [f32; 10] = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
-    let mut window: [f32; 10] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let weighting: Vec<f32> = (0..window_size)
+        .map(|i| 1. - 1. / window_size as f32 * i as f32)
+        .collect();
+    let mut window: Vec<f32> = (0..window_size).map(|_| 0.).collect();
 
     result
         .into_iter()
@@ -596,12 +620,27 @@ fn calculate_weighted_sum_of_load(training_sessions: &[&TrainingSession]) -> Vec
             window[0] = load;
             (
                 date,
-                zip(window, weighting)
+                zip(&window, &weighting)
                     .map(|(load, weight)| load * weight)
                     .sum(),
             )
         })
         .collect()
+}
+
+fn calculate_average_weighted_sum_of_load(
+    weighted_sum_of_load: &[(NaiveDate, f32)],
+    window_size: usize,
+) -> Vec<(NaiveDate, f32)> {
+    weighted_sum_of_load
+        .windows(window_size)
+        .map(|window| {
+            (
+                window.last().unwrap().0,
+                window.iter().map(|(_, l)| l).sum::<f32>() / window_size as f32,
+            )
+        })
+        .collect::<Vec<_>>()
 }
 
 fn calculate_total_set_volume_per_week(

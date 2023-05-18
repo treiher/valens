@@ -210,7 +210,7 @@ pub fn update(
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.period.is_empty() && data_model.loading_period {
-        common::view_loading()
+        common::view_page_loading()
     } else {
         let dates = data_model.period.values().map(|w| w.date);
         let period_interval = common::Interval {

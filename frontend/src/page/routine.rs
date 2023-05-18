@@ -696,7 +696,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.routines.is_empty() && data_model.loading_routines {
-        common::view_loading()
+        common::view_page_loading()
     } else if let Some(routine) = &data_model.routines.get(&model.routine_id) {
         let saving_disabled = not(model.sections.iter().all(|s| s.valid()));
         div![

@@ -131,7 +131,7 @@ pub fn update(
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.exercises.is_empty() && data_model.loading_exercises {
-        common::view_loading()
+        common::view_page_loading()
     } else if let Some(exercise) = data_model.exercises.get(&model.exercise_id) {
         let exercise_workouts = exercise_workouts(model, data_model);
         let dates = exercise_workouts.iter().map(|w| w.date);

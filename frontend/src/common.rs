@@ -333,6 +333,15 @@ pub fn view_loading<Ms>() -> Node<Ms> {
     ]
 }
 
+pub fn view_page_loading<Ms>() -> Node<Ms> {
+    div![
+        C!["is-size-2"],
+        C!["has-text-centered"],
+        C!["m-6"],
+        i![C!["fas fa-spinner fa-pulse"]]
+    ]
+}
+
 pub fn view_error_not_found<Ms>(element: &str) -> Node<Ms> {
     div![
         C!["message"],

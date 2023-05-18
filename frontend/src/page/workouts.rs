@@ -203,7 +203,7 @@ pub fn update(
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.workouts.is_empty() && data_model.loading_workouts {
-        common::view_loading()
+        common::view_page_loading()
     } else {
         let weighted_sum_of_load = data_model
             .workout_stats

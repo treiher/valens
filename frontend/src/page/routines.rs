@@ -148,7 +148,7 @@ pub fn update(
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.routines.is_empty() && data_model.loading_routines {
-        common::view_loading()
+        common::view_page_loading()
     } else {
         div![
             view_routine_dialog(&model.dialog, &data_model.routines, model.loading),

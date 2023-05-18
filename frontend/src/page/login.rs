@@ -50,7 +50,7 @@ pub fn update(msg: Msg, _model: &mut Model, orders: &mut impl Orders<Msg>) {
 
 pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.users.is_empty() && data_model.loading_users {
-        common::view_loading()
+        common::view_page_loading()
     } else {
         div![
             C!["container"],

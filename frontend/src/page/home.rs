@@ -158,15 +158,7 @@ fn view_tile(title: &str, subtitle: &str, content: &str, target: Url) -> Node<Ms
                 div![
                     C!["is-flex"],
                     C!["is-justify-content-space-between"],
-                    div![a![
-                        C!["title"],
-                        C!["is-size-4"],
-                        C!["has-text-link"],
-                        attrs! {
-                            At::Href => target,
-                        },
-                        title,
-                    ]],
+                    div![a![C!["title"], C!["is-size-4"], C!["has-text-link"], title]],
                     div![a![
                         C!["title"],
                         C!["is-size-4"],

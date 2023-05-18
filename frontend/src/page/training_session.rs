@@ -16,7 +16,7 @@ pub fn init(
     data_model: &data::Model,
     navbar: &mut crate::Navbar,
 ) -> Model {
-    let workout_id = url
+    let training_session_id = url
         .next_hash_path_part()
         .unwrap_or("")
         .parse::<u32>()
@@ -24,14 +24,16 @@ pub fn init(
 
     orders.subscribe(Msg::DataEvent);
 
-    navbar.title = String::from("Workout");
+    navbar.title = String::from("Training session");
     navbar.items = vec![div![
         span![C!["icon"], C!["px-5"], i![C!["fas fa-stopwatch"]]],
-        ev(Ev::Click, |_| crate::Msg::Workout(Msg::ShowSMTDialog)),
+        ev(Ev::Click, |_| crate::Msg::TrainingSession(
+            Msg::ShowSMTDialog
+        )),
         "Stopwatch / Metronome / Timer"
     ]];
 
-    let workout = &data_model.workouts.get(&workout_id);
+    let training_session = &data_model.training_sessions.get(&training_session_id);
     let audio_context = match web_sys::AudioContext::new() {
         Ok(ctx) => Some(ctx),
         Err(err) => {
@@ -41,8 +43,8 @@ pub fn init(
     };
 
     Model {
-        workout_id,
-        form: init_form(workout, data_model),
+        training_session_id,
+        form: init_form(training_session, data_model),
         guide: None,
         guide_stream: None,
         timer_dialog: SMTDialog {
@@ -71,17 +73,17 @@ pub fn init(
     }
 }
 
-fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form {
-    let previous_sets = previous_sets(workout, data_model);
-    if let Some(workout) = workout {
+fn init_form(training_session: &Option<&data::TrainingSession>, data_model: &data::Model) -> Form {
+    let previous_sets = previous_sets(training_session, data_model);
+    if let Some(training_session) = training_session {
         let mut sections = vec![];
         let mut exercises = vec![];
         let mut position = 0;
         let mut prev_set_positions: HashMap<u32, usize> = HashMap::new();
 
-        for e in workout.elements.iter() {
+        for e in training_session.elements.iter() {
             match e {
-                data::WorkoutElement::WorkoutSet {
+                data::TrainingSessionElement::Set {
                     exercise_id,
                     reps,
                     time,
@@ -106,7 +108,7 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
                         .or_insert(0);
                     let (prev_reps, prev_time, prev_weight, prev_rpe) =
                         if let Some(prev_sets) = previous_sets.get(exercise_id) {
-                            if let Some(data::WorkoutElement::WorkoutSet {
+                            if let Some(data::TrainingSessionElement::Set {
                                 reps,
                                 time,
                                 weight,
@@ -172,7 +174,7 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
                         exercises = vec![];
                     }
                 }
-                data::WorkoutElement::WorkoutRest {
+                data::TrainingSessionElement::Rest {
                     target_time,
                     automatic,
                 } => {
@@ -194,7 +196,7 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
         }
 
         Form {
-            notes: workout.notes.clone().unwrap_or_default(),
+            notes: training_session.notes.clone().unwrap_or_default(),
             notes_changed: false,
             sections,
         }
@@ -208,23 +210,24 @@ fn init_form(workout: &Option<&data::Workout>, data_model: &data::Model) -> Form
 }
 
 fn previous_sets(
-    workout: &Option<&data::Workout>,
+    training_session: &Option<&data::TrainingSession>,
     data_model: &data::Model,
-) -> HashMap<u32, Vec<data::WorkoutElement>> {
-    let mut sets: HashMap<u32, Vec<data::WorkoutElement>> = HashMap::new();
-    if let Some(workout) = workout {
-        if let Some(previous_workout) = &data_model
-            .workouts
+) -> HashMap<u32, Vec<data::TrainingSessionElement>> {
+    let mut sets: HashMap<u32, Vec<data::TrainingSessionElement>> = HashMap::new();
+    if let Some(training_session) = training_session {
+        if let Some(previous_training_session) = &data_model
+            .training_sessions
             .values()
-            .filter(|w| {
-                w.id != workout.id
-                    && w.date <= workout.date
-                    && (not(workout.routine_id.is_some()) || w.routine_id == workout.routine_id)
+            .filter(|t| {
+                t.id != training_session.id
+                    && t.date <= training_session.date
+                    && (not(training_session.routine_id.is_some())
+                        || t.routine_id == training_session.routine_id)
             })
             .last()
         {
-            for e in &previous_workout.elements {
-                if let data::WorkoutElement::WorkoutSet { exercise_id, .. } = e {
+            for e in &previous_training_session.elements {
+                if let data::TrainingSessionElement::Set { exercise_id, .. } = e {
                     sets.entry(*exercise_id).or_default().push(e.clone());
                 }
             }
@@ -238,7 +241,7 @@ fn previous_sets(
 // ------ ------
 
 pub struct Model {
-    workout_id: u32,
+    training_session_id: u32,
     form: Form,
     guide: Option<Guide>,
     guide_stream: Option<StreamHandle>,
@@ -542,14 +545,14 @@ pub enum Msg {
     EnterTargetValues(usize, usize),
     EnterPreviousValues(usize, usize),
 
-    StartGuidedWorkout,
-    UpdateGuidedWorkout,
+    StartGuidedTrainingSession,
+    UpdateGuidedTrainingSession,
     StartPauseGuideTimer,
     GoToPreviousSection,
     GoToNextSection,
     ScrollToSection,
 
-    SaveWorkout,
+    SaveTrainingSession,
     DataEvent(data::Event),
 
     ShowSMTDialog,
@@ -760,7 +763,7 @@ pub fn update(
             }
         }
 
-        Msg::StartGuidedWorkout => {
+        Msg::StartGuidedTrainingSession => {
             model.guide = Some(Guide {
                 section_idx: 0,
                 section_start_time: Utc::now(),
@@ -775,7 +778,7 @@ pub fn update(
             update_guide_timer(model);
             update_streams(model, orders);
         }
-        Msg::UpdateGuidedWorkout => {
+        Msg::UpdateGuidedTrainingSession => {
             if let Some(guide) = &mut model.guide {
                 match &model.form.sections[guide.section_idx] {
                     FormSection::Set { exercises } => {
@@ -836,7 +839,7 @@ pub fn update(
             update_streams(model, orders);
             orders
                 .force_render_now()
-                .send_msg(Msg::UpdateGuidedWorkout)
+                .send_msg(Msg::UpdateGuidedTrainingSession)
                 .send_msg(Msg::ScrollToSection);
         }
         Msg::ScrollToSection => {
@@ -850,10 +853,10 @@ pub fn update(
             }
         }
 
-        Msg::SaveWorkout => {
+        Msg::SaveTrainingSession => {
             model.loading = true;
-            orders.notify(data::Msg::ModifyWorkout(
-                model.workout_id,
+            orders.notify(data::Msg::ModifyTrainingSession(
+                model.training_session_id,
                 Some(model.form.notes.clone()),
                 Some(
                     model
@@ -863,7 +866,7 @@ pub fn update(
                         .flat_map(|s| match s {
                             FormSection::Set { exercises } => exercises
                                 .iter()
-                                .map(|e| data::WorkoutElement::WorkoutSet {
+                                .map(|e| data::TrainingSessionElement::Set {
                                     exercise_id: e.exercise_id,
                                     reps: e.reps.parsed,
                                     time: e.time.parsed,
@@ -879,7 +882,7 @@ pub fn update(
                             FormSection::Rest {
                                 target_time,
                                 automatic,
-                            } => vec![data::WorkoutElement::WorkoutRest {
+                            } => vec![data::TrainingSessionElement::Rest {
                                 target_time: if *target_time > 0 {
                                     Some(*target_time)
                                 } else {
@@ -895,9 +898,12 @@ pub fn update(
         Msg::DataEvent(event) => {
             match event {
                 data::Event::DataChanged
-                | data::Event::WorkoutModifiedOk
-                | data::Event::WorkoutModifiedErr => {
-                    model.form = init_form(&data_model.workouts.get(&model.workout_id), data_model);
+                | data::Event::TrainingSessionModifiedOk
+                | data::Event::TrainingSessionModifiedErr => {
+                    model.form = init_form(
+                        &data_model.training_sessions.get(&model.training_session_id),
+                        data_model,
+                    );
                     model.loading = false;
                 }
                 _ => {}
@@ -960,15 +966,18 @@ pub fn update(
 }
 
 fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
-    model.guide_stream = if let Some(guide) = &model.guide {
-        if guide.timer.is_active() {
-            Some(orders.stream_with_handle(streams::interval(1000, || Msg::UpdateGuidedWorkout)))
+    model.guide_stream =
+        if let Some(guide) = &model.guide {
+            if guide.timer.is_active() {
+                Some(orders.stream_with_handle(streams::interval(1000, || {
+                    Msg::UpdateGuidedTrainingSession
+                })))
+            } else {
+                None
+            }
         } else {
             None
-        }
-    } else {
-        None
-    };
+        };
     model.timer_stream = if model.timer_dialog.stopwatch.is_active()
         || model.timer_dialog.metronome.is_active()
         || model.timer_dialog.timer.is_active()
@@ -1007,9 +1016,11 @@ fn update_guide_timer(model: &mut Model) {
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.workouts.is_empty() && data_model.loading_workouts {
+    if data_model.training_sessions.is_empty() && data_model.loading_training_sessions {
         common::view_page_loading()
-    } else if let Some(workout) = data_model.workouts.get(&model.workout_id) {
+    } else if let Some(training_session) =
+        data_model.training_sessions.get(&model.training_session_id)
+    {
         if model.timer_dialog.visible {
             div![
                 Node::NoChange,
@@ -1018,19 +1029,22 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ]
         } else {
             div![
-                view_title(workout, data_model),
-                view_workout_form(model, data_model)
+                view_title(training_session, data_model),
+                view_training_session_form(model, data_model)
             ]
         }
     } else {
-        common::view_error_not_found("Workout")
+        common::view_error_not_found("Training session")
     }
 }
 
-fn view_title(workout: &data::Workout, data_model: &data::Model) -> Node<Msg> {
-    let title = if let Some(routine) = data_model.routines.get(&workout.routine_id.unwrap_or(0)) {
+fn view_title(training_session: &data::TrainingSession, data_model: &data::Model) -> Node<Msg> {
+    let title = if let Some(routine) = data_model
+        .routines
+        .get(&training_session.routine_id.unwrap_or(0))
+    {
         span![
-            workout.date.to_string(),
+            training_session.date.to_string(),
             " (",
             a![
                 attrs! {
@@ -1041,12 +1055,12 @@ fn view_title(workout: &data::Workout, data_model: &data::Model) -> Node<Msg> {
             ")"
         ]
     } else {
-        span![workout.date.to_string()]
+        span![training_session.date.to_string()]
     };
     common::view_title(&title, 3)
 }
 
-fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
+fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
     let valid = model.form.valid();
     let save_disabled = not(model.form.changed()) || not(valid);
     let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
@@ -1101,7 +1115,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveWorkout
+                                                        Msg::SaveTrainingSession
                                                     }
                                                 )
                                             }),
@@ -1129,7 +1143,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveWorkout
+                                                        Msg::SaveTrainingSession
                                                     }
                                                 )
                                             }),
@@ -1157,7 +1171,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveWorkout
+                                                        Msg::SaveTrainingSession
                                                     }
                                                 )
                                             }),
@@ -1182,7 +1196,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveWorkout
+                                                        Msg::SaveTrainingSession
                                                     }
                                                 )
                                             }),
@@ -1351,7 +1365,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 button![
                     C!["button"],
                     C!["is-link"],
-                    ev(Ev::Click, |_| Msg::StartGuidedWorkout),
+                    ev(Ev::Click, |_| Msg::StartGuidedTrainingSession),
                     span![C!["icon"], i![C!["fas fa-play"]]]
                 ]
             ]
@@ -1383,7 +1397,7 @@ fn view_workout_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
             attrs![
                 At::Disabled => save_disabled.as_at_value(),
             ],
-            ev(Ev::Click, |_| Msg::SaveWorkout),
+            ev(Ev::Click, |_| Msg::SaveTrainingSession),
             span![C!["icon"], i![C!["fas fa-save"]]]
         ]
     ]

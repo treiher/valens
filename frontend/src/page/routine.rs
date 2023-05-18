@@ -6,7 +6,7 @@ use seed::{prelude::*, *};
 
 use crate::common;
 use crate::data;
-use crate::page::workouts;
+use crate::page::training;
 
 // ------ ------
 //     Init
@@ -73,7 +73,7 @@ impl Model {
 enum Dialog {
     Hidden,
     SelectExercise(Vec<usize>, String),
-    DeleteWorkout(u32),
+    DeleteTrainingSession(u32),
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -271,7 +271,7 @@ pub enum Msg {
     SaveRoutine,
 
     ShowSelectExerciseDialog(Vec<usize>),
-    ShowDeleteWorkoutDialog(u32),
+    ShowDeleteTrainingSessionDialog(u32),
     CloseDialog,
 
     AddSection(Vec<usize>),
@@ -290,7 +290,7 @@ pub enum Msg {
     SearchTermChanged(String),
 
     CreateExercise,
-    DeleteWorkout(u32),
+    DeleteTrainingSession(u32),
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
@@ -324,8 +324,8 @@ pub fn update(
         Msg::ShowSelectExerciseDialog(part_id) => {
             model.dialog = Dialog::SelectExercise(part_id, String::new());
         }
-        Msg::ShowDeleteWorkoutDialog(position) => {
-            model.dialog = Dialog::DeleteWorkout(position);
+        Msg::ShowDeleteTrainingSessionDialog(position) => {
+            model.dialog = Dialog::DeleteTrainingSession(position);
         }
         Msg::CloseDialog => {
             model.dialog = Dialog::Hidden;
@@ -624,9 +624,9 @@ pub fn update(
                 orders.notify(data::Msg::CreateExercise(search_term.trim().to_string()));
             };
         }
-        Msg::DeleteWorkout(id) => {
+        Msg::DeleteTrainingSession(id) => {
             model.loading = true;
-            orders.notify(data::Msg::DeleteWorkout(id));
+            orders.notify(data::Msg::DeleteTrainingSession(id));
         }
         Msg::DataEvent(event) => {
             model.loading = false;
@@ -645,7 +645,7 @@ pub fn update(
                             .add_hash_path_part(model.routine_id.to_string()),
                     );
                 }
-                data::Event::WorkoutDeletedOk => {
+                data::Event::TrainingSessionDeletedOk => {
                     orders.skip().send_msg(Msg::CloseDialog);
                 }
                 _ => {}
@@ -662,10 +662,10 @@ pub fn update(
 fn update_model(model: &mut Model, data_model: &data::Model) {
     model.interval = common::init_interval(
         &data_model
-            .workouts
+            .training_sessions
             .values()
-            .filter(|w| w.routine_id == Some(model.routine_id))
-            .map(|w| w.date)
+            .filter(|t| t.routine_id == Some(model.routine_id))
+            .map(|t| t.date)
             .collect::<Vec<NaiveDate>>(),
         true,
     );
@@ -674,14 +674,14 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 
     if let Some(routine) = routine {
         model.sections = routine.sections.iter().map(|p| p.into()).collect();
-        let workouts = &data_model
-            .workouts
+        let training_sessions = &data_model
+            .training_sessions
             .values()
-            .filter(|w| w.routine_id == Some(routine.id))
+            .filter(|t| t.routine_id == Some(routine.id))
             .collect::<Vec<_>>();
-        let all_exercises = &workouts
+        let all_exercises = &training_sessions
             .iter()
-            .flat_map(|w| w.exercises())
+            .flat_map(|t| t.exercises())
             .collect::<BTreeSet<_>>();
         model.previous_exercises = all_exercises - &routine.exercises();
     } else {
@@ -706,7 +706,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             if not(model.editing) {
                 nodes![
                     view_previous_exercises(model, data_model),
-                    view_workouts(model, data_model),
+                    view_training_sessions(model, data_model),
                     common::view_fab("edit", |_| Msg::EditRoutine),
                 ]
             } else {
@@ -801,12 +801,12 @@ fn view_dialog(
                 &ev(Ev::Click, |_| Msg::CloseDialog),
             )
         }
-        Dialog::DeleteWorkout(id) => {
+        Dialog::DeleteTrainingSession(id) => {
             #[allow(clippy::clone_on_copy)]
             let id = id.clone();
             common::view_delete_confirmation_dialog(
-                "workout",
-                &ev(Ev::Click, move |_| Msg::DeleteWorkout(id)),
+                "training_session",
+                &ev(Ev::Click, move |_| Msg::DeleteTrainingSession(id)),
                 &ev(Ev::Click, |_| Msg::CloseDialog),
                 loading,
             )
@@ -1230,17 +1230,17 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
     }
 }
 
-fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    let workouts = data_model
-        .workouts
+fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let training_sessions = data_model
+        .training_sessions
         .values()
-        .filter(|w| {
-            w.routine_id == Some(model.routine_id)
-                && w.date >= model.interval.first
-                && w.date <= model.interval.last
+        .filter(|t| {
+            t.routine_id == Some(model.routine_id)
+                && t.date >= model.interval.first
+                && t.date <= model.interval.last
         })
         .collect::<Vec<_>>();
-    let dates = workouts.iter().map(|w| w.date);
+    let dates = training_sessions.iter().map(|t| t.date);
     let routine_interval = common::Interval {
         first: dates.clone().min().unwrap_or_default(),
         last: dates.max().unwrap_or_default(),
@@ -1249,33 +1249,36 @@ fn view_workouts(model: &Model, data_model: &data::Model) -> Node<Msg> {
         C!["container"],
         C!["has-text-centered"],
         C!["mt-6"],
-        h1![C!["title"], C!["is-5"], "Workouts"],
+        h1![C!["title"], C!["is-5"], "Training sessions"],
         common::view_interval_buttons(&model.interval, &routine_interval, Msg::ChangeInterval),
-        view_charts(&workouts, &model.interval),
-        workouts::view_calendar(&workouts, &model.interval),
-        workouts::view_table(
-            &workouts,
+        view_charts(&training_sessions, &model.interval),
+        training::view_calendar(&training_sessions, &model.interval),
+        training::view_table(
+            &training_sessions,
             &data_model.routines,
             &data_model.base_url,
-            Msg::ShowDeleteWorkoutDialog
+            Msg::ShowDeleteTrainingSessionDialog
         ),
     ]
 }
-pub fn view_charts<Ms>(workouts: &[&data::Workout], interval: &common::Interval) -> Vec<Node<Ms>> {
+pub fn view_charts<Ms>(
+    training_sessions: &[&data::TrainingSession],
+    interval: &common::Interval,
+) -> Vec<Node<Ms>> {
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut intensity: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
-    for workout in workouts {
-        load.entry(workout.date)
-            .and_modify(|e| *e += workout.load() as f32)
-            .or_insert(workout.load() as f32);
+    for training_session in training_sessions {
+        load.entry(training_session.date)
+            .and_modify(|e| *e += training_session.load() as f32)
+            .or_insert(training_session.load() as f32);
         set_volume
-            .entry(workout.date)
-            .and_modify(|e| *e += workout.set_volume() as f32)
-            .or_insert(workout.set_volume() as f32);
-        if let Some(avg_rpe) = workout.avg_rpe() {
+            .entry(training_session.date)
+            .and_modify(|e| *e += training_session.set_volume() as f32)
+            .or_insert(training_session.set_volume() as f32);
+        if let Some(avg_rpe) = training_session.avg_rpe() {
             intensity
-                .entry(workout.date)
+                .entry(training_session.date)
                 .and_modify(|e| e.push(avg_rpe))
                 .or_insert(vec![avg_rpe]);
         }

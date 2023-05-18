@@ -134,7 +134,7 @@ class PeriodDialog(Dialog):
         self.wait_for_closing()
 
 
-class WorkoutsDialog(Dialog):
+class TrainingDialog(Dialog):
     def get_date(self) -> str:
         date_input = self._driver.find_element(by=By.XPATH, value="//input[@type='date']")
         return date_input.get_attribute("value")  # type: ignore[no-untyped-call]
@@ -380,14 +380,8 @@ class HomePage(Page):
     def url(self) -> str:
         return ""
 
-    def click_workouts(self) -> None:
-        self._driver.find_element(by=By.LINK_TEXT, value="Workouts").click()
-
-    def click_routines(self) -> None:
-        self._driver.find_element(by=By.LINK_TEXT, value="Routines").click()
-
-    def click_exercises(self) -> None:
-        self._driver.find_element(by=By.LINK_TEXT, value="Exercises").click()
+    def click_training(self) -> None:
+        self._driver.find_element(by=By.LINK_TEXT, value="Training").click()
 
     def click_body_weight(self) -> None:
         self._driver.find_element(by=By.LINK_TEXT, value="Body weight").click()
@@ -444,33 +438,39 @@ class MenstrualCyclePage(Page):
         return "menstrual_cycle"
 
 
-class WorkoutsPage(Page):
+class TrainingPage(Page):
     def __init__(self, driver: webdriver.Chrome) -> None:
         super().__init__(driver)
-        self.workouts_dialog = WorkoutsDialog(driver)
+        self.training_dialog = TrainingDialog(driver)
         self.delete_dialog = DeleteDialog(driver)
 
     @property
     def title(self) -> str:
-        return "Workouts"
+        return "Training"
 
     @property
     def url(self) -> str:
-        return "workouts"
+        return "training"
+
+    def click_routines(self) -> None:
+        self._driver.find_element(by=By.LINK_TEXT, value="Routines").click()
+
+    def click_exercises(self) -> None:
+        self._driver.find_element(by=By.LINK_TEXT, value="Exercises").click()
 
 
-class WorkoutPage(Page):
+class TrainingSessionPage(Page):
     def __init__(self, driver: webdriver.Chrome, workout_id: int) -> None:
         super().__init__(driver)
         self.workout_id = workout_id
 
     @property
     def title(self) -> str:
-        return "Workout"
+        return "Training session"
 
     @property
     def url(self) -> str:
-        return f"workout/{self.workout_id}"
+        return f"training_session/{self.workout_id}"
 
     def click_save(self) -> None:
         self._driver.find_element(by=By.XPATH, value="//button[contains(@class, 'is-fab')]").click()

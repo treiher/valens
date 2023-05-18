@@ -43,8 +43,8 @@ const EXERCISES: &str = "exercises";
 const EXERCISE: &str = "exercise";
 const ROUTINES: &str = "routines";
 const ROUTINE: &str = "routine";
-const WORKOUTS: &str = "workouts";
-const WORKOUT: &str = "workout";
+const TRAINING: &str = "training";
+const TRAINING_SESSION: &str = "training_session";
 
 struct_urls!();
 impl<'a> Urls<'a> {
@@ -78,11 +78,11 @@ impl<'a> Urls<'a> {
     pub fn routine(self) -> Url {
         self.base_url().set_hash_path([ROUTINE])
     }
-    pub fn workouts(self) -> Url {
-        self.base_url().set_hash_path([WORKOUTS])
+    pub fn training(self) -> Url {
+        self.base_url().set_hash_path([TRAINING])
     }
-    pub fn workout(self) -> Url {
-        self.base_url().set_hash_path([WORKOUT])
+    pub fn training_session(self) -> Url {
+        self.base_url().set_hash_path([TRAINING_SESSION])
     }
 }
 
@@ -113,8 +113,8 @@ enum Page {
     Exercise(page::exercise::Model),
     Routines(page::routines::Model),
     Routine(page::routine::Model),
-    Workouts(page::workouts::Model),
-    Workout(page::workout::Model),
+    Training(page::training::Model),
+    TrainingSession(page::training_session::Model),
     NotFound,
 }
 
@@ -185,15 +185,15 @@ impl Page {
                     data_model,
                     navbar,
                 )),
-                Some(WORKOUTS) => Self::Workouts(page::workouts::init(
+                Some(TRAINING) => Self::Training(page::training::init(
                     url,
-                    &mut orders.proxy(Msg::Workouts),
+                    &mut orders.proxy(Msg::Training),
                     data_model,
                     navbar,
                 )),
-                Some(WORKOUT) => Self::Workout(page::workout::init(
+                Some(TRAINING_SESSION) => Self::TrainingSession(page::training_session::init(
                     url,
-                    &mut orders.proxy(Msg::Workout),
+                    &mut orders.proxy(Msg::TrainingSession),
                     data_model,
                     navbar,
                 )),
@@ -245,8 +245,8 @@ enum Msg {
     Exercise(page::exercise::Msg),
     Routines(page::routines::Msg),
     Routine(page::routine::Msg),
-    Workouts(page::workouts::Msg),
-    Workout(page::workout::Msg),
+    Training(page::training::Msg),
+    TrainingSession(page::training_session::Msg),
 
     // ------ Data ------
     Data(data::Msg),
@@ -296,9 +296,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Some(Page::BodyWeight(_))
             | Some(Page::BodyFat(_))
             | Some(Page::MenstrualCycle(_))
-            | Some(Page::Exercises(_))
-            | Some(Page::Routines(_))
-            | Some(Page::Workouts(_))
+            | Some(Page::Training(_))
             | Some(Page::NotFound)
             | None => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).home());
@@ -309,8 +307,8 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Some(Page::Routine(_)) => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).routines());
             }
-            Some(Page::Workout(_)) => {
-                orders.request_url(crate::Urls::new(&model.data.base_url).workouts());
+            Some(Page::TrainingSession(_)) | Some(Page::Exercises(_)) | Some(Page::Routines(_)) => {
+                orders.request_url(crate::Urls::new(&model.data.base_url).training());
             }
         },
         Msg::LogOut => {
@@ -403,23 +401,23 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 )
             }
         }
-        Msg::Workouts(msg) => {
-            if let Some(Page::Workouts(page_model)) = &mut model.page {
-                page::workouts::update(
+        Msg::Training(msg) => {
+            if let Some(Page::Training(page_model)) = &mut model.page {
+                page::training::update(
                     msg,
                     page_model,
                     &model.data,
-                    &mut orders.proxy(Msg::Workouts),
+                    &mut orders.proxy(Msg::Training),
                 )
             }
         }
-        Msg::Workout(msg) => {
-            if let Some(Page::Workout(page_model)) = &mut model.page {
-                page::workout::update(
+        Msg::TrainingSession(msg) => {
+            if let Some(Page::TrainingSession(page_model)) = &mut model.page {
+                page::training_session::update(
                     msg,
                     page_model,
                     &model.data,
-                    &mut orders.proxy(Msg::Workout),
+                    &mut orders.proxy(Msg::TrainingSession),
                 )
             }
         }
@@ -432,7 +430,7 @@ fn warn_about_unsaved_changes(model: &Model) -> bool {
     if let Some(page) = &model.page {
         if let Page::Routine(model) = page {
             model.has_unsaved_changes()
-        } else if let Page::Workout(model) = page {
+        } else if let Page::TrainingSession(model) = page {
             model.has_unsaved_changes()
         } else {
             false
@@ -576,10 +574,10 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
                 page::routines::view(model, data_model).map_msg(Msg::Routines),
             Some(Page::Routine(model)) =>
                 page::routine::view(model, data_model).map_msg(Msg::Routine),
-            Some(Page::Workouts(model)) =>
-                page::workouts::view(model, data_model).map_msg(Msg::Workouts),
-            Some(Page::Workout(model)) =>
-                page::workout::view(model, data_model).map_msg(Msg::Workout),
+            Some(Page::Training(model)) =>
+                page::training::view(model, data_model).map_msg(Msg::Training),
+            Some(Page::TrainingSession(model)) =>
+                page::training_session::view(model, data_model).map_msg(Msg::TrainingSession),
             Some(Page::NotFound) => page::not_found::view(),
             None => common::view_loading(),
         }

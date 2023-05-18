@@ -26,8 +26,8 @@ from .page import (
     MenstrualCyclePage,
     RoutinePage,
     RoutinesPage,
-    WorkoutPage,
-    WorkoutsPage,
+    TrainingPage,
+    TrainingSessionPage,
 )
 
 USERS = tests.data.users()
@@ -87,27 +87,15 @@ def test_login(driver: webdriver.Chrome) -> None:
     login_page.login(USERNAMES[0])
 
 
-def test_home(driver: webdriver.Chrome) -> None:
+def test_home_links(driver: webdriver.Chrome) -> None:
     login(driver)
 
     home_page = HomePage(driver, USERNAMES[0])
 
-    home_page.click_workouts()
-    workouts_page = WorkoutsPage(driver)
-    workouts_page.wait_until_loaded()
-    workouts_page.click_up_button()
-    home_page.wait_until_loaded()
-
-    home_page.click_routines()
-    routines_page = RoutinesPage(driver)
-    routines_page.wait_until_loaded()
-    routines_page.click_up_button()
-    home_page.wait_until_loaded()
-
-    home_page.click_exercises()
-    exercises_page = ExercisesPage(driver)
-    exercises_page.wait_until_loaded()
-    exercises_page.click_up_button()
+    home_page.click_training()
+    training_page = TrainingPage(driver)
+    training_page.wait_until_loaded()
+    training_page.click_up_button()
     home_page.wait_until_loaded()
 
     home_page.click_body_weight()
@@ -391,19 +379,37 @@ def test_menstrual_cycle_delete(driver: webdriver.Chrome) -> None:
     page.wait_for_table_value(1, date_2)
 
 
-def test_workouts_add(driver: webdriver.Chrome) -> None:
+def test_training_links(driver: webdriver.Chrome) -> None:
+    login(driver)
+    page = TrainingPage(driver)
+    page.load()
+
+    page.click_routines()
+    routines_page = RoutinesPage(driver)
+    routines_page.wait_until_loaded()
+    routines_page.click_up_button()
+    page.wait_until_loaded()
+
+    page.click_exercises()
+    exercises_page = ExercisesPage(driver)
+    exercises_page.wait_until_loaded()
+    exercises_page.click_up_button()
+    page.wait_until_loaded()
+
+
+def test_training_add(driver: webdriver.Chrome) -> None:
     routine = USER.routines[-1].name
 
     login(driver)
-    page = WorkoutsPage(driver)
+    page = TrainingPage(driver)
     page.load()
     page.click_fab()
 
     page.wait_for_dialog()
 
-    date = page.workouts_dialog.get_date()
+    date = page.training_dialog.get_date()
 
-    page.workouts_dialog.click_cancel()
+    page.training_dialog.click_cancel()
 
     assert page.get_table_value(1) != date
     assert page.get_table_value(2) != routine
@@ -412,21 +418,21 @@ def test_workouts_add(driver: webdriver.Chrome) -> None:
 
     page.wait_for_dialog()
 
-    page.workouts_dialog.set_routine(routine)
+    page.training_dialog.set_routine(routine)
 
     assert page.get_table_value(1) != date
     assert page.get_table_value(2) != routine
 
-    page.workouts_dialog.click_save()
+    page.training_dialog.click_save()
 
-    workout_page = WorkoutPage(driver, 0)
+    training_session_page = TrainingSessionPage(driver, 0)
 
-    workout_page.wait_until_loaded()
+    training_session_page.wait_until_loaded()
 
     page.wait_for_title(str(date))
 
 
-def test_workouts_delete(driver: webdriver.Chrome) -> None:
+def test_training_delete(driver: webdriver.Chrome) -> None:
     workout = USER.workouts[-1]
     date_1 = str(workout.date)
     routine = (
@@ -437,7 +443,7 @@ def test_workouts_delete(driver: webdriver.Chrome) -> None:
     date_2 = str(USER.workouts[-2].date)
 
     login(driver)
-    page = WorkoutsPage(driver)
+    page = TrainingPage(driver)
     page.load()
 
     page.wait_for_table_value(1, date_1)
@@ -455,7 +461,7 @@ def test_workouts_delete(driver: webdriver.Chrome) -> None:
     page.wait_for_table_value(1, date_2)
 
 
-def test_workout_change_entries(driver: webdriver.Chrome) -> None:
+def test_training_session_change_entries(driver: webdriver.Chrome) -> None:
     workout = USER.workouts[-1]
     sets = [
         [
@@ -470,7 +476,7 @@ def test_workout_change_entries(driver: webdriver.Chrome) -> None:
     new_values = ["1", "2", "3", "4"]
 
     login(driver)
-    page = WorkoutPage(driver, workout.id)
+    page = TrainingSessionPage(driver, workout.id)
     page.load()
 
     page.wait_for_title(str(workout.date))
@@ -496,7 +502,7 @@ def test_workout_change_entries(driver: webdriver.Chrome) -> None:
     assert page.get_sets() == [new_values, *sets[1:]]
 
 
-def test_workout_change_notes(driver: webdriver.Chrome) -> None:
+def test_training_session_change_notes(driver: webdriver.Chrome) -> None:
     workout = USER.workouts[0]
     sets = [
         [
@@ -514,7 +520,7 @@ def test_workout_change_notes(driver: webdriver.Chrome) -> None:
     assert notes != new_notes
 
     login(driver)
-    page = WorkoutPage(driver, workout.id)
+    page = TrainingSessionPage(driver, workout.id)
     page.load()
 
     page.wait_for_title(str(workout.date))
@@ -1207,7 +1213,7 @@ def test_routine_remove_activity(driver: webdriver.Chrome) -> None:
     assert len(sections[0]) == 0
 
 
-def test_routine_delete_workout(driver: webdriver.Chrome) -> None:
+def test_routine_delete_training_session(driver: webdriver.Chrome) -> None:
     routine = USER.routines[0]
     workouts = sorted(
         {w for w in USER.workouts if w.routine_id == routine.id}, key=lambda x: x.date

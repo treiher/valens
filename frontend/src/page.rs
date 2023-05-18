@@ -9,5 +9,5 @@ pub mod menstrual_cycle;
 pub mod not_found;
 pub mod routine;
 pub mod routines;
-pub mod workout;
-pub mod workouts;
+pub mod training;
+pub mod training_session;

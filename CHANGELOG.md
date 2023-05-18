@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Limit minimum interval to one week
 - Limit possible intervals by first value entry and current day
 - Go to workout page after adding workout
+- Rename workouts to training
+- Rename workout to training session
+- Move links to routines and exercises pages to training page
 
 ### Removed
 

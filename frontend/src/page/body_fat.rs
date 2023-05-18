@@ -445,7 +445,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.body_fat.is_empty() && data_model.loading_body_fat {
         common::view_page_loading()
     } else {
-        let dates = data_model.body_fat.values().map(|w| w.date);
+        let dates = data_model.body_fat.values().map(|bf| bf.date);
         let body_fat_interval = common::Interval {
             first: dates.clone().min().unwrap_or_default(),
             last: dates.max().unwrap_or_default(),

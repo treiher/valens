@@ -29,8 +29,8 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         loading_exercises: false,
         routines: BTreeMap::new(),
         loading_routines: false,
-        workouts: BTreeMap::new(),
-        loading_workouts: false,
+        training_sessions: BTreeMap::new(),
+        loading_training_sessions: false,
         last_refresh: DateTime::<Utc>::from_utc(
             NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
             Utc,
@@ -38,7 +38,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         body_weight_stats: BTreeMap::new(),
         cycles: Vec::new(),
         current_cycle: None,
-        workout_stats: WorkoutStats {
+        training_stats: TrainingStats {
             weighted_sum_of_load: Vec::new(),
             avg_rpe_per_week: Vec::new(),
             total_set_volume_per_week: Vec::new(),
@@ -71,15 +71,15 @@ pub struct Model {
     pub loading_exercises: bool,
     pub routines: BTreeMap<u32, Routine>,
     pub loading_routines: bool,
-    pub workouts: BTreeMap<u32, Workout>,
-    pub loading_workouts: bool,
+    pub training_sessions: BTreeMap<u32, TrainingSession>,
+    pub loading_training_sessions: bool,
     pub last_refresh: DateTime<Utc>,
 
     // ------ Derived data ------
     pub body_weight_stats: BTreeMap<NaiveDate, BodyWeightStats>,
     pub cycles: Vec<Cycle>,
     pub current_cycle: Option<CurrentCycle>,
-    pub workout_stats: WorkoutStats,
+    pub training_stats: TrainingStats,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -149,13 +149,13 @@ pub struct CycleStats {
     pub length_variation: Duration,
 }
 
-pub struct WorkoutStats {
+pub struct TrainingStats {
     pub weighted_sum_of_load: Vec<(NaiveDate, f32)>,
     pub avg_rpe_per_week: Vec<(NaiveDate, f32)>,
     pub total_set_volume_per_week: Vec<(NaiveDate, f32)>,
 }
 
-impl WorkoutStats {
+impl TrainingStats {
     pub fn clear(&mut self) {
         self.weighted_sum_of_load.clear();
         self.avg_rpe_per_week.clear();
@@ -195,18 +195,18 @@ pub enum RoutinePart {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-pub struct Workout {
+pub struct TrainingSession {
     pub id: u32,
     pub routine_id: Option<u32>,
     pub date: NaiveDate,
     pub notes: Option<String>,
-    pub elements: Vec<WorkoutElement>,
+    pub elements: Vec<TrainingSessionElement>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
-pub enum WorkoutElement {
-    WorkoutSet {
+pub enum TrainingSessionElement {
+    Set {
         exercise_id: u32,
         reps: Option<u32>,
         time: Option<u32>,
@@ -218,7 +218,7 @@ pub enum WorkoutElement {
         target_rpe: Option<f32>,
         automatic: bool,
     },
-    WorkoutRest {
+    Rest {
         target_time: Option<u32>,
         automatic: bool,
     },
@@ -315,12 +315,12 @@ impl RoutinePart {
     }
 }
 
-impl Workout {
+impl TrainingSession {
     pub fn exercises(&self) -> BTreeSet<u32> {
         self.elements
             .iter()
             .flat_map(|e| match e {
-                WorkoutElement::WorkoutSet { exercise_id, .. } => Some(*exercise_id),
+                TrainingSessionElement::Set { exercise_id, .. } => Some(*exercise_id),
                 _ => None,
             })
             .collect::<BTreeSet<_>>()
@@ -331,7 +331,7 @@ impl Workout {
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet { reps, .. } => *reps,
+                TrainingSessionElement::Set { reps, .. } => *reps,
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -347,7 +347,7 @@ impl Workout {
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet { time, .. } => *time,
+                TrainingSessionElement::Set { time, .. } => *time,
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -363,7 +363,7 @@ impl Workout {
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet { weight, .. } => *weight,
+                TrainingSessionElement::Set { weight, .. } => *weight,
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -379,7 +379,7 @@ impl Workout {
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet { rpe, .. } => *rpe,
+                TrainingSessionElement::Set { rpe, .. } => *rpe,
                 _ => None,
             })
             .collect::<Vec<_>>();
@@ -395,7 +395,7 @@ impl Workout {
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet {
+                TrainingSessionElement::Set {
                     reps, time, rpe, ..
                 } => Some(if let Some(rpe) = *rpe {
                     if rpe > 5.0 {
@@ -419,7 +419,7 @@ impl Workout {
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet { rpe, .. } => {
+                TrainingSessionElement::Set { rpe, .. } => {
                     if rpe.unwrap_or(0.0) >= 7.0 {
                         Some(1)
                     } else {
@@ -437,7 +437,7 @@ impl Workout {
             .elements
             .iter()
             .filter_map(|e| match e {
-                WorkoutElement::WorkoutSet { reps, weight, .. } => {
+                TrainingSessionElement::Set { reps, weight, .. } => {
                     if let Some(reps) = reps {
                         if let Some(weight) = weight {
                             Some((*reps as f32 * weight).round() as u32)
@@ -459,7 +459,7 @@ impl Workout {
             .elements
             .iter()
             .map(|e| match e {
-                WorkoutElement::WorkoutSet { reps, time, .. } => {
+                TrainingSessionElement::Set { reps, time, .. } => {
                     reps.unwrap_or(1) * time.unwrap_or(0)
                 }
                 _ => 0,
@@ -561,29 +561,29 @@ pub fn calculate_cycle_stats(cycles: &[&Cycle]) -> CycleStats {
     }
 }
 
-fn calculate_workout_stats(workouts: &[&Workout]) -> WorkoutStats {
-    WorkoutStats {
-        weighted_sum_of_load: calculate_weighted_sum_of_load(workouts),
-        total_set_volume_per_week: calculate_total_set_volume_per_week(workouts),
-        avg_rpe_per_week: calculate_avg_rpe_per_week(workouts),
+fn calculate_training_stats(training_sessions: &[&TrainingSession]) -> TrainingStats {
+    TrainingStats {
+        weighted_sum_of_load: calculate_weighted_sum_of_load(training_sessions),
+        total_set_volume_per_week: calculate_total_set_volume_per_week(training_sessions),
+        avg_rpe_per_week: calculate_avg_rpe_per_week(training_sessions),
     }
 }
 
-fn calculate_weighted_sum_of_load(workouts: &[&Workout]) -> Vec<(NaiveDate, f32)> {
+fn calculate_weighted_sum_of_load(training_sessions: &[&TrainingSession]) -> Vec<(NaiveDate, f32)> {
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = workouts.get(0).map(|w| w.date).unwrap_or(today);
+    let mut day = training_sessions.get(0).map(|t| t.date).unwrap_or(today);
     while day <= today {
         result.insert(day, 0.0);
         day += Duration::days(1);
     }
 
-    for w in workouts {
+    for t in training_sessions {
         result
-            .entry(w.date)
-            .and_modify(|e| *e += w.load() as f32)
-            .or_insert(w.load() as f32);
+            .entry(t.date)
+            .and_modify(|e| *e += t.load() as f32)
+            .or_insert(t.load() as f32);
     }
 
     let weighting: [f32; 10] = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
@@ -604,39 +604,41 @@ fn calculate_weighted_sum_of_load(workouts: &[&Workout]) -> Vec<(NaiveDate, f32)
         .collect()
 }
 
-fn calculate_total_set_volume_per_week(workouts: &[&Workout]) -> Vec<(NaiveDate, f32)> {
+fn calculate_total_set_volume_per_week(
+    training_sessions: &[&TrainingSession],
+) -> Vec<(NaiveDate, f32)> {
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = workouts.get(0).map(|w| w.date).unwrap_or(today);
+    let mut day = training_sessions.get(0).map(|t| t.date).unwrap_or(today);
     while day <= today.week(Weekday::Mon).last_day() {
         result.insert(day.week(Weekday::Mon).last_day(), 0.0);
         day += Duration::days(7);
     }
 
-    for w in workouts {
+    for t in training_sessions {
         result
-            .entry(w.date.week(Weekday::Mon).last_day())
-            .and_modify(|e| *e += w.set_volume() as f32);
+            .entry(t.date.week(Weekday::Mon).last_day())
+            .and_modify(|e| *e += t.set_volume() as f32);
     }
 
     result.into_iter().collect()
 }
 
-fn calculate_avg_rpe_per_week(workouts: &[&Workout]) -> Vec<(NaiveDate, f32)> {
+fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(NaiveDate, f32)> {
     let mut result: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = workouts.get(0).map(|w| w.date).unwrap_or(today);
+    let mut day = training_sessions.get(0).map(|t| t.date).unwrap_or(today);
     while day <= today.week(Weekday::Mon).last_day() {
         result.insert(day.week(Weekday::Mon).last_day(), vec![]);
         day += Duration::days(7);
     }
 
-    for w in workouts {
-        if let Some(avg_rpe) = w.avg_rpe() {
+    for t in training_sessions {
+        if let Some(avg_rpe) = t.avg_rpe() {
             result
-                .entry(w.date.week(Weekday::Mon).last_day())
+                .entry(t.date.week(Weekday::Mon).last_day())
                 .and_modify(|e| e.push(avg_rpe));
         }
     }
@@ -733,14 +735,14 @@ pub enum Msg {
     DeleteRoutine(u32),
     RoutineDeleted(Result<u32, String>),
 
-    ReadWorkouts,
-    WorkoutsRead(Result<Vec<Workout>, String>),
-    CreateWorkout(u32, NaiveDate, String, Vec<WorkoutElement>),
-    WorkoutCreated(Result<Workout, String>),
-    ModifyWorkout(u32, Option<String>, Option<Vec<WorkoutElement>>),
-    WorkoutModified(Result<Workout, String>),
-    DeleteWorkout(u32),
-    WorkoutDeleted(Result<u32, String>),
+    ReadTrainingSessions,
+    TrainingSessionsRead(Result<Vec<TrainingSession>, String>),
+    CreateTrainingSession(u32, NaiveDate, String, Vec<TrainingSessionElement>),
+    TrainingSessionCreated(Result<TrainingSession, String>),
+    ModifyTrainingSession(u32, Option<String>, Option<Vec<TrainingSessionElement>>),
+    TrainingSessionModified(Result<TrainingSession, String>),
+    DeleteTrainingSession(u32),
+    TrainingSessionDeleted(Result<u32, String>),
 }
 
 #[derive(Clone)]
@@ -781,12 +783,12 @@ pub enum Event {
     RoutineModifiedErr,
     RoutineDeletedOk,
     RoutineDeletedErr,
-    WorkoutCreatedOk,
-    WorkoutCreatedErr,
-    WorkoutModifiedOk,
-    WorkoutModifiedErr,
-    WorkoutDeletedOk,
-    WorkoutDeletedErr,
+    TrainingSessionCreatedOk,
+    TrainingSessionCreatedErr,
+    TrainingSessionModifiedOk,
+    TrainingSessionModifiedErr,
+    TrainingSessionDeletedOk,
+    TrainingSessionDeletedErr,
     DataChanged,
 }
 
@@ -808,7 +810,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .send_msg(Msg::ReadPeriod)
                 .send_msg(Msg::ReadExercises)
                 .send_msg(Msg::ReadRoutines)
-                .send_msg(Msg::ReadWorkouts);
+                .send_msg(Msg::ReadTrainingSessions);
             model.last_refresh = Utc::now();
         }
         Msg::ClearSessionDependentData => {
@@ -817,11 +819,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.period.clear();
             model.exercises.clear();
             model.routines.clear();
-            model.workouts.clear();
+            model.training_sessions.clear();
             model.body_weight_stats.clear();
             model.cycles.clear();
             model.current_cycle = None;
-            model.workout_stats.clear();
+            model.training_stats.clear();
         }
 
         Msg::RequestSession(user_id) => {
@@ -1447,29 +1449,29 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to delete routine: ".to_owned() + &message);
         }
 
-        Msg::ReadWorkouts => {
-            model.loading_workouts = true;
+        Msg::ReadTrainingSessions => {
+            model.loading_training_sessions = true;
             orders
                 .skip()
-                .perform_cmd(async { fetch("api/workouts", Msg::WorkoutsRead).await });
+                .perform_cmd(async { fetch("api/workouts", Msg::TrainingSessionsRead).await });
         }
-        Msg::WorkoutsRead(Ok(workouts)) => {
-            let workouts = workouts.into_iter().map(|w| (w.id, w)).collect();
-            if model.workouts != workouts {
-                model.workouts = workouts;
-                model.workout_stats =
-                    calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
+        Msg::TrainingSessionsRead(Ok(training_sessions)) => {
+            let training_sessions = training_sessions.into_iter().map(|t| (t.id, t)).collect();
+            if model.training_sessions != training_sessions {
+                model.training_sessions = training_sessions;
+                model.training_stats =
+                    calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
                 orders.notify(Event::DataChanged);
             }
-            model.loading_workouts = false;
+            model.loading_training_sessions = false;
         }
-        Msg::WorkoutsRead(Err(message)) => {
+        Msg::TrainingSessionsRead(Err(message)) => {
             model
                 .errors
-                .push("Failed to read workouts: ".to_owned() + &message);
-            model.loading_workouts = false;
+                .push("Failed to read training sessions: ".to_owned() + &message);
+            model.loading_training_sessions = false;
         }
-        Msg::CreateWorkout(routine_id, date, notes, elements) => {
+        Msg::CreateTrainingSession(routine_id, date, notes, elements) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new("api/workouts")
@@ -1481,24 +1483,26 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                             "elements": elements
                         }))
                         .expect("serialization failed"),
-                    Msg::WorkoutCreated,
+                    Msg::TrainingSessionCreated,
                 )
                 .await
             });
         }
-        Msg::WorkoutCreated(Ok(workout)) => {
-            model.workouts.insert(workout.id, workout);
-            model.workout_stats =
-                calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
-            orders.notify(Event::WorkoutCreatedOk);
+        Msg::TrainingSessionCreated(Ok(training_session)) => {
+            model
+                .training_sessions
+                .insert(training_session.id, training_session);
+            model.training_stats =
+                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+            orders.notify(Event::TrainingSessionCreatedOk);
         }
-        Msg::WorkoutCreated(Err(message)) => {
-            orders.notify(Event::WorkoutCreatedErr);
+        Msg::TrainingSessionCreated(Err(message)) => {
+            orders.notify(Event::TrainingSessionCreatedErr);
             model
                 .errors
-                .push("Failed to create workout: ".to_owned() + &message);
+                .push("Failed to create training session: ".to_owned() + &message);
         }
-        Msg::ModifyWorkout(id, notes, elements) => {
+        Msg::ModifyTrainingSession(id, notes, elements) => {
             let mut content = Map::new();
             if let Some(notes) = notes {
                 content.insert("notes".into(), json!(notes));
@@ -1512,44 +1516,46 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         .method(Method::Patch)
                         .json(&content)
                         .expect("serialization failed"),
-                    Msg::WorkoutModified,
+                    Msg::TrainingSessionModified,
                 )
                 .await
             });
         }
-        Msg::WorkoutModified(Ok(workout)) => {
-            model.workouts.insert(workout.id, workout);
-            model.workout_stats =
-                calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
-            orders.notify(Event::WorkoutModifiedOk);
+        Msg::TrainingSessionModified(Ok(training_session)) => {
+            model
+                .training_sessions
+                .insert(training_session.id, training_session);
+            model.training_stats =
+                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+            orders.notify(Event::TrainingSessionModifiedOk);
         }
-        Msg::WorkoutModified(Err(message)) => {
-            orders.notify(Event::WorkoutModifiedErr);
+        Msg::TrainingSessionModified(Err(message)) => {
+            orders.notify(Event::TrainingSessionModifiedErr);
             model
                 .errors
-                .push("Failed to modify workout: ".to_owned() + &message);
+                .push("Failed to modify training session: ".to_owned() + &message);
         }
-        Msg::DeleteWorkout(id) => {
+        Msg::DeleteTrainingSession(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
                     Request::new(format!("api/workouts/{}", id)).method(Method::Delete),
-                    Msg::WorkoutDeleted,
+                    Msg::TrainingSessionDeleted,
                     id,
                 )
                 .await
             });
         }
-        Msg::WorkoutDeleted(Ok(id)) => {
-            model.workouts.remove(&id);
-            model.workout_stats =
-                calculate_workout_stats(&model.workouts.values().collect::<Vec<_>>());
-            orders.notify(Event::WorkoutDeletedOk);
+        Msg::TrainingSessionDeleted(Ok(id)) => {
+            model.training_sessions.remove(&id);
+            model.training_stats =
+                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+            orders.notify(Event::TrainingSessionDeletedOk);
         }
-        Msg::WorkoutDeleted(Err(message)) => {
-            orders.notify(Event::WorkoutDeletedErr);
+        Msg::TrainingSessionDeleted(Err(message)) => {
+            orders.notify(Event::TrainingSessionDeletedErr);
             model
                 .errors
-                .push("Failed to delete workout: ".to_owned() + &message);
+                .push("Failed to delete training session: ".to_owned() + &message);
         }
     }
 }

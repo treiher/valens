@@ -46,18 +46,37 @@ pub fn update(msg: Msg, _model: &mut Model, orders: &mut impl Orders<Msg>) {
 
 pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     let sex = data_model.session.as_ref().unwrap().sex;
-    let local: NaiveDate = Local::now().date_naive();
+    let today: NaiveDate = Local::now().date_naive();
     let body_weight_subtitle;
     let body_weight_content;
     let body_fat_subtitle;
     let body_fat_content;
+
+    let training_subtitle =
+        if data_model.training_sessions.is_empty() && data_model.loading_training_sessions {
+            common::view_loading::<Msg>().to_string()
+        } else if let Some((_, load)) = &data_model.training_stats.weighted_sum_of_load.last() {
+            if *load > 0. {
+                format!("{load:.0} load")
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+    let training_content =
+        if let Some((_, training_session)) = &data_model.training_sessions.last_key_value() {
+            last("session", today - training_session.date)
+        } else {
+            String::new()
+        };
 
     if data_model.body_weight.is_empty() && data_model.loading_body_weight {
         body_weight_subtitle = common::view_loading::<Msg>().to_string();
         body_weight_content = String::new();
     } else if let Some((_, body_weight)) = &data_model.body_weight.last_key_value() {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
-        body_weight_content = last("entry", local - body_weight.date);
+        body_weight_content = last("entry", today - body_weight.date);
     } else {
         body_weight_subtitle = String::new();
         body_weight_content = String::new();
@@ -72,7 +91,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         } else {
             String::new()
         };
-        body_fat_content = last("entry", local - body_fat.date);
+        body_fat_content = last("entry", today - body_fat.date);
     } else {
         body_fat_subtitle = String::new();
         body_fat_content = String::new();
@@ -90,29 +109,17 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         String::new()
     };
     let menstrual_cycle_content = if let Some(date) = data_model.period.keys().max() {
-        last("period", local - *date)
+        last("period", today - *date)
     } else {
         String::new()
     };
 
     div![
         view_tile(
-            "Workouts",
-            "",
-            "",
-            crate::Urls::new(&data_model.base_url).workouts()
-        ),
-        view_tile(
-            "Routines",
-            "",
-            "",
-            crate::Urls::new(&data_model.base_url).routines()
-        ),
-        view_tile(
-            "Exercises",
-            "",
-            "",
-            crate::Urls::new(&data_model.base_url).exercises()
+            "Training",
+            &training_subtitle,
+            &training_content,
+            crate::Urls::new(&data_model.base_url).training()
         ),
         view_tile(
             "Body weight",
@@ -147,7 +154,7 @@ fn view_tile(title: &str, subtitle: &str, content: &str, target: Url) -> Node<Ms
         div![
             C!["tile"],
             C!["is-parent"],
-            div![
+            a![
                 C!["tile"],
                 C!["is-child"],
                 C!["box"],

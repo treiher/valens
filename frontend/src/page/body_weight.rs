@@ -220,7 +220,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.body_weight.is_empty() && data_model.loading_body_weight {
         common::view_page_loading()
     } else {
-        let dates = data_model.body_weight.values().map(|w| w.date);
+        let dates = data_model.body_weight.values().map(|bw| bw.date);
         let body_weight_interval = common::Interval {
             first: dates.clone().min().unwrap_or_default(),
             last: dates.max().unwrap_or_default(),

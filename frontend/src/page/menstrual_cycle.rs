@@ -339,18 +339,9 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .values()
         .filter(|p| p.date >= model.interval.first && p.date <= model.interval.last)
         .collect::<Vec<_>>();
-    let body_weight = data_model
-        .body_weight
-        .values()
-        .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
-        .collect::<Vec<_>>();
 
     common::view_chart(
-        vec![
-            ("Intensity", common::COLOR_PERIOD_INTENSITY),
-            ("Weight (kg)", common::COLOR_BODY_WEIGHT),
-        ]
-        .as_slice(),
+        vec![("Intensity", common::COLOR_PERIOD_INTENSITY)].as_slice(),
         common::plot_bar_chart(
             &[(
                 period
@@ -359,13 +350,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     .collect::<Vec<_>>(),
                 common::COLOR_PERIOD_INTENSITY,
             )],
-            &[(
-                body_weight
-                    .iter()
-                    .map(|bw| (bw.date, bw.weight))
-                    .collect::<Vec<_>>(),
-                common::COLOR_BODY_WEIGHT,
-            )],
+            &[],
             model.interval.first,
             model.interval.last,
             Some(0.),

@@ -415,11 +415,15 @@ fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
         p![
             C!["subtitle"],
             C!["is-6"],
-            raw![&format!(
-                "<strong>{} (&#177;{})</strong> days",
-                stats.length_median.num_days(),
-                stats.length_variation.num_days(),
-            )]
+            raw![&if not(cycles.is_empty()) {
+                format!(
+                    "<strong>{} (&#177;{})</strong> days",
+                    stats.length_median.num_days(),
+                    stats.length_variation.num_days(),
+                )
+            } else {
+                String::from("–")
+            }]
         ]
     ]
 }

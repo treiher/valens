@@ -221,9 +221,9 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             view_period_dialog(&model.dialog, model.loading),
             view_current_cycle(data_model),
             common::view_interval_buttons(&model.interval, &period_interval, Msg::ChangeInterval),
+            view_calendar(data_model, &model.interval),
             view_chart(model, data_model),
             view_cycle_stats(model, data_model),
-            view_calendar(data_model, &model.interval),
             view_period_table(model, data_model),
             common::view_fab("plus", |_| Msg::ShowAddPeriodDialog),
         ]

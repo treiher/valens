@@ -841,6 +841,9 @@ pub fn update(
                 .force_render_now()
                 .send_msg(Msg::UpdateGuidedTrainingSession)
                 .send_msg(Msg::ScrollToSection);
+            if model.form.changed() {
+                orders.send_msg(Msg::SaveTrainingSession);
+            }
         }
         Msg::ScrollToSection => {
             if let Some(guide) = &mut model.guide {

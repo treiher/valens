@@ -110,8 +110,8 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else {
         String::new()
     };
-    let menstrual_cycle_content = if let Some(date) = data_model.period.keys().max() {
-        last("period", today - *date)
+    let menstrual_cycle_content = if let Some(current_cycle) = &data_model.current_cycle {
+        last("cycle started", today - current_cycle.begin)
     } else {
         String::new()
     };

@@ -371,7 +371,7 @@ fn view_current_cycle(data_model: &data::Model) -> Node<Msg> {
                 C!["is-6"],
                 raw![&format!(
                     "<strong>{}</strong> days, <strong>{} (&#177;{})</strong> days left",
-                    (today - current_cycle.begin).num_days(),
+                    (today - current_cycle.begin).num_days() + 1,
                     current_cycle.time_left.num_days(),
                     current_cycle.time_left_variation.num_days(),
                 )]
@@ -386,11 +386,7 @@ fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
     let cycles = &data_model
         .cycles
         .iter()
-        .filter(|c| {
-            (c.begin >= model.interval.first && c.begin <= model.interval.last)
-                || (c.begin + c.length >= model.interval.first
-                    && c.begin + c.length <= model.interval.last)
-        })
+        .filter(|c| c.begin >= model.interval.first && c.begin <= model.interval.last)
         .collect::<Vec<_>>();
     let stats = data::calculate_cycle_stats(cycles);
     div![

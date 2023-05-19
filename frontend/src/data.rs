@@ -558,7 +558,7 @@ fn determine_current_cycle(cycles: &[Cycle]) -> Option<CurrentCycle> {
         let begin = last_cycle.begin + last_cycle.length;
         Some(CurrentCycle {
             begin,
-            time_left: stats.length_median - (today - begin),
+            time_left: stats.length_median - (today - begin + Duration::days(1)),
             time_left_variation: stats.length_variation,
         })
     } else {

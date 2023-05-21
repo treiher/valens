@@ -21,6 +21,7 @@ pub fn init(
         .unwrap_or("")
         .parse::<u32>()
         .unwrap_or(0);
+    let editing = url.next_hash_path_part() == Some("edit");
 
     orders.subscribe(Msg::DataEvent);
 
@@ -69,6 +70,7 @@ pub fn init(
         },
         timer_stream: None,
         audio_context,
+        editing,
         loading: false,
     }
 }
@@ -248,6 +250,7 @@ pub struct Model {
     timer_dialog: SMTDialog,
     timer_stream: Option<StreamHandle>,
     audio_context: Option<web_sys::AudioContext>,
+    editing: bool,
     loading: bool,
 }
 
@@ -552,6 +555,7 @@ pub enum Msg {
     GoToNextSection,
     ScrollToSection,
 
+    EditTrainingSession,
     SaveTrainingSession,
     DataEvent(data::Event),
 
@@ -856,6 +860,15 @@ pub fn update(
             }
         }
 
+        Msg::EditTrainingSession => {
+            model.editing = true;
+            Url::go_and_push(
+                &crate::Urls::new(&data_model.base_url)
+                    .training_session()
+                    .add_hash_path_part(model.training_session_id.to_string())
+                    .add_hash_path_part("edit"),
+            );
+        }
         Msg::SaveTrainingSession => {
             model.loading = true;
             orders.notify(data::Msg::ModifyTrainingSession(
@@ -1033,7 +1046,15 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         } else {
             div![
                 view_title(training_session, data_model),
-                view_training_session_form(model, data_model)
+                if not(model.editing) {
+                    nodes![
+                        view_table(training_session, data_model),
+                        view_notes(training_session),
+                        common::view_fab("edit", |_| Msg::EditTrainingSession)
+                    ]
+                } else {
+                    nodes![view_training_session_form(model, data_model)]
+                }
             ]
         }
     } else {
@@ -1061,6 +1082,75 @@ fn view_title(training_session: &data::TrainingSession, data_model: &data::Model
         span![training_session.date.to_string()]
     };
     common::view_title(&title, 3)
+}
+
+fn view_table(training_session: &data::TrainingSession, data_model: &data::Model) -> Node<Msg> {
+    div![
+        C!["table-container"],
+        C!["mt-4"],
+        table![
+            C!["table"],
+            C!["is-fullwidth"],
+            C!["is-hoverable"],
+            tbody![
+                tr![td![], td![]],
+                training_session
+                    .elements
+                    .iter()
+                    .map(|e| match e {
+                        data::TrainingSessionElement::Set {
+                            exercise_id,
+                            reps,
+                            time,
+                            weight,
+                            rpe,
+                            ..
+                        } => {
+                            tr![
+                                td![a![
+                                    attrs! {
+                                        At::Href => {
+                                            crate::Urls::new(&data_model.base_url)
+                                                .exercise()
+                                                .add_hash_path_part(exercise_id.to_string())
+                                        }
+                                    },
+                                    data_model
+                                        .exercises
+                                        .get(exercise_id)
+                                        .map(|e| e.name.clone())
+                                        .unwrap_or_else(|| format!("Exercise#{exercise_id}")),
+                                ]],
+                                td![
+                                    C!["is-vcentered"],
+                                    C!["has-text-centered"],
+                                    span![
+                                        style! {St::WhiteSpace => "nowrap" },
+                                        format_set(*reps, *time, *weight, *rpe)
+                                    ]
+                                ],
+                            ]
+                        }
+                        _ => {
+                            tr![td![C!["p-1"]], td![C!["p-1"]]]
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            ],
+        ]
+    ]
+}
+
+fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
+    if let Some(notes) = &training_session.notes {
+        if not(notes.is_empty()) {
+            div![C!["m-3"], h1![C!["title"], C!["is-5"], "Notes"], p![notes]]
+        } else {
+            empty![]
+        }
+    } else {
+        empty![]
+    }
 }
 
 fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<Msg> {

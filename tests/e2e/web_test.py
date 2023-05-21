@@ -27,6 +27,7 @@ from .page import (
     RoutinePage,
     RoutinesPage,
     TrainingPage,
+    TrainingSessionEditPage,
     TrainingSessionPage,
 )
 
@@ -461,6 +462,34 @@ def test_training_delete(driver: webdriver.Chrome) -> None:
     page.wait_for_table_value(1, date_2)
 
 
+def test_training_session(driver: webdriver.Chrome) -> None:
+    workout = USER.workouts[-1]
+    sets = [
+        "".join(
+            [
+                str(s.reps) if s.reps is not None else "",
+                " × " if s.reps is not None and s.time is not None else "",  # noqa: RUF001
+                f"{s.time} s" if s.time is not None else "",
+                " × " if s.time is not None and s.weight is not None else "",  # noqa: RUF001
+                f"{s.weight} kg" if s.weight is not None else "",
+                " @ " if s.rpe is not None else "",
+                (str(int(s.rpe) if s.rpe % 1 == 0 else s.rpe)) if s.rpe is not None else "",
+            ]
+        )
+        for s in workout.elements
+        if isinstance(s, models.WorkoutSet)
+    ]
+
+    login(driver)
+    page = TrainingSessionPage(driver, workout.id)
+    page.load()
+
+    page.wait_for_title(str(workout.date))
+    assert [x for _, x in page.get_table_body()[1:]] == sets
+
+    page.edit()
+
+
 def test_training_session_change_entries(driver: webdriver.Chrome) -> None:
     workout = USER.workouts[-1]
     sets = [
@@ -476,7 +505,7 @@ def test_training_session_change_entries(driver: webdriver.Chrome) -> None:
     new_values = ["1", "2", "3", "4"]
 
     login(driver)
-    page = TrainingSessionPage(driver, workout.id)
+    page = TrainingSessionEditPage(driver, workout.id)
     page.load()
 
     page.wait_for_title(str(workout.date))
@@ -520,7 +549,7 @@ def test_training_session_change_notes(driver: webdriver.Chrome) -> None:
     assert notes != new_notes
 
     login(driver)
-    page = TrainingSessionPage(driver, workout.id)
+    page = TrainingSessionEditPage(driver, workout.id)
     page.load()
 
     page.wait_for_title(str(workout.date))

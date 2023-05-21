@@ -325,6 +325,16 @@ class Page:
             for tr in self._driver.find_elements(By.XPATH, "//tbody/tr")
         ]
 
+    def wait_for_fab(self, icon: str) -> None:
+        wait(self._driver).until(
+            EC.presence_of_element_located(
+                (
+                    By.XPATH,
+                    f"//button[contains(@class, 'is-fab')]/span/i[contains(@class, 'fa-{icon}')]",
+                )
+            )
+        )
+
     def wait_for_link(self, text: str) -> None:
         wait(self._driver).until(EC.presence_of_element_located((By.LINK_TEXT, text)))
 
@@ -472,8 +482,27 @@ class TrainingSessionPage(Page):
     def url(self) -> str:
         return f"training_session/{self.workout_id}"
 
+    def edit(self) -> TrainingSessionEditPage:
+        self.click_fab()
+        self.wait_for_fab("save")
+        return TrainingSessionEditPage(self._driver, self.workout_id)
+
+
+class TrainingSessionEditPage(Page):
+    def __init__(self, driver: webdriver.Chrome, workout_id: int) -> None:
+        super().__init__(driver)
+        self.workout_id = workout_id
+
+    @property
+    def title(self) -> str:
+        return "Training session"
+
+    @property
+    def url(self) -> str:
+        return f"training_session/{self.workout_id}/edit"
+
     def click_save(self) -> None:
-        self._driver.find_element(by=By.XPATH, value="//button[contains(@class, 'is-fab')]").click()
+        self.click_fab()
         wait(self._driver).until(
             EC.invisibility_of_element_located(
                 (By.XPATH, "//button[contains(@class, 'is-loading')]")

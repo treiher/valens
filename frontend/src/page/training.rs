@@ -181,7 +181,8 @@ pub fn update(
                         orders.request_url(
                             crate::Urls::new(&data_model.base_url)
                                 .training_session()
-                                .add_hash_path_part(training_session_id.to_string()),
+                                .add_hash_path_part(training_session_id.to_string())
+                                .add_hash_path_part("edit"),
                         );
                     }
                 }

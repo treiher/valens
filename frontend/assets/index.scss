@@ -1,39 +1,46 @@
-@font-face {
-    font-family: 'Roboto';
-    src: url('fonts/Roboto-BoldItalic.woff') format('woff');
-    font-weight: bold;
-    font-style: italic;
-}
-
-@font-face {
-    font-family: 'Roboto';
-    src: url('fonts/Roboto-Bold.woff') format('woff');
-    font-weight: bold;
-    font-style: normal;
-}
-
-@font-face {
-    font-family: 'Roboto';
-    src: url('fonts/Roboto-Italic.woff') format('woff');
-    font-weight: normal;
-    font-style: italic;
-}
-
-@font-face {
-    font-family: 'Roboto';
-    src: url('fonts/Roboto-Regular.woff') format('woff');
-    font-weight: normal;
-    font-style: normal;
-}
-
-$family-sans-serif: "Roboto", sans-serif;
+$font-path: "fonts";
 $green: #48C774;
 $blue: #3E8ED0;
-$primary: $green;
 
-// Bulma
+@use "../../third-party/bulma/bulma" with (
+    $family-sans-serif: ("Roboto", sans-serif),
+    $green: $green,
+    $blue: $blue,
+    $primary: $green,
+);
+@use "../../third-party/fontawesome/scss/fontawesome" with (
+    $fa-font-path: $font-path
+);
+@use "../../third-party/fontawesome/scss/solid" with (
+    $fa-font-path: $font-path
+);
 
-// Enable hamburger menu without JavaScript
+@font-face {
+    font-family: "Roboto";
+    src: url("#{$font-path}/Roboto-BoldItalic.woff") format("woff");
+    font-weight: bold;
+    font-style: italic;
+}
+@font-face {
+    font-family: "Roboto";
+    src: url("#{$font-path}/Roboto-Bold.woff") format("woff");
+    font-weight: bold;
+    font-style: normal;
+}
+@font-face {
+    font-family: "Roboto";
+    src: url("#{$font-path}/Roboto-Italic.woff") format("woff");
+    font-weight: normal;
+    font-style: italic;
+}
+@font-face {
+    font-family: "Roboto";
+    src: url("#{$font-path}/Roboto-Regular.woff") format("woff");
+    font-weight: normal;
+    font-style: normal;
+}
+
+// Hamburger menu without JavaScript
 
 // Fix hamburger button position
 .navbar-burger-toggle + .navbar-burger {
@@ -60,15 +67,6 @@ $primary: $green;
     display: block;
 }
 
-// Enable transparent navbar
-
-.navbar {
-    &.is-transparent {
-        background-color: transparent;
-        background-image: none;
-    }
-}
-
 // Floating Action Button (FAB)
 
 .button.is-fab {
@@ -85,6 +83,14 @@ $primary: $green;
     border-radius: 50%;
 }
 
+// Flex row gap helper (based on https://github.com/jgthms/bulma/pull/3542)
+
+@each $name, $value in bulma.$spacing-values {
+  .is-flex-gap-row-gap-#{$name} {
+    row-gap: $value !important
+  }
+}
+
 // Hide spinners for number inputs
 
 input::-webkit-outer-spin-button,
@@ -96,19 +102,13 @@ input[type=number] {
     -moz-appearance:textfield;
 }
 
-table.is-centered {
-    margin-left: auto;
-    margin-right: auto;
-}
+// Field Set
 
-@import "index.sass";
-@import "../../third-party/bulma/bulma.sass";
-
-$fieldset-background-color: $scheme-main !default;
-$fieldset-border-color: $border !default;
-$fieldset-color: $text-strong !default;
+$fieldset-background-color: bulma.$scheme-main !default;
+$fieldset-border-color: bulma.$border !default;
+$fieldset-color: bulma.$text-strong !default;
 $fieldset-padding: 1.5em;
-$fieldset-radius: $radius !default;
+$fieldset-radius: bulma.$radius !default;
 
 .fieldset {
     background-color: $fieldset-background-color;
@@ -132,9 +132,9 @@ div.is-calendar {
         direction: ltr;
         tr {
             td {
-                color: $white;
-                background-color: $grey-lighter;
-                border: 1px solid $white;
+                color: bulma.$white;
+                background-color: bulma.$grey-lighter;
+                border: 1px solid bulma.$white;
                 text-align: center;
                 div {
                     width: 10pt;
@@ -148,10 +148,3 @@ div.is-calendar {
         }
     }
 }
-
-// Font Awesome
-
-$fa-font-path: "fonts";
-
-@import "../../third-party/fontawesome/scss/fontawesome.scss";
-@import "../../third-party/fontawesome/scss/solid.scss";

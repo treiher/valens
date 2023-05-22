@@ -21,7 +21,13 @@ pub fn init(
         .unwrap_or("")
         .parse::<u32>()
         .unwrap_or(0);
-    let editing = url.next_hash_path_part() == Some("edit");
+    let action = url.next_hash_path_part();
+    let editing = action == Some("edit");
+    let guide = if action == Some("guide") {
+        Some(Guide::new())
+    } else {
+        None
+    };
 
     orders.subscribe(Msg::DataEvent);
 
@@ -46,8 +52,7 @@ pub fn init(
     Model {
         training_session_id,
         form: init_form(training_session, data_model),
-        guide: None,
-        guide_stream: None,
+        guide,
         timer_dialog: SMTDialog {
             visible: false,
             stopwatch: Stopwatch {
@@ -246,7 +251,6 @@ pub struct Model {
     training_session_id: u32,
     form: Form,
     guide: Option<Guide>,
-    guide_stream: Option<StreamHandle>,
     timer_dialog: SMTDialog,
     timer_stream: Option<StreamHandle>,
     audio_context: Option<web_sys::AudioContext>,
@@ -340,7 +344,25 @@ struct Guide {
     section_idx: usize,
     section_start_time: DateTime<Utc>,
     timer: Timer,
+    stream: Option<StreamHandle>,
     element: ElRef<web_sys::Element>,
+}
+
+impl Guide {
+    fn new() -> Guide {
+        Guide {
+            section_idx: 0,
+            section_start_time: Utc::now(),
+            timer: Timer {
+                time: (String::new(), None),
+                reset_time: 0,
+                target_time: None,
+                beep_time: 0.,
+            },
+            stream: None,
+            element: ElRef::new(),
+        }
+    }
 }
 
 struct SMTDialog {
@@ -768,19 +790,15 @@ pub fn update(
         }
 
         Msg::StartGuidedTrainingSession => {
-            model.guide = Some(Guide {
-                section_idx: 0,
-                section_start_time: Utc::now(),
-                timer: Timer {
-                    time: (String::new(), None),
-                    reset_time: 0,
-                    target_time: None,
-                    beep_time: 0.,
-                },
-                element: ElRef::new(),
-            });
+            model.guide = Some(Guide::new());
             update_guide_timer(model);
             update_streams(model, orders);
+            Url::go_and_push(
+                &crate::Urls::new(&data_model.base_url)
+                    .training_session()
+                    .add_hash_path_part(model.training_session_id.to_string())
+                    .add_hash_path_part("guide"),
+            );
         }
         Msg::UpdateGuidedTrainingSession => {
             if let Some(guide) = &mut model.guide {
@@ -921,6 +939,8 @@ pub fn update(
                         data_model,
                     );
                     model.loading = false;
+                    update_guide_timer(model);
+                    update_streams(model, orders);
                 }
                 _ => {}
             };
@@ -982,8 +1002,8 @@ pub fn update(
 }
 
 fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
-    model.guide_stream =
-        if let Some(guide) = &model.guide {
+    if let Some(guide) = &mut model.guide {
+        guide.stream =
             if guide.timer.is_active() {
                 Some(orders.stream_with_handle(streams::interval(1000, || {
                     Msg::UpdateGuidedTrainingSession
@@ -991,9 +1011,7 @@ fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
             } else {
                 None
             }
-        } else {
-            None
-        };
+    };
     model.timer_stream = if model.timer_dialog.stopwatch.is_active()
         || model.timer_dialog.metronome.is_active()
         || model.timer_dialog.timer.is_active()
@@ -1005,6 +1023,10 @@ fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
 }
 
 fn update_guide_timer(model: &mut Model) {
+    if model.form.sections.is_empty() {
+        return;
+    }
+
     if let Some(guide) = &mut model.guide {
         guide.timer.unset();
         match &model.form.sections[guide.section_idx] {
@@ -1046,14 +1068,14 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         } else {
             div![
                 view_title(training_session, data_model),
-                if not(model.editing) {
+                if model.editing || model.guide.is_some() {
+                    nodes![view_training_session_form(model, data_model)]
+                } else {
                     nodes![
                         view_table(training_session, data_model),
                         view_notes(training_session),
                         common::view_fab("edit", |_| Msg::EditTrainingSession)
                     ]
-                } else {
-                    nodes![view_training_session_form(model, data_model)]
                 }
             ]
         }
@@ -1480,18 +1502,21 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                 ]
             ],
         ],
-        button![
-            C!["button"],
-            C!["is-fab"],
-            C!["is-medium"],
-            C!["is-link"],
-            C![IF![not(valid) => "is-danger"]],
-            C![IF![model.loading => "is-loading"]],
-            attrs![
-                At::Disabled => save_disabled.as_at_value(),
-            ],
-            ev(Ev::Click, |_| Msg::SaveTrainingSession),
-            span![C!["icon"], i![C!["fas fa-save"]]]
+        IF![
+            model.guide.is_none() =>
+            button![
+                C!["button"],
+                C!["is-fab"],
+                C!["is-medium"],
+                C!["is-link"],
+                C![IF![not(valid) => "is-danger"]],
+                C![IF![model.loading => "is-loading"]],
+                attrs![
+                    At::Disabled => save_disabled.as_at_value(),
+                ],
+                ev(Ev::Click, |_| Msg::SaveTrainingSession),
+                span![C!["icon"], i![C!["fas fa-save"]]]
+            ]
         ]
     ]
 }

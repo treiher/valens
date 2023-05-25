@@ -11,13 +11,14 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar)
     orders.notify(data::Msg::ReadUsers);
 
     navbar.title = String::from("Valens");
-    navbar.items = vec![div![
-        span![C!["icon"], C!["px-5"], i![C!["fas fa-gears"]]],
-        ev(Ev::Click, move |_| crate::Msg::UrlChanged(
-            subs::UrlChanged(crate::Urls::new(&url.to_hash_base_url()).admin())
-        )),
-        "Administration"
-    ]];
+    navbar.items = vec![(
+        ev(Ev::Click, move |_| {
+            crate::Msg::UrlChanged(subs::UrlChanged(
+                crate::Urls::new(&url.to_hash_base_url()).admin(),
+            ))
+        }),
+        String::from("gears"),
+    )];
 
     Model {}
 }

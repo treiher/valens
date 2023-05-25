@@ -98,7 +98,7 @@ struct Model {
 
 pub struct Navbar {
     title: String,
-    items: Vec<Node<Msg>>,
+    items: Vec<(EventHandler<Msg>, String)>,
     menu_visible: bool,
 }
 
@@ -457,83 +457,89 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
         C!["navbar"],
         C!["is-fixed-top"],
         C!["is-primary"],
+        C!["has-shadow"],
+        C!["has-text-weight-bold"],
         div![
             C!["container"],
             div![
                 C!["navbar-brand"],
+                C!["is-flex-grow-1"],
                 a![
                     C!["navbar-item"],
                     if let Some(Page::Home(_)) | Some(Page::Login(_)) = page {
                         C!["has-text-primary"]
                     } else {
-                        C!["has-text-light"]
+                        C![]
                     },
-                    C!["has-text-weight-bold"],
                     C!["is-size-5"],
                     ev(Ev::Click, |_| Msg::GoUp),
-                    "❮"
+                    span![C!["icon"], i![C!["fas fa-chevron-left"]]]
                 ],
-                div![
-                    C!["navbar-item"],
-                    C!["has-text-light"],
-                    C!["has-text-weight-bold"],
-                    C!["is-size-5"],
-                    &navbar.title,
-                ],
-                a![
-                    C!["navbar-burger"],
-                    C![IF!(navbar.menu_visible => "is-active")],
-                    attrs! {
-                        At::from("role") => "button",
-                        At::AriaLabel => "menu",
-                        At::AriaExpanded => navbar.menu_visible,
-                    },
-                    ev(Ev::Click, |event| {
-                        event.stop_propagation();
-                        Msg::ToggleMenu
-                    }),
-                    span![attrs! {At::AriaHidden => "true"}],
-                    span![attrs! {At::AriaHidden => "true"}],
-                    span![attrs! {At::AriaHidden => "true"}],
+                div![C!["navbar-item"], C!["is-size-5"], &navbar.title],
+                div![C!["mx-auto"]],
+                &navbar
+                    .items
+                    .iter()
+                    .map(|item| {
+                        a![
+                            C!["navbar-item"],
+                            C!["is-size-5"],
+                            C!["mx-1"],
+                            &item.0,
+                            span![C!["icon"], i![C![format!("fas fa-{}", item.1)]]],
+                        ]
+                    })
+                    .collect::<Vec<_>>(),
+                IF![data_model.session.is_some() =>
+                    a![
+                        C!["navbar-burger"],
+                        C!["ml-0"],
+                        C![IF!(navbar.menu_visible => "is-active")],
+                        attrs! {
+                            At::from("role") => "button",
+                            At::AriaLabel => "menu",
+                            At::AriaExpanded => navbar.menu_visible,
+                        },
+                        ev(Ev::Click, |event| {
+                            event.stop_propagation();
+                            Msg::ToggleMenu
+                        }),
+                        span![attrs! {At::AriaHidden => "true"}],
+                        span![attrs! {At::AriaHidden => "true"}],
+                        span![attrs! {At::AriaHidden => "true"}],
+                    ]
                 ],
             ],
-            div![
-                C!["navbar-menu"],
-                C![IF!(navbar.menu_visible => "is-active")],
+            IF![data_model.session.is_some() =>
                 div![
-                    C!["navbar-end"],
-                    &navbar
-                        .items
-                        .iter()
-                        .map(|item| { a![C!["navbar-item"], C!["has-text-weight-bold"], item] })
-                        .collect::<Vec<_>>(),
-                    match &data_model.session {
-                        Some(_) => a![
-                            C!["navbar-item"],
-                            C!["has-text-weight-bold"],
-                            ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
-                            span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
-                            view_duration(Utc::now() - data_model.last_refresh),
-                        ],
-                        None => empty![],
-                    },
-                    match &data_model.session {
-                        Some(s) => a![
-                            C!["navbar-item"],
-                            C!["has-text-weight-bold"],
-                            ev(Ev::Click, |_| Msg::LogOut),
-                            span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
-                            span![
-                                C!["tag"],
-                                C!["is-medium"],
-                                C!["has-text-light"],
-                                C!["has-background-grey"],
-                                &s.name
+                    C!["navbar-menu"],
+                    C!["is-flex-grow-0"],
+                    C![IF!(navbar.menu_visible => "is-active")],
+                    div![
+                        C!["navbar-end"],
+                        match &data_model.session {
+                            Some(_) => a![
+                                C!["navbar-item"],
+                                ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
+                                span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
+                                format!(
+                                    "Refresh data ({})",
+                                    view_duration(Utc::now() - data_model.last_refresh)
+                                ),
                             ],
-                        ],
-                        None => empty![],
-                    }
-                ],
+                            None => empty![],
+                        },
+                        match &data_model.session {
+                            Some(s) => a![
+                                C!["navbar-item"],
+                                ev(Ev::Click, |_| Msg::LogOut),
+                                span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
+                                format!("Logout ({})", s.name),
+                            ],
+                            None => empty![],
+                        }
+                    ],
+                ]
             ]
         ]
     ]

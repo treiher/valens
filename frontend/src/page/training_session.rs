@@ -32,13 +32,12 @@ pub fn init(
     orders.subscribe(Msg::DataEvent);
 
     navbar.title = String::from("Training session");
-    navbar.items = vec![div![
-        span![C!["icon"], C!["px-5"], i![C!["fas fa-stopwatch"]]],
-        ev(Ev::Click, |_| crate::Msg::TrainingSession(
-            Msg::ShowSMTDialog
-        )),
-        "Stopwatch / Metronome / Timer"
-    ]];
+    navbar.items = vec![(
+        ev(Ev::Click, |_| {
+            crate::Msg::TrainingSession(Msg::ShowSMTDialog)
+        }),
+        String::from("stopwatch"),
+    )];
 
     let training_session = &data_model.training_sessions.get(&training_session_id);
     let audio_context = match web_sys::AudioContext::new() {

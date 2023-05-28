@@ -8,6 +8,7 @@ $blue: #3E8ED0;
     $blue: $blue,
     $primary: $green,
 );
+@use "../../third-party/bulma-slider/src/sass";
 @use "../../third-party/fontawesome/scss/fontawesome" with (
     $fa-font-path: $font-path
 );

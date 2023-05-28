@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display of interval bounds
 - Beeps when timer expires
 - Compact overview of recorded training sets
+- Adjustable beep volume
 - Automatic upgrade of database
 - Support for Python 3.11
 

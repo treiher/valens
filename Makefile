@@ -1,6 +1,7 @@
 SHELL = /bin/bash
 
 BULMA_VERSION := 0.9.4
+BULMA_SLIDER_VERSION := 2.0.5
 FONTAWESOME_VERSION := 6.1.1
 
 PYTHON_PACKAGES := valens tests fabfile.py
@@ -74,7 +75,7 @@ $(BUILD_DIR)/venv/bin/valens: $(BUILD_DIR)/venv $(WHEEL)
 
 update: update_css update_fonts
 
-update_css: third-party/bulma
+update_css: third-party/bulma third-party/bulma-slider
 
 update_fonts: third-party/fontawesome
 	cp third-party/fontawesome/webfonts/fa-solid-900.{woff2,ttf} frontend/assets/fonts/
@@ -82,6 +83,11 @@ update_fonts: third-party/fontawesome
 third-party/bulma:
 	wget -qO- https://github.com/jgthms/bulma/releases/download/$(BULMA_VERSION)/bulma-$(BULMA_VERSION).zip | bsdtar -xf- -C third-party
 	rm -rf third-party/bulma/css
+
+third-party/bulma-slider:
+	wget -qO- https://github.com/Wikiki/bulma-slider/archive/refs/tags/v$(BULMA_SLIDER_VERSION).tar.gz | bsdtar -xf- -C third-party
+	mv third-party/bulma-slider-$(BULMA_SLIDER_VERSION) third-party/bulma-slider
+	rm -rf third-party/bulma-slider/{.*,dist,src/js,test,*.js,*.json,*.png}
 
 third-party/fontawesome:
 	wget -qO- https://use.fontawesome.com/releases/v$(FONTAWESOME_VERSION)/fontawesome-free-$(FONTAWESOME_VERSION)-web.zip | bsdtar -xf- -C third-party

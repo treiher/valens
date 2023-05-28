@@ -24,7 +24,7 @@ pub fn init(
     let action = url.next_hash_path_part();
     let editing = action == Some("edit");
     let guide = if action == Some("guide") {
-        Some(Guide::new())
+        Some(Guide::new(data_model.beep_volume))
     } else {
         None
     };
@@ -64,12 +64,14 @@ pub fn init(
                 beat_number: 0,
                 next_beat_time: 0.,
                 is_active: false,
+                beep_volume: data_model.beep_volume,
             },
             timer: Timer {
                 time: (String::from("60"), Some(60)),
                 reset_time: 60,
                 target_time: None,
                 beep_time: 0.,
+                beep_volume: data_model.beep_volume,
             },
         },
         timer_stream: None,
@@ -347,7 +349,7 @@ struct Guide {
 }
 
 impl Guide {
-    fn new() -> Guide {
+    fn new(beep_volume: u8) -> Guide {
         Guide {
             section_idx: 0,
             section_start_time: Utc::now(),
@@ -356,6 +358,7 @@ impl Guide {
                 reset_time: 0,
                 target_time: None,
                 beep_time: 0.,
+                beep_volume,
             },
             stream: None,
             element: ElRef::new(),
@@ -417,6 +420,7 @@ struct Metronome {
     beat_number: u32,
     next_beat_time: f64,
     is_active: bool,
+    beep_volume: u8,
 }
 
 impl Metronome {
@@ -449,6 +453,7 @@ impl Metronome {
                         },
                         self.next_beat_time,
                         0.05,
+                        self.beep_volume,
                     ) {
                         error!("failed to play beep:", err);
                     }
@@ -465,6 +470,7 @@ struct Timer {
     reset_time: i64,
     target_time: Option<DateTime<Utc>>,
     beep_time: f64,
+    beep_volume: u8,
 }
 
 impl Timer {
@@ -531,6 +537,7 @@ impl Timer {
                             self.beep_time
                         },
                         if time == 0 { 0.5 } else { 0.15 },
+                        self.beep_volume,
                     ) {
                         error!("failed to play beep:", err);
                     }
@@ -546,9 +553,13 @@ fn play_beep(
     frequency: f32,
     start: f64,
     length: f64,
+    volume: u8,
 ) -> Result<(), JsValue> {
     let oscillator = audio_context.create_oscillator()?;
-    oscillator.connect_with_audio_node(&audio_context.destination())?;
+    let gain = audio_context.create_gain()?;
+    gain.gain().set_value(f32::from(volume) / 100.);
+    gain.connect_with_audio_node(&audio_context.destination())?;
+    oscillator.connect_with_audio_node(&gain)?;
     oscillator.frequency().set_value(frequency);
     oscillator.start_with_when(start)?;
     oscillator.stop_with_when(start + length)?;
@@ -789,7 +800,7 @@ pub fn update(
         }
 
         Msg::StartGuidedTrainingSession => {
-            model.guide = Some(Guide::new());
+            model.guide = Some(Guide::new(data_model.beep_volume));
             update_guide_timer(model);
             update_streams(model, orders);
             Url::go_and_push(
@@ -940,6 +951,13 @@ pub fn update(
                     model.loading = false;
                     update_guide_timer(model);
                     update_streams(model, orders);
+                }
+                data::Event::BeepVolumeChanged => {
+                    model.timer_dialog.metronome.beep_volume = data_model.beep_volume;
+                    model.timer_dialog.timer.beep_volume = data_model.beep_volume;
+                    if let Some(guide) = &mut model.guide {
+                        guide.timer.beep_volume = data_model.beep_volume;
+                    }
                 }
                 _ => {}
             };

@@ -34,6 +34,7 @@ fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
             menu_visible: false,
         },
         page: None,
+        settings_dialog_visible: false,
         data: data::init(url, &mut orders.proxy(Msg::Data)),
     }
 }
@@ -101,6 +102,7 @@ impl<'a> Urls<'a> {
 struct Model {
     navbar: Navbar,
     page: Option<Page>,
+    settings_dialog_visible: bool,
     data: data::Model,
 }
 
@@ -238,7 +240,9 @@ enum Msg {
 
     ToggleMenu,
     HideMenu,
-
+    ShowSettingsDialog,
+    CloseSettingsDialog,
+    BeepVolumeChanged(String),
     GoUp,
     LogOut,
 
@@ -295,7 +299,18 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 orders.skip();
             }
         }
-
+        Msg::ShowSettingsDialog => {
+            model.settings_dialog_visible = true;
+        }
+        Msg::CloseSettingsDialog => {
+            model.settings_dialog_visible = false;
+        }
+        Msg::BeepVolumeChanged(input) => {
+            log!("range changed", input);
+            if let Ok(value) = input.parse::<u8>() {
+                orders.send_msg(Msg::Data(data::Msg::SetBeepVolume(value)));
+            }
+        }
         Msg::GoUp => match &model.page {
             Some(Page::Home(_) | Page::Login(_)) => {}
             Some(Page::Admin(_)) => {
@@ -455,11 +470,21 @@ fn warn_about_unsaved_changes(model: &Model) -> bool {
 // ------ ------
 
 fn view(model: &Model) -> impl IntoNodes<Msg> {
-    nodes![
-        view_navbar(&model.navbar, &model.page, &model.data),
-        view_page(&model.page, &model.data),
-        data::view(&model.data).map_msg(Msg::Data),
-    ]
+    if model.settings_dialog_visible {
+        nodes![
+            view_navbar(&model.navbar, &model.page, &model.data),
+            Node::NoChange,
+            view_settings_dialog(&model.data),
+            Node::NoChange,
+        ]
+    } else {
+        nodes![
+            view_navbar(&model.navbar, &model.page, &model.data),
+            view_page(&model.page, &model.data),
+            div![],
+            data::view(&model.data).map_msg(Msg::Data),
+        ]
+    }
 }
 
 fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
@@ -528,25 +553,30 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
                     div![
                         C!["navbar-end"],
                         match &data_model.session {
-                            Some(_) => a![
-                                C!["navbar-item"],
-                                ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
-                                span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
-                                format!(
-                                    "Refresh data ({})",
-                                    view_duration(Utc::now() - data_model.last_refresh)
-                                ),
+                            Some(s) => nodes![
+                                a![
+                                    C!["navbar-item"],
+                                    ev(Ev::Click, |_| Msg::ShowSettingsDialog),
+                                    span![C!["icon"], C!["px-5"], i![C!["fas fa-gear"]]],
+                                    "Settings"
+                                ],
+                                a![
+                                    C!["navbar-item"],
+                                    ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
+                                    span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
+                                    format!(
+                                        "Refresh data ({})",
+                                        view_duration(Utc::now() - data_model.last_refresh)
+                                    ),
+                                ],
+                                a![
+                                    C!["navbar-item"],
+                                    ev(Ev::Click, |_| Msg::LogOut),
+                                    span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
+                                    format!("Logout ({})", s.name),
+                                ]
                             ],
-                            None => empty![],
-                        },
-                        match &data_model.session {
-                            Some(s) => a![
-                                C!["navbar-item"],
-                                ev(Ev::Click, |_| Msg::LogOut),
-                                span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
-                                format!("Logout ({})", s.name),
-                            ],
-                            None => empty![],
+                            None => nodes![],
                         }
                     ],
                 ]
@@ -598,6 +628,30 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
             None => common::view_loading(),
         }
     ]
+}
+
+fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
+    common::view_dialog(
+        "primary",
+        "Settings",
+        nodes![p![
+            h1![C!["subtitle"], "Beep volume"],
+            input![
+                C!["slider"],
+                C!["is-fullwidth"],
+                C!["is-info"],
+                attrs! {
+                    At::Type => "range",
+                    At::Value => data_model.beep_volume,
+                    At::Min => 0,
+                    At::Max => 100,
+                    At::Step => 10,
+                },
+                input_ev(Ev::Input, Msg::BeepVolumeChanged),
+            ]
+        ]],
+        &ev(Ev::Click, |_| Msg::CloseSettingsDialog),
+    )
 }
 
 // ------ ------

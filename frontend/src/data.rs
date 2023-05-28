@@ -45,6 +45,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
             avg_rpe_per_week: Vec::new(),
             total_set_volume_per_week: Vec::new(),
         },
+        beep_volume: 80,
     }
 }
 
@@ -83,6 +84,9 @@ pub struct Model {
     pub cycles: Vec<Cycle>,
     pub current_cycle: Option<CurrentCycle>,
     pub training_stats: TrainingStats,
+
+    // ------ Client-side data ------
+    pub beep_volume: u8,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -798,6 +802,8 @@ pub enum Msg {
     TrainingSessionModified(Result<TrainingSession, String>),
     DeleteTrainingSession(u32),
     TrainingSessionDeleted(Result<u32, String>),
+
+    SetBeepVolume(u8),
 }
 
 #[derive(Clone)]
@@ -845,6 +851,7 @@ pub enum Event {
     TrainingSessionDeletedOk,
     TrainingSessionDeletedErr,
     DataChanged,
+    BeepVolumeChanged,
 }
 
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
@@ -1611,6 +1618,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model
                 .errors
                 .push("Failed to delete training session: ".to_owned() + &message);
+        }
+
+        Msg::SetBeepVolume(value) => {
+            model.beep_volume = value;
+            orders.notify(Event::BeepVolumeChanged);
         }
     }
 }

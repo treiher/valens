@@ -1,3 +1,11 @@
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::match_wildcard_for_single_variants,
+    clippy::must_use_candidate,
+    clippy::too_many_lines,
+    clippy::wildcard_imports
+)]
+
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
 
@@ -289,15 +297,17 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::GoUp => match &model.page {
-            Some(Page::Home(_)) | Some(Page::Login(_)) => {}
+            Some(Page::Home(_) | Page::Login(_)) => {}
             Some(Page::Admin(_)) => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).login());
             }
-            Some(Page::BodyWeight(_))
-            | Some(Page::BodyFat(_))
-            | Some(Page::MenstrualCycle(_))
-            | Some(Page::Training(_))
-            | Some(Page::NotFound)
+            Some(
+                Page::BodyWeight(_)
+                | Page::BodyFat(_)
+                | Page::MenstrualCycle(_)
+                | Page::Training(_)
+                | Page::NotFound,
+            )
             | None => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).home());
             }
@@ -307,7 +317,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             Some(Page::Routine(_)) => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).routines());
             }
-            Some(Page::TrainingSession(_)) | Some(Page::Exercises(_)) | Some(Page::Routines(_)) => {
+            Some(Page::TrainingSession(_) | Page::Exercises(_) | Page::Routines(_)) => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).training());
             }
         },
@@ -318,17 +328,17 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         // ------ Pages ------
         Msg::Home(msg) => {
             if let Some(Page::Home(page_model)) = &mut model.page {
-                page::home::update(msg, page_model, &mut orders.proxy(Msg::Home))
+                page::home::update(msg, page_model, &mut orders.proxy(Msg::Home));
             }
         }
         Msg::Login(msg) => {
             if let Some(Page::Login(page_model)) = &mut model.page {
-                page::login::update(msg, page_model, &mut orders.proxy(Msg::Login))
+                page::login::update(msg, page_model, &mut orders.proxy(Msg::Login));
             }
         }
         Msg::Admin(msg) => {
             if let Some(Page::Admin(page_model)) = &mut model.page {
-                page::admin::update(msg, page_model, &model.data, &mut orders.proxy(Msg::Admin))
+                page::admin::update(msg, page_model, &model.data, &mut orders.proxy(Msg::Admin));
             }
         }
         Msg::BodyWeight(msg) => {
@@ -338,7 +348,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::BodyWeight),
-                )
+                );
             }
         }
         Msg::BodyFat(msg) => {
@@ -348,7 +358,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::BodyFat),
-                )
+                );
             }
         }
         Msg::MenstrualCycle(msg) => {
@@ -358,7 +368,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::MenstrualCycle),
-                )
+                );
             }
         }
         Msg::Exercises(msg) => {
@@ -368,7 +378,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Exercises),
-                )
+                );
             }
         }
         Msg::Exercise(msg) => {
@@ -378,7 +388,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Exercise),
-                )
+                );
             }
         }
         Msg::Routines(msg) => {
@@ -388,7 +398,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Routines),
-                )
+                );
             }
         }
         Msg::Routine(msg) => {
@@ -398,7 +408,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Routine),
-                )
+                );
             }
         }
         Msg::Training(msg) => {
@@ -408,7 +418,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Training),
-                )
+                );
             }
         }
         Msg::TrainingSession(msg) => {
@@ -418,7 +428,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::TrainingSession),
-                )
+                );
             }
         }
 
@@ -466,7 +476,7 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
                 C!["is-flex-grow-1"],
                 a![
                     C!["navbar-item"],
-                    if let Some(Page::Home(_)) | Some(Page::Login(_)) = page {
+                    if let Some(Page::Home(_) | Page::Login(_)) = page {
                         C!["has-text-primary"]
                     } else {
                         C![]

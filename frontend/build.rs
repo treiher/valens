@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+
 use std::process::Command;
 
 fn main() {
@@ -9,5 +11,5 @@ fn main() {
         .output()
         .unwrap();
     let version = String::from_utf8(output.stdout).unwrap();
-    println!("cargo:rustc-env=VALENS_VERSION={}", version);
+    println!("cargo:rustc-env=VALENS_VERSION={version}");
 }

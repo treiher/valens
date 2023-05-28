@@ -11,6 +11,7 @@ use crate::common;
 //     Init
 // ------ ------
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
     Model {
         base_url: url.to_hash_base_url(),
@@ -51,6 +52,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
 //     Model
 // ------ ------
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct Model {
     pub base_url: Url,
     errors: Vec<String>,
@@ -162,9 +164,9 @@ impl TrainingStats {
     pub const LOAD_RATIO_HIGH: f32 = 1.5;
 
     pub fn load_ratio(&self) -> Option<f32> {
-        let long_term_load = self.long_term_load.last().map(|(_, l)| *l).unwrap_or(0.);
+        let long_term_load = self.long_term_load.last().map_or(0., |(_, l)| *l);
         if long_term_load > 0. {
-            let short_term_load = self.short_term_load.last().map(|(_, l)| *l).unwrap_or(0.);
+            let short_term_load = self.short_term_load.last().map_or(0., |(_, l)| *l);
             Some(short_term_load / long_term_load)
         } else {
             None
@@ -243,20 +245,20 @@ pub enum TrainingSessionElement {
 impl BodyFat {
     pub fn jp3(&self, sex: u8) -> Option<f32> {
         if sex == 0 {
-            Some(self.jackson_pollock(
-                self.tricep? as f32 + self.suprailiac? as f32 + self.tigh? as f32,
-                1.0994921,
-                0.0009929,
-                0.0000023,
-                0.0001392,
+            Some(Self::jackson_pollock(
+                f32::from(self.tricep?) + f32::from(self.suprailiac?) + f32::from(self.tigh?),
+                1.099_492_1,
+                0.000_992_9,
+                0.000_002_3,
+                0.000_139_2,
             ))
         } else if sex == 1 {
-            Some(self.jackson_pollock(
-                self.chest? as f32 + self.abdominal? as f32 + self.tigh? as f32,
-                1.10938,
-                0.0008267,
-                0.0000016,
-                0.0002574,
+            Some(Self::jackson_pollock(
+                f32::from(self.chest?) + f32::from(self.abdominal?) + f32::from(self.tigh?),
+                1.109_38,
+                0.000_826_7,
+                0.000_001_6,
+                0.000_257_4,
             ))
         } else {
             None
@@ -265,39 +267,39 @@ impl BodyFat {
 
     pub fn jp7(&self, sex: u8) -> Option<f32> {
         if sex == 0 {
-            Some(self.jackson_pollock(
-                self.chest? as f32
-                    + self.abdominal? as f32
-                    + self.tigh? as f32
-                    + self.tricep? as f32
-                    + self.subscapular? as f32
-                    + self.suprailiac? as f32
-                    + self.midaxillary? as f32,
+            Some(Self::jackson_pollock(
+                f32::from(self.chest?)
+                    + f32::from(self.abdominal?)
+                    + f32::from(self.tigh?)
+                    + f32::from(self.tricep?)
+                    + f32::from(self.subscapular?)
+                    + f32::from(self.suprailiac?)
+                    + f32::from(self.midaxillary?),
                 1.097,
-                0.00046971,
-                0.00000056,
-                0.00012828,
+                0.000_469_71,
+                0.000_000_56,
+                0.000_128_28,
             ))
         } else if sex == 1 {
-            Some(self.jackson_pollock(
-                self.chest? as f32
-                    + self.abdominal? as f32
-                    + self.tigh? as f32
-                    + self.tricep? as f32
-                    + self.subscapular? as f32
-                    + self.suprailiac? as f32
-                    + self.midaxillary? as f32,
+            Some(Self::jackson_pollock(
+                f32::from(self.chest?)
+                    + f32::from(self.abdominal?)
+                    + f32::from(self.tigh?)
+                    + f32::from(self.tricep?)
+                    + f32::from(self.subscapular?)
+                    + f32::from(self.suprailiac?)
+                    + f32::from(self.midaxillary?),
                 1.112,
-                0.00043499,
-                0.00000055,
-                0.00028826,
+                0.000_434_99,
+                0.000_000_55,
+                0.000_288_26,
             ))
         } else {
             None
         }
     }
 
-    fn jackson_pollock(&self, sum: f32, k0: f32, k1: f32, k2: f32, ka: f32) -> f32 {
+    fn jackson_pollock(sum: f32, k0: f32, k1: f32, k2: f32, ka: f32) -> f32 {
         let age = 30.; // assume an age of 30
         (495. / (k0 - (k1 * sum) + (k2 * sum * sum) - (ka * age))) - 450.
     }
@@ -335,7 +337,7 @@ impl TrainingSession {
     pub fn exercises(&self) -> BTreeSet<u32> {
         self.elements
             .iter()
-            .flat_map(|e| match e {
+            .filter_map(|e| match e {
                 TrainingSessionElement::Set { exercise_id, .. } => Some(*exercise_id),
                 _ => None,
             })
@@ -354,6 +356,7 @@ impl TrainingSession {
         if sets.is_empty() {
             None
         } else {
+            #[allow(clippy::cast_precision_loss)]
             Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
         }
     }
@@ -370,6 +373,7 @@ impl TrainingSession {
         if sets.is_empty() {
             None
         } else {
+            #[allow(clippy::cast_precision_loss)]
             Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
         }
     }
@@ -386,6 +390,7 @@ impl TrainingSession {
         if sets.is_empty() {
             None
         } else {
+            #[allow(clippy::cast_precision_loss)]
             Some(sets.iter().sum::<f32>() / sets.len() as f32)
         }
     }
@@ -402,6 +407,7 @@ impl TrainingSession {
         if sets.is_empty() {
             None
         } else {
+            #[allow(clippy::cast_precision_loss)]
             Some(sets.iter().sum::<f32>() / sets.len() as f32)
         }
     }
@@ -414,15 +420,14 @@ impl TrainingSession {
                 TrainingSessionElement::Set {
                     reps, time, rpe, ..
                 } => Some(if let Some(rpe) = *rpe {
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     if rpe > 5.0 {
                         (2.0_f32).powf(rpe - 5.0).round() as u32
                     } else {
                         1
                     }
-                } else if reps.is_some() || time.is_some() {
-                    1
                 } else {
-                    0
+                    u32::from(reps.is_some() || time.is_some())
                 }),
                 _ => None,
             })
@@ -455,6 +460,11 @@ impl TrainingSession {
             .filter_map(|e| match e {
                 TrainingSessionElement::Set { reps, weight, .. } => {
                     if let Some(reps) = reps {
+                        #[allow(
+                            clippy::cast_possible_truncation,
+                            clippy::cast_precision_loss,
+                            clippy::cast_sign_loss
+                        )]
                         if let Some(weight) = weight {
                             Some((*reps as f32 * weight).round() as u32)
                         } else {
@@ -502,6 +512,7 @@ fn calculate_body_weight_stats(
                 BodyWeightStats {
                     date: bw.date,
                     avg_weight: if i >= window / 2 && i < length - window / 2 {
+                        #[allow(clippy::cast_precision_loss)]
                         let avg_weight = body_weight[i - window / 2..=i + window / 2]
                             .iter()
                             .map(|bw| bw.weight)
@@ -523,7 +534,7 @@ fn determine_cycles(period: &BTreeMap<NaiveDate, Period>) -> Vec<Cycle> {
     }
 
     let mut result = vec![];
-    let mut begin = period.keys().min().cloned().unwrap();
+    let mut begin = period.keys().min().copied().unwrap();
     let mut last = begin;
 
     let period = period.values().collect::<Vec<_>>();
@@ -595,19 +606,21 @@ fn calculate_weighted_sum_of_load(
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = training_sessions.get(0).map(|t| t.date).unwrap_or(today);
+    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
     while day <= today {
         result.insert(day, 0.0);
         day += Duration::days(1);
     }
 
     for t in training_sessions {
+        #[allow(clippy::cast_precision_loss)]
         result
             .entry(t.date)
             .and_modify(|e| *e += t.load() as f32)
             .or_insert(t.load() as f32);
     }
 
+    #[allow(clippy::cast_precision_loss)]
     let weighting: Vec<f32> = (0..window_size)
         .map(|i| 1. - 1. / window_size as f32 * i as f32)
         .collect();
@@ -632,6 +645,7 @@ fn calculate_average_weighted_sum_of_load(
     weighted_sum_of_load: &[(NaiveDate, f32)],
     window_size: usize,
 ) -> Vec<(NaiveDate, f32)> {
+    #[allow(clippy::cast_precision_loss)]
     weighted_sum_of_load
         .windows(window_size)
         .map(|window| {
@@ -649,12 +663,13 @@ fn calculate_total_set_volume_per_week(
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = training_sessions.get(0).map(|t| t.date).unwrap_or(today);
+    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
     while day <= today.week(Weekday::Mon).last_day() {
         result.insert(day.week(Weekday::Mon).last_day(), 0.0);
         day += Duration::days(7);
     }
 
+    #[allow(clippy::cast_precision_loss)]
     for t in training_sessions {
         result
             .entry(t.date.week(Weekday::Mon).last_day())
@@ -668,7 +683,7 @@ fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(Na
     let mut result: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = training_sessions.get(0).map(|t| t.date).unwrap_or(today);
+    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
     while day <= today.week(Weekday::Mon).last_day() {
         result.insert(day.week(Weekday::Mon).last_day(), vec![]);
         day += Duration::days(7);
@@ -682,6 +697,7 @@ fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(Na
         }
     }
 
+    #[allow(clippy::cast_precision_loss)]
     result
         .into_iter()
         .map(|(date, values)| {
@@ -1014,7 +1030,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteUser(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/users/{}", id)).method(Method::Delete),
+                    Request::new(format!("api/users/{id}")).method(Method::Delete),
                     Msg::UserDeleted,
                     id,
                 )
@@ -1102,7 +1118,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteBodyWeight(date) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/body_weight/{}", date)).method(Method::Delete),
+                    Request::new(format!("api/body_weight/{date}")).method(Method::Delete),
                     Msg::BodyWeightDeleted,
                     date,
                 )
@@ -1196,7 +1212,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteBodyFat(date) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/body_fat/{}", date)).method(Method::Delete),
+                    Request::new(format!("api/body_fat/{date}")).method(Method::Delete),
                     Msg::BodyFatDeleted,
                     date,
                 )
@@ -1287,7 +1303,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeletePeriod(date) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/period/{}", date)).method(Method::Delete),
+                    Request::new(format!("api/period/{date}")).method(Method::Delete),
                     Msg::PeriodDeleted,
                     date,
                 )
@@ -1374,7 +1390,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteExercise(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/exercises/{}", id)).method(Method::Delete),
+                    Request::new(format!("api/exercises/{id}")).method(Method::Delete),
                     Msg::ExerciseDeleted,
                     id,
                 )
@@ -1448,7 +1464,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/routines/{}", id))
+                    Request::new(format!("api/routines/{id}"))
                         .method(Method::Patch)
                         .json(&content)
                         .expect("serialization failed"),
@@ -1470,7 +1486,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteRoutine(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/routines/{}", id)).method(Method::Delete),
+                    Request::new(format!("api/routines/{id}")).method(Method::Delete),
                     Msg::RoutineDeleted,
                     id,
                 )
@@ -1551,7 +1567,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/workouts/{}", id))
+                    Request::new(format!("api/workouts/{id}"))
                         .method(Method::Patch)
                         .json(&content)
                         .expect("serialization failed"),
@@ -1577,7 +1593,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteTrainingSession(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/workouts/{}", id)).method(Method::Delete),
+                    Request::new(format!("api/workouts/{id}")).method(Method::Delete),
                     Msg::TrainingSessionDeleted,
                     id,
                 )
@@ -1610,9 +1626,9 @@ where
         Ok(response) => match response.check_status() {
             Ok(response) => match response.json::<T>().await {
                 Ok(data) => message(Ok(data)),
-                Err(error) => message(Err(format!("deserialization failed: {:?}", error))),
+                Err(error) => message(Err(format!("deserialization failed: {error:?}"))),
             },
-            Err(error) => message(Err(format!("unexpected response: {:?}", error))),
+            Err(error) => message(Err(format!("unexpected response: {error:?}"))),
         },
         Err(_) => message(Err("no connection".into())),
     }
@@ -1626,7 +1642,7 @@ async fn fetch_no_content<'a, Ms, T>(
     match seed::browser::fetch::fetch(request).await {
         Ok(response) => match response.check_status() {
             Ok(_) => message(Ok(id)),
-            Err(error) => message(Err(format!("unexpected response: {:?}", error))),
+            Err(error) => message(Err(format!("unexpected response: {error:?}"))),
         },
         Err(_) => message(Err("no connection".into())),
     }
@@ -1687,6 +1703,6 @@ mod tests {
                     length: Duration::days(28),
                 }
             ]
-        )
+        );
     }
 }

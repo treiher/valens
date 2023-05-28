@@ -60,7 +60,7 @@ pub struct Model {
 
 impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
-        self.sections.iter().any(|s| s.changed())
+        self.sections.iter().any(Form::changed)
     }
 
     pub fn mark_as_unchanged(&mut self) {
@@ -95,7 +95,7 @@ enum Form {
 impl Form {
     fn changed(&self) -> bool {
         match self {
-            Form::Section { rounds, parts } => rounds.changed || parts.iter().any(|p| p.changed()),
+            Form::Section { rounds, parts } => rounds.changed || parts.iter().any(Form::changed),
             Form::Activity {
                 reps,
                 time,
@@ -131,7 +131,7 @@ impl Form {
 
     fn valid(&self) -> bool {
         match self {
-            Form::Section { rounds, parts } => rounds.valid && parts.iter().all(|p| p.valid()),
+            Form::Section { rounds, parts } => rounds.valid && parts.iter().all(Form::valid),
             Form::Activity {
                 reps,
                 time,
@@ -177,7 +177,7 @@ impl From<&data::RoutinePart> for Form {
                     parsed: Some(*rounds),
                     changed: false,
                 },
-                parts: parts.iter().map(|p| p.into()).collect(),
+                parts: parts.iter().map(Into::into).collect(),
             },
             data::RoutinePart::RoutineActivity {
                 exercise_id,
@@ -424,7 +424,7 @@ pub fn update(
         Msg::MovePartUp(id) => {
             if id.len() == 1 {
                 if id[0] == 0 {
-                    model.sections.rotate_left(1)
+                    model.sections.rotate_left(1);
                 } else {
                     model.sections.swap(id[0], id[0] - 1);
                 }
@@ -673,7 +673,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
     let routine = &data_model.routines.get(&model.routine_id);
 
     if let Some(routine) = routine {
-        model.sections = routine.sections.iter().map(|p| p.into()).collect();
+        model.sections = routine.sections.iter().map(Into::into).collect();
         let training_sessions = &data_model
             .training_sessions
             .values()
@@ -698,18 +698,12 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.routines.is_empty() && data_model.loading_routines {
         common::view_page_loading()
     } else if let Some(routine) = &data_model.routines.get(&model.routine_id) {
-        let saving_disabled = not(model.sections.iter().all(|s| s.valid()));
+        let saving_disabled = not(model.sections.iter().all(Form::valid));
         div![
             common::view_title(&span![&routine.name], 0),
             view_dialog(&model.dialog, &data_model.exercises, model.loading),
             view_routine(data_model, &model.sections, model.editing),
-            if not(model.editing) {
-                nodes![
-                    view_previous_exercises(model, data_model),
-                    view_training_sessions(model, data_model),
-                    common::view_fab("edit", |_| Msg::EditRoutine),
-                ]
-            } else {
+            if model.editing {
                 nodes![button![
                     C!["button"],
                     C!["is-fab"],
@@ -722,6 +716,12 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     ev(Ev::Click, |_| Msg::SaveRoutine),
                     span![C!["icon"], i![C!["fas fa-save"]]]
                 ]]
+            } else {
+                nodes![
+                    view_previous_exercises(model, data_model),
+                    view_training_sessions(model, data_model),
+                    common::view_fab("edit", |_| Msg::EditRoutine),
+                ]
             },
         ]
     } else {
@@ -1203,7 +1203,9 @@ fn view_routine_part(
 }
 
 fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if not(model.previous_exercises.is_empty()) {
+    if model.previous_exercises.is_empty() {
+        empty![]
+    } else {
         div![
             C!["container"],
             C!["has-text-centered"],
@@ -1225,8 +1227,6 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
                 })
             .collect::<Vec<_>>(),
         ]
-    } else {
-        empty![]
     }
 }
 
@@ -1269,9 +1269,11 @@ pub fn view_charts<Ms>(
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut intensity: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
     for training_session in training_sessions {
+        #[allow(clippy::cast_precision_loss)]
         load.entry(training_session.date)
             .and_modify(|e| *e += training_session.load() as f32)
             .or_insert(training_session.load() as f32);
+        #[allow(clippy::cast_precision_loss)]
         set_volume
             .entry(training_session.date)
             .and_modify(|e| *e += training_session.set_volume() as f32)
@@ -1314,12 +1316,13 @@ pub fn view_charts<Ms>(
                     intensity
                         .into_iter()
                         .map(|(date, values)| {
+                            #[allow(clippy::cast_precision_loss)]
                             (
                                 date,
-                                if not(values.is_empty()) {
-                                    values.iter().sum::<f32>() / values.len() as f32
+                                if values.is_empty() {
+                                    0.
                                 } else {
-                                    0.0
+                                    values.iter().sum::<f32>() / values.len() as f32
                                 },
                             )
                         })
@@ -1384,7 +1387,7 @@ fn view_add_part_buttons(data_model: &data::Model, id: Vec<usize>) -> Node<Msg> 
             C!["mr-2"],
             ev(Ev::Click, {
                 let id = id.clone();
-                let exercise_id = exercises.first().map(|e| e.id).unwrap_or(0);
+                let exercise_id = exercises.first().map_or(0, |e| e.id);
                 move |_| Msg::AddActivity(id, Some(exercise_id))
             }),
             span![

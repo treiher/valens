@@ -123,7 +123,7 @@ pub fn update(
                         } else {
                             None
                         },
-                    )
+                    );
                 }
                 Err(_) => form.routine_id = (routine_id, None),
             },
@@ -213,14 +213,14 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .short_term_load
             .iter()
             .filter(|(date, _)| *date >= model.interval.first && *date <= model.interval.last)
-            .cloned()
+            .copied()
             .collect::<Vec<_>>();
         let long_term_load = data_model
             .training_stats
             .long_term_load
             .iter()
             .filter(|(date, _)| *date >= model.interval.first && *date <= model.interval.last)
-            .cloned()
+            .copied()
             .collect::<Vec<_>>();
         let total_set_volume_per_week = data_model
             .training_stats
@@ -230,7 +230,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 *date >= model.interval.first
                     && *date <= model.interval.last.week(Weekday::Mon).last_day()
             })
-            .cloned()
+            .copied()
             .collect::<Vec<_>>();
         let avg_rpe_per_week = data_model
             .training_stats
@@ -240,7 +240,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 *date >= model.interval.first
                     && *date <= model.interval.last.week(Weekday::Mon).last_day()
             })
-            .cloned()
+            .copied()
             .collect::<Vec<_>>();
         let training_sessions = data_model
             .training_sessions
@@ -356,7 +356,7 @@ pub fn view_calendar<Ms>(
                     *date,
                     common::COLOR_LOAD,
                     if max > min {
-                        ((load - min) as f64 / (max - min) as f64) * 0.8 + 0.2
+                        (f64::from(load - min) / f64::from(max - min)) * 0.8 + 0.2
                     } else {
                         1.0
                     },

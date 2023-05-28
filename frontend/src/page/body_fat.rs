@@ -27,7 +27,7 @@ pub fn init(
             &data_model
                 .body_fat
                 .keys()
-                .cloned()
+                .copied()
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
@@ -242,7 +242,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.chest = (chest, None),
                 }
@@ -262,7 +262,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.abdominal = (abdominal, None),
                 }
@@ -282,7 +282,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.tigh = (tigh, None),
                 }
@@ -302,7 +302,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.tricep = (tricep, None),
                 }
@@ -322,7 +322,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.subscapular = (subscapular, None),
                 }
@@ -342,7 +342,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.suprailiac = (suprailiac, None),
                 }
@@ -362,7 +362,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.midaxillary = (midaxillary, None),
                 }
@@ -416,7 +416,7 @@ pub fn update(
                         &data_model
                             .body_fat
                             .keys()
-                            .cloned()
+                            .copied()
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
@@ -672,7 +672,7 @@ fn view_body_fat_form_field(
 ) -> Node<Msg> {
     div![
         C!["field"],
-        label![C!["label"], format!("{} (mm)", label)],
+        label![C!["label"], format!("{label} (mm)")],
         div![
             C!["control"],
             input_ev(Ev::Input, message),
@@ -775,7 +775,7 @@ fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<
                         bf.date,
                         common::COLOR_BODY_FAT_JP3,
                         if max > min {
-                            ((jp3 - min) / (max - min)) as f64 * 0.8 + 0.2
+                            f64::from((jp3 - min) / (max - min)) * 0.8 + 0.2
                         } else {
                             1.0
                         },

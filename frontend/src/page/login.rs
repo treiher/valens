@@ -37,6 +37,7 @@ pub enum Msg {
     LogIn(u32),
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn update(msg: Msg, _model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
         Msg::LogIn(user_id) => {

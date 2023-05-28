@@ -27,7 +27,7 @@ pub fn init(
             &data_model
                 .period
                 .keys()
-                .cloned()
+                .copied()
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
@@ -141,7 +141,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.intensity = (intensity, None),
                 }
@@ -183,7 +183,7 @@ pub fn update(
                         &data_model
                             .period
                             .keys()
-                            .cloned()
+                            .copied()
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
@@ -293,7 +293,7 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                                 C!["button"],
                                 C!["mr-2"],
                                 C![IF![&form.intensity.0 == i => "is-link"]],
-                                ev(Ev::Click, |_| Msg::IntensityChanged(i.to_string())),
+                                ev(Ev::Click, |_| Msg::IntensityChanged((*i).to_string())),
                                 i,
                             ]
                         })
@@ -346,7 +346,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             &[(
                 period
                     .iter()
-                    .map(|p| (p.date, p.intensity as f32))
+                    .map(|p| (p.date, f32::from(p.intensity)))
                     .collect::<Vec<_>>(),
                 common::COLOR_PERIOD_INTENSITY,
             )],
@@ -419,7 +419,7 @@ fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<
                 (
                     p.date,
                     common::COLOR_PERIOD_INTENSITY,
-                    p.intensity as f64 * 0.25,
+                    f64::from(p.intensity) * 0.25,
                 )
             })
             .collect(),

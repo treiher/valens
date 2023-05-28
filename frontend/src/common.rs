@@ -66,12 +66,12 @@ pub fn view_dialog<Ms>(
             div![
                 C!["message"],
                 C!["has-background-white"],
-                C![format!("is-{}", color)],
+                C![format!("is-{color}")],
                 C!["mx-2"],
                 div![
                     C!["message-body"],
                     C!["has-text-dark"],
-                    div![C!["title"], C![format!("has-text-{}", color)], title],
+                    div![C!["title"], C![format!("has-text-{color}")], title],
                     content
                 ]
             ]
@@ -121,13 +121,12 @@ pub fn view_delete_confirmation_dialog<Ms>(
 ) -> Node<Ms> {
     view_dialog(
         "danger",
-        &format!("Delete the {}?", element),
+        &format!("Delete the {element}?"),
         nodes![
             div![
                 C!["block"],
                 format!(
-                    "The {} and all elements that depend on it will be permanently deleted.",
-                    element
+                    "The {element} and all elements that depend on it will be permanently deleted."
                 ),
             ],
             div![
@@ -145,7 +144,7 @@ pub fn view_delete_confirmation_dialog<Ms>(
                         C!["is-danger"],
                         C![IF![loading => "is-loading"]],
                         delete_event,
-                        format!("Yes, delete {}", element),
+                        format!("Yes, delete {element}"),
                     ]
                 ],
             ],
@@ -365,7 +364,7 @@ pub fn view_error_not_found<Ms>(element: &str) -> Node<Ms> {
 
 pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     if let Some(value) = option {
-        format!("{:.1}", value)
+        format!("{value:.1}")
     } else {
         "-".into()
     }
@@ -397,7 +396,7 @@ pub fn view_calendar<Ms>(entries: Vec<(NaiveDate, usize, f64)>, interval: &Inter
 
     let mut weekdays: [Vec<(NaiveDate, usize, f64)>; 7] = Default::default();
     let mut months: Vec<(NaiveDate, usize)> = vec![];
-    let mut month: NaiveDate = Default::default();
+    let mut month: NaiveDate = NaiveDate::default();
     let mut num_weeks: usize = 0;
     for (i, (date, (color, opacity))) in calendar.iter().enumerate() {
         weekdays[i % 7].push((*date, *color, *opacity));
@@ -594,7 +593,7 @@ pub fn plot_dual_line_chart(
     x_min: NaiveDate,
     x_max: NaiveDate,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let (y_min, y_max, y_margin) = determine_y_bounds(
+    let (y1_min, y1_max, y1_margin) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
             .collect::<Vec<_>>(),
@@ -622,7 +621,7 @@ pub fn plot_dual_line_chart(
             .x_label_area_size(30f32)
             .y_label_area_size(40f32)
             .right_y_label_area_size(40f32)
-            .build_cartesian_2d(x_min..x_max, y_min - y_margin..y_max + y_margin)?
+            .build_cartesian_2d(x_min..x_max, y1_min - y1_margin..y1_max + y1_margin)?
             .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
 
         chart
@@ -689,14 +688,14 @@ pub fn plot_bar_chart(
     y_min_opt: Option<f32>,
     y_max_opt: Option<f32>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    let (y_min, y_max, _) = determine_y_bounds(
+    let (y1_min, y1_max, _) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
             .collect::<Vec<_>>(),
         y_min_opt,
         y_max_opt,
     );
-    let y_margin = 0.;
+    let y1_margin = 0.;
     let (y2_min, y2_max, y2_margin) = determine_y_bounds(
         secondary_data
             .iter()
@@ -720,7 +719,7 @@ pub fn plot_bar_chart(
             .right_y_label_area_size(30f32)
             .build_cartesian_2d(
                 (x_min..x_max).into_segmented(),
-                y_min - y_margin..y_max + y_margin,
+                y1_min - y1_margin..y1_max + y1_margin,
             )?
             .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
 
@@ -788,7 +787,7 @@ fn determine_y_bounds(
         y_max_opt.unwrap_or(0.),
         y.into_iter().reduce(f32::max).unwrap_or(0.),
     );
-    let y_margin = if y_min != y_max || y_min == 0. {
+    let y_margin = if (y_max - y_min).abs() > f32::EPSILON || y_min == 0. {
         (y_max - y_min) * 0.1
     } else {
         0.1
@@ -798,6 +797,7 @@ fn determine_y_bounds(
 }
 
 fn chart_width() -> u32 {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     u32::min(
         u32::max(
             window()

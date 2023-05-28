@@ -29,7 +29,7 @@ pub fn init(
             &data_model
                 .body_weight
                 .keys()
-                .cloned()
+                .copied()
                 .collect::<Vec<NaiveDate>>(),
             false,
         ),
@@ -149,7 +149,7 @@ pub fn update(
                             } else {
                                 None
                             },
-                        )
+                        );
                     }
                     Err(_) => form.weight = (weight, None),
                 }
@@ -191,7 +191,7 @@ pub fn update(
                         &data_model
                             .body_weight
                             .keys()
-                            .cloned()
+                            .copied()
                             .collect::<Vec<NaiveDate>>(),
                         false,
                     );
@@ -415,7 +415,7 @@ fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<
                     bw.date,
                     common::COLOR_BODY_WEIGHT,
                     if max > min {
-                        ((bw.weight - min) / (max - min)) as f64 * 0.8 + 0.2
+                        f64::from((bw.weight - min) / (max - min)) * 0.8 + 0.2
                     } else {
                         1.0
                     },

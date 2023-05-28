@@ -7,6 +7,7 @@ use crate::{common, data};
 //     Init
 // ------ ------
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn init(
     _url: Url,
     _orders: &mut impl Orders<Msg>,
@@ -89,7 +90,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         body_fat_content = String::new();
     } else if let Some((_, body_fat)) = &data_model.body_fat.last_key_value() {
         body_fat_subtitle = if let Some(jp3) = body_fat.jp3(sex) {
-            format!("{:.1} %", jp3)
+            format!("{jp3:.1} %")
         } else {
             String::new()
         };

@@ -24,7 +24,7 @@ check: check_frontend check_backend
 check_frontend:
 	cargo fmt --manifest-path=frontend/Cargo.toml -- --check
 	cargo check --manifest-path=frontend/Cargo.toml
-	cargo clippy --manifest-path=frontend/Cargo.toml -- --deny warnings
+	cargo clippy --manifest-path=frontend/Cargo.toml -- --warn clippy::pedantic --deny warnings
 
 check_backend: check_black check_ruff check_mypy
 

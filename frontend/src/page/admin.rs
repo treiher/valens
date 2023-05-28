@@ -87,29 +87,29 @@ pub fn update(
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddUser(ref mut user, ref mut error) => {
                 if name.trim().is_empty() {
-                    *error = ERROR_EMPTY_NAME.into()
+                    *error = ERROR_EMPTY_NAME.into();
                 } else if data_model
                     .users
                     .values()
                     .any(|u| u.name.trim() == name.trim())
                 {
-                    *error = ERROR_NAME_CONFLICT.into()
+                    *error = ERROR_NAME_CONFLICT.into();
                 } else {
-                    *error = String::new()
+                    *error = String::new();
                 }
                 user.name = name;
             }
             Dialog::EditUser(ref mut user, ref mut error) => {
                 if name.trim().is_empty() {
-                    *error = ERROR_EMPTY_NAME.into()
+                    *error = ERROR_EMPTY_NAME.into();
                 } else if data_model
                     .users
                     .values()
                     .any(|u| u.name.trim() == name.trim() && u.id != user.id)
                 {
-                    *error = ERROR_NAME_CONFLICT.into()
+                    *error = ERROR_NAME_CONFLICT.into();
                 } else {
-                    *error = String::new()
+                    *error = String::new();
                 }
                 user.name = name;
             }
@@ -307,10 +307,10 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                 p![
                     C!["help"],
                     C!["is-danger"],
-                    if !name_error.is_empty() {
-                        raw![name_error]
-                    } else {
+                    if name_error.is_empty() {
                         raw!["&nbsp;"]
+                    } else {
+                        raw![name_error]
                     }
                 ]
             ],

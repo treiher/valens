@@ -172,14 +172,17 @@ pub fn view_charts<Ms>(
     let mut weight: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
     let mut time: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
     for training_session in training_sessions {
+        #[allow(clippy::cast_precision_loss)]
         set_volume
             .entry(training_session.date)
             .and_modify(|e| *e += training_session.set_volume() as f32)
             .or_insert(training_session.set_volume() as f32);
+        #[allow(clippy::cast_precision_loss)]
         volume_load
             .entry(training_session.date)
             .and_modify(|e| *e += training_session.volume_load() as f32)
             .or_insert(training_session.volume_load() as f32);
+        #[allow(clippy::cast_precision_loss)]
         tut.entry(training_session.date)
             .and_modify(|e| *e += training_session.tut() as f32)
             .or_insert(training_session.tut() as f32);
@@ -254,6 +257,7 @@ pub fn view_charts<Ms>(
                         reps_rpe
                             .iter()
                             .map(|(date, (avg_reps, _))| {
+                                #[allow(clippy::cast_precision_loss)]
                                 (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
                             })
                             .collect::<Vec<_>>(),
@@ -263,14 +267,16 @@ pub fn view_charts<Ms>(
                         reps_rpe
                             .into_iter()
                             .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
+                                #[allow(clippy::cast_precision_loss)]
                                 let avg_reps = avg_reps_values.iter().sum::<f32>()
                                     / avg_reps_values.len() as f32;
+                                #[allow(clippy::cast_precision_loss)]
                                 let avg_rpe = avg_rpe_values.iter().sum::<f32>()
                                     / avg_rpe_values.len() as f32;
-                                if not(avg_rpe_values.is_empty()) {
-                                    Some((date, avg_reps + 10.0 - avg_rpe))
-                                } else {
+                                if avg_rpe_values.is_empty() {
                                     None
+                                } else {
+                                    Some((date, avg_reps + 10.0 - avg_rpe))
                                 }
                             })
                             .collect::<Vec<_>>(),
@@ -290,6 +296,7 @@ pub fn view_charts<Ms>(
                     weight
                         .into_iter()
                         .map(|(date, values)| {
+                            #[allow(clippy::cast_precision_loss)]
                             (date, values.iter().sum::<f32>() / values.len() as f32)
                         })
                         .collect::<Vec<_>>(),
@@ -307,6 +314,7 @@ pub fn view_charts<Ms>(
                 &[(
                     time.into_iter()
                         .map(|(date, values)| {
+                            #[allow(clippy::cast_precision_loss)]
                             (date, values.iter().sum::<f32>() / values.len() as f32)
                         })
                         .collect::<Vec<_>>(),
@@ -353,7 +361,7 @@ fn view_calendar(
                     *date,
                     common::COLOR_VOLUME_LOAD,
                     if max > min {
-                        ((volume_load - min) as f64 / (max - min) as f64) * 0.8 + 0.2
+                        (f64::from(volume_load - min) / f64::from(max - min)) * 0.8 + 0.2
                     } else {
                         1.0
                     },

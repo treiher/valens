@@ -39,7 +39,7 @@ pub fn init(
         String::from("stopwatch"),
     )];
 
-    let training_session = &data_model.training_sessions.get(&training_session_id);
+    let training_session = data_model.training_sessions.get(&training_session_id);
     let audio_context = match web_sys::AudioContext::new() {
         Ok(ctx) => Some(ctx),
         Err(err) => {
@@ -79,7 +79,7 @@ pub fn init(
     }
 }
 
-fn init_form(training_session: &Option<&data::TrainingSession>, data_model: &data::Model) -> Form {
+fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data::Model) -> Form {
     let previous_sets = previous_sets(training_session, data_model);
     if let Some(training_session) = training_session {
         let mut sections = vec![];
@@ -87,7 +87,7 @@ fn init_form(training_session: &Option<&data::TrainingSession>, data_model: &dat
         let mut position = 0;
         let mut prev_set_positions: HashMap<u32, usize> = HashMap::new();
 
-        for e in training_session.elements.iter() {
+        for e in &training_session.elements {
             match e {
                 data::TrainingSessionElement::Set {
                     exercise_id,
@@ -135,8 +135,7 @@ fn init_form(training_session: &Option<&data::TrainingSession>, data_model: &dat
                         exercise_name: data_model
                             .exercises
                             .get(exercise_id)
-                            .map(|e| e.name.clone())
-                            .unwrap_or_else(|| format!("Exercise#{exercise_id}")),
+                            .map_or_else(|| format!("Exercise#{exercise_id}"), |e| e.name.clone()),
                         reps: InputField {
                             input: reps.map(|v| v.to_string()).unwrap_or_default(),
                             valid: true,
@@ -216,7 +215,7 @@ fn init_form(training_session: &Option<&data::TrainingSession>, data_model: &dat
 }
 
 fn previous_sets(
-    training_session: &Option<&data::TrainingSession>,
+    training_session: Option<&data::TrainingSession>,
     data_model: &data::Model,
 ) -> HashMap<u32, Vec<data::TrainingSessionElement>> {
     let mut sets: HashMap<u32, Vec<data::TrainingSessionElement>> = HashMap::new();
@@ -453,7 +452,7 @@ impl Metronome {
                     ) {
                         error!("failed to play beep:", err);
                     }
-                    self.next_beat_time += self.interval as f64;
+                    self.next_beat_time += f64::from(self.interval);
                     self.beat_number += 1;
                 }
             }
@@ -513,6 +512,7 @@ impl Timer {
 
     fn update(&mut self, audio_context: &Option<web_sys::AudioContext>) {
         if let Some(target_time) = self.target_time {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
             let time = (target_time
                 .signed_duration_since(Utc::now())
                 .num_milliseconds() as f64
@@ -934,7 +934,7 @@ pub fn update(
                 | data::Event::TrainingSessionModifiedOk
                 | data::Event::TrainingSessionModifiedErr => {
                     model.form = init_form(
-                        &data_model.training_sessions.get(&model.training_session_id),
+                        data_model.training_sessions.get(&model.training_session_id),
                         data_model,
                     );
                     model.loading = false;
@@ -977,10 +977,10 @@ pub fn update(
             update_streams(model, orders);
         }
         Msg::MetronomeIntervalChanged(interval) => {
-            model.timer_dialog.metronome.interval = interval.parse::<u32>().unwrap_or(1)
+            model.timer_dialog.metronome.interval = interval.parse::<u32>().unwrap_or(1);
         }
         Msg::MetronomeStressChanged(stressed_beat) => {
-            model.timer_dialog.metronome.stressed_beat = stressed_beat.parse::<u32>().unwrap_or(1)
+            model.timer_dialog.metronome.stressed_beat = stressed_beat.parse::<u32>().unwrap_or(1);
         }
 
         Msg::StartPauseTimer => {
@@ -1032,7 +1032,7 @@ fn update_guide_timer(model: &mut Model) {
             FormSection::Set { exercises } => {
                 let exercise = &exercises[0];
                 if let Some(target_time) = exercise.target_time {
-                    guide.timer.set(target_time as i64);
+                    guide.timer.set(i64::from(target_time));
                     if exercise.automatic {
                         guide.timer.start();
                     }
@@ -1040,7 +1040,7 @@ fn update_guide_timer(model: &mut Model) {
             }
             FormSection::Rest { target_time, .. } => {
                 if *target_time > 0 {
-                    guide.timer.set(*target_time as i64);
+                    guide.timer.set(i64::from(*target_time));
                     guide.timer.start();
                 }
             }
@@ -1136,11 +1136,10 @@ fn view_table(training_session: &data::TrainingSession, data_model: &data::Model
                                                 .add_hash_path_part(exercise_id.to_string())
                                         }
                                     },
-                                    data_model
-                                        .exercises
-                                        .get(exercise_id)
-                                        .map(|e| e.name.clone())
-                                        .unwrap_or_else(|| format!("Exercise#{exercise_id}")),
+                                    data_model.exercises.get(exercise_id).map_or_else(
+                                        || format!("Exercise#{exercise_id}"),
+                                        |e| e.name.clone()
+                                    )
                                 ]],
                                 td![
                                     C!["is-vcentered"],
@@ -1164,10 +1163,10 @@ fn view_table(training_session: &data::TrainingSession, data_model: &data::Model
 
 fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
     if let Some(notes) = &training_session.notes {
-        if not(notes.is_empty()) {
-            div![C!["m-3"], h1![C!["title"], C!["is-5"], "Notes"], p![notes]]
-        } else {
+        if notes.is_empty() {
             empty![]
+        } else {
+            div![C!["m-3"], h1![C!["title"], C!["is-5"], "Notes"], p![notes]]
         }
     } else {
         empty![]
@@ -1191,7 +1190,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                         ev(Ev::Click, |_| Msg::GoToPreviousSection),
                         span![C!["icon"], i![C!["fas fa-angles-up"]]]
                     ]
-                ])
+                ]);
             }
         }
 
@@ -1552,7 +1551,11 @@ fn view_timer_dialog(dialog: &SMTDialog) -> Node<Msg> {
                         C!["p-5"],
                         p![C!["title"], C!["is-size-1"],
                         ev(Ev::Click, |_| Msg::ToggleStopwatch),
-                        format!("{:.1}", dialog.stopwatch.time as f64 / 1000.)],
+                        {
+                            #[allow(clippy::cast_precision_loss)]
+                            let time = dialog.stopwatch.time as f64 / 1000.;
+                            format!("{time:.1}")
+                        }],
                         button![
                             C!["button"],
                             C!["mt-1"],

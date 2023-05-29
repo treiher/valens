@@ -1230,6 +1230,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                         C!["message"],
                         C!["is-info"],
                         C!["has-background-white-bis"],
+                        IF![model.guide.as_ref().map_or(false, |guide| guide.section_idx != section_idx) => C!["is-semitransparent"]],
                         div![
                             C!["message-body"],
                             C!["p-3"],
@@ -1429,6 +1430,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                     C!["message"],
                     C!["is-success"],
                     C!["has-background-white-bis"],
+                    IF![model.guide.as_ref().map_or(false, |guide| guide.section_idx != section_idx) => C!["is-semitransparent"]],
                     div![
                         C!["message-body"],
                         C!["p-3"],

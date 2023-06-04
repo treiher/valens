@@ -46,6 +46,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
             total_set_volume_per_week: Vec::new(),
         },
         beep_volume: 80,
+        ongoing_training_session: None,
     }
 }
 
@@ -87,6 +88,7 @@ pub struct Model {
 
     // ------ Client-side data ------
     pub beep_volume: u8,
+    pub ongoing_training_session: Option<OngoingTrainingSession>,
 }
 
 #[derive(serde::Deserialize, Debug, Clone)]
@@ -244,6 +246,22 @@ pub enum TrainingSessionElement {
         target_time: Option<u32>,
         automatic: bool,
     },
+}
+
+#[derive(Clone)]
+pub struct OngoingTrainingSession {
+    pub training_session_id: u32,
+    pub start_time: DateTime<Utc>,
+    pub section_idx: usize,
+    pub section_start_time: DateTime<Utc>,
+    pub timer_state: TimerState,
+}
+
+#[derive(Clone, Copy)]
+pub enum TimerState {
+    Unset,
+    Active { target_time: DateTime<Utc> },
+    Paused { time: i64 },
 }
 
 impl BodyFat {
@@ -496,6 +514,18 @@ impl TrainingSession {
             })
             .collect::<Vec<_>>();
         sets.iter().sum::<u32>()
+    }
+}
+
+impl OngoingTrainingSession {
+    pub fn new(training_session_id: u32) -> OngoingTrainingSession {
+        OngoingTrainingSession {
+            training_session_id,
+            start_time: Utc::now(),
+            section_idx: 0,
+            section_start_time: Utc::now(),
+            timer_state: TimerState::Unset,
+        }
     }
 }
 
@@ -804,6 +834,10 @@ pub enum Msg {
     TrainingSessionDeleted(Result<u32, String>),
 
     SetBeepVolume(u8),
+
+    StartTrainingSession(u32),
+    UpdateTrainingSession(usize, TimerState),
+    EndTrainingSession,
 }
 
 #[derive(Clone)]
@@ -1623,6 +1657,20 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::SetBeepVolume(value) => {
             model.beep_volume = value;
             orders.notify(Event::BeepVolumeChanged);
+        }
+
+        Msg::StartTrainingSession(training_session_id) => {
+            model.ongoing_training_session = Some(OngoingTrainingSession::new(training_session_id));
+        }
+        Msg::UpdateTrainingSession(section_idx, timer_state) => {
+            if let Some(ongoing_training_session) = &mut model.ongoing_training_session {
+                ongoing_training_session.section_idx = section_idx;
+                ongoing_training_session.section_start_time = Utc::now();
+                ongoing_training_session.timer_state = timer_state;
+            }
+        }
+        Msg::EndTrainingSession => {
+            model.ongoing_training_session = None;
         }
     }
 }

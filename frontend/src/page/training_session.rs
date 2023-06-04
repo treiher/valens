@@ -48,6 +48,14 @@ pub fn init(
         }
     };
 
+    if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
+        if ongoing_training_session.training_session_id == training_session_id {
+            orders.send_msg(Msg::ContinueGuidedTrainingSession(
+                ongoing_training_session.clone(),
+            ));
+        }
+    }
+
     Model {
         training_session_id,
         form: init_form(training_session, data_model),
@@ -260,7 +268,7 @@ pub struct Model {
 
 impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
-        self.form.changed() || self.guide.is_some()
+        self.form.changed()
     }
 }
 
@@ -353,13 +361,21 @@ impl Guide {
         Guide {
             section_idx: 0,
             section_start_time: Utc::now(),
-            timer: Timer {
-                time: (String::new(), None),
-                reset_time: 0,
-                target_time: None,
-                beep_time: 0.,
-                beep_volume,
-            },
+            timer: Timer::new(beep_volume),
+            stream: None,
+            element: ElRef::new(),
+        }
+    }
+
+    fn from_ongoing_training_session(
+        section_idx: usize,
+        section_start_time: DateTime<Utc>,
+        beep_volume: u8,
+    ) -> Guide {
+        Guide {
+            section_idx,
+            section_start_time,
+            timer: Timer::new(beep_volume),
             stream: None,
             element: ElRef::new(),
         }
@@ -474,6 +490,16 @@ struct Timer {
 }
 
 impl Timer {
+    fn new(beep_volume: u8) -> Timer {
+        Timer {
+            time: (String::new(), None),
+            reset_time: 0,
+            target_time: None,
+            beep_time: 0.,
+            beep_volume,
+        }
+    }
+
     fn is_set(&self) -> bool {
         self.reset_time > 0
     }
@@ -546,6 +572,36 @@ impl Timer {
             self.time = (time.to_string(), Some(time));
         }
     }
+
+    fn to_timer_state(&self) -> data::TimerState {
+        if self.is_active() {
+            data::TimerState::Active {
+                target_time: self.target_time.unwrap_or(Utc::now()),
+            }
+        } else if self.is_set() {
+            data::TimerState::Paused {
+                time: self.time.1.unwrap_or(0),
+            }
+        } else {
+            data::TimerState::Unset
+        }
+    }
+
+    fn restore(&mut self, timer_state: data::TimerState) {
+        match timer_state {
+            data::TimerState::Unset => {
+                self.unset();
+            }
+            data::TimerState::Active { target_time } => {
+                self.set((target_time - Utc::now()).num_seconds());
+                self.start();
+            }
+            data::TimerState::Paused { time } => {
+                self.set(time);
+                self.pause();
+            }
+        }
+    }
 }
 
 fn play_beep(
@@ -581,6 +637,7 @@ pub enum Msg {
     EnterPreviousValues(usize, usize),
 
     StartGuidedTrainingSession,
+    ContinueGuidedTrainingSession(data::OngoingTrainingSession),
     UpdateGuidedTrainingSession,
     StartPauseGuideTimer,
     GoToPreviousSection,
@@ -803,6 +860,34 @@ pub fn update(
             model.guide = Some(Guide::new(data_model.beep_volume));
             update_guide_timer(model);
             update_streams(model, orders);
+            orders.notify(data::Msg::StartTrainingSession(model.training_session_id));
+            if let Some(guide) = &model.guide {
+                orders.notify(data::Msg::UpdateTrainingSession(
+                    guide.section_idx,
+                    guide.timer.to_timer_state(),
+                ));
+            }
+            Url::go_and_push(
+                &crate::Urls::new(&data_model.base_url)
+                    .training_session()
+                    .add_hash_path_part(model.training_session_id.to_string())
+                    .add_hash_path_part("guide"),
+            );
+        }
+        Msg::ContinueGuidedTrainingSession(ongoing_training_session) => {
+            model.guide = Some(Guide::from_ongoing_training_session(
+                ongoing_training_session.section_idx,
+                ongoing_training_session.section_start_time,
+                data_model.beep_volume,
+            ));
+            model
+                .guide
+                .as_mut()
+                .unwrap()
+                .timer
+                .restore(ongoing_training_session.timer_state);
+            update_streams(model, orders);
+            orders.force_render_now().send_msg(Msg::ScrollToSection);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
@@ -846,6 +931,10 @@ pub fn update(
         Msg::StartPauseGuideTimer => {
             if let Some(guide) = &mut model.guide {
                 guide.timer.start_pause();
+                orders.notify(data::Msg::UpdateTrainingSession(
+                    guide.section_idx,
+                    guide.timer.to_timer_state(),
+                ));
             }
             update_streams(model, orders);
         }
@@ -856,6 +945,14 @@ pub fn update(
             }
             update_guide_timer(model);
             update_streams(model, orders);
+            if let Some(guide) = &mut model.guide {
+                if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
+                    orders.notify(data::Msg::UpdateTrainingSession(
+                        ongoing_training_session.section_idx - 1,
+                        guide.timer.to_timer_state(),
+                    ));
+                }
+            }
             orders.force_render_now().send_msg(Msg::ScrollToSection);
         }
         Msg::GoToNextSection => {
@@ -863,12 +960,21 @@ pub fn update(
                 guide.section_idx += 1;
                 if guide.section_idx == model.form.sections.len() {
                     model.guide = None;
+                    orders.notify(data::Msg::EndTrainingSession);
                 } else {
                     guide.section_start_time = Utc::now();
                 }
             }
             update_guide_timer(model);
             update_streams(model, orders);
+            if let Some(guide) = &mut model.guide {
+                if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
+                    orders.notify(data::Msg::UpdateTrainingSession(
+                        ongoing_training_session.section_idx + 1,
+                        guide.timer.to_timer_state(),
+                    ));
+                }
+            }
             orders
                 .force_render_now()
                 .send_msg(Msg::UpdateGuidedTrainingSession)
@@ -1046,11 +1152,12 @@ fn update_guide_timer(model: &mut Model) {
 
     if let Some(guide) = &mut model.guide {
         guide.timer.unset();
+        let elapsed_time = (Utc::now() - guide.section_start_time).num_seconds();
         match &model.form.sections[guide.section_idx] {
             FormSection::Set { exercises } => {
                 let exercise = &exercises[0];
                 if let Some(target_time) = exercise.target_time {
-                    guide.timer.set(i64::from(target_time));
+                    guide.timer.set(i64::from(target_time) - elapsed_time);
                     if exercise.automatic {
                         guide.timer.start();
                     }
@@ -1058,7 +1165,7 @@ fn update_guide_timer(model: &mut Model) {
             }
             FormSection::Rest { target_time, .. } => {
                 if *target_time > 0 {
-                    guide.timer.set(i64::from(*target_time));
+                    guide.timer.set(i64::from(*target_time) - elapsed_time);
                     guide.timer.start();
                 }
             }
@@ -1219,8 +1326,8 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                 form.push(
                     div![
                         if let Some(guide) = &model.guide {
-                            if guide.section_idx == section_idx && section_idx != 0 {
-                                    el_ref(&guide.element)
+                            if guide.section_idx == section_idx {
+                                el_ref(&guide.element)
                             } else {
                                 el_ref(&ElRef::new())
                             }
@@ -1419,7 +1526,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
             } => {
                 form.push(div![
                     if let Some(guide) = &model.guide {
-                        if guide.section_idx == section_idx && section_idx != 0 {
+                        if guide.section_idx == section_idx {
                             el_ref(&guide.element)
                         } else {
                             el_ref(&ElRef::new())

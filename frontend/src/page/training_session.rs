@@ -1047,13 +1047,16 @@ pub fn update(
         }
         Msg::DataEvent(event) => {
             match event {
-                data::Event::DataChanged
-                | data::Event::TrainingSessionModifiedOk
-                | data::Event::TrainingSessionModifiedErr => {
+                data::Event::DataChanged | data::Event::TrainingSessionModifiedOk => {
                     model.form = init_form(
                         data_model.training_sessions.get(&model.training_session_id),
                         data_model,
                     );
+                    model.loading = false;
+                    update_guide_timer(model);
+                    update_streams(model, orders);
+                }
+                data::Event::TrainingSessionModifiedErr => {
                     model.loading = false;
                     update_guide_timer(model);
                     update_streams(model, orders);

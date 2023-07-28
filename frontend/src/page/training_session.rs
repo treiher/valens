@@ -24,7 +24,7 @@ pub fn init(
     let action = url.next_hash_path_part();
     let editing = action == Some("edit");
     let guide = if action == Some("guide") {
-        Some(Guide::new(data_model.beep_volume))
+        Some(Guide::new(data_model.settings.beep_volume))
     } else {
         None
     };
@@ -72,14 +72,14 @@ pub fn init(
                 beat_number: 0,
                 next_beat_time: 0.,
                 is_active: false,
-                beep_volume: data_model.beep_volume,
+                beep_volume: data_model.settings.beep_volume,
             },
             timer: Timer {
                 time: (String::from("60"), Some(60)),
                 reset_time: 60,
                 target_time: None,
                 beep_time: 0.,
-                beep_volume: data_model.beep_volume,
+                beep_volume: data_model.settings.beep_volume,
             },
         },
         timer_stream: None,
@@ -857,7 +857,7 @@ pub fn update(
         }
 
         Msg::StartGuidedTrainingSession => {
-            model.guide = Some(Guide::new(data_model.beep_volume));
+            model.guide = Some(Guide::new(data_model.settings.beep_volume));
             update_guide_timer(model);
             update_streams(model, orders);
             orders.notify(data::Msg::StartTrainingSession(model.training_session_id));
@@ -878,7 +878,7 @@ pub fn update(
             model.guide = Some(Guide::from_ongoing_training_session(
                 ongoing_training_session.section_idx,
                 ongoing_training_session.section_start_time,
-                data_model.beep_volume,
+                data_model.settings.beep_volume,
             ));
             model
                 .guide
@@ -1062,10 +1062,10 @@ pub fn update(
                     update_streams(model, orders);
                 }
                 data::Event::BeepVolumeChanged => {
-                    model.timer_dialog.metronome.beep_volume = data_model.beep_volume;
-                    model.timer_dialog.timer.beep_volume = data_model.beep_volume;
+                    model.timer_dialog.metronome.beep_volume = data_model.settings.beep_volume;
+                    model.timer_dialog.timer.beep_volume = data_model.settings.beep_volume;
                     if let Some(guide) = &mut model.guide {
-                        guide.timer.beep_volume = data_model.beep_volume;
+                        guide.timer.beep_volume = data_model.settings.beep_volume;
                     }
                 }
                 _ => {}

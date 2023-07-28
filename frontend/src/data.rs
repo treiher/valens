@@ -2,10 +2,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::iter::zip;
 
 use chrono::{prelude::*, Duration};
+use gloo_storage::Storage;
 use seed::prelude::*;
 use serde_json::{json, Map};
 
 use crate::common;
+
+const STORAGE_KEY_SETTINGS: &str = "settings";
+const STORAGE_KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
 
 // ------ ------
 //     Init
@@ -13,6 +17,10 @@ use crate::common;
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
+    let settings = gloo_storage::LocalStorage::get(STORAGE_KEY_SETTINGS)
+        .unwrap_or(Settings { beep_volume: 80 });
+    let ongoing_training_session =
+        gloo_storage::LocalStorage::get(STORAGE_KEY_ONGOING_TRAINING_SESSION).unwrap_or(None);
     Model {
         base_url: url.to_hash_base_url(),
         errors: Vec::new(),
@@ -45,8 +53,8 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
             avg_rpe_per_week: Vec::new(),
             total_set_volume_per_week: Vec::new(),
         },
-        beep_volume: 80,
-        ongoing_training_session: None,
+        settings,
+        ongoing_training_session,
     }
 }
 
@@ -87,7 +95,7 @@ pub struct Model {
     pub training_stats: TrainingStats,
 
     // ------ Client-side data ------
-    pub beep_volume: u8,
+    pub settings: Settings,
     pub ongoing_training_session: Option<OngoingTrainingSession>,
 }
 
@@ -248,7 +256,12 @@ pub enum TrainingSessionElement {
     },
 }
 
-#[derive(Clone)]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Settings {
+    pub beep_volume: u8,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct OngoingTrainingSession {
     pub training_session_id: u32,
     pub start_time: DateTime<Utc>,
@@ -257,7 +270,7 @@ pub struct OngoingTrainingSession {
     pub timer_state: TimerState,
 }
 
-#[derive(Clone, Copy)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
 pub enum TimerState {
     Unset,
     Active { target_time: DateTime<Utc> },
@@ -1655,12 +1668,18 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::SetBeepVolume(value) => {
-            model.beep_volume = value;
+            model.settings.beep_volume = value;
+            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
             orders.notify(Event::BeepVolumeChanged);
         }
 
         Msg::StartTrainingSession(training_session_id) => {
             model.ongoing_training_session = Some(OngoingTrainingSession::new(training_session_id));
+            local_storage_set(
+                STORAGE_KEY_ONGOING_TRAINING_SESSION,
+                &model.ongoing_training_session,
+                &mut model.errors,
+            );
         }
         Msg::UpdateTrainingSession(section_idx, timer_state) => {
             if let Some(ongoing_training_session) = &mut model.ongoing_training_session {
@@ -1668,9 +1687,19 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 ongoing_training_session.section_start_time = Utc::now();
                 ongoing_training_session.timer_state = timer_state;
             }
+            local_storage_set(
+                STORAGE_KEY_ONGOING_TRAINING_SESSION,
+                &model.ongoing_training_session,
+                &mut model.errors,
+            );
         }
         Msg::EndTrainingSession => {
             model.ongoing_training_session = None;
+            local_storage_set(
+                STORAGE_KEY_ONGOING_TRAINING_SESSION,
+                &model.ongoing_training_session,
+                &mut model.errors,
+            );
         }
     }
 }
@@ -1705,6 +1734,12 @@ async fn fetch_no_content<'a, Ms, T>(
             Err(error) => message(Err(format!("unexpected response: {error:?}"))),
         },
         Err(_) => message(Err("no connection".into())),
+    }
+}
+
+fn local_storage_set<T: serde::Serialize>(key: &str, value: &T, errors: &mut Vec<String>) {
+    if let Err(message) = gloo_storage::LocalStorage::set(key, value) {
+        errors.push(format!("Failed to store {key} in local storage: {message}"));
     }
 }
 

@@ -642,7 +642,7 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                 C!["is-info"],
                 attrs! {
                     At::Type => "range",
-                    At::Value => data_model.beep_volume,
+                    At::Value => data_model.settings.beep_volume,
                     At::Min => 0,
                     At::Max => 100,
                     At::Step => 10,

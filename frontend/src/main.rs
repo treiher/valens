@@ -306,7 +306,6 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.settings_dialog_visible = false;
         }
         Msg::BeepVolumeChanged(input) => {
-            log!("range changed", input);
             if let Ok(value) = input.parse::<u8>() {
                 orders.send_msg(Msg::Data(data::Msg::SetBeepVolume(value)));
             }

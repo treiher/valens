@@ -1159,6 +1159,9 @@ fn update_guide_timer(model: &mut Model) {
         match &model.form.sections[guide.section_idx] {
             FormSection::Set { exercises } => {
                 let exercise = &exercises[0];
+                if exercise.target_reps.is_some() {
+                    return;
+                }
                 if let Some(target_time) = exercise.target_time {
                     guide.timer.set(i64::from(target_time) - elapsed_time);
                     if exercise.automatic {

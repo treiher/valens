@@ -243,6 +243,7 @@ enum Msg {
     ShowSettingsDialog,
     CloseSettingsDialog,
     BeepVolumeChanged(String),
+    EnableNotifications,
     GoUp,
     LogOut,
 
@@ -309,6 +310,19 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             if let Ok(value) = input.parse::<u8>() {
                 orders.send_msg(Msg::Data(data::Msg::SetBeepVolume(value)));
             }
+        }
+        Msg::EnableNotifications => {
+            orders.skip().perform_cmd(async {
+                if let Ok(promise) = web_sys::Notification::request_permission() {
+                    if let Ok(result) = wasm_bindgen_futures::JsFuture::from(promise).await {
+                        if let Some(string) = result.as_string() {
+                            if string == "granted" {
+                                web_sys::Notification::new("Notifications enabled").ok();
+                            }
+                        }
+                    }
+                }
+            });
         }
         Msg::GoUp => match &model.page {
             Some(Page::Home(_) | Page::Login(_)) => {}
@@ -633,22 +647,44 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
     common::view_dialog(
         "primary",
         "Settings",
-        nodes![p![
-            h1![C!["subtitle"], "Beep volume"],
-            input![
-                C!["slider"],
-                C!["is-fullwidth"],
-                C!["is-info"],
-                attrs! {
-                    At::Type => "range",
-                    At::Value => data_model.settings.beep_volume,
-                    At::Min => 0,
-                    At::Max => 100,
-                    At::Step => 10,
-                },
-                input_ev(Ev::Input, Msg::BeepVolumeChanged),
-            ]
-        ]],
+        nodes![
+            p![
+                h1![C!["subtitle"], "Beep volume"],
+                input![
+                    C!["slider"],
+                    C!["is-fullwidth"],
+                    C!["is-info"],
+                    attrs! {
+                        At::Type => "range",
+                        At::Value => data_model.settings.beep_volume,
+                        At::Min => 0,
+                        At::Max => 100,
+                        At::Step => 10,
+                    },
+                    input_ev(Ev::Input, Msg::BeepVolumeChanged),
+                ]
+            ],
+            {
+                let permission = web_sys::Notification::permission();
+                p![
+                    h1![C!["subtitle"], "Notifications"],
+                    button![
+                        C!["button"],
+                        match permission {
+                            web_sys::NotificationPermission::Granted => C!["is-primary"],
+                            web_sys::NotificationPermission::Denied => C!["is-danger"],
+                            _ => C![],
+                        },
+                        ev(Ev::Click, |_| Msg::EnableNotifications),
+                        match permission {
+                            web_sys::NotificationPermission::Granted => "Granted",
+                            web_sys::NotificationPermission::Denied => "Denied",
+                            _ => "Enable",
+                        },
+                    ],
+                ]
+            }
+        ],
         &ev(Ev::Click, |_| Msg::CloseSettingsDialog),
     )
 }

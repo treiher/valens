@@ -86,6 +86,7 @@ pub fn init(
         audio_context,
         editing,
         loading: false,
+        notification: None,
     }
 }
 
@@ -264,11 +265,23 @@ pub struct Model {
     audio_context: Option<web_sys::AudioContext>,
     editing: bool,
     loading: bool,
+    notification: Option<web_sys::Notification>,
 }
 
 impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
         self.form.changed()
+    }
+
+    pub fn show_notification(&mut self, title: &str, body: Option<String>) {
+        if let Some(notification) = &self.notification {
+            notification.close();
+        }
+        let mut options = web_sys::NotificationOptions::new();
+        if let Some(body) = body {
+            options.body(&body);
+        }
+        self.notification = web_sys::Notification::new_with_options(title, &options).ok();
     }
 }
 
@@ -963,6 +976,43 @@ pub fn update(
                     orders.notify(data::Msg::EndTrainingSession);
                 } else {
                     guide.section_start_time = Utc::now();
+
+                    let title;
+                    let body;
+                    match &model.form.sections[guide.section_idx] {
+                        FormSection::Set { exercises } => {
+                            let exercise = &exercises[0];
+                            title = exercise.exercise_name.clone();
+                            let mut previously = format_set(
+                                exercise.prev_reps,
+                                exercise.prev_time,
+                                exercise.prev_weight,
+                                exercise.prev_rpe,
+                            );
+                            if not(previously.is_empty()) {
+                                previously = format!("Previously:\n{previously}\n");
+                            }
+                            let mut target = format_set(
+                                exercise.target_reps,
+                                exercise.target_time,
+                                exercise.target_weight,
+                                exercise.target_rpe,
+                            );
+                            if not(target.is_empty()) {
+                                target = format!("Target:\n{target}\n");
+                            }
+                            body = Some(format!("{previously}{target}"));
+                        }
+                        FormSection::Rest { target_time, .. } => {
+                            title = String::from("Rest");
+                            body = if *target_time > 0 {
+                                Some(format!("{target_time} s"))
+                            } else {
+                                None
+                            };
+                        }
+                    }
+                    model.show_notification(&title, body);
                 }
             }
             update_guide_timer(model);

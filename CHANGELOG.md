@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interval button for showing all values
 - Display of interval bounds
 - Beeps when timer expires
+- Automatic metronome
 - Notifications when going to next section of training session (not supported by Chrome Android)
 - Compact overview of recorded training sets
 - Adjustable beep volume

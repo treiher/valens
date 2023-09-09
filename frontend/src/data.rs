@@ -17,8 +17,10 @@ const STORAGE_KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
 
 #[allow(clippy::needless_pass_by_value)]
 pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
-    let settings = gloo_storage::LocalStorage::get(STORAGE_KEY_SETTINGS)
-        .unwrap_or(Settings { beep_volume: 80 });
+    let settings = gloo_storage::LocalStorage::get(STORAGE_KEY_SETTINGS).unwrap_or(Settings {
+        beep_volume: 80,
+        automatic_metronome: true,
+    });
     let ongoing_training_session =
         gloo_storage::LocalStorage::get(STORAGE_KEY_ONGOING_TRAINING_SESSION).unwrap_or(None);
     Model {
@@ -259,6 +261,7 @@ pub enum TrainingSessionElement {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Settings {
     pub beep_volume: u8,
+    pub automatic_metronome: bool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -847,6 +850,7 @@ pub enum Msg {
     TrainingSessionDeleted(Result<u32, String>),
 
     SetBeepVolume(u8),
+    SetAutomaticMetronome(bool),
 
     StartTrainingSession(u32),
     UpdateTrainingSession(usize, TimerState),
@@ -1671,6 +1675,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.settings.beep_volume = value;
             local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
             orders.notify(Event::BeepVolumeChanged);
+        }
+        Msg::SetAutomaticMetronome(value) => {
+            model.settings.automatic_metronome = value;
+            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
         }
 
         Msg::StartTrainingSession(training_session_id) => {

@@ -457,15 +457,23 @@ impl Metronome {
         self.is_active
     }
 
+    fn start(&mut self, audio_context: &Option<web_sys::AudioContext>) {
+        self.is_active = true;
+        if let Some(audio_context) = audio_context {
+            self.beat_number = 0;
+            self.next_beat_time = audio_context.current_time() + 0.5;
+        }
+    }
+
+    fn pause(&mut self) {
+        self.is_active = false;
+    }
+
     fn start_pause(&mut self, audio_context: &Option<web_sys::AudioContext>) {
         if self.is_active() {
-            self.is_active = false;
+            self.pause();
         } else {
-            self.is_active = true;
-            if let Some(audio_context) = audio_context {
-                self.beat_number = 0;
-                self.next_beat_time = audio_context.current_time() + 0.5;
-            }
+            self.start(audio_context);
         }
     }
 
@@ -669,6 +677,8 @@ pub enum Msg {
     ResetStopwatch,
     ToggleStopwatch,
 
+    StartMetronome(u32),
+    PauseMetronome,
     StartPauseMetronome,
     MetronomeIntervalChanged(String),
     MetronomeStressChanged(String),
@@ -875,6 +885,9 @@ pub fn update(
             update_streams(model, orders);
             orders.notify(data::Msg::StartTrainingSession(model.training_session_id));
             if let Some(guide) = &model.guide {
+                if data_model.settings.automatic_metronome {
+                    update_metronome(&model.form.sections[guide.section_idx], orders);
+                }
                 orders.notify(data::Msg::UpdateTrainingSession(
                     guide.section_idx,
                     guide.timer.to_timer_state(),
@@ -899,6 +912,13 @@ pub fn update(
                 .unwrap()
                 .timer
                 .restore(ongoing_training_session.timer_state);
+            if let Some(guide) = &model.guide {
+                if data_model.settings.automatic_metronome
+                    && guide.section_idx < model.form.sections.len()
+                {
+                    update_metronome(&model.form.sections[guide.section_idx], orders);
+                }
+            }
             update_streams(model, orders);
             orders.force_render_now().send_msg(Msg::ScrollToSection);
             Url::go_and_push(
@@ -959,6 +979,9 @@ pub fn update(
             update_guide_timer(model);
             update_streams(model, orders);
             if let Some(guide) = &mut model.guide {
+                if data_model.settings.automatic_metronome {
+                    update_metronome(&model.form.sections[guide.section_idx], orders);
+                }
                 if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
                     orders.notify(data::Msg::UpdateTrainingSession(
                         ongoing_training_session.section_idx - 1,
@@ -973,9 +996,15 @@ pub fn update(
                 guide.section_idx += 1;
                 if guide.section_idx == model.form.sections.len() {
                     model.guide = None;
-                    orders.notify(data::Msg::EndTrainingSession);
+                    orders
+                        .send_msg(Msg::PauseMetronome)
+                        .notify(data::Msg::EndTrainingSession);
                 } else {
                     guide.section_start_time = Utc::now();
+
+                    if data_model.settings.automatic_metronome {
+                        update_metronome(&model.form.sections[guide.section_idx], orders);
+                    }
 
                     let title;
                     let body;
@@ -1012,6 +1041,7 @@ pub fn update(
                             };
                         }
                     }
+
                     model.show_notification(&title, body);
                 }
             }
@@ -1146,6 +1176,16 @@ pub fn update(
             update_streams(model, orders);
         }
 
+        Msg::StartMetronome(interval) => {
+            model.timer_dialog.metronome.interval = interval;
+            model.timer_dialog.metronome.stressed_beat = 1;
+            model.timer_dialog.metronome.start(&model.audio_context);
+            update_streams(model, orders);
+        }
+        Msg::PauseMetronome => {
+            model.timer_dialog.metronome.pause();
+            update_streams(model, orders);
+        }
         Msg::StartPauseMetronome => {
             model
                 .timer_dialog
@@ -1225,6 +1265,22 @@ fn update_guide_timer(model: &mut Model) {
                     guide.timer.start();
                 }
             }
+        }
+    }
+}
+
+fn update_metronome(form_section: &FormSection, orders: &mut impl Orders<Msg>) {
+    match form_section {
+        FormSection::Set { exercises } => {
+            let exercise = &exercises[0];
+            if exercise.target_reps.is_some() {
+                if let Some(target_time) = exercise.target_time {
+                    orders.send_msg(Msg::StartMetronome(target_time));
+                }
+            }
+        }
+        FormSection::Rest { .. } => {
+            orders.send_msg(Msg::PauseMetronome);
         }
     }
 }

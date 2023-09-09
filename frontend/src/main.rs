@@ -243,6 +243,7 @@ enum Msg {
     ShowSettingsDialog,
     CloseSettingsDialog,
     BeepVolumeChanged(String),
+    ToggleAutomaticMetronome,
     EnableNotifications,
     GoUp,
     LogOut,
@@ -310,6 +311,12 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             if let Ok(value) = input.parse::<u8>() {
                 orders.send_msg(Msg::Data(data::Msg::SetBeepVolume(value)));
             }
+        }
+        Msg::ToggleAutomaticMetronome => {
+            orders.send_msg(Msg::Data(data::Msg::SetAutomaticMetronome(not(model
+                .data
+                .settings
+                .automatic_metronome))));
         }
         Msg::EnableNotifications => {
             orders.skip().perform_cmd(async {
@@ -663,6 +670,24 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                     },
                     input_ev(Ev::Input, Msg::BeepVolumeChanged),
                 ]
+            ],
+            p![
+                C!["mb-5"],
+                h1![C!["subtitle"], "Metronome"],
+                button![
+                    C!["button"],
+                    if data_model.settings.automatic_metronome {
+                        C!["is-primary"]
+                    } else {
+                        C!["is-danger"]
+                    },
+                    ev(Ev::Click, |_| Msg::ToggleAutomaticMetronome),
+                    if data_model.settings.automatic_metronome {
+                        "Automatic"
+                    } else {
+                        "Manual"
+                    },
+                ],
             ],
             {
                 let permission = web_sys::Notification::permission();

@@ -272,16 +272,11 @@ impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
         self.form.changed()
     }
+}
 
-    pub fn show_notification(&mut self, title: &str, body: Option<String>) {
-        if let Some(notification) = &self.notification {
-            notification.close();
-        }
-        let mut options = web_sys::NotificationOptions::new();
-        if let Some(body) = body {
-            options.body(&body);
-        }
-        self.notification = web_sys::Notification::new_with_options(title, &options).ok();
+impl Drop for Model {
+    fn drop(&mut self) {
+        close_notification(self);
     }
 }
 
@@ -893,6 +888,7 @@ pub fn update(
                     guide.timer.to_timer_state(),
                 ));
             }
+            show_section_notification(model);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
@@ -920,6 +916,7 @@ pub fn update(
                 }
             }
             update_streams(model, orders);
+            show_section_notification(model);
             orders.force_render_now().send_msg(Msg::ScrollToSection);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
@@ -989,6 +986,7 @@ pub fn update(
                     ));
                 }
             }
+            close_notification(model);
             orders.force_render_now().send_msg(Msg::ScrollToSection);
         }
         Msg::GoToNextSection => {
@@ -996,6 +994,7 @@ pub fn update(
                 guide.section_idx += 1;
                 if guide.section_idx == model.form.sections.len() {
                     model.guide = None;
+                    close_notification(model);
                     orders
                         .send_msg(Msg::PauseMetronome)
                         .notify(data::Msg::EndTrainingSession);
@@ -1006,43 +1005,7 @@ pub fn update(
                         update_metronome(&model.form.sections[guide.section_idx], orders);
                     }
 
-                    let title;
-                    let body;
-                    match &model.form.sections[guide.section_idx] {
-                        FormSection::Set { exercises } => {
-                            let exercise = &exercises[0];
-                            title = exercise.exercise_name.clone();
-                            let mut previously = format_set(
-                                exercise.prev_reps,
-                                exercise.prev_time,
-                                exercise.prev_weight,
-                                exercise.prev_rpe,
-                            );
-                            if not(previously.is_empty()) {
-                                previously = format!("Previously:\n{previously}\n");
-                            }
-                            let mut target = format_set(
-                                exercise.target_reps,
-                                exercise.target_time,
-                                exercise.target_weight,
-                                exercise.target_rpe,
-                            );
-                            if not(target.is_empty()) {
-                                target = format!("Target:\n{target}\n");
-                            }
-                            body = Some(format!("{previously}{target}"));
-                        }
-                        FormSection::Rest { target_time, .. } => {
-                            title = String::from("Rest");
-                            body = if *target_time > 0 {
-                                Some(format!("{target_time} s"))
-                            } else {
-                                None
-                            };
-                        }
-                    }
-
-                    model.show_notification(&title, body);
+                    show_section_notification(model);
                 }
             }
             update_guide_timer(model);
@@ -1281,6 +1244,67 @@ fn update_metronome(form_section: &FormSection, orders: &mut impl Orders<Msg>) {
         }
         FormSection::Rest { .. } => {
             orders.send_msg(Msg::PauseMetronome);
+        }
+    }
+}
+
+fn show_notification(model: &mut Model, title: &str, body: Option<String>) {
+    if let Some(notification) = &model.notification {
+        notification.close();
+    }
+    let mut options = web_sys::NotificationOptions::new();
+    if let Some(body) = body {
+        options.body(&body);
+    }
+    model.notification = web_sys::Notification::new_with_options(title, &options).ok();
+}
+
+fn close_notification(model: &mut Model) {
+    if let Some(notification) = &model.notification {
+        notification.close();
+    }
+}
+
+fn show_section_notification(model: &mut Model) {
+    if let Some(guide) = &mut model.guide {
+        if guide.section_idx < model.form.sections.len() {
+            let title;
+            let body;
+            match &model.form.sections[guide.section_idx] {
+                FormSection::Set { exercises } => {
+                    let exercise = &exercises[0];
+                    title = exercise.exercise_name.clone();
+                    let mut previously = format_set(
+                        exercise.prev_reps,
+                        exercise.prev_time,
+                        exercise.prev_weight,
+                        exercise.prev_rpe,
+                    );
+                    if not(previously.is_empty()) {
+                        previously = format!("Previously:\n{previously}\n");
+                    }
+                    let mut target = format_set(
+                        exercise.target_reps,
+                        exercise.target_time,
+                        exercise.target_weight,
+                        exercise.target_rpe,
+                    );
+                    if not(target.is_empty()) {
+                        target = format!("Target:\n{target}\n");
+                    }
+                    body = Some(format!("{previously}{target}"));
+                }
+                FormSection::Rest { target_time, .. } => {
+                    title = String::from("Rest");
+                    body = if *target_time > 0 {
+                        Some(format!("{target_time} s"))
+                    } else {
+                        None
+                    };
+                }
+            }
+
+            show_notification(model, &title, body);
         }
     }
 }

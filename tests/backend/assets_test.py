@@ -10,7 +10,8 @@ from valens import app
 
 @pytest.fixture(name="client")
 def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
-    app.config["DATABASE"] = f"sqlite:///{tmp_path}/valens.db"
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
     app.config["SECRET_KEY"] = b"TEST_KEY"
     app.config["TESTING"] = True
 

@@ -1,5 +1,7 @@
 # ruff: noqa: T201
 
+from __future__ import annotations
+
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -31,10 +33,16 @@ def upgrade_lock_file() -> Path:
     return db_dir() / "valens_upgrade.lock"
 
 
+engines: dict[str, Engine] = {}
+
+
 def get_engine() -> Engine:
     config.check_app_config()
     db_dir().mkdir(exist_ok=True)
-    return create_engine(current_app.config["DATABASE"])
+    if current_app.config["DATABASE"] in engines:
+        return engines[current_app.config["DATABASE"]]
+    engines[current_app.config["DATABASE"]] = create_engine(current_app.config["DATABASE"])
+    return engines[current_app.config["DATABASE"]]
 
 
 def get_scoped_session() -> scoped_session[Session]:

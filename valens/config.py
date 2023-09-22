@@ -27,7 +27,7 @@ def check_config_file(environ: dict[str, str]) -> None:
 def create_config_file(config_directory: Path, database_file: Path) -> Path:
     config = config_directory / "config.py"
     config.write_text(
-        f"DATABASE = 'sqlite:///{database_file}'\nSECRET_KEY = {os.urandom(24)!r}\n",
+        f"DATABASE = r'sqlite:///{database_file}'\nSECRET_KEY = {os.urandom(24)!r}\n",
         encoding="utf-8",
     )
     return config

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from tempfile import NamedTemporaryFile
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import _pytest
 import pytest
@@ -17,8 +18,10 @@ def alembic_config() -> dict[str, str]:
 
 @pytest.fixture()
 def alembic_engine() -> object:
-    with NamedTemporaryFile() as tmp_file:
-        app.config["DATABASE"] = f"sqlite:///{tmp_file.name}"
+    with TemporaryDirectory() as tmp_dir:
+        tmp_file = Path(tmp_dir) / "test.db"
+        tmp_file.touch()
+        app.config["DATABASE"] = f"sqlite:///{tmp_file}"
         with app.app_context():
             db.init()
             yield db.get_engine()

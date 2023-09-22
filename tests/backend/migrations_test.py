@@ -89,7 +89,8 @@ def test_completeness_constraints(tmp_path: Path) -> None:
         )
 
     with app.app_context():
-        migrations_db = f"{tmp_path}/migrations.db"
+        migrations_db = tmp_path / "migrations.db"
+        migrations_db.touch()
         app.config["DATABASE"] = f"sqlite:///{migrations_db}"
 
         connection = sqlite3.connect(migrations_db)
@@ -99,7 +100,8 @@ def test_completeness_constraints(tmp_path: Path) -> None:
 
         migrated_constraints = constraints(connection)
 
-        models_db = f"{tmp_path}/models.db"
+        models_db = tmp_path / "models.db"
+        models_db.touch()
         app.config["DATABASE"] = f"sqlite:///{models_db}"
 
         db.init()

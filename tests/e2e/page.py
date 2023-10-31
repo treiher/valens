@@ -7,7 +7,7 @@ from typing import Callable
 
 import pytest
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
@@ -676,13 +676,20 @@ class RoutinePage(Page):
         sleep(0.01)
 
     def _set_input(self, icon: str, index: int, value: str) -> None:
+        def contains_icon(e: WebElement) -> bool:
+            try:
+                return e.find_elements(
+                    by=By.XPATH, value=f".//i[@class='fas fa-{icon}']"
+                ) or e.find_elements(by=By.XPATH, value=f".//span[text()='{icon}']")
+            except StaleElementReferenceException:
+                return False
+
         controls = [
             e
             for e in self._driver.find_elements(
                 by=By.XPATH, value="//div[contains(@class, 'control')]"
             )
-            if e.find_elements(by=By.XPATH, value=f".//i[@class='fas fa-{icon}']")
-            or e.find_elements(by=By.XPATH, value=f".//span[text()='{icon}']")
+            if contains_icon(e)
         ]
         inp = controls[index].find_element(by=By.TAG_NAME, value="input")
         clear(inp)

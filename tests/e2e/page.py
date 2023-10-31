@@ -250,13 +250,11 @@ class Page:
     def url(self) -> str:
         raise NotImplementedError
 
-    def load(self, *, accept_unsaved_changes: bool = False) -> None:
+    def refresh(self) -> None:
+        self._driver.refresh()
+
+    def load(self) -> None:
         self._driver.get(f"http://{HOST}:{PORT}/#{self.url}")
-
-        if accept_unsaved_changes:
-            alert = self.wait_for_alert()
-            alert.accept()
-
         wait(self._driver).until(
             EC.presence_of_element_located((By.XPATH, "/html/body/div[@id='app']/nav/div/div"))
         )

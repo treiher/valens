@@ -515,7 +515,9 @@ def test_training_session_change_entries(driver: webdriver.Chrome) -> None:
 
     assert page.get_sets() == [new_values, *sets[1:]]
 
-    page.load(accept_unsaved_changes=True)
+    page.refresh()
+    alert = page.wait_for_alert()
+    alert.accept()
 
     page.wait_for_title(str(workout.date))
     assert page.get_sets() == sets
@@ -561,7 +563,9 @@ def test_training_session_change_notes(driver: webdriver.Chrome) -> None:
     assert page.get_sets() == sets
     assert page.get_notes() == new_notes
 
-    page.load(accept_unsaved_changes=True)
+    page.refresh()
+    alert = page.wait_for_alert()
+    alert.accept()
 
     page.wait_for_title(str(workout.date))
     assert page.get_sets() == sets

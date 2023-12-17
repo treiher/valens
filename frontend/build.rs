@@ -3,11 +3,8 @@
 use std::process::Command;
 
 fn main() {
-    let output = Command::new("python")
-        .args([
-            "-c",
-            "from setuptools_scm import get_version; print(get_version(root='..'))",
-        ])
+    let output = Command::new("poetry")
+        .args(["version", "-s"])
         .output()
         .unwrap();
     let version = String::from_utf8(output.stdout).unwrap();

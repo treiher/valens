@@ -107,6 +107,7 @@ http {
 The following software is required:
 
 - Python 3
+- [Poetry](https://python-poetry.org/) with [dynamic versioning plugin](https://github.com/mtkennerly/poetry-dynamic-versioning)
 - Rust toolchain
 - tmux (optional)
 
@@ -124,22 +125,10 @@ Install the Rust development tools.
 $ cargo install --locked trunk
 ```
 
-Create a Python virtual environment.
+Install the Python project and development tools.
 
 ```console
-$ python3 -m venv .venv
-```
-
-Activate the virtual environment.
-
-```console
-$ . .venv/bin/activate
-```
-
-Install the Python development tools and install the package in editable mode.
-
-```console
-$ pip install -e ".[devel]"
+$ poetry install
 ```
 
 ### Running development servers

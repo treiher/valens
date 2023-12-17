@@ -1,12 +1,72 @@
-[build-system]
-requires = ['setuptools', 'setuptools_scm>=6.2', 'wheel']
-build-backend = 'setuptools.build_meta'
+[tool.poetry]
+name = "valens"
+version = "0.0.0"
+description = "An app for tracking your health and training progress."
+license = "AGPL-3.0"
+authors = [
+    "Tobias Reiher <valens@ardeidae.de>"
+]
+readme = "README.md"
+repository = "https://github.com/treiher/valens"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Other/Nonlisted Topic",
+]
+include = [
+    { path = "valens/frontend/*" }
+]
 
-[tool.setuptools_scm]
+[tool.poetry.dependencies]
+python = ">=3.9, <4"
+alembic = ">=1.6, <1.8.1"
+flask = ">=2.0.2, <3"
+sqlalchemy = ">=2, <3"
+
+[tool.poetry.group.dev.dependencies]
+black = "==23.1.0"
+build = ">=0.7.0"
+fabric = ">=3, <4"
+mypy = "==1.0.0"
+py = "==1.11.0"  # https://github.com/pytest-dev/pytest-selenium/issues/313
+pytest = ">=5"
+pytest-alembic = ">=0.3.1"
+pytest-cov = ">=2.10.0"
+pytest-selenium = ">=3"
+pytest-xdist = ">=1.32.0"
+ruff = "==0.0.260"
+selenium = ">=3, <4.10"
+sqlalchemy = {extras = ["mypy"], version = ">=2, <3"}
+types-selenium = ">=3"
+
+[tool.poetry.group.debug]
+optional = true
+
+[tool.poetry.group.debug.dependencies]
+pytest-flakefinder = ">=1, <2"
+
+[tool.poetry.scripts]
+valens = "valens.cli:main"
+
+[tool.poetry-dynamic-versioning]
+enable = true
+bump = true
+
+[build-system]
+requires = ["poetry-core >=1", "poetry-dynamic-versioning >=1, <2"]
+build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.black]
 line-length = 100
-target-version = ['py39', 'py310', 'py311']
+target-version = ["py39", "py310", "py311"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -136,26 +196,26 @@ warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true
 
-plugins = 'sqlalchemy.ext.mypy.plugin'
+plugins = "sqlalchemy.ext.mypy.plugin"
 
 [[tool.mypy.overrides]]
 module = [
-    'pytest_alembic.*',
-    'sqlalchemy_repr.*',
+    "pytest_alembic.*",
+    "sqlalchemy_repr.*",
 ]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = '--tb=short'
+addopts = "--tb=short"
 filterwarnings = [
-    'ignore:Gdk.Cursor.new is deprecated',
-    'ignore:Gtk.Widget.set_double_buffered is deprecated',
-    'ignore:Gtk.Window.set_wmclass is deprecated',
-    'ignore:Gtk.Widget.size_request is deprecated',
+    "ignore:Gdk.Cursor.new is deprecated",
+    "ignore:Gtk.Widget.set_double_buffered is deprecated",
+    "ignore:Gtk.Window.set_wmclass is deprecated",
+    "ignore:Gtk.Widget.size_request is deprecated",
 ]
 
 [tool.coverage.paths]
-source = ['valens']
+source = ["valens"]
 
 [tool.coverage.run]
 branch = true
@@ -164,11 +224,11 @@ branch = true
 show_missing = true
 fail_under = 100
 exclude_lines = [
-    'pragma: no cover',
-    'assert False',
-    'def __repr__',
-    'def __str__',
-    'if TYPE_CHECKING:',
-    'raise NotImplementedError',
-    'return NotImplemented',
+    "pragma: no cover",
+    "assert False",
+    "def __repr__",
+    "def __str__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "return NotImplemented",
 ]

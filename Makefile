@@ -9,7 +9,7 @@ FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js v
 PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
-VERSION ?= $(shell python3 -c "import setuptools_scm; print(setuptools_scm.get_version())")
+VERSION ?= $(shell poetry version -s)
 WHEEL ?= dist/valens-$(VERSION)-py3-none-any.whl
 
 export SQLALCHEMY_WARN_20=1
@@ -18,32 +18,35 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check_frontend check_backend check_black check_ruff check_mypy
+.PHONY: check check_frontend check_backend check_poetry check_black check_ruff check_mypy
 
-check: check_frontend check_backend
+check: check_poetry check_frontend check_backend
 
 check_frontend:
 	cargo fmt --manifest-path=frontend/Cargo.toml -- --check
 	cargo check --manifest-path=frontend/Cargo.toml
 	cargo clippy --manifest-path=frontend/Cargo.toml -- --warn clippy::pedantic --deny warnings
 
-check_backend: check_black check_ruff check_mypy
+check_backend: check_poetry check_black check_ruff check_mypy
+
+check_poetry:
+	poetry check
 
 check_black:
-	black --check --diff $(PYTHON_PACKAGES)
+	poetry run black --check --diff $(PYTHON_PACKAGES)
 
 check_ruff:
-	ruff check $(PYTHON_PACKAGES)
+	poetry run ruff check $(PYTHON_PACKAGES)
 
 check_mypy:
-	mypy --pretty $(PYTHON_PACKAGES)
+	poetry run mypy --pretty $(PYTHON_PACKAGES)
 
 .PHONY: format
 
 format:
 	cargo fmt --manifest-path=frontend/Cargo.toml
-	ruff --fix-only $(PYTHON_PACKAGES) | true
-	black $(PYTHON_PACKAGES)
+	poetry run ruff --fix-only $(PYTHON_PACKAGES) | true
+	poetry run black $(PYTHON_PACKAGES)
 
 .PHONY: test test_frontend test_backend test_e2e
 
@@ -55,13 +58,13 @@ test_frontend:
 test_backend:
 	mkdir -p valens/frontend
 	touch $(addprefix valens/frontend/,$(FRONTEND_FILES))
-	python3 -m pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
+	poetry run pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
 
 test_installation: $(BUILD_DIR)/venv/bin/valens
 	$(BUILD_DIR)/venv/bin/valens --version
 
 test_e2e: $(BUILD_DIR)/venv/bin/valens
-	python3 -m pytest -n$(shell nproc) -vv --driver chrome --headless tests/e2e
+	poetry run pytest -n$(shell nproc) -vv --driver chrome --headless tests/e2e
 
 $(BUILD_DIR)/venv:
 	python3 -m venv $(BUILD_DIR)/venv
@@ -105,7 +108,7 @@ screenshots: $(PACKAGE_FRONTEND_FILES)
 dist: $(WHEEL)
 
 $(WHEEL): $(PACKAGE_FRONTEND_FILES)
-	python3 -m build
+	poetry build
 
 valens/frontend:
 	mkdir -p valens/frontend
@@ -126,7 +129,7 @@ run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
 
 run_backend: $(CONFIG_FILE)
-	VALENS_CONFIG=$(CONFIG_FILE) flask --app valens --debug run -h 0.0.0.0
+	VALENS_CONFIG=$(CONFIG_FILE) poetry run flask --app valens --debug run -h 0.0.0.0
 
 $(CONFIG_FILE): $(BUILD_DIR)
 	valens config -d build

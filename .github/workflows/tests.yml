@@ -7,6 +7,7 @@ on:
 
 env:
   RUST_VERSION: "1.68.2"
+  TRUNK_VERSION: "0.17.5"
 
 jobs:
   check_frontend:
@@ -80,7 +81,7 @@ jobs:
           sudo apt install libarchive-tools
           python -m pip install --upgrade pip
           pip install build setuptools_scm
-          cargo install --locked trunk
+          cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Test
         run: |
           make test_installation
@@ -150,7 +151,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install build setuptools_scm
           pip install --user -e .[devel]
-          cargo install --locked trunk
+          cargo install --locked trunk@${{ env.TRUNK_VERSION }}
           echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
       - name: Test
         run: |

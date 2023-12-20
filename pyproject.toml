@@ -22,7 +22,10 @@ classifiers = [
     "Topic :: Other/Nonlisted Topic",
 ]
 include = [
-    { path = "valens/frontend/*" }
+    { path = "valens/frontend/*" },
+    { path = "valens/frontend/fonts/*" },
+    { path = "valens/frontend/images/*" },
+    { path = "valens/frontend/js/*" },
 ]
 
 [tool.poetry.dependencies]

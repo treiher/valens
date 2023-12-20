@@ -6,6 +6,8 @@ Revises: 8a0dc258bf2a
 Create Date: 2023-04-01
 
 """
+from typing import Union
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -15,7 +17,7 @@ branch_labels = None
 depends_on = None
 
 
-check_constraints = [
+check_constraints: list[tuple[str, Union[str, sa.ColumnElement[bool]]]] = [
     ("reps_type_integer", "typeof(reps) = 'integer'"),
     ("weight_type_real", "typeof(weight) = 'real'"),
     ("rpe_type_real", "typeof(rpe) = 'real'"),
@@ -27,9 +29,7 @@ check_constraints = [
 
 
 def upgrade() -> None:
-    with op.batch_alter_table(
-        "routine_activity", schema=None
-    ) as batch_op:  # type: ignore[no-untyped-call]
+    with op.batch_alter_table("routine_activity", schema=None) as batch_op:
         batch_op.add_column(sa.Column("reps", sa.Integer(), nullable=False, default=0))
         batch_op.add_column(sa.Column("weight", sa.Float(), nullable=False, default=0))
         batch_op.add_column(sa.Column("rpe", sa.Float(), nullable=False, default=0))
@@ -38,9 +38,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table(
-        "routine_activity", schema=None
-    ) as batch_op:  # type: ignore[no-untyped-call]
+    with op.batch_alter_table("routine_activity", schema=None) as batch_op:
         batch_op.drop_column("rpe")
         batch_op.drop_column("weight")
         batch_op.drop_column("reps")

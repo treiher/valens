@@ -6,6 +6,8 @@ Revises: b9f4e42c7135
 Create Date: 2023-02-16
 
 """
+from typing import Union
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -33,7 +35,7 @@ workout_element = sa.table(
     sa.column("automatic", sa.Boolean),
 )
 
-check_constraints = [
+check_constraints: list[tuple[str, Union[str, sa.ColumnElement[bool]]]] = [
     (
         "target_reps_type_integer_or_null",
         "typeof(target_reps) = 'integer' or typeof(target_reps) = 'null'",
@@ -116,9 +118,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("workout_id", "position", name=op.f("pk_workout_rest")),
     )
 
-    with op.batch_alter_table(
-        "workout_set", schema=None
-    ) as batch_op:  # type: ignore[no-untyped-call]
+    with op.batch_alter_table("workout_set", schema=None) as batch_op:
         batch_op.add_column(sa.Column("target_reps", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("target_time", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("target_weight", sa.Float(), nullable=True))
@@ -136,9 +136,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table(
-        "workout_set", schema=None
-    ) as batch_op:  # type: ignore[no-untyped-call]
+    with op.batch_alter_table("workout_set", schema=None) as batch_op:
         batch_op.drop_constraint(
             batch_op.f("fk_workout_set_workout_id_workout_element"), type_="foreignkey"
         )

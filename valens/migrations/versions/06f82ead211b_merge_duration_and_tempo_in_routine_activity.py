@@ -28,9 +28,7 @@ check_constraints_down = [
 
 
 def upgrade() -> None:
-    with op.batch_alter_table(
-        "routine_activity", schema=None
-    ) as batch_op:  # type: ignore[no-untyped-call]
+    with op.batch_alter_table("routine_activity", schema=None) as batch_op:
         for constraint_name, _ in check_constraints_down:
             batch_op.drop_constraint(constraint_name, type_="check")
 
@@ -42,9 +40,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table(
-        "routine_activity", schema=None
-    ) as batch_op:  # type: ignore[no-untyped-call]
+    with op.batch_alter_table("routine_activity", schema=None) as batch_op:
         for constraint_name, _ in check_constraints_up:
             batch_op.drop_constraint(constraint_name, type_="check")
 

@@ -99,11 +99,11 @@ CHECK_CONSTRAINTS = [
 
 def upgrade() -> None:
     for constraint_name, table_name, condition in CHECK_CONSTRAINTS:
-        with op.batch_alter_table(table_name) as batch_op:  # type: ignore[no-untyped-call]
+        with op.batch_alter_table(table_name) as batch_op:
             batch_op.create_check_constraint(constraint_name, condition)
 
 
 def downgrade() -> None:
     for constraint_name, table_name, _ in CHECK_CONSTRAINTS:
-        with op.batch_alter_table(table_name) as batch_op:  # type: ignore[no-untyped-call]
+        with op.batch_alter_table(table_name) as batch_op:
             batch_op.drop_constraint(f"ck_{table_name}_{constraint_name}")

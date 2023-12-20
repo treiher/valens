@@ -21,7 +21,7 @@ def main() -> int:
         "-d",
         dest="directory",
         type=Path,
-        default=Path("."),
+        default=Path(),
         help="target directory for the to be created config file",
     )
 

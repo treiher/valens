@@ -206,7 +206,7 @@ class RoutinePart(Base):
         foreign_keys=[routine_section_id],
     )
 
-    __mapper_args__ = {
+    __mapper_args__ = {  # noqa: RUF012
         "polymorphic_identity": "routine_part",
         "polymorphic_on": type,
     }
@@ -230,7 +230,7 @@ class RoutineSection(RoutinePart):
     )
     routine: Mapped[Routine] = relationship("Routine", back_populates="sections")
 
-    __mapper_args__ = {
+    __mapper_args__ = {  # noqa: RUF012
         "polymorphic_identity": "routine_section",
         "polymorphic_load": "selectin",
         "inherit_condition": id == RoutinePart.id,
@@ -263,7 +263,7 @@ class RoutineActivity(RoutinePart):
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="routine_activities")
 
-    __mapper_args__ = {
+    __mapper_args__ = {  # noqa: RUF012
         "polymorphic_identity": "routine_activity",
         "polymorphic_load": "selectin",
         "inherit_condition": id == RoutinePart.id,
@@ -311,7 +311,7 @@ class WorkoutElement(Base):
 
     workout: Mapped[Workout] = relationship("Workout", back_populates="elements")
 
-    __mapper_args__ = {
+    __mapper_args__ = {  # noqa: RUF012
         "polymorphic_identity": "activity",
         "polymorphic_on": "type",
     }
@@ -390,7 +390,7 @@ class WorkoutSet(WorkoutElement):
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="sets")
 
-    __mapper_args__ = {
+    __mapper_args__ = {  # noqa: RUF012
         "polymorphic_identity": "set",
         "polymorphic_load": "selectin",
     }
@@ -420,7 +420,7 @@ class WorkoutRest(WorkoutElement):
     position: Mapped[int] = mapped_column(primary_key=True)
     target_time: Mapped[Optional[int]]
 
-    __mapper_args__ = {
+    __mapper_args__ = {  # noqa: RUF012
         "polymorphic_identity": "rest",
         "polymorphic_load": "selectin",
     }

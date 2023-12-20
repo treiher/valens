@@ -1,9 +1,9 @@
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
 
-from fabric import Connection, task  # type: ignore[import]
-from setuptools_scm import get_version  # type: ignore[import]
+from fabric import Connection, task  # type: ignore[import-untyped]
 
 
 @task
@@ -17,8 +17,9 @@ def deploy(
         directory = str(Path(package).parent)
         filename = Path(package).name
     else:
+        version = subprocess.check_output(["poetry", "version", "-s"]).decode("utf-8").strip()
         directory = "dist"
-        filename = f"valens-{get_version()}-py3-none-any.whl"
+        filename = f"valens-{version}-py3-none-any.whl"
 
     if not target_directory:
         target_directory = "/srv/http/valens"

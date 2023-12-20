@@ -65,12 +65,10 @@ def fixture_driver_args() -> list[str]:
     return ["--log-level=ALL"]
 
 
-@pytest.fixture(name="session_capabilities", scope="session")
-def fixture_session_capabilities(
-    session_capabilities: webdriver.DesiredCapabilities.CHROME,
-) -> Generator[webdriver.DesiredCapabilities.CHROME, None, None]:
-    session_capabilities["loggingPrefs"] = {"browser": "ALL"}
-    return session_capabilities
+@pytest.fixture(name="chrome_options")
+def fixture_chrome_options(chrome_options: webdriver.ChromeOptions) -> webdriver.ChromeOptions:
+    chrome_options.set_capability("goog:loggingPrefs", {"performance": "ALL"})
+    return chrome_options
 
 
 def login(driver: webdriver.Chrome) -> None:
@@ -437,7 +435,7 @@ def test_training_delete(driver: webdriver.Chrome) -> None:
     workout = USER.workouts[-1]
     date_1 = str(workout.date)
     routine = (
-        [r.name for r in USER.routines if r.id == workout.routine_id][0]
+        next(r.name for r in USER.routines if r.id == workout.routine_id)
         if workout.routine_id
         else "-"
     )

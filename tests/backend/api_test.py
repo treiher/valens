@@ -105,7 +105,6 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("post", "/api/exercises", {"invalid": "data"}),
         ("put", "/api/exercises/1", {"invalid": "data"}),
         ("post", "/api/routines", {"invalid": "data"}),
-        ("post", "/api/routines", {"invalid": "data"}),
         ("put", "/api/routines/1", {"invalid": "data"}),
         ("patch", "/api/routines/1", {"sections": [{"invalid": "data"}]}),
         ("post", "/api/workouts", {"invalid": "data"}),

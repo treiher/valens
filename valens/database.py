@@ -103,7 +103,7 @@ def _upgrade(connection: Connection) -> None:
 
 @event.listens_for(Engine, "connect")
 def _set_sqlite_pragma(
-    dbapi_connection: sqlite3.Connection, _: pool.base._ConnectionRecord  # noqa: SLF001
+    dbapi_connection: sqlite3.Connection, _: pool.base._ConnectionRecord
 ) -> None:
     if current_app.config["SQLITE_FOREIGN_KEY_SUPPORT"]:
         cursor = dbapi_connection.cursor()

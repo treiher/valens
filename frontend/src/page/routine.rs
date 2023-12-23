@@ -32,6 +32,7 @@ pub fn init(
     let mut model = Model {
         interval: common::init_interval(&[], true),
         routine_id,
+        name: InputField::default(),
         sections: vec![],
         previous_exercises: BTreeSet::new(),
         dialog: Dialog::Hidden,
@@ -51,6 +52,7 @@ pub fn init(
 pub struct Model {
     interval: common::Interval,
     routine_id: u32,
+    name: InputField<String>,
     sections: Vec<Form>,
     previous_exercises: BTreeSet<u32>,
     dialog: Dialog,
@@ -60,13 +62,19 @@ pub struct Model {
 
 impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
-        self.sections.iter().any(Form::changed)
+        self.name.changed || self.sections.iter().any(Form::changed)
     }
 
     pub fn mark_as_unchanged(&mut self) {
+        self.name.input = self.name.parsed.clone().unwrap();
+        self.name.changed = false;
         for s in &mut self.sections {
             s.mark_as_unchanged();
         }
+    }
+
+    fn saving_disabled(&self) -> bool {
+        self.loading || not(self.name.valid) || not(self.sections.iter().all(Form::valid))
     }
 }
 
@@ -274,6 +282,7 @@ pub enum Msg {
     ShowDeleteTrainingSessionDialog(u32),
     CloseDialog,
 
+    NameChanged(String),
     AddSection(Vec<usize>),
     AddActivity(Vec<usize>, Option<u32>),
     RemovePart(Vec<usize>),
@@ -316,7 +325,7 @@ pub fn update(
             model.loading = true;
             orders.notify(data::Msg::ModifyRoutine(
                 model.routine_id,
-                None,
+                model.name.parsed.clone(),
                 Some(to_routine_parts(&model.sections)),
             ));
         }
@@ -337,6 +346,26 @@ pub fn update(
             );
         }
 
+        Msg::NameChanged(name) => {
+            let trimmed_name = name.trim();
+            if not(trimmed_name.is_empty())
+                && (data_model.routines.values().all(|e| e.name != trimmed_name))
+            {
+                model.name = InputField {
+                    input: name.clone(),
+                    valid: true,
+                    parsed: Some(trimmed_name.to_string()),
+                    changed: true,
+                };
+            } else {
+                model.name = InputField {
+                    input: name,
+                    valid: false,
+                    parsed: None,
+                    changed: true,
+                }
+            }
+        }
         Msg::AddSection(id) => {
             let new_section = Form::Section {
                 rounds: InputField {
@@ -673,6 +702,12 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
     let routine = &data_model.routines.get(&model.routine_id);
 
     if let Some(routine) = routine {
+        model.name = InputField {
+            input: routine.name.clone(),
+            valid: true,
+            parsed: Some(routine.name.clone()),
+            changed: false,
+        };
         model.sections = routine.sections.iter().map(Into::into).collect();
         let training_sessions = &data_model
             .training_sessions
@@ -697,10 +732,9 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.routines.is_empty() && data_model.loading_routines {
         common::view_page_loading()
-    } else if let Some(routine) = &data_model.routines.get(&model.routine_id) {
-        let saving_disabled = not(model.sections.iter().all(Form::valid));
+    } else if model.routine_id > 0 {
         div![
-            common::view_title(&span![&routine.name], 0),
+            view_title(model),
             view_dialog(&model.dialog, &data_model.exercises, model.loading),
             view_routine(data_model, &model.sections, model.editing),
             if model.editing {
@@ -711,7 +745,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     C!["is-link"],
                     C![IF![model.loading => "is-loading"]],
                     attrs![
-                        At::Disabled => saving_disabled.as_at_value(),
+                        At::Disabled => model.saving_disabled().as_at_value(),
                     ],
                     ev(Ev::Click, |_| Msg::SaveRoutine),
                     span![C!["icon"], i![C!["fas fa-save"]]]
@@ -727,6 +761,40 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else {
         common::view_error_not_found("Routine")
     }
+}
+
+fn view_title(model: &Model) -> Node<Msg> {
+    div![
+        C!["mx-2"],
+        if model.editing {
+            let saving_disabled = model.saving_disabled();
+            div![
+                C!["field"],
+                div![
+                    C!["control"],
+                    input_ev(Ev::Input, Msg::NameChanged),
+                    keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                        IF!(
+                            not(saving_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                Msg::SaveRoutine
+                            }
+                        )
+                    }),
+                    input![
+                        C!["input"],
+                        C![IF![not(model.name.valid) => "is-danger"]],
+                        C![IF![model.name.changed => "is-info"]],
+                        attrs! {
+                            At::Type => "text",
+                            At::Value => model.name.input,
+                        }
+                    ]
+                ],
+            ]
+        } else {
+            common::view_title(&span![&model.name.input], 0)
+        }
+    ]
 }
 
 fn view_dialog(

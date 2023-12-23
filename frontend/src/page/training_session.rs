@@ -1349,16 +1349,14 @@ fn view_title(training_session: &data::TrainingSession, data_model: &data::Model
         .routines
         .get(&training_session.routine_id.unwrap_or(0))
     {
-        span![
-            training_session.date.to_string(),
-            " (",
-            a![
+        div![
+            p![C!["mb-3"], training_session.date.to_string()],
+            p![a![
                 attrs! {
                     At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
                 },
                 &routine.name
-            ],
-            ")"
+            ]]
         ]
     } else {
         span![training_session.date.to_string()]

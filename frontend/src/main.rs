@@ -473,7 +473,9 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
 fn warn_about_unsaved_changes(model: &Model) -> bool {
     if let Some(page) = &model.page {
-        if let Page::Routine(model) = page {
+        if let Page::Exercise(model) = page {
+            model.has_unsaved_changes()
+        } else if let Page::Routine(model) = page {
             model.has_unsaved_changes()
         } else if let Page::TrainingSession(model) = page {
             model.has_unsaved_changes()

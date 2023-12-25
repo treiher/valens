@@ -28,6 +28,34 @@ pub struct Interval {
     pub last: NaiveDate,
 }
 
+#[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+pub struct InputField<T> {
+    pub input: String,
+    pub parsed: Option<T>,
+    pub orig: String,
+}
+
+impl<T> Default for InputField<T> {
+    fn default() -> Self {
+        InputField {
+            input: String::new(),
+            parsed: None,
+            orig: String::new(),
+        }
+    }
+}
+
+impl<T> InputField<T> {
+    pub fn valid(&self) -> bool {
+        self.parsed.is_some()
+    }
+
+    pub fn changed(&self) -> bool {
+        self.input != self.orig
+    }
+}
+
 pub fn init_interval(dates: &[NaiveDate], show_all: bool) -> Interval {
     let today = Local::now().date_naive();
     let mut first = dates.iter().copied().min().unwrap_or(today);

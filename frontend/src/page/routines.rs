@@ -44,7 +44,7 @@ enum Dialog {
 
 struct Form {
     id: u32,
-    name: (String, Option<String>),
+    name: common::InputField<String>,
 }
 
 // ------ ------
@@ -75,7 +75,7 @@ pub fn update(
         Msg::ShowAddRoutineDialog => {
             model.dialog = Dialog::AddRoutine(Form {
                 id: 0,
-                name: (String::new(), None),
+                name: common::InputField::default(),
             });
         }
         Msg::ShowEditRoutineDialog(id) => {
@@ -83,7 +83,11 @@ pub fn update(
             let name = data_model.routines[&id].name.clone();
             model.dialog = Dialog::EditRoutine(Form {
                 id,
-                name: (name.clone(), Some(name)),
+                name: common::InputField {
+                    input: name.clone(),
+                    parsed: Some(name.clone()),
+                    orig: name,
+                },
             });
         }
         Msg::ShowDeleteRoutineDialog(id) => {
@@ -99,10 +103,22 @@ pub fn update(
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddRoutine(ref mut form) | Dialog::EditRoutine(ref mut form) => {
-                if data_model.routines.values().all(|e| e.name != name) {
-                    form.name = (name.clone(), Some(name));
+                let trimmed_name = name.trim();
+                if not(trimmed_name.is_empty())
+                    && (trimmed_name == form.name.orig
+                        || data_model.routines.values().all(|e| e.name != trimmed_name))
+                {
+                    form.name = common::InputField {
+                        input: name.clone(),
+                        parsed: Some(trimmed_name.to_string()),
+                        orig: form.name.orig.clone(),
+                    };
                 } else {
-                    form.name = (name, None);
+                    form.name = common::InputField {
+                        input: name.clone(),
+                        parsed: None,
+                        orig: form.name.orig.clone(),
+                    };
                 }
             }
             Dialog::Hidden | Dialog::DeleteRoutine(_) => {
@@ -114,10 +130,14 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddRoutine(ref mut form) => {
-                    orders.notify(data::Msg::CreateRoutine(form.name.1.clone().unwrap()));
+                    orders.notify(data::Msg::CreateRoutine(form.name.parsed.clone().unwrap()));
                 }
                 Dialog::EditRoutine(ref mut form) => {
-                    orders.notify(data::Msg::ModifyRoutine(form.id, form.name.1.clone(), None));
+                    orders.notify(data::Msg::ModifyRoutine(
+                        form.id,
+                        form.name.parsed.clone(),
+                        None,
+                    ));
                 }
                 Dialog::Hidden | Dialog::DeleteRoutine(_) => {
                     panic!();
@@ -192,7 +212,7 @@ fn view_routine_dialog(
             return empty![];
         }
     }
-    let save_disabled = loading || form.name.1.is_none();
+    let save_disabled = loading || not(form.name.valid());
     common::view_dialog(
         "primary",
         title,
@@ -212,10 +232,11 @@ fn view_routine_dialog(
                     }),
                     input![
                         C!["input"],
-                        C![IF![form.name.1.is_none() => "is-danger"]],
+                        C![IF![not(form.name.valid()) => "is-danger"]],
+                        C![IF![form.name.changed() => "is-info"]],
                         attrs! {
                             At::Type => "text",
-                            At::Value => form.name.0,
+                            At::Value => form.name.input,
                         }
                     ],
                 ]

@@ -32,7 +32,7 @@ pub fn init(
     let mut model = Model {
         interval: common::init_interval(&[], true),
         routine_id,
-        name: InputField::default(),
+        name: common::InputField::default(),
         sections: vec![],
         previous_exercises: BTreeSet::new(),
         dialog: Dialog::Hidden,
@@ -52,7 +52,7 @@ pub fn init(
 pub struct Model {
     interval: common::Interval,
     routine_id: u32,
-    name: InputField<String>,
+    name: common::InputField<String>,
     sections: Vec<Form>,
     previous_exercises: BTreeSet<u32>,
     dialog: Dialog,
@@ -62,19 +62,19 @@ pub struct Model {
 
 impl Model {
     pub fn has_unsaved_changes(&self) -> bool {
-        self.name.changed || self.sections.iter().any(Form::changed)
+        self.name.changed() || self.sections.iter().any(Form::changed)
     }
 
     pub fn mark_as_unchanged(&mut self) {
         self.name.input = self.name.parsed.clone().unwrap();
-        self.name.changed = false;
+        self.name.orig = self.name.parsed.clone().unwrap();
         for s in &mut self.sections {
             s.mark_as_unchanged();
         }
     }
 
     fn saving_disabled(&self) -> bool {
-        self.loading || not(self.name.valid) || not(self.sections.iter().all(Form::valid))
+        self.loading || not(self.name.valid()) || not(self.sections.iter().all(Form::valid))
     }
 }
 
@@ -87,15 +87,15 @@ enum Dialog {
 #[cfg_attr(test, derive(Debug, PartialEq))]
 enum Form {
     Section {
-        rounds: InputField<u32>,
+        rounds: common::InputField<u32>,
         parts: Vec<Form>,
     },
     Activity {
         exercise_id: Option<u32>,
-        reps: InputField<u32>,
-        time: InputField<u32>,
-        weight: InputField<f32>,
-        rpe: InputField<f32>,
+        reps: common::InputField<u32>,
+        time: common::InputField<u32>,
+        weight: common::InputField<f32>,
+        rpe: common::InputField<f32>,
         automatic: bool,
     },
 }
@@ -103,21 +103,21 @@ enum Form {
 impl Form {
     fn changed(&self) -> bool {
         match self {
-            Form::Section { rounds, parts } => rounds.changed || parts.iter().any(Form::changed),
+            Form::Section { rounds, parts } => rounds.changed() || parts.iter().any(Form::changed),
             Form::Activity {
                 reps,
                 time,
                 weight,
                 rpe,
                 ..
-            } => reps.changed || time.changed || weight.changed || rpe.changed,
+            } => reps.changed() || time.changed() || weight.changed() || rpe.changed(),
         }
     }
 
     fn mark_as_unchanged(&mut self) {
         match self {
             Form::Section { rounds, parts } => {
-                rounds.changed = false;
+                rounds.orig = rounds.input.clone();
                 for p in parts {
                     p.mark_as_unchanged();
                 }
@@ -129,44 +129,24 @@ impl Form {
                 rpe,
                 ..
             } => {
-                reps.changed = false;
-                time.changed = false;
-                weight.changed = false;
-                rpe.changed = false;
+                reps.orig = reps.input.clone();
+                time.orig = time.input.clone();
+                weight.orig = weight.input.clone();
+                rpe.orig = rpe.input.clone();
             }
         }
     }
 
     fn valid(&self) -> bool {
         match self {
-            Form::Section { rounds, parts } => rounds.valid && parts.iter().all(Form::valid),
+            Form::Section { rounds, parts } => rounds.valid() && parts.iter().all(Form::valid),
             Form::Activity {
                 reps,
                 time,
                 weight,
                 rpe,
                 ..
-            } => reps.valid && time.valid && weight.valid && rpe.valid,
-        }
-    }
-}
-
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-struct InputField<T> {
-    input: String,
-    valid: bool,
-    parsed: Option<T>,
-    changed: bool,
-}
-
-impl<T> Default for InputField<T> {
-    fn default() -> Self {
-        InputField {
-            input: String::new(),
-            valid: true,
-            parsed: None,
-            changed: false,
+            } => reps.valid() && time.valid() && weight.valid() && rpe.valid(),
         }
     }
 }
@@ -174,19 +154,21 @@ impl<T> Default for InputField<T> {
 impl From<&data::RoutinePart> for Form {
     fn from(part: &data::RoutinePart) -> Self {
         match part {
-            data::RoutinePart::RoutineSection { rounds, parts, .. } => Form::Section {
-                rounds: InputField {
-                    input: if *rounds == 1 {
-                        String::new()
-                    } else {
-                        rounds.to_string()
+            data::RoutinePart::RoutineSection { rounds, parts, .. } => {
+                let rounds_str = if *rounds == 1 {
+                    String::new()
+                } else {
+                    rounds.to_string()
+                };
+                Form::Section {
+                    rounds: common::InputField {
+                        input: rounds_str.clone(),
+                        parsed: Some(*rounds),
+                        orig: rounds_str,
                     },
-                    valid: true,
-                    parsed: Some(*rounds),
-                    changed: false,
-                },
-                parts: parts.iter().map(Into::into).collect(),
-            },
+                    parts: parts.iter().map(Into::into).collect(),
+                }
+            }
             data::RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
@@ -197,45 +179,53 @@ impl From<&data::RoutinePart> for Form {
                 ..
             } => Form::Activity {
                 exercise_id: *exercise_id,
-                reps: InputField {
-                    input: if *reps == 0 {
+                reps: {
+                    let reps_str = if *reps == 0 {
                         String::new()
                     } else {
                         reps.to_string()
-                    },
-                    valid: true,
-                    parsed: Some(*reps),
-                    changed: false,
+                    };
+                    common::InputField {
+                        input: reps_str.clone(),
+                        parsed: Some(*reps),
+                        orig: reps_str,
+                    }
                 },
-                time: InputField {
-                    input: if *time == 0 {
+                time: {
+                    let time_str = if *time == 0 {
                         String::new()
                     } else {
                         time.to_string()
-                    },
-                    valid: true,
-                    parsed: Some(*time),
-                    changed: false,
+                    };
+                    common::InputField {
+                        input: time_str.clone(),
+                        parsed: Some(*time),
+                        orig: time_str,
+                    }
                 },
-                weight: InputField {
-                    input: if *weight == 0.0 {
+                weight: {
+                    let weight_str = if *weight == 0.0 {
                         String::new()
                     } else {
                         weight.to_string()
-                    },
-                    valid: true,
-                    parsed: Some(*weight),
-                    changed: false,
+                    };
+                    common::InputField {
+                        input: weight_str.clone(),
+                        parsed: Some(*weight),
+                        orig: weight_str,
+                    }
                 },
-                rpe: InputField {
-                    input: if *rpe == 0.0 {
+                rpe: {
+                    let rpe_str = if *rpe == 0.0 {
                         String::new()
                     } else {
                         rpe.to_string()
-                    },
-                    valid: true,
-                    parsed: Some(*rpe),
-                    changed: false,
+                    };
+                    common::InputField {
+                        input: rpe_str.clone(),
+                        parsed: Some(*rpe),
+                        orig: rpe_str,
+                    }
                 },
                 automatic: *automatic,
             },
@@ -349,30 +339,28 @@ pub fn update(
         Msg::NameChanged(name) => {
             let trimmed_name = name.trim();
             if not(trimmed_name.is_empty())
-                && (data_model.routines.values().all(|e| e.name != trimmed_name))
+                && (trimmed_name == model.name.orig
+                    || data_model.routines.values().all(|e| e.name != trimmed_name))
             {
-                model.name = InputField {
+                model.name = common::InputField {
                     input: name.clone(),
-                    valid: true,
                     parsed: Some(trimmed_name.to_string()),
-                    changed: true,
+                    orig: model.name.orig.clone(),
                 };
             } else {
-                model.name = InputField {
+                model.name = common::InputField {
                     input: name,
-                    valid: false,
                     parsed: None,
-                    changed: true,
+                    orig: model.name.orig.clone(),
                 }
             }
         }
         Msg::AddSection(id) => {
             let new_section = Form::Section {
-                rounds: InputField {
+                rounds: common::InputField {
                     input: String::new(),
-                    valid: true,
                     parsed: Some(1),
-                    changed: false,
+                    orig: String::new(),
                 },
                 parts: vec![],
             };
@@ -385,38 +373,33 @@ pub fn update(
         Msg::AddActivity(id, exercise_id) => {
             let new_activity = Form::Activity {
                 exercise_id,
-                reps: InputField {
+                reps: common::InputField {
                     input: String::new(),
-                    valid: true,
                     parsed: Some(0),
-                    changed: false,
+                    orig: String::new(),
                 },
                 time: if exercise_id.is_none() {
-                    InputField {
+                    common::InputField {
                         input: String::from("60"),
-                        valid: true,
                         parsed: Some(60),
-                        changed: false,
+                        orig: String::from("60"),
                     }
                 } else {
-                    InputField {
+                    common::InputField {
                         input: String::new(),
-                        valid: true,
                         parsed: Some(0),
-                        changed: false,
+                        orig: String::new(),
                     }
                 },
-                weight: InputField {
+                weight: common::InputField {
                     input: String::new(),
-                    valid: true,
                     parsed: Some(0.0),
-                    changed: false,
+                    orig: String::new(),
                 },
-                rpe: InputField {
+                rpe: common::InputField {
                     input: String::new(),
-                    valid: true,
                     parsed: Some(0.0),
-                    changed: false,
+                    orig: String::new(),
                 },
                 automatic: exercise_id.is_none(),
             };
@@ -470,32 +453,29 @@ pub fn update(
         Msg::RoundsChanged(id, input) => {
             if let Some(Form::Section { rounds, .. }) = get_part(&mut model.sections, &id) {
                 if input.is_empty() {
-                    *rounds = InputField {
+                    *rounds = common::InputField {
                         input,
-                        valid: true,
                         parsed: Some(1),
-                        changed: true,
+                        orig: rounds.orig.clone(),
                     };
                 } else {
                     match input.parse::<u32>() {
                         Ok(parsed_rounds) => {
-                            *rounds = InputField {
+                            *rounds = common::InputField {
                                 input,
-                                valid: true,
                                 parsed: if parsed_rounds > 0 {
                                     Some(parsed_rounds)
                                 } else {
                                     None
                                 },
-                                changed: true,
+                                orig: rounds.orig.clone(),
                             }
                         }
                         Err(_) => {
-                            *rounds = InputField {
+                            *rounds = common::InputField {
                                 input,
-                                valid: false,
                                 parsed: None,
-                                changed: true,
+                                orig: rounds.orig.clone(),
                             }
                         }
                     }
@@ -510,29 +490,26 @@ pub fn update(
         Msg::RepsChanged(id, input) => {
             if let Some(Form::Activity { reps, .. }) = get_part(&mut model.sections, &id) {
                 if input.is_empty() {
-                    *reps = InputField {
+                    *reps = common::InputField {
                         input,
-                        valid: true,
                         parsed: Some(0),
-                        changed: true,
+                        orig: reps.orig.clone(),
                     };
                 } else {
                     match input.parse::<u32>() {
                         Ok(parsed_reps) => {
                             let valid = common::valid_reps(parsed_reps);
-                            *reps = InputField {
+                            *reps = common::InputField {
                                 input,
-                                valid,
                                 parsed: if valid { Some(parsed_reps) } else { None },
-                                changed: true,
+                                orig: reps.orig.clone(),
                             }
                         }
                         Err(_) => {
-                            *reps = InputField {
+                            *reps = common::InputField {
                                 input,
-                                valid: false,
                                 parsed: None,
-                                changed: true,
+                                orig: reps.orig.clone(),
                             }
                         }
                     }
@@ -542,29 +519,26 @@ pub fn update(
         Msg::TimeChanged(id, input) => {
             if let Some(Form::Activity { time, .. }) = get_part(&mut model.sections, &id) {
                 if input.is_empty() {
-                    *time = InputField {
+                    *time = common::InputField {
                         input,
-                        valid: true,
                         parsed: Some(0),
-                        changed: true,
+                        orig: time.orig.clone(),
                     };
                 } else {
                     match input.parse::<u32>() {
                         Ok(parsed_time) => {
                             let valid = common::valid_time(parsed_time);
-                            *time = InputField {
+                            *time = common::InputField {
                                 input,
-                                valid,
                                 parsed: if valid { Some(parsed_time) } else { None },
-                                changed: true,
+                                orig: time.orig.clone(),
                             }
                         }
                         Err(_) => {
-                            *time = InputField {
+                            *time = common::InputField {
                                 input,
-                                valid: false,
                                 parsed: None,
-                                changed: true,
+                                orig: time.orig.clone(),
                             }
                         }
                     }
@@ -574,29 +548,26 @@ pub fn update(
         Msg::WeightChanged(id, input) => {
             if let Some(Form::Activity { weight, .. }) = get_part(&mut model.sections, &id) {
                 if input.is_empty() {
-                    *weight = InputField {
+                    *weight = common::InputField {
                         input,
-                        valid: true,
                         parsed: Some(0.0),
-                        changed: true,
+                        orig: weight.orig.clone(),
                     };
                 } else {
                     match input.parse::<f32>() {
                         Ok(parsed_weight) => {
                             let valid = common::valid_weight(parsed_weight);
-                            *weight = InputField {
+                            *weight = common::InputField {
                                 input,
-                                valid,
                                 parsed: if valid { Some(parsed_weight) } else { None },
-                                changed: true,
+                                orig: weight.orig.clone(),
                             }
                         }
                         Err(_) => {
-                            *weight = InputField {
+                            *weight = common::InputField {
                                 input,
-                                valid: false,
                                 parsed: None,
-                                changed: true,
+                                orig: weight.orig.clone(),
                             }
                         }
                     }
@@ -606,29 +577,26 @@ pub fn update(
         Msg::RPEChanged(id, input) => {
             if let Some(Form::Activity { rpe, .. }) = get_part(&mut model.sections, &id) {
                 if input.is_empty() {
-                    *rpe = InputField {
+                    *rpe = common::InputField {
                         input,
-                        valid: true,
                         parsed: Some(0.0),
-                        changed: true,
+                        orig: rpe.orig.clone(),
                     };
                 } else {
                     match input.parse::<f32>() {
                         Ok(parsed_rpe) => {
                             let valid = common::valid_rpe(parsed_rpe);
-                            *rpe = InputField {
+                            *rpe = common::InputField {
                                 input,
-                                valid,
                                 parsed: if valid { Some(parsed_rpe) } else { None },
-                                changed: true,
+                                orig: rpe.orig.clone(),
                             }
                         }
                         Err(_) => {
-                            *rpe = InputField {
+                            *rpe = common::InputField {
                                 input,
-                                valid: false,
                                 parsed: None,
-                                changed: true,
+                                orig: rpe.orig.clone(),
                             }
                         }
                     }
@@ -702,11 +670,10 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
     let routine = &data_model.routines.get(&model.routine_id);
 
     if let Some(routine) = routine {
-        model.name = InputField {
+        model.name = common::InputField {
             input: routine.name.clone(),
-            valid: true,
             parsed: Some(routine.name.clone()),
-            changed: false,
+            orig: routine.name.clone(),
         };
         model.sections = routine.sections.iter().map(Into::into).collect();
         let training_sessions = &data_model
@@ -782,8 +749,8 @@ fn view_title(model: &Model) -> Node<Msg> {
                     }),
                     input![
                         C!["input"],
-                        C![IF![not(model.name.valid) => "is-danger"]],
-                        C![IF![model.name.changed => "is-info"]],
+                        C![IF![not(model.name.valid()) => "is-danger"]],
+                        C![IF![model.name.changed() => "is-info"]],
                         attrs! {
                             At::Type => "text",
                             At::Value => model.name.input,
@@ -938,8 +905,8 @@ fn view_routine_part(
                                     input![
                                         C!["input"],
                                         C!["has-text-right"],
-                                        C![IF![not(rounds.valid) => "is-danger"]],
-                                        C![IF![rounds.changed => "is-info"]],
+                                        C![IF![not(rounds.valid()) => "is-danger"]],
+                                        C![IF![rounds.changed() => "is-info"]],
                                         attrs! {
                                             At::Type => "number",
                                             At::Min => 1,
@@ -1083,8 +1050,8 @@ fn view_routine_part(
                                         input![
                                             C!["input"],
                                             C!["has-text-right"],
-                                            C![IF![not(reps.valid) => "is-danger"]],
-                                            C![IF![reps.changed => "is-info"]],
+                                            C![IF![not(reps.valid()) => "is-danger"]],
+                                            C![IF![reps.changed() => "is-info"]],
                                             attrs! {
                                                 At::Type => "number",
                                                 At::Min => 0,
@@ -1119,8 +1086,8 @@ fn view_routine_part(
                                     input![
                                         C!["input"],
                                         C!["has-text-right"],
-                                        C![IF![not(time.valid) => "is-danger"]],
-                                        C![IF![time.changed => "is-info"]],
+                                        C![IF![not(time.valid()) => "is-danger"]],
+                                        C![IF![time.changed() => "is-info"]],
                                         attrs! {
                                             At::Type => "number",
                                             At::Min => 1,
@@ -1156,8 +1123,8 @@ fn view_routine_part(
                                         input![
                                             C!["input"],
                                             C!["has-text-right"],
-                                            C![IF![not(weight.valid) => "is-danger"]],
-                                            C![IF![weight.changed => "is-info"]],
+                                            C![IF![not(weight.valid()) => "is-danger"]],
+                                            C![IF![weight.changed() => "is-info"]],
                                             attrs! {
                                                 At::from("inputmode") => "numeric",
                                                 At::Size => 3,
@@ -1186,8 +1153,8 @@ fn view_routine_part(
                                         input![
                                             C!["input"],
                                             C!["has-text-right"],
-                                            C![IF![not(rpe.valid) => "is-danger"]],
-                                            C![IF![rpe.changed => "is-info"]],
+                                            C![IF![not(rpe.valid()) => "is-danger"]],
+                                            C![IF![rpe.changed() => "is-info"]],
                                             attrs! {
                                                 At::from("inputmode") => "numeric",
                                                 At::Size => 3,
@@ -1695,12 +1662,11 @@ mod tests {
         assert!(get_part(&mut sections, &[0, 0, 1, 0]).is_none());
     }
 
-    fn form_value<T: std::fmt::Display>(number: T) -> InputField<T> {
-        InputField {
+    fn form_value<T: std::fmt::Display + std::marker::Copy>(number: T) -> common::InputField<T> {
+        common::InputField {
             input: number.to_string(),
-            valid: true,
             parsed: Some(number),
-            changed: false,
+            orig: number.to_string(),
         }
     }
 }

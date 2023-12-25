@@ -147,29 +147,25 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                             .exercises
                             .get(exercise_id)
                             .map_or_else(|| format!("Exercise#{exercise_id}"), |e| e.name.clone()),
-                        reps: InputField {
+                        reps: common::InputField {
                             input: reps.map(|v| v.to_string()).unwrap_or_default(),
-                            valid: true,
-                            parsed: *reps,
-                            changed: false,
+                            parsed: some_or_default(*reps),
+                            orig: reps.map(|v| v.to_string()).unwrap_or_default(),
                         },
-                        time: InputField {
+                        time: common::InputField {
                             input: time.map(|v| v.to_string()).unwrap_or_default(),
-                            valid: true,
-                            parsed: *time,
-                            changed: false,
+                            parsed: some_or_default(*time),
+                            orig: time.map(|v| v.to_string()).unwrap_or_default(),
                         },
-                        weight: InputField {
+                        weight: common::InputField {
                             input: weight.map(|v| v.to_string()).unwrap_or_default(),
-                            valid: true,
-                            parsed: *weight,
-                            changed: false,
+                            parsed: some_or_default(*weight),
+                            orig: weight.map(|v| v.to_string()).unwrap_or_default(),
                         },
-                        rpe: InputField {
+                        rpe: common::InputField {
                             input: rpe.map(|v| v.to_string()).unwrap_or_default(),
-                            valid: true,
-                            parsed: *rpe,
-                            changed: false,
+                            parsed: some_or_default(*rpe),
+                            orig: rpe.map(|v| v.to_string()).unwrap_or_default(),
                         },
                         target_reps: *target_reps,
                         target_time: *target_time,
@@ -297,7 +293,9 @@ impl Form {
                     _ => None,
                 })
                 .flatten()
-                .any(|e| e.reps.changed || e.time.changed || e.weight.changed || e.rpe.changed)
+                .any(|e| {
+                    e.reps.changed() || e.time.changed() || e.weight.changed() || e.rpe.changed()
+                })
     }
 
     fn valid(&self) -> bool {
@@ -308,7 +306,7 @@ impl Form {
                 _ => None,
             })
             .flatten()
-            .all(|s| s.reps.valid && s.time.valid && s.weight.valid && s.rpe.valid)
+            .all(|s| s.reps.valid() && s.time.valid() && s.weight.valid() && s.rpe.valid())
     }
 }
 
@@ -322,10 +320,10 @@ struct ExerciseForm {
     position: usize,
     exercise_id: u32,
     exercise_name: String,
-    reps: InputField<u32>,
-    time: InputField<u32>,
-    weight: InputField<f32>,
-    rpe: InputField<f32>,
+    reps: common::InputField<u32>,
+    time: common::InputField<u32>,
+    weight: common::InputField<f32>,
+    rpe: common::InputField<f32>,
     target_reps: Option<u32>,
     target_time: Option<u32>,
     target_weight: Option<f32>,
@@ -335,25 +333,6 @@ struct ExerciseForm {
     prev_weight: Option<f32>,
     prev_rpe: Option<f32>,
     automatic: bool,
-}
-
-#[derive(Clone)]
-struct InputField<T> {
-    input: String,
-    valid: bool,
-    parsed: Option<T>,
-    changed: bool,
-}
-
-impl<T> Default for InputField<T> {
-    fn default() -> Self {
-        InputField {
-            input: String::new(),
-            valid: true,
-            parsed: None,
-            changed: false,
-        }
-    }
 }
 
 struct Guide {
@@ -697,19 +676,17 @@ pub fn update(
                     Ok(parsed_reps) => {
                         let valid = common::valid_reps(parsed_reps);
                         let parsed = if valid { Some(parsed_reps) } else { None };
-                        *reps = InputField {
+                        *reps = common::InputField {
                             input,
-                            valid,
                             parsed,
-                            changed: true,
+                            orig: reps.orig.clone(),
                         }
                     }
                     Err(_) => {
-                        *reps = InputField {
+                        *reps = common::InputField {
                             input: input.clone(),
-                            valid: input.is_empty(),
-                            parsed: None,
-                            changed: true,
+                            parsed: if input.is_empty() { Some(0) } else { None },
+                            orig: reps.orig.clone(),
                         }
                     }
                 }
@@ -722,19 +699,17 @@ pub fn update(
                     Ok(parsed_time) => {
                         let valid = common::valid_time(parsed_time);
                         let parsed = if valid { Some(parsed_time) } else { None };
-                        *time = InputField {
+                        *time = common::InputField {
                             input,
-                            valid,
                             parsed,
-                            changed: true,
+                            orig: time.orig.clone(),
                         }
                     }
                     Err(_) => {
-                        *time = InputField {
+                        *time = common::InputField {
                             input: input.clone(),
-                            valid: input.is_empty(),
-                            parsed: None,
-                            changed: true,
+                            parsed: if input.is_empty() { Some(0) } else { None },
+                            orig: time.orig.clone(),
                         }
                     }
                 }
@@ -747,19 +722,17 @@ pub fn update(
                     Ok(parsed_weight) => {
                         let valid = common::valid_weight(parsed_weight);
                         let parsed = if valid { Some(parsed_weight) } else { None };
-                        *weight = InputField {
+                        *weight = common::InputField {
                             input,
-                            valid,
                             parsed,
-                            changed: true,
+                            orig: weight.orig.clone(),
                         }
                     }
                     Err(_) => {
-                        *weight = InputField {
+                        *weight = common::InputField {
                             input: input.clone(),
-                            valid: input.is_empty(),
-                            parsed: None,
-                            changed: true,
+                            parsed: if input.is_empty() { Some(0.0) } else { None },
+                            orig: weight.orig.clone(),
                         }
                     }
                 }
@@ -772,19 +745,17 @@ pub fn update(
                     Ok(parsed_rpe) => {
                         let valid = common::valid_rpe(parsed_rpe);
                         let parsed = if valid { Some(parsed_rpe) } else { None };
-                        *rpe = InputField {
+                        *rpe = common::InputField {
                             input,
-                            valid,
                             parsed,
-                            changed: true,
+                            orig: rpe.orig.clone(),
                         }
                     }
                     Err(_) => {
-                        *rpe = InputField {
+                        *rpe = common::InputField {
                             input: input.clone(),
-                            valid: input.is_empty(),
-                            parsed: None,
-                            changed: true,
+                            parsed: if input.is_empty() { Some(0.0) } else { None },
+                            orig: rpe.orig.clone(),
                         }
                     }
                 }
@@ -808,29 +779,25 @@ pub fn update(
                     target_rpe,
                     ..
                 } = &mut exercises[exercise_idx];
-                *reps = InputField {
+                *reps = common::InputField {
                     input: target_reps.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *target_reps,
-                    changed: reps.changed || reps.parsed != *target_reps,
+                    parsed: some_or_default(*target_reps),
+                    orig: reps.orig.clone(),
                 };
-                *time = InputField {
+                *time = common::InputField {
                     input: target_time.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *target_time,
-                    changed: time.changed || time.parsed != *target_time,
+                    parsed: some_or_default(*target_time),
+                    orig: time.orig.clone(),
                 };
-                *weight = InputField {
+                *weight = common::InputField {
                     input: target_weight.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *target_weight,
-                    changed: weight.changed || weight.parsed != *target_weight,
+                    parsed: some_or_default(*target_weight),
+                    orig: weight.orig.clone(),
                 };
-                *rpe = InputField {
+                *rpe = common::InputField {
                     input: target_rpe.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *target_rpe,
-                    changed: rpe.changed || rpe.parsed != *target_rpe,
+                    parsed: some_or_default(*target_rpe),
+                    orig: rpe.orig.clone(),
                 };
             }
         }
@@ -847,29 +814,25 @@ pub fn update(
                     prev_rpe,
                     ..
                 } = &mut exercises[exercise_idx];
-                *reps = InputField {
+                *reps = common::InputField {
                     input: prev_reps.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *prev_reps,
-                    changed: reps.changed || reps.parsed != *prev_reps,
+                    parsed: some_or_default(*prev_reps),
+                    orig: reps.orig.clone(),
                 };
-                *time = InputField {
+                *time = common::InputField {
                     input: prev_time.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *prev_time,
-                    changed: time.changed || time.parsed != *prev_time,
+                    parsed: some_or_default(*prev_time),
+                    orig: time.orig.clone(),
                 };
-                *weight = InputField {
+                *weight = common::InputField {
                     input: prev_weight.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *prev_weight,
-                    changed: weight.changed || weight.parsed != *prev_weight,
+                    parsed: some_or_default(*prev_weight),
+                    orig: weight.orig.clone(),
                 };
-                *rpe = InputField {
+                *rpe = common::InputField {
                     input: prev_rpe.map(|v| v.to_string()).unwrap_or_default(),
-                    valid: true,
-                    parsed: *prev_rpe,
-                    changed: rpe.changed || rpe.parsed != *prev_rpe,
+                    parsed: some_or_default(*prev_rpe),
+                    orig: rpe.orig.clone(),
                 };
             }
         }
@@ -1061,10 +1024,10 @@ pub fn update(
                                 .iter()
                                 .map(|e| data::TrainingSessionElement::Set {
                                     exercise_id: e.exercise_id,
-                                    reps: e.reps.parsed,
-                                    time: e.time.parsed,
-                                    weight: e.weight.parsed,
-                                    rpe: e.rpe.parsed,
+                                    reps: e.reps.parsed.filter(|reps| *reps > 0),
+                                    time: e.time.parsed.filter(|time| *time > 0),
+                                    weight: e.weight.parsed.filter(|weight| *weight > 0.0),
+                                    rpe: e.rpe.parsed.filter(|rpe| *rpe > 0.0),
                                     target_reps: e.target_reps,
                                     target_time: e.target_time,
                                     target_weight: e.target_weight,
@@ -1495,8 +1458,8 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             input![
                                                 C!["input"],
                                                 C!["has-text-right"],
-                                                C![IF![not(s.reps.valid) => "is-danger"]],
-                                                C![IF![s.reps.changed => "is-info"]],
+                                                C![IF![not(s.reps.valid()) => "is-danger"]],
+                                                C![IF![s.reps.changed() => "is-info"]],
                                                 attrs! {
                                                     At::Type => "number",
                                                     At::Min => 0,
@@ -1523,8 +1486,8 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             input![
                                                 C!["input"],
                                                 C!["has-text-right"],
-                                                C![IF![not(s.time.valid) => "is-danger"]],
-                                                C![IF![s.time.changed => "is-info"]],
+                                                C![IF![not(s.time.valid()) => "is-danger"]],
+                                                C![IF![s.time.changed() => "is-info"]],
                                                 attrs! {
                                                     At::Type => "number",
                                                     At::Min => 0,
@@ -1551,8 +1514,8 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             input![
                                                 C!["input"],
                                                 C!["has-text-right"],
-                                                C![IF![not(s.weight.valid) => "is-danger"]],
-                                                C![IF![s.weight.changed => "is-info"]],
+                                                C![IF![not(s.weight.valid()) => "is-danger"]],
+                                                C![IF![s.weight.changed() => "is-info"]],
                                                 attrs! {
                                                     At::from("inputmode") => "numeric",
                                                     At::Size => 3,
@@ -1576,8 +1539,8 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             input![
                                                 C!["input"],
                                                 C!["has-text-right"],
-                                                C![IF![not(s.rpe.valid) => "is-danger"]],
-                                                C![IF![s.rpe.changed => "is-info"]],
+                                                C![IF![not(s.rpe.valid()) => "is-danger"]],
+                                                C![IF![s.rpe.changed() => "is-info"]],
                                                 attrs! {
                                                     At::from("inputmode") => "numeric",
                                                     At::Size => 2,
@@ -2008,4 +1971,12 @@ fn format_set(
     }
 
     result
+}
+
+fn some_or_default<T: Default>(value: Option<T>) -> Option<T> {
+    if value.is_some() {
+        value
+    } else {
+        Some(T::default())
+    }
 }

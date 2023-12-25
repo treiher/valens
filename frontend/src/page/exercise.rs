@@ -31,7 +31,7 @@ pub fn init(
     let mut model = Model {
         interval: common::init_interval(&[], true),
         exercise_id,
-        name: InputField::default(),
+        name: common::InputField::default(),
         dialog: Dialog::Hidden,
         editing,
         loading: false,
@@ -49,7 +49,7 @@ pub fn init(
 pub struct Model {
     interval: common::Interval,
     exercise_id: u32,
-    name: InputField<String>,
+    name: common::InputField<String>,
     dialog: Dialog,
     editing: bool,
     loading: bool,
@@ -73,33 +73,6 @@ impl Model {
 enum Dialog {
     Hidden,
     DeleteTrainingSession(u32),
-}
-
-#[derive(Clone)]
-struct InputField<T> {
-    input: String,
-    parsed: Option<T>,
-    orig: String,
-}
-
-impl<T> Default for InputField<T> {
-    fn default() -> Self {
-        InputField {
-            input: String::new(),
-            parsed: None,
-            orig: String::new(),
-        }
-    }
-}
-
-impl<T> InputField<T> {
-    fn valid(&self) -> bool {
-        self.parsed.is_some()
-    }
-
-    fn changed(&self) -> bool {
-        self.input != self.orig
-    }
 }
 
 // ------ ------
@@ -167,13 +140,13 @@ pub fn update(
                         .values()
                         .all(|e| e.name != trimmed_name))
             {
-                model.name = InputField {
+                model.name = common::InputField {
                     input: name.clone(),
                     parsed: Some(trimmed_name.to_string()),
                     orig: model.name.orig.clone(),
                 };
             } else {
-                model.name = InputField {
+                model.name = common::InputField {
                     input: name,
                     parsed: None,
                     orig: model.name.orig.clone(),
@@ -227,7 +200,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
     let exercise = &data_model.exercises.get(&model.exercise_id);
 
     if let Some(exercise) = exercise {
-        model.name = InputField {
+        model.name = common::InputField {
             input: exercise.name.clone(),
             parsed: Some(exercise.name.clone()),
             orig: exercise.name.clone(),

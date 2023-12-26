@@ -53,6 +53,12 @@ optional = true
 [tool.poetry.group.debug.dependencies]
 pytest-flakefinder = ">=1, <2"
 
+[tool.poetry.group.deploy]
+optional = true
+
+[tool.poetry.group.deploy.dependencies]
+fabric = ">=3, <4"
+
 [tool.poetry.scripts]
 valens = "valens.cli:main"
 

@@ -8,16 +8,16 @@ from time import sleep
 
 from selenium import webdriver
 
-from tests.e2e.cli_test import wait_for_output
 from tests.e2e.const import PORT
+from tests.e2e.io import wait_for_output
 from tests.e2e.page import (
     BodyFatPage,
     HomePage,
     LoginPage,
-    PeriodPage,
+    MenstrualCyclePage,
     RoutinePage,
-    WorkoutPage,
-    WorkoutsPage,
+    TrainingPage,
+    TrainingSessionEditPage,
 )
 from valens import config, demo
 
@@ -66,20 +66,15 @@ def take_screenshots() -> None:
 
     save_screenshot("home")
 
-    workouts_page = WorkoutsPage(driver)
-    workouts_page.load()
+    training_page = TrainingPage(driver)
+    training_page.load()
 
-    save_screenshot("workouts")
+    save_screenshot("training")
 
-    workout_page = WorkoutPage(driver, 104)
-    workout_page.load()
+    training_session_page = TrainingSessionEditPage(driver, 104)
+    training_session_page.load()
 
-    save_screenshot("workout")
-
-    workout_page.click_hamburger_button()
-    workout_page.click_hamburger_menu_item("stopwatch")
-
-    save_screenshot("stopwatch")
+    save_screenshot("training_session")
 
     routine_page = RoutinePage(driver, 4)
     routine_page.load()
@@ -92,7 +87,7 @@ def take_screenshots() -> None:
 
     save_screenshot("body_fat")
 
-    period_page = PeriodPage(driver)
+    period_page = MenstrualCyclePage(driver)
     period_page.load()
     period_page.click_plot_3m()
 

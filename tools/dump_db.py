@@ -11,4 +11,4 @@ from valens import app
 db_file = Path(app.config["DATABASE"].removeprefix("sqlite:///"))
 connection = sqlite3.connect(db_file)
 
-print(dump_db(connection), end="")
+print(dump_db(connection), end="")  # noqa: T201

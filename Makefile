@@ -18,9 +18,17 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check_frontend check_backend check_poetry check_black check_ruff check_mypy
+.PHONY: check check_general check_poetry check_kacl check_frontend check_backend check_black check_ruff check_mypy
 
-check: check_poetry check_frontend check_backend
+check: check_frontend check_backend
+
+check_general: check_poetry check_kacl
+
+check_poetry:
+	poetry check
+
+check_kacl:
+	poetry run kacl-cli verify
 
 check_frontend:
 	cargo fmt --manifest-path=frontend/Cargo.toml -- --check
@@ -28,9 +36,6 @@ check_frontend:
 	cargo clippy --manifest-path=frontend/Cargo.toml -- --warn clippy::pedantic --deny warnings
 
 check_backend: check_poetry check_black check_ruff check_mypy
-
-check_poetry:
-	poetry check
 
 check_black:
 	poetry run black --check --diff $(PYTHON_PACKAGES)

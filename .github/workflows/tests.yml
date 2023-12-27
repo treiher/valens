@@ -6,12 +6,34 @@ on:
     - cron: '0 2 * * 6'
 
 env:
+  PYTHON_VERSION: "3.11"
   RUST_VERSION: "1.68.2"
   TRUNK_VERSION: "0.17.5"
   POETRY_VERSION: "1.7.1"
   POETRY_DYNAMIC_VERSIONING_VERSION: "1.2.0"
 
 jobs:
+  check_general:
+    name: General Checks
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Poetry
+        run: |
+          pipx install poetry==${{ env.POETRY_VERSION }}
+          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+      - name: Install dependencies
+        run: |
+          poetry install
+      - name: Check
+        run: |
+          make check_general
+
   check_frontend:
     name: Frontend Checks
     runs-on: ubuntu-20.04

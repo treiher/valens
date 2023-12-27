@@ -46,6 +46,7 @@ pytest-xdist = ">=1.32.0"
 ruff = ">=0.0.260"
 sqlalchemy = {extras = ["mypy"], version = ">=2, <3"}
 types-selenium = ">=3"
+python-kacl = "^0.4.6"
 
 [tool.poetry.group.debug]
 optional = true

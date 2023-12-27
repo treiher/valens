@@ -17,8 +17,16 @@
 
 ## Installation
 
+The latest release can be installed from [PyPI](https://pypi.org/p/valens).
+
 ```
 pip install valens
+```
+
+The latest development version can be installed from [TestPyPI](https://test.pypi.org/p/valens).
+
+```
+pip install --pre --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ valens
 ```
 
 ## Demo Mode

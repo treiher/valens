@@ -15,7 +15,7 @@ env:
 jobs:
   check_general:
     name: General Checks
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Poetry
@@ -36,7 +36,7 @@ jobs:
 
   check_frontend:
     name: Frontend Checks
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Poetry
@@ -53,7 +53,7 @@ jobs:
 
   check_backend:
     name: Backend Checks
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +79,7 @@ jobs:
 
   test_installation:
     name: Installation Test
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
@@ -111,7 +111,7 @@ jobs:
 
   test_frontend:
     name: Frontend Tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Poetry
@@ -128,7 +128,7 @@ jobs:
 
   test_backend:
     name: Backend Tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -153,19 +153,17 @@ jobs:
 
   test_e2e:
     name: End-to-End Tests
-    runs-on: ubuntu-20.04
-    env:
-        python-version: "3.10"
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Poetry
         run: |
           pipx install poetry==${{ env.POETRY_VERSION }}
           pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
-      - name: Set up Python ${{ env.python-version }}
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: poetry
       - name: Set up Rust
         run: |
@@ -186,19 +184,19 @@ jobs:
   test_latest_dependencies:
     name: Latest Dependencies
     if: ${{ github.event_name == 'schedule' }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
-        python-version: "3.x"
+        PYTHON_VERSION: "3.x"
     steps:
       - uses: actions/checkout@v3
       - name: Install Poetry
         run: |
           pipx install poetry==${{ env.POETRY_VERSION }}
           pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
-      - name: Set up Python ${{ env.python-version }}
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.python-version }}
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: poetry
       - name: Set up Rust
         run: |

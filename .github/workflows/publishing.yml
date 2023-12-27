@@ -41,7 +41,8 @@ jobs:
           cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Build distribution
         run: |
-          make dist
+          # Build distribution without local version identifier
+          POETRY_DYNAMIC_VERSIONING_BYPASS=$(poetry version -s | sed 's/+.*//') make dist
       - name: Store distribution packages
         uses: actions/upload-artifact@v4
         with:

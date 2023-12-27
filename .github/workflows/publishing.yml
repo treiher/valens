@@ -1,0 +1,97 @@
+name: publishing
+
+on: push
+
+env:
+  PYTHON_VERSION: "3.11"
+  RUST_VERSION: "1.68.2"
+  TRUNK_VERSION: "0.17.5"
+  POETRY_VERSION: "1.7.1"
+  POETRY_DYNAMIC_VERSIONING_VERSION: "1.2.0"
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Poetry
+        run: |
+          pipx install poetry==${{ env.POETRY_VERSION }}
+          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+      - name: Set up Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
+          echo ~/.cargo/bin >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend
+      - name: Install dependencies
+        run: |
+          sudo apt install libarchive-tools
+          poetry install
+          cargo install --locked trunk@${{ env.TRUNK_VERSION }}
+      - name: Build distribution
+        run: |
+          make dist
+      - name: Store distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-pypi:
+    name: Publish Python distribution to PyPI
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - build
+    runs-on: ubuntu-22.04
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/valens
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-to-testpypi:
+    name: Publish Python distribution to TestPyPI
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - build
+    runs-on: ubuntu-22.04
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/valens
+
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download dists
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

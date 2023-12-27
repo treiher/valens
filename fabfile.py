@@ -11,7 +11,7 @@ def deploy(
     c: object, package: Optional[str] = None, target_directory: Optional[str] = None
 ) -> None:
     if not isinstance(c, Connection):
-        sys.exit("usage: fab -H user@host deploy")
+        sys.exit("usage: fab -H user@host deploy [--package=FILE] [--target-directory=DIRECTORY]")
 
     if package:
         directory = str(Path(package).parent)

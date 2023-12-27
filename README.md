@@ -65,7 +65,7 @@ VALENS_CONFIG=$PWD/config.py valens run --public
 
 ### Public Network
 
-The development server is not intended for production use. Please consider the [deployment options](https://flask.palletsprojects.com/en/2.0.x/deploying/) for providing the app in a public network.
+The development server is not intended for production use. Please consider the [deployment options](https://flask.palletsprojects.com/en/2.3.x/deploying/) for providing the app in a public network.
 
 #### Example Configuration: nginx and uWSGI
 
@@ -160,6 +160,26 @@ $ make run_backend
 ```
 
 After a successful start of the development servers, the web app can be reached on `http://127.0.0.1:8000`.
+
+### Building a distribution package
+
+```console
+$ make dist
+```
+
+### Deploying the application
+
+Install [Fabric](https://www.fabfile.org/).
+
+```console
+$ poetry install --only=deploy
+```
+
+Deploy the latest distribution package.
+
+```console
+$ fab -H user@host deploy
+```
 
 ## License
 

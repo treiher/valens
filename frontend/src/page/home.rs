@@ -67,17 +67,25 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         } else {
             String::new()
         };
-    let training_content =
-        if let Some((_, training_session)) = &data_model.training_sessions.last_key_value() {
-            last("session", today - training_session.date)
-        } else {
-            String::new()
-        };
+    let training_content = if let Some(date) = data_model
+        .training_sessions
+        .values()
+        .map(|ts| ts.date)
+        .max()
+    {
+        last("session", today - date)
+    } else {
+        String::new()
+    };
 
     if data_model.body_weight.is_empty() && data_model.loading_body_weight {
         body_weight_subtitle = common::view_loading::<Msg>().to_string();
         body_weight_content = String::new();
-    } else if let Some((_, body_weight)) = &data_model.body_weight.last_key_value() {
+    } else if let Some(body_weight) = data_model
+        .body_weight
+        .values()
+        .max_by(|a, b| a.date.cmp(&b.date))
+    {
         body_weight_subtitle = format!("{:.1} kg", body_weight.weight);
         body_weight_content = last("entry", today - body_weight.date);
     } else {
@@ -88,7 +96,11 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.body_fat.is_empty() && data_model.loading_body_fat {
         body_fat_subtitle = common::view_loading::<Msg>().to_string();
         body_fat_content = String::new();
-    } else if let Some((_, body_fat)) = &data_model.body_fat.last_key_value() {
+    } else if let Some(body_fat) = data_model
+        .body_fat
+        .values()
+        .max_by(|a, b| a.date.cmp(&b.date))
+    {
         body_fat_subtitle = if let Some(jp3) = body_fat.jp3(sex) {
             format!("{jp3:.1} %")
         } else {

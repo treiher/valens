@@ -215,3 +215,20 @@ jobs:
       - name: Test
         run: |
           make test
+
+  test_latest_release:
+    name: Latest Release
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install latest PyPI release
+        run: |
+          pip install valens
+      - name: Test
+        run: |
+          valens --version

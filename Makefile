@@ -137,7 +137,7 @@ run_backend: $(CONFIG_FILE)
 	VALENS_CONFIG=$(CONFIG_FILE) poetry run flask --app valens --debug run -h 0.0.0.0
 
 $(CONFIG_FILE): $(BUILD_DIR)
-	valens config -d build
+	poetry run valens config -d build
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)

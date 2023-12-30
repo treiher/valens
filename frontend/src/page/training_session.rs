@@ -893,18 +893,23 @@ pub fn update(
                 match &model.form.sections[guide.section_idx] {
                     FormSection::Set { exercises } => {
                         let exercise = &exercises[0];
-                        if exercise.target_time.is_none() || exercise.target_reps.is_some() {
+                        if not(show_guide_timer(exercise)) {
                             guide.timer.reset_time = 0;
                         } else if let Some(target_time) = exercise.target_time {
                             if let Some(time) = guide.timer.time.1 {
                                 if time <= 0 {
-                                    if exercise.target_time != exercise.time.parsed {
-                                        orders.send_msg(Msg::TimeChanged(
+                                    if let Some(target_reps) = exercise.target_reps {
+                                        orders.send_msg(Msg::RepsChanged(
                                             guide.section_idx,
                                             0,
-                                            target_time.to_string(),
+                                            target_reps.to_string(),
                                         ));
                                     }
+                                    orders.send_msg(Msg::TimeChanged(
+                                        guide.section_idx,
+                                        0,
+                                        target_time.to_string(),
+                                    ));
                                     orders.send_msg(Msg::GoToNextSection);
                                 }
                             }
@@ -1175,10 +1180,15 @@ fn update_guide_timer(model: &mut Model) {
         match &model.form.sections[guide.section_idx] {
             FormSection::Set { exercises } => {
                 let exercise = &exercises[0];
-                if exercise.target_reps.is_some() {
+                if not(show_guide_timer(exercise)) {
                     return;
                 }
                 if let Some(target_time) = exercise.target_time {
+                    let target_time = if let Some(target_reps) = exercise.target_reps {
+                        target_time * target_reps
+                    } else {
+                        target_time
+                    };
                     guide.timer.set(i64::from(target_time) - elapsed_time);
                     if exercise.automatic {
                         guide.timer.start();
@@ -1979,4 +1989,8 @@ fn some_or_default<T: Default>(value: Option<T>) -> Option<T> {
     } else {
         Some(T::default())
     }
+}
+
+fn show_guide_timer(exercise: &ExerciseForm) -> bool {
+    exercise.target_time.is_some() && (exercise.target_reps.is_none() || exercise.automatic)
 }

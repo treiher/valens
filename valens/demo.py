@@ -16,6 +16,7 @@ from valens.models import (
     Sex,
     User,
     Workout,
+    WorkoutRest,
     WorkoutSet,
 )
 
@@ -81,7 +82,7 @@ def _body_fat(user_id: int = 1) -> list[BodyFat]:
         value = tuple(max(1, abs(e + int(random.gauss(0, 0.8)))) for e in previous)
         previous = value
         values.append((day, value))
-        day -= datetime.timedelta(days=7)
+        day -= datetime.timedelta(days=random.randint(5, 9) + round(random.randint(4, 6) / 10) * 7)
 
     return [
         BodyFat(
@@ -129,23 +130,24 @@ class ExerciseType:
 
 def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Workout]]:
     exercise_names = {
-        "Bench Press": ExerciseType(reps=True, time=False, weight=True, rpe=True),
-        "Bodyrow": ExerciseType(reps=True, time=True, weight=False, rpe=True),
-        "Burpee": ExerciseType(reps=True, time=False, weight=False, rpe=False),
-        "Chin Up": ExerciseType(reps=True, time=True, weight=True, rpe=True),
-        "Deadlift": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Barbell Back Squat": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Barbell Bench Press": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Barbell Deadlift": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Barbell Lunge": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Barbell Romanian Deadlift": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Barbell Row": ExerciseType(reps=True, time=True, weight=False, rpe=True),
         "Dip": ExerciseType(reps=True, time=True, weight=True, rpe=True),
-        "Glute Bridge": ExerciseType(reps=True, time=False, weight=False, rpe=True),
-        "Handstand": ExerciseType(reps=False, time=True, weight=False, rpe=False),
+        "Dumbbell Curl": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Dumbbell Press": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Dumbbell Shoulder Press": ExerciseType(reps=True, time=False, weight=False, rpe=False),
         "Hip Thrust": ExerciseType(reps=True, time=False, weight=False, rpe=True),
-        "Lunge": ExerciseType(reps=True, time=False, weight=True, rpe=True),
-        "Mountain Climber": ExerciseType(reps=False, time=True, weight=False, rpe=False),
-        "Overhead Press": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Lat Pulldown": ExerciseType(reps=True, time=True, weight=True, rpe=True),
         "Plank": ExerciseType(reps=False, time=True, weight=False, rpe=False),
         "Pull Up": ExerciseType(reps=True, time=True, weight=True, rpe=True),
         "Push Up": ExerciseType(reps=True, time=True, weight=False, rpe=True),
-        "Squat": ExerciseType(reps=True, time=False, weight=True, rpe=True),
-        "Step Up": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Seated Leg Curl": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Seated Leg Extension": ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        "Walking Lunge": ExerciseType(reps=True, time=False, weight=True, rpe=False),
     }
     exercises = [
         Exercise(user_id=user_id, name=name)
@@ -195,39 +197,54 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
             - datetime.timedelta(days=len(routines) * 13 * 7)
             + datetime.timedelta(days=(quarter * 13 * 7) + (week * 7) + day),
             elements=[
-                WorkoutSet(
-                    position=p,
-                    exercise=e,
-                    reps=5 + week + random.randint(0, 2) if exercise_names[e.name].reps else None,
-                    time=t,
-                    weight=w,
-                    rpe=random.randint(10, 20) * 0.5 if exercise_names[e.name].rpe else None,
-                )
-                for p, (e, t, w) in enumerate(
+                element
+                for position, (exercise, reps, time, weight, rpe) in enumerate(
                     [
-                        (routine_activity.exercise, t, w)
+                        (routine_activity.exercise, reps, time, weight, rpe)
                         for routine_section in routines[quarter].sections
                         for routine_activity in routine_section.parts
                         if isinstance(routine_activity, RoutineActivity)
                         and routine_activity.exercise is not None
-                        for t, w in [
-                            (
+                        for reps, time, weight, rpe in (
+                            [
                                 (
-                                    random.randint(3, 4)
+                                    5 + week + random.randint(0, 1)
                                     if exercise_names[routine_activity.exercise.name].reps
-                                    else 10 + 4 * week + 5 * random.randint(0, 2)
+                                    else None,
+                                    (
+                                        random.randint(3, 4)
+                                        if exercise_names[routine_activity.exercise.name].reps
+                                        else 10 + 5 * week + 5 * random.randint(0, 2)
+                                    )
+                                    if exercise_names[routine_activity.exercise.name].time
+                                    else None,
+                                    5 + (week + random.randint(0, 1)) * 0.5
+                                    if exercise_names[routine_activity.exercise.name].weight
+                                    else None,
+                                    min(7 + (week % 4) + (random.randint(0, 1) * 0.5), 10)
+                                    if exercise_names[routine_activity.exercise.name].rpe
+                                    else None,
                                 )
-                                if exercise_names[routine_activity.exercise.name].time
-                                else None,
-                                5 + week + random.randint(0, 2)
-                                if exercise_names[routine_activity.exercise.name].weight
-                                else None,
-                            )
-                        ]
+                            ]
+                        )
                         for _ in range(routine_section.rounds)
                     ],
-                    start=1,
+                    start=0,
                 )
+                for element in [
+                    WorkoutSet(
+                        position=2 * position + 1,
+                        exercise=exercise,
+                        reps=reps,
+                        time=time,
+                        weight=weight,
+                        rpe=rpe,
+                    ),
+                    WorkoutRest(
+                        position=2 * position + 2,
+                        target_time=60,
+                    ),
+                ]
             ],
             routine=routines[quarter],
         )

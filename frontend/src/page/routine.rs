@@ -486,6 +486,7 @@ pub fn update(
             if let Some(Form::Activity { exercise_id, .. }) = get_part(&mut model.sections, &id) {
                 *exercise_id = Some(input);
             }
+            orders.send_msg(Msg::CloseDialog);
         }
         Msg::RepsChanged(id, input) => {
             if let Some(Form::Activity { reps, .. }) = get_part(&mut model.sections, &id) {
@@ -771,68 +772,19 @@ fn view_dialog(
 ) -> Node<Msg> {
     match dialog {
         Dialog::SelectExercise(part_id, search_term) => {
-            let mut exercises = exercises
-                .values()
-                .filter(|e| {
-                    e.name
-                        .to_lowercase()
-                        .contains(search_term.to_lowercase().trim())
-                })
-                .collect::<Vec<_>>();
-            exercises.sort_by(|a, b| a.name.cmp(&b.name));
+            let part_id = part_id.clone();
 
             common::view_dialog(
                 "primary",
                 "Select exercise",
-                nodes![
-                    div![
-                        C!["field"],
-                        C!["is-grouped"],
-                        common::view_search_box(search_term, Msg::SearchTermChanged),
-                        {
-                            let disabled = loading
-                                || search_term.is_empty()
-                                || exercises.iter().any(|e| e.name == *search_term.trim());
-                            div![
-                                C!["control"],
-                                button![
-                                    C!["button"],
-                                    C!["is-link"],
-                                    C![IF![loading => "is-loading"]],
-                                    attrs! {
-                                        At::Disabled => disabled.as_at_value()
-                                    },
-                                    ev(Ev::Click, |_| Msg::CreateExercise),
-                                    span![C!["icon"], i![C!["fas fa-plus"]]]
-                                ]
-                            ]
-                        }
-                    ],
-                    div![
-                        C!["table-container"],
-                        C!["mt-4"],
-                        table![
-                            C!["table"],
-                            C!["is-fullwidth"],
-                            C!["is-hoverable"],
-                            tbody![&exercises
-                                .iter()
-                                .map(|e| {
-                                    tr![td![
-                                        C!["has-text-link"],
-                                        ev(Ev::Click, {
-                                            let part_id = part_id.clone();
-                                            let exercise_id = e.id;
-                                            move |_| Msg::ExerciseChanged(part_id, exercise_id)
-                                        }),
-                                        ev(Ev::Click, |_| Msg::CloseDialog),
-                                        e.name.to_string(),
-                                    ]]
-                                })
-                                .collect::<Vec<_>>()],
-                        ]
-                    ]
-                ],
+                common::view_exercises_with_search(
+                    exercises,
+                    search_term,
+                    Msg::SearchTermChanged,
+                    |_| Msg::CreateExercise,
+                    loading,
+                    |exercise_id| Msg::ExerciseChanged(part_id, exercise_id),
+                ),
                 &ev(Ev::Click, |_| Msg::CloseDialog),
             )
         }

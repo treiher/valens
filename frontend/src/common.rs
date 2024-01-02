@@ -4,6 +4,8 @@ use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
 use seed::{prelude::*, *};
 
+use crate::data;
+
 pub const ENTER_KEY: u32 = 13;
 
 pub const COLOR_BODY_WEIGHT: usize = 1;
@@ -869,6 +871,77 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
             }
         }
     }
+}
+
+pub fn view_exercises_with_search<Ms>(
+    exercises: &BTreeMap<u32, data::Exercise>,
+    search_term: &str,
+    search_term_changed: impl FnOnce(String) -> Ms + 'static + Clone,
+    create_exercise: impl FnOnce(web_sys::Event) -> Ms + 'static + Clone,
+    loading: bool,
+    selected: impl FnOnce(u32) -> Ms + 'static + Clone,
+) -> Vec<Node<Ms>>
+where
+    Ms: 'static,
+{
+    let mut exercises = exercises
+        .values()
+        .filter(|e| {
+            e.name
+                .to_lowercase()
+                .contains(search_term.to_lowercase().trim())
+        })
+        .collect::<Vec<_>>();
+    exercises.sort_by(|a, b| a.name.cmp(&b.name));
+
+    nodes![
+        div![
+            C!["field"],
+            C!["is-grouped"],
+            view_search_box(search_term, search_term_changed),
+            {
+                let disabled = loading
+                    || search_term.is_empty()
+                    || exercises.iter().any(|e| e.name == *search_term.trim());
+                div![
+                    C!["control"],
+                    button![
+                        C!["button"],
+                        C!["is-link"],
+                        C![IF![loading => "is-loading"]],
+                        attrs! {
+                            At::Disabled => disabled.as_at_value()
+                        },
+                        ev(Ev::Click, create_exercise),
+                        span![C!["icon"], i![C!["fas fa-plus"]]]
+                    ]
+                ]
+            }
+        ],
+        div![
+            C!["table-container"],
+            C!["mt-4"],
+            table![
+                C!["table"],
+                C!["is-fullwidth"],
+                C!["is-hoverable"],
+                tbody![&exercises
+                    .iter()
+                    .map(|e| {
+                        tr![td![
+                            C!["has-text-link"],
+                            ev(Ev::Click, {
+                                let exercise_id = e.id;
+                                let selected = selected.clone();
+                                move |_| selected(exercise_id)
+                            }),
+                            e.name.to_string(),
+                        ]]
+                    })
+                    .collect::<Vec<_>>()],
+            ]
+        ]
+    ]
 }
 
 pub fn valid_reps(reps: u32) -> bool {

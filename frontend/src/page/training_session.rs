@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 use chrono::{prelude::*, Duration};
@@ -60,8 +61,8 @@ pub fn init(
         training_session_id,
         form: init_form(training_session, data_model),
         guide,
-        timer_dialog: SMTDialog {
-            visible: false,
+        dialog: Dialog::Hidden,
+        smt: StopwatchMetronomTimer {
             stopwatch: Stopwatch {
                 time: 0,
                 start_time: None,
@@ -256,7 +257,8 @@ pub struct Model {
     training_session_id: u32,
     form: Form,
     guide: Option<Guide>,
-    timer_dialog: SMTDialog,
+    dialog: Dialog,
+    smt: StopwatchMetronomTimer,
     timer_stream: Option<StreamHandle>,
     audio_context: Option<web_sys::AudioContext>,
     editing: bool,
@@ -310,12 +312,14 @@ impl Form {
     }
 }
 
+#[cfg_attr(test, derive(Debug, PartialEq))]
 enum FormSection {
     Set { exercises: Vec<ExerciseForm> },
     Rest { target_time: u32, automatic: bool },
 }
 
 #[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 struct ExerciseForm {
     position: usize,
     exercise_id: u32,
@@ -369,8 +373,15 @@ impl Guide {
     }
 }
 
-struct SMTDialog {
-    visible: bool,
+#[derive(PartialEq)]
+enum Dialog {
+    Hidden,
+    StopwatchMetronomTimer,
+    Options(usize, usize),
+    ReplaceExercise(usize, usize, String),
+}
+
+struct StopwatchMetronomTimer {
     stopwatch: Stopwatch,
     metronome: Metronome,
     timer: Timer,
@@ -644,8 +655,14 @@ pub enum Msg {
     DataEvent(data::Event),
 
     ShowSMTDialog,
-    CloseSMTDialog,
-    UpdateSMTDialog,
+    ShowOptionsDialog(usize, usize),
+    ShowReplaceExerciseDialog(usize, usize),
+    SearchTermChanged(String),
+    CreateExercise,
+    ReplaceExercise(usize, usize, u32),
+    CloseDialog,
+
+    UpdateStopwatchMetronomTimer,
 
     StartPauseStopwatch,
     ResetStopwatch,
@@ -1073,8 +1090,8 @@ pub fn update(
                     update_streams(model, orders);
                 }
                 data::Event::BeepVolumeChanged => {
-                    model.timer_dialog.metronome.beep_volume = data_model.settings.beep_volume;
-                    model.timer_dialog.timer.beep_volume = data_model.settings.beep_volume;
+                    model.smt.metronome.beep_volume = data_model.settings.beep_volume;
+                    model.smt.timer.beep_volume = data_model.settings.beep_volume;
                     if let Some(guide) = &mut model.guide {
                         guide.timer.beep_volume = data_model.settings.beep_volume;
                     }
@@ -1084,66 +1101,93 @@ pub fn update(
         }
 
         Msg::ShowSMTDialog => {
-            model.timer_dialog.visible = true;
+            model.dialog = Dialog::StopwatchMetronomTimer;
         }
-        Msg::CloseSMTDialog => {
-            model.timer_dialog.visible = false;
+        Msg::ShowOptionsDialog(section_idx, exercise_idx) => {
+            model.dialog = Dialog::Options(section_idx, exercise_idx);
         }
-        Msg::UpdateSMTDialog => {
-            model.timer_dialog.stopwatch.update();
-            model.timer_dialog.metronome.update(&model.audio_context);
-            model.timer_dialog.timer.update(&model.audio_context);
+        Msg::ShowReplaceExerciseDialog(section_idx, exercise_idx) => {
+            model.dialog = Dialog::ReplaceExercise(section_idx, exercise_idx, String::new());
+        }
+        Msg::SearchTermChanged(search_term) => {
+            if let Dialog::ReplaceExercise(_, _, st) = &mut model.dialog {
+                *st = search_term;
+            }
+        }
+        Msg::CreateExercise => {
+            model.loading = true;
+            if let Dialog::ReplaceExercise(_, _, search_term) = &model.dialog {
+                orders.notify(data::Msg::CreateExercise(search_term.trim().to_string()));
+            };
+        }
+        Msg::ReplaceExercise(section_idx, exercise_idx, new_exercise_id) => {
+            replace_exercise(
+                &mut model.form.sections,
+                section_idx,
+                exercise_idx,
+                new_exercise_id,
+                &data_model.exercises,
+            );
+            orders
+                .send_msg(Msg::SaveTrainingSession)
+                .send_msg(Msg::CloseDialog);
+        }
+        Msg::CloseDialog => {
+            model.dialog = Dialog::Hidden;
+        }
+
+        Msg::UpdateStopwatchMetronomTimer => {
+            model.smt.stopwatch.update();
+            model.smt.metronome.update(&model.audio_context);
+            model.smt.timer.update(&model.audio_context);
         }
 
         Msg::StartPauseStopwatch => {
-            model.timer_dialog.stopwatch.start_pause();
+            model.smt.stopwatch.start_pause();
             update_streams(model, orders);
         }
         Msg::ResetStopwatch => {
-            model.timer_dialog.stopwatch.reset();
+            model.smt.stopwatch.reset();
         }
         Msg::ToggleStopwatch => {
-            model.timer_dialog.stopwatch.toggle();
+            model.smt.stopwatch.toggle();
             update_streams(model, orders);
         }
 
         Msg::StartMetronome(interval) => {
-            model.timer_dialog.metronome.interval = interval;
-            model.timer_dialog.metronome.stressed_beat = 1;
-            model.timer_dialog.metronome.start(&model.audio_context);
+            model.smt.metronome.interval = interval;
+            model.smt.metronome.stressed_beat = 1;
+            model.smt.metronome.start(&model.audio_context);
             update_streams(model, orders);
         }
         Msg::PauseMetronome => {
-            model.timer_dialog.metronome.pause();
+            model.smt.metronome.pause();
             update_streams(model, orders);
         }
         Msg::StartPauseMetronome => {
-            model
-                .timer_dialog
-                .metronome
-                .start_pause(&model.audio_context);
+            model.smt.metronome.start_pause(&model.audio_context);
             update_streams(model, orders);
         }
         Msg::MetronomeIntervalChanged(interval) => {
-            model.timer_dialog.metronome.interval = interval.parse::<u32>().unwrap_or(1);
+            model.smt.metronome.interval = interval.parse::<u32>().unwrap_or(1);
         }
         Msg::MetronomeStressChanged(stressed_beat) => {
-            model.timer_dialog.metronome.stressed_beat = stressed_beat.parse::<u32>().unwrap_or(1);
+            model.smt.metronome.stressed_beat = stressed_beat.parse::<u32>().unwrap_or(1);
         }
 
         Msg::StartPauseTimer => {
-            model.timer_dialog.timer.start_pause();
+            model.smt.timer.start_pause();
             update_streams(model, orders);
         }
         Msg::ResetTimer => {
-            model.timer_dialog.timer.reset();
+            model.smt.timer.reset();
         }
         Msg::TimerTimeChanged(time) => match time.parse::<i64>() {
             Ok(parsed_time) => {
-                model.timer_dialog.timer.time = (time, Some(parsed_time));
-                model.timer_dialog.timer.reset_time = parsed_time;
+                model.smt.timer.time = (time, Some(parsed_time));
+                model.smt.timer.reset_time = parsed_time;
             }
-            Err(_) => model.timer_dialog.timer.time = (time, None),
+            Err(_) => model.smt.timer.time = (time, None),
         },
     }
 }
@@ -1159,11 +1203,13 @@ fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
                 None
             }
     };
-    model.timer_stream = if model.timer_dialog.stopwatch.is_active()
-        || model.timer_dialog.metronome.is_active()
-        || model.timer_dialog.timer.is_active()
+    model.timer_stream = if model.smt.stopwatch.is_active()
+        || model.smt.metronome.is_active()
+        || model.smt.timer.is_active()
     {
-        Some(orders.stream_with_handle(streams::interval(100, || Msg::UpdateSMTDialog)))
+        Some(
+            orders.stream_with_handle(streams::interval(100, || Msg::UpdateStopwatchMetronomTimer)),
+        )
     } else {
         None
     };
@@ -1282,6 +1328,44 @@ fn show_section_notification(model: &mut Model) {
     }
 }
 
+fn replace_exercise(
+    sections: &mut [FormSection],
+    section_idx: usize,
+    exercise_idx: usize,
+    new_exercise_id: u32,
+    data_exercises: &BTreeMap<u32, data::Exercise>,
+) {
+    let mut current_exercise_id = None;
+    let mut current_exercise_ids = vec![];
+    for mut section in sections.iter_mut().skip(section_idx) {
+        if let FormSection::Set { exercises } = &mut section {
+            let ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
+            if current_exercise_ids.is_empty() {
+                current_exercise_ids = ids;
+            } else if current_exercise_ids != ids {
+                break;
+            }
+            for exercise in exercises.iter_mut().skip(exercise_idx) {
+                let ExerciseForm {
+                    exercise_id,
+                    exercise_name,
+                    ..
+                } = exercise;
+                match current_exercise_id {
+                    None => current_exercise_id = Some(*exercise_id),
+                    Some(id) => {
+                        if *exercise_id != id {
+                            break;
+                        }
+                    }
+                }
+                *exercise_id = new_exercise_id;
+                *exercise_name = data_exercises[&new_exercise_id].name.clone();
+            }
+        }
+    }
+}
+
 // ------ ------
 //     View
 // ------ ------
@@ -1292,13 +1376,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else if let Some(training_session) =
         data_model.training_sessions.get(&model.training_session_id)
     {
-        if model.timer_dialog.visible {
-            div![
-                Node::NoChange,
-                Node::NoChange,
-                view_timer_dialog(&model.timer_dialog),
-            ]
-        } else {
+        if model.dialog == Dialog::Hidden {
             div![
                 view_title(training_session, data_model),
                 if model.editing || model.guide.is_some() {
@@ -1310,6 +1388,17 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         common::view_fab("edit", |_| Msg::EditTrainingSession)
                     ]
                 }
+            ]
+        } else {
+            div![
+                Node::NoChange,
+                Node::NoChange,
+                view_dialog(
+                    &model.dialog,
+                    &model.smt,
+                    model.loading,
+                    &data_model.exercises
+                ),
             ]
         }
     } else {
@@ -1565,16 +1654,24 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                     div![
                                         C!["has-text-weight-bold"],
                                         C!["mb-2"],
-                                        a![
-                                            attrs! {
-                                                At::Href => {
-                                                    crate::Urls::new(&data_model.base_url)
-                                                        .exercise()
-                                                        .add_hash_path_part(s.exercise_id.to_string())
+                                        div![
+                                            C!["is-flex"],
+                                            C!["is-justify-content-space-between"],
+                                            a![
+                                                attrs! {
+                                                    At::Href => {
+                                                        crate::Urls::new(&data_model.base_url)
+                                                            .exercise()
+                                                            .add_hash_path_part(s.exercise_id.to_string())
+                                                    },
+                                                    At::from("tabindex") => -1
                                                 },
-                                                At::from("tabindex") => -1
-                                            },
-                                            &s.exercise_name
+                                                &s.exercise_name
+                                            ],
+                                            div![a![
+                                                ev(Ev::Click, move |_| Msg::ShowOptionsDialog(section_idx, position)),
+                                                span![C!["icon"], i![C!["fas fa-ellipsis-vertical"]]]
+                                            ]],
                                         ],
                                     ],
                                     if let Some(guide) = &model.guide {
@@ -1763,195 +1860,254 @@ fn view_guide_timer(guide: &Guide) -> Node<Msg> {
     ]
 }
 
-fn view_timer_dialog(dialog: &SMTDialog) -> Node<Msg> {
+fn view_dialog(
+    dialog: &Dialog,
+    smt: &StopwatchMetronomTimer,
+    loading: bool,
+    exercises: &BTreeMap<u32, data::Exercise>,
+) -> Node<Msg> {
+    let content = match dialog {
+        Dialog::Hidden => nodes![],
+        Dialog::StopwatchMetronomTimer => view_smt_dialog(smt),
+        Dialog::Options(section_idx, exercise_idx) => {
+            view_options_dialog(*section_idx, *exercise_idx)
+        }
+        Dialog::ReplaceExercise(section_idx, exercise_idx, search_term) => {
+            view_replace_exercise_dialog(
+                *section_idx,
+                *exercise_idx,
+                search_term,
+                loading,
+                exercises,
+            )
+        }
+    };
+
     div![
         C!["modal"],
-        IF![dialog.visible => C!["is-active"]],
-        div![
-            C!["modal-background"],
-            ev(Ev::Click, |_| Msg::CloseSMTDialog),
-        ],
+        C!["is-active"],
+        div![C!["modal-background"], ev(Ev::Click, |_| Msg::CloseDialog)],
         div![
             C!["modal-content"],
             div![
                 C!["box"],
                 C!["mx-2"],
-                div![
-                    C!["block"],
-                    label![C!["subtitle"], "Stopwatch"],
-                    div![
-                        C!["container"],
-                        C!["has-text-centered"],
-                        C!["p-5"],
-                        p![C!["title"], C!["is-size-1"],
-                        ev(Ev::Click, |_| Msg::ToggleStopwatch),
-                        {
-                            #[allow(clippy::cast_precision_loss)]
-                            let time = dialog.stopwatch.time as f64 / 1000.;
-                            format!("{time:.1}")
-                        }],
-                        button![
-                            C!["button"],
-                            C!["mt-1"],
-                            C!["mx-3"],
-                            attrs! {At::Type => "button"},
-                            ev(Ev::Click, |_| Msg::StartPauseStopwatch),
-                            if dialog.stopwatch.is_active() {
-                                span![C!["icon"], i![C!["fas fa-pause"]]]
-                            } else {
-                                span![C!["icon"], i![C!["fas fa-play"]]]
-                            }
-                        ],
-                        button![
-                            C!["button"],
-                            C!["mt-1"],
-                            C!["mx-3"],
-                            attrs! {At::Type => "button"},
-                            ev(Ev::Click, |_| Msg::ResetStopwatch),
-                            span![C!["icon"], i![C!["fas fa-rotate-left"]]]
-                        ],
-                    ],
+                content,
+                button![
+                    C!["modal-close"],
+                    C!["is-large"],
+                    ev(Ev::Click, |_| Msg::CloseDialog),
+                ]
+            ]
+        ]
+    ]
+}
+
+fn view_smt_dialog(smt: &StopwatchMetronomTimer) -> Vec<Node<Msg>> {
+    nodes![
+        div![
+            C!["block"],
+            label![C!["subtitle"], "Stopwatch"],
+            div![
+                C!["container"],
+                C!["has-text-centered"],
+                C!["p-5"],
+                p![C!["title"], C!["is-size-1"],
+                ev(Ev::Click, |_| Msg::ToggleStopwatch),
+                {
+                    #[allow(clippy::cast_precision_loss)]
+                    let time = smt.stopwatch.time as f64 / 1000.;
+                    format!("{time:.1}")
+                }],
+                button![
+                    C!["button"],
+                    C!["mt-1"],
+                    C!["mx-3"],
+                    attrs! {At::Type => "button"},
+                    ev(Ev::Click, |_| Msg::StartPauseStopwatch),
+                    if smt.stopwatch.is_active() {
+                        span![C!["icon"], i![C!["fas fa-pause"]]]
+                    } else {
+                        span![C!["icon"], i![C!["fas fa-play"]]]
+                    }
                 ],
+                button![
+                    C!["button"],
+                    C!["mt-1"],
+                    C!["mx-3"],
+                    attrs! {At::Type => "button"},
+                    ev(Ev::Click, |_| Msg::ResetStopwatch),
+                    span![C!["icon"], i![C!["fas fa-rotate-left"]]]
+                ],
+            ],
+        ],
+        div![
+            C!["block"],
+            label![C!["subtitle"], "Metronome"],
+            div![
+                C!["container"],
+                C!["p-5"],
                 div![
-                    C!["block"],
-                    label![C!["subtitle"], "Metronome"],
+                    C!["field"],
+                    C!["is-grouped"],
+                    C!["is-grouped-centered"],
                     div![
-                        C!["container"],
-                        C!["p-5"],
+                        C!["field"],
+                        C!["mx-4"],
+                        label![C!["label"], "Interval"],
                         div![
-                            C!["field"],
-                            C!["is-grouped"],
-                            C!["is-grouped-centered"],
+                            C!["control"],
+                            input_ev(Ev::Change, Msg::MetronomeIntervalChanged),
                             div![
-                                C!["field"],
-                                C!["mx-4"],
-                                label![C!["label"], "Interval"],
-                                div![
-                                    C!["control"],
-                                    input_ev(Ev::Change, Msg::MetronomeIntervalChanged),
-                                    div![
-                                        C!["select"],
-                                        select![
-                                            (1..61).map(|i| {
-                                                option![
-                                                    &i,
-                                                    attrs! {
-                                                        At::Value => i,
-                                                        At::Selected => (i == dialog.metronome.interval).as_at_value()
-                                                    }
-                                                ]
-                                            }).collect::<Vec<_>>()
+                                C!["select"],
+                                select![
+                                    (1..61).map(|i| {
+                                        option![
+                                            &i,
+                                            attrs! {
+                                                At::Value => i,
+                                                At::Selected => (i == smt.metronome.interval).as_at_value()
+                                            }
                                         ]
-                                    ]
-                                ]
-                            ],
-                            div![
-                                C!["field"],
-                                C!["mx-4"],
-                                label![C!["label"], "Stress"],
-                                div![
-                                    C!["control"],
-                                    input_ev(Ev::Change, Msg::MetronomeStressChanged),
-                                    div![
-                                        C!["select"],
-                                        select![
-                                            (1..13).map(|i| {
-                                                option![
-                                                    &i,
-                                                    attrs! {
-                                                        At::Value => i,
-                                                        At::Selected => (i == dialog.metronome.stressed_beat).as_at_value()
-                                                    }
-                                                ]
-                                            }).collect::<Vec<_>>()
-                                        ]
-                                    ]
-                                ]
-                            ],
-                            div![
-                                C!["field"],
-                                C!["has-text-centered"],
-                                C!["mx-4"],
-                                label![C!["label"], raw!["&nbsp;"]],
-                                div![
-                                    C!["control"],
-                                    button![
-                                        C!["button"],
-                                        attrs! {At::Type => "button"},
-                                        ev(Ev::Click, |_| Msg::StartPauseMetronome),
-                                        if dialog.metronome.is_active() {
-                                            span![C!["icon"], i![C!["fas fa-pause"]]]
-                                        } else {
-                                            span![C!["icon"], i![C!["fas fa-play"]]]
-                                        }
-                                    ],
+                                    }).collect::<Vec<_>>()
                                 ]
                             ]
                         ]
                     ],
-                ],
-                div![
-                    C!["block"],
-                    label![C!["subtitle"], "Timer"],
                     div![
-                        C!["container"],
-                        C!["has-text-centered"],
-                        C!["p-5"],
-                        div![C!["field"],
+                        C!["field"],
+                        C!["mx-4"],
+                        label![C!["label"], "Stress"],
                         div![
                             C!["control"],
-                            input_ev(Ev::Input, Msg::TimerTimeChanged),
-                            input![
-                                C!["input"],
-                                C!["title"],
-                                C!["is-size-1"],
-                                C!["has-text-centered"],
-                                C![IF![not(&dialog.timer.time.1.is_some()) => "is-danger"]],
-                                style! {
-                                    St::Height => "auto",
-                                    St::Width => "auto",
-                                    St::Padding => 0,
-                                },
-                                attrs! {
-                                    At::Type => "number",
-                                    At::Value => &dialog.timer.time.0,
-                                    At::Min => 0,
-                                    At::Max => 9999,
-                                    At::Step => 1,
-                                    At::Size => 4
-                                },
+                            input_ev(Ev::Change, Msg::MetronomeStressChanged),
+                            div![
+                                C!["select"],
+                                select![
+                                    (1..13).map(|i| {
+                                        option![
+                                            &i,
+                                            attrs! {
+                                                At::Value => i,
+                                                At::Selected => (i == smt.metronome.stressed_beat).as_at_value()
+                                            }
+                                        ]
+                                    }).collect::<Vec<_>>()
+                                ]
                             ]
-                        ]],
-                        button![
-                            C!["button"],
-                            C!["mt-5"],
-                            C!["mx-3"],
-                            attrs! {At::Type => "button"},
-                            ev(Ev::Click, |_| Msg::StartPauseTimer),
-                            if dialog.timer.is_active() {
-                                span![C!["icon"], i![C!["fas fa-pause"]]]
-                            } else {
-                                span![C!["icon"], i![C!["fas fa-play"]]]
-                            }
-                        ],
-                        button![
-                            C!["button"],
-                            C!["mt-5"],
-                            C!["mx-3"],
-                            attrs! {At::Type => "button"},
-                            ev(Ev::Click, |_| Msg::ResetTimer),
-                            span![C!["icon"], i![C!["fas fa-rotate-left"]]]
-                        ],
+                        ]
                     ],
+                    div![
+                        C!["field"],
+                        C!["has-text-centered"],
+                        C!["mx-4"],
+                        label![C!["label"], raw!["&nbsp;"]],
+                        div![
+                            C!["control"],
+                            button![
+                                C!["button"],
+                                attrs! {At::Type => "button"},
+                                ev(Ev::Click, |_| Msg::StartPauseMetronome),
+                                if smt.metronome.is_active() {
+                                    span![C!["icon"], i![C!["fas fa-pause"]]]
+                                } else {
+                                    span![C!["icon"], i![C!["fas fa-play"]]]
+                                }
+                            ],
+                        ]
+                    ]
+                ]
+            ],
+        ],
+        div![
+            C!["block"],
+            label![C!["subtitle"], "Timer"],
+            div![
+                C!["container"],
+                C!["has-text-centered"],
+                C!["p-5"],
+                div![C!["field"],
+                div![
+                    C!["control"],
+                    input_ev(Ev::Input, Msg::TimerTimeChanged),
+                    input![
+                        C!["input"],
+                        C!["title"],
+                        C!["is-size-1"],
+                        C!["has-text-centered"],
+                        C![IF![not(&smt.timer.time.1.is_some()) => "is-danger"]],
+                        style! {
+                            St::Height => "auto",
+                            St::Width => "auto",
+                            St::Padding => 0,
+                        },
+                        attrs! {
+                            At::Type => "number",
+                            At::Value => &smt.timer.time.0,
+                            At::Min => 0,
+                            At::Max => 9999,
+                            At::Step => 1,
+                            At::Size => 4
+                        },
+                    ]
+                ]],
+                button![
+                    C!["button"],
+                    C!["mt-5"],
+                    C!["mx-3"],
+                    attrs! {At::Type => "button"},
+                    ev(Ev::Click, |_| Msg::StartPauseTimer),
+                    if smt.timer.is_active() {
+                        span![C!["icon"], i![C!["fas fa-pause"]]]
+                    } else {
+                        span![C!["icon"], i![C!["fas fa-play"]]]
+                    }
+                ],
+                button![
+                    C!["button"],
+                    C!["mt-5"],
+                    C!["mx-3"],
+                    attrs! {At::Type => "button"},
+                    ev(Ev::Click, |_| Msg::ResetTimer),
+                    span![C!["icon"], i![C!["fas fa-rotate-left"]]]
                 ],
             ],
-            button![
-                C!["modal-close"],
-                C!["is-large"],
-                ev(Ev::Click, |_| Msg::CloseSMTDialog),
-            ]
-        ]
+        ],
     ]
+}
+
+fn view_options_dialog(section_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>> {
+    nodes![p![a![
+        C!["has-text-weight-bold"],
+        ev(Ev::Click, move |_| Msg::ShowReplaceExerciseDialog(
+            section_idx,
+            exercise_idx
+        )),
+        span![
+            C!["icon-text"],
+            span![C!["icon"], i![C!["fas fa-arrow-right-arrow-left"]]],
+            span!["Replace exercise"],
+        ]
+    ]]]
+}
+
+fn view_replace_exercise_dialog(
+    section_idx: usize,
+    exercise_idx: usize,
+    search_term: &str,
+    loading: bool,
+    exercises: &BTreeMap<u32, data::Exercise>,
+) -> Vec<Node<Msg>> {
+    let section_idx = section_idx;
+    let exercise_idx = exercise_idx;
+    common::view_exercises_with_search(
+        exercises,
+        search_term,
+        Msg::SearchTermChanged,
+        |_| Msg::CreateExercise,
+        loading,
+        move |exercise_id| Msg::ReplaceExercise(section_idx, exercise_idx, exercise_id),
+    )
 }
 
 fn format_set(
@@ -1993,4 +2149,297 @@ fn some_or_default<T: Default>(value: Option<T>) -> Option<T> {
 
 fn show_guide_timer(exercise: &ExerciseForm) -> bool {
     exercise.target_time.is_some() && (exercise.target_reps.is_none() || exercise.automatic)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::InputField;
+
+    use super::*;
+
+    #[test]
+    fn test_replace_exercise_first_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        replace_exercise(&mut sections, 0, 0, 2, &exercises(2));
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 2)]),
+                rest(0),
+                set(vec![exercise(1, 2)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_replace_exercise_second_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        replace_exercise(&mut sections, 2, 0, 2, &exercises(2));
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 2)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_replace_exercise_penultimate_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        replace_exercise(&mut sections, 8, 0, 2, &exercises(2));
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 2)]),
+                rest(4),
+                set(vec![exercise(5, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_replace_exercise_last_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        replace_exercise(&mut sections, 10, 0, 2, &exercises(2));
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_replace_exercise_superset_first_exercise() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0), exercise(1, 1)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 1)]),
+            rest(1),
+            set(vec![exercise(4, 0), exercise(5, 2)]),
+            rest(2),
+            set(vec![exercise(6, 0), exercise(7, 2)]),
+            rest(3),
+            set(vec![exercise(8, 1), exercise(9, 2)]),
+            rest(4),
+            set(vec![exercise(10, 1), exercise(11, 2)]),
+            rest(5),
+        ];
+        replace_exercise(&mut sections, 0, 0, 3, &exercises(3));
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 3), exercise(1, 1)]),
+                rest(0),
+                set(vec![exercise(2, 3), exercise(3, 1)]),
+                rest(1),
+                set(vec![exercise(4, 0), exercise(5, 2)]),
+                rest(2),
+                set(vec![exercise(6, 0), exercise(7, 2)]),
+                rest(3),
+                set(vec![exercise(8, 1), exercise(9, 2)]),
+                rest(4),
+                set(vec![exercise(10, 1), exercise(11, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_replace_exercise_dropsets() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0), exercise(1, 0)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 0)]),
+            rest(1),
+            set(vec![exercise(4, 0), exercise(5, 2)]),
+            rest(2),
+            set(vec![exercise(6, 0), exercise(7, 2)]),
+            rest(3),
+        ];
+        replace_exercise(&mut sections, 0, 0, 3, &exercises(3));
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 3), exercise(1, 3)]),
+                rest(0),
+                set(vec![exercise(2, 3), exercise(3, 3)]),
+                rest(1),
+                set(vec![exercise(4, 0), exercise(5, 2)]),
+                rest(2),
+                set(vec![exercise(6, 0), exercise(7, 2)]),
+                rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_replace_exercise_superset_second_exercise() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0), exercise(1, 1)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 1)]),
+            rest(1),
+            set(vec![exercise(4, 0), exercise(5, 2)]),
+            rest(2),
+            set(vec![exercise(6, 0), exercise(7, 2)]),
+            rest(3),
+            set(vec![exercise(8, 1), exercise(9, 2)]),
+            rest(4),
+            set(vec![exercise(10, 1), exercise(11, 2)]),
+            rest(5),
+        ];
+        replace_exercise(&mut sections, 4, 1, 3, &exercises(3));
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0), exercise(1, 1)]),
+                rest(0),
+                set(vec![exercise(2, 0), exercise(3, 1)]),
+                rest(1),
+                set(vec![exercise(4, 0), exercise(5, 3)]),
+                rest(2),
+                set(vec![exercise(6, 0), exercise(7, 3)]),
+                rest(3),
+                set(vec![exercise(8, 1), exercise(9, 2)]),
+                rest(4),
+                set(vec![exercise(10, 1), exercise(11, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    fn exercises(id: u32) -> BTreeMap<u32, data::Exercise> {
+        BTreeMap::from([(
+            id,
+            data::Exercise {
+                id,
+                name: id.to_string(),
+            },
+        )])
+    }
+
+    fn exercise(entry_id: u32, exercise_id: u32) -> ExerciseForm {
+        ExerciseForm {
+            position: 0,
+            exercise_id,
+            exercise_name: exercise_id.to_string(),
+            reps: InputField::default(),
+            time: InputField::default(),
+            weight: InputField::default(),
+            rpe: InputField::default(),
+            target_reps: Some(entry_id),
+            target_time: None,
+            target_weight: None,
+            target_rpe: None,
+            prev_reps: None,
+            prev_time: None,
+            prev_weight: None,
+            prev_rpe: None,
+            automatic: false,
+        }
+    }
+
+    fn set(exercises: Vec<ExerciseForm>) -> FormSection {
+        FormSection::Set { exercises }
+    }
+
+    fn rest(entry_id: u32) -> FormSection {
+        FormSection::Rest {
+            target_time: entry_id,
+            automatic: true,
+        }
+    }
 }

@@ -89,7 +89,13 @@ pub fn update(
             let local = Local::now().date_naive();
             model.dialog = Dialog::AddTrainingSession(Form {
                 date: (local.to_string(), Some(local)),
-                routine_id: (String::new(), data_model.routines.keys().max().copied()),
+                routine_id: (
+                    String::new(),
+                    data_model
+                        .routines_sorted_by_last_use()
+                        .first()
+                        .map(|r| r.id),
+                ),
             });
         }
         Msg::ShowDeleteTrainingSessionDialog(id) => {
@@ -254,10 +260,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         };
         div![
             view_training_sessions_dialog(
-                &data_model
-                    .routines
-                    .values()
-                    .collect::<Vec<&data::Routine>>(),
+                &data_model.routines_sorted_by_last_use(),
                 &model.dialog,
                 model.loading
             ),
@@ -368,7 +371,7 @@ pub fn view_calendar<Ms>(
 }
 
 fn view_training_sessions_dialog(
-    routines: &[&data::Routine],
+    routines: &[data::Routine],
     dialog: &Dialog,
     loading: bool,
 ) -> Node<Msg> {
@@ -427,7 +430,6 @@ fn view_training_sessions_dialog(
                         C!["select"],
                         select![routines
                             .iter()
-                            .rev()
                             .map(|r| {
                                 option![
                                     &r.name,

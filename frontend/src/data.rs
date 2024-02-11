@@ -101,6 +101,37 @@ pub struct Model {
     pub ongoing_training_session: Option<OngoingTrainingSession>,
 }
 
+impl Model {
+    pub fn routines_sorted_by_last_use(&self) -> Vec<Routine> {
+        sort_routines_by_last_use(&self.routines, &self.training_sessions)
+    }
+}
+
+fn sort_routines_by_last_use(
+    routines: &BTreeMap<u32, Routine>,
+    training_sessions: &BTreeMap<u32, TrainingSession>,
+) -> Vec<Routine> {
+    let mut map: BTreeMap<u32, NaiveDate> = BTreeMap::new();
+    for routine_id in routines.keys() {
+        map.insert(
+            *routine_id,
+            NaiveDate::MIN + Duration::days(i64::from(*routine_id)),
+        );
+    }
+    for training_session in training_sessions.values() {
+        if let Some(routine_id) = training_session.routine_id {
+            if routines.contains_key(&routine_id) && training_session.date > map[&routine_id] {
+                map.insert(routine_id, training_session.date);
+            }
+        }
+    }
+    let mut list: Vec<_> = map.iter().collect();
+    list.sort_by(|a, b| a.1.cmp(b.1).reverse());
+    list.iter()
+        .map(|(routine_id, _)| routines[routine_id].clone())
+        .collect()
+}
+
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct Session {
     pub id: u32,
@@ -1807,5 +1838,85 @@ mod tests {
                 }
             ]
         );
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use() {
+        let routines = BTreeMap::from([
+            (1, routine(1)),
+            (2, routine(2)),
+            (3, routine(3)),
+            (4, routine(4)),
+        ]);
+        let training_sessions = BTreeMap::from([
+            (
+                1,
+                training_session(1, Some(3), NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+            ),
+            (
+                2,
+                training_session(2, Some(2), NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+            ),
+            (
+                3,
+                training_session(3, Some(3), NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+            ),
+        ]);
+        assert_eq!(
+            sort_routines_by_last_use(&routines, &training_sessions),
+            vec![routine(2), routine(3), routine(4), routine(1)]
+        );
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use_empty() {
+        let routines = BTreeMap::new();
+        let training_sessions = BTreeMap::new();
+        assert_eq!(
+            sort_routines_by_last_use(&routines, &training_sessions),
+            vec![]
+        );
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use_missing_routines() {
+        let routines = BTreeMap::from([(1, routine(1)), (2, routine(2))]);
+        let training_sessions = BTreeMap::from([
+            (
+                1,
+                training_session(1, Some(3), NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+            ),
+            (
+                2,
+                training_session(2, Some(2), NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+            ),
+            (
+                3,
+                training_session(3, Some(3), NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+            ),
+        ]);
+        assert_eq!(
+            sort_routines_by_last_use(&routines, &training_sessions),
+            vec![routine(2), routine(1)]
+        );
+    }
+
+    fn routine(id: u32) -> Routine {
+        Routine {
+            id,
+            name: id.to_string(),
+            notes: None,
+            sections: vec![],
+        }
+    }
+
+    fn training_session(id: u32, routine_id: Option<u32>, date: NaiveDate) -> TrainingSession {
+        TrainingSession {
+            id,
+            routine_id,
+            date,
+            notes: None,
+            elements: vec![],
+        }
     }
 }

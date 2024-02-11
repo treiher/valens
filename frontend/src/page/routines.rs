@@ -283,9 +283,8 @@ fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
             C!["is-fullwidth"],
             C!["is-hoverable"],
             tbody![&data_model
-                .routines
-                .values()
-                .rev()
+                .routines_sorted_by_last_use()
+                .iter()
                 .filter(|e| e.name.to_lowercase().contains(&search_term.to_lowercase()))
                 .map(|e| {
                     let id = e.id;

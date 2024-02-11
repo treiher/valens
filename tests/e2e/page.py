@@ -307,10 +307,14 @@ class Page:
         buttons[index].click()
         self.wait_for_dialog()
 
-    def wait_for_table_value(self, index: int, text: str) -> None:
+    def wait_for_table_value(self, row: int, column: int, text: str) -> None:
         wait(self._driver).until(
             EC.text_to_be_present_in_element(
-                (By.XPATH, f"//table[contains(@class, 'is-hoverable')]/tbody/tr/td[{index}]"), text
+                (
+                    By.XPATH,
+                    f"//table[contains(@class, 'is-hoverable')]/tbody/tr[{row}]/td[{column}]",
+                ),
+                text,
             )
         )
 

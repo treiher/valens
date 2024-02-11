@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Option to replace exercise in training session
 - Option to defer exercise in training session
+- Option to add set in training session
 
 ## [0.3.0] - 2024-01-02
 

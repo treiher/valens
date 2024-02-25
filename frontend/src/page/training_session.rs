@@ -1987,6 +1987,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
 fn view_guide_timer(guide: &Guide) -> Node<Msg> {
     div![
         C!["is-size-1"],
+        C![IF![not(guide.timer.is_active()) => "is-blinking"]],
         C!["has-text-centered"],
         ev(Ev::Click, |_| Msg::StartPauseGuideTimer),
         &guide.timer.time.0,

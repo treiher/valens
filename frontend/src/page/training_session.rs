@@ -2325,9 +2325,9 @@ fn show_guide_timer(exercise: &ExerciseForm) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::InputField;
-
     use super::*;
+    use crate::common::InputField;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_replace_exercise_first_set() {

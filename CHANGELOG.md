@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Option to defer exercise in training session
 - Option to add set in training session
 - Blinking of time when timer in training session is paused
+- Calculation of average weekly change in body weight
 
 ### Changed
 

@@ -158,6 +158,7 @@ pub struct BodyWeight {
     pub weight: f32,
 }
 
+#[derive(Clone)]
 pub struct BodyWeightStats {
     pub date: NaiveDate,
     pub avg_weight: Option<f32>,

@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
 use std::iter::zip;
 
 use chrono::prelude::*;
+use chrono::Duration;
 use seed::{prelude::*, *};
 
 use crate::common;
@@ -439,6 +441,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 th!["Date"],
                 th!["Weight (kg)"],
                 th!["Avg. weight (kg)"],
+                th!["Avg. weekly change (%)"],
                 th![]
             ]],
             tbody![zip(
@@ -456,6 +459,13 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     ]],
                     td![format!("{:.1}", bw.weight)],
                     td![common::value_or_dash(bws.avg_weight)],
+                    td![
+                        if let Some(value) = avg_weekly_change(&data_model.body_weight_stats, bws) {
+                            format!("{value:+.1}")
+                        } else {
+                            "-".into()
+                        }
+                    ],
                     td![p![
                         C!["is-flex is-flex-wrap-nowrap"],
                         a![
@@ -476,4 +486,142 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .collect::<Vec<_>>()],
         ]
     ]
+}
+
+fn avg_weekly_change(
+    body_weight_stats: &BTreeMap<NaiveDate, data::BodyWeightStats>,
+    current: &data::BodyWeightStats,
+) -> Option<f32> {
+    let prev_date = current.date - Duration::days(7);
+    let prev_bws = if let Some(bws) = body_weight_stats.get(&prev_date) {
+        bws.clone()
+    } else {
+        let n = neighbors(body_weight_stats, prev_date);
+        interpolate_avg_body_weight(n?.0, n?.1, prev_date)
+    };
+    Some((current.avg_weight? - prev_bws.avg_weight?) / prev_bws.avg_weight? * 100.)
+}
+
+fn neighbors(
+    body_weight_stats: &BTreeMap<NaiveDate, data::BodyWeightStats>,
+    date: NaiveDate,
+) -> Option<(&data::BodyWeightStats, &data::BodyWeightStats)> {
+    use std::ops::Bound::{Excluded, Unbounded};
+
+    let mut before = body_weight_stats.range((Unbounded, Excluded(date)));
+    let mut after = body_weight_stats.range((Excluded(date), Unbounded));
+
+    Some((
+        before.next_back().map(|(_, v)| v)?,
+        after.next().map(|(_, v)| v)?,
+    ))
+}
+
+fn interpolate_avg_body_weight(
+    a: &data::BodyWeightStats,
+    b: &data::BodyWeightStats,
+    date: NaiveDate,
+) -> data::BodyWeightStats {
+    #[allow(clippy::cast_precision_loss)]
+    data::BodyWeightStats {
+        date,
+        avg_weight: if let Some(a_avg_weight) = a.avg_weight {
+            b.avg_weight.map(|b_avg_weight| {
+                a_avg_weight
+                    + (b_avg_weight - a_avg_weight)
+                        * ((date - a.date).num_days() as f32 / (b.date - a.date).num_days() as f32)
+            })
+        } else {
+            None
+        },
+    }
+}
+
+// ------ ------
+//     Tests
+// ------ ------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_approx_eq::assert_approx_eq;
+
+    fn from_num_days(days: i32) -> NaiveDate {
+        NaiveDate::from_num_days_from_ce_opt(days).unwrap()
+    }
+
+    #[test]
+    fn test_avg_weekly_change() {
+        assert_eq!(
+            avg_weekly_change(
+                &BTreeMap::new(),
+                &data::BodyWeightStats {
+                    date: from_num_days(1),
+                    avg_weight: Some(70.0)
+                }
+            ),
+            None
+        );
+        assert_eq!(
+            avg_weekly_change(
+                &BTreeMap::from([(
+                    from_num_days(0),
+                    data::BodyWeightStats {
+                        date: from_num_days(0),
+                        avg_weight: Some(70.0)
+                    }
+                )]),
+                &data::BodyWeightStats {
+                    date: from_num_days(7),
+                    avg_weight: Some(70.0)
+                }
+            ),
+            Some(0.0)
+        );
+        assert_approx_eq!(
+            avg_weekly_change(
+                &BTreeMap::from([(
+                    from_num_days(0),
+                    data::BodyWeightStats {
+                        date: from_num_days(0),
+                        avg_weight: Some(70.0)
+                    }
+                )]),
+                &data::BodyWeightStats {
+                    date: from_num_days(7),
+                    avg_weight: Some(70.7)
+                }
+            )
+            .unwrap(),
+            1.0,
+            0.001
+        );
+        assert_approx_eq!(
+            avg_weekly_change(
+                &BTreeMap::from([
+                    (
+                        from_num_days(0),
+                        data::BodyWeightStats {
+                            date: from_num_days(0),
+                            avg_weight: Some(69.0)
+                        }
+                    ),
+                    (
+                        from_num_days(2),
+                        data::BodyWeightStats {
+                            date: from_num_days(2),
+                            avg_weight: Some(71.0)
+                        }
+                    )
+                ]),
+                &data::BodyWeightStats {
+                    date: from_num_days(8),
+                    avg_weight: Some(69.44)
+                }
+            )
+            .unwrap(),
+            -0.8,
+            0.001
+        );
+    }
 }

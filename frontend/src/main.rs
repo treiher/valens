@@ -690,7 +690,7 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                     if data_model.settings.automatic_metronome {
                         C!["is-primary"]
                     } else {
-                        C!["is-danger"]
+                        C![]
                     },
                     ev(Ev::Click, |_| Msg::ToggleAutomaticMetronome),
                     if data_model.settings.automatic_metronome {

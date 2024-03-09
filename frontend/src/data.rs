@@ -19,7 +19,7 @@ const STORAGE_KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
 pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
     let settings = gloo_storage::LocalStorage::get(STORAGE_KEY_SETTINGS).unwrap_or(Settings {
         beep_volume: 80,
-        automatic_metronome: true,
+        automatic_metronome: false,
         notifications: false,
     });
     let ongoing_training_session =

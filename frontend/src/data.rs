@@ -20,6 +20,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
     let settings = gloo_storage::LocalStorage::get(STORAGE_KEY_SETTINGS).unwrap_or(Settings {
         beep_volume: 80,
         automatic_metronome: true,
+        notifications: false,
     });
     let ongoing_training_session =
         gloo_storage::LocalStorage::get(STORAGE_KEY_ONGOING_TRAINING_SESSION).unwrap_or(None);
@@ -294,6 +295,7 @@ pub enum TrainingSessionElement {
 pub struct Settings {
     pub beep_volume: u8,
     pub automatic_metronome: bool,
+    pub notifications: bool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -883,6 +885,7 @@ pub enum Msg {
 
     SetBeepVolume(u8),
     SetAutomaticMetronome(bool),
+    SetNotifications(bool),
 
     StartTrainingSession(u32),
     UpdateTrainingSession(usize, TimerState),
@@ -1710,6 +1713,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SetAutomaticMetronome(value) => {
             model.settings.automatic_metronome = value;
+            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+        }
+        Msg::SetNotifications(value) => {
+            model.settings.notifications = value;
             local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
         }
 

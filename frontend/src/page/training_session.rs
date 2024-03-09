@@ -861,7 +861,7 @@ pub fn update(
                     guide.timer.to_timer_state(),
                 ));
             }
-            show_section_notification(model);
+            show_section_notification(model, data_model.settings.notifications);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
@@ -883,7 +883,7 @@ pub fn update(
                 .restore(ongoing_training_session.timer_state);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             update_streams(model, orders);
-            show_section_notification(model);
+            show_section_notification(model, data_model.settings.notifications);
             orders.force_render_now().send_msg(Msg::ScrollToSection);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
@@ -971,7 +971,7 @@ pub fn update(
                 } else {
                     guide.section_start_time = Utc::now();
                     update_metronome(model, orders, data_model.settings.automatic_metronome);
-                    show_section_notification(model);
+                    show_section_notification(model, data_model.settings.notifications);
                 }
             }
             update_guide_timer(model);
@@ -1271,9 +1271,7 @@ fn update_metronome(model: &Model, orders: &mut impl Orders<Msg>, automatic_metr
 }
 
 fn show_notification(model: &mut Model, title: &str, body: Option<String>) {
-    if let Some(notification) = &model.notification {
-        notification.close();
-    }
+    close_notification(model);
     let mut options = web_sys::NotificationOptions::new();
     if let Some(body) = body {
         options.body(&body);
@@ -1287,7 +1285,12 @@ fn close_notification(model: &mut Model) {
     }
 }
 
-fn show_section_notification(model: &mut Model) {
+fn show_section_notification(model: &mut Model, notifications_enabled: bool) {
+    if not(notifications_enabled) {
+        close_notification(model);
+        return;
+    }
+
     if let Some(guide) = &mut model.guide {
         if guide.section_idx < model.form.sections.len() {
             let title;

@@ -244,7 +244,7 @@ enum Msg {
     CloseSettingsDialog,
     BeepVolumeChanged(String),
     ToggleAutomaticMetronome,
-    EnableNotifications,
+    ToggleNotifications,
     GoUp,
     LogOut,
 
@@ -318,19 +318,28 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .settings
                 .automatic_metronome))));
         }
-        Msg::EnableNotifications => {
-            orders.skip().perform_cmd(async {
-                if let Ok(promise) = web_sys::Notification::request_permission() {
-                    if let Ok(result) = wasm_bindgen_futures::JsFuture::from(promise).await {
-                        if let Some(string) = result.as_string() {
-                            if string == "granted" {
-                                web_sys::Notification::new("Notifications enabled").ok();
+        Msg::ToggleNotifications => match web_sys::Notification::permission() {
+            web_sys::NotificationPermission::Granted => {
+                orders.send_msg(Msg::Data(data::Msg::SetNotifications(not(model
+                    .data
+                    .settings
+                    .notifications))));
+            }
+            web_sys::NotificationPermission::Denied => {}
+            _ => {
+                orders
+                    .skip()
+                    .perform_cmd(async {
+                        if let Ok(promise) = web_sys::Notification::request_permission() {
+                            #[allow(unused_must_use)]
+                            {
+                                wasm_bindgen_futures::JsFuture::from(promise).await;
                             }
                         }
-                    }
-                }
-            });
-        }
+                    })
+                    .send_msg(Msg::Data(data::Msg::SetNotifications(true)));
+            }
+        },
         Msg::GoUp => match &model.page {
             Some(Page::Home(_) | Page::Login(_)) => {}
             Some(Page::Admin(_)) => {
@@ -693,19 +702,31 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
             ],
             {
                 let permission = web_sys::Notification::permission();
+                let notifications_enabled = data_model.settings.notifications;
                 p![
                     h1![C!["subtitle"], "Notifications"],
                     button![
                         C!["button"],
                         match permission {
-                            web_sys::NotificationPermission::Granted => C!["is-primary"],
+                            web_sys::NotificationPermission::Granted =>
+                                if notifications_enabled {
+                                    C!["is-primary"]
+                                } else {
+                                    C![]
+                                },
                             web_sys::NotificationPermission::Denied => C!["is-danger"],
                             _ => C![],
                         },
-                        ev(Ev::Click, |_| Msg::EnableNotifications),
+                        ev(Ev::Click, |_| Msg::ToggleNotifications),
                         match permission {
-                            web_sys::NotificationPermission::Granted => "Granted",
-                            web_sys::NotificationPermission::Denied => "Denied",
+                            web_sys::NotificationPermission::Granted =>
+                                if notifications_enabled {
+                                    "Enabled"
+                                } else {
+                                    "Disabled"
+                                },
+                            web_sys::NotificationPermission::Denied =>
+                                "Not allowed in browser settings",
                             _ => "Enable",
                         },
                     ],

@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 
@@ -655,6 +656,7 @@ pub enum Msg {
     ReplaceExercise(usize, usize, u32),
     DeferExercise(usize),
     AddSet(usize),
+    RemoveSet(usize),
     CloseDialog,
 
     UpdateStopwatchMetronomTimer,
@@ -1126,6 +1128,12 @@ pub fn update(
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
         }
+        Msg::RemoveSet(section_idx) => {
+            remove_set(&mut model.form.sections, section_idx);
+            orders
+                .send_msg(Msg::SaveTrainingSession)
+                .send_msg(Msg::CloseDialog);
+        }
         Msg::CloseDialog => {
             model.dialog = Dialog::Hidden;
         }
@@ -1399,63 +1407,11 @@ fn defer_exercise(sections: &mut [FormSection], section_idx: usize) {
 }
 
 fn add_set(sections: &mut Vec<FormSection>, section_idx: usize) {
-    if section_idx >= sections.len() {
+    if not(is_set(sections, section_idx)) {
         return;
     }
 
-    let ids = if let FormSection::Set { exercises } = &sections[section_idx] {
-        exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>()
-    } else {
-        return;
-    };
-
-    // Determine first set with same exercises
-    let mut first_idx = section_idx;
-
-    for (i, section) in sections
-        .iter()
-        .rev()
-        .enumerate()
-        .skip(sections.len() - section_idx + 1)
-    {
-        if let FormSection::Set { exercises } = &section {
-            let exercise_ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
-            if ids == exercise_ids {
-                first_idx = section_idx - (sections.len() - i + 1);
-            } else {
-                break;
-            }
-        }
-    }
-
-    // Determine last set with same exercises
-    let mut last_idx = section_idx;
-
-    for (i, section) in sections.iter().enumerate().skip(section_idx + 1) {
-        if let FormSection::Set { exercises } = &section {
-            let exercise_ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
-            if ids == exercise_ids {
-                last_idx = i;
-            } else {
-                break;
-            }
-        }
-    }
-
-    assert!(first_idx <= last_idx);
-    assert!(last_idx < sections.len());
-
-    // Determine rest between sets
-    let rest_idx = if section_idx < last_idx {
-        section_idx + 1
-    } else if first_idx < section_idx {
-        section_idx - 1
-    } else if section_idx + 1 < sections.len() {
-        section_idx + 1
-    } else {
-        section_idx
-    };
-
+    let rest_idx = determine_rest_between_sets(sections, section_idx);
     let rest = if let FormSection::Rest {
         target_time,
         automatic,
@@ -1472,7 +1428,6 @@ fn add_set(sections: &mut Vec<FormSection>, section_idx: usize) {
         }
     };
 
-    // Add rest and set
     sections.insert(section_idx + 1, rest);
 
     if let FormSection::Set { exercises } = &sections[section_idx] {
@@ -1501,6 +1456,112 @@ fn add_set(sections: &mut Vec<FormSection>, section_idx: usize) {
                     .collect::<Vec<_>>(),
             },
         );
+    }
+}
+
+fn remove_set(sections: &mut Vec<FormSection>, section_idx: usize) {
+    if not(is_set(sections, section_idx)) {
+        return;
+    }
+
+    let rest_idx = determine_rest_between_sets(sections, section_idx);
+
+    sections.remove(section_idx);
+
+    match rest_idx.cmp(&section_idx) {
+        Ordering::Less => {
+            sections.remove(rest_idx);
+        }
+        Ordering::Greater => {
+            sections.remove(rest_idx - 1);
+        }
+        Ordering::Equal => {}
+    }
+}
+
+fn is_set(sections: &mut Vec<FormSection>, section_idx: usize) -> bool {
+    if section_idx >= sections.len() {
+        return false;
+    }
+
+    match &sections[section_idx] {
+        FormSection::Set { .. } => true,
+        FormSection::Rest { .. } => false,
+    }
+}
+
+fn determine_exercise_ids(sections: &[FormSection], section_idx: usize) -> Vec<u32> {
+    if let FormSection::Set { exercises } = &sections[section_idx] {
+        exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    }
+}
+
+fn determine_first_set_with_same_exercises(sections: &[FormSection], section_idx: usize) -> usize {
+    let ids = determine_exercise_ids(sections, section_idx);
+    let mut first_idx = section_idx;
+
+    for (i, section) in sections
+        .iter()
+        .rev()
+        .enumerate()
+        .skip(sections.len() - section_idx + 1)
+    {
+        if let FormSection::Set { exercises } = &section {
+            let exercise_ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
+            if ids == exercise_ids {
+                first_idx = section_idx - (sections.len() - i + 1);
+            } else {
+                break;
+            }
+        }
+    }
+
+    first_idx
+}
+
+fn determine_last_set_with_same_exercises(sections: &[FormSection], section_idx: usize) -> usize {
+    let ids = determine_exercise_ids(sections, section_idx);
+    let mut last_idx = section_idx;
+
+    for (i, section) in sections.iter().enumerate().skip(section_idx + 1) {
+        if let FormSection::Set { exercises } = &section {
+            let exercise_ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
+            if ids == exercise_ids {
+                last_idx = i;
+            } else {
+                break;
+            }
+        }
+    }
+
+    last_idx
+}
+
+fn determine_rest_between_sets(sections: &[FormSection], section_idx: usize) -> usize {
+    let first_idx = determine_first_set_with_same_exercises(sections, section_idx);
+    let last_idx = determine_last_set_with_same_exercises(sections, section_idx);
+
+    assert!(first_idx <= last_idx);
+    assert!(last_idx < sections.len());
+
+    let rest_idx = if section_idx < last_idx {
+        section_idx + 1
+    } else if first_idx < section_idx {
+        section_idx - 1
+    } else if section_idx + 1 < sections.len() {
+        section_idx + 1
+    } else if section_idx + 1 == sections.len() {
+        section_idx - 1
+    } else {
+        section_idx
+    };
+
+    if let FormSection::Rest { .. } = &sections[rest_idx] {
+        rest_idx
+    } else {
+        section_idx
     }
 }
 
@@ -2256,6 +2317,23 @@ fn view_options_dialog(section_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                         C!["icon-text"],
                         span![C!["icon"], i![C!["fas fa-plus"]]],
                         span!["Add set"],
+                    ]
+                ]
+            ]
+        ],
+        IF![exercise_idx == 0 =>
+            p![
+                C!["mt-5"],
+                a![
+                    C!["has-text-danger"],
+                    C!["has-text-weight-bold"],
+                    ev(Ev::Click, move |_| Msg::RemoveSet(
+                        section_idx
+                    )),
+                    span![
+                        C!["icon-text"],
+                        span![C!["icon"], i![C!["fas fa-times"]]],
+                        span!["Remove set"],
                     ]
                 ]
             ]
@@ -3016,6 +3094,263 @@ mod tests {
             rest(1),
         ];
         add_set(&mut sections, 4);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_first_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+        ];
+        remove_set(&mut sections, 0);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_second_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+        ];
+        remove_set(&mut sections, 2);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_penultimate_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+        ];
+        remove_set(&mut sections, 4);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_last_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+        ];
+        remove_set(&mut sections, 6);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_superset() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0), exercise(4, 2)]),
+            rest(0),
+            set(vec![exercise(1, 0), exercise(5, 2)]),
+            rest(1),
+        ];
+        remove_set(&mut sections, 0);
+        assert_eq!(
+            sections,
+            vec![set(vec![exercise(1, 0), exercise(5, 2)]), rest(1),]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_no_rest_first_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            set(vec![exercise(1, 0)]),
+            set(vec![exercise(2, 1)]),
+            set(vec![exercise(3, 1)]),
+        ];
+        remove_set(&mut sections, 0);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(1, 0)]),
+                set(vec![exercise(2, 1)]),
+                set(vec![exercise(3, 1)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_no_rest_second_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            set(vec![exercise(1, 0)]),
+            set(vec![exercise(2, 1)]),
+            set(vec![exercise(3, 1)]),
+        ];
+        remove_set(&mut sections, 1);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                set(vec![exercise(2, 1)]),
+                set(vec![exercise(3, 1)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_no_rest_penultimate_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            set(vec![exercise(1, 0)]),
+            set(vec![exercise(2, 1)]),
+            set(vec![exercise(3, 1)]),
+        ];
+        remove_set(&mut sections, 2);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                set(vec![exercise(1, 0)]),
+                set(vec![exercise(3, 1)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_no_rest_last_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            set(vec![exercise(1, 0)]),
+            set(vec![exercise(2, 1)]),
+            set(vec![exercise(3, 1)]),
+        ];
+        remove_set(&mut sections, 3);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                set(vec![exercise(1, 0)]),
+                set(vec![exercise(2, 1)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_first_single_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+        ];
+        remove_set(&mut sections, 0);
+        assert_eq!(sections, vec![set(vec![exercise(1, 1)]),]);
+    }
+
+    #[test]
+    fn test_remove_set_last_single_set() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+        ];
+        remove_set(&mut sections, 2);
+        assert_eq!(sections, vec![set(vec![exercise(0, 0)])]);
+    }
+
+    #[test]
+    fn test_remove_set_invalid_section_idx_rest() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+        ];
+        remove_set(&mut sections, 1);
+        assert_eq!(
+            sections,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_set_invalid_section_idx_out_of_range() {
+        let mut sections = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+        ];
+        remove_set(&mut sections, 4);
         assert_eq!(
             sections,
             vec![

@@ -38,11 +38,11 @@ pub struct InputField<T> {
     pub orig: String,
 }
 
-impl<T> Default for InputField<T> {
+impl<T: Default> Default for InputField<T> {
     fn default() -> Self {
         InputField {
             input: String::new(),
-            parsed: None,
+            parsed: Some(T::default()),
             orig: String::new(),
         }
     }

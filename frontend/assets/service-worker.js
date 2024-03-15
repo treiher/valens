@@ -1,11 +1,12 @@
 const CACHE_NAME = "valens";
-const OFFLINE_URL = "offline";
 
 self.addEventListener("install", function (event) {
     event.waitUntil(
         caches.open(CACHE_NAME).then(function (cache) {
             return cache.addAll([
-                OFFLINE_URL,
+                "app",
+                "valens-frontend_bg.wasm",
+                "valens-frontend.js",
                 "fonts/Roboto-Bold.woff",
                 "fonts/Roboto-BoldItalic.woff",
                 "fonts/Roboto-Italic.woff",
@@ -35,31 +36,17 @@ self.addEventListener("activate", (event) => {
     }));
 });
 
-self.addEventListener("fetch", function(event) {
-    if (event.request.mode === "navigate") {
-        event.respondWith(
-            (async () => {
-                try {
-                    const preloadResponse = await event.preloadResponse;
-                    if (preloadResponse) {
-                        return preloadResponse;
-                    }
-                    const networkResponse = await fetch(event.request);
-                    return networkResponse;
-                } catch (error) {
-                    const cache = await caches.open(CACHE_NAME);
-                    const cachedResponse = await cache.match(OFFLINE_URL);
-                    return cachedResponse;
-                }
-            })()
-        );
-    } else {
-        event.respondWith(
-            fetch(event.request).catch(function() {
-                return caches.match(event.request);
-            })
-        );
-    }
+self.addEventListener("fetch", (event) => {
+    event.respondWith(
+        (async () => {
+            const cachedResponse = await caches.match(event.request);
+            if (cachedResponse) {
+                return cachedResponse;
+            }
+
+            return fetch(event.request);
+        })(),
+    );
 });
 
 self.addEventListener("message", (event) => {

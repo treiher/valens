@@ -98,8 +98,8 @@ http {
 
         [...]
 
-        location = /valens { rewrite ^ /valens/; }
-        location /valens { try_files $uri @valens; }
+        location = /valens { return 301 /valens/; }
+        location /valens/ { try_files $uri @valens; }
         location @valens {
                 include uwsgi_params;
                 uwsgi_pass unix:/run/uwsgi/valens.sock;

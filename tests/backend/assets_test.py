@@ -18,10 +18,17 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
         yield client
 
 
+def test_root(client: Client) -> None:
+    resp = client.get("/")
+
+    assert resp.status_code == HTTPStatus.MOVED_PERMANENTLY
+    assert resp.location == "app"
+
+
 @pytest.mark.parametrize(
     "route",
     [
-        "/",
+        "/app",
         "/manifest.json",
         "/index.css",
         "/valens-frontend.js",

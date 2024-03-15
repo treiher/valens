@@ -16,9 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Blinking of time when timer in training session is paused
 - Calculation of average weekly change in body weight
 - Possibility to disable notifications in settings
+- Caching to improve startup time
 
 ### Changed
 
+- **BREAKING**: Ensure that location includes trailing slash if app is being served from subdirectory (see README for sample configuration)
 - List routines sorted by last use
 - Disable automatic metronome by default
 

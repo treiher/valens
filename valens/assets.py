@@ -1,4 +1,4 @@
-from flask import Blueprint, current_app, render_template, send_from_directory
+from flask import Blueprint, current_app, redirect, render_template, send_from_directory
 from flask.typing import ResponseReturnValue
 
 bp = Blueprint("assets", __name__, template_folder="templates")
@@ -10,6 +10,11 @@ def public_url() -> str:
 
 @bp.route("/")
 def root() -> ResponseReturnValue:
+    return redirect("app", code=301)
+
+
+@bp.route("/app")
+def app() -> ResponseReturnValue:
     return render_template("frontend.html", public_url=public_url())
 
 

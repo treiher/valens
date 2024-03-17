@@ -53,6 +53,8 @@ pub enum Msg {
     SaveUser,
     DeleteUser(u32),
     DataEvent(data::Event),
+
+    UpdateApp,
 }
 
 const ERROR_EMPTY_NAME: &str = "The name must not be empty";
@@ -160,6 +162,10 @@ pub fn update(
                 _ => {}
             };
         }
+
+        Msg::UpdateApp => {
+            orders.skip().notify(data::Msg::UpdateApp);
+        }
     }
 }
 
@@ -184,6 +190,18 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         } else {
             Node::Empty
         },
+        view_users(data_model),
+        view_versions(data_model)
+    ]
+}
+
+fn view_users(data_model: &data::Model) -> Vec<Node<Msg>> {
+    nodes![
+        div![
+            C!["container"],
+            C!["mx-3"],
+            h1![C!["title"], C!["is-5"], "Users"],
+        ],
         div![
             C!["table-container"],
             C!["mt-4"],
@@ -191,7 +209,6 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 C!["table"],
                 C!["is-fullwidth"],
                 C!["is-hoverable"],
-                C!["has-text-centered"],
                 thead![tr![th!["Name"], th!["Sex"], th![]]],
                 tbody![&data_model
                     .users
@@ -233,32 +250,6 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             C!["is-link"],
             ev(Ev::Click, |_| Msg::ShowAddUserDialog),
             span![C!["icon"], i![C!["fas fa-user-plus"]]]
-        ],
-        div![
-            C!["navbar"],
-            C!["is-fixed-bottom"],
-            div![
-                C!["container"],
-                C!["is-flex-direction-column"],
-                div![
-                    C!["columns"],
-                    C!["is-mobile"],
-                    div![
-                        C!["column"],
-                        C!["has-text-centered"],
-                        C!["has-text-grey"],
-                        if &data_model.version == env!("VALENS_VERSION") {
-                            raw![&("<b>Valens</b> ".to_owned() + &data_model.version)]
-                        } else {
-                            raw![&format!(
-                                "<b>Valens</b> {} / {}",
-                                env!("VALENS_VERSION"),
-                                &data_model.version
-                            )]
-                        }
-                    ],
-                ]
-            ],
         ],
     ]
 }
@@ -374,4 +365,22 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
         ],
         &ev(Ev::Click, |_| Msg::CloseUserDialog),
     )
+}
+
+fn view_versions(data_model: &data::Model) -> Node<Msg> {
+    div![
+        C!["container"],
+        C!["mx-3"],
+        h1![C!["title"], C!["is-5"], "Version"],
+        common::view_versions(&data_model.version),
+        IF![&data_model.version != env!("VALENS_VERSION") =>
+            button![
+            C!["button"],
+            C!["is-link"],
+            C!["mt-5"],
+            ev(Ev::Click, |_| Msg::UpdateApp),
+            "Update"
+            ]
+        ],
+    ]
 }

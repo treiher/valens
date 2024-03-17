@@ -245,6 +245,7 @@ enum Msg {
     BeepVolumeChanged(String),
     ToggleAutomaticMetronome,
     ToggleNotifications,
+    UpdateApp,
     GoUp,
     LogOut,
 
@@ -340,6 +341,9 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     .send_msg(Msg::Data(data::Msg::SetNotifications(true)));
             }
         },
+        Msg::UpdateApp => {
+            orders.skip().send_msg(Msg::Data(data::Msg::UpdateApp));
+        }
         Msg::GoUp => match &model.page {
             Some(Page::Home(_) | Page::Login(_)) => {}
             Some(Page::Admin(_)) => {
@@ -506,7 +510,7 @@ fn view(model: &Model) -> impl IntoNodes<Msg> {
             view_navbar(&model.navbar, &model.page, &model.data),
             Node::NoChange,
             view_settings_dialog(&model.data),
-            Node::NoChange,
+            data::view(&model.data).map_msg(Msg::Data),
         ]
     } else {
         nodes![
@@ -704,6 +708,7 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                 let permission = web_sys::Notification::permission();
                 let notifications_enabled = data_model.settings.notifications;
                 p![
+                    C!["mb-5"],
                     h1![C!["subtitle"], "Notifications"],
                     button![
                         C!["button"],
@@ -731,7 +736,20 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                         },
                     ],
                 ]
-            }
+            },
+            p![
+                h1![C!["subtitle"], "Version"],
+                common::view_versions(&data_model.version),
+                IF![&data_model.version != env!("VALENS_VERSION") =>
+                    button![
+                    C!["button"],
+                    C!["is-link"],
+                    C!["mt-5"],
+                    ev(Ev::Click, |_| Msg::UpdateApp),
+                    "Update"
+                    ]
+                ],
+            ],
         ],
         &ev(Ev::Click, |_| Msg::CloseSettingsDialog),
     )

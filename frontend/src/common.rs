@@ -392,6 +392,21 @@ pub fn view_error_not_found<Ms>(element: &str) -> Node<Ms> {
     ]
 }
 
+pub fn view_versions<Ms>(backend_version: &str) -> Vec<Node<Ms>> {
+    nodes![
+        p![span![
+            C!["icon-text"],
+            span![C!["icon"], i![C!["fas fa-mobile-screen"]]],
+            span![env!("VALENS_VERSION")],
+        ]],
+        p![span![
+            C!["icon-text"],
+            span![C!["icon"], i![C!["fas fa-server"]]],
+            span![backend_version],
+        ]],
+    ]
+}
+
 pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     if let Some(value) = option {
         format!("{value:.1}")
@@ -958,6 +973,32 @@ pub fn valid_weight(weight: f32) -> bool {
 
 pub fn valid_rpe(rpe: f32) -> bool {
     (0.0..=10.0).contains(&rpe) && (rpe % 0.5).abs() < f32::EPSILON
+}
+
+#[derive(serde::Serialize)]
+#[serde(tag = "task", content = "content")]
+pub enum ServiceWorkerMessage {
+    UpdateCache,
+}
+
+pub fn post_message_to_service_worker(message: &ServiceWorkerMessage) -> Result<(), String> {
+    let Some(window) = web_sys::window() else {
+        return Err("failed to get window".to_string());
+    };
+    let Some(service_worker) = window.navigator().service_worker().controller() else {
+        return Err("failed to get service worker".to_string());
+    };
+    match JsValue::from_serde(message) {
+        Ok(json_message) => {
+            let Err(err) = service_worker.post_message(&json_message) else {
+                return Ok(());
+            };
+            Err(format!("failed to post message to service worker: {err:?}"))
+        }
+        Err(err) => Err(format!(
+            "failed to prepare message for service worker: {err}"
+        )),
+    }
 }
 
 #[cfg(test)]

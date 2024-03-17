@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Possibility to copy existing routines when creating new ones
 - Possibility to disable notifications in settings
 - Caching to improve startup time
+- Update mechanism
 
 ### Changed
 

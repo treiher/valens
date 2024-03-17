@@ -3,7 +3,7 @@ use std::iter::zip;
 
 use chrono::{prelude::*, Duration};
 use gloo_storage::Storage;
-use seed::prelude::*;
+use seed::{prelude::*, *};
 use serde_json::{json, Map};
 
 use crate::common;
@@ -27,6 +27,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
     Model {
         base_url: url.to_hash_base_url(),
         errors: Vec::new(),
+        app_update_available: false,
         session: None,
         version: String::new(),
         users: BTreeMap::new(),
@@ -69,6 +70,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
 pub struct Model {
     pub base_url: Url,
     errors: Vec<String>,
+    app_update_available: bool,
 
     // ------ Data -----
     pub session: Option<Session>,
@@ -806,6 +808,9 @@ pub enum Msg {
     RemoveError,
     ClearErrors,
 
+    UpdateApp,
+    CancelAppUpdate,
+
     Refresh,
     ClearSessionDependentData,
 
@@ -949,6 +954,19 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.errors.clear();
         }
 
+        Msg::UpdateApp => {
+            match common::post_message_to_service_worker(&common::ServiceWorkerMessage::UpdateCache)
+            {
+                Ok(_) => Url::reload(),
+                Err(err) => {
+                    model.errors.push(format!("Update failed: {err}"));
+                }
+            }
+        }
+        Msg::CancelAppUpdate => {
+            model.app_update_available = false;
+        }
+
         Msg::Refresh => {
             orders
                 .send_msg(Msg::ReadVersion)
@@ -1043,10 +1061,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let backend_version: Vec<&str> = model.version.split('.').collect();
             if frontend_version[0] != backend_version[0]
                 || frontend_version[1] != backend_version[1]
+                || frontend_version[2] != backend_version[2]
             {
-                model
-                .errors
-                .push(format!("Mismatch between frontend and backend version ({}, {}). This may lead to unexpected errors. Please close and restart the app.", env!("VALENS_VERSION"), model.version));
+                model.app_update_available = true;
             }
         }
         Msg::VersionRead(Err(message)) => {
@@ -1799,8 +1816,36 @@ fn local_storage_set<T: serde::Serialize>(key: &str, value: &T, errors: &mut Vec
 //     View
 // ------ ------
 
-pub fn view(model: &Model) -> Node<Msg> {
-    common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::RemoveError))
+pub fn view(model: &Model) -> Vec<Node<Msg>> {
+    nodes![
+        common::view_error_dialog(&model.errors, &ev(Ev::Click, |_| Msg::RemoveError)),
+        view_app_update_dialog(model),
+    ]
+}
+
+fn view_app_update_dialog(model: &Model) -> Option<Node<Msg>> {
+    IF![model.app_update_available => common::view_dialog(
+        "info",
+        "Update",
+        nodes![
+            div![
+                C!["block"],
+                p!["An app update is available."],
+                p![C!["my-3"], common::view_versions(&model.version)],
+                p!["Update now to prevent unexpected errors due to incompatibilities with the server."]
+            ],
+            div![
+                C!["field"],
+                C!["is-grouped"],
+                C!["is-grouped-centered"],
+                div![
+                    C!["control"],
+                    button![C!["button"], C!["is-info"], &ev(Ev::Click, |_| Msg::UpdateApp), "Update"]
+                ],
+            ],
+        ],
+        &ev(Ev::Click, |_| Msg::CancelAppUpdate),
+    )]
 }
 
 // ------ ------

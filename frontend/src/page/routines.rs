@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use seed::{prelude::*, *};
 
 use crate::common;
@@ -45,6 +43,7 @@ enum Dialog {
 struct Form {
     id: u32,
     name: common::InputField<String>,
+    template_routine_id: u32,
 }
 
 // ------ ------
@@ -59,6 +58,7 @@ pub enum Msg {
 
     SearchTermChanged(String),
     NameChanged(String),
+    TemplateRoutineChanged(String),
 
     SaveRoutine,
     DeleteRoutine(u32),
@@ -76,6 +76,7 @@ pub fn update(
             model.dialog = Dialog::AddRoutine(Form {
                 id: 0,
                 name: common::InputField::default(),
+                template_routine_id: 0,
             });
         }
         Msg::ShowEditRoutineDialog(id) => {
@@ -88,6 +89,7 @@ pub fn update(
                     parsed: Some(name.clone()),
                     orig: name,
                 },
+                template_routine_id: 0,
             });
         }
         Msg::ShowDeleteRoutineDialog(id) => {
@@ -125,12 +127,26 @@ pub fn update(
                 panic!();
             }
         },
+        Msg::TemplateRoutineChanged(routine_id) => match model.dialog {
+            Dialog::AddRoutine(ref mut form) => match routine_id.parse::<u32>() {
+                Ok(parsed_routine_id) => {
+                    form.template_routine_id = parsed_routine_id;
+                }
+                Err(_) => form.template_routine_id = 0,
+            },
+            Dialog::Hidden | Dialog::EditRoutine(_) | Dialog::DeleteRoutine(_) => {
+                panic!();
+            }
+        },
 
         Msg::SaveRoutine => {
             model.loading = true;
             match model.dialog {
                 Dialog::AddRoutine(ref mut form) => {
-                    orders.notify(data::Msg::CreateRoutine(form.name.parsed.clone().unwrap()));
+                    orders.notify(data::Msg::CreateRoutine(
+                        form.name.parsed.clone().unwrap(),
+                        form.template_routine_id,
+                    ));
                 }
                 Dialog::EditRoutine(ref mut form) => {
                     orders.notify(data::Msg::ModifyRoutine(
@@ -171,7 +187,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_page_loading()
     } else {
         div![
-            view_routine_dialog(&model.dialog, &data_model.routines, model.loading),
+            view_routine_dialog(
+                &model.dialog,
+                &data_model.routines_sorted_by_last_use(),
+                model.loading
+            ),
             div![
                 C!["px-4"],
                 common::view_search_box(&model.search_term, Msg::SearchTermChanged)
@@ -182,25 +202,22 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_routine_dialog(
-    dialog: &Dialog,
-    routines: &BTreeMap<u32, data::Routine>,
-    loading: bool,
-) -> Node<Msg> {
+fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: bool) -> Node<Msg> {
     let title;
     let form;
+    let mut template_selection = false;
     match dialog {
         Dialog::AddRoutine(ref f) => {
             title = "Add routine";
             form = f;
+            template_selection = true;
         }
         Dialog::EditRoutine(ref f) => {
             title = "Edit routine";
             form = f;
         }
         Dialog::DeleteRoutine(id) => {
-            let routine = &routines[id];
-            let id = routine.id;
+            let id = *id;
             return common::view_delete_confirmation_dialog(
                 "routine",
                 &ev(Ev::Click, move |_| Msg::DeleteRoutine(id)),
@@ -241,6 +258,33 @@ fn view_routine_dialog(
                     ],
                 ]
             ],
+            IF![template_selection => div![
+                C!["field"],
+                label![C!["label"], "Template"],
+                div![
+                    C!["control"],
+                    input_ev(Ev::Change, Msg::TemplateRoutineChanged),
+                    div![
+                        C!["select"],
+                        select![
+                            option!["",
+                                attrs![
+                                    At::Value => 0,
+                                ]
+                            ],
+                            routines.iter()
+                            .map(|r| {
+                                option![
+                                    &r.name,
+                                    attrs![
+                                        At::Value => r.id,
+                                    ]
+                                ]
+                            })
+                            .collect::<Vec<_>>()],
+                    ],
+                ],
+            ]],
             div![
                 C!["field"],
                 C!["is-grouped"],

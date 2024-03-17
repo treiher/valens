@@ -867,7 +867,7 @@ pub enum Msg {
 
     ReadRoutines,
     RoutinesRead(Result<Vec<Routine>, String>),
-    CreateRoutine(String),
+    CreateRoutine(String, u32),
     RoutineCreated(Result<Routine, String>),
     ModifyRoutine(u32, Option<String>, Option<Vec<RoutinePart>>),
     RoutineModified(Result<Routine, String>),
@@ -1521,7 +1521,12 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to read routines: ".to_owned() + &message);
             model.loading_routines = false;
         }
-        Msg::CreateRoutine(routine_name) => {
+        Msg::CreateRoutine(routine_name, template_routine_id) => {
+            let sections = if model.routines.contains_key(&template_routine_id) {
+                json!(model.routines[&template_routine_id].sections)
+            } else {
+                json!([])
+            };
             orders.perform_cmd(async move {
                 fetch(
                     Request::new("api/routines")
@@ -1529,7 +1534,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         .json(&json!({
                             "name": routine_name,
                             "notes": "",
-                            "sections": []
+                            "sections": sections
                         }))
                         .expect("serialization failed"),
                     Msg::RoutineCreated,

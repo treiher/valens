@@ -700,9 +700,10 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.routines.is_empty() && data_model.loading_routines {
         common::view_page_loading()
-    } else if model.routine_id > 0 {
+    } else if let Some(routine) = data_model.routines.get(&model.routine_id) {
         div![
             view_title(model),
+            view_summary(routine),
             view_dialog(&model.dialog, &data_model.exercises, model.loading),
             view_routine(data_model, &model.sections, model.editing),
             if model.editing {
@@ -802,6 +803,38 @@ fn view_dialog(
             empty![]
         }
     }
+}
+
+fn view_summary(routine: &data::Routine) -> Node<Msg> {
+    div![
+        C!["columns"],
+        C!["is-gapless"],
+        C!["is-mobile"],
+        C!["mt-4"],
+        [
+            (
+                "Duration",
+                format!(
+                    "~ <strong>{}</strong> min",
+                    routine.duration().num_minutes(),
+                )
+            ),
+            ("Sets", format!("<strong>{}</strong>", routine.num_sets()))
+        ]
+        .iter()
+        .map(|(title, subtitle)| {
+            div![
+                C!["column"],
+                div![
+                    C!["box"],
+                    C!["has-text-centered"],
+                    C!["mx-2"],
+                    p![C!["is-size-6"], title],
+                    p![C!["is-size-5"], raw![subtitle]]
+                ]
+            ]
+        }),
+    ]
 }
 
 fn view_routine(data_model: &data::Model, routine_sections: &[Form], editing: bool) -> Node<Msg> {

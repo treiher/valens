@@ -246,6 +246,16 @@ pub struct Routine {
     pub sections: Vec<RoutinePart>,
 }
 
+impl Routine {
+    pub fn duration(&self) -> Duration {
+        self.sections.iter().map(RoutinePart::duration).sum()
+    }
+
+    pub fn num_sets(&self) -> u32 {
+        self.sections.iter().map(RoutinePart::num_sets).sum()
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum RoutinePart {
@@ -261,6 +271,31 @@ pub enum RoutinePart {
         rpe: f32,
         automatic: bool,
     },
+}
+
+impl RoutinePart {
+    pub fn duration(&self) -> Duration {
+        match self {
+            RoutinePart::RoutineSection { rounds, parts } => {
+                parts.iter().map(RoutinePart::duration).sum::<Duration>()
+                    * (*rounds).try_into().unwrap_or(1)
+            }
+            RoutinePart::RoutineActivity { reps, time, .. } => {
+                let r = if *reps > 0 { *reps } else { 1 };
+                let t = if *time > 0 { *time } else { 4 };
+                Duration::seconds(i64::from(r * t))
+            }
+        }
+    }
+
+    pub fn num_sets(&self) -> u32 {
+        match self {
+            RoutinePart::RoutineSection { rounds, parts } => {
+                parts.iter().map(RoutinePart::num_sets).sum::<u32>() * *rounds
+            }
+            RoutinePart::RoutineActivity { exercise_id, .. } => exercise_id.is_some().into(),
+        }
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]

@@ -550,12 +550,38 @@ impl Timer {
                 .num_milliseconds() as f64
                 / 1000.)
                 .round() as i64;
-            if (0..=3).contains(&time) && Some(time) != self.time.1 {
-                if let Some(audio_context) = audio_context {
+            if let Some(audio_context) = audio_context {
+                if time == 10 && Some(time) != self.time.1 {
                     if let Err(err) = play_beep(
                         audio_context,
                         2000.,
-                        if time == 3 {
+                        {
+                            self.beep_time = audio_context.current_time() + 0.01;
+                            self.beep_time
+                        },
+                        0.1,
+                        self.beep_volume,
+                    ) {
+                        error!("failed to play beep:", err);
+                    }
+                    if let Err(err) = play_beep(
+                        audio_context,
+                        2000.,
+                        {
+                            self.beep_time = audio_context.current_time() + 0.18;
+                            self.beep_time
+                        },
+                        0.1,
+                        self.beep_volume,
+                    ) {
+                        error!("failed to play beep:", err);
+                    }
+                }
+                if (0..=2).contains(&time) && Some(time) != self.time.1 {
+                    if let Err(err) = play_beep(
+                        audio_context,
+                        2000.,
+                        if time == 2 {
                             self.beep_time = audio_context.current_time() + 0.01;
                             self.beep_time
                         } else {

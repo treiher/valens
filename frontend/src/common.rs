@@ -959,6 +959,35 @@ where
     ]
 }
 
+pub fn format_set(
+    reps: Option<u32>,
+    time: Option<u32>,
+    weight: Option<f32>,
+    rpe: Option<f32>,
+) -> String {
+    let mut parts = vec![];
+
+    if let Some(reps) = reps {
+        parts.push(reps.to_string());
+    }
+
+    if let Some(time) = time {
+        parts.push(format!("{time} s"));
+    }
+
+    if let Some(weight) = weight {
+        parts.push(format!("{weight} kg"));
+    }
+
+    let mut result = parts.join(" × ");
+
+    if let Some(rpe) = rpe {
+        result.push_str(&format!(" @ {rpe}"));
+    }
+
+    result
+}
+
 pub fn valid_reps(reps: u32) -> bool {
     reps > 0 && reps < 1000
 }

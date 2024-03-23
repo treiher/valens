@@ -256,6 +256,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         &data_model.base_url,
                         Msg::ShowDeleteTrainingSessionDialog
                     ),
+                    view_sets(
+                        &training_sessions,
+                        &data_model.routines,
+                        &data_model.base_url,
+                    ),
                     view_dialog(&model.dialog, model.loading),
                     common::view_fab("edit", |_| Msg::EditExercise),
                 ]
@@ -510,6 +515,69 @@ fn view_calendar(
             .collect(),
         interval,
     )
+}
+
+fn view_sets(
+    training_sessions: &[&data::TrainingSession],
+    routines: &BTreeMap<u32, data::Routine>,
+    base_url: &Url,
+) -> Vec<Node<Msg>> {
+    training_sessions
+            .iter()
+            .rev()
+            .flat_map(|t| {
+                nodes![
+                    div![
+                        C!["block"],
+                        C!["has-text-centered"],
+                        C!["has-text-weight-bold"],
+                        C!["mb-2"],
+                        a![
+                            attrs! {
+                                At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
+                            },
+                            span![style! {St::WhiteSpace => "nowrap" }, t.date.to_string()]
+                        ],
+                        raw!["&emsp;"],
+                        if let Some(routine_id) = t.routine_id {
+                            a![
+                                attrs! {
+                                    At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.unwrap().to_string()),
+                                },
+                                match &routines.get(&routine_id) {
+                                    Some(routine) => raw![&routine.name],
+                                    None => vec![common::view_loading()]
+                                }
+                            ]
+                        } else {
+                            plain!["-"]
+                        }
+                    ],
+                    div![
+                        C!["block"],
+                        C!["has-text-centered"],
+                        t.elements.iter().map(|e| {
+                            if let data::TrainingSessionElement::Set {
+                                reps,
+                                time,
+                                weight,
+                                rpe,
+                                ..
+                            } = e {
+                                div![
+                                    span![
+                                        style! {St::WhiteSpace => "nowrap" },
+                                        common::format_set(*reps, *time, *weight, *rpe)
+                                    ]
+                                ]
+                            } else {
+                                empty![]
+                            }
+                        })
+                    ]
+                ]
+            })
+            .collect::<Vec<_>>()
 }
 
 fn view_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {

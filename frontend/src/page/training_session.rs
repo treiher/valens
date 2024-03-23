@@ -1334,7 +1334,7 @@ fn show_section_notification(model: &mut Model, notifications_enabled: bool) {
                 FormSection::Set { exercises } => {
                     let exercise = &exercises[0];
                     title = exercise.exercise_name.clone();
-                    let mut previously = format_set(
+                    let mut previously = common::format_set(
                         exercise.prev_reps,
                         exercise.prev_time,
                         exercise.prev_weight,
@@ -1343,7 +1343,7 @@ fn show_section_notification(model: &mut Model, notifications_enabled: bool) {
                     if not(previously.is_empty()) {
                         previously = format!("Previously:\n{previously}\n");
                     }
-                    let mut target = format_set(
+                    let mut target = common::format_set(
                         exercise.target_reps,
                         exercise.target_time,
                         exercise.target_weight,
@@ -1693,7 +1693,7 @@ fn view_table(training_session: &data::TrainingSession, data_model: &data::Model
                                     C!["has-text-centered"],
                                     span![
                                         style! {St::WhiteSpace => "nowrap" },
-                                        format_set(*reps, *time, *weight, *rpe)
+                                        common::format_set(*reps, *time, *weight, *rpe)
                                     ]
                                 ],
                             ]
@@ -1909,8 +1909,8 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                         input_fields
                                     },
                                     {
-                                        let target = format_set(s.target_reps, s.target_time, s.target_weight, s.target_rpe);
-                                        let previous = format_set(s.prev_reps, s.prev_time, s.prev_weight, s.prev_rpe);
+                                        let target = common::format_set(s.target_reps, s.target_time, s.target_weight, s.target_rpe);
+                                        let previous = common::format_set(s.prev_reps, s.prev_time, s.prev_weight, s.prev_rpe);
                                         p![
                                             IF![not(target.is_empty()) =>
                                                 span![
@@ -2385,35 +2385,6 @@ fn view_replace_exercise_dialog(
         loading,
         move |exercise_id| Msg::ReplaceExercise(section_idx, exercise_idx, exercise_id),
     )
-}
-
-fn format_set(
-    reps: Option<u32>,
-    time: Option<u32>,
-    weight: Option<f32>,
-    rpe: Option<f32>,
-) -> String {
-    let mut parts = vec![];
-
-    if let Some(reps) = reps {
-        parts.push(reps.to_string());
-    }
-
-    if let Some(time) = time {
-        parts.push(format!("{time} s"));
-    }
-
-    if let Some(weight) = weight {
-        parts.push(format!("{weight} kg"));
-    }
-
-    let mut result = parts.join(" × ");
-
-    if let Some(rpe) = rpe {
-        result.push_str(&format!(" @ {rpe}"));
-    }
-
-    result
 }
 
 fn some_or_default<T: Default>(value: Option<T>) -> Option<T> {

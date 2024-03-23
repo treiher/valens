@@ -922,8 +922,8 @@ pub fn update(
         }
         Msg::UpdateGuidedTrainingSession => {
             if let Some(guide) = &mut model.guide {
-                match &model.form.sections[guide.section_idx] {
-                    FormSection::Set { exercises } => {
+                match &model.form.sections.get(guide.section_idx) {
+                    Some(FormSection::Set { exercises }) => {
                         let exercise = &exercises[0];
                         if not(show_guide_timer(exercise)) {
                             guide.timer.reset_time = 0;
@@ -947,13 +947,14 @@ pub fn update(
                             }
                         }
                     }
-                    FormSection::Rest { automatic, .. } => {
+                    Some(FormSection::Rest { automatic, .. }) => {
                         if let Some(time) = guide.timer.time.1 {
                             if time <= 0 && *automatic {
                                 orders.send_msg(Msg::GoToNextSection);
                             }
                         }
                     }
+                    None => {}
                 }
                 guide.timer.update(&model.audio_context);
             }

@@ -489,6 +489,9 @@ class TrainingSessionPage(Page):
         self.wait_for_fab("save")
         return TrainingSessionEditPage(self._driver, self.workout_id)
 
+    def get_sets(self) -> list[str]:
+        return [x.text for x in self._driver.find_elements(By.XPATH, "//div/div/span")]
+
 
 class TrainingSessionEditPage(Page):
     def __init__(self, driver: webdriver.Chrome, workout_id: int) -> None:

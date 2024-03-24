@@ -968,21 +968,29 @@ pub fn format_set(
     let mut parts = vec![];
 
     if let Some(reps) = reps {
-        parts.push(reps.to_string());
+        if reps > 0 {
+            parts.push(reps.to_string());
+        }
     }
 
     if let Some(time) = time {
-        parts.push(format!("{time} s"));
+        if time > 0 {
+            parts.push(format!("{time} s"));
+        }
     }
 
     if let Some(weight) = weight {
-        parts.push(format!("{weight} kg"));
+        if weight > 0.0 {
+            parts.push(format!("{weight} kg"));
+        }
     }
 
     let mut result = parts.join(" × ");
 
     if let Some(rpe) = rpe {
-        result.push_str(&format!(" @ {rpe}"));
+        if rpe > 0.0 {
+            result.push_str(&format!(" @ {rpe}"));
+        }
     }
 
     result

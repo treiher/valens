@@ -1592,6 +1592,25 @@ fn determine_rest_between_sets(elements: &[FormElement], element_idx: usize) -> 
     }
 }
 
+fn determine_sections(elements: &[FormElement]) -> Vec<(usize, usize)> {
+    let mut sections = vec![];
+    let mut idx = 0;
+
+    while idx < elements.len() {
+        let mut last = determine_last_set_with_same_exercises(elements, idx);
+        assert!(idx <= last);
+        if last + 1 < elements.len() {
+            if let FormElement::Rest { .. } = &elements[last + 1] {
+                last += 1;
+            }
+        }
+        sections.push((idx, last));
+        idx = last + 1;
+    }
+
+    sections
+}
+
 // ------ ------
 //     View
 // ------ ------
@@ -1609,7 +1628,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     nodes![view_training_session_form(model, data_model)]
                 } else {
                     nodes![
-                        view_table(training_session, data_model),
+                        view_list(model, data_model),
                         view_notes(training_session),
                         common::view_fab("edit", |_| Msg::EditTrainingSession)
                     ]
@@ -1652,60 +1671,71 @@ fn view_title(training_session: &data::TrainingSession, data_model: &data::Model
     common::view_title(&title, 3)
 }
 
-fn view_table(training_session: &data::TrainingSession, data_model: &data::Model) -> Node<Msg> {
-    div![
-        C!["table-container"],
-        C!["mt-4"],
-        table![
-            C!["table"],
-            C!["is-fullwidth"],
-            C!["is-hoverable"],
-            tbody![
-                tr![td![], td![]],
-                training_session
-                    .elements
-                    .iter()
-                    .map(|e| match e {
-                        data::TrainingSessionElement::Set {
-                            exercise_id,
-                            reps,
-                            time,
-                            weight,
-                            rpe,
-                            ..
-                        } => {
-                            tr![
-                                td![a![
-                                    attrs! {
-                                        At::Href => {
-                                            crate::Urls::new(&data_model.base_url)
-                                                .exercise()
-                                                .add_hash_path_part(exercise_id.to_string())
-                                        }
-                                    },
-                                    data_model.exercises.get(exercise_id).map_or_else(
-                                        || format!("Exercise#{exercise_id}"),
-                                        |e| e.name.clone()
-                                    )
-                                ]],
-                                td![
-                                    C!["is-vcentered"],
+fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
+    let sections = determine_sections(&model.form.elements);
+    sections
+        .iter()
+        .flat_map(|(first, last)| {
+            nodes![
+                div![
+                    C!["block"],
+                    C!["mb-2"],
+                    if let FormElement::Set { exercises } = &model.form.elements[*first] {
+                        let mut last = exercises.len() - 1;
+                        if last > 0 && exercises.iter().all(|e| e.exercise_id == exercises[0].exercise_id) {
+                            last = 0;
+                        }
+                        exercises[0..=last]
+                            .iter()
+                            .map(|e| {
+                                div![
                                     C!["has-text-centered"],
-                                    span![
-                                        style! {St::WhiteSpace => "nowrap" },
-                                        common::format_set(*reps, *time, *weight, *rpe)
+                                    C!["has-text-weight-bold"],
+                                    a![
+                                        attrs! {
+                                            At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
+                                        },
+                                        span![style! {St::WhiteSpace => "nowrap" }, &e.exercise_name]
                                     ]
-                                ],
-                            ]
-                        }
-                        _ => {
-                            tr![td![C!["p-1"]], td![C!["p-1"]]]
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            ],
-        ]
-    ]
+                                ]
+                            })
+                            .collect::<Vec<_>>()
+                    } else {
+                        vec![]
+                    }
+                ],
+                div![
+                    C!["block"],
+                    model.form.elements[*first..=*last].iter().map(|element| {
+                        nodes![
+                            if let FormElement::Set { exercises } = element {
+                                exercises
+                                    .iter()
+                                    .map(|e| {
+                                        div![
+                                            C!["has-text-centered"],
+                                            span![
+                                                style! {St::WhiteSpace => "nowrap" },
+                                                common::format_set(
+                                                    e.reps.parsed,
+                                                    e.time.parsed,
+                                                    e.weight.parsed,
+                                                    e.rpe.parsed
+                                                )
+                                            ]
+                                        ]
+                                    })
+                                    .collect::<Vec<_>>()
+                            } else {
+                                vec![]
+                            },
+                            div![C!["my-2"]]
+                        ]
+                    }),
+                ]
+            ]
+        })
+        .collect::<Vec<_>>()
 }
 
 fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
@@ -3357,6 +3387,38 @@ mod tests {
                 set(vec![exercise(1, 0)]),
                 rest(1),
             ]
+        );
+    }
+
+    #[test]
+    fn test_determine_sections() {
+        assert_eq!(
+            determine_sections(&[
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(4, 0), exercise(5, 2)]),
+                rest(4),
+                set(vec![exercise(6, 0), exercise(7, 2)]),
+                rest(5),
+                set(vec![exercise(8, 0), exercise(9, 2)]),
+                rest(6),
+            ]),
+            vec![(0, 3), (4, 5), (6, 11)]
+        );
+        assert_eq!(
+            determine_sections(&[
+                set(vec![exercise(0, 0)]),
+                set(vec![exercise(1, 0)]),
+                set(vec![exercise(2, 1)]),
+                set(vec![exercise(4, 0), exercise(5, 2)]),
+                set(vec![exercise(6, 0), exercise(7, 2)]),
+                set(vec![exercise(8, 0), exercise(9, 2)]),
+            ]),
+            vec![(0, 1), (2, 2), (3, 5)]
         );
     }
 

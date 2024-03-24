@@ -339,8 +339,8 @@ pub struct Settings {
 pub struct OngoingTrainingSession {
     pub training_session_id: u32,
     pub start_time: DateTime<Utc>,
-    pub section_idx: usize,
-    pub section_start_time: DateTime<Utc>,
+    pub element_idx: usize,
+    pub element_start_time: DateTime<Utc>,
     pub timer_state: TimerState,
 }
 
@@ -609,8 +609,8 @@ impl OngoingTrainingSession {
         OngoingTrainingSession {
             training_session_id,
             start_time: Utc::now(),
-            section_idx: 0,
-            section_start_time: Utc::now(),
+            element_idx: 0,
+            element_start_time: Utc::now(),
             timer_state: TimerState::Unset,
         }
     }
@@ -1787,8 +1787,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::UpdateTrainingSession(section_idx, timer_state) => {
             if let Some(ongoing_training_session) = &mut model.ongoing_training_session {
-                ongoing_training_session.section_idx = section_idx;
-                ongoing_training_session.section_start_time = Utc::now();
+                ongoing_training_session.element_idx = section_idx;
+                ongoing_training_session.element_start_time = Utc::now();
                 ongoing_training_session.timer_state = timer_state;
             }
             local_storage_set(

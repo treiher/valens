@@ -95,7 +95,7 @@ pub fn init(
 fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data::Model) -> Form {
     let previous_sets = previous_sets(training_session, data_model);
     if let Some(training_session) = training_session {
-        let mut sections = vec![];
+        let mut elements = vec![];
         let mut exercises = vec![];
         let mut prev_set_positions: HashMap<u32, usize> = HashMap::new();
 
@@ -115,7 +115,7 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                 } => {
                     if target_time.is_some() && target_reps.is_none() {
                         if not(exercises.is_empty()) {
-                            sections.push(FormSection::Set { exercises });
+                            elements.push(FormElement::Set { exercises });
                         }
                         exercises = vec![];
                     }
@@ -178,7 +178,7 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                     });
                     if target_time.is_some() && target_reps.is_none() {
                         if not(exercises.is_empty()) {
-                            sections.push(FormSection::Set { exercises });
+                            elements.push(FormElement::Set { exercises });
                         }
                         exercises = vec![];
                     }
@@ -188,10 +188,10 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                     automatic,
                 } => {
                     if not(exercises.is_empty()) {
-                        sections.push(FormSection::Set { exercises });
+                        elements.push(FormElement::Set { exercises });
                     }
                     exercises = vec![];
-                    sections.push(FormSection::Rest {
+                    elements.push(FormElement::Rest {
                         target_time: target_time.unwrap_or(0),
                         automatic: *automatic,
                     });
@@ -200,19 +200,19 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
         }
 
         if not(exercises.is_empty()) {
-            sections.push(FormSection::Set { exercises });
+            elements.push(FormElement::Set { exercises });
         }
 
         Form {
             notes: training_session.notes.clone().unwrap_or_default(),
             notes_changed: false,
-            sections,
+            elements,
         }
     } else {
         Form {
             notes: String::new(),
             notes_changed: false,
-            sections: vec![],
+            elements: vec![],
         }
     }
 }
@@ -276,17 +276,17 @@ impl Drop for Model {
 struct Form {
     notes: String,
     notes_changed: bool,
-    sections: Vec<FormSection>,
+    elements: Vec<FormElement>,
 }
 
 impl Form {
     fn changed(&self) -> bool {
         self.notes_changed
             || self
-                .sections
+                .elements
                 .iter()
-                .filter_map(|s| match s {
-                    FormSection::Set { exercises } => Some(exercises),
+                .filter_map(|e| match e {
+                    FormElement::Set { exercises } => Some(exercises),
                     _ => None,
                 })
                 .flatten()
@@ -296,10 +296,10 @@ impl Form {
     }
 
     fn valid(&self) -> bool {
-        self.sections
+        self.elements
             .iter()
-            .filter_map(|s| match s {
-                FormSection::Set { exercises } => Some(exercises),
+            .filter_map(|e| match e {
+                FormElement::Set { exercises } => Some(exercises),
                 _ => None,
             })
             .flatten()
@@ -308,7 +308,7 @@ impl Form {
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
-enum FormSection {
+enum FormElement {
     Set { exercises: Vec<ExerciseForm> },
     Rest { target_time: u32, automatic: bool },
 }
@@ -334,8 +334,8 @@ struct ExerciseForm {
 }
 
 struct Guide {
-    section_idx: usize,
-    section_start_time: DateTime<Utc>,
+    element_idx: usize,
+    element_start_time: DateTime<Utc>,
     timer: Timer,
     stream: Option<StreamHandle>,
     element: ElRef<web_sys::Element>,
@@ -344,8 +344,8 @@ struct Guide {
 impl Guide {
     fn new(beep_volume: u8) -> Guide {
         Guide {
-            section_idx: 0,
-            section_start_time: Utc::now(),
+            element_idx: 0,
+            element_start_time: Utc::now(),
             timer: Timer::new(beep_volume),
             stream: None,
             element: ElRef::new(),
@@ -353,13 +353,13 @@ impl Guide {
     }
 
     fn from_ongoing_training_session(
-        section_idx: usize,
-        section_start_time: DateTime<Utc>,
+        element_idx: usize,
+        element_start_time: DateTime<Utc>,
         beep_volume: u8,
     ) -> Guide {
         Guide {
-            section_idx,
-            section_start_time,
+            element_idx,
+            element_start_time,
             timer: Timer::new(beep_volume),
             stream: None,
             element: ElRef::new(),
@@ -709,8 +709,8 @@ pub fn update(
     orders: &mut impl Orders<Msg>,
 ) {
     match msg {
-        Msg::RepsChanged(section_idx, exercise_idx, input) => {
-            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+        Msg::RepsChanged(element_idx, exercise_idx, input) => {
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { reps, .. } = &mut exercises[exercise_idx];
                 match input.parse::<u32>() {
                     Ok(parsed_reps) => {
@@ -732,8 +732,8 @@ pub fn update(
                 }
             }
         }
-        Msg::TimeChanged(section_idx, exercise_idx, input) => {
-            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+        Msg::TimeChanged(element_idx, exercise_idx, input) => {
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { time, .. } = &mut exercises[exercise_idx];
                 match input.parse::<u32>() {
                     Ok(parsed_time) => {
@@ -755,8 +755,8 @@ pub fn update(
                 }
             }
         }
-        Msg::WeightChanged(section_idx, exercise_idx, input) => {
-            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+        Msg::WeightChanged(element_idx, exercise_idx, input) => {
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { weight, .. } = &mut exercises[exercise_idx];
                 match input.parse::<f32>() {
                     Ok(parsed_weight) => {
@@ -778,8 +778,8 @@ pub fn update(
                 }
             }
         }
-        Msg::RPEChanged(section_idx, exercise_idx, input) => {
-            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+        Msg::RPEChanged(element_idx, exercise_idx, input) => {
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { rpe, .. } = &mut exercises[exercise_idx];
                 match input.parse::<f32>() {
                     Ok(parsed_rpe) => {
@@ -806,8 +806,8 @@ pub fn update(
             model.form.notes_changed = true;
         }
 
-        Msg::EnterTargetValues(section_idx, exercise_idx) => {
-            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+        Msg::EnterTargetValues(element_idx, exercise_idx) => {
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm {
                     reps,
                     time,
@@ -841,8 +841,8 @@ pub fn update(
                 };
             }
         }
-        Msg::EnterPreviousValues(section_idx, exercise_idx) => {
-            if let FormSection::Set { exercises } = &mut model.form.sections[section_idx] {
+        Msg::EnterPreviousValues(element_idx, exercise_idx) => {
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm {
                     reps,
                     time,
@@ -885,11 +885,11 @@ pub fn update(
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             if let Some(guide) = &model.guide {
                 orders.notify(data::Msg::UpdateTrainingSession(
-                    guide.section_idx,
+                    guide.element_idx,
                     guide.timer.to_timer_state(),
                 ));
             }
-            show_section_notification(model, data_model.settings.notifications);
+            show_element_notification(model, data_model.settings.notifications);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
@@ -899,8 +899,8 @@ pub fn update(
         }
         Msg::ContinueGuidedTrainingSession(ongoing_training_session) => {
             model.guide = Some(Guide::from_ongoing_training_session(
-                ongoing_training_session.section_idx,
-                ongoing_training_session.section_start_time,
+                ongoing_training_session.element_idx,
+                ongoing_training_session.element_start_time,
                 data_model.settings.beep_volume,
             ));
             model
@@ -911,7 +911,7 @@ pub fn update(
                 .restore(ongoing_training_session.timer_state);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             update_streams(model, orders);
-            show_section_notification(model, data_model.settings.notifications);
+            show_element_notification(model, data_model.settings.notifications);
             orders.force_render_now().send_msg(Msg::ScrollToSection);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
@@ -922,8 +922,8 @@ pub fn update(
         }
         Msg::UpdateGuidedTrainingSession => {
             if let Some(guide) = &mut model.guide {
-                match &model.form.sections.get(guide.section_idx) {
-                    Some(FormSection::Set { exercises }) => {
+                match &model.form.elements.get(guide.element_idx) {
+                    Some(FormElement::Set { exercises }) => {
                         let exercise = &exercises[0];
                         if not(show_guide_timer(exercise)) {
                             guide.timer.reset_time = 0;
@@ -932,13 +932,13 @@ pub fn update(
                                 if time <= 0 {
                                     if let Some(target_reps) = exercise.target_reps {
                                         orders.send_msg(Msg::RepsChanged(
-                                            guide.section_idx,
+                                            guide.element_idx,
                                             0,
                                             target_reps.to_string(),
                                         ));
                                     }
                                     orders.send_msg(Msg::TimeChanged(
-                                        guide.section_idx,
+                                        guide.element_idx,
                                         0,
                                         target_time.to_string(),
                                     ));
@@ -947,7 +947,7 @@ pub fn update(
                             }
                         }
                     }
-                    Some(FormSection::Rest { automatic, .. }) => {
+                    Some(FormElement::Rest { automatic, .. }) => {
                         if let Some(time) = guide.timer.time.1 {
                             if time <= 0 && *automatic {
                                 orders.send_msg(Msg::GoToNextSection);
@@ -963,7 +963,7 @@ pub fn update(
             if let Some(guide) = &mut model.guide {
                 guide.timer.start_pause();
                 orders.notify(data::Msg::UpdateTrainingSession(
-                    guide.section_idx,
+                    guide.element_idx,
                     guide.timer.to_timer_state(),
                 ));
             }
@@ -971,8 +971,8 @@ pub fn update(
         }
         Msg::GoToPreviousSection => {
             if let Some(guide) = &mut model.guide {
-                guide.section_idx -= 1;
-                guide.section_start_time = Utc::now();
+                guide.element_idx -= 1;
+                guide.element_start_time = Utc::now();
             }
             update_guide_timer(model);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
@@ -980,7 +980,7 @@ pub fn update(
             if let Some(guide) = &mut model.guide {
                 if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
                     orders.notify(data::Msg::UpdateTrainingSession(
-                        ongoing_training_session.section_idx - 1,
+                        ongoing_training_session.element_idx - 1,
                         guide.timer.to_timer_state(),
                     ));
                 }
@@ -990,17 +990,17 @@ pub fn update(
         }
         Msg::GoToNextSection => {
             if let Some(guide) = &mut model.guide {
-                guide.section_idx += 1;
-                if guide.section_idx == model.form.sections.len() {
+                guide.element_idx += 1;
+                if guide.element_idx == model.form.elements.len() {
                     model.guide = None;
                     close_notification(model);
                     orders
                         .send_msg(Msg::PauseMetronome)
                         .notify(data::Msg::EndTrainingSession);
                 } else {
-                    guide.section_start_time = Utc::now();
+                    guide.element_start_time = Utc::now();
                     update_metronome(model, orders, data_model.settings.automatic_metronome);
-                    show_section_notification(model, data_model.settings.notifications);
+                    show_element_notification(model, data_model.settings.notifications);
                 }
             }
             update_guide_timer(model);
@@ -1008,7 +1008,7 @@ pub fn update(
             if let Some(guide) = &mut model.guide {
                 if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
                     orders.notify(data::Msg::UpdateTrainingSession(
-                        ongoing_training_session.section_idx + 1,
+                        ongoing_training_session.element_idx + 1,
                         guide.timer.to_timer_state(),
                     ));
                 }
@@ -1049,10 +1049,10 @@ pub fn update(
                 Some(
                     model
                         .form
-                        .sections
+                        .elements
                         .iter()
-                        .flat_map(|s| match s {
-                            FormSection::Set { exercises } => exercises
+                        .flat_map(|e| match e {
+                            FormElement::Set { exercises } => exercises
                                 .iter()
                                 .map(|e| data::TrainingSessionElement::Set {
                                     exercise_id: e.exercise_id,
@@ -1067,7 +1067,7 @@ pub fn update(
                                     automatic: e.automatic,
                                 })
                                 .collect(),
-                            FormSection::Rest {
+                            FormElement::Rest {
                                 target_time,
                                 automatic,
                             } => vec![data::TrainingSessionElement::Rest {
@@ -1113,11 +1113,11 @@ pub fn update(
         Msg::ShowSMTDialog => {
             model.dialog = Dialog::StopwatchMetronomTimer;
         }
-        Msg::ShowOptionsDialog(section_idx, exercise_idx) => {
-            model.dialog = Dialog::Options(section_idx, exercise_idx);
+        Msg::ShowOptionsDialog(element_idx, exercise_idx) => {
+            model.dialog = Dialog::Options(element_idx, exercise_idx);
         }
-        Msg::ShowReplaceExerciseDialog(section_idx, exercise_idx) => {
-            model.dialog = Dialog::ReplaceExercise(section_idx, exercise_idx, String::new());
+        Msg::ShowReplaceExerciseDialog(element_idx, exercise_idx) => {
+            model.dialog = Dialog::ReplaceExercise(element_idx, exercise_idx, String::new());
         }
         Msg::SearchTermChanged(search_term) => {
             if let Dialog::ReplaceExercise(_, _, st) = &mut model.dialog {
@@ -1130,10 +1130,10 @@ pub fn update(
                 orders.notify(data::Msg::CreateExercise(search_term.trim().to_string()));
             };
         }
-        Msg::ReplaceExercise(section_idx, exercise_idx, new_exercise_id) => {
+        Msg::ReplaceExercise(element_idx, exercise_idx, new_exercise_id) => {
             replace_exercise(
-                &mut model.form.sections,
-                section_idx,
+                &mut model.form.elements,
+                element_idx,
                 exercise_idx,
                 new_exercise_id,
                 &data_model.exercises,
@@ -1142,21 +1142,21 @@ pub fn update(
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
         }
-        Msg::DeferExercise(section_idx) => {
-            defer_exercise(&mut model.form.sections, section_idx);
+        Msg::DeferExercise(element_idx) => {
+            defer_exercise(&mut model.form.elements, element_idx);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             orders
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
         }
-        Msg::AddSet(section_idx) => {
-            add_set(&mut model.form.sections, section_idx);
+        Msg::AddSet(element_idx) => {
+            add_set(&mut model.form.elements, element_idx);
             orders
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
         }
-        Msg::RemoveSet(section_idx) => {
-            remove_set(&mut model.form.sections, section_idx);
+        Msg::RemoveSet(element_idx) => {
+            remove_set(&mut model.form.elements, element_idx);
             orders
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
@@ -1245,15 +1245,15 @@ fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
 }
 
 fn update_guide_timer(model: &mut Model) {
-    if model.form.sections.is_empty() {
+    if model.form.elements.is_empty() {
         return;
     }
 
     if let Some(guide) = &mut model.guide {
         guide.timer.unset();
-        let elapsed_time = (Utc::now() - guide.section_start_time).num_seconds();
-        match &model.form.sections[guide.section_idx] {
-            FormSection::Set { exercises } => {
+        let elapsed_time = (Utc::now() - guide.element_start_time).num_seconds();
+        match &model.form.elements[guide.element_idx] {
+            FormElement::Set { exercises } => {
                 let exercise = &exercises[0];
                 if not(show_guide_timer(exercise)) {
                     return;
@@ -1270,7 +1270,7 @@ fn update_guide_timer(model: &mut Model) {
                     }
                 }
             }
-            FormSection::Rest { target_time, .. } => {
+            FormElement::Rest { target_time, .. } => {
                 if *target_time > 0 {
                     guide.timer.set(i64::from(*target_time) - elapsed_time);
                     guide.timer.start();
@@ -1281,16 +1281,16 @@ fn update_guide_timer(model: &mut Model) {
 }
 
 fn update_metronome(model: &Model, orders: &mut impl Orders<Msg>, automatic_metronome: bool) {
-    if model.form.sections.is_empty() || not(automatic_metronome) {
+    if model.form.elements.is_empty() || not(automatic_metronome) {
         return;
     }
 
     if let Some(guide) = &model.guide {
-        if guide.section_idx >= model.form.sections.len() {
+        if guide.element_idx >= model.form.elements.len() {
             return;
         }
-        match &model.form.sections[guide.section_idx] {
-            FormSection::Set { exercises } => {
+        match &model.form.elements[guide.element_idx] {
+            FormElement::Set { exercises } => {
                 let exercise = &exercises[0];
                 if exercise.target_reps.is_some() {
                     if let Some(target_time) = exercise.target_time {
@@ -1298,7 +1298,7 @@ fn update_metronome(model: &Model, orders: &mut impl Orders<Msg>, automatic_metr
                     }
                 }
             }
-            FormSection::Rest { .. } => {
+            FormElement::Rest { .. } => {
                 orders.send_msg(Msg::PauseMetronome);
             }
         }
@@ -1320,18 +1320,18 @@ fn close_notification(model: &mut Model) {
     }
 }
 
-fn show_section_notification(model: &mut Model, notifications_enabled: bool) {
+fn show_element_notification(model: &mut Model, notifications_enabled: bool) {
     if not(notifications_enabled) {
         close_notification(model);
         return;
     }
 
     if let Some(guide) = &mut model.guide {
-        if guide.section_idx < model.form.sections.len() {
+        if guide.element_idx < model.form.elements.len() {
             let title;
             let body;
-            match &model.form.sections[guide.section_idx] {
-                FormSection::Set { exercises } => {
+            match &model.form.elements[guide.element_idx] {
+                FormElement::Set { exercises } => {
                     let exercise = &exercises[0];
                     title = exercise.exercise_name.clone();
                     let mut previously = common::format_set(
@@ -1354,7 +1354,7 @@ fn show_section_notification(model: &mut Model, notifications_enabled: bool) {
                     }
                     body = Some(format!("{previously}{target}"));
                 }
-                FormSection::Rest { target_time, .. } => {
+                FormElement::Rest { target_time, .. } => {
                     title = String::from("Rest");
                     body = if *target_time > 0 {
                         Some(format!("{target_time} s"))
@@ -1370,16 +1370,16 @@ fn show_section_notification(model: &mut Model, notifications_enabled: bool) {
 }
 
 fn replace_exercise(
-    sections: &mut [FormSection],
-    section_idx: usize,
+    elements: &mut [FormElement],
+    element_idx: usize,
     exercise_idx: usize,
     new_exercise_id: u32,
     data_exercises: &BTreeMap<u32, data::Exercise>,
 ) {
     let mut current_exercise_id = None;
     let mut current_exercise_ids = vec![];
-    for mut section in sections.iter_mut().skip(section_idx) {
-        if let FormSection::Set { exercises } = &mut section {
+    for mut element in elements.iter_mut().skip(element_idx) {
+        if let FormElement::Set { exercises } = &mut element {
             let ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
             if current_exercise_ids.is_empty() {
                 current_exercise_ids = ids;
@@ -1407,60 +1407,60 @@ fn replace_exercise(
     }
 }
 
-fn defer_exercise(sections: &mut [FormSection], section_idx: usize) {
+fn defer_exercise(elements: &mut [FormElement], element_idx: usize) {
     let mut deferred_ids = vec![];
-    let mut deferred_sections = 0;
+    let mut deferred_elements = 0;
     let mut preferred_ids = vec![];
-    let mut preferred_sections = 0;
-    for (i, section) in sections.iter().enumerate().skip(section_idx) {
-        if let FormSection::Set { exercises } = &section {
+    let mut preferred_elements = 0;
+    for (i, element) in elements.iter().enumerate().skip(element_idx) {
+        if let FormElement::Set { exercises } = &element {
             let exercise_ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
             if deferred_ids.is_empty() {
                 deferred_ids = exercise_ids;
-            } else if deferred_sections == 0 && deferred_ids != exercise_ids {
-                deferred_sections = i - section_idx;
+            } else if deferred_elements == 0 && deferred_ids != exercise_ids {
+                deferred_elements = i - element_idx;
                 preferred_ids = exercise_ids;
-            } else if deferred_sections > 0 && preferred_ids != exercise_ids {
-                preferred_sections = i - section_idx - deferred_sections;
+            } else if deferred_elements > 0 && preferred_ids != exercise_ids {
+                preferred_elements = i - element_idx - deferred_elements;
                 break;
             }
         }
-        if i == sections.len() - 1 && deferred_sections > 0 {
-            preferred_sections = sections.len() - section_idx - deferred_sections;
+        if i == elements.len() - 1 && deferred_elements > 0 {
+            preferred_elements = elements.len() - element_idx - deferred_elements;
         }
     }
-    sections[section_idx..section_idx + deferred_sections + preferred_sections]
-        .rotate_right(preferred_sections);
+    elements[element_idx..element_idx + deferred_elements + preferred_elements]
+        .rotate_right(preferred_elements);
 }
 
-fn add_set(sections: &mut Vec<FormSection>, section_idx: usize) {
-    if not(is_set(sections, section_idx)) {
+fn add_set(elements: &mut Vec<FormElement>, element_idx: usize) {
+    if not(is_set(elements, element_idx)) {
         return;
     }
 
-    let rest_idx = determine_rest_between_sets(sections, section_idx);
-    let rest = if let FormSection::Rest {
+    let rest_idx = determine_rest_between_sets(elements, element_idx);
+    let rest = if let FormElement::Rest {
         target_time,
         automatic,
-    } = &sections[rest_idx]
+    } = &elements[rest_idx]
     {
-        FormSection::Rest {
+        FormElement::Rest {
             target_time: *target_time,
             automatic: *automatic,
         }
     } else {
-        FormSection::Rest {
+        FormElement::Rest {
             target_time: 0,
             automatic: true,
         }
     };
 
-    sections.insert(section_idx + 1, rest);
+    elements.insert(element_idx + 1, rest);
 
-    if let FormSection::Set { exercises } = &sections[section_idx] {
-        sections.insert(
-            section_idx + 2,
-            FormSection::Set {
+    if let FormElement::Set { exercises } = &elements[element_idx] {
+        elements.insert(
+            element_idx + 2,
+            FormElement::Set {
                 exercises: exercises
                     .iter()
                     .map(|e| ExerciseForm {
@@ -1486,59 +1486,59 @@ fn add_set(sections: &mut Vec<FormSection>, section_idx: usize) {
     }
 }
 
-fn remove_set(sections: &mut Vec<FormSection>, section_idx: usize) {
-    if not(is_set(sections, section_idx)) {
+fn remove_set(elements: &mut Vec<FormElement>, element_idx: usize) {
+    if not(is_set(elements, element_idx)) {
         return;
     }
 
-    let rest_idx = determine_rest_between_sets(sections, section_idx);
+    let rest_idx = determine_rest_between_sets(elements, element_idx);
 
-    sections.remove(section_idx);
+    elements.remove(element_idx);
 
-    match rest_idx.cmp(&section_idx) {
+    match rest_idx.cmp(&element_idx) {
         Ordering::Less => {
-            sections.remove(rest_idx);
+            elements.remove(rest_idx);
         }
         Ordering::Greater => {
-            sections.remove(rest_idx - 1);
+            elements.remove(rest_idx - 1);
         }
         Ordering::Equal => {}
     }
 }
 
-fn is_set(sections: &mut Vec<FormSection>, section_idx: usize) -> bool {
-    if section_idx >= sections.len() {
+fn is_set(elements: &mut Vec<FormElement>, element_idx: usize) -> bool {
+    if element_idx >= elements.len() {
         return false;
     }
 
-    match &sections[section_idx] {
-        FormSection::Set { .. } => true,
-        FormSection::Rest { .. } => false,
+    match &elements[element_idx] {
+        FormElement::Set { .. } => true,
+        FormElement::Rest { .. } => false,
     }
 }
 
-fn determine_exercise_ids(sections: &[FormSection], section_idx: usize) -> Vec<u32> {
-    if let FormSection::Set { exercises } = &sections[section_idx] {
+fn determine_exercise_ids(elements: &[FormElement], element_idx: usize) -> Vec<u32> {
+    if let FormElement::Set { exercises } = &elements[element_idx] {
         exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>()
     } else {
         Vec::new()
     }
 }
 
-fn determine_first_set_with_same_exercises(sections: &[FormSection], section_idx: usize) -> usize {
-    let ids = determine_exercise_ids(sections, section_idx);
-    let mut first_idx = section_idx;
+fn determine_first_set_with_same_exercises(elements: &[FormElement], element_idx: usize) -> usize {
+    let ids = determine_exercise_ids(elements, element_idx);
+    let mut first_idx = element_idx;
 
-    for (i, section) in sections
+    for (i, element) in elements
         .iter()
         .rev()
         .enumerate()
-        .skip(sections.len() - section_idx + 1)
+        .skip(elements.len() - element_idx + 1)
     {
-        if let FormSection::Set { exercises } = &section {
+        if let FormElement::Set { exercises } = &element {
             let exercise_ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
             if ids == exercise_ids {
-                first_idx = section_idx - (sections.len() - i + 1);
+                first_idx = element_idx - (elements.len() - i + 1);
             } else {
                 break;
             }
@@ -1548,12 +1548,12 @@ fn determine_first_set_with_same_exercises(sections: &[FormSection], section_idx
     first_idx
 }
 
-fn determine_last_set_with_same_exercises(sections: &[FormSection], section_idx: usize) -> usize {
-    let ids = determine_exercise_ids(sections, section_idx);
-    let mut last_idx = section_idx;
+fn determine_last_set_with_same_exercises(elements: &[FormElement], element_idx: usize) -> usize {
+    let ids = determine_exercise_ids(elements, element_idx);
+    let mut last_idx = element_idx;
 
-    for (i, section) in sections.iter().enumerate().skip(section_idx + 1) {
-        if let FormSection::Set { exercises } = &section {
+    for (i, element) in elements.iter().enumerate().skip(element_idx + 1) {
+        if let FormElement::Set { exercises } = &element {
             let exercise_ids = exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>();
             if ids == exercise_ids {
                 last_idx = i;
@@ -1566,29 +1566,29 @@ fn determine_last_set_with_same_exercises(sections: &[FormSection], section_idx:
     last_idx
 }
 
-fn determine_rest_between_sets(sections: &[FormSection], section_idx: usize) -> usize {
-    let first_idx = determine_first_set_with_same_exercises(sections, section_idx);
-    let last_idx = determine_last_set_with_same_exercises(sections, section_idx);
+fn determine_rest_between_sets(elements: &[FormElement], element_idx: usize) -> usize {
+    let first_idx = determine_first_set_with_same_exercises(elements, element_idx);
+    let last_idx = determine_last_set_with_same_exercises(elements, element_idx);
 
     assert!(first_idx <= last_idx);
-    assert!(last_idx < sections.len());
+    assert!(last_idx < elements.len());
 
-    let rest_idx = if section_idx < last_idx {
-        section_idx + 1
-    } else if first_idx < section_idx {
-        section_idx - 1
-    } else if section_idx + 1 < sections.len() {
-        section_idx + 1
-    } else if section_idx + 1 == sections.len() {
-        section_idx - 1
+    let rest_idx = if element_idx < last_idx {
+        element_idx + 1
+    } else if first_idx < element_idx {
+        element_idx - 1
+    } else if element_idx + 1 < elements.len() {
+        element_idx + 1
+    } else if element_idx + 1 == elements.len() {
+        element_idx - 1
     } else {
-        section_idx
+        element_idx
     };
 
-    if let FormSection::Rest { .. } = &sections[rest_idx] {
+    if let FormElement::Rest { .. } = &elements[rest_idx] {
         rest_idx
     } else {
-        section_idx
+        element_idx
     }
 }
 
@@ -1725,9 +1725,9 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
     let save_disabled = not(model.form.changed()) || not(valid);
     let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
 
-    for (section_idx, section) in model.form.sections.iter().enumerate() {
+    for (element_idx, element) in model.form.elements.iter().enumerate() {
         if let Some(guide) = &model.guide {
-            if guide.section_idx == section_idx && section_idx != 0 {
+            if guide.element_idx == element_idx && element_idx != 0 {
                 form.push(div![
                     C!["has-text-centered"],
                     C!["m-5"],
@@ -1741,14 +1741,14 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
             }
         }
 
-        match section {
-            FormSection::Set {
+        match element {
+            FormElement::Set {
                 exercises: exercise_forms,
             } => {
                 form.push(
                     div![
                         if let Some(guide) = &model.guide {
-                            if guide.section_idx == section_idx {
+                            if guide.element_idx == element_idx {
                                 el_ref(&guide.element)
                             } else {
                                 el_ref(&ElRef::new())
@@ -1759,7 +1759,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                         C!["message"],
                         C!["is-info"],
                         C!["has-background-white-bis"],
-                        IF![model.guide.as_ref().map_or(false, |guide| guide.section_idx != section_idx) => C!["is-semitransparent"]],
+                        IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
                         div![
                             C!["message-body"],
                             C!["p-3"],
@@ -1771,7 +1771,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             C!["control"],
                                             C!["has-icons-right"],
                                             C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::RepsChanged(section_idx, position, v)),
+                                            input_ev(Ev::Input, move |v| Msg::RepsChanged(element_idx, position, v)),
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
@@ -1799,7 +1799,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             C!["control"],
                                             C!["has-icons-right"],
                                             C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::TimeChanged(section_idx, position, v)),
+                                            input_ev(Ev::Input, move |v| Msg::TimeChanged(element_idx, position, v)),
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
@@ -1827,7 +1827,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             C!["control"],
                                             C!["has-icons-right"],
                                             C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::WeightChanged(section_idx, position, v)),
+                                            input_ev(Ev::Input, move |v| Msg::WeightChanged(element_idx, position, v)),
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
@@ -1852,7 +1852,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                             C!["control"],
                                             C!["has-icons-left"],
                                             C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::RPEChanged(section_idx, position, v)),
+                                            input_ev(Ev::Input, move |v| Msg::RPEChanged(element_idx, position, v)),
                                             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                                                 IF!(
                                                     not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
@@ -1894,13 +1894,13 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                                 &s.exercise_name
                                             ],
                                             div![a![
-                                                ev(Ev::Click, move |_| Msg::ShowOptionsDialog(section_idx, position)),
+                                                ev(Ev::Click, move |_| Msg::ShowOptionsDialog(element_idx, position)),
                                                 span![C!["icon"], i![C!["fas fa-ellipsis-vertical"]]]
                                             ]],
                                         ],
                                     ],
                                     if let Some(guide) = &model.guide {
-                                        if guide.timer.is_set() && guide.section_idx == section_idx {
+                                        if guide.timer.is_set() && guide.element_idx == element_idx {
                                             view_guide_timer(guide)
                                         } else {
                                             input_fields
@@ -1918,7 +1918,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                                     C!["mr-4"],
                                                     span![C!["icon"], i![C!["fas fa-bullseye"]]],
                                                     a![
-                                                        ev(Ev::Click, move |_| Msg::EnterTargetValues(section_idx, position)),
+                                                        ev(Ev::Click, move |_| Msg::EnterTargetValues(element_idx, position)),
                                                         target
                                                     ]
                                                 ]
@@ -1929,7 +1929,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                                                     C!["mr-4"],
                                                     span![C!["icon"], i![C!["fas fa-clipboard-list"]]],
                                                     a![
-                                                        ev(Ev::Click, move |_| Msg::EnterPreviousValues(section_idx, position)),
+                                                        ev(Ev::Click, move |_| Msg::EnterPreviousValues(element_idx, position)),
                                                         previous
                                                     ]
                                                 ]
@@ -1949,13 +1949,13 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                     ]
                 );
             }
-            FormSection::Rest {
+            FormElement::Rest {
                 target_time,
                 automatic,
             } => {
                 form.push(div![
                     if let Some(guide) = &model.guide {
-                        if guide.section_idx == section_idx {
+                        if guide.element_idx == element_idx {
                             el_ref(&guide.element)
                         } else {
                             el_ref(&ElRef::new())
@@ -1966,13 +1966,13 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                     C!["message"],
                     C!["is-success"],
                     C!["has-background-white-bis"],
-                    IF![model.guide.as_ref().map_or(false, |guide| guide.section_idx != section_idx) => C!["is-semitransparent"]],
+                    IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
                     div![
                         C!["message-body"],
                         C!["p-3"],
                         div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]],
                         if let Some(guide) = &model.guide {
-                            if guide.timer.is_set() && guide.section_idx == section_idx {
+                            if guide.timer.is_set() && guide.element_idx == element_idx {
                                 view_guide_timer(guide)
                             } else {
                                 empty![]
@@ -2004,7 +2004,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
         }
 
         if let Some(guide) = &model.guide {
-            if guide.section_idx == section_idx {
+            if guide.element_idx == element_idx {
                 form.push(div![
                     C!["has-text-centered"],
                     C!["m-5"],
@@ -2012,7 +2012,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                         C!["button"],
                         C!["is-link"],
                         ev(Ev::Click, |_| Msg::GoToNextSection),
-                        if section_idx < model.form.sections.len() - 1 {
+                        if element_idx < model.form.elements.len() - 1 {
                             span![C!["icon"], i![C!["fas fa-angles-down"]]]
                         } else {
                             span![C!["icon"], i![C!["fas fa-check"]]]
@@ -2095,12 +2095,12 @@ fn view_dialog(
     let content = match dialog {
         Dialog::Hidden => nodes![],
         Dialog::StopwatchMetronomTimer => view_smt_dialog(smt),
-        Dialog::Options(section_idx, exercise_idx) => {
-            view_options_dialog(*section_idx, *exercise_idx)
+        Dialog::Options(element_idx, exercise_idx) => {
+            view_options_dialog(*element_idx, *exercise_idx)
         }
-        Dialog::ReplaceExercise(section_idx, exercise_idx, search_term) => {
+        Dialog::ReplaceExercise(element_idx, exercise_idx, search_term) => {
             view_replace_exercise_dialog(
-                *section_idx,
+                *element_idx,
                 *exercise_idx,
                 search_term,
                 loading,
@@ -2302,12 +2302,12 @@ fn view_smt_dialog(smt: &StopwatchMetronomTimer) -> Vec<Node<Msg>> {
     ]
 }
 
-fn view_options_dialog(section_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>> {
+fn view_options_dialog(element_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>> {
     nodes![
         p![a![
             C!["has-text-weight-bold"],
             ev(Ev::Click, move |_| Msg::ShowReplaceExerciseDialog(
-                section_idx,
+                element_idx,
                 exercise_idx
             )),
             span![
@@ -2322,7 +2322,7 @@ fn view_options_dialog(section_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                 a![
                     C!["has-text-weight-bold"],
                     ev(Ev::Click, move |_| Msg::DeferExercise(
-                        section_idx
+                        element_idx
                     )),
                     span![
                         C!["icon-text"],
@@ -2338,7 +2338,7 @@ fn view_options_dialog(section_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                 a![
                     C!["has-text-weight-bold"],
                     ev(Ev::Click, move |_| Msg::AddSet(
-                        section_idx
+                        element_idx
                     )),
                     span![
                         C!["icon-text"],
@@ -2355,7 +2355,7 @@ fn view_options_dialog(section_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                     C!["has-text-danger"],
                     C!["has-text-weight-bold"],
                     ev(Ev::Click, move |_| Msg::RemoveSet(
-                        section_idx
+                        element_idx
                     )),
                     span![
                         C!["icon-text"],
@@ -2369,13 +2369,13 @@ fn view_options_dialog(section_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
 }
 
 fn view_replace_exercise_dialog(
-    section_idx: usize,
+    element_idx: usize,
     exercise_idx: usize,
     search_term: &str,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
-    let section_idx = section_idx;
+    let element_idx = element_idx;
     let exercise_idx = exercise_idx;
     common::view_exercises_with_search(
         exercises,
@@ -2383,7 +2383,7 @@ fn view_replace_exercise_dialog(
         Msg::SearchTermChanged,
         |_| Msg::CreateExercise,
         loading,
-        move |exercise_id| Msg::ReplaceExercise(section_idx, exercise_idx, exercise_id),
+        move |exercise_id| Msg::ReplaceExercise(element_idx, exercise_idx, exercise_id),
     )
 }
 
@@ -2407,7 +2407,7 @@ mod tests {
 
     #[test]
     fn test_replace_exercise_first_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2421,9 +2421,9 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut sections, 0, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 0, 0, 2, &exercises(2));
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 2)]),
                 rest(0),
@@ -2443,7 +2443,7 @@ mod tests {
 
     #[test]
     fn test_replace_exercise_second_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2457,9 +2457,9 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut sections, 2, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 2, 0, 2, &exercises(2));
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2479,7 +2479,7 @@ mod tests {
 
     #[test]
     fn test_replace_exercise_penultimate_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2493,9 +2493,9 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut sections, 8, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 8, 0, 2, &exercises(2));
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2515,7 +2515,7 @@ mod tests {
 
     #[test]
     fn test_replace_exercise_last_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2529,9 +2529,9 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut sections, 10, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 10, 0, 2, &exercises(2));
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2551,7 +2551,7 @@ mod tests {
 
     #[test]
     fn test_replace_exercise_superset_first_exercise() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0), exercise(1, 1)]),
             rest(0),
             set(vec![exercise(2, 0), exercise(3, 1)]),
@@ -2565,9 +2565,9 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        replace_exercise(&mut sections, 0, 0, 3, &exercises(3));
+        replace_exercise(&mut elements, 0, 0, 3, &exercises(3));
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 3), exercise(1, 1)]),
                 rest(0),
@@ -2587,7 +2587,7 @@ mod tests {
 
     #[test]
     fn test_replace_exercise_dropsets() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0), exercise(1, 0)]),
             rest(0),
             set(vec![exercise(2, 0), exercise(3, 0)]),
@@ -2597,9 +2597,9 @@ mod tests {
             set(vec![exercise(6, 0), exercise(7, 2)]),
             rest(3),
         ];
-        replace_exercise(&mut sections, 0, 0, 3, &exercises(3));
+        replace_exercise(&mut elements, 0, 0, 3, &exercises(3));
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 3), exercise(1, 3)]),
                 rest(0),
@@ -2615,7 +2615,7 @@ mod tests {
 
     #[test]
     fn test_replace_exercise_superset_second_exercise() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0), exercise(1, 1)]),
             rest(0),
             set(vec![exercise(2, 0), exercise(3, 1)]),
@@ -2629,9 +2629,9 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        replace_exercise(&mut sections, 4, 1, 3, &exercises(3));
+        replace_exercise(&mut elements, 4, 1, 3, &exercises(3));
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0), exercise(1, 1)]),
                 rest(0),
@@ -2651,7 +2651,7 @@ mod tests {
 
     #[test]
     fn test_defer_exercise_first_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 1)]),
@@ -2659,9 +2659,9 @@ mod tests {
             set(vec![exercise(2, 2)]),
             rest(2),
         ];
-        defer_exercise(&mut sections, 0);
+        defer_exercise(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(1, 1)]),
                 rest(1),
@@ -2675,7 +2675,7 @@ mod tests {
 
     #[test]
     fn test_defer_exercise_penultimate_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 1)]),
@@ -2683,9 +2683,9 @@ mod tests {
             set(vec![exercise(2, 2)]),
             rest(2),
         ];
-        defer_exercise(&mut sections, 2);
+        defer_exercise(&mut elements, 2);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2699,7 +2699,7 @@ mod tests {
 
     #[test]
     fn test_defer_exercise_last_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 1)]),
@@ -2707,9 +2707,9 @@ mod tests {
             set(vec![exercise(2, 2)]),
             rest(2),
         ];
-        defer_exercise(&mut sections, 4);
+        defer_exercise(&mut elements, 4);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2723,7 +2723,7 @@ mod tests {
 
     #[test]
     fn test_defer_exercise_multiple_sets() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2737,9 +2737,9 @@ mod tests {
             set(vec![exercise(5, 2)]),
             rest(5),
         ];
-        defer_exercise(&mut sections, 0);
+        defer_exercise(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(2, 1)]),
                 rest(2),
@@ -2759,7 +2759,7 @@ mod tests {
 
     #[test]
     fn test_defer_exercise_supersets() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0), exercise(1, 1)]),
             rest(0),
             set(vec![exercise(2, 0), exercise(3, 1)]),
@@ -2773,9 +2773,9 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        defer_exercise(&mut sections, 4);
+        defer_exercise(&mut elements, 4);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0), exercise(1, 1)]),
                 rest(0),
@@ -2795,7 +2795,7 @@ mod tests {
 
     #[test]
     fn test_add_set_first_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2805,9 +2805,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        add_set(&mut sections, 0);
+        add_set(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2825,7 +2825,7 @@ mod tests {
 
     #[test]
     fn test_add_set_second_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2835,9 +2835,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        add_set(&mut sections, 2);
+        add_set(&mut elements, 2);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2855,7 +2855,7 @@ mod tests {
 
     #[test]
     fn test_add_set_penultimate_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2865,9 +2865,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        add_set(&mut sections, 4);
+        add_set(&mut elements, 4);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2885,7 +2885,7 @@ mod tests {
 
     #[test]
     fn test_add_set_last_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -2895,9 +2895,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        add_set(&mut sections, 6);
+        add_set(&mut elements, 6);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2915,15 +2915,15 @@ mod tests {
 
     #[test]
     fn test_add_set_superset() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0), exercise(4, 2)]),
             rest(0),
             set(vec![exercise(1, 0), exercise(5, 2)]),
             rest(1),
         ];
-        add_set(&mut sections, 0);
+        add_set(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0), exercise(4, 2)]),
                 rest(0),
@@ -2937,15 +2937,15 @@ mod tests {
 
     #[test]
     fn test_add_set_no_rest_first_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        add_set(&mut sections, 0);
+        add_set(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -2959,15 +2959,15 @@ mod tests {
 
     #[test]
     fn test_add_set_no_rest_second_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        add_set(&mut sections, 1);
+        add_set(&mut elements, 1);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 set(vec![exercise(1, 0)]),
@@ -2981,15 +2981,15 @@ mod tests {
 
     #[test]
     fn test_add_set_no_rest_penultimate_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        add_set(&mut sections, 2);
+        add_set(&mut elements, 2);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 set(vec![exercise(1, 0)]),
@@ -3003,15 +3003,15 @@ mod tests {
 
     #[test]
     fn test_add_set_no_rest_last_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        add_set(&mut sections, 3);
+        add_set(&mut elements, 3);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 set(vec![exercise(1, 0)]),
@@ -3025,14 +3025,14 @@ mod tests {
 
     #[test]
     fn test_add_set_first_single_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 1)]),
         ];
-        add_set(&mut sections, 0);
+        add_set(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3045,14 +3045,14 @@ mod tests {
 
     #[test]
     fn test_add_set_last_single_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 1)]),
         ];
-        add_set(&mut sections, 2);
+        add_set(&mut elements, 2);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3064,16 +3064,16 @@ mod tests {
     }
 
     #[test]
-    fn test_add_set_invalid_section_idx_rest() {
-        let mut sections = vec![
+    fn test_add_set_invalid_element_idx_rest() {
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_set(&mut sections, 1);
+        add_set(&mut elements, 1);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3084,16 +3084,16 @@ mod tests {
     }
 
     #[test]
-    fn test_add_set_invalid_section_idx_out_of_range() {
-        let mut sections = vec![
+    fn test_add_set_invalid_element_idx_out_of_range() {
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_set(&mut sections, 4);
+        add_set(&mut elements, 4);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3105,7 +3105,7 @@ mod tests {
 
     #[test]
     fn test_remove_set_first_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -3115,9 +3115,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        remove_set(&mut sections, 0);
+        remove_set(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(1, 0)]),
                 rest(1),
@@ -3131,7 +3131,7 @@ mod tests {
 
     #[test]
     fn test_remove_set_second_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -3141,9 +3141,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        remove_set(&mut sections, 2);
+        remove_set(&mut elements, 2);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(1),
@@ -3157,7 +3157,7 @@ mod tests {
 
     #[test]
     fn test_remove_set_penultimate_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -3167,9 +3167,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        remove_set(&mut sections, 4);
+        remove_set(&mut elements, 4);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3183,7 +3183,7 @@ mod tests {
 
     #[test]
     fn test_remove_set_last_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
@@ -3193,9 +3193,9 @@ mod tests {
             set(vec![exercise(3, 1)]),
             rest(3),
         ];
-        remove_set(&mut sections, 6);
+        remove_set(&mut elements, 6);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3209,30 +3209,30 @@ mod tests {
 
     #[test]
     fn test_remove_set_superset() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0), exercise(4, 2)]),
             rest(0),
             set(vec![exercise(1, 0), exercise(5, 2)]),
             rest(1),
         ];
-        remove_set(&mut sections, 0);
+        remove_set(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![set(vec![exercise(1, 0), exercise(5, 2)]), rest(1),]
         );
     }
 
     #[test]
     fn test_remove_set_no_rest_first_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        remove_set(&mut sections, 0);
+        remove_set(&mut elements, 0);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(1, 0)]),
                 set(vec![exercise(2, 1)]),
@@ -3243,15 +3243,15 @@ mod tests {
 
     #[test]
     fn test_remove_set_no_rest_second_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        remove_set(&mut sections, 1);
+        remove_set(&mut elements, 1);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 set(vec![exercise(2, 1)]),
@@ -3262,15 +3262,15 @@ mod tests {
 
     #[test]
     fn test_remove_set_no_rest_penultimate_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        remove_set(&mut sections, 2);
+        remove_set(&mut elements, 2);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 set(vec![exercise(1, 0)]),
@@ -3281,15 +3281,15 @@ mod tests {
 
     #[test]
     fn test_remove_set_no_rest_last_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             set(vec![exercise(1, 0)]),
             set(vec![exercise(2, 1)]),
             set(vec![exercise(3, 1)]),
         ];
-        remove_set(&mut sections, 3);
+        remove_set(&mut elements, 3);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 set(vec![exercise(1, 0)]),
@@ -3300,37 +3300,37 @@ mod tests {
 
     #[test]
     fn test_remove_set_first_single_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 1)]),
         ];
-        remove_set(&mut sections, 0);
-        assert_eq!(sections, vec![set(vec![exercise(1, 1)]),]);
+        remove_set(&mut elements, 0);
+        assert_eq!(elements, vec![set(vec![exercise(1, 1)]),]);
     }
 
     #[test]
     fn test_remove_set_last_single_set() {
-        let mut sections = vec![
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 1)]),
         ];
-        remove_set(&mut sections, 2);
-        assert_eq!(sections, vec![set(vec![exercise(0, 0)])]);
+        remove_set(&mut elements, 2);
+        assert_eq!(elements, vec![set(vec![exercise(0, 0)])]);
     }
 
     #[test]
-    fn test_remove_set_invalid_section_idx_rest() {
-        let mut sections = vec![
+    fn test_remove_set_invalid_element_idx_rest() {
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        remove_set(&mut sections, 1);
+        remove_set(&mut elements, 1);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3341,16 +3341,16 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_set_invalid_section_idx_out_of_range() {
-        let mut sections = vec![
+    fn test_remove_set_invalid_element_idx_out_of_range() {
+        let mut elements = vec![
             set(vec![exercise(0, 0)]),
             rest(0),
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        remove_set(&mut sections, 4);
+        remove_set(&mut elements, 4);
         assert_eq!(
-            sections,
+            elements,
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
@@ -3390,12 +3390,12 @@ mod tests {
         }
     }
 
-    fn set(exercises: Vec<ExerciseForm>) -> FormSection {
-        FormSection::Set { exercises }
+    fn set(exercises: Vec<ExerciseForm>) -> FormElement {
+        FormElement::Set { exercises }
     }
 
-    fn rest(entry_id: u32) -> FormSection {
-        FormSection::Rest {
+    fn rest(entry_id: u32) -> FormElement {
+        FormElement::Rest {
             target_time: entry_id,
             automatic: true,
         }

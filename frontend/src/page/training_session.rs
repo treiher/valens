@@ -1751,32 +1751,244 @@ fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
 }
 
 fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let sections = determine_sections(&model.form.elements);
     let valid = model.form.valid();
     let save_disabled = not(model.form.changed()) || not(valid);
-    let mut form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
 
-    for (element_idx, element) in model.form.elements.iter().enumerate() {
-        if let Some(guide) = &model.guide {
-            if guide.element_idx == element_idx && element_idx != 0 {
-                form.push(div![
-                    C!["has-text-centered"],
-                    C!["m-5"],
-                    button![
-                        C!["button"],
-                        C!["is-link"],
-                        ev(Ev::Click, |_| Msg::GoToPreviousSection),
-                        span![C!["icon"], i![C!["fas fa-angles-up"]]]
-                    ]
-                ]);
+    let form = sections.iter().map(|(first, last)| {
+        let mut section_form: std::vec::Vec<seed::virtual_dom::Node<Msg>> = nodes![];
+        for (idx, element) in model.form.elements[*first..=*last].iter().enumerate() {
+            let element_idx = first + idx;
+            if let Some(guide) = &model.guide {
+                if guide.element_idx == element_idx && element_idx != 0 {
+                    section_form.push(div![
+                        C!["has-text-centered"],
+                        C!["m-5"],
+                        button![
+                            C!["button"],
+                            C!["is-link"],
+                            ev(Ev::Click, |_| Msg::GoToPreviousSection),
+                            span![C!["icon"], i![C!["fas fa-angles-up"]]]
+                        ]
+                    ]);
+                }
             }
-        }
 
-        match element {
-            FormElement::Set {
-                exercises: exercise_forms,
-            } => {
-                form.push(
-                    div![
+            match element {
+                FormElement::Set {
+                    exercises: exercise_forms,
+                } => {
+                    section_form.push(
+                        div![
+                            if let Some(guide) = &model.guide {
+                                if guide.element_idx == element_idx {
+                                    el_ref(&guide.element)
+                                } else {
+                                    el_ref(&ElRef::new())
+                                }
+                            } else {
+                                el_ref(&ElRef::new())
+                            },
+                            C!["message"],
+                            C!["is-info"],
+                            C!["has-background-white"],
+                            IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
+                            IF![idx > 0 => C!["mt-3"]],
+                            C!["mb-0"],
+                            div![
+                                C!["message-body"],
+                                C!["p-3"],
+                                exercise_forms.iter().enumerate().map(|(position, s)| {
+                                    let input_fields = div![
+                                            C!["field"],
+                                            C!["has-addons"],
+                                            div![
+                                                C!["control"],
+                                                C!["has-icons-right"],
+                                                C!["has-text-right"],
+                                                input_ev(Ev::Input, move |v| Msg::RepsChanged(element_idx, position, v)),
+                                                keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                    IF!(
+                                                        not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                            Msg::SaveTrainingSession
+                                                        }
+                                                    )
+                                                }),
+                                                input![
+                                                    C!["input"],
+                                                    C!["has-text-right"],
+                                                    C![IF![not(s.reps.valid()) => "is-danger"]],
+                                                    C![IF![s.reps.changed() => "is-info"]],
+                                                    attrs! {
+                                                        At::Type => "number",
+                                                        At::Min => 0,
+                                                        At::Max => 999,
+                                                        At::Step => 1,
+                                                        At::Size => 2,
+                                                        At::Value => s.reps.input,
+                                                    }
+                                                ],
+                                                span![C!["icon"], C!["is-small"], C!["is-right"], "✕"],
+                                            ],
+                                            div![
+                                                C!["control"],
+                                                C!["has-icons-right"],
+                                                C!["has-text-right"],
+                                                input_ev(Ev::Input, move |v| Msg::TimeChanged(element_idx, position, v)),
+                                                keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                    IF!(
+                                                        not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                            Msg::SaveTrainingSession
+                                                        }
+                                                    )
+                                                }),
+                                                input![
+                                                    C!["input"],
+                                                    C!["has-text-right"],
+                                                    C![IF![not(s.time.valid()) => "is-danger"]],
+                                                    C![IF![s.time.changed() => "is-info"]],
+                                                    attrs! {
+                                                        At::Type => "number",
+                                                        At::Min => 0,
+                                                        At::Max => 999,
+                                                        At::Step => 1,
+                                                        At::Size => 2,
+                                                        At::Value => s.time.input,
+                                                    },
+                                                ],
+                                                span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                            ],
+                                            div![
+                                                C!["control"],
+                                                C!["has-icons-right"],
+                                                C!["has-text-right"],
+                                                input_ev(Ev::Input, move |v| Msg::WeightChanged(element_idx, position, v)),
+                                                keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                    IF!(
+                                                        not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                            Msg::SaveTrainingSession
+                                                        }
+                                                    )
+                                                }),
+                                                input![
+                                                    C!["input"],
+                                                    C!["has-text-right"],
+                                                    C![IF![not(s.weight.valid()) => "is-danger"]],
+                                                    C![IF![s.weight.changed() => "is-info"]],
+                                                    attrs! {
+                                                        At::from("inputmode") => "numeric",
+                                                        At::Size => 3,
+                                                        At::Value => s.weight.input,
+                                                    },
+                                                ],
+                                                span![C!["icon"], C!["is-small"], C!["is-right"], "kg"],
+                                            ],
+                                            div![
+                                                C!["control"],
+                                                C!["has-icons-left"],
+                                                C!["has-text-right"],
+                                                input_ev(Ev::Input, move |v| Msg::RPEChanged(element_idx, position, v)),
+                                                keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                    IF!(
+                                                        not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                            Msg::SaveTrainingSession
+                                                        }
+                                                    )
+                                                }),
+                                                input![
+                                                    C!["input"],
+                                                    C!["has-text-right"],
+                                                    C![IF![not(s.rpe.valid()) => "is-danger"]],
+                                                    C![IF![s.rpe.changed() => "is-info"]],
+                                                    attrs! {
+                                                        At::from("inputmode") => "numeric",
+                                                        At::Size => 2,
+                                                        At::Value => s.rpe.input,
+                                                    },
+                                                ],
+                                                span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
+                                            ],
+                                        ];
+                                    div![
+                                        C!["field"],
+                                        div![
+                                            C!["has-text-weight-bold"],
+                                            C!["mb-2"],
+                                            div![
+                                                C!["is-flex"],
+                                                C!["is-justify-content-space-between"],
+                                                a![
+                                                    attrs! {
+                                                        At::Href => {
+                                                            crate::Urls::new(&data_model.base_url)
+                                                                .exercise()
+                                                                .add_hash_path_part(s.exercise_id.to_string())
+                                                        },
+                                                        At::from("tabindex") => -1
+                                                    },
+                                                    &s.exercise_name
+                                                ],
+                                                div![a![
+                                                    ev(Ev::Click, move |_| Msg::ShowOptionsDialog(element_idx, position)),
+                                                    span![C!["icon"], i![C!["fas fa-ellipsis-vertical"]]]
+                                                ]],
+                                            ],
+                                        ],
+                                        if let Some(guide) = &model.guide {
+                                            if guide.timer.is_set() && guide.element_idx == element_idx {
+                                                view_guide_timer(guide)
+                                            } else {
+                                                input_fields
+                                            }
+                                        } else {
+                                            input_fields
+                                        },
+                                        {
+                                            let target = common::format_set(s.target_reps, s.target_time, s.target_weight, s.target_rpe);
+                                            let previous = common::format_set(s.prev_reps, s.prev_time, s.prev_weight, s.prev_rpe);
+                                            p![
+                                                IF![not(target.is_empty()) =>
+                                                    span![
+                                                        C!["icon-text"],
+                                                        C!["mr-4"],
+                                                        span![C!["icon"], i![C!["fas fa-bullseye"]]],
+                                                        a![
+                                                            ev(Ev::Click, move |_| Msg::EnterTargetValues(element_idx, position)),
+                                                            target
+                                                        ]
+                                                    ]
+                                                ],
+                                                IF![not(previous.is_empty()) =>
+                                                    span![
+                                                        C!["icon-text"],
+                                                        C!["mr-4"],
+                                                        span![C!["icon"], i![C!["fas fa-clipboard-list"]]],
+                                                        a![
+                                                            ev(Ev::Click, move |_| Msg::EnterPreviousValues(element_idx, position)),
+                                                            previous
+                                                        ]
+                                                    ]
+                                                ],
+                                                IF![
+                                                    s.automatic =>
+                                                    span![
+                                                        C!["icon"],
+                                                        common::automatic_icon()
+                                                    ]
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                })
+                            ]
+                        ]
+                    );
+                }
+                FormElement::Rest {
+                    target_time,
+                    automatic,
+                } => {
+                    section_form.push(div![
                         if let Some(guide) = &model.guide {
                             if guide.element_idx == element_idx {
                                 el_ref(&guide.element)
@@ -1787,271 +1999,74 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                             el_ref(&ElRef::new())
                         },
                         C!["message"],
-                        C!["is-info"],
-                        C!["has-background-white-bis"],
+                        C!["is-success"],
+                        C!["has-background-white"],
                         IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
+                        IF![idx > 0 => C!["mt-3"]],
+                        C!["mb-0"],
                         div![
                             C!["message-body"],
                             C!["p-3"],
-                            exercise_forms.iter().enumerate().map(|(position, s)| {
-                                let input_fields = div![
-                                        C!["field"],
-                                        C!["has-addons"],
-                                        div![
-                                            C!["control"],
-                                            C!["has-icons-right"],
-                                            C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::RepsChanged(element_idx, position, v)),
-                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                                IF!(
-                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveTrainingSession
-                                                    }
-                                                )
-                                            }),
-                                            input![
-                                                C!["input"],
-                                                C!["has-text-right"],
-                                                C![IF![not(s.reps.valid()) => "is-danger"]],
-                                                C![IF![s.reps.changed() => "is-info"]],
-                                                attrs! {
-                                                    At::Type => "number",
-                                                    At::Min => 0,
-                                                    At::Max => 999,
-                                                    At::Step => 1,
-                                                    At::Size => 2,
-                                                    At::Value => s.reps.input,
-                                                }
-                                            ],
-                                            span![C!["icon"], C!["is-small"], C!["is-right"], "✕"],
-                                        ],
-                                        div![
-                                            C!["control"],
-                                            C!["has-icons-right"],
-                                            C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::TimeChanged(element_idx, position, v)),
-                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                                IF!(
-                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveTrainingSession
-                                                    }
-                                                )
-                                            }),
-                                            input![
-                                                C!["input"],
-                                                C!["has-text-right"],
-                                                C![IF![not(s.time.valid()) => "is-danger"]],
-                                                C![IF![s.time.changed() => "is-info"]],
-                                                attrs! {
-                                                    At::Type => "number",
-                                                    At::Min => 0,
-                                                    At::Max => 999,
-                                                    At::Step => 1,
-                                                    At::Size => 2,
-                                                    At::Value => s.time.input,
-                                                },
-                                            ],
-                                            span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
-                                        ],
-                                        div![
-                                            C!["control"],
-                                            C!["has-icons-right"],
-                                            C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::WeightChanged(element_idx, position, v)),
-                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                                IF!(
-                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveTrainingSession
-                                                    }
-                                                )
-                                            }),
-                                            input![
-                                                C!["input"],
-                                                C!["has-text-right"],
-                                                C![IF![not(s.weight.valid()) => "is-danger"]],
-                                                C![IF![s.weight.changed() => "is-info"]],
-                                                attrs! {
-                                                    At::from("inputmode") => "numeric",
-                                                    At::Size => 3,
-                                                    At::Value => s.weight.input,
-                                                },
-                                            ],
-                                            span![C!["icon"], C!["is-small"], C!["is-right"], "kg"],
-                                        ],
-                                        div![
-                                            C!["control"],
-                                            C!["has-icons-left"],
-                                            C!["has-text-right"],
-                                            input_ev(Ev::Input, move |v| Msg::RPEChanged(element_idx, position, v)),
-                                            keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                                IF!(
-                                                    not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                        Msg::SaveTrainingSession
-                                                    }
-                                                )
-                                            }),
-                                            input![
-                                                C!["input"],
-                                                C!["has-text-right"],
-                                                C![IF![not(s.rpe.valid()) => "is-danger"]],
-                                                C![IF![s.rpe.changed() => "is-info"]],
-                                                attrs! {
-                                                    At::from("inputmode") => "numeric",
-                                                    At::Size => 2,
-                                                    At::Value => s.rpe.input,
-                                                },
-                                            ],
-                                            span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
-                                        ],
-                                    ];
-                                div![
-                                    C!["field"],
-                                    div![
-                                        C!["has-text-weight-bold"],
-                                        C!["mb-2"],
-                                        div![
-                                            C!["is-flex"],
-                                            C!["is-justify-content-space-between"],
-                                            a![
-                                                attrs! {
-                                                    At::Href => {
-                                                        crate::Urls::new(&data_model.base_url)
-                                                            .exercise()
-                                                            .add_hash_path_part(s.exercise_id.to_string())
-                                                    },
-                                                    At::from("tabindex") => -1
-                                                },
-                                                &s.exercise_name
-                                            ],
-                                            div![a![
-                                                ev(Ev::Click, move |_| Msg::ShowOptionsDialog(element_idx, position)),
-                                                span![C!["icon"], i![C!["fas fa-ellipsis-vertical"]]]
-                                            ]],
-                                        ],
-                                    ],
-                                    if let Some(guide) = &model.guide {
-                                        if guide.timer.is_set() && guide.element_idx == element_idx {
-                                            view_guide_timer(guide)
-                                        } else {
-                                            input_fields
-                                        }
-                                    } else {
-                                        input_fields
-                                    },
-                                    {
-                                        let target = common::format_set(s.target_reps, s.target_time, s.target_weight, s.target_rpe);
-                                        let previous = common::format_set(s.prev_reps, s.prev_time, s.prev_weight, s.prev_rpe);
-                                        p![
-                                            IF![not(target.is_empty()) =>
-                                                span![
-                                                    C!["icon-text"],
-                                                    C!["mr-4"],
-                                                    span![C!["icon"], i![C!["fas fa-bullseye"]]],
-                                                    a![
-                                                        ev(Ev::Click, move |_| Msg::EnterTargetValues(element_idx, position)),
-                                                        target
-                                                    ]
-                                                ]
-                                            ],
-                                            IF![not(previous.is_empty()) =>
-                                                span![
-                                                    C!["icon-text"],
-                                                    C!["mr-4"],
-                                                    span![C!["icon"], i![C!["fas fa-clipboard-list"]]],
-                                                    a![
-                                                        ev(Ev::Click, move |_| Msg::EnterPreviousValues(element_idx, position)),
-                                                        previous
-                                                    ]
-                                                ]
-                                            ],
-                                            IF![
-                                                s.automatic =>
-                                                span![
-                                                    C!["icon"],
-                                                    common::automatic_icon()
-                                                ]
-                                            ]
-                                        ]
-                                    }
-                                ]
-                            })
-                        ]
-                    ]
-                );
-            }
-            FormElement::Rest {
-                target_time,
-                automatic,
-            } => {
-                form.push(div![
-                    if let Some(guide) = &model.guide {
-                        if guide.element_idx == element_idx {
-                            el_ref(&guide.element)
-                        } else {
-                            el_ref(&ElRef::new())
-                        }
-                    } else {
-                        el_ref(&ElRef::new())
-                    },
-                    C!["message"],
-                    C!["is-success"],
-                    C!["has-background-white-bis"],
-                    IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
-                    div![
-                        C!["message-body"],
-                        C!["p-3"],
-                        div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]],
-                        if let Some(guide) = &model.guide {
-                            if guide.timer.is_set() && guide.element_idx == element_idx {
-                                view_guide_timer(guide)
+                            div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]],
+                            if let Some(guide) = &model.guide {
+                                if guide.timer.is_set() && guide.element_idx == element_idx {
+                                    view_guide_timer(guide)
+                                } else {
+                                    empty![]
+                                }
                             } else {
                                 empty![]
-                            }
-                        } else {
-                            empty![]
-                        },
-                        div![
-                            IF![
-                                *target_time > 0 =>
-                                span![
-                                    C!["icon-text"],
-                                    C!["mr-4"],
-                                    span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
-                                    span![target_time, " s"]
+                            },
+                            div![
+                                IF![
+                                    *target_time > 0 =>
+                                    span![
+                                        C!["icon-text"],
+                                        C!["mr-4"],
+                                        span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
+                                        span![target_time, " s"]
+                                    ]
+                                ],
+                                IF![
+                                    *automatic =>
+                                    span![
+                                        C!["icon"],
+                                        common::automatic_icon()
+                                    ]
                                 ]
                             ],
-                            IF![
-                                *automatic =>
-                                span![
-                                    C!["icon"],
-                                    common::automatic_icon()
-                                ]
-                            ]
-                        ],
-                    ]
-                ]);
+                        ]
+                    ]);
+                }
             }
-        }
 
-        if let Some(guide) = &model.guide {
-            if guide.element_idx == element_idx {
-                form.push(div![
-                    C!["has-text-centered"],
-                    C!["m-5"],
-                    button![
-                        C!["button"],
-                        C!["is-link"],
-                        ev(Ev::Click, |_| Msg::GoToNextSection),
-                        if element_idx < model.form.elements.len() - 1 {
-                            span![C!["icon"], i![C!["fas fa-angles-down"]]]
-                        } else {
-                            span![C!["icon"], i![C!["fas fa-check"]]]
-                        },
-                    ]
-                ]);
+            if let Some(guide) = &model.guide {
+                if guide.element_idx == element_idx {
+                    section_form.push(div![
+                        C!["has-text-centered"],
+                        C!["m-5"],
+                        button![
+                            C!["button"],
+                            C!["is-link"],
+                            ev(Ev::Click, |_| Msg::GoToNextSection),
+                            if element_idx < model.form.elements.len() - 1 {
+                                span![C!["icon"], i![C!["fas fa-angles-down"]]]
+                            } else {
+                                span![C!["icon"], i![C!["fas fa-check"]]]
+                            },
+                        ]
+                    ]);
+                }
             }
-        }
-    }
+        };
+        div![
+            C!["message"],
+            C!["has-background-white-bis"],
+            C!["p-3"],
+            C!["mb-3"],
+            section_form
+        ]
+    }).collect::<Vec<_>>();
 
     div![
         C!["container"],

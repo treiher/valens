@@ -586,7 +586,8 @@ class RoutinePage(Page):
                 by=By.XPATH,
                 value=(
                     "//div[contains(@class, 'container')]"
-                    "/div[contains(@class, 'message') and contains(@class, 'is-grey')]"
+                    "/div[contains(@class, 'message')"
+                    " and contains(@class, 'has-background-white-bis')]"
                 ),
             )
         ]

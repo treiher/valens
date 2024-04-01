@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **BREAKING**: Ensure that location includes trailing slash if app is being served from subdirectory (see README for sample configuration)
 - Design of training session page
+- Design of routine page
 - List routines sorted by last use
 - Disable automatic metronome by default
 

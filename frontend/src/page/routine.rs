@@ -860,78 +860,74 @@ fn view_routine_part(
         Form::Section { rounds, parts } => {
             div![
                 C!["message"],
-                IF![editing || id.first() != Some(&0) => C!["mt-3"]],
-                C!["mb-0"],
-                C!["is-grey"],
                 C!["has-background-white-bis"],
-                div![
-                    C!["message-body"],
-                    C!["p-3"],
-                    if editing {
+                C!["p-3"],
+                IF![editing || id.first() != Some(&0) => C!["mt-3"]],
+                C!["mb-3"],
+                if editing {
+                    div![
+                        C!["is-flex"],
+                        C!["is-justify-content-space-between"],
                         div![
-                            C!["is-flex"],
-                            C!["is-justify-content-space-between"],
+                            C!["field"],
+                            C!["mb-0"],
                             div![
-                                C!["field"],
-                                C!["mb-0"],
-                                div![
-                                    C!["control"],
-                                    C!["has-icons-left"],
-                                    input_ev(Ev::Input, {
-                                        let id = id.clone();
-                                        move |v| Msg::RoundsChanged(id, v)
-                                    }),
-                                    span![
-                                        C!["icon"],
-                                        C!["is-small"],
-                                        C!["is-left"],
-                                        i![C!["fas fa-repeat"]]
-                                    ],
-                                    input![
-                                        C!["input"],
-                                        C!["has-text-right"],
-                                        C![IF![not(rounds.valid()) => "is-danger"]],
-                                        C![IF![rounds.changed() => "is-info"]],
-                                        attrs! {
-                                            At::Type => "number",
-                                            At::Min => 1,
-                                            At::Max => 999,
-                                            At::Step => 1,
-                                            At::Size => 2,
-                                            At::Value => rounds.input,
-                                            At::Placeholder => 1,
-                                        }
-                                    ]
+                                C!["control"],
+                                C!["has-icons-left"],
+                                input_ev(Ev::Input, {
+                                    let id = id.clone();
+                                    move |v| Msg::RoundsChanged(id, v)
+                                }),
+                                span![
+                                    C!["icon"],
+                                    C!["is-small"],
+                                    C!["is-left"],
+                                    i![C!["fas fa-repeat"]]
+                                ],
+                                input![
+                                    C!["input"],
+                                    C!["has-text-right"],
+                                    C![IF![not(rounds.valid()) => "is-danger"]],
+                                    C![IF![rounds.changed() => "is-info"]],
+                                    attrs! {
+                                        At::Type => "number",
+                                        At::Min => 1,
+                                        At::Max => 999,
+                                        At::Step => 1,
+                                        At::Size => 2,
+                                        At::Value => rounds.input,
+                                        At::Placeholder => 1,
+                                    }
                                 ]
-                            ],
-                            view_position_buttons(id.clone())
-                        ]
-                    } else if let Some(rounds) = rounds.parsed {
-                        if rounds > 1 {
-                            span![
-                                C!["icon-text"],
-                                C!["mb-3"],
-                                span![C!["icon"], i![C!["fas fa-repeat"]],],
-                                span![rounds]
                             ]
-                        } else {
-                            empty![]
-                        }
+                        ],
+                        view_position_buttons(id.clone())
+                    ]
+                } else if let Some(rounds) = rounds.parsed {
+                    if rounds > 1 {
+                        span![
+                            C!["icon-text"],
+                            C!["mb-3"],
+                            span![C!["icon"], i![C!["fas fa-repeat"]],],
+                            span![rounds]
+                        ]
                     } else {
                         empty![]
-                    },
-                    parts
-                        .iter()
-                        .enumerate()
-                        .map(|(i, p)| view_routine_part(
-                            data_model,
-                            p,
-                            [&[i], &id[..]].concat(),
-                            editing
-                        ))
-                        .collect::<Vec<_>>(),
-                    IF![editing => view_add_part_buttons(data_model,id)]
-                ],
+                    }
+                } else {
+                    empty![]
+                },
+                parts
+                    .iter()
+                    .enumerate()
+                    .map(|(i, p)| view_routine_part(
+                        data_model,
+                        p,
+                        [&[i], &id[..]].concat(),
+                        editing
+                    ))
+                    .collect::<Vec<_>>(),
+                IF![editing => view_add_part_buttons(data_model,id)]
             ]
         }
         Form::Activity {
@@ -983,28 +979,26 @@ fn view_routine_part(
                             },
                             view_position_buttons(id.clone())
                         ]
-                    } else {
+                    } else if let Some(exercise_id) = exercise_id {
                         div![
                             C!["has-text-weight-bold"],
-                            if let Some(exercise_id) = exercise_id {
-                                if let Some(exercise) = data_model.exercises.get(exercise_id) {
-                                    a![
-                                        attrs! {
-                                            At::Href => {
-                                                crate::Urls::new(&data_model.base_url)
-                                                    .exercise()
-                                                    .add_hash_path_part(exercise_id.to_string())
-                                            }
-                                        },
-                                        &exercise.name,
-                                    ]
-                                } else {
-                                    plain![format!("Exercise#{exercise_id}")]
-                                }
+                            if let Some(exercise) = data_model.exercises.get(exercise_id) {
+                                a![
+                                    attrs! {
+                                        At::Href => {
+                                            crate::Urls::new(&data_model.base_url)
+                                                .exercise()
+                                                .add_hash_path_part(exercise_id.to_string())
+                                        }
+                                    },
+                                    &exercise.name,
+                                ]
                             } else {
-                                plain!["Rest"]
+                                plain![format!("Exercise#{exercise_id}")]
                             }
                         ]
+                    } else {
+                        common::view_rest(time.parsed.unwrap_or_default(), *automatic)
                     },
                     if editing {
                         div![
@@ -1166,7 +1160,7 @@ fn view_routine_part(
                                 ]
                             ]
                         ]
-                    } else {
+                    } else if exercise_id.is_some() {
                         div![
                             IF![
                                 if let Some(reps) = reps.parsed { reps > 0 } else { false } => {
@@ -1215,6 +1209,8 @@ fn view_routine_part(
                                 ]
                             ],
                         ]
+                    } else {
+                        empty![]
                     }
                 ]
             ]

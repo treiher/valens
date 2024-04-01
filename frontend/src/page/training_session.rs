@@ -686,6 +686,7 @@ pub enum Msg {
     AddSet(usize),
     AddExercise(usize, usize, u32),
     RemoveSet(usize),
+    RemoveExercise(usize, usize),
     CloseDialog,
 
     UpdateStopwatchMetronomTimer,
@@ -1181,6 +1182,12 @@ pub fn update(
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
         }
+        Msg::RemoveExercise(element_idx, exercise_idx) => {
+            remove_exercise(&mut model.form.elements, element_idx, exercise_idx);
+            orders
+                .send_msg(Msg::SaveTrainingSession)
+                .send_msg(Msg::CloseDialog);
+        }
         Msg::CloseDialog => {
             model.dialog = Dialog::Hidden;
         }
@@ -1272,8 +1279,8 @@ fn update_guide_timer(model: &mut Model) {
     if let Some(guide) = &mut model.guide {
         guide.timer.unset();
         let elapsed_time = (Utc::now() - guide.element_start_time).num_seconds();
-        match &model.form.elements[guide.element_idx] {
-            FormElement::Set { exercises } => {
+        match &model.form.elements.get(guide.element_idx) {
+            Some(FormElement::Set { exercises }) => {
                 let exercise = &exercises[0];
                 if not(show_guide_timer(exercise)) {
                     return;
@@ -1290,11 +1297,14 @@ fn update_guide_timer(model: &mut Model) {
                     }
                 }
             }
-            FormElement::Rest { target_time, .. } => {
+            Some(FormElement::Rest { target_time, .. }) => {
                 if *target_time > 0 {
                     guide.timer.set(i64::from(*target_time) - elapsed_time);
                     guide.timer.start();
                 }
+            }
+            None => {
+                model.guide = None;
             }
         }
     }
@@ -1569,6 +1579,24 @@ fn remove_set(elements: &mut Vec<FormElement>, element_idx: usize) {
     }
 }
 
+fn remove_exercise(elements: &mut Vec<FormElement>, element_idx: usize, exercise_idx: usize) {
+    let ids = determine_exercise_ids(elements, element_idx);
+    if ids.is_empty() || exercise_idx >= ids.len() {
+    } else if ids.len() > 1 {
+        for mut element in elements.iter_mut().skip(element_idx) {
+            if let FormElement::Set { exercises } = &mut element {
+                if ids != exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>() {
+                    break;
+                }
+                exercises.remove(exercise_idx);
+            }
+        }
+    } else {
+        let last = determine_last_element_of_section(elements, element_idx);
+        elements.drain(element_idx..=last);
+    }
+}
+
 fn is_set(elements: &mut Vec<FormElement>, element_idx: usize) -> bool {
     if element_idx >= elements.len() {
         return false;
@@ -1581,7 +1609,7 @@ fn is_set(elements: &mut Vec<FormElement>, element_idx: usize) -> bool {
 }
 
 fn determine_exercise_ids(elements: &[FormElement], element_idx: usize) -> Vec<u32> {
-    if let FormElement::Set { exercises } = &elements[element_idx] {
+    if let Some(FormElement::Set { exercises }) = &elements.get(element_idx) {
         exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>()
     } else {
         Vec::new()
@@ -1660,18 +1688,23 @@ fn determine_sections(elements: &[FormElement]) -> Vec<(usize, usize)> {
     let mut idx = 0;
 
     while idx < elements.len() {
-        let mut last = determine_last_set_with_same_exercises(elements, idx);
-        assert!(idx <= last);
-        if last + 1 < elements.len() {
-            if let FormElement::Rest { .. } = &elements[last + 1] {
-                last += 1;
-            }
-        }
+        let last = determine_last_element_of_section(elements, idx);
         sections.push((idx, last));
         idx = last + 1;
     }
 
     sections
+}
+
+fn determine_last_element_of_section(elements: &[FormElement], element_idx: usize) -> usize {
+    let mut last = determine_last_set_with_same_exercises(elements, element_idx);
+    assert!(element_idx <= last);
+    if last + 1 < elements.len() {
+        if let FormElement::Rest { .. } = &elements[last + 1] {
+            last += 1;
+        }
+    }
+    last
 }
 
 // ------ ------
@@ -2457,9 +2490,10 @@ fn view_options_dialog(element_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                 ]
             ]
         ],
+        p![C!["mt-5"]],
         IF![exercise_idx == 0 =>
             p![
-                C!["mt-5"],
+                C!["mt-3"],
                 a![
                     C!["has-text-danger"],
                     C!["has-text-weight-bold"],
@@ -2474,6 +2508,22 @@ fn view_options_dialog(element_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                 ]
             ]
         ],
+        p![
+            C!["mt-3"],
+            a![
+                C!["has-text-danger"],
+                C!["has-text-weight-bold"],
+                ev(Ev::Click, move |_| Msg::RemoveExercise(
+                    element_idx,
+                    exercise_idx
+                )),
+                span![
+                    C!["icon-text"],
+                    span![C!["icon"], i![C!["fas fa-times"]]],
+                    span!["Remove exercise"],
+                ]
+            ]
+        ]
     ]
 }
 
@@ -3787,6 +3837,318 @@ mod tests {
                 set(vec![exercise(0, 0)]),
                 rest(0),
                 set(vec![exercise(1, 0)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_first_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        remove_exercise(&mut elements, 0, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_second_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        remove_exercise(&mut elements, 2, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_penultimate_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        remove_exercise(&mut elements, 8, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_last_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        remove_exercise(&mut elements, 10, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_superset_first_exercise() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0), exercise(1, 1)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 1)]),
+            rest(1),
+            set(vec![exercise(4, 0), exercise(5, 2)]),
+            rest(2),
+            set(vec![exercise(6, 0), exercise(7, 2)]),
+            rest(3),
+            set(vec![exercise(8, 1), exercise(9, 2)]),
+            rest(4),
+            set(vec![exercise(10, 1), exercise(11, 2)]),
+            rest(5),
+        ];
+        remove_exercise(&mut elements, 0, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(1, 1)]),
+                rest(0),
+                set(vec![exercise(3, 1)]),
+                rest(1),
+                set(vec![exercise(4, 0), exercise(5, 2)]),
+                rest(2),
+                set(vec![exercise(6, 0), exercise(7, 2)]),
+                rest(3),
+                set(vec![exercise(8, 1), exercise(9, 2)]),
+                rest(4),
+                set(vec![exercise(10, 1), exercise(11, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_dropsets() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0), exercise(1, 0)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 0)]),
+            rest(1),
+            set(vec![exercise(4, 0), exercise(5, 2)]),
+            rest(2),
+            set(vec![exercise(6, 0), exercise(7, 2)]),
+            rest(3),
+        ];
+        remove_exercise(&mut elements, 0, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(1, 0)]),
+                rest(0),
+                set(vec![exercise(3, 0)]),
+                rest(1),
+                set(vec![exercise(4, 0), exercise(5, 2)]),
+                rest(2),
+                set(vec![exercise(6, 0), exercise(7, 2)]),
+                rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_superset_second_exercise() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0), exercise(1, 1)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 1)]),
+            rest(1),
+            set(vec![exercise(4, 0), exercise(5, 2)]),
+            rest(2),
+            set(vec![exercise(6, 0), exercise(7, 2)]),
+            rest(3),
+            set(vec![exercise(8, 1), exercise(9, 2)]),
+            rest(4),
+            set(vec![exercise(10, 1), exercise(11, 2)]),
+            rest(5),
+        ];
+        remove_exercise(&mut elements, 4, 1);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0), exercise(1, 1)]),
+                rest(0),
+                set(vec![exercise(2, 0), exercise(3, 1)]),
+                rest(1),
+                set(vec![exercise(4, 0)]),
+                rest(2),
+                set(vec![exercise(6, 0)]),
+                rest(3),
+                set(vec![exercise(8, 1), exercise(9, 2)]),
+                rest(4),
+                set(vec![exercise(10, 1), exercise(11, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_invalid_element_idx_rest() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+        ];
+        remove_exercise(&mut elements, 1, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_invalid_element_idx_out_of_range() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+        ];
+        remove_exercise(&mut elements, 4, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_invalid_exercise_idx_out_of_range() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+        ];
+        remove_exercise(&mut elements, 0, 2);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_remove_exercise_superset_invalid_exercise_idx_out_of_range() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0), exercise(1, 1)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 1)]),
+            rest(1),
+        ];
+        remove_exercise(&mut elements, 0, 2);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0), exercise(1, 1)]),
+                rest(0),
+                set(vec![exercise(2, 0), exercise(3, 1)]),
                 rest(1),
             ]
         );

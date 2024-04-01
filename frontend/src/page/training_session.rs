@@ -2007,34 +2007,15 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                         div![
                             C!["message-body"],
                             C!["p-3"],
-                            div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]],
                             if let Some(guide) = &model.guide {
                                 if guide.timer.is_set() && guide.element_idx == element_idx {
                                     view_guide_timer(guide)
                                 } else {
-                                    empty![]
+                                    common::view_rest(*target_time, *automatic)
                                 }
                             } else {
-                                empty![]
+                                common::view_rest(*target_time, *automatic)
                             },
-                            div![
-                                IF![
-                                    *target_time > 0 =>
-                                    span![
-                                        C!["icon-text"],
-                                        C!["mr-4"],
-                                        span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
-                                        span![target_time, " s"]
-                                    ]
-                                ],
-                                IF![
-                                    *automatic =>
-                                    span![
-                                        C!["icon"],
-                                        common::automatic_icon()
-                                    ]
-                                ]
-                            ],
                         ]
                     ]);
                 }

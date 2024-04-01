@@ -415,11 +415,39 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     }
 }
 
+pub fn view_rest<Ms>(target_time: u32, automatic: bool) -> Node<Ms> {
+    div![
+        span![
+            C!["icon-text"],
+            C!["has-text-weight-bold"],
+            C!["mr-5"],
+            "Rest"
+        ],
+        IF![
+            target_time > 0 =>
+            span![
+                C!["icon-text"],
+                C!["mr-4"],
+                span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
+                span![target_time, " s"]
+            ]
+        ],
+        IF![
+            automatic =>
+            span![
+                C!["icon-text"],
+                automatic_icon()
+            ]
+        ]
+    ]
+}
+
 pub fn automatic_icon<Ms>() -> Node<Ms> {
     span![
         C!["fa-stack"],
-        attrs! {
-            At::Style => "vertical-align: top;",
+        style! {
+            St::Height => "1.5em",
+            St::LineHeight => "1.5em",
         },
         i![C!["fas fa-circle fa-stack-1x"]],
         i![C!["fas fa-a fa-inverse fa-stack-1x"]]

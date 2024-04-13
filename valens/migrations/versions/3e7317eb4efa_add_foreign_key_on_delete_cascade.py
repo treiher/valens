@@ -6,6 +6,7 @@ Revises: 4cacd61cb0c5
 Create Date: 2021-07-18
 
 """
+
 from typing import Any
 
 from alembic import op

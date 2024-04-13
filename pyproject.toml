@@ -92,6 +92,9 @@ exclude = '''
 
 [tool.ruff]
 target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
 select = [
     "F",    # pyflakes
     "E",    # pycodestyle
@@ -176,12 +179,11 @@ ignore = [
     "PLC1901", # compare-to-empty-string
     "PLR2004", # magic-value-comparison
 ]
-line-length = 100
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 combine-as-imports = true
 
-[tool.ruff.pylint]
+[tool.ruff.lint.pylint]
 max-args = 6
 max-branches = 12
 max-returns = 10

@@ -5,7 +5,7 @@ bp = Blueprint("assets", __name__, template_folder="templates")
 
 
 def public_url() -> str:
-    return current_app.config["PUBLIC_URL"] if "PUBLIC_URL" in current_app.config else ""
+    return current_app.config.get("PUBLIC_URL", "")
 
 
 @bp.route("/")

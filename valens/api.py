@@ -98,9 +98,11 @@ def model_to_dict(
 
 def to_routine_parts(json: list[dict[str, Any]]) -> list[RoutinePart]:  # type: ignore[misc]
     return [
-        to_routine_section(part, position)
-        if "rounds" in part
-        else to_routine_activity(part, position)
+        (
+            to_routine_section(part, position)
+            if "rounds" in part
+            else to_routine_activity(part, position)
+        )
         for position, part in enumerate(json, start=1)
     ]
 
@@ -133,24 +135,26 @@ def to_routine_activity(  # type: ignore[misc]
 
 def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # type: ignore[misc]
     return [
-        WorkoutSet(
-            position=position,
-            exercise_id=element["exercise_id"],
-            reps=element["reps"],
-            time=element["time"],
-            weight=element["weight"],
-            rpe=element["rpe"],
-            target_reps=element["target_reps"],
-            target_time=element["target_time"],
-            target_weight=element["target_weight"],
-            target_rpe=element["target_rpe"],
-            automatic=element["automatic"],
-        )
-        if "exercise_id" in element
-        else WorkoutRest(
-            position=position,
-            target_time=element["target_time"],
-            automatic=element["automatic"],
+        (
+            WorkoutSet(
+                position=position,
+                exercise_id=element["exercise_id"],
+                reps=element["reps"],
+                time=element["time"],
+                weight=element["weight"],
+                rpe=element["rpe"],
+                target_reps=element["target_reps"],
+                target_time=element["target_time"],
+                target_weight=element["target_weight"],
+                target_rpe=element["target_rpe"],
+                automatic=element["automatic"],
+            )
+            if "exercise_id" in element
+            else WorkoutRest(
+                position=position,
+                target_time=element["target_time"],
+                automatic=element["automatic"],
+            )
         )
         for position, element in enumerate(json, start=1)
     ]

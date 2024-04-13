@@ -6,6 +6,7 @@ Revises: b9f4e42c7135
 Create Date: 2023-02-16
 
 """
+
 from typing import Union
 
 import sqlalchemy as sa

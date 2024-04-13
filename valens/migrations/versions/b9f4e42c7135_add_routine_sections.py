@@ -6,6 +6,7 @@ Revises: 4b6051594962
 Create Date: 2022-11-13
 
 """
+
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import Boolean, Integer, String

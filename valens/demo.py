@@ -208,22 +208,30 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
                         for reps, time, weight, rpe in (
                             [
                                 (
-                                    5 + week + random.randint(0, 1)
-                                    if exercise_names[routine_activity.exercise.name].reps
-                                    else None,
                                     (
-                                        random.randint(3, 4)
+                                        5 + week + random.randint(0, 1)
                                         if exercise_names[routine_activity.exercise.name].reps
-                                        else 10 + 5 * week + 5 * random.randint(0, 2)
-                                    )
-                                    if exercise_names[routine_activity.exercise.name].time
-                                    else None,
-                                    5 + (week + random.randint(0, 1)) * 0.5
-                                    if exercise_names[routine_activity.exercise.name].weight
-                                    else None,
-                                    min(7 + (week % 4) + (random.randint(0, 1) * 0.5), 10)
-                                    if exercise_names[routine_activity.exercise.name].rpe
-                                    else None,
+                                        else None
+                                    ),
+                                    (
+                                        (
+                                            random.randint(3, 4)
+                                            if exercise_names[routine_activity.exercise.name].reps
+                                            else 10 + 5 * week + 5 * random.randint(0, 2)
+                                        )
+                                        if exercise_names[routine_activity.exercise.name].time
+                                        else None
+                                    ),
+                                    (
+                                        5 + (week + random.randint(0, 1)) * 0.5
+                                        if exercise_names[routine_activity.exercise.name].weight
+                                        else None
+                                    ),
+                                    (
+                                        min(7 + (week % 4) + (random.randint(0, 1) * 0.5), 10)
+                                        if exercise_names[routine_activity.exercise.name].rpe
+                                        else None
+                                    ),
                                 )
                             ]
                         )

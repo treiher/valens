@@ -6,6 +6,7 @@ Revises: 3e7317eb4efa
 Create Date: 2022-01-22
 
 """
+
 from alembic import op
 
 revision = "4b6051594962"

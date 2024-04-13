@@ -67,7 +67,7 @@ VALENS_CONFIG=$PWD/config.py valens run --public
 
 The development server is not intended for production use. Please consider the [deployment options](https://flask.palletsprojects.com/en/2.3.x/deploying/) for providing the app in a public network.
 
-#### Example Configuration: nginx and uWSGI
+#### Example Configuration: NGINX and uWSGI
 
 The following configuration binds the app to `/valens`.
 
@@ -98,6 +98,9 @@ http {
 
         [...]
 
+        gzip on;
+        gzip_types text/plain test/css text/javascript application/json application/wasm;
+
         location = /valens { return 301 /valens/; }
         location /valens/ { try_files $uri @valens; }
         location @valens {
@@ -109,6 +112,9 @@ http {
 
 }
 ```
+
+NGINX compression is disabled by default.
+With compression enabled, the amount of data transferred can be significantly reduced, resulting in a reduction in transfer time, especially on slow networks.
 
 ## Development
 

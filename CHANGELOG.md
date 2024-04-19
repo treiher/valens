@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Option to add exercise in training session
 - Option to remove set in training session
 - Option to remove exercise in training session
+- Option to append exercise in training session
 - Blinking of time when timer in training session is paused
 - Sections when editing training session
 - Calculation of average weekly change in body weight

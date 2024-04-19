@@ -374,6 +374,7 @@ enum Dialog {
     Options(usize, usize),
     ReplaceExercise(usize, usize, String),
     AddExercise(usize, usize, String),
+    AppendExercise(String),
 }
 
 struct StopwatchMetronomTimer {
@@ -679,6 +680,7 @@ pub enum Msg {
     ShowOptionsDialog(usize, usize),
     ShowReplaceExerciseDialog(usize, usize),
     ShowAddExerciseDialog(usize, usize),
+    ShowAppendExerciseDialog,
     SearchTermChanged(String),
     CreateExercise,
     ReplaceExercise(usize, usize, u32),
@@ -687,6 +689,7 @@ pub enum Msg {
     AddExercise(usize, usize, u32),
     RemoveSet(usize),
     RemoveExercise(usize, usize),
+    AppendExercise(u32),
     CloseDialog,
 
     UpdateStopwatchMetronomTimer,
@@ -1126,6 +1129,9 @@ pub fn update(
         Msg::ShowAddExerciseDialog(element_idx, exercise_idx) => {
             model.dialog = Dialog::AddExercise(element_idx, exercise_idx, String::new());
         }
+        Msg::ShowAppendExerciseDialog => {
+            model.dialog = Dialog::AppendExercise(String::new());
+        }
         Msg::SearchTermChanged(search_term) => {
             if let Dialog::ReplaceExercise(_, _, st) | Dialog::AddExercise(_, _, st) =
                 &mut model.dialog
@@ -1184,6 +1190,12 @@ pub fn update(
         }
         Msg::RemoveExercise(element_idx, exercise_idx) => {
             remove_exercise(&mut model.form.elements, element_idx, exercise_idx);
+            orders
+                .send_msg(Msg::SaveTrainingSession)
+                .send_msg(Msg::CloseDialog);
+        }
+        Msg::AppendExercise(exercise_id) => {
+            append_exercise(&mut model.form.elements, exercise_id, &data_model.exercises);
             orders
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
@@ -1597,6 +1609,38 @@ fn remove_exercise(elements: &mut Vec<FormElement>, element_idx: usize, exercise
     }
 }
 
+fn append_exercise(
+    elements: &mut Vec<FormElement>,
+    exercise_id: u32,
+    data_exercises: &BTreeMap<u32, data::Exercise>,
+) {
+    if let Some(FormElement::Set { exercises: _ }) = elements.last() {
+        elements.push(FormElement::Rest {
+            target_time: 0,
+            automatic: true,
+        });
+    }
+    elements.push(FormElement::Set {
+        exercises: vec![ExerciseForm {
+            exercise_id,
+            exercise_name: data_exercises[&exercise_id].name.clone(),
+            reps: common::InputField::default(),
+            time: common::InputField::default(),
+            weight: common::InputField::default(),
+            rpe: common::InputField::default(),
+            target_reps: None,
+            target_time: None,
+            target_weight: None,
+            target_rpe: None,
+            prev_reps: None,
+            prev_time: None,
+            prev_weight: None,
+            prev_rpe: None,
+            automatic: false,
+        }],
+    });
+}
+
 fn is_set(elements: &mut Vec<FormElement>, element_idx: usize) -> bool {
     if element_idx >= elements.len() {
         return false;
@@ -1670,7 +1714,7 @@ fn determine_rest_between_sets(elements: &[FormElement], element_idx: usize) -> 
         element_idx - 1
     } else if element_idx + 1 < elements.len() {
         element_idx + 1
-    } else if element_idx + 1 == elements.len() {
+    } else if element_idx > 0 && element_idx + 1 == elements.len() {
         element_idx - 1
     } else {
         element_idx
@@ -2168,6 +2212,16 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
             },
             &form,
             div![
+                C!["has-text-centered"],
+                C!["m-5"],
+                button![
+                    C!["button"],
+                    C!["is-light"],
+                    ev(Ev::Click, move |_| Msg::ShowAppendExerciseDialog),
+                    span![C!["icon"], i![C!["fas fa-plus"]]]
+                ]
+            ],
+            div![
                 C!["field"],
                 label![C!["label"], "Notes"],
                 input_ev(Ev::Input, Msg::NotesChanged),
@@ -2193,7 +2247,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                 ev(Ev::Click, |_| Msg::SaveTrainingSession),
                 span![C!["icon"], i![C!["fas fa-save"]]]
             ]
-        ]
+        ],
     ]
 }
 
@@ -2231,6 +2285,9 @@ fn view_dialog(
         }
         Dialog::AddExercise(element_idx, exercise_idx, search_term) => {
             view_add_exercise_dialog(*element_idx, *exercise_idx, search_term, loading, exercises)
+        }
+        Dialog::AppendExercise(search_term) => {
+            view_append_exercise_dialog(search_term, loading, exercises)
         }
     };
 
@@ -2562,6 +2619,21 @@ fn view_add_exercise_dialog(
         |_| Msg::CreateExercise,
         loading,
         move |exercise_id| Msg::AddExercise(element_idx, exercise_idx, exercise_id),
+    )
+}
+
+fn view_append_exercise_dialog(
+    search_term: &str,
+    loading: bool,
+    exercises: &BTreeMap<u32, data::Exercise>,
+) -> Vec<Node<Msg>> {
+    common::view_exercises_with_search(
+        exercises,
+        search_term,
+        Msg::SearchTermChanged,
+        |_| Msg::CreateExercise,
+        loading,
+        Msg::AppendExercise,
     )
 }
 
@@ -4150,6 +4222,41 @@ mod tests {
                 rest(0),
                 set(vec![exercise(2, 0), exercise(3, 1)]),
                 rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_append_exercise_empty() {
+        let mut elements = vec![];
+        append_exercise(&mut elements, 1, &exercises(1));
+        assert_eq!(elements, vec![set(vec![exercise(0, 1)])]);
+    }
+
+    #[test]
+    fn test_append_exercise_same() {
+        let mut elements = vec![set(vec![exercise(0, 1)])];
+        append_exercise(&mut elements, 1, &exercises(1));
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 1)]),
+                rest(0),
+                set(vec![exercise(0, 1)])
+            ]
+        );
+    }
+
+    #[test]
+    fn test_append_exercise_different() {
+        let mut elements = vec![set(vec![exercise(0, 1)])];
+        append_exercise(&mut elements, 2, &exercises(2));
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 1)]),
+                rest(0),
+                set(vec![exercise(0, 2)])
             ]
         );
     }

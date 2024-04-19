@@ -916,7 +916,7 @@ pub enum Msg {
 
     ReadTrainingSessions,
     TrainingSessionsRead(Result<Vec<TrainingSession>, String>),
-    CreateTrainingSession(u32, NaiveDate, String, Vec<TrainingSessionElement>),
+    CreateTrainingSession(Option<u32>, NaiveDate, String, Vec<TrainingSessionElement>),
     TrainingSessionCreated(Result<TrainingSession, String>),
     ModifyTrainingSession(u32, Option<String>, Option<Vec<TrainingSessionElement>>),
     TrainingSessionModified(Result<TrainingSession, String>),

@@ -997,62 +997,83 @@ def test_create(
     assert resp.json
 
 
-def test_create_workout(client: Client) -> None:
+@pytest.mark.parametrize(
+    ("data", "created_id"),
+    [
+        (
+            {
+                "date": "2002-02-24",
+                "routine_id": 1,
+                "notes": "",
+                "elements": [
+                    {
+                        "exercise_id": 3,
+                        "reps": None,
+                        "time": None,
+                        "weight": None,
+                        "rpe": None,
+                        "target_reps": 10,
+                        "target_time": None,
+                        "target_weight": None,
+                        "target_rpe": 8,
+                        "automatic": False,
+                    },
+                    {
+                        "target_time": 60,
+                        "automatic": False,
+                    },
+                    {
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": None,
+                        "weight": None,
+                        "rpe": None,
+                        "target_reps": None,
+                        "target_time": 120,
+                        "target_weight": 10,
+                        "target_rpe": None,
+                        "automatic": False,
+                    },
+                    {
+                        "target_time": 120,
+                        "automatic": False,
+                    },
+                    {
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": None,
+                        "weight": None,
+                        "rpe": None,
+                        "target_reps": None,
+                        "target_time": None,
+                        "target_weight": None,
+                        "target_rpe": None,
+                        "automatic": False,
+                    },
+                ],
+            },
+            {"id": 5},
+        ),
+        (
+            {
+                "date": "2002-02-24",
+                "routine_id": None,
+                "notes": "",
+                "elements": [],
+            },
+            {"id": 5},
+        ),
+    ],
+)
+def test_create_workout(
+    client: Client,
+    data: dict[str, object],
+    created_id: dict[str, int],
+) -> None:
     route = "/api/workouts"
-    data = {
-        "date": "2002-02-24",
-        "routine_id": 1,
-        "notes": "",
-        "elements": [
-            {
-                "exercise_id": 3,
-                "reps": None,
-                "time": None,
-                "weight": None,
-                "rpe": None,
-                "target_reps": 10,
-                "target_time": None,
-                "target_weight": None,
-                "target_rpe": 8,
-                "automatic": False,
-            },
-            {
-                "target_time": 60,
-                "automatic": False,
-            },
-            {
-                "exercise_id": 1,
-                "reps": None,
-                "time": None,
-                "weight": None,
-                "rpe": None,
-                "target_reps": None,
-                "target_time": 120,
-                "target_weight": 10,
-                "target_rpe": None,
-                "automatic": False,
-            },
-            {
-                "target_time": 120,
-                "automatic": False,
-            },
-            {
-                "exercise_id": 1,
-                "reps": None,
-                "time": None,
-                "weight": None,
-                "rpe": None,
-                "target_reps": None,
-                "target_time": None,
-                "target_weight": None,
-                "target_rpe": None,
-                "automatic": False,
-            },
-        ],
-    }
     created = {
         **data,
-        **{"id": 5},  # noqa: PIE800
+        **created_id,
     }
     result = [
         {

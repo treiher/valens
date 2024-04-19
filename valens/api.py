@@ -862,13 +862,17 @@ def create_workout() -> ResponseReturnValue:
 
     try:
         routine = (
-            db.session.execute(
-                select(Routine)
-                .where(Routine.user_id == session["user_id"])
-                .where(Routine.id == data["routine_id"])
+            (
+                db.session.execute(
+                    select(Routine)
+                    .where(Routine.user_id == session["user_id"])
+                    .where(Routine.id == data["routine_id"])
+                )
+                .scalars()
+                .one()
             )
-            .scalars()
-            .one()
+            if isinstance(data["routine_id"], int)
+            else None
         )
 
         workout = Workout(
@@ -878,7 +882,7 @@ def create_workout() -> ResponseReturnValue:
             notes=data["notes"],
             elements=to_workout_elements(data["elements"]),
         )
-    except (DeserializationError, KeyError, ValueError) as e:
+    except (DeserializationError, NoResultFound, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(workout)

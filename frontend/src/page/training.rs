@@ -89,13 +89,7 @@ pub fn update(
             let local = Local::now().date_naive();
             model.dialog = Dialog::AddTrainingSession(Form {
                 date: (local.to_string(), Some(local)),
-                routine_id: (
-                    String::new(),
-                    data_model
-                        .routines_sorted_by_last_use()
-                        .first()
-                        .map(|r| r.id),
-                ),
+                routine_id: (String::new(), None),
             });
         }
         Msg::ShowDeleteTrainingSessionDialog(id) => {
@@ -142,21 +136,32 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddTrainingSession(ref mut form) => {
-                    let routine = data_model
-                        .routines
-                        .get(&form.routine_id.1.unwrap())
-                        .unwrap();
-                    let sets = routine
-                        .sections
-                        .iter()
-                        .flat_map(to_training_session_elements)
-                        .collect::<Vec<data::TrainingSessionElement>>();
-                    orders.notify(data::Msg::CreateTrainingSession(
-                        form.routine_id.1.unwrap(),
-                        form.date.1.unwrap(),
-                        String::new(),
-                        sets,
-                    ));
+                    let Some(date) = form.date.1 else {
+                        return;
+                    };
+                    if let Some(routine_id) = form.routine_id.1 {
+                        let Some(routine) = data_model.routines.get(&routine_id) else {
+                            return;
+                        };
+                        let sets = routine
+                            .sections
+                            .iter()
+                            .flat_map(to_training_session_elements)
+                            .collect::<Vec<data::TrainingSessionElement>>();
+                        orders.notify(data::Msg::CreateTrainingSession(
+                            Some(routine_id),
+                            date,
+                            String::new(),
+                            sets,
+                        ));
+                    } else {
+                        orders.notify(data::Msg::CreateTrainingSession(
+                            None,
+                            date,
+                            String::new(),
+                            vec![],
+                        ));
+                    }
                 }
                 Dialog::Hidden | Dialog::DeleteTrainingSession(_) => {
                     panic!();
@@ -398,7 +403,7 @@ fn view_training_sessions_dialog(
             return empty![];
         }
     }
-    let save_disabled = loading || form.date.1.is_none() || form.routine_id.1.is_none();
+    let save_disabled = loading || form.date.1.is_none();
     common::view_dialog(
         "primary",
         title,
@@ -428,17 +433,25 @@ fn view_training_sessions_dialog(
                     input_ev(Ev::Change, Msg::RoutineChanged),
                     div![
                         C!["select"],
-                        select![routines
-                            .iter()
-                            .map(|r| {
-                                option![
-                                    &r.name,
-                                    attrs![
-                                        At::Value => r.id,
-                                    ]
+                        select![
+                            option![
+                                "",
+                                attrs![
+                                    At::Value => 0,
                                 ]
-                            })
-                            .collect::<Vec<_>>()],
+                            ],
+                            routines
+                                .iter()
+                                .map(|r| {
+                                    option![
+                                        &r.name,
+                                        attrs![
+                                            At::Value => r.id,
+                                        ]
+                                    ]
+                                })
+                                .collect::<Vec<_>>()
+                        ],
                     ],
                 ],
             ],

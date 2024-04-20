@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Design of routine page
 - List routines sorted by last use
 - Disable automatic metronome by default
+- Skip rests with automatic flag and no duration
 
 ## [0.3.0] - 2024-01-02
 

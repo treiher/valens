@@ -535,6 +535,7 @@ impl Timer {
     }
 
     fn unset(&mut self) {
+        self.time = (String::new(), None);
         self.reset_time = 0;
         self.target_time = None;
         self.beep_time = 0.;
@@ -959,6 +960,8 @@ pub fn update(
                             if time <= 0 && *automatic {
                                 orders.send_msg(Msg::GoToNextSection);
                             }
+                        } else if *automatic {
+                            orders.send_msg(Msg::GoToNextSection);
                         }
                     }
                     None => {}
@@ -978,48 +981,53 @@ pub fn update(
         }
         Msg::GoToPreviousSection => {
             if let Some(guide) = &mut model.guide {
-                guide.element_idx -= 1;
+                let mut element_idx = guide.element_idx - 1;
+                while if let Some(FormElement::Rest {
+                    target_time,
+                    automatic,
+                }) = model.form.elements.get(element_idx)
+                {
+                    element_idx > 0 && *target_time == 0 && *automatic
+                } else {
+                    false
+                } {
+                    element_idx -= 1;
+                }
+                guide.element_idx = element_idx;
                 guide.element_start_time = Utc::now();
+                orders.notify(data::Msg::UpdateTrainingSession(
+                    element_idx,
+                    guide.timer.to_timer_state(),
+                ));
             }
             update_guide_timer(model);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             update_streams(model, orders);
-            if let Some(guide) = &mut model.guide {
-                if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
-                    orders.notify(data::Msg::UpdateTrainingSession(
-                        ongoing_training_session.element_idx - 1,
-                        guide.timer.to_timer_state(),
-                    ));
-                }
-            }
             close_notification(model);
             orders.force_render_now().send_msg(Msg::ScrollToSection);
         }
         Msg::GoToNextSection => {
             if let Some(guide) = &mut model.guide {
-                guide.element_idx += 1;
-                if guide.element_idx == model.form.elements.len() {
+                let element_idx = guide.element_idx + 1;
+                if element_idx == model.form.elements.len() {
                     model.guide = None;
                     close_notification(model);
                     orders
                         .send_msg(Msg::PauseMetronome)
                         .notify(data::Msg::EndTrainingSession);
                 } else {
+                    guide.element_idx = element_idx;
                     guide.element_start_time = Utc::now();
+                    orders.notify(data::Msg::UpdateTrainingSession(
+                        element_idx,
+                        guide.timer.to_timer_state(),
+                    ));
                     update_metronome(model, orders, data_model.settings.automatic_metronome);
                     show_element_notification(model, data_model.settings.notifications);
                 }
             }
             update_guide_timer(model);
             update_streams(model, orders);
-            if let Some(guide) = &mut model.guide {
-                if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
-                    orders.notify(data::Msg::UpdateTrainingSession(
-                        ongoing_training_session.element_idx + 1,
-                        guide.timer.to_timer_state(),
-                    ));
-                }
-            }
             orders
                 .force_render_now()
                 .send_msg(Msg::UpdateGuidedTrainingSession)

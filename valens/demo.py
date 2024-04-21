@@ -35,13 +35,14 @@ def users() -> list[User]:
     result = []
     for user_id, name, sex in [(1, "Alice", Sex.FEMALE), (2, "Bob", Sex.MALE)]:
         exercises, routines, workouts = _workouts(user_id)
+        body_weight = _body_weight(user_id)
         result.append(
             User(
                 id=user_id,
                 name=name,
                 sex=sex,
-                body_weight=_body_weight(user_id),
-                body_fat=_body_fat(user_id),
+                body_weight=body_weight,
+                body_fat=_body_fat(body_weight, user_id),
                 period=_period(user_id),
                 exercises=exercises,
                 routines=routines,
@@ -57,7 +58,7 @@ def _body_weight(user_id: int = 1) -> list[BodyWeight]:
     values = [(day, weight)]
 
     for i in range(1, 365):
-        weight += random.gauss(-0.2 if i % 2 == 0 else 0.2, 0.2)
+        weight += random.gauss(-0.1 if i % 2 == 0 else 0.2, 0.2)
         if random.randint(0, 2) == 0:
             continue
         values.append((datetime.date.today() - datetime.timedelta(days=i), weight))
@@ -65,11 +66,9 @@ def _body_weight(user_id: int = 1) -> list[BodyWeight]:
     return [BodyWeight(user_id=user_id, date=d, weight=w) for d, w in values]
 
 
-def _body_fat(user_id: int = 1) -> list[BodyFat]:
-    day = datetime.date.today() - datetime.timedelta(days=random.randint(0, 7))
-    values = []
-
-    previous: tuple[int, ...] = (
+def _body_fat(body_weight: list[BodyWeight], user_id: int = 1) -> list[BodyFat]:
+    initial_bw = body_weight[-1].weight
+    initial_bf: tuple[int, ...] = (
         random.randint(5, 20),
         random.randint(10, 30),
         random.randint(10, 30),
@@ -78,11 +77,14 @@ def _body_fat(user_id: int = 1) -> list[BodyFat]:
         random.randint(5, 20),
         random.randint(5, 20),
     )
-    for _ in range(52):
-        value = tuple(max(1, abs(e + int(random.gauss(0, 0.8)))) for e in previous)
-        previous = value
-        values.append((day, value))
-        day -= datetime.timedelta(days=random.randint(5, 9) + round(random.randint(4, 6) / 10) * 7)
+    bf = []
+    i = 0
+
+    while i < len(body_weight):
+        date = body_weight[i].date
+        factor = body_weight[i].weight / initial_bw
+        bf.append((date, tuple(int(e * factor) + random.randint(0, 1) for e in initial_bf)))
+        i += 7
 
     return [
         BodyFat(
@@ -96,7 +98,7 @@ def _body_fat(user_id: int = 1) -> list[BodyFat]:
             suprailiac=sup,
             midaxillary=mid,
         )
-        for date, (che, abd, tig, tri, sub, sup, mid) in values
+        for date, (che, abd, tig, tri, sub, sup, mid) in bf
     ]
 
 
@@ -135,15 +137,15 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
         "Barbell Deadlift": ExerciseType(reps=True, time=False, weight=True, rpe=True),
         "Barbell Lunge": ExerciseType(reps=True, time=False, weight=True, rpe=True),
         "Barbell Romanian Deadlift": ExerciseType(reps=True, time=False, weight=True, rpe=True),
-        "Barbell Row": ExerciseType(reps=True, time=True, weight=False, rpe=True),
-        "Dip": ExerciseType(reps=True, time=True, weight=True, rpe=True),
+        "Barbell Row": ExerciseType(reps=True, time=True, weight=True, rpe=True),
+        "Dip": ExerciseType(reps=True, time=True, weight=False, rpe=True),
         "Dumbbell Curl": ExerciseType(reps=True, time=False, weight=True, rpe=True),
         "Dumbbell Press": ExerciseType(reps=True, time=False, weight=True, rpe=True),
-        "Dumbbell Shoulder Press": ExerciseType(reps=True, time=False, weight=False, rpe=False),
-        "Hip Thrust": ExerciseType(reps=True, time=False, weight=False, rpe=True),
+        "Dumbbell Shoulder Press": ExerciseType(reps=True, time=False, weight=True, rpe=False),
+        "Hip Thrust": ExerciseType(reps=True, time=False, weight=True, rpe=True),
         "Lat Pulldown": ExerciseType(reps=True, time=True, weight=True, rpe=True),
         "Plank": ExerciseType(reps=False, time=True, weight=False, rpe=False),
-        "Pull Up": ExerciseType(reps=True, time=True, weight=True, rpe=True),
+        "Pull Up": ExerciseType(reps=True, time=True, weight=False, rpe=True),
         "Push Up": ExerciseType(reps=True, time=True, weight=False, rpe=True),
         "Seated Leg Curl": ExerciseType(reps=True, time=False, weight=True, rpe=True),
         "Seated Leg Extension": ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -163,7 +165,7 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
             sections=[
                 RoutineSection(
                     position=p,
-                    rounds=random.randint(1, 5),
+                    rounds=random.randint(2, 5),
                     parts=[
                         RoutineActivity(
                             position=1,

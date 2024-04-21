@@ -822,18 +822,7 @@ fn view_summary(routine: &data::Routine) -> Node<Msg> {
             ("Sets", format!("<strong>{}</strong>", routine.num_sets()))
         ]
         .iter()
-        .map(|(title, subtitle)| {
-            div![
-                C!["column"],
-                div![
-                    C!["box"],
-                    C!["has-text-centered"],
-                    C!["mx-2"],
-                    p![C!["is-size-6"], title],
-                    p![C!["is-size-5"], raw![subtitle]]
-                ]
-            ]
-        }),
+        .map(|(title, subtitle)| { div![C!["column"], common::view_box(title, subtitle)] }),
     ]
 }
 

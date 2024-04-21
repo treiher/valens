@@ -362,21 +362,15 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
 fn view_current_cycle(data_model: &data::Model) -> Node<Msg> {
     let today = Local::now().date_naive();
     if let Some(current_cycle) = &data_model.current_cycle {
-        div![
-            C!["box"],
-            C!["mx-4"],
-            p![C!["title"], C!["is-5"], "Current cycle"],
-            p![
-                C!["subtitle"],
-                C!["is-6"],
-                raw![&format!(
-                    "<strong>{}</strong> days, <strong>{} (&#177;{})</strong> days left",
-                    (today - current_cycle.begin).num_days() + 1,
-                    current_cycle.time_left.num_days(),
-                    current_cycle.time_left_variation.num_days(),
-                )]
-            ]
-        ]
+        common::view_box(
+            "Current cycle",
+            &format!(
+                "<strong>{}</strong> days, <strong>{} (&#177;{})</strong> days left",
+                (today - current_cycle.begin).num_days() + 1,
+                current_cycle.time_left.num_days(),
+                current_cycle.time_left_variation.num_days(),
+            ),
+        )
     } else {
         empty![]
     }
@@ -389,24 +383,18 @@ fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .filter(|c| c.begin >= model.interval.first && c.begin <= model.interval.last)
         .collect::<Vec<_>>();
     let stats = data::calculate_cycle_stats(cycles);
-    div![
-        C!["box"],
-        C!["mx-4"],
-        p![C!["title"], C!["is-5"], "Avg. cycle length"],
-        p![
-            C!["subtitle"],
-            C!["is-6"],
-            raw![&if not(cycles.is_empty()) {
-                format!(
-                    "<strong>{} (&#177;{})</strong> days",
-                    stats.length_median.num_days(),
-                    stats.length_variation.num_days(),
-                )
-            } else {
-                String::from("–")
-            }]
-        ]
-    ]
+    common::view_box(
+        "Avg. cycle length",
+        &if not(cycles.is_empty()) {
+            format!(
+                "<strong>{} (&#177;{})</strong> days",
+                stats.length_median.num_days(),
+                stats.length_variation.num_days(),
+            )
+        } else {
+            String::from("–")
+        },
+    )
 }
 
 fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<Msg> {

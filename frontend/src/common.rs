@@ -81,6 +81,17 @@ pub fn view_title<Ms>(title: &Node<Ms>, margin: u8) -> Node<Ms> {
     ]
 }
 
+pub fn view_box<Ms>(title: &str, content: &str) -> Node<Ms> {
+    div![
+        C!["box"],
+        C!["has-text-centered"],
+        C!["mx-2"],
+        C!["p-3"],
+        p![C!["is-size-6"], title],
+        p![C!["is-size-5"], raw![content]]
+    ]
+}
+
 pub fn view_dialog<Ms>(
     color: &str,
     title: &str,

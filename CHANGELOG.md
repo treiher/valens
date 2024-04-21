@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Possibility to copy existing routines when creating new ones
 - Support for notifications in Chrome for Android
 - Possibility to disable notifications in settings
+- Description on how to allow notifications in browser
 - Caching to improve startup time
 - Update mechanism
 - Double beep 10 seconds before timer expires

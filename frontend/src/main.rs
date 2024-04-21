@@ -735,6 +735,14 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                             _ => "Enable",
                         },
                     ],
+                    if let web_sys::NotificationPermission::Denied = permission {
+                        p![
+                            C!["mt-3"],
+                            "To enable notifications, tap the lock icon in the address bar and change the notification permissions. If Valens is installed as a web app and no address bar is visible, open Valens in the corresponding browser first. Note that notifications are always blocked by the browser in icognito mode or private browsing."
+                        ]
+                    } else {
+                        empty![]
+                    }
                 ]
             },
             p![

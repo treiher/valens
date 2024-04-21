@@ -27,13 +27,20 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("message", (event) => {
     if (event.data) {
-        if (event.data.task === "UpdateCache") {
+        let task = event.data.task;
+        let content = event.data.content;
+        if (task === "UpdateCache") {
             deleteCache();
             deleteDeprecatedCaches();
             addResourcesToCache();
         }
-        if (event.data.task === "ShowNotification") {
-            self.registration.showNotification(event.data.title, event.data.options);
+        if (task === "ShowNotification") {
+            self.registration.showNotification(content.title, content.options);
+        }
+        if (task === "CloseNotifications") {
+            self.registration.getNotifications().then((notifications) => {
+                notifications.forEach(notification => notification.close());
+            });
         }
     }
 });

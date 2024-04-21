@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
@@ -1044,6 +1044,11 @@ pub fn valid_rpe(rpe: f32) -> bool {
 #[serde(tag = "task", content = "content")]
 pub enum ServiceWorkerMessage {
     UpdateCache,
+    ShowNotification {
+        title: String,
+        options: HashMap<String, String>,
+    },
+    CloseNotifications,
 }
 
 pub fn post_message_to_service_worker(message: &ServiceWorkerMessage) -> Result<(), String> {

@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display of estimated duration and total number of sets on routine page
 - List of sets on exercise page
 - Possibility to copy existing routines when creating new ones
+- Support for notifications in Chrome for Android
 - Possibility to disable notifications in settings
 - Caching to improve startup time
 - Update mechanism

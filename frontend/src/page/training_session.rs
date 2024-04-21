@@ -88,7 +88,6 @@ pub fn init(
         audio_context,
         editing,
         loading: false,
-        notification: None,
     }
 }
 
@@ -258,7 +257,6 @@ pub struct Model {
     audio_context: Option<web_sys::AudioContext>,
     editing: bool,
     loading: bool,
-    notification: Option<web_sys::Notification>,
 }
 
 impl Model {
@@ -269,7 +267,7 @@ impl Model {
 
 impl Drop for Model {
     fn drop(&mut self) {
-        close_notification(self);
+        close_notifications();
     }
 }
 
@@ -1003,7 +1001,7 @@ pub fn update(
             update_guide_timer(model);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             update_streams(model, orders);
-            close_notification(model);
+            close_notifications();
             orders.force_render_now().send_msg(Msg::ScrollToSection);
         }
         Msg::GoToNextSection => {
@@ -1011,7 +1009,7 @@ pub fn update(
                 let element_idx = guide.element_idx + 1;
                 if element_idx == model.form.elements.len() {
                     model.guide = None;
-                    close_notification(model);
+                    close_notifications();
                     orders
                         .send_msg(Msg::PauseMetronome)
                         .notify(data::Msg::EndTrainingSession);
@@ -1355,24 +1353,33 @@ fn update_metronome(model: &Model, orders: &mut impl Orders<Msg>, automatic_metr
     }
 }
 
-fn show_notification(model: &mut Model, title: &str, body: Option<String>) {
-    close_notification(model);
-    let mut options = web_sys::NotificationOptions::new();
+fn show_notification(title: &str, body: Option<String>) {
+    close_notifications();
+    let mut options = HashMap::new();
     if let Some(body) = body {
-        options.body(&body);
+        options.insert(String::from("body"), body);
     }
-    model.notification = web_sys::Notification::new_with_options(title, &options).ok();
+    if let Err(err) =
+        common::post_message_to_service_worker(&common::ServiceWorkerMessage::ShowNotification {
+            title: title.to_string(),
+            options,
+        })
+    {
+        error!("failed to show notification:", err);
+    }
 }
 
-fn close_notification(model: &mut Model) {
-    if let Some(notification) = &model.notification {
-        notification.close();
+fn close_notifications() {
+    if let Err(err) =
+        common::post_message_to_service_worker(&common::ServiceWorkerMessage::CloseNotifications)
+    {
+        error!("failed to close notification:", err);
     }
 }
 
 fn show_element_notification(model: &mut Model, notifications_enabled: bool) {
     if not(notifications_enabled) {
-        close_notification(model);
+        close_notifications();
         return;
     }
 
@@ -1414,7 +1421,7 @@ fn show_element_notification(model: &mut Model, notifications_enabled: bool) {
                 }
             }
 
-            show_notification(model, &title, body);
+            show_notification(&title, body);
         }
     }
 }

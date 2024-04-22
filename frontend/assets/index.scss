@@ -180,3 +180,10 @@ div.is-calendar {
         opacity: 1;
     }
 }
+
+// Table
+
+.table td.is-borderless,
+.table th.is-borderless {
+    border: 0;
+}

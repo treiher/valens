@@ -6,6 +6,7 @@ pub mod exercises;
 pub mod home;
 pub mod login;
 pub mod menstrual_cycle;
+pub mod muscles;
 pub mod not_found;
 pub mod routine;
 pub mod routines;

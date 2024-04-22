@@ -30,6 +30,15 @@ pub struct Interval {
     pub last: NaiveDate,
 }
 
+impl From<std::ops::RangeInclusive<NaiveDate>> for Interval {
+    fn from(value: std::ops::RangeInclusive<NaiveDate>) -> Self {
+        Interval {
+            first: *value.start(),
+            last: *value.end(),
+        }
+    }
+}
+
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct InputField<T> {
@@ -993,6 +1002,37 @@ where
                         ]]
                     })
                     .collect::<Vec<_>>()],
+            ]
+        ]
+    ]
+}
+
+pub fn view_sets_per_muscle<Ms>(stimulus_per_muscle: &[(&str, u32)]) -> Node<Ms>
+where
+    Ms: 'static,
+{
+    div![
+        C!["table-container"],
+        table![
+            C!["table"],
+            C!["is-flex"],
+            C!["has-text-centered"],
+            tbody![
+                C!["mx-auto"],
+                stimulus_per_muscle
+                    .iter()
+                    .map(|(name, stimulus)| {
+                        let sets = f64::from(*stimulus) / 100.0;
+                        tr![
+                            td![C!["is-borderless"], C!["py-1"], name],
+                            td![
+                                C!["is-borderless"],
+                                C!["py-1"],
+                                format!("{:.1$}", sets, usize::from(sets.fract() != 0.0))
+                            ]
+                        ]
+                    })
+                    .collect::<Vec<_>>(),
             ]
         ]
     ]

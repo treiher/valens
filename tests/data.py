@@ -6,6 +6,7 @@ from valens.models import (
     BodyFat,
     BodyWeight,
     Exercise,
+    ExerciseMuscle,
     Period,
     Routine,
     RoutineActivity,
@@ -25,7 +26,12 @@ def users_only() -> list[User]:
 
 
 def users() -> list[User]:
-    exercise_1 = Exercise(id=1, user_id=1, name="Exercise 1")
+    exercise_1 = Exercise(
+        id=1,
+        user_id=1,
+        name="Exercise 1",
+        muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=100)],
+    )
     exercise_2 = Exercise(id=2, user_id=2, name="Exercise 2")
     exercise_3 = Exercise(id=3, user_id=1, name="Exercise 2")
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 3")

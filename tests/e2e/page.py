@@ -470,6 +470,9 @@ class TrainingPage(Page):
     def click_exercises(self) -> None:
         self._driver.find_element(by=By.LINK_TEXT, value="Exercises").click()
 
+    def click_muscles(self) -> None:
+        self._driver.find_element(by=By.LINK_TEXT, value="Muscles").click()
+
 
 class TrainingSessionPage(Page):
     def __init__(self, driver: webdriver.Chrome, workout_id: int) -> None:
@@ -732,6 +735,19 @@ class ExercisePage(Page):
     @property
     def url(self) -> str:
         return f"exercise/{self.exercise_id}"
+
+
+class MusclesPage(Page):
+    def __init__(self, driver: webdriver.Chrome) -> None:
+        super().__init__(driver)
+
+    @property
+    def title(self) -> str:
+        return "Muscles"
+
+    @property
+    def url(self) -> str:
+        return "muscles"
 
 
 def wait(driver: webdriver.Chrome) -> WebDriverWait:

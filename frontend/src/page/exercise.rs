@@ -5,6 +5,7 @@ use seed::{prelude::*, *};
 
 use crate::common;
 use crate::data;
+use crate::domain;
 use crate::page::training;
 
 // ------ ------
@@ -32,6 +33,7 @@ pub fn init(
         interval: common::init_interval(&[], true),
         exercise_id,
         name: common::InputField::default(),
+        muscle_stimulus: BTreeMap::new(),
         dialog: Dialog::Hidden,
         editing,
         loading: false,
@@ -50,6 +52,7 @@ pub struct Model {
     interval: common::Interval,
     exercise_id: u32,
     name: common::InputField<String>,
+    muscle_stimulus: BTreeMap<u8, u8>,
     dialog: Dialog,
     editing: bool,
     loading: bool,
@@ -87,6 +90,7 @@ pub enum Msg {
     CloseDialog,
 
     NameChanged(String),
+    SetMuscleStimulus(u8, u8),
 
     DeleteTrainingSession(u32),
     DataEvent(data::Event),
@@ -115,6 +119,14 @@ pub fn update(
             orders.notify(data::Msg::ReplaceExercise(data::Exercise {
                 id: model.exercise_id,
                 name: model.name.parsed.clone().unwrap(),
+                muscles: model
+                    .muscle_stimulus
+                    .iter()
+                    .map(|(muscle_id, stimulus)| data::ExerciseMuscle {
+                        muscle_id: *muscle_id,
+                        stimulus: *stimulus,
+                    })
+                    .collect(),
             }));
         }
 
@@ -153,6 +165,16 @@ pub fn update(
                 }
             }
         }
+        Msg::SetMuscleStimulus(muscle_id, stimulus) => match stimulus {
+            0 => {
+                model.muscle_stimulus.remove(&muscle_id);
+            }
+            1..=100 => {
+                model.muscle_stimulus.insert(muscle_id, stimulus);
+            }
+            _ => {}
+        },
+
         Msg::DeleteTrainingSession(id) => {
             model.loading = true;
             orders.notify(data::Msg::DeleteTrainingSession(id));
@@ -205,6 +227,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
             parsed: Some(exercise.name.clone()),
             orig: exercise.name.clone(),
         };
+        model.muscle_stimulus = exercise.muscle_stimulus();
     };
 }
 
@@ -228,6 +251,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .collect::<Vec<_>>();
         div![
             view_title(model),
+            view_muscles(model),
             if model.editing {
                 nodes![button![
                     C!["button"],
@@ -304,6 +328,110 @@ fn view_title(model: &Model) -> Node<Msg> {
             common::view_title(&span![&model.name.input], 0)
         }
     ]
+}
+
+fn view_muscles(model: &Model) -> Node<Msg> {
+    let muscles = domain::Muscle::iter()
+        .map(|m| {
+            let stimulus = model
+                .muscle_stimulus
+                .get(&domain::Muscle::id(*m))
+                .copied()
+                .unwrap_or_default();
+            (m, stimulus)
+        })
+        .collect::<Vec<_>>();
+    if model.editing {
+        div![
+            C!["mx-2"],
+            C!["mb-5"],
+            muscles.iter().map(|(m, stimulus)| {
+                let m = **m;
+                div![
+                    C!["columns"],
+                    C!["is-mobile"],
+                    div![
+                        C!["column"],
+                        p![domain::Muscle::name(m)],
+                        p![C!["is-size-7"], domain::Muscle::description(m)]
+                    ],
+                    div![
+                        C!["column"],
+                        C!["is-flex"],
+                        div![
+                            C!["field"],
+                            C!["has-addons"],
+                            C!["has-addons-centered"],
+                            C!["my-auto"],
+                            p![
+                                C!["control"],
+                                a![
+                                    C!["button"],
+                                    C!["is-small"],
+                                    C![IF![*stimulus == 100 => "is-link"]],
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
+                                        domain::Muscle::id(m),
+                                        100
+                                    )),
+                                    "primary",
+                                ]
+                            ],
+                            p![
+                                C!["control"],
+                                a![
+                                    C!["button"],
+                                    C!["is-small"],
+                                    C![IF![*stimulus > 0 && *stimulus < 100 => "is-link"]],
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
+                                        domain::Muscle::id(m),
+                                        50
+                                    )),
+                                    "secondary",
+                                ]
+                            ],
+                            p![
+                                C!["control"],
+                                a![
+                                    C!["button"],
+                                    C!["is-small"],
+                                    C![IF![*stimulus == 0 => "is-link"]],
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
+                                        domain::Muscle::id(m),
+                                        0
+                                    )),
+                                    "none",
+                                ]
+                            ],
+                        ],
+                    ]
+                ]
+            })
+        ]
+    } else {
+        let mut muscles = muscles
+            .iter()
+            .filter(|(_, stimulus)| *stimulus > 0)
+            .collect::<Vec<_>>();
+        muscles.sort_by(|a, b| b.1.cmp(&a.1));
+        if muscles.is_empty() {
+            empty![]
+        } else {
+            div![
+                C!["tags"],
+                C!["is-centered"],
+                C!["mx-2"],
+                C!["mb-5"],
+                muscles.iter().map(|(m, stimulus)| {
+                    span![
+                        C!["tag"],
+                        C!["is-link"],
+                        C![IF![*stimulus < 100 => "is-light"]],
+                        domain::Muscle::name(**m)
+                    ]
+                })
+            ]
+        }
+    }
 }
 
 pub fn view_charts<Ms>(

@@ -6,7 +6,7 @@ use gloo_storage::Storage;
 use seed::{prelude::*, *};
 use serde_json::{json, Map};
 
-use crate::common;
+use crate::{common, domain};
 
 const STORAGE_KEY_SETTINGS: &str = "settings";
 const STORAGE_KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
@@ -56,6 +56,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
             long_term_load: Vec::new(),
             avg_rpe_per_week: Vec::new(),
             total_set_volume_per_week: Vec::new(),
+            stimulus_for_each_muscle_per_week: BTreeMap::new(),
         },
         settings,
         ongoing_training_session,
@@ -107,6 +108,11 @@ pub struct Model {
 impl Model {
     pub fn routines_sorted_by_last_use(&self) -> Vec<Routine> {
         sort_routines_by_last_use(&self.routines, &self.training_sessions)
+    }
+
+    pub fn training_sessions_date_range(&self) -> std::ops::RangeInclusive<NaiveDate> {
+        let dates = self.training_sessions.values().map(|t| t.date);
+        dates.clone().min().unwrap_or_default()..=dates.max().unwrap_or_default()
     }
 }
 
@@ -208,6 +214,7 @@ pub struct TrainingStats {
     pub long_term_load: Vec<(NaiveDate, f32)>,
     pub avg_rpe_per_week: Vec<(NaiveDate, f32)>,
     pub total_set_volume_per_week: Vec<(NaiveDate, f32)>,
+    pub stimulus_for_each_muscle_per_week: BTreeMap<u8, Vec<(NaiveDate, u32)>>,
 }
 
 impl TrainingStats {
@@ -236,6 +243,22 @@ impl TrainingStats {
 pub struct Exercise {
     pub id: u32,
     pub name: String,
+    pub muscles: Vec<ExerciseMuscle>,
+}
+
+impl Exercise {
+    pub fn muscle_stimulus(&self) -> BTreeMap<u8, u8> {
+        self.muscles
+            .iter()
+            .map(|m| (m.muscle_id, m.stimulus))
+            .collect()
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ExerciseMuscle {
+    pub muscle_id: u8,
+    pub stimulus: u8,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
@@ -253,6 +276,16 @@ impl Routine {
 
     pub fn num_sets(&self) -> u32 {
         self.sections.iter().map(RoutinePart::num_sets).sum()
+    }
+
+    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
+        let mut result: BTreeMap<u8, u32> = BTreeMap::new();
+        for section in &self.sections {
+            for (id, stimulus) in section.stimulus_per_muscle(exercises) {
+                *result.entry(id).or_insert(0) += stimulus;
+            }
+        }
+        result
     }
 }
 
@@ -294,6 +327,29 @@ impl RoutinePart {
                 parts.iter().map(RoutinePart::num_sets).sum::<u32>() * *rounds
             }
             RoutinePart::RoutineActivity { exercise_id, .. } => exercise_id.is_some().into(),
+        }
+    }
+
+    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
+        match self {
+            RoutinePart::RoutineSection { rounds, parts } => {
+                let mut result: BTreeMap<u8, u32> = BTreeMap::new();
+                for part in parts {
+                    for (id, stimulus) in part.stimulus_per_muscle(exercises) {
+                        *result.entry(id).or_insert(0) += stimulus * rounds;
+                    }
+                }
+                result
+            }
+            RoutinePart::RoutineActivity { exercise_id, .. } => exercises
+                .get(&exercise_id.unwrap_or_default())
+                .map(|e| {
+                    e.muscle_stimulus()
+                        .iter()
+                        .map(|(id, stimulus)| (*id, u32::from(*stimulus)))
+                        .collect()
+                })
+                .unwrap_or_default(),
         }
     }
 }
@@ -602,6 +658,35 @@ impl TrainingSession {
             .collect::<Vec<_>>();
         sets.iter().sum::<u32>()
     }
+
+    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
+        let mut result: BTreeMap<u8, u32> = BTreeMap::new();
+        for element in &self.elements {
+            if let TrainingSessionElement::Set {
+                exercise_id,
+                reps,
+                time,
+                rpe,
+                ..
+            } = element
+            {
+                if reps.is_none() && time.is_none() {
+                    continue;
+                }
+                if let Some(rpe) = rpe {
+                    if *rpe < 7.0 {
+                        continue;
+                    }
+                }
+                if let Some(exercise) = exercises.get(exercise_id) {
+                    for (id, stimulus) in &exercise.muscle_stimulus() {
+                        *result.entry(*id).or_insert(0) += u32::from(*stimulus);
+                    }
+                }
+            }
+        }
+        result
+    }
 }
 
 impl OngoingTrainingSession {
@@ -709,7 +794,10 @@ pub fn calculate_cycle_stats(cycles: &[&Cycle]) -> CycleStats {
     }
 }
 
-fn calculate_training_stats(training_sessions: &[&TrainingSession]) -> TrainingStats {
+fn calculate_training_stats(
+    training_sessions: &[&TrainingSession],
+    exercises: &BTreeMap<u32, Exercise>,
+) -> TrainingStats {
     let short_term_load = calculate_weighted_sum_of_load(training_sessions, 7);
     let long_term_load = calculate_average_weighted_sum_of_load(&short_term_load, 28);
     TrainingStats {
@@ -717,6 +805,10 @@ fn calculate_training_stats(training_sessions: &[&TrainingSession]) -> TrainingS
         long_term_load,
         total_set_volume_per_week: calculate_total_set_volume_per_week(training_sessions),
         avg_rpe_per_week: calculate_avg_rpe_per_week(training_sessions),
+        stimulus_for_each_muscle_per_week: calculate_stimulus_for_each_muscle_per_week(
+            training_sessions,
+            exercises,
+        ),
     }
 }
 
@@ -781,14 +873,7 @@ fn calculate_average_weighted_sum_of_load(
 fn calculate_total_set_volume_per_week(
     training_sessions: &[&TrainingSession],
 ) -> Vec<(NaiveDate, f32)> {
-    let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
-
-    let today = Local::now().date_naive();
-    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
-    while day <= today.week(Weekday::Mon).last_day() {
-        result.insert(day.week(Weekday::Mon).last_day(), 0.0);
-        day += Duration::days(7);
-    }
+    let mut result: BTreeMap<NaiveDate, f32> = training_session_weeks(training_sessions);
 
     #[allow(clippy::cast_precision_loss)]
     for t in training_sessions {
@@ -801,14 +886,7 @@ fn calculate_total_set_volume_per_week(
 }
 
 fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(NaiveDate, f32)> {
-    let mut result: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
-
-    let today = Local::now().date_naive();
-    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
-    while day <= today.week(Weekday::Mon).last_day() {
-        result.insert(day.week(Weekday::Mon).last_day(), vec![]);
-        day += Duration::days(7);
-    }
+    let mut result: BTreeMap<NaiveDate, Vec<f32>> = training_session_weeks(training_sessions);
 
     for t in training_sessions {
         if let Some(avg_rpe) = t.avg_rpe() {
@@ -832,6 +910,54 @@ fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(Na
             )
         })
         .collect()
+}
+
+fn calculate_stimulus_for_each_muscle_per_week(
+    training_sessions: &[&TrainingSession],
+    exercises: &BTreeMap<u32, Exercise>,
+) -> BTreeMap<u8, Vec<(NaiveDate, u32)>> {
+    let mut result: BTreeMap<u8, BTreeMap<NaiveDate, u32>> = BTreeMap::new();
+
+    for m in domain::Muscle::iter() {
+        result.insert(
+            domain::Muscle::id(*m),
+            training_session_weeks(training_sessions),
+        );
+    }
+
+    for t in training_sessions {
+        for (id, stimulus) in t.stimulus_per_muscle(exercises) {
+            if let Some(stimulus_per_week) = result.get_mut(&id) {
+                stimulus_per_week
+                    .entry(t.date.week(Weekday::Mon).last_day())
+                    .and_modify(|s| *s += stimulus);
+            } else {
+                error!(format!(
+                    "failed to access stimulus per week for muscle with id {id}"
+                ));
+            }
+        }
+    }
+
+    result
+        .into_iter()
+        .map(|(id, stimulus_per_week)| (id, stimulus_per_week.into_iter().collect()))
+        .collect()
+}
+
+fn training_session_weeks<T: Default>(
+    training_sessions: &[&TrainingSession],
+) -> BTreeMap<NaiveDate, T> {
+    let mut result: BTreeMap<NaiveDate, T> = BTreeMap::new();
+
+    let today = Local::now().date_naive();
+    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
+    while day <= today.week(Weekday::Mon).last_day() {
+        result.insert(day.week(Weekday::Mon).last_day(), T::default());
+        day += Duration::days(7);
+    }
+
+    result
 }
 
 // ------ ------
@@ -898,7 +1024,7 @@ pub enum Msg {
 
     ReadExercises,
     ExercisesRead(Result<Vec<Exercise>, String>),
-    CreateExercise(String),
+    CreateExercise(String, Vec<ExerciseMuscle>),
     ExerciseCreated(Result<Exercise, String>),
     ReplaceExercise(Exercise),
     ExerciseReplaced(Result<Exercise, String>),
@@ -1488,12 +1614,12 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to read exercises: ".to_owned() + &message);
             model.loading_exercises = false;
         }
-        Msg::CreateExercise(exercise_name) => {
+        Msg::CreateExercise(exercise_name, muscles) => {
             orders.perform_cmd(async move {
                 fetch(
                     Request::new("api/exercises")
                         .method(Method::Post)
-                        .json(&json!({ "name": exercise_name }))
+                        .json(&json!({ "name": exercise_name, "muscles": muscles }))
                         .expect("serialization failed"),
                     Msg::ExerciseCreated,
                 )
@@ -1524,6 +1650,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::ExerciseReplaced(Ok(exercise)) => {
             model.exercises.insert(exercise.id, exercise);
+            model.training_stats = calculate_training_stats(
+                &model.training_sessions.values().collect::<Vec<_>>(),
+                &model.exercises,
+            );
             orders.notify(Event::ExerciseReplacedOk);
         }
         Msg::ExerciseReplaced(Err(message)) => {
@@ -1664,8 +1794,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let training_sessions = training_sessions.into_iter().map(|t| (t.id, t)).collect();
             if model.training_sessions != training_sessions {
                 model.training_sessions = training_sessions;
-                model.training_stats =
-                    calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+                model.training_stats = calculate_training_stats(
+                    &model.training_sessions.values().collect::<Vec<_>>(),
+                    &model.exercises,
+                );
                 orders.notify(Event::DataChanged);
             }
             model.loading_training_sessions = false;
@@ -1697,8 +1829,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model
                 .training_sessions
                 .insert(training_session.id, training_session);
-            model.training_stats =
-                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+            model.training_stats = calculate_training_stats(
+                &model.training_sessions.values().collect::<Vec<_>>(),
+                &model.exercises,
+            );
             orders.notify(Event::TrainingSessionCreatedOk);
         }
         Msg::TrainingSessionCreated(Err(message)) => {
@@ -1730,8 +1864,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model
                 .training_sessions
                 .insert(training_session.id, training_session);
-            model.training_stats =
-                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+            model.training_stats = calculate_training_stats(
+                &model.training_sessions.values().collect::<Vec<_>>(),
+                &model.exercises,
+            );
             orders.notify(Event::TrainingSessionModifiedOk);
         }
         Msg::TrainingSessionModified(Err(message)) => {
@@ -1752,8 +1888,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::TrainingSessionDeleted(Ok(id)) => {
             model.training_sessions.remove(&id);
-            model.training_stats =
-                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+            model.training_stats = calculate_training_stats(
+                &model.training_sessions.values().collect::<Vec<_>>(),
+                &model.exercises,
+            );
             orders.notify(Event::TrainingSessionDeletedOk);
         }
         Msg::TrainingSessionDeleted(Err(message)) => {

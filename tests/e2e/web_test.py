@@ -24,6 +24,7 @@ from .page import (
     HomePage,
     LoginPage,
     MenstrualCyclePage,
+    MusclesPage,
     RoutinePage,
     RoutinesPage,
     TrainingPage,
@@ -393,6 +394,12 @@ def test_training_links(driver: webdriver.Chrome) -> None:
     exercises_page = ExercisesPage(driver)
     exercises_page.wait_until_loaded()
     exercises_page.click_up_button()
+    page.wait_until_loaded()
+
+    page.click_muscles()
+    muscles_page = MusclesPage(driver)
+    muscles_page.wait_until_loaded()
+    muscles_page.click_up_button()
     page.wait_until_loaded()
 
 

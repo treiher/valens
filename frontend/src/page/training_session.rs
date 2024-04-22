@@ -7,6 +7,7 @@ use seed::{prelude::*, *};
 
 use crate::common;
 use crate::data;
+use crate::domain;
 
 // ------ ------
 //     Init
@@ -1144,7 +1145,10 @@ pub fn update(
             | Dialog::AddExercise(_, _, search_term)
             | Dialog::AppendExercise(search_term) = &model.dialog
             {
-                orders.notify(data::Msg::CreateExercise(search_term.trim().to_string()));
+                orders.notify(data::Msg::CreateExercise(
+                    search_term.trim().to_string(),
+                    vec![],
+                ));
             };
         }
         Msg::ReplaceExercise(element_idx, exercise_idx, new_exercise_id) => {
@@ -1799,6 +1803,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     nodes![
                         view_list(model, data_model),
                         view_notes(training_session),
+                        view_muscles(training_session, data_model),
                         common::view_fab("edit", |_| Msg::EditTrainingSession)
                     ]
                 }
@@ -1924,6 +1929,33 @@ fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
         }
     } else {
         empty![]
+    }
+}
+
+fn view_muscles(training_session: &data::TrainingSession, data_model: &data::Model) -> Node<Msg> {
+    let stimulus_per_muscle = training_session
+        .stimulus_per_muscle(&data_model.exercises)
+        .iter()
+        .map(|(id, stimulus)| {
+            (
+                domain::Muscle::from_repr(*id)
+                    .as_ref()
+                    .map(|m| domain::Muscle::name(*m))
+                    .unwrap_or_default(),
+                *stimulus,
+            )
+        })
+        .collect::<Vec<_>>();
+    if stimulus_per_muscle.is_empty() {
+        empty![]
+    } else {
+        div![
+            C!["has-text-centered"],
+            C!["m-3"],
+            C!["mt-6"],
+            common::view_title(&span!["Hard sets per muscle"], 3),
+            common::view_sets_per_muscle(&stimulus_per_muscle)
+        ]
     }
 }
 
@@ -4359,6 +4391,7 @@ mod tests {
             data::Exercise {
                 id,
                 name: id.to_string(),
+                muscles: Vec::new(),
             },
         )])
     }

@@ -17,6 +17,7 @@ from valens.models import (
     BodyFat,
     BodyWeight,
     Exercise,
+    ExerciseMuscle,
     Period,
     Routine,
     RoutineActivity,
@@ -42,6 +43,17 @@ def to_dict(
     model: object, exclude: Optional[list[str]] = None, include: Optional[list[str]] = None
 ) -> dict[str, object]:
     return model_to_dict(model, exclude, include)
+
+
+@to_dict.register
+def _(model: Exercise) -> dict[str, object]:
+    return {
+        **model_to_dict(model),
+        "muscles": [
+            to_dict(m, exclude=["user_id", "exercise_id"])
+            for m in sorted(model.muscles, key=lambda x: x.muscle_id)
+        ],
+    }
 
 
 @to_dict.register
@@ -649,6 +661,14 @@ def create_exercise() -> ResponseReturnValue:
         exercise = Exercise(
             user_id=session["user_id"],
             name=data["name"],
+            muscles=[
+                ExerciseMuscle(
+                    user_id=session["user_id"],
+                    muscle_id=muscle["muscle_id"],
+                    stimulus=muscle["stimulus"],
+                )
+                for muscle in data["muscles"]
+            ],
         )
     except (KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -690,7 +710,21 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
 
     try:
         exercise.name = data["name"]
-    except (KeyError, ValueError) as e:
+        muscle_stimulus = {m["muscle_id"]: m["stimulus"] for m in data["muscles"]}
+
+        for m in exercise.muscles:
+            if m.muscle_id in muscle_stimulus:
+                m.stimulus = muscle_stimulus[m.muscle_id]
+            else:
+                db.session.delete(m)
+
+        for muscle_id, stimulus in muscle_stimulus.items():
+            if any(m.muscle_id == muscle_id for m in exercise.muscles):
+                continue
+            exercise.muscles.append(
+                ExerciseMuscle(user_id=session["user_id"], muscle_id=muscle_id, stimulus=stimulus)
+            )
+    except (KeyError, ValueError, TypeError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     try:

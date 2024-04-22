@@ -258,11 +258,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .values()
             .filter(|t| t.date >= model.interval.first && t.date <= model.interval.last)
             .collect::<Vec<_>>();
-        let dates = data_model.training_sessions.values().map(|t| t.date);
-        let training_sessions_interval = common::Interval {
-            first: dates.clone().min().unwrap_or_default(),
-            last: dates.max().unwrap_or_default(),
-        };
+        let training_sessions_interval: common::Interval =
+            data_model.training_sessions_date_range().into();
         div![
             view_training_sessions_dialog(
                 &data_model.routines_sorted_by_last_use(),
@@ -270,22 +267,20 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 model.loading
             ),
             div![
-                C!["container"],
+                C!["fixed-grid"],
+                C!["has-3-cols"],
                 C!["has-text-centered"],
+                C!["px-3"],
+                C!["mb-5"],
                 div![
-                    C!["columns"],
-                    C!["is-mobile"],
-                    C!["is-gapless"],
-                    C!["mx-1"],
-                    C!["mb-5"],
+                    C!["grid"],
                     div![
-                        C!["column"],
+                        C!["cell"],
                         a![
                             C!["box"],
                             C!["title"],
                             C!["is-size-5"],
                             C!["has-text-link"],
-                            C!["mx-2"],
                             C!["p-3"],
                             attrs! {
                                 At::Href => crate::Urls::new(&data_model.base_url).routines(),
@@ -294,20 +289,33 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         ]
                     ],
                     div![
-                        C!["column"],
+                        C!["cell"],
                         a![
                             C!["box"],
                             C!["title"],
                             C!["is-size-5"],
                             C!["has-text-link"],
-                            C!["mx-2"],
                             C!["p-3"],
                             attrs! {
                                 At::Href => crate::Urls::new(&data_model.base_url).exercises(),
                             },
                             "Exercises",
                         ]
-                    ]
+                    ],
+                    div![
+                        C!["cell"],
+                        a![
+                            C!["box"],
+                            C!["title"],
+                            C!["is-size-5"],
+                            C!["has-text-link"],
+                            C!["p-3"],
+                            attrs! {
+                                At::Href => crate::Urls::new(&data_model.base_url).muscles(),
+                            },
+                            "Muscles",
+                        ]
+                    ],
                 ]
             ],
             common::view_interval_buttons(

@@ -133,12 +133,16 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddExercise(ref mut form) => {
-                    orders.notify(data::Msg::CreateExercise(form.name.parsed.clone().unwrap()));
+                    orders.notify(data::Msg::CreateExercise(
+                        form.name.parsed.clone().unwrap(),
+                        vec![],
+                    ));
                 }
                 Dialog::EditExercise(ref mut form) => {
                     orders.notify(data::Msg::ReplaceExercise(data::Exercise {
                         id: form.id,
                         name: form.name.parsed.clone().unwrap(),
+                        muscles: vec![],
                     }));
                 }
                 Dialog::Hidden | Dialog::DeleteExercise(_) => {

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Tracking of trained muscles
 - Descriptions of measuring points on body fat page
 
 ### Changed

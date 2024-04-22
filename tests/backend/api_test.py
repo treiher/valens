@@ -103,6 +103,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("post", "/api/period", {"invalid": "data"}),
         ("put", "/api/period/2002-02-22", {"invalid": "data"}),
         ("post", "/api/exercises", {"invalid": "data"}),
+        ("post", "/api/exercises", {"name": "data", "muscles": [{"invalid": "data"}]}),
         ("put", "/api/exercises/1", {"invalid": "data"}),
         ("post", "/api/routines", {"invalid": "data"}),
         ("put", "/api/routines/1", {"invalid": "data"}),
@@ -331,9 +332,9 @@ def test_delete_user(client: Client) -> None:
             1,
             "/api/exercises",
             [
-                {"id": 1, "name": "Exercise 1"},
-                {"id": 3, "name": "Exercise 2"},
-                {"id": 5, "name": "Unused Exercise"},
+                {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
+                {"id": 3, "name": "Exercise 2", "muscles": []},
+                {"id": 5, "name": "Unused Exercise", "muscles": []},
             ],
         ),
         (
@@ -716,12 +717,23 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
         ),
         (
             "/api/exercises",
-            {"id": 6, "name": "New Exercise"},
+            {
+                "id": 6,
+                "name": "New Exercise",
+                "muscles": [{"muscle_id": 11, "stimulus": 100}, {"muscle_id": 12, "stimulus": 50}],
+            },
             [
-                {"id": 1, "name": "Exercise 1"},
-                {"id": 3, "name": "Exercise 2"},
-                {"id": 6, "name": "New Exercise"},
-                {"id": 5, "name": "Unused Exercise"},
+                {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
+                {"id": 3, "name": "Exercise 2", "muscles": []},
+                {
+                    "id": 6,
+                    "name": "New Exercise",
+                    "muscles": [
+                        {"muscle_id": 11, "stimulus": 100},
+                        {"muscle_id": 12, "stimulus": 50},
+                    ],
+                },
+                {"id": 5, "name": "Unused Exercise", "muscles": []},
             ],
         ),
         (
@@ -1330,14 +1342,28 @@ def test_create_workout(
         ),
         (
             "/api/exercises/1",
-            {"name": "Changed Exercise"},
-            {"id": 1, "name": "Changed Exercise"},
+            {
+                "name": "Changed Exercise",
+                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 12, "stimulus": 100}],
+            },
+            {
+                "id": 1,
+                "name": "Changed Exercise",
+                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 12, "stimulus": 100}],
+            },
             [
-                {"id": 1, "name": "Changed Exercise"},
-                {"id": 3, "name": "Exercise 2"},
-                {"id": 5, "name": "Unused Exercise"},
+                {
+                    "id": 1,
+                    "name": "Changed Exercise",
+                    "muscles": [
+                        {"muscle_id": 11, "stimulus": 50},
+                        {"muscle_id": 12, "stimulus": 100},
+                    ],
+                },
+                {"id": 3, "name": "Exercise 2", "muscles": []},
+                {"id": 5, "name": "Unused Exercise", "muscles": []},
             ],
-            {"name": "Exercise 2"},
+            {"name": "Exercise 2", "muscles": []},
         ),
         (
             "/api/routines/1",
@@ -3137,8 +3163,8 @@ def test_modify(
         (
             "/api/exercises/3",
             [
-                {"id": 1, "name": "Exercise 1"},
-                {"id": 5, "name": "Unused Exercise"},
+                {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
+                {"id": 5, "name": "Unused Exercise", "muscles": []},
             ],
         ),
         (

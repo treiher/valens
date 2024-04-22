@@ -6,6 +6,7 @@ use seed::{prelude::*, *};
 
 use crate::common;
 use crate::data;
+use crate::domain;
 use crate::page::training;
 
 // ------ ------
@@ -619,7 +620,10 @@ pub fn update(
         Msg::CreateExercise => {
             model.loading = true;
             if let Dialog::SelectExercise(_, search_term) = &model.dialog {
-                orders.notify(data::Msg::CreateExercise(search_term.trim().to_string()));
+                orders.notify(data::Msg::CreateExercise(
+                    search_term.trim().to_string(),
+                    vec![],
+                ));
             };
         }
         Msg::DeleteTrainingSession(id) => {
@@ -726,6 +730,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             } else {
                 nodes![
                     view_previous_exercises(model, data_model),
+                    view_muscles(routine, data_model),
                     view_training_sessions(model, data_model),
                     common::view_fab("edit", |_| Msg::EditRoutine),
                 ]
@@ -1235,6 +1240,32 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
                     ]
                 })
             .collect::<Vec<_>>(),
+        ]
+    }
+}
+
+fn view_muscles(routine: &data::Routine, data_model: &data::Model) -> Node<Msg> {
+    let stimulus_per_muscle = routine
+        .stimulus_per_muscle(&data_model.exercises)
+        .iter()
+        .map(|(id, stimulus)| {
+            (
+                domain::Muscle::from_repr(*id)
+                    .as_ref()
+                    .map(|m| domain::Muscle::name(*m))
+                    .unwrap_or_default(),
+                *stimulus,
+            )
+        })
+        .collect::<Vec<_>>();
+    if stimulus_per_muscle.is_empty() {
+        empty![]
+    } else {
+        div![
+            C!["mt-6"],
+            C!["has-text-centered"],
+            common::view_title(&span!["Sets per muscle"], 3),
+            common::view_sets_per_muscle(&stimulus_per_muscle)
         ]
     }
 }

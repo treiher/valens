@@ -162,12 +162,35 @@ class Exercise(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
 
+    muscles: Mapped[list[ExerciseMuscle]] = relationship(
+        "ExerciseMuscle", backref="exercise", cascade="all, delete-orphan"
+    )
     sets: Mapped[list[WorkoutSet]] = relationship(
         "WorkoutSet", back_populates="exercise", cascade="all, delete-orphan"
     )
     routine_activities: Mapped[list[RoutineActivity]] = relationship(
         "RoutineActivity", back_populates="exercise", cascade="all, delete-orphan"
     )
+
+
+class ExerciseMuscle(Base):
+    __tablename__ = "exercise_muscle"
+    __table_args__ = (
+        UniqueConstraint("user_id", "exercise_id", "muscle_id"),
+        CheckConstraint("typeof(muscle_id) = 'integer'", name="muscle_id_integer"),
+        CheckConstraint("typeof(stimulus) = 'integer'", name="stimulus_integer"),
+        CheckConstraint(column("stimulus") >= 1, name="stimulus_ge_1"),
+        CheckConstraint(column("stimulus") <= 100, name="stimulus_le_100"),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), nullable=False, primary_key=True
+    )
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False, primary_key=True
+    )
+    muscle_id: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
+    stimulus: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class Routine(Base):

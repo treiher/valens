@@ -493,7 +493,7 @@ impl Timer {
     fn new(beep_volume: u8) -> Timer {
         Timer {
             time: (String::new(), None),
-            reset_time: 0,
+            reset_time: i64::MAX,
             target_time: None,
             beep_time: 0.,
             beep_volume,
@@ -501,7 +501,7 @@ impl Timer {
     }
 
     fn is_set(&self) -> bool {
-        self.reset_time > 0
+        self.reset_time != i64::MAX
     }
 
     fn is_active(&self) -> bool {
@@ -534,7 +534,7 @@ impl Timer {
 
     fn unset(&mut self) {
         self.time = (String::new(), None);
-        self.reset_time = 0;
+        self.reset_time = i64::MAX;
         self.target_time = None;
         self.beep_time = 0.;
     }
@@ -885,16 +885,10 @@ pub fn update(
 
         Msg::StartGuidedTrainingSession => {
             model.guide = Some(Guide::new(data_model.settings.beep_volume));
-            update_guide_timer(model);
+            update_guide_timer(model, orders);
             update_streams(model, orders);
             orders.notify(data::Msg::StartTrainingSession(model.training_session_id));
             update_metronome(model, orders, data_model.settings.automatic_metronome);
-            if let Some(guide) = &model.guide {
-                orders.notify(data::Msg::UpdateTrainingSession(
-                    guide.element_idx,
-                    guide.timer.to_timer_state(),
-                ));
-            }
             show_element_notification(model, data_model.settings.notifications);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
@@ -932,7 +926,7 @@ pub fn update(
                     Some(FormElement::Set { exercises }) => {
                         let exercise = &exercises[0];
                         if not(show_guide_timer(exercise)) {
-                            guide.timer.reset_time = 0;
+                            guide.timer.reset();
                         } else if let Some(target_time) = exercise.target_time {
                             if let Some(time) = guide.timer.time.1 {
                                 if time <= 0 {
@@ -993,12 +987,8 @@ pub fn update(
                 }
                 guide.element_idx = element_idx;
                 guide.element_start_time = Utc::now();
-                orders.notify(data::Msg::UpdateTrainingSession(
-                    element_idx,
-                    guide.timer.to_timer_state(),
-                ));
             }
-            update_guide_timer(model);
+            update_guide_timer(model, orders);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             update_streams(model, orders);
             close_notifications();
@@ -1016,15 +1006,11 @@ pub fn update(
                 } else {
                     guide.element_idx = element_idx;
                     guide.element_start_time = Utc::now();
-                    orders.notify(data::Msg::UpdateTrainingSession(
-                        element_idx,
-                        guide.timer.to_timer_state(),
-                    ));
                     update_metronome(model, orders, data_model.settings.automatic_metronome);
                     show_element_notification(model, data_model.settings.notifications);
                 }
             }
-            update_guide_timer(model);
+            update_guide_timer(model, orders);
             update_streams(model, orders);
             orders
                 .force_render_now()
@@ -1104,12 +1090,12 @@ pub fn update(
                         data_model,
                     );
                     model.loading = false;
-                    update_guide_timer(model);
+                    update_guide_timer(model, orders);
                     update_streams(model, orders);
                 }
                 data::Event::TrainingSessionModifiedErr => {
                     model.loading = false;
-                    update_guide_timer(model);
+                    update_guide_timer(model, orders);
                     update_streams(model, orders);
                 }
                 data::Event::BeepVolumeChanged => {
@@ -1289,7 +1275,7 @@ fn update_streams(model: &mut Model, orders: &mut impl Orders<Msg>) {
     };
 }
 
-fn update_guide_timer(model: &mut Model) {
+fn update_guide_timer(model: &mut Model, orders: &mut impl Orders<Msg>) {
     if model.form.elements.is_empty() {
         return;
     }
@@ -1323,8 +1309,13 @@ fn update_guide_timer(model: &mut Model) {
             }
             None => {
                 model.guide = None;
+                return;
             }
         }
+        orders.notify(data::Msg::UpdateTrainingSession(
+            guide.element_idx,
+            guide.timer.to_timer_state(),
+        ));
     }
 }
 

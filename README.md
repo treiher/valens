@@ -187,6 +187,22 @@ Deploy the latest distribution package.
 $ fab -H user@host deploy
 ```
 
+### Changing the database schema
+
+Create a migration script after changing the SQLAlchemy ORM model.
+
+```console
+$ VALENS_CONFIG=$PWD/build/config.py alembic revision --autogenerate -m "Add foo table"
+```
+
+The automatically generated migration script may be incomplete.
+
+Upgrade the database schema to the latest revision.
+
+```console
+$ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
+```
+
 ## License
 
 This project is licensed under the terms of the [AGPL-3.0](https://github.com/treiher/valens/blob/main/LICENSE) license and includes [third-party software](https://github.com/treiher/valens/blob/main/THIRD-PARTY-LICENSES).

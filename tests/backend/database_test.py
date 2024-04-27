@@ -1,3 +1,4 @@
+import re
 from collections.abc import Generator
 from datetime import datetime, timedelta
 from multiprocessing import Process
@@ -71,3 +72,25 @@ def test_upgrade_in_progress(test_db: Path, capsys: pytest.CaptureFixture[str]) 
 
     assert capsys.readouterr().out == "Waiting for completion of database upgrade\n"
     assert datetime.now() >= expected_lock_release
+
+
+def test_upgrade_failed(
+    test_db: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert not test_db.exists()
+    db.upgrade()
+    assert test_db.exists()
+    assert capsys.readouterr().out == "Creating database\n"
+    command.downgrade(db.alembic_cfg, "4cacd61cb0c5")
+
+    def raise_exception() -> None:
+        raise Exception("error")
+
+    monkeypatch.setattr(db, "copy", lambda _x, _y: raise_exception())
+
+    db.upgrade()
+
+    assert re.match(
+        r"Upgrading database from 4cacd61cb0c5 to [0-9a-f]+\nDatabase upgrade failed: error\n",
+        capsys.readouterr().out,
+    )

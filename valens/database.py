@@ -100,6 +100,11 @@ def _upgrade(connection: Connection) -> None:
             while upgrade_lock_file().exists():
                 sleep(1)
 
+        except Exception as e:
+            print(f"Database upgrade failed: {e}")
+
+            upgrade_lock_file().unlink()
+
 
 @event.listens_for(Engine, "connect")
 def _set_sqlite_pragma(

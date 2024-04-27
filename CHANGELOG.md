@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Broken timer when returning to guided training session
+- Error handling during database upgrade
 
 ## [0.4.0] - 2024-04-22
 

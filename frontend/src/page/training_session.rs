@@ -1805,23 +1805,25 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 }
 
 fn view_title(training_session: &data::TrainingSession, data_model: &data::Model) -> Node<Msg> {
-    let title = if let Some(routine) = data_model
-        .routines
-        .get(&training_session.routine_id.unwrap_or(0))
-    {
-        div![
-            p![C!["mb-3"], training_session.date.to_string()],
-            p![a![
-                attrs! {
-                    At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
-                },
-                &routine.name
-            ]]
-        ]
-    } else {
-        span![training_session.date.to_string()]
-    };
-    common::view_title(&title, 3)
+    div![
+        common::view_title(&span![training_session.date.to_string()], 3),
+        if let Some(routine) = data_model
+            .routines
+            .get(&training_session.routine_id.unwrap_or(0))
+        {
+            common::view_title(
+                &a![
+                    attrs! {
+                        At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
+                    },
+                    &routine.name
+                ],
+                3,
+            )
+        } else {
+            empty![]
+        }
+    ]
 }
 
 fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
@@ -1896,7 +1898,13 @@ fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
         if notes.is_empty() {
             empty![]
         } else {
-            div![C!["m-3"], h1![C!["title"], C!["is-5"], "Notes"], p![notes]]
+            div![
+                C!["has-text-centered"],
+                C!["m-3"],
+                C!["mt-6"],
+                common::view_title(&span!["Notes"], 3),
+                p![notes]
+            ]
         }
     } else {
         empty![]

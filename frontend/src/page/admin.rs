@@ -199,8 +199,9 @@ fn view_users(data_model: &data::Model) -> Vec<Node<Msg>> {
     nodes![
         div![
             C!["container"],
+            C!["has-text-centered"],
             C!["mx-3"],
-            h1![C!["title"], C!["is-5"], "Users"],
+            common::view_title(&span!["Users"], 3),
         ],
         div![
             C!["table-container"],
@@ -370,8 +371,9 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
 fn view_versions(data_model: &data::Model) -> Node<Msg> {
     div![
         C!["container"],
+        C!["mt-6"],
         C!["mx-3"],
-        h1![C!["title"], C!["is-5"], "Version"],
+        common::view_title(&span!["Version"], 3),
         common::view_versions(&data_model.version),
         IF![&data_model.version != env!("VALENS_VERSION") =>
             button![

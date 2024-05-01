@@ -1215,7 +1215,7 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
             C!["container"],
             C!["has-text-centered"],
             C!["mt-6"],
-            h1![C!["title"], C!["is-5"], "Previously used exercises"],
+            common::view_title(&span!["Previously used exercises"], 3),
             &model
                 .previous_exercises
                 .iter()
@@ -1254,7 +1254,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         C!["container"],
         C!["has-text-centered"],
         C!["mt-6"],
-        h1![C!["title"], C!["is-5"], "Training sessions"],
+        common::view_title(&span!["Training sessions"], 5),
         common::view_interval_buttons(&model.interval, &routine_interval, Msg::ChangeInterval),
         view_charts(&training_sessions, &model.interval),
         training::view_calendar(&training_sessions, &model.interval),

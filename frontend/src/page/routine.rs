@@ -738,7 +738,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 
 fn view_title(model: &Model) -> Node<Msg> {
     div![
-        C!["mx-2"],
+        C!["px-2"],
         if model.editing {
             let saving_disabled = model.saving_disabled();
             div![
@@ -833,7 +833,7 @@ fn view_summary(routine: &data::Routine) -> Node<Msg> {
 fn view_routine(data_model: &data::Model, routine_sections: &[Form], editing: bool) -> Node<Msg> {
     div![
         C!["container"],
-        C!["m-2"],
+        C!["p-2"],
         &routine_sections
             .iter()
             .enumerate()

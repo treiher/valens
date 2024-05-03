@@ -1,12 +1,14 @@
 $font-path: "fonts";
 $green: #48C774;
-$blue: #3E8ED0;
+$blue: #3B8ED0;
 
-@use "../../third-party/bulma/bulma" with (
-    $family-sans-serif: ("Roboto", sans-serif),
+@use "../../third-party/bulma/sass" as bulma with (
+    $family-primary: ("Roboto", sans-serif),
     $green: $green,
     $blue: $blue,
     $primary: $green,
+    $info: $blue,
+    $message-border-l-delta: 0%,
 );
 @use "../../third-party/bulma-slider/src/sass";
 @use "../../third-party/fontawesome/scss/fontawesome" with (
@@ -15,6 +17,11 @@ $blue: #3E8ED0;
 @use "../../third-party/fontawesome/scss/solid" with (
     $fa-font-path: $font-path
 );
+
+:root {
+  --bulma-primary-invert-l: 100%;
+  --bulma-link-text: #3B8ED0;
+}
 
 @font-face {
     font-family: "Roboto";

@@ -577,6 +577,7 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
                         span![attrs! {At::AriaHidden => "true"}],
                         span![attrs! {At::AriaHidden => "true"}],
                         span![attrs! {At::AriaHidden => "true"}],
+                        span![attrs! {At::AriaHidden => "true"}],
                     ]
                 ],
             ],

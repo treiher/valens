@@ -162,16 +162,11 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
 
 fn view_tile(title: &str, subtitle: &str, content: &str, target: Url) -> Node<Msg> {
     div![
-        C!["tile"],
-        C!["is-ancestor"],
-        C!["is-vertical"],
-        C!["mx-0"],
+        C!["grid"],
+        C!["mx-3"],
         div![
-            C!["tile"],
-            C!["is-parent"],
+            C!["cell"],
             a![
-                C!["tile"],
-                C!["is-child"],
                 C!["box"],
                 {
                     let target = target.clone();

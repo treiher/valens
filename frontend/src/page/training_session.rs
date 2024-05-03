@@ -2228,7 +2228,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
 
     div![
         C!["container"],
-        C!["mx-2"],
+        C!["px-2"],
         IF![
             model.guide.is_none() =>
             div![

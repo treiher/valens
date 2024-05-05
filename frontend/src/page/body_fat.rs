@@ -57,7 +57,7 @@ struct Form {
     date: (String, Option<NaiveDate>),
     chest: (String, Option<u8>),
     abdominal: (String, Option<u8>),
-    tigh: (String, Option<u8>),
+    thigh: (String, Option<u8>),
     tricep: (String, Option<u8>),
     subscapular: (String, Option<u8>),
     suprailiac: (String, Option<u8>),
@@ -69,14 +69,14 @@ impl Form {
         self.date.1.is_some()
             && (self.chest.1.is_some()
                 || self.abdominal.1.is_some()
-                || self.tigh.1.is_some()
+                || self.thigh.1.is_some()
                 || self.tricep.1.is_some()
                 || self.subscapular.1.is_some()
                 || self.suprailiac.1.is_some()
                 || self.midaxillary.1.is_some())
             && (self.chest.1.is_some() || self.chest.0.is_empty())
             && (self.abdominal.1.is_some() || self.abdominal.0.is_empty())
-            && (self.tigh.1.is_some() || self.tigh.0.is_empty())
+            && (self.thigh.1.is_some() || self.thigh.0.is_empty())
             && (self.tricep.1.is_some() || self.tricep.0.is_empty())
             && (self.subscapular.1.is_some() || self.subscapular.0.is_empty())
             && (self.suprailiac.1.is_some() || self.suprailiac.0.is_empty())
@@ -130,7 +130,7 @@ pub fn update(
                 ),
                 chest: (String::new(), None),
                 abdominal: (String::new(), None),
-                tigh: (String::new(), None),
+                thigh: (String::new(), None),
                 tricep: (String::new(), None),
                 subscapular: (String::new(), None),
                 suprailiac: (String::new(), None),
@@ -141,7 +141,7 @@ pub fn update(
             let date = data_model.body_fat[&date].date;
             let chest = data_model.body_fat[&date].chest;
             let abdominal = data_model.body_fat[&date].abdominal;
-            let tigh = data_model.body_fat[&date].tigh;
+            let thigh = data_model.body_fat[&date].thigh;
             let tricep = data_model.body_fat[&date].tricep;
             let subscapular = data_model.body_fat[&date].subscapular;
             let suprailiac = data_model.body_fat[&date].suprailiac;
@@ -164,13 +164,13 @@ pub fn update(
                     },
                     abdominal,
                 ),
-                tigh: (
-                    if let Some(tigh) = tigh {
-                        tigh.to_string()
+                thigh: (
+                    if let Some(thigh) = thigh {
+                        thigh.to_string()
                     } else {
                         String::new()
                     },
-                    tigh,
+                    thigh,
                 ),
                 tricep: (
                     if let Some(tricep) = tricep {
@@ -271,20 +271,20 @@ pub fn update(
                 panic!();
             }
         },
-        Msg::TighChanged(tigh) => match model.dialog {
+        Msg::TighChanged(thigh) => match model.dialog {
             Dialog::AddBodyFat(ref mut form) | Dialog::EditBodyFat(ref mut form) => {
-                match tigh.parse::<u8>() {
-                    Ok(parsed_tigh) => {
-                        form.tigh = (
-                            tigh,
-                            if parsed_tigh > 0 {
-                                Some(parsed_tigh)
+                match thigh.parse::<u8>() {
+                    Ok(parsed_thigh) => {
+                        form.thigh = (
+                            thigh,
+                            if parsed_thigh > 0 {
+                                Some(parsed_thigh)
                             } else {
                                 None
                             },
                         );
                     }
-                    Err(_) => form.tigh = (tigh, None),
+                    Err(_) => form.thigh = (thigh, None),
                 }
             }
             Dialog::Hidden | Dialog::DeleteBodyFat(_) => {
@@ -380,7 +380,7 @@ pub fn update(
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,
-                        tigh: form.tigh.1,
+                        thigh: form.thigh.1,
                         tricep: form.tricep.1,
                         subscapular: form.subscapular.1,
                         suprailiac: form.suprailiac.1,
@@ -392,7 +392,7 @@ pub fn update(
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,
-                        tigh: form.tigh.1,
+                        thigh: form.thigh.1,
                         tricep: form.tricep.1,
                         subscapular: form.subscapular.1,
                         suprailiac: form.suprailiac.1,
@@ -548,7 +548,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                             view_body_fat_form_field(
                                 "Thigh",
                                 "Vertical fold midway between knee cap and top of thigh",
-                                &form.tigh,
+                                &form.thigh,
                                 Msg::TighChanged,
                                 save_disabled
                             ),
@@ -572,7 +572,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                             view_body_fat_form_field(
                                 "Thigh",
                                 "Vertical fold midway between knee cap and top of thigh",
-                                &form.tigh,
+                                &form.thigh,
                                 Msg::TighChanged,
                                 save_disabled
                             ),
@@ -866,7 +866,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             nodes![
                                 td![common::value_or_dash(bf.tricep)],
                                 td![common::value_or_dash(bf.suprailiac)],
-                                td![common::value_or_dash(bf.tigh)],
+                                td![common::value_or_dash(bf.thigh)],
                                 td![common::value_or_dash(bf.chest)],
                                 td![common::value_or_dash(bf.abdominal)],
                                 td![common::value_or_dash(bf.subscapular)],
@@ -876,7 +876,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             nodes![
                                 td![common::value_or_dash(bf.chest)],
                                 td![common::value_or_dash(bf.abdominal)],
-                                td![common::value_or_dash(bf.tigh)],
+                                td![common::value_or_dash(bf.thigh)],
                                 td![common::value_or_dash(bf.tricep)],
                                 td![common::value_or_dash(bf.subscapular)],
                                 td![common::value_or_dash(bf.suprailiac)],

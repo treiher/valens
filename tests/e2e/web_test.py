@@ -239,7 +239,7 @@ def test_body_fat_edit(driver: webdriver.Chrome) -> None:
     values = (
         str(body_fat.tricep) if body_fat.tricep else "-",
         str(body_fat.suprailiac) if body_fat.suprailiac else "-",
-        str(body_fat.tigh) if body_fat.tigh else "-",
+        str(body_fat.thigh) if body_fat.thigh else "-",
         str(body_fat.chest) if body_fat.chest else "-",
         str(body_fat.abdominal) if body_fat.abdominal else "-",
         str(body_fat.subscapular) if body_fat.subscapular else "-",

@@ -92,13 +92,13 @@ def _body_fat(body_weight: list[BodyWeight], user_id: int = 1) -> list[BodyFat]:
             date=date,
             chest=che,
             abdominal=abd,
-            tigh=tig,
+            thigh=thi,
             tricep=tri,
             subscapular=sub,
             suprailiac=sup,
             midaxillary=mid,
         )
-        for date, (che, abd, tig, tri, sub, sup, mid) in bf
+        for date, (che, abd, thi, tri, sub, sup, mid) in bf
     ]
 
 

@@ -178,7 +178,7 @@ pub struct BodyFat {
     pub date: NaiveDate,
     pub chest: Option<u8>,
     pub abdominal: Option<u8>,
-    pub tigh: Option<u8>,
+    pub thigh: Option<u8>,
     pub tricep: Option<u8>,
     pub subscapular: Option<u8>,
     pub suprailiac: Option<u8>,
@@ -411,7 +411,7 @@ impl BodyFat {
     pub fn jp3(&self, sex: u8) -> Option<f32> {
         if sex == 0 {
             Some(Self::jackson_pollock(
-                f32::from(self.tricep?) + f32::from(self.suprailiac?) + f32::from(self.tigh?),
+                f32::from(self.tricep?) + f32::from(self.suprailiac?) + f32::from(self.thigh?),
                 1.099_492_1,
                 0.000_992_9,
                 0.000_002_3,
@@ -419,7 +419,7 @@ impl BodyFat {
             ))
         } else if sex == 1 {
             Some(Self::jackson_pollock(
-                f32::from(self.chest?) + f32::from(self.abdominal?) + f32::from(self.tigh?),
+                f32::from(self.chest?) + f32::from(self.abdominal?) + f32::from(self.thigh?),
                 1.109_38,
                 0.000_826_7,
                 0.000_001_6,
@@ -435,7 +435,7 @@ impl BodyFat {
             Some(Self::jackson_pollock(
                 f32::from(self.chest?)
                     + f32::from(self.abdominal?)
-                    + f32::from(self.tigh?)
+                    + f32::from(self.thigh?)
                     + f32::from(self.tricep?)
                     + f32::from(self.subscapular?)
                     + f32::from(self.suprailiac?)
@@ -449,7 +449,7 @@ impl BodyFat {
             Some(Self::jackson_pollock(
                 f32::from(self.chest?)
                     + f32::from(self.abdominal?)
-                    + f32::from(self.tigh?)
+                    + f32::from(self.thigh?)
                     + f32::from(self.tricep?)
                     + f32::from(self.subscapular?)
                     + f32::from(self.suprailiac?)
@@ -1458,7 +1458,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         .json(&json!({
                             "chest": body_fat.chest,
                             "abdominal": body_fat.abdominal,
-                            "tigh": body_fat.tigh,
+                            "thigh": body_fat.thigh,
                             "tricep": body_fat.tricep,
                             "subscapular": body_fat.subscapular,
                             "suprailiac": body_fat.suprailiac,

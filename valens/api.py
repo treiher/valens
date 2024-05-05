@@ -444,7 +444,7 @@ def create_body_fat() -> ResponseReturnValue:
                 for part in [
                     "chest",
                     "abdominal",
-                    "tigh",
+                    "thigh",
                     "tricep",
                     "subscapular",
                     "suprailiac",
@@ -494,7 +494,7 @@ def replace_body_fat(date_: str) -> ResponseReturnValue:
         for attr in [
             "chest",
             "abdominal",
-            "tigh",
+            "thigh",
             "tricep",
             "subscapular",
             "suprailiac",

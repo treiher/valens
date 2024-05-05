@@ -98,8 +98,8 @@ class BodyFat(Base):
             name="abdominal_type_integer_or_null",
         ),
         CheckConstraint(
-            "typeof(tigh) = 'integer' or typeof(tigh) = 'null'",
-            name="tigh_type_integer_or_null",
+            "typeof(thigh) = 'integer' or typeof(thigh) = 'null'",
+            name="thigh_type_integer_or_null",
         ),
         CheckConstraint(
             "typeof(tricep) = 'integer' or typeof(tricep) = 'null'",
@@ -119,7 +119,7 @@ class BodyFat(Base):
         ),
         CheckConstraint(column("chest") > 0, name="chest_gt_0"),
         CheckConstraint(column("abdominal") > 0, name="abdominal_gt_0"),
-        CheckConstraint(column("tigh") > 0, name="tigh_gt_0"),
+        CheckConstraint(column("thigh") > 0, name="thigh_gt_0"),
         CheckConstraint(column("tricep") > 0, name="tricep_gt_0"),
         CheckConstraint(column("subscapular") > 0, name="subscapular_gt_0"),
         CheckConstraint(column("suprailiac") > 0, name="suprailiac_gt_0"),
@@ -132,7 +132,7 @@ class BodyFat(Base):
     date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
     chest: Mapped[Optional[int]] = mapped_column(Integer)
     abdominal: Mapped[Optional[int]] = mapped_column(Integer)
-    tigh: Mapped[Optional[int]] = mapped_column(Integer)
+    thigh: Mapped[Optional[int]] = mapped_column(Integer)
     tricep: Mapped[Optional[int]] = mapped_column(Integer)
     subscapular: Mapped[Optional[int]] = mapped_column(Integer)
     suprailiac: Mapped[Optional[int]] = mapped_column(Integer)

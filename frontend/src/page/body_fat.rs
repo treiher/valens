@@ -498,183 +498,205 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
     common::view_dialog(
         "primary",
         title,
-        nodes![form![
-            attrs! {
-                At::Action => "javascript:void(0);",
-                At::OnKeyPress => "if (event.which == 13) return false;"
-            },
+        nodes![
             div![
-                C!["field"],
-                label![C!["label"], "Date"],
-                div![
-                    C!["control"],
-                    input_ev(Ev::Input, Msg::DateChanged),
-                    input![
-                        C!["input"],
-                        C![IF![form.date.1.is_none() => "is-danger"]],
-                        attrs! {
-                            At::Type => "date",
-                            At::Value => form.date.0,
-                            At::Disabled => date_disabled.as_at_value(),
-                        }
-                    ],
-                ]
+                C!["block"],
+                "Measure your body fat using a skinfold caliper."
             ],
-            fieldset![
-                C!["fieldset"],
-                C!["mb-4"],
-                legend![C!["has-text-centered"], "Jackson-Pollock 3"],
-                if sex == 0 {
-                    nodes![
-                        view_body_fat_form_field(
-                            "Tricep",
-                            &form.tricep,
-                            Msg::TricepChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Suprailiac",
-                            &form.suprailiac,
-                            Msg::SuprailiacChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Tigh",
-                            &form.tigh,
-                            Msg::TighChanged,
-                            save_disabled
-                        ),
-                    ]
-                } else {
-                    nodes![
-                        view_body_fat_form_field(
-                            "Chest",
-                            &form.chest,
-                            Msg::ChestChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Abdominal",
-                            &form.abdominal,
-                            Msg::AbdominalChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Tigh",
-                            &form.tigh,
-                            Msg::TighChanged,
-                            save_disabled
-                        ),
-                    ]
-                }
-            ],
-            fieldset![
-                C!["fieldset"],
-                C!["mb-4"],
-                legend![
-                    C!["has-text-centered"],
-                    "Additionally for Jackson-Pollock 7"
-                ],
-                if sex == 0 {
-                    nodes![
-                        view_body_fat_form_field(
-                            "Chest",
-                            &form.chest,
-                            Msg::ChestChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Abdominal",
-                            &form.abdominal,
-                            Msg::AbdominalChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Subscapular",
-                            &form.subscapular,
-                            Msg::SubscapularChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Midaxillary",
-                            &form.midaxillary,
-                            Msg::MidaxillaryChanged,
-                            save_disabled
-                        ),
-                    ]
-                } else {
-                    nodes![
-                        view_body_fat_form_field(
-                            "Tricep",
-                            &form.tricep,
-                            Msg::TricepChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Subscapular",
-                            &form.subscapular,
-                            Msg::SubscapularChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Suprailiac",
-                            &form.suprailiac,
-                            Msg::SuprailiacChanged,
-                            save_disabled
-                        ),
-                        view_body_fat_form_field(
-                            "Midaxillary",
-                            &form.midaxillary,
-                            Msg::MidaxillaryChanged,
-                            save_disabled
-                        ),
-                    ]
-                }
-            ],
-            div![
-                C!["field"],
-                C!["is-grouped"],
-                C!["is-grouped-centered"],
-                C!["mt-5"],
+            form![
+                attrs! {
+                    At::Action => "javascript:void(0);",
+                    At::OnKeyPress => "if (event.which == 13) return false;"
+                },
                 div![
-                    C!["control"],
-                    button![
-                        C!["button"],
-                        C!["is-light"],
-                        ev(Ev::Click, |_| Msg::CloseBodyFatDialog),
-                        "Cancel",
-                    ]
-                ],
-                div![
-                    C!["control"],
-                    button![
-                        C!["button"],
-                        C!["is-primary"],
-                        C![IF![loading => "is-loading"]],
-                        attrs![
-                            At::Disabled => save_disabled.as_at_value(),
+                    C!["field"],
+                    label![C!["label"], "Date"],
+                    div![
+                        C!["control"],
+                        input_ev(Ev::Input, Msg::DateChanged),
+                        input![
+                            C!["input"],
+                            C![IF![form.date.1.is_none() => "is-danger"]],
+                            attrs! {
+                                At::Type => "date",
+                                At::Value => form.date.0,
+                                At::Disabled => date_disabled.as_at_value(),
+                            }
                         ],
-                        ev(Ev::Click, |_| Msg::SaveBodyFat),
-                        "Save",
                     ]
                 ],
-            ],
-        ]],
+                fieldset![
+                    C!["fieldset"],
+                    C!["mb-4"],
+                    legend![C!["has-text-centered"], "Jackson-Pollock 3"],
+                    if sex == 0 {
+                        nodes![
+                            view_body_fat_form_field(
+                                "Tricep",
+                                "Vertical fold midway between shoulder and elbow",
+                                &form.tricep,
+                                Msg::TricepChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Suprailiac",
+                                "Diagonal fold above crest of hipbone",
+                                &form.suprailiac,
+                                Msg::SuprailiacChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Thigh",
+                                "Vertical fold midway between knee cap and top of thigh",
+                                &form.tigh,
+                                Msg::TighChanged,
+                                save_disabled
+                            ),
+                        ]
+                    } else {
+                        nodes![
+                            view_body_fat_form_field(
+                                "Chest",
+                                "Diagonal fold midway between upper armpit and nipple",
+                                &form.chest,
+                                Msg::ChestChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Abdominal",
+                                "Vertical fold two centimeters to the right of belly button",
+                                &form.abdominal,
+                                Msg::AbdominalChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Thigh",
+                                "Vertical fold midway between knee cap and top of thigh",
+                                &form.tigh,
+                                Msg::TighChanged,
+                                save_disabled
+                            ),
+                        ]
+                    }
+                ],
+                fieldset![
+                    C!["fieldset"],
+                    C!["mb-4"],
+                    legend![
+                        C!["has-text-centered"],
+                        "Additionally for Jackson-Pollock 7"
+                    ],
+                    if sex == 0 {
+                        nodes![
+                            view_body_fat_form_field(
+                                "Chest",
+                                "Diagonal fold one third between armpit and nipple",
+                                &form.chest,
+                                Msg::ChestChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Abdominal",
+                                "Vertical fold two centimeters to the right of belly button",
+                                &form.abdominal,
+                                Msg::AbdominalChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Subscapular",
+                                "Diagonal fold below shoulder blade",
+                                &form.subscapular,
+                                Msg::SubscapularChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Midaxillary",
+                                "Horizontal fold below armpit",
+                                &form.midaxillary,
+                                Msg::MidaxillaryChanged,
+                                save_disabled
+                            ),
+                        ]
+                    } else {
+                        nodes![
+                            view_body_fat_form_field(
+                                "Tricep",
+                                "Vertical fold midway between shoulder and elbow",
+                                &form.tricep,
+                                Msg::TricepChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Subscapular",
+                                "Diagonal fold below shoulder blade",
+                                &form.subscapular,
+                                Msg::SubscapularChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Suprailiac",
+                                "Diagonal fold above crest of hipbone",
+                                &form.suprailiac,
+                                Msg::SuprailiacChanged,
+                                save_disabled
+                            ),
+                            view_body_fat_form_field(
+                                "Midaxillary",
+                                "Horizontal fold below armpit",
+                                &form.midaxillary,
+                                Msg::MidaxillaryChanged,
+                                save_disabled
+                            ),
+                        ]
+                    }
+                ],
+                div![
+                    C!["field"],
+                    C!["is-grouped"],
+                    C!["is-grouped-centered"],
+                    C!["mt-5"],
+                    div![
+                        C!["control"],
+                        button![
+                            C!["button"],
+                            C!["is-light"],
+                            ev(Ev::Click, |_| Msg::CloseBodyFatDialog),
+                            "Cancel",
+                        ]
+                    ],
+                    div![
+                        C!["control"],
+                        button![
+                            C!["button"],
+                            C!["is-primary"],
+                            C![IF![loading => "is-loading"]],
+                            attrs![
+                                At::Disabled => save_disabled.as_at_value(),
+                            ],
+                            ev(Ev::Click, |_| Msg::SaveBodyFat),
+                            "Save",
+                        ]
+                    ],
+                ],
+            ]
+        ],
         &ev(Ev::Click, |_| Msg::CloseBodyFatDialog),
     )
 }
 
 fn view_body_fat_form_field(
     label: &str,
+    help: &str,
     field: &(String, Option<u8>),
     message: impl FnOnce(std::string::String) -> Msg + 'static + Clone,
     save_disabled: bool,
 ) -> Node<Msg> {
     div![
         C!["field"],
-        label![C!["label"], format!("{label} (mm)")],
+        label![C!["label"], label],
         div![
             C!["control"],
+            C!["has-icons-right"],
             input_ev(Ev::Input, message),
             keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                 IF!(
@@ -691,7 +713,9 @@ fn view_body_fat_form_field(
                     At::Value => field.0,
                 }
             ],
+            span![C!["icon"], C!["is-small"], C!["is-right"], "mm"],
         ],
+        p![C!["help"], help]
     ]
 }
 

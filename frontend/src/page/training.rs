@@ -538,9 +538,9 @@ pub fn view_charts<Ms>(
             )
         ),
         common::view_chart(
-            &[("Intensity (weekly average RPE)", common::COLOR_INTENSITY)],
+            &[("RPE (weekly average)", common::COLOR_RPE)],
             common::plot_line_chart(
-                &[(avg_rpe_per_week, common::COLOR_INTENSITY)],
+                &[(avg_rpe_per_week, common::COLOR_RPE)],
                 interval.first,
                 interval.last,
                 Some(5.),
@@ -569,7 +569,7 @@ pub fn view_table<Ms: 'static>(
                 th!["Routine"],
                 th!["Load"],
                 th!["Set volume"],
-                th!["Intensity (RPE)"],
+                th!["RPE"],
                 th!["Volume load"],
                 th!["TUT"],
                 th!["Reps"],

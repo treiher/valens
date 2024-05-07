@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Descriptions of measuring points on body fat page
 
+### Changed
+
+- Use term RPE instead of intensity
+
 ### Fixed
 
 - Reject future training dates

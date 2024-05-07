@@ -1276,7 +1276,7 @@ pub fn view_charts<Ms>(
 ) -> Vec<Node<Ms>> {
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
-    let mut intensity: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
+    let mut rpe: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
     for training_session in training_sessions {
         #[allow(clippy::cast_precision_loss)]
         load.entry(training_session.date)
@@ -1288,8 +1288,7 @@ pub fn view_charts<Ms>(
             .and_modify(|e| *e += training_session.set_volume() as f32)
             .or_insert(training_session.set_volume() as f32);
         if let Some(avg_rpe) = training_session.avg_rpe() {
-            intensity
-                .entry(training_session.date)
+            rpe.entry(training_session.date)
                 .and_modify(|e| e.push(avg_rpe))
                 .or_insert(vec![avg_rpe]);
         }
@@ -1319,11 +1318,10 @@ pub fn view_charts<Ms>(
             )
         ),
         common::view_chart(
-            &[("Intensity (RPE)", common::COLOR_INTENSITY)],
+            &[("RPE", common::COLOR_RPE)],
             common::plot_line_chart(
                 &[(
-                    intensity
-                        .into_iter()
+                    rpe.into_iter()
                         .map(|(date, values)| {
                             #[allow(clippy::cast_precision_loss)]
                             (
@@ -1336,7 +1334,7 @@ pub fn view_charts<Ms>(
                             )
                         })
                         .collect::<Vec<_>>(),
-                    common::COLOR_INTENSITY,
+                    common::COLOR_RPE,
                 )],
                 interval.first,
                 interval.last,

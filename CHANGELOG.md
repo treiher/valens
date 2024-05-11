@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Use term RPE instead of intensity
+- Improve display of charts when all values are zero
 
 ### Fixed
 

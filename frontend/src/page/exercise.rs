@@ -365,7 +365,7 @@ pub fn view_charts<Ms>(
                 interval.first,
                 interval.last,
                 Some(0.),
-                None,
+                Some(10.),
             )
         ),
         common::view_chart(
@@ -378,7 +378,7 @@ pub fn view_charts<Ms>(
                 interval.first,
                 interval.last,
                 Some(0.),
-                None,
+                Some(10.),
             )
         ),
         common::view_chart(
@@ -388,7 +388,7 @@ pub fn view_charts<Ms>(
                 interval.first,
                 interval.last,
                 Some(0.),
-                None,
+                Some(10.),
             )
         ),
         common::view_chart(
@@ -431,7 +431,7 @@ pub fn view_charts<Ms>(
                 interval.first,
                 interval.last,
                 Some(0.),
-                None,
+                Some(10.),
             )
         ),
         common::view_chart(
@@ -450,7 +450,7 @@ pub fn view_charts<Ms>(
                 interval.first,
                 interval.last,
                 Some(0.),
-                None,
+                Some(10.),
             )
         ),
         common::view_chart(
@@ -468,7 +468,7 @@ pub fn view_charts<Ms>(
                 interval.first,
                 interval.last,
                 Some(0.),
-                None,
+                Some(10.),
             )
         ),
     ]

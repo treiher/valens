@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
@@ -371,9 +370,9 @@ enum Dialog {
     Hidden,
     StopwatchMetronomTimer,
     Options(usize, usize),
-    ReplaceExercise(usize, usize, String),
-    AddExercise(usize, usize, String),
-    AppendExercise(String),
+    ReplaceExercise(usize, usize, String, HashSet<usize>),
+    AddExercise(usize, usize, String, HashSet<usize>),
+    AppendExercise(String, HashSet<usize>),
 }
 
 struct StopwatchMetronomTimer {
@@ -682,6 +681,7 @@ pub enum Msg {
     ShowAddExerciseDialog(usize, usize),
     ShowAppendExerciseDialog,
     SearchTermChanged(String),
+    FilterChanged(usize),
     CreateExercise,
     ReplaceExercise(usize, usize, u32),
     DeferExercise(usize),
@@ -1123,27 +1123,41 @@ pub fn update(
             model.dialog = Dialog::Options(element_idx, exercise_idx);
         }
         Msg::ShowReplaceExerciseDialog(element_idx, exercise_idx) => {
-            model.dialog = Dialog::ReplaceExercise(element_idx, exercise_idx, String::new());
+            model.dialog =
+                Dialog::ReplaceExercise(element_idx, exercise_idx, String::new(), HashSet::new());
         }
         Msg::ShowAddExerciseDialog(element_idx, exercise_idx) => {
-            model.dialog = Dialog::AddExercise(element_idx, exercise_idx, String::new());
+            model.dialog =
+                Dialog::AddExercise(element_idx, exercise_idx, String::new(), HashSet::new());
         }
         Msg::ShowAppendExerciseDialog => {
-            model.dialog = Dialog::AppendExercise(String::new());
+            model.dialog = Dialog::AppendExercise(String::new(), HashSet::new());
         }
         Msg::SearchTermChanged(search_term) => {
-            if let Dialog::ReplaceExercise(_, _, st)
-            | Dialog::AddExercise(_, _, st)
-            | Dialog::AppendExercise(st) = &mut model.dialog
+            if let Dialog::ReplaceExercise(_, _, st, _)
+            | Dialog::AddExercise(_, _, st, _)
+            | Dialog::AppendExercise(st, _) = &mut model.dialog
             {
                 *st = search_term;
             }
         }
+        Msg::FilterChanged(index) => {
+            if let Dialog::ReplaceExercise(_, _, _, filter)
+            | Dialog::AddExercise(_, _, _, filter)
+            | Dialog::AppendExercise(_, filter) = &mut model.dialog
+            {
+                if filter.contains(&index) {
+                    filter.remove(&index);
+                } else {
+                    filter.insert(index);
+                }
+            }
+        }
         Msg::CreateExercise => {
             model.loading = true;
-            if let Dialog::ReplaceExercise(_, _, search_term)
-            | Dialog::AddExercise(_, _, search_term)
-            | Dialog::AppendExercise(search_term) = &model.dialog
+            if let Dialog::ReplaceExercise(_, _, search_term, _)
+            | Dialog::AddExercise(_, _, search_term, _)
+            | Dialog::AppendExercise(search_term, _) = &model.dialog
             {
                 orders.notify(data::Msg::CreateExercise(
                     search_term.trim().to_string(),
@@ -1816,7 +1830,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     &model.dialog,
                     &model.smt,
                     model.loading,
-                    &data_model.exercises
+                    &data_model.exercises,
                 ),
             ]
         }
@@ -2343,20 +2357,28 @@ fn view_dialog(
         Dialog::Options(element_idx, exercise_idx) => {
             view_options_dialog(*element_idx, *exercise_idx)
         }
-        Dialog::ReplaceExercise(element_idx, exercise_idx, search_term) => {
+        Dialog::ReplaceExercise(element_idx, exercise_idx, search_term, filter) => {
             view_replace_exercise_dialog(
                 *element_idx,
                 *exercise_idx,
                 search_term,
+                filter,
                 loading,
                 exercises,
             )
         }
-        Dialog::AddExercise(element_idx, exercise_idx, search_term) => {
-            view_add_exercise_dialog(*element_idx, *exercise_idx, search_term, loading, exercises)
+        Dialog::AddExercise(element_idx, exercise_idx, search_term, filter) => {
+            view_add_exercise_dialog(
+                *element_idx,
+                *exercise_idx,
+                search_term,
+                filter,
+                loading,
+                exercises,
+            )
         }
-        Dialog::AppendExercise(search_term) => {
-            view_append_exercise_dialog(search_term, loading, exercises)
+        Dialog::AppendExercise(search_term, filter) => {
+            view_append_exercise_dialog(search_term, filter, loading, exercises)
         }
     };
 
@@ -2657,6 +2679,7 @@ fn view_replace_exercise_dialog(
     element_idx: usize,
     exercise_idx: usize,
     search_term: &str,
+    filter: &HashSet<usize>,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
@@ -2666,9 +2689,13 @@ fn view_replace_exercise_dialog(
         exercises,
         search_term,
         Msg::SearchTermChanged,
-        |_| Msg::CreateExercise,
+        filter,
+        Msg::FilterChanged,
+        Some(|_| Msg::CreateExercise),
         loading,
         move |exercise_id| Msg::ReplaceExercise(element_idx, exercise_idx, exercise_id),
+        &None::<fn(u32) -> Msg>,
+        &None::<fn(u32) -> Msg>,
     )
 }
 
@@ -2676,6 +2703,7 @@ fn view_add_exercise_dialog(
     element_idx: usize,
     exercise_idx: usize,
     search_term: &str,
+    filter: &HashSet<usize>,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
@@ -2685,14 +2713,19 @@ fn view_add_exercise_dialog(
         exercises,
         search_term,
         Msg::SearchTermChanged,
-        |_| Msg::CreateExercise,
+        filter,
+        Msg::FilterChanged,
+        Some(|_| Msg::CreateExercise),
         loading,
         move |exercise_id| Msg::AddExercise(element_idx, exercise_idx, exercise_id),
+        &None::<fn(u32) -> Msg>,
+        &None::<fn(u32) -> Msg>,
     )
 }
 
 fn view_append_exercise_dialog(
     search_term: &str,
+    filter: &HashSet<usize>,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
@@ -2700,9 +2733,13 @@ fn view_append_exercise_dialog(
         exercises,
         search_term,
         Msg::SearchTermChanged,
-        |_| Msg::CreateExercise,
+        filter,
+        Msg::FilterChanged,
+        Some(|_| Msg::CreateExercise),
         loading,
         Msg::AppendExercise,
+        &None::<fn(u32) -> Msg>,
+        &None::<fn(u32) -> Msg>,
     )
 }
 

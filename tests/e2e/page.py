@@ -632,7 +632,7 @@ class RoutinePage(Page):
             .perform()
         )
         Dialog(self._driver).wait_for_opening()
-        self._driver.find_element(by=By.XPATH, value=f"//td[text()='{text}']").click()
+        self._driver.find_element(by=By.XPATH, value=f"//td/span[text()='{text}']").click()
 
     def create_and_set_exercise(self, index: int, text: str) -> None:
         buttons = self._driver.find_elements(by=By.XPATH, value="//button[@class='input']")
@@ -646,7 +646,7 @@ class RoutinePage(Page):
         self._set_input("search", 0, text)
         self._click_button("plus", 0)
         wait(self._driver).until(
-            EC.visibility_of_element_located((By.XPATH, f"//td[text()='{text}']"))
+            EC.visibility_of_element_located((By.XPATH, f"//td/span[text()='{text}']"))
         ).click()
 
     def set_reps(self, index: int, text: str) -> None:

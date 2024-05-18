@@ -1,10 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::data;
+use crate::{data, domain};
 
 pub const ENTER_KEY: u32 = 13;
 
@@ -936,23 +936,44 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn view_exercises_with_search<Ms>(
     exercises: &BTreeMap<u32, data::Exercise>,
     search_term: &str,
     search_term_changed: impl FnOnce(String) -> Ms + 'static + Clone,
-    create_exercise: impl FnOnce(web_sys::Event) -> Ms + 'static + Clone,
+    filter: &HashSet<usize>,
+    filter_changed: impl FnOnce(usize) -> Ms + 'static + Clone,
+    create_exercise: Option<impl FnOnce(web_sys::Event) -> Ms + 'static + Clone>,
     loading: bool,
     selected: impl FnOnce(u32) -> Ms + 'static + Clone,
+    edit: &Option<impl FnOnce(u32) -> Ms + 'static + Clone>,
+    delete: &Option<impl FnOnce(u32) -> Ms + 'static + Clone>,
 ) -> Vec<Node<Ms>>
 where
     Ms: 'static,
 {
+    let mut muscle_filter = domain::Muscle::iter()
+        .enumerate()
+        .map(|(i, m)| (i, false, domain::Muscle::id(*m), domain::Muscle::name(*m)))
+        .collect::<Vec<_>>();
+    for i in filter {
+        if let Some(f) = muscle_filter.get_mut(*i) {
+            f.1 = true;
+        }
+    }
+    muscle_filter.sort_by(|a, b| b.1.cmp(&a.1));
+
     let mut exercises = exercises
         .values()
         .filter(|e| {
             e.name
                 .to_lowercase()
                 .contains(search_term.to_lowercase().trim())
+                && (muscle_filter.iter().filter(|f| f.1).count() == 0
+                    || muscle_filter
+                        .iter()
+                        .filter(|f| f.1)
+                        .all(|f| e.muscle_stimulus().contains_key(&f.2)))
         })
         .collect::<Vec<_>>();
     exercises.sort_by(|a, b| a.name.cmp(&b.name));
@@ -961,8 +982,9 @@ where
         div![
             C!["field"],
             C!["is-grouped"],
+            C![IF![edit.is_some() || delete.is_some() => "px-4"]],
             view_search_box(search_term, search_term_changed),
-            {
+            if let Some(create_exercise) = create_exercise {
                 let disabled = loading
                     || search_term.is_empty()
                     || exercises.iter().any(|e| e.name == *search_term.trim());
@@ -979,29 +1001,87 @@ where
                         span![C!["icon"], i![C!["fas fa-plus"]]]
                     ]
                 ]
+            } else {
+                empty![]
             }
         ],
         div![
+            C!["is-flex"],
+            C![IF![edit.is_some() || delete.is_some() => "px-4"]],
+            div![C!["mr-1"], span![C!["icon"], i![C!["fas fa-filter"]]]],
+            div![
+                C!["tags"],
+                C!["is-flex-wrap-nowrap"],
+                C!["is-overflow-scroll"],
+                C!["is-scrollbar-width-none"],
+                muscle_filter.iter().map(|(i, enabled, _, name)| {
+                    span![
+                        C!["tag"],
+                        C!["is-hoverable"],
+                        C![if *enabled { "is-link" } else { "is-light" }],
+                        ev(Ev::Click, {
+                            let index = *i;
+                            let filter_changed = filter_changed.clone();
+                            move |_| filter_changed(index)
+                        }),
+                        &name
+                    ]
+                })
+            ],
+        ],
+        div![
             C!["table-container"],
-            C!["mt-4"],
+            C!["mt-2"],
             table![
                 C!["table"],
                 C!["is-fullwidth"],
                 C!["is-hoverable"],
-                tbody![&exercises
-                    .iter()
-                    .map(|e| {
-                        tr![td![
-                            C!["has-text-link"],
+                tbody![exercises.iter().map(|e| {
+                    tr![td![
+                        C!["is-flex"],
+                        C!["is-justify-content-space-between"],
+                        C!["has-text-link"],
+                        span![
                             ev(Ev::Click, {
                                 let exercise_id = e.id;
                                 let selected = selected.clone();
                                 move |_| selected(exercise_id)
                             }),
                             e.name.to_string(),
-                        ]]
-                    })
-                    .collect::<Vec<_>>()],
+                        ],
+                        p![
+                            C!["is-flex is-flex-wrap-nowrap"],
+                            if let Some(edit) = &edit {
+                                span![
+                                    C!["icon"],
+                                    C!["mr-1"],
+                                    ev(Ev::Click, {
+                                        let exercise_id = e.id;
+                                        let edit = edit.clone();
+                                        move |_| edit(exercise_id)
+                                    }),
+                                    i![C!["fas fa-edit"]]
+                                ]
+                            } else {
+                                empty![]
+                            },
+                            if let Some(delete) = &delete {
+                                span![
+                                    C!["icon"],
+                                    C!["ml-1"],
+                                    ev(Ev::Click, {
+                                        let exercise_id = e.id;
+                                        let delete = delete.clone();
+                                        move |_| delete(exercise_id)
+                                    }),
+                                    i![C!["fas fa-times"]]
+                                ]
+                            } else {
+                                empty![]
+                            }
+                        ]
+                    ]]
+                })],
             ]
         ]
     ]

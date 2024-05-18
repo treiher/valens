@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use seed::{prelude::*, *};
 
@@ -20,6 +20,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 
     Model {
         search_term: String::new(),
+        filter: HashSet::new(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -31,6 +32,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 
 pub struct Model {
     search_term: String,
+    filter: HashSet<usize>,
     dialog: Dialog,
     loading: bool,
 }
@@ -58,8 +60,10 @@ pub enum Msg {
     CloseExerciseDialog,
 
     SearchTermChanged(String),
+    FilterChanged(usize),
     NameChanged(String),
 
+    GoToExercise(u32),
     SaveExercise,
     DeleteExercise(u32),
     DataEvent(data::Event),
@@ -101,6 +105,13 @@ pub fn update(
         Msg::SearchTermChanged(search_term) => {
             model.search_term = search_term;
         }
+        Msg::FilterChanged(index) => {
+            if model.filter.contains(&index) {
+                model.filter.remove(&index);
+            } else {
+                model.filter.insert(index);
+            }
+        }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
                 let trimmed_name = name.trim();
@@ -129,6 +140,13 @@ pub fn update(
             }
         },
 
+        Msg::GoToExercise(id) => {
+            let url = crate::Urls::new(&data_model.base_url)
+                .exercise()
+                .add_hash_path_part(id.to_string());
+            url.go_and_push();
+            orders.notify(subs::UrlChanged(url));
+        }
         Msg::SaveExercise => {
             model.loading = true;
             match model.dialog {
@@ -178,11 +196,18 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else {
         div![
             view_exercise_dialog(&model.dialog, &data_model.exercises, model.loading),
-            div![
-                C!["px-4"],
-                common::view_search_box(&model.search_term, Msg::SearchTermChanged)
-            ],
-            view_table(&model.search_term, data_model),
+            common::view_exercises_with_search(
+                &data_model.exercises,
+                &model.search_term,
+                Msg::SearchTermChanged,
+                &model.filter,
+                Msg::FilterChanged,
+                None::<fn(web_sys::Event) -> Msg>,
+                model.loading,
+                Msg::GoToExercise,
+                &Some(Msg::ShowEditExerciseDialog),
+                &Some(Msg::ShowDeleteExerciseDialog)
+            ),
             common::view_fab("plus", |_| Msg::ShowAddExerciseDialog),
         ]
     }
@@ -278,58 +303,4 @@ fn view_exercise_dialog(
         ],
         &ev(Ev::Click, |_| Msg::CloseExerciseDialog),
     )
-}
-
-fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
-    let mut exercises = data_model
-        .exercises
-        .values()
-        .filter(|e| e.name.to_lowercase().contains(&search_term.to_lowercase()))
-        .collect::<Vec<_>>();
-    exercises.sort_by(|a, b| a.name.cmp(&b.name));
-
-    div![
-        C!["table-container"],
-        C!["mt-4"],
-        table![
-            C!["table"],
-            C!["is-fullwidth"],
-            C!["is-hoverable"],
-            tbody![exercises
-                .iter()
-                .map(|e| {
-                    let id = e.id;
-                    tr![td![
-                        C!["is-flex"],
-                        C!["is-justify-content-space-between"],
-                        a![
-                            attrs! {
-                                At::Href => {
-                                    crate::Urls::new(&data_model.base_url)
-                                        .exercise()
-                                        .add_hash_path_part(id.to_string())
-                                }
-                            },
-                            e.name.to_string(),
-                        ],
-                        p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
-                                C!["icon"],
-                                C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditExerciseDialog(id)),
-                                i![C!["fas fa-edit"]]
-                            ],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteExerciseDialog(id)),
-                                i![C!["fas fa-times"]]
-                            ]
-                        ]
-                    ]]
-                })
-                .collect::<Vec<_>>()],
-        ]
-    ]
 }

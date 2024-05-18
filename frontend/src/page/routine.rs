@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use chrono::prelude::*;
 use seed::{prelude::*, *};
@@ -81,7 +80,7 @@ impl Model {
 
 enum Dialog {
     Hidden,
-    SelectExercise(Vec<usize>, String),
+    SelectExercise(Vec<usize>, String, HashSet<usize>),
     DeleteTrainingSession(u32),
 }
 
@@ -288,6 +287,7 @@ pub enum Msg {
     AutomaticChanged(Vec<usize>),
 
     SearchTermChanged(String),
+    FilterChanged(usize),
 
     CreateExercise,
     DeleteTrainingSession(u32),
@@ -322,7 +322,7 @@ pub fn update(
         }
 
         Msg::ShowSelectExerciseDialog(part_id) => {
-            model.dialog = Dialog::SelectExercise(part_id, String::new());
+            model.dialog = Dialog::SelectExercise(part_id, String::new(), HashSet::new());
         }
         Msg::ShowDeleteTrainingSessionDialog(position) => {
             model.dialog = Dialog::DeleteTrainingSession(position);
@@ -612,14 +612,23 @@ pub fn update(
         }
 
         Msg::SearchTermChanged(search_term) => {
-            if let Dialog::SelectExercise(_, dialog_search_term) = &mut model.dialog {
+            if let Dialog::SelectExercise(_, dialog_search_term, _) = &mut model.dialog {
                 *dialog_search_term = search_term;
+            }
+        }
+        Msg::FilterChanged(index) => {
+            if let Dialog::SelectExercise(_, _, dialog_filter) = &mut model.dialog {
+                if dialog_filter.contains(&index) {
+                    dialog_filter.remove(&index);
+                } else {
+                    dialog_filter.insert(index);
+                }
             }
         }
 
         Msg::CreateExercise => {
             model.loading = true;
-            if let Dialog::SelectExercise(_, search_term) = &model.dialog {
+            if let Dialog::SelectExercise(_, search_term, _) = &model.dialog {
                 orders.notify(data::Msg::CreateExercise(
                     search_term.trim().to_string(),
                     vec![],
@@ -781,7 +790,7 @@ fn view_dialog(
     loading: bool,
 ) -> Node<Msg> {
     match dialog {
-        Dialog::SelectExercise(part_id, search_term) => {
+        Dialog::SelectExercise(part_id, search_term, filter) => {
             let part_id = part_id.clone();
 
             common::view_dialog(
@@ -791,9 +800,13 @@ fn view_dialog(
                     exercises,
                     search_term,
                     Msg::SearchTermChanged,
-                    |_| Msg::CreateExercise,
+                    filter,
+                    Msg::FilterChanged,
+                    Some(|_| Msg::CreateExercise),
                     loading,
                     |exercise_id| Msg::ExerciseChanged(part_id, exercise_id),
+                    &None::<fn(u32) -> Msg>,
+                    &None::<fn(u32) -> Msg>,
                 ),
                 &ev(Ev::Click, |_| Msg::CloseDialog),
             )

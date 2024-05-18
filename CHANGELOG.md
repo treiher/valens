@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Search box in dialogs for adding and appending exercise to training session
 - Broken timer when returning to guided training session
+- Fallacious summary when editing routine
 - Error handling during database upgrade
 
 ## [0.4.0] - 2024-04-22

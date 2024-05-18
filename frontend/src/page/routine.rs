@@ -703,7 +703,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else if let Some(routine) = data_model.routines.get(&model.routine_id) {
         div![
             view_title(model),
-            view_summary(routine),
+            if not(model.editing) {
+                view_summary(routine)
+            } else {
+                empty![]
+            },
             view_dialog(&model.dialog, &data_model.exercises, model.loading),
             view_routine(data_model, &model.sections, model.editing),
             if model.editing {

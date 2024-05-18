@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Search box in dialogs for adding and appending exercise to training session
+- Missing rest when deferring penultimate exercise in training session
 - Broken timer when returning to guided training session
 - Fallacious summary when editing routine
 - Error handling during database upgrade

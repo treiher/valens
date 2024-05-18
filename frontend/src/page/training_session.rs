@@ -1469,7 +1469,7 @@ fn replace_exercise(
     }
 }
 
-fn defer_exercise(elements: &mut [FormElement], element_idx: usize) {
+fn defer_exercise(elements: &mut Vec<FormElement>, element_idx: usize) {
     let mut deferred_ids = vec![];
     let mut deferred_elements = 0;
     let mut preferred_ids = vec![];
@@ -1489,6 +1489,15 @@ fn defer_exercise(elements: &mut [FormElement], element_idx: usize) {
         }
         if i == elements.len() - 1 && deferred_elements > 0 {
             preferred_elements = elements.len() - element_idx - deferred_elements;
+        }
+    }
+    if element_idx + deferred_elements + preferred_elements == elements.len() {
+        if let Some(FormElement::Set { .. }) = elements.last() {
+            elements.push(FormElement::Rest {
+                target_time: 0,
+                automatic: true,
+            });
+            preferred_elements += 1;
         }
     }
     elements[element_idx..element_idx + deferred_elements + preferred_elements]
@@ -2969,6 +2978,29 @@ mod tests {
                 rest(0),
                 set(vec![exercise(2, 2)]),
                 rest(2),
+                set(vec![exercise(1, 1)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_defer_exercise_penultimate_set_without_trailing_rest() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+            rest(1),
+            set(vec![exercise(2, 2)]),
+        ];
+        defer_exercise(&mut elements, 2);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(2, 2)]),
+                rest(0),
                 set(vec![exercise(1, 1)]),
                 rest(1),
             ]

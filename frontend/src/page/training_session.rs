@@ -1101,6 +1101,9 @@ pub fn update(
                     update_guide(model);
                     update_streams(model, orders);
                 }
+                data::Event::ExerciseCreatedOk | data::Event::ExerciseCreatedErr => {
+                    model.loading = false;
+                }
                 data::Event::BeepVolumeChanged => {
                     model.smt.metronome.beep_volume = data_model.settings.beep_volume;
                     model.smt.timer.beep_volume = data_model.settings.beep_volume;
@@ -1128,15 +1131,19 @@ pub fn update(
             model.dialog = Dialog::AppendExercise(String::new());
         }
         Msg::SearchTermChanged(search_term) => {
-            if let Dialog::ReplaceExercise(_, _, st) | Dialog::AddExercise(_, _, st) =
-                &mut model.dialog
+            if let Dialog::ReplaceExercise(_, _, st)
+            | Dialog::AddExercise(_, _, st)
+            | Dialog::AppendExercise(st) = &mut model.dialog
             {
                 *st = search_term;
             }
         }
         Msg::CreateExercise => {
             model.loading = true;
-            if let Dialog::ReplaceExercise(_, _, search_term) = &model.dialog {
+            if let Dialog::ReplaceExercise(_, _, search_term)
+            | Dialog::AddExercise(_, _, search_term)
+            | Dialog::AppendExercise(search_term) = &model.dialog
+            {
                 orders.notify(data::Msg::CreateExercise(search_term.trim().to_string()));
             };
         }

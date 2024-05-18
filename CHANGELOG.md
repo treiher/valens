@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Search box in dialogs for adding and appending exercise to training session
 - Broken timer when returning to guided training session
 - Error handling during database upgrade
 

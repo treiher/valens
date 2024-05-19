@@ -295,9 +295,10 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
             ],
             div![
                 C!["field"],
-                label![C!["label"], "Weight (kg)"],
+                label![C!["label"], "Weight"],
                 div![
                     C!["control"],
+                    C!["has-icons-right"],
                     input_ev(Ev::Input, Msg::WeightChanged),
                     keyboard_ev(Ev::KeyDown, move |keyboard_event| {
                         IF!(
@@ -314,6 +315,7 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                             At::Value => form.weight.0,
                         }
                     ],
+                    span![C!["icon"], C!["is-small"], C!["is-right"], "kg"],
                 ],
             ],
             div![

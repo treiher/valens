@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Exercise catalog
 - Tracking of trained muscles
 - Dark mode
 - Descriptions of measuring points on body fat page

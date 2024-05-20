@@ -9,6 +9,7 @@
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
 
+mod catalog;
 mod common;
 mod data;
 mod domain;

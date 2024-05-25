@@ -1,3 +1,5 @@
+use crate::domain::Muscle;
+
 pub struct Exercise {
     name: &'static str,
     force: Force,
@@ -8,26 +10,6 @@ pub struct Exercise {
     secondary_muscles: &'static [Muscle],
     instructions: &'static [&'static str],
     category: Category,
-}
-
-enum Muscle {
-    Abdominals,
-    Abductors,
-    Adductors,
-    Biceps,
-    Calves,
-    Chest,
-    Forearms,
-    Glutes,
-    Hamstrings,
-    Lats,
-    LowerBack,
-    MiddleBack,
-    Neck,
-    Quadriceps,
-    Shoulders,
-    Traps,
-    Triceps,
 }
 
 enum Force {
@@ -51,39 +33,44 @@ enum Mechanic {
 
 enum Equipment {
     None,
-    Bands,
+    AbRoller,
     Barbell,
-    BodyOnly,
+    Box,
     Cable,
+    Cone,
     Dumbbell,
     EZCurlBar,
     ExerciseBall,
     FoamRoll,
+    GymnasticRings,
     Kettlebell,
     Machine,
     MedicineBall,
-    Other,
+    ParallelBars,
+    PullUpBar,
+    ResistanceBand,
+    Sliders,
+    SuspensionTrainer,
+    TrapBar,
+    Weight,
+    WristRoller,
 }
 
 enum Category {
-    Cardio,
     OlympicWeightlifting,
     Plyometrics,
     Powerlifting,
     Strength,
-    Stretching,
-    Strongman,
 }
 
-pub const EXERCISES: [Exercise; 873] = [
-    // Based on exercises.json (https://github.com/wrkout/exercises.json/)
+pub const EXERCISES: [Exercise; 703] = [
     Exercise{
-        name: "3/4 Sit-Up",
+        name: "3/4 Sit Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie down on the floor and secure your feet. Your legs should be bent at the knees.",
@@ -95,29 +82,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "90/90 Hamstring",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Calves],
-        instructions: &[
-            "Lie on your back, with one leg extended straight out.",
-            "With the other leg, bend the hip and knee to 90 degrees. You may brace your leg with your hands if necessary. This will be your starting position.",
-            "Extend your leg straight into the air, pausing briefly at the top. Return the leg to the starting position.",
-            "Repeat for 10-20 repetitions, and then switch to the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Ab Crunch Machine",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -133,9 +104,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::Shoulders],
+        equipment: Equipment::AbRoller,
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Hold the Ab Roller with both hands and kneel on the floor.",
             "Now place the ab roller on the floor in front of you so that you are on all your hands and knees (as in a kneeling push up position). This will be your starting position.",
@@ -145,48 +116,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Adductor",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[
-            Muscle::Adductors
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie face down with one leg on a foam roll.",
-            "Rotate the leg so that the foam roll contacts against your inner thigh. Shift as much weight onto the foam roll as can be tolerated.",
-            "While trying to relax the muscles if the inner thigh, roll over the foam between your hip and knee, holding points of tension for 10-30 seconds. Repeat with the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Adductor/Groin",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Adductors
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on your back with your feet raised towards the ceiling.",
-            "Have your partner hold your feet or ankles. Abduct your legs as far as you can. This will be your starting position.",
-            "Attempt to squeeze your legs together for 10 or more seconds, while your partner prevents you from doing so.",
-            "Now, relax the muscles in your legs as your partner pushes your feet apart, stretching as far as is comfortable for you. Be sure to let your partner know when the stretch is adequate to prevent overstretching or injury."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Advanced Kettlebell Windmill",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings, Muscle::Shoulders],
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Clean and press a kettlebell overhead with one arm.",
             "Keeping the kettlebell locked out at all times, push your butt out in the direction of the locked out kettlebell. Keep the non-working arm behind your back and turn your feet out at a forty-five degree angle from the arm with the kettlebell.",
@@ -200,9 +136,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -214,25 +150,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Continue alternating in this manner until all of the recommended repetitions for each side have been completed."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "All Fours Quad Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        instructions: &[
-            "Start off on your hands and knees, then lift your leg off the floor and hold the foot with your hand.",
-            "Use your hand to hold the foot or ankle, keeping the knee fully flexed, stretching the quadriceps and hip flexors.",
-            "Focus on extending your hips, thrusting them towards the floor. Hold for 10-20 seconds and then switch sides."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Alternate Hammer Curl",
@@ -257,12 +174,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Alternate Heel Touchers",
+        name: "Alternate Heel Touch",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie on the floor with the knees bent and the feet on the floor around 18-24 inches apart. Your arms should be extended by your side. This will be your starting position.",
@@ -301,7 +218,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -325,7 +242,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -345,7 +262,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -364,11 +281,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -391,7 +308,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
+            Muscle::ErectorSpinae,
             Muscle::Traps
         ],
         instructions: &[
@@ -407,7 +324,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "Clean two kettlebells to your shoulders. Clean the kettlebells to your shoulders by extending through the legs and hips as you pull the kettlebells towards your shoulders. Rotate your wrists as you do so.",
@@ -423,7 +340,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -443,12 +360,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Biceps,
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Lats,
             Muscle::Triceps
         ],
@@ -460,66 +377,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Ankle Circles",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Use a sturdy object like a squat rack to hold yourself.",
-            "Lift the right leg in the air (just around 2 inches from the floor) and perform a circular motion with the big toe. Pretend that you are drawing a big circle with it. Tip: One circle equals 1 repetition. Breathe normally as you perform the movement.",
-            "When you are done with the right foot, then repeat with the left leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Ankle On The Knee",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Glutes
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "From a lying position, bend your knees and keep your feet on the floor.",
-            "Place your ankle of one foot on your opposite knee.",
-            "Grasp the thigh or knee of the bottom leg and pull both of your legs into the chest. Relax your neck and shoulders. Hold for 10-20 seconds and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Anterior Tibialis-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Begin seated on the ground with your legs bent and your feet on the floor.",
-            "Using a Muscle Roller or a rolling pin, apply pressure to the muscles on the outside of your shins. Work from just below the knee to above the ankle, pausing at points of tension for 10-30 seconds. Repeat on the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Anti-Gravity Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::MiddleBack,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -532,28 +399,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Arm Circles",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Traps],
-        instructions: &[
-            "Stand up and extend your arms straight out by the sides. The arms should be parallel to the floor and perpendicular (90-degree angle) to your torso. This will be your starting position.",
-            "Slowly start to make circles of about 1 foot in diameter with each outstretched arm. Breathe normally as you perform the movement.",
-            "Continue the circular motion of the outstretched arms for about ten seconds. Then reverse the movement, going the opposite direction."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Arnold Dumbbell Press",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -568,16 +420,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Around The Worlds",
+        name: "Around the Worlds",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lay down on a flat bench holding a dumbbell in each hand with the palms of the hands facing towards the ceiling. Tip: Your arms should be parallel to the floor and next to your thighs. To avoid injury, make sure that you keep your elbows slightly bent. This will be your starting position.",
@@ -587,90 +439,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Atlas Stones",
-        force: Force::Pull,
-        level: Level::Expert,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Adductors,
-            Muscle::Biceps,
-            Muscle::Calves,
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Begin with the atlas stone between your feet. Bend at the hips to wrap your arms vertically around the Atlas Stone, attempting to get your fingers underneath the stone. Many stones will have a small flat portion on the bottom, which will make the stone easier to hold.",
-            "Pulling the stone into your torso, drive through the back half of your feet to pull the stone from the ground.",
-            "As the stone passes the knees, lap it by sitting backward, pulling the stone on top of your thighs.",
-            "Sit low, getting the stone high onto your chest as you change your grip to reach over the stone. Stand, driving through with your hips. Close distance to the loading platform, and lean back, extending the hips to get the stone as high as possible."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Atlas Stone Trainer",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[
-            Muscle::Biceps,
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::Quadriceps
-        ],
-        instructions: &[
-            "This trainer is effective for developing Atlas Stone strength for those who don't have access to stones, and are typically made from bar ends or heavy pipe.",
-            "Begin by loading the desired weight onto the bar. Straddle the weight, wrapping your arms around the implement, bending at the hips.",
-            "Begin by pulling the weight up past the knees, extending through the hips. As the weight clears the knees, it can be lapped by resting it on your thighs and sitting back, hugging it tightly to your chest.",
-            "Finish the movement by extending through your hips and knees to raise the weight as high as possible. The weight can be returned to the lap or to the ground for successive repetitions."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Axle Deadlift",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::LowerBack
-        ],
-        secondary_muscles: &[
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Approach the bar so that it is centered over your feet. You feet should be about hip width apart. Bend at the hip to grip the bar at shoulder width, allowing your shoulder blades to protract. Typically, you would use an over/under grip.",
-            "With your feet and your grip set, take a big breath and then lower your hips and flex the knees until your shins contact the bar. Look forward with your head, keep your chest up and your back arched, and begin driving through the heels to move the weight upward.",
-            "After the bar passes the knees, aggressively pull the bar back, pulling your shoulder blades together as you drive your hips forward into the bar.",
-            "Lower the bar by bending at the hips and guiding it to the floor."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Back Flyes - With Bands",
+        name: "Band Back Flyes",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::MiddleBack,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -684,35 +462,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Backward Drag",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "Load a sled with the desired weight, attaching a rope or straps to the sled that you can hold onto.",
-            "Begin the exercise by moving backwards for a given distance. Leaning back, extend through the legs for short steps to move as quickly as possible."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
         name: "Backward Medicine Ball Throw",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -722,26 +478,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Your partner can then roll the ball back to you. Repeat for the desired number of repetitions."
         ],
         category: Category::Plyometrics
-    },
-    Exercise {
-        name: "Balance Board",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[
-            Muscle::Hamstrings,
-            Muscle::Quadriceps
-        ],
-        instructions: &[
-            "Place a balance board in front of you.",
-            "Stand up on it and try to balance yourself.",
-            "Hold the balance for as long as desired."
-        ],
-        category: Category::Strength
     },
     Exercise {
         name: "Ball Leg Curl",
@@ -766,18 +502,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Band Assisted Pull-Up",
+        name: "Band Assisted Pull Up",
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Forearms,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Choke the band around the center of the pullup bar. You can use different bands to provide varying levels of assistance.",
@@ -792,13 +528,13 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Using a 41 inch band, stand on one end, spreading your feet a small amount. Bend at the hips to loop the end of the band behind your neck. This will be your starting position.",
@@ -812,13 +548,13 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Loop the band around a post. Standing a little ways away, loop the opposite end around the neck. Your hands can help hold the band in position.",
@@ -832,7 +568,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Adductors
         ],
@@ -852,12 +588,12 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::MiddleBack,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -873,7 +609,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Triceps
         ],
@@ -891,8 +627,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::LowerBack, Muscle::Shoulders],
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::ErectorSpinae, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "For this exercise you will need to get into a pushup position, but instead of having your hands of the floor, you will be grabbing on to an Olympic barbell (loaded with 5-10 lbs on each side) instead. This will be your starting position.",
             "While keeping a slight arch on your back, lift your hips and roll the barbell towards your feet as you exhale. Tip: As you perform the movement, your glutes should be coming up, you should be keeping the abs tight and should maintain your back posture at all times. Also your arms should be staying perpendicular to the floor throughout the movement. If you don't, you will work out your shoulders and back more than the abs.",
@@ -902,17 +638,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Barbell Ab Rollout - On Knees",
+        name: "Barbell Ab Rollout on Knees",
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::LowerBack,
-            Muscle::Shoulders
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Hold an Olympic barbell loaded with 5-10lbs on each side and kneel on the floor.",
@@ -923,16 +659,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Barbell Bench Press - Medium Grip",
+        name: "Barbell Bench Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -966,7 +702,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Barbell Curls Lying Against An Incline",
+        name: "Barbell Curl Lying Against an Incline",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -990,7 +726,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -998,8 +734,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Glutes,
             Muscle::Hamstrings,
             Muscle::Lats,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -1018,13 +754,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack just above shoulder level. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
@@ -1063,10 +799,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -1085,7 +821,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -1121,13 +857,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Barbell Incline Bench Press - Medium Grip",
+        name: "Barbell Incline Bench Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Lie back on an incline bench. Using a medium-width grip (a grip that creates a 90-degree angle in the middle of the movement between the forearms and the upper arms), lift the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.",
             "As you breathe in, come down slowly until you feel the bar on you upper chest.",
@@ -1144,10 +880,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         instructions: &[
             "Lie back on an Incline Bench. Using a medium width grip (a grip that is slightly wider than shoulder width), lift the bar from the rack and hold it straight over you with your arms straight. This will be your starting position.",
@@ -1164,7 +900,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -1186,8 +922,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::MiddleBack],
+        primary_muscles: &[Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         instructions: &[
             "Stand up straight while holding a barbell using a wide (higher than shoulder width) and overhand (palms facing your body) grip.",
             "Bend knees slightly and bend over as you keep the natural arch of your back. Let the arms hang in front of you as they hold the bar. Once your torso is parallel to the floor, flare the elbows out and away from your body. Tip: Your torso and your arms should resemble the letter \"T\". Now you are ready to begin the exercise.",
@@ -1204,13 +940,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Place a loaded barbell on the ground, near the end of a bench. Kneel with both legs on the bench, and take a medium to narrow grip on the barbell. This will be your starting position.",
@@ -1244,10 +980,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Triceps
         ],
         instructions: &[
@@ -1260,7 +996,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Barbell Shrug Behind The Back",
+        name: "Barbell Shrug Behind the Back",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -1270,7 +1006,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Forearms,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Stand up straight with your feet at shoulder width as you hold a barbell with both hands behind your back using a pronated grip (palms facing back). Tip: Your hands should be a little wider than shoulder width apart. You can use wrist wraps for this exercise for better grip. This will be your starting position.",
@@ -1305,10 +1041,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Stand up straight while holding a barbell placed on the back of your shoulders (slightly below the neck). Your feet should be shoulder width apart. This will be your starting position.",
@@ -1325,12 +1061,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Stand up straight while holding a barbell placed on the back of your shoulders (slightly below the neck). Your feet should be placed wide apart with the foot of the lead leg angled out to the side. This will be your starting position.",
@@ -1347,13 +1083,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack to just below shoulder level. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
@@ -1366,19 +1102,19 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Barbell Squat To A Bench",
+        name: "Barbell Squat To a Bench",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "This exercise is best performed inside a squat rack for safety purposes. To begin, first place a flat bench or a box behind you. The flat bench is used to teach you to set your hips back and to hit depth.",
@@ -1393,13 +1129,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Barbell Step Ups",
+        name: "Barbell Step Up",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings, Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
+        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings, Muscle::Quads],
         instructions: &[
             "Stand up straight while holding a barbell placed on the back of your shoulders (slightly below the neck) and stand upright behind an elevated platform (such as the one used for spotting behind a flat bench). This is your starting position.",
             "Place the right foot on the elevated platform. Step on the platform by extending the hip and the knee of your right leg. Use the heel mainly to lift the rest of your body up and place the foot of the left leg on the platform as well. Breathe out as you execute the force required to come up.",
@@ -1415,7 +1151,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -1431,78 +1167,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Battling Ropes",
+        name: "Bench Dip",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Forearms
-        ],
-        instructions: &[
-            "For this exercise you will need a heavy rope anchored at its center 15-20 feet away. Standing in front of the rope, take an end in each hand with your arms extended at your side. This will be your starting position.",
-            "Initiate the movement by rapidly raising one arm to shoulder level as quickly as you can.",
-            "As you let that arm drop to the starting position, raise the opposite side.",
-            "Continue alternating your left and right arms, whipping the ropes up and down as fast as you can."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Bear Crawl Sled Drags",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Wearing either a harness or a loose weight belt, attach the chain to the back so that you will be facing away from the sled. Bend down so that your hands are on the ground. Your back should be flat and knees bent. This is your starting position.",
-            "Begin by driving with legs, alternating left and right. Use your hands to maintain balance and to help pull. Try to keep your back flat as you move over a given distance."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Behind Head Chest Stretch",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Chest
-        ],
-        secondary_muscles: &[
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "Sit upright on the floor with your partner behind you.",
-            "Place your hands behind your hand, and push your elbows back as far as you can. Your partner should hold your elbows. This will be your starting position.",
-            "Gently attempt to pull your elbows forward with your hands still behind your head for 10 or more seconds. Your partner should prevent your elbows from moving.",
-            "Now, relax your muscles and have your partner gently pull the elbows back as far as it comfortable for you. Be sure to let your partner know when the stretch is adequate to prevent overstretching or injury."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Bench Dips",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "For this exercise you will need to place a bench behind your back. With the bench perpendicular to your body, and while looking away from it, hold on to the bench on its edge with the hands fully extended, separated at shoulder width. The legs will be extended forward, bent at the waist and perpendicular to your torso. This will be your starting position.",
@@ -1517,9 +1192,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -1536,13 +1211,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Bench Press - Powerlifting",
+        name: "Powerlifting Bench Press",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Forearms, Muscle::Lats, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::Forearms, Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Begin by lying on the bench, getting your head beyond the bar if possible. Tuck your feet underneath you and arch your back. Using the bar to help support your weight, lift your shoulder off the bench and retract them, squeezing the shoulder blades together. Use your feet to drive your traps into the bench. Maintain this tight body position throughout the movement.",
             "However wide your grip, it should cover the ring on the bar. Pull the bar out of the rack without protracting your shoulders. Focus on squeezing the bar and trying to pull it apart.",
@@ -1552,13 +1227,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Bench Press - With Bands",
+        name: "Band Bench Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::ResistanceBand,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Using a flat bench secure a band under the leg of the bench that is nearest to your head.",
             "Once the band is secure, grab it by both handles and lie down on the bench.",
@@ -1571,29 +1246,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Bench Press with Chains",
-        force: Force::Push,
-        level: Level::Expert,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Lats, Muscle::Shoulders],
-        instructions: &[
-            "Adjust the leader chain, shortening it to the desired length.Place the chains on the sleeves of the bar.",
-            "Lying on the bench, get your head beyond the bar if possible. Tuck your feet underneath you and arch your back. Using the bar to help support your weight, lift your shoulder off the bench and retract them, squeezing the shoulder blades together. Use your feet to drive your traps into the bench. Maintain this tight body position throughout the movement. However wide your grip, it should cover the ring on the bar.",
-            "Pull the bar out of the rack without protracting your shoulders. Focus on squeezing the bar and trying to pull it apart. Lower the bar to your lower chest or upper stomach. The bar, wrist, and elbow should stay in line at all times.",
-            "Pause when the barbell touches your torso, and then drive the bar up with as much force as possible. The elbows should be tucked in until lockout."
-        ],
-        category: Category::Powerlifting
-    },
-    Exercise {
         name: "Bench Sprint",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -1618,9 +1277,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Lats
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Lats,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -1638,8 +1297,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Lats, Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Place a dumbbell standing up on a flat bench.",
             "Ensuring that the dumbbell stays securely placed at the top of the bench, lie perpendicular to the bench (torso across it as in forming a cross) with only your shoulders lying on the surface. Hips should be below the bench and legs bent with feet firmly on the floor. The head will be off the bench as well.",
@@ -1655,9 +1314,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -1676,12 +1335,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Holding a barbell with a pronated grip (palms facing down), bend your knees slightly and bring your torso forward, by bending at the waist, while keeping the back straight until it is almost parallel to the floor. Tip: Make sure that you keep the head up. The barbell should hang directly in front of you as your arms hang perpendicular to the floor and your torso. This is your starting position.",
@@ -1692,13 +1351,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
+        name: "Bent Over Dumbbell Rear Delt Raise with Head on Bench",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -1716,8 +1375,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::LowerBack, Muscle::MiddleBack, Muscle::Traps],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::ErectorSpinae, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::Traps],
         instructions: &[
             "Select a weight and hold the handle of the low pulley with your right hand.",
             "Bend at the waist until your torso is nearly parallel to the floor. Your legs should be slightly bent with your left hand placed on your lower left thigh. Your right arm should be hanging from your shoulder in front of you and with a slight bend at the elbow. This will be your starting position.",
@@ -1733,8 +1392,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::MiddleBack],
-        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::LowerBack, Muscle::Traps],
+        primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::ErectorSpinae, Muscle::Traps],
         instructions: &[
             "Put weight on one of the ends of an Olympic barbell. Make sure that you either place the other end of the barbell in the corner of two walls; or put a heavy object on the ground so the barbell cannot slide backward.",
             "Bend forward until your torso is as close to parallel with the floor as you can and keep your knees slightly bent.",
@@ -1752,7 +1411,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -1774,8 +1433,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::MiddleBack],
-        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Shoulders],
+        primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "With a dumbbell in each hand (palms facing your torso), bend your knees slightly and bring your torso forward by bending at the waist; as you bend make sure to keep your back straight until it is almost parallel to the floor. Tip: Make sure that you keep the head up. The weights should hang directly in front of you as your arms hang perpendicular to the floor and your torso. This is your starting position.",
             "While keeping the torso stationary, lift the dumbbells to your side (as you breathe out), keeping the elbows close to the body (do not exert any force with the forearm other than holding the weights). On the top contracted position, squeeze the back muscles and hold for a second.",
@@ -1785,13 +1444,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Bent Over Two-Dumbbell Row With Palms In",
+        name: "Bent Over Two-Dumbbell Row with Palms In",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -1811,13 +1470,13 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Abdominals],
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -1828,52 +1487,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Bicycling",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, seat yourself on the bike and adjust the seat to your height."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
-        name: "Bicycling, Stationary",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, seat yourself on the bike and adjust the seat to your height.",
-            "Select the desired option from the menu. You may have to start pedaling to turn it on. You can use the manual setting, or you can select a program to use. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. The level of resistance can be changed throughout the workout. The handles can be used to monitor your heart rate to help you stay at an appropriate intensity."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Board Press",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Forearms, Muscle::Lats, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::Forearms, Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Begin by lying on the bench, getting your head beyond the bar if possible. One to five boards, made out of 2x6's, can be screwed together and held in place by a training partner, bands, or just tucked under your shirt.",
             "Tuck your feet underneath you and arch your back. Using the bar to help support your weight, lift your shoulder off the bench and retract them, squeezing the shoulder blades together. Use your feet to drive your traps into the bench. Maintain this tight body position throughout the movement.",
@@ -1887,7 +1507,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[],
         instructions: &[
@@ -1900,16 +1520,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Body-Up",
+        name: "Body Up",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Forearms
         ],
         instructions: &[
@@ -1927,11 +1547,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -1948,9 +1568,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -1968,9 +1588,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -1990,7 +1610,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -2006,29 +1626,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Bosu Ball Cable Crunch With Side Bends",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[],
-        instructions: &[
-            "Connect a standard handle to each arm of a cable machine, and position them in the most downward position.",
-            "Grab a Bosu Ball and position it in front and center of the cable machine.",
-            "Lie down on the Bosu Ball with the small of your back arched around the ball. Your rear end should be close to the floor without touching it.",
-            "With both hands, reach back and grab the handle of each cable.",
-            "With your feet positioned in a wide stance, extend your arms straight out in front of you and in between your knees. Your hands should be at knee level.",
-            "Keep your arms straight and in-line with the upward angle of the cable. Elevate your torso in a crunching motion without dropping or bending your arms.",
-            "Maintain the rigid position with your arms. Slowly descend back to the starting position with your back arched around the Bosu Ball and your abdominals elongated.",
-            "Repeat the same series of movements to failure.",
-            "Once you reach failure, keep your abs tight and raise your torso into plank position so your back is elevated off the Bosu Ball.",
-            "Lower your arms down to your side; keep them straight. Start doing alternating side bends; reach for your heels! This finishing movement will focus on your obliques."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Bottoms-Up Clean From The Hang Position",
+        name: "Bottoms Up Clean From the Hang Position",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
@@ -2038,7 +1636,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Initiate the exercise by standing upright with a kettlebell in one hand.",
@@ -2051,8 +1649,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Begin by lying on your back on the ground. Your legs should be straight and your arms at your side. This will be your starting position.",
@@ -2062,11 +1660,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Box Jump (Multiple Response)",
+        name: "Box Jump",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
@@ -2075,7 +1673,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Assume a relaxed stance facing the box or platform approximately an arm's length away. Arms should be down at the sides and legs slightly bent.",
@@ -2089,7 +1687,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
@@ -2098,7 +1696,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "You will need several boxes lined up about 8 feet apart.",
@@ -2116,14 +1714,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "The box squat allows you to squat to desired depth and develop explosive strength in the squat movement. Begin in a power rack with a box at the appropriate height behind you. Typically, you would aim for a box height that brings you to a parallel squat, but you can train higher or lower if desired.",
@@ -2134,13 +1732,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Box Squat with Bands",
+        name: "Band Box Squat",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -2148,7 +1746,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Begin in a power rack with a box at the appropriate height behind you. Set up the bands on the sleeves, secured to either band pegs, the rack, or dumbbells so that there is appropriate tension. If dumbbells are used, secure them so that they don't move. Also, ensure that the dumbbells you are using are heavy enough for the bands that you are using. Additional plates can be used to hold the dumbbells down. If more tension is needed, you can either widen the base on the floor or choke the bands. Typically, you would aim for a box height that brings you to a parallel squat, but you can train higher or lower if desired.",
@@ -2159,52 +1757,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Box Squat with Chains",
-        force: Force::Push,
-        level: Level::Expert,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Barbell,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Abductors,
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "Begin in a power rack with a box at the appropriate height behind you. Typically, you would aim for a box height that brings you to a parallel squat, but you can train higher or lower if desired.",
-            "To set up the chains, begin by looping the leader chain over the sleeves of the bar. The heavy chain should be attached using a snap hook. Adjust the length of the lead chain so that a few links are still on the floor at the top of the movement.",
-            "Begin by stepping under the bar and placing it across the back of the shoulders. Squeeze your shoulder blades together and rotate your elbows forward, attempting to bend the bar across your shoulders. Remove the bar from the rack, creating a tight arch in your lower back, and step back into position. Place your feet wider for more emphasis on the back, glutes, adductors, and hamstrings, or closer together for more quad development. Keep your head facing forward.",
-            "With your back, shoulders, and core tight, push your knees and butt out and you begin your descent. Sit back with your hips until you are seated on the box. Ideally, your shins should be perpendicular to the ground. Pause when you reach the box, and relax the hip flexors. Never bounce off of a box.",
-            "Keeping the weight on your heels and pushing your feet and knees out, drive upward off of the box as you lead the movement with your head. Continue upward, maintaining tightness head to toe."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Brachialis-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[Muscle::Biceps],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on your side, with your upper arm against the foam roller. The upper arm should be more or less aligned with your body, with the outside of the bicep pressed against the foam roller.",
-            "Raise your hips off of the floor, supporting your weight on your arm and on your feet. Hold for 10-30 seconds, and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Bradford/Rocky Presses",
+        name: "Bradford/Rocky Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "Sit on a Military Press Bench with a bar at shoulder level with a pronated grip (palms facing forward). Tip: Your grip should be wider than shoulder width and it should create a 90-degree angle between the forearm and the upper arm as the barbell goes down. This is your starting position.",
@@ -2222,7 +1780,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Chest],
+        primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[],
         instructions: &[
             "Sit on the machine with your back flat on the pad.",
@@ -2238,7 +1796,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
         ],
@@ -2253,35 +1811,35 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Butt-Ups",
+        name: "Butt Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
             "Begin a pushup position but with your elbows on the ground and resting on your forearms. Your arms should be bent at a 90 degree angle.",
             "Arch your back slightly out rather than keeping your back completely straight.",
-            "Raise your glutes toward the ceiling, squeezing your abs tightly to close the distance between your ribcage and hips. The end result will be that youâ€™ll end up in a high bridge position. Exhale as you perform this portion of the movement.",
+            "Raise your glutes toward the ceiling, squeezing your abs tightly to close the distance between your ribcage and hips. The end result will be that you'll end up in a high bridge position. Exhale as you perform this portion of the movement.",
             "Lower back down slowly to your starting position as you breathe in. Tip: Don't let your back sag downwards.",
             "Repeat for the recommended amount of repetitions."
         ],
         category: Category::Strength
     },
     Exercise {
-        name: "Cable Chest Press",
+        name: "Cable Pecs Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -2299,10 +1857,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "To get yourself into the starting position, place the pulleys on a high position (above your head), select the resistance to be used and hold the pulleys in each hand.",
@@ -2320,7 +1878,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -2340,13 +1898,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Move the cables to the bottom of the towers and select an appropriate weight. Stand directly in between the uprights.",
@@ -2357,7 +1915,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Cable Hammer Curls - Rope Attachment",
+        name: "Rope Hammer Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -2383,7 +1941,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -2440,11 +1998,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
-            "Sit next to a low pulley sideways (with legs stretched in front of you or crossed) and grasp the single hand cable attachment with the arm nearest to the cable. Tip: If you can adjust the pulleyâ€™s height, you can use a flat bench to sit on instead.",
+            "Sit next to a low pulley sideways (with legs stretched in front of you or crossed) and grasp the single hand cable attachment with the arm nearest to the cable. Tip: If you can adjust the pulley's height, you can use a flat bench to sit on instead.",
             "Position the elbow against your side with the elbow bent at 90Â° and the arm pointing towards the pulley. This will be your starting position.",
             "Pull the single hand cable attachment toward your body by internally rotating your shoulder until your forearm is across your abs. You will be creating an imaginary semi-circle. Tip: The forearm should be perpendicular to your torso at all times.",
             "Slowly go back to the initial position.",
@@ -2458,11 +2016,11 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Chest],
+        primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[],
         instructions: &[
             "Begin by moving the pulleys to the high position, select the resistance to be used, and take a handle in each hand.",
-            "Stand directly between both pulleys with your arms extended out to your sides. Your head and chest should be up while your arms form a â€œTâ€. This will be your starting position.",
+            "Stand directly between both pulleys with your arms extended out to your sides. Your head and chest should be up while your arms form a \"T\". This will be your starting position.",
             "Keeping the elbows extended, pull your arms straight to your sides.",
             "Return your arms back to the starting position after a pause at the peak contraction.",
             "Continue the movement for the prescribed number of repetitions."
@@ -2475,11 +2033,11 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Abdominals],
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Connect a rope attachment to a tower, and move the cable to the lowest pulley position. Stand with your side to the cable with a wide stance, and grab the rope with both hands.",
-            "Twist your body away from the pulley as you bring the rope over your shoulder like youâ€™re performing a judo flip.",
+            "Twist your body away from the pulley as you bring the rope over your shoulder like you're performing a judo flip.",
             "Shift your weight between your feet as you twist and crunch forward, pulling the cable downward.",
             "Return to the starting position and repeat until failure.",
             "Then, reposition and repeat the same series of movements on the opposite side."
@@ -2555,7 +2113,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -2573,7 +2131,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -2606,17 +2164,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Cable Rope Rear-Delt Rows",
+        name: "Cable Rope Rear-Delt Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Sit in the same position on a low pulley row station as you would if you were doing seated cable rows for the back.",
@@ -2635,12 +2193,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
             "Connect a standard handle attachment, and position the cable to a middle pulley position.",
-            "Lie on a stability ball perpendicular to the cable and grab the handle with one hand. You should be approximately armâ€™s length away from the pulley, with the tension of the weight on the cable.",
+            "Lie on a stability ball perpendicular to the cable and grab the handle with one hand. You should be approximately arm's length away from the pulley, with the tension of the weight on the cable.",
             "Grab the handle with both hands and fully extend your arms above your chest. You hands should be directly in-line with the pulley. If not, adjust the pulley up or down until they are.",
             "Keep your hips elevated and abs engaged. Rotate your torso away from the pulley for a full-quarter rotation. Your body should be flat from head to knees.",
             "Pause for a moment and in a slow and controlled manner reset to the starting position. You should still have side tension on the cable in the resting position.",
@@ -2656,7 +2214,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -2675,10 +2233,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::MiddleBack,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -2699,7 +2257,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -2784,7 +2342,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Calf Press On The Leg Press Machine",
+        name: "Calf Press on the Leg Press Machine",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -2801,7 +2359,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Calf Raise On A Dumbbell",
+        name: "Calf Raise on a Dumbbell",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
@@ -2820,11 +2378,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Calf Raises - With Bands",
+        name: "Band Calf Raise",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Calves
         ],
@@ -2839,84 +2397,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Calf Stretch Elbows Against Wall",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Calves],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand facing a wall from a couple feet away.",
-            "Lean against the wall, placing your weight on your forearms.",
-            "Attempt to keep your heels on the ground. Hold for 10-20 seconds. You may move further or closer the wall, making it more or less difficult, respectively."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Calf Stretch Hands Against Wall",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand facing a wall from several feet away. Stagger your stance, placing one foot forward.",
-            "Lean forward and rest your hands on the wall, keeping your heel, hip and head in a straight line.",
-            "Attempt to keep your heel on the ground. Hold for 10-20 seconds and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Calves-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Begin seated on the floor. Place a foam roller underneath your lower leg. Your other leg can either be crossed over the opposite or be placed on the floor, supporting some of your weight. This will be your starting position.",
-            "Place your hands to your side or just behind you, and press down to raise your hips off of the floor, placing much of your weight against your calf muscle. Roll from below the knee to above the ankle, pausing at points of tension for 10-30 seconds. Repeat for the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Car Deadlift",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "This event apparatus typically has neutral grip handles, however some have a straight bar that you can approach like a normal deadlift. The apparatus can be loaded with a vehicle or other heavy objects such as tractor tires or kegs.",
-            "Center yourself between the handles if you are a strong squatter, or back a couple inches if you are a strong deadlifter. You feet should be about hip width apart. Bend at the hip to grip the handles. With your feet and your grip set, take a big breath and then lower your hips and flex the knees.",
-            "Look forward with your head, keep your chest up and your back arched, and begin driving through the heels to move the weight upward. As the weight comes up, pull your shoulder blades together as you drive your hips forward.",
-            "Lower the weight by bending at the hips and guiding it to the floor."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
         name: "Car Drivers",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Forearms],
         instructions: &[
             "While standing upright, hold a barbell plate in both hands at the 3 and 9 o'clock positions. Your palms should be facing each other and your arms should be extended straight out in front of you. This will be your starting position.",
@@ -2936,12 +2422,12 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Abductors,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Begin with your feet a few inches apart and your left arm up in a relaxed, athletic position.",
@@ -2960,9 +2446,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Lats
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Abs,
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Begin standing while facing a wall or a partner.",
@@ -2972,109 +2458,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Cat Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::LowerBack
-        ],
-        secondary_muscles: &[
-            Muscle::MiddleBack,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Position yourself on the floor on your hands and knees.",
-            "Pull your belly in and round your spine, lower back, shoulders, and neck, letting your head drop.",
-            "Hold for 15 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Chain Handle Extension",
-        force: Force::Push,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Triceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "You will need two cable handle attachments and a flat bench, as well as chains, for this exercise. Clip the middle of the chains to the handles, and position yourself on the flat bench. Your elbows should be pointing straight up.",
-            "Begin by extending through the elbow, keeping your upper arm still, with your wrists pronated.",
-            "Pause at the lockout, and reverse the motion to return to the starting position."
-        ],
-        category: Category::Powerlifting
-    },
-    Exercise {
-        name: "Chain Press",
-        force: Force::Push,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Chest
-        ],
-        secondary_muscles: &[
-            Muscle::Shoulders,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "Begin by connecting the chains to the cable handle attachments. Position yourself on the flat bench in the same position as for a dumbbell press. Your wrists should be pronated and arms perpendicular to the floor. This will be your starting position.",
-            "Lower the chains by flexing the elbows, unloading some of the chain onto the floor.",
-            "Continue until your elbow forms a 90 degree angle, and then reverse the motion by extending through the elbow to lockout."
-        ],
-        category: Category::Powerlifting
-    },
-    Exercise {
-        name: "Chair Leg Extended Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Adductors
-        ],
-        instructions: &[
-            "Sit upright in a chair and grip the seat on the sides.",
-            "Raise one leg, extending the knee, flexing the ankle as you do so.",
-            "Slowly move that leg outward as far as you can, and then back to the center and down.",
-            "Repeat for your other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Chair Lower Back Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Lats
-        ],
-        secondary_muscles: &[
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "Sit upright on a chair.",
-            "Bend to one side with your arm over your head. You can hold onto the chair with your free hand.",
-            "Hold for 10 seconds, and repeat for your other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Chair Squat",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -3092,55 +2482,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Chair Upper Body Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Biceps,
-            Muscle::Chest
-        ],
-        instructions: &[
-            "Sit on the edge of a chair, gripping the back of it.",
-            "Straighten your arms, keeping your back straight, and pull your upper body forward so you feel a stretch. Hold for 20-30 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Chest And Front Of Shoulder Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Chest
-        ],
-        secondary_muscles: &[
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "Start off by standing with your legs together, holding a bodybar or a broomstick.",
-            "Take a slightly wider than shoulder width grip on the pole and hold it in front of you with your palms facing down.",
-            "Carefully lift the pole up and behind your head."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Chest Push from 3 point stance",
+        name: "Pecs Push from 3 point stance",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -3151,13 +2503,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Chest Push (multiple response)",
+        name: "Pecs Push (Multiple Response)",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Abdominals, Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::Abs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Begin in a kneeling position facing a wall or utilize a partner. Hold the ball with both hands tight into the chest.",
             "Execute the pass by exploding forward and outward with the hips while pushing the ball as hard as possible.",
@@ -3167,17 +2519,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Chest Push (single response)",
+        name: "Pecs Push (Single Response)",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -3188,17 +2540,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Chest Push with Run Release",
+        name: "Pecs Push with Run Release",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -3209,63 +2561,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Chest Stretch on Stability Ball",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::ExerciseBall,
-        primary_muscles: &[
-            Muscle::Chest
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Get on your hands and knees next to an exercise ball.",
-            "Place your elbows on top of the ball, keeping your arm out to your side. This will be your starting position.",
-            "Lower your torso towards the floor, keeping your elbow on top of the ball. Hold the stretch for 20-30 seconds, and repeat with the other arm."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Child's Pose",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[Muscle::Glutes, Muscle::MiddleBack],
-        instructions: &[
-            "Get on your hands and knees, walk your hands in front of you.",
-            "Lower your buttocks down to sit on your heels. Let your arms drag along the floor as you sit back to stretch your entire spine.",
-            "Once you settle onto your heels, bring your hands next to your feet and relax. \"breathe\" into your back. Rest your forehead on the floor. Avoid this position if you have knee problems."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Chin To Chest Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Neck
-        ],
-        secondary_muscles: &[
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Get into a seated position on the floor.",
-            "Place both hands at the rear of your head, fingers interlocked, thumbs pointing down and elbows pointing straight ahead. Slowly pull your head down to your chest. Hold for 20-30 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Chin-Up",
+        name: "Chin Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[Muscle::Biceps, Muscle::Forearms, Muscle::MiddleBack],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Forearms, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         instructions: &[
             "Grab the pull-up bar with the palms facing your torso and a grip closer than the shoulder width.",
             "As you have both arms extended in front of you holding the bar at the chosen grip width, keep your torso as straight as possible while creating a curvature on your lower back and sticking your chest out. This is your starting position. Tip: Keeping the torso as straight as possible maximizes biceps stimulation while minimizing back involvement.",
@@ -3276,41 +2578,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Circus Bell",
-        force: Force::Push,
-        level: Level::Expert,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Traps,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "The circus bell is an oversized dumbbell with a thick handle. Begin with the dumbbell between your feet, and grip the handle with both hands.",
-            "Clean the dumbbell by extending through your hips and knees to deliver the implement to the desired shoulder, letting go with the extra hand.",
-            "Ensure that you get one of the dumbbell heads behind the shoulder to keep from being thrown off balance. To raise it overhead, dip by flexing the knees, and the drive upwards as you extend the dumbbell overhead, leaning slightly away from it as you do so.",
-            "Carefully guide the bell back to the floor, keeping it under control as much as possible. It is best to perform this event on a thick rubber mat to prevent damage to the floor."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
         name: "Clean and Jerk",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -3333,17 +2612,17 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -3368,9 +2647,9 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -3393,9 +2672,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -3415,13 +2694,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -3439,13 +2718,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
+            Muscle::ErectorSpinae,
             Muscle::Traps
         ],
         instructions: &[
@@ -3466,7 +2745,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Forearms,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Begin with a shoulder width, double overhand or hook grip, with the bar hanging at the mid thigh position. Your back should be straight and inclined slightly forward.",
@@ -3475,23 +2754,23 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "Clock Push-Up",
+        name: "Clock Push Up",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
             "Move into a prone position on the floor, supporting your weight on your hands and toes.",
             "Your arms should be fully extended with the hands around shoulder width. Keep your body straight throughout the movement. This will be your starting position.",
             "Descend by flexing at the elbow, lowering your chest toward the ground.",
-            "At the bottom, reverse the motion by pushing yourself up through elbow extension as quickly as possible until you are air borne. Aim to â€œjumpâ€ 12-18 inches to one side.",
+            "At the bottom, reverse the motion by pushing yourself up through elbow extension as quickly as possible until you are air borne. Aim to \"jump\" 12-18 inches to one side.",
             "As you accelerate up, move your outside foot away from your direction of travel. Leaving the ground, shift your body about 30 degrees for the next repetition.",
             "Return to the starting position and repeat the exercise, working all the way around until you are back where you started."
         ],
@@ -3507,8 +2786,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lie back on a flat bench. Using a close grip (around shoulder width), lift the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.",
@@ -3529,13 +2808,13 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Place a dumbbell standing up on a flat bench.",
             "Ensuring that the dumbbell stays securely placed at the top of the bench, lie perpendicular to the bench with only your shoulders lying on the surface. Hips should be below the bench and your legs bent with your feet firmly on the floor.",
-            "Grasp the dumbbell with both hands and hold it straight over your chest at armâ€™s length. Both palms should be pressing against the underside of the sides of the dumbbell. This will be your starting position.",
+            "Grasp the dumbbell with both hands and hold it straight over your chest at arm's length. Both palms should be pressing against the underside of the sides of the dumbbell. This will be your starting position.",
             "Initiate the movement by lowering the dumbbell to your chest.",
             "Return to the starting position by extending the elbows."
         ],
@@ -3563,7 +2842,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Close-Grip EZ-Bar Curl with Band",
+        name: "Band Close-Grip EZ-Bar Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -3589,8 +2868,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lie on a flat bench with an EZ bar loaded to an appropriate weight.",
@@ -3612,8 +2891,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Sit down on a pull-down machine with a wide bar attached to the top pulley. Make sure that you adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.",
@@ -3626,18 +2905,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Close-Grip Push-Up off of a Dumbbell",
+        name: "Close-Grip Push Up off of a Dumbbell",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Abs,
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lie on the floor and place your hands on an upright dumbbell. Supporting your weight on your toes and hands, keep your torso rigid and your elbows in with your arms straight. This will be your starting position.",
@@ -3673,9 +2952,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -3686,29 +2965,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Conan's Wheel",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Biceps,
-            Muscle::Calves,
-            Muscle::Forearms,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "With the weight loaded, take a zurcher hold on the end of the implement. Place the bar in the crook of the elbow and hold onto your wrist. Try to keep the weight off of the forearms.",
-            "Begin by lifting the weight from the ground. Keep a tight, upright posture as you being to walk, taking short, fast steps. Look up and away as you turn in a circle. Do not hold your breath during the event. Continue walking until you complete one or more complete turns."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Concentration Curls",
+        name: "Concentration Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -3733,9 +2990,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -3774,34 +3031,34 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Undefined,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Abductors,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Stand with your feet shoulder width apart. This will be your starting position.",
             "Perform a rear lunge by stepping back with one foot and flexing the hips and front knee. As you do so, rotate your torso across the front leg.",
             "After a brief pause, return to the starting position and repeat on the other side, continuing in an alternating fashion."
         ],
-        category: Category::Stretching
+        category: Category::Strength
     },
     Exercise {
-        name: "Cross Over - With Bands",
+        name: "Band Crossover",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Secure an exercise band around a stationary post.",
@@ -3814,30 +3071,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Crucifix",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Forearms
-        ],
-        instructions: &[
-            "In the crucifix, you statically hold weights out to the side for time. While the event can be practiced using dumbbells, it is best to practice with one of the various implements used, such as axes and hammers, as it feels different.",
-            "Begin standing, and raise your arms out to the side holding the implements. Your arms should be parallel to the ground. In competition, judges or sensors are used to let you know when you break parallel. Hold for as long as you can. Typically, the weights should be heavy enough that you fail in 30-60 seconds."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Crunches",
+        name: "Crunch",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie flat on your back with your feet flat on the ground, or resting on a bench with your knees bent at a 90 degree angle. If you are resting your feet on a bench, place them three to four inches apart and point your toes inward so they touch.",
@@ -3850,12 +3089,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Crunch - Hands Overhead",
+        name: "Crunch with Hands Overhead",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie on the floor with your back flat and knees bent with around a 60-degree angle between the hamstrings and the calves.",
@@ -3867,12 +3106,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Crunch - Legs On Exercise Ball",
+        name: "Crunch with Legs on Exercise Ball",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie flat on your back with your feet resting on an exercise ball and your knees bent at a 90 degree angle.",
@@ -3892,7 +3131,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Traps
@@ -3907,29 +3146,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dancer's Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[Muscle::Abductors, Muscle::Glutes],
-        instructions: &[
-            "Sit up on the floor.",
-            "Cross your right leg over your left, keeping the knee bent. Your left leg is straight and down on the floor.",
-            "Place your left arm on your right leg and your right hand on the floor.",
-            "Rotate your upper body to the right, and hold for 10-20 seconds. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Dead Bug",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -3944,48 +3167,23 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Deadlift with Bands",
+        name: "Band Deadlift",
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::LowerBack],
+        primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
             "To deadlift with short bands, simply loop them over the bar before you start, and step into them to set up. For long bands, they will need to be anchored to a secure base, such as heavy dumbbells or a rack.",
             "With your feet, and your grip set, take a big breath and then lower your hips and bend the knees until your shins contact the bar. Look forward with your head, keep your chest up and your back arched, and begin driving through the heels to move the weight upward. After the bar passes the knees, aggressively pull the bar back, pulling your shoulder blades together as you drive your hips forward into the bar.",
-            "Lower the bar by bending at the hips and guiding it to the floor."
-        ],
-        category: Category::Powerlifting
-    },
-    Exercise {
-        name: "Deadlift with Chains",
-        force: Force::Pull,
-        level: Level::Expert,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Barbell,
-        primary_muscles: &[
-            Muscle::LowerBack
-        ],
-        secondary_muscles: &[
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "You can attach the chains to the sleeves of the bar, or just drape the middle over the bar so there is a greater weight increase as you lift.",
-            "Approach the bar so that it is centered over your feet. You feet should be about hip width apart. Bend at the hip to grip the bar at shoulder width, allowing your shoulder blades to protract. Typically, you would use an overhand grip or an over/under grip on heavier sets. With your feet, and your grip set, take a big breath and then lower your hips and bend the knees until your shins contact the bar.",
-            "Look forward with your head, keep your chest up and your back arched, and begin driving through the heels to move the weight upward. After the bar passes the knees, aggressively pull the bar back, pulling your shoulder blades together as you drive your hips forward into the bar.",
             "Lower the bar by bending at the hips and guiding it to the floor."
         ],
         category: Category::Powerlifting
@@ -3997,10 +3195,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4023,8 +3221,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Secure your legs at the end of the decline bench and slowly lay down on the bench.",
@@ -4042,8 +3240,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Secure your legs at the end of the decline bench and lie down.",
@@ -4061,8 +3259,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Secure your legs at the end of the decline bench and lie down with a dumbbell on each hand on top of your thighs. The palms of your hand will be facing each other.",
             "Once you are laying down, move the dumbbells in front of you at shoulder width.",
@@ -4074,13 +3272,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Decline Dumbbell Flyes",
+        name: "Decline Dumbbell Flye",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -4135,8 +3333,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Secure your legs at the end of the decline bench and slowly lay down on the bench.",
@@ -4149,16 +3347,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Decline Push-Up",
+        name: "Decline Push Up",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4174,8 +3372,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie on your back on a decline bench and hold on to the top of the bench with both hands. Don't let your body slip down from this position.",
@@ -4193,10 +3391,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4214,13 +3412,13 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::LowerBack],
+        primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -4235,9 +3433,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -4264,8 +3462,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Sit securely in a dip machine, select the weight and firmly grasp the handles.",
@@ -4277,16 +3475,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dips - Chest Version",
+        name: "Dip (Pecs-Focused)",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::ParallelBars,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4298,17 +3496,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dips - Triceps Version",
+        name: "Dip (Triceps-Focused)",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::ParallelBars,
         primary_muscles: &[
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "To get into the starting position, hold your body at arm's length with your arms nearly locked above the bars.",
@@ -4319,11 +3517,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Donkey Calf Raises",
+        name: "Donkey Calf Raise",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
         instructions: &[
@@ -4349,8 +3547,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -4367,11 +3565,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Calves,
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4392,11 +3590,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Calves,
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4413,12 +3611,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Place two kettlebells behind your feet. Bend your knees and sit back to pick up the kettlebells.",
@@ -4434,12 +3632,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Undefined,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4455,9 +3653,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -4473,20 +3671,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Finish the motion by landing with the knees only partially bent, using your legs to absorb the impact."
         ],
         category: Category::Plyometrics
-    },
-    Exercise {
-        name: "Downward Facing Balance",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::ExerciseBall,
-        primary_muscles: &[Muscle::Glutes],
-        secondary_muscles: &[Muscle::Abdominals, Muscle::Hamstrings],
-        instructions: &[
-            "Lie facedown on top of an exercise ball.",
-            "While resting on your stomach on the ball, walk your hands forward along the floor and lift your legs, extending your elbows and knees."
-        ],
-        category: Category::Strength
     },
     Exercise {
         name: "Drag Curl",
@@ -4513,9 +3697,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::Box,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Position low boxes or other platforms 2-3 feet apart.",
             "Move to a pushup position between them, supporting yourself by placing your hands on the boxes.",
@@ -4546,8 +3730,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Lie down on a flat bench with a dumbbell in each hand resting on top of your thighs. The palms of your hands will be facing each other.",
             "Then, using your thighs to help raise the dumbbells up, lift the dumbbells one at a time so that you can hold them in front of you at shoulder width.",
@@ -4564,10 +3748,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -4609,9 +3793,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -4633,8 +3817,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lay on the floor holding dumbbells in your hands. Your knees can be bent. Begin with the weights fully extended above you.",
@@ -4644,13 +3828,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Dumbbell Flyes",
+        name: "Dumbbell Flye",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -4669,13 +3853,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Forearms,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Using a neutral grip, lean into an incline bench.",
@@ -4692,7 +3876,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -4707,13 +3891,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dumbbell Lunges",
+        name: "Dumbbell Lunge",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -4735,10 +3919,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "While holding a dumbbell in one hand, lay with your chest down on a slightly inclined (around 15 degrees when measured from the floor) adjustable bench. The other hand can be used to hold to the leg of the bench for stability.",
@@ -4775,7 +3959,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
         instructions: &[
             "While holding a dumbbell in each hand, lay with your chest down on a slightly inclined (around 15 degrees when measured from the floor) adjustable bench.",
@@ -4812,7 +3996,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "Grab a dumbbell and either sit on a military press bench or a utility bench that has a back support on it as you place the dumbbells upright on top of your thighs or stand up straight.",
@@ -4851,7 +4035,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -4893,7 +4077,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps
@@ -4913,7 +4097,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -4922,7 +4106,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         instructions: &[
             "Stand with your torso upright holding two dumbbells in your hands by your sides. This will be your starting position.",
-            "Step backward with your right leg around two feet or so from the left foot and lower your upper body down, while keeping the torso upright and maintaining balance. Inhale as you go down. Tip: As in the other exercises, do not allow your knee to go forward beyond your toes as you come down, as this will put undue stress on the knee joint. Make sure that you keep your front shin perpendicular to the ground. Keep the torso upright during the lunge; flexible hip flexors are important. A long lunge emphasizes the Gluteus Maximus; a short lunge emphasizes Quadriceps.",
+            "Step backward with your right leg around two feet or so from the left foot and lower your upper body down, while keeping the torso upright and maintaining balance. Inhale as you go down. Tip: As in the other exercises, do not allow your knee to go forward beyond your toes as you come down, as this will put undue stress on the knee joint. Make sure that you keep your front shin perpendicular to the ground. Keep the torso upright during the lunge; flexible hip flexors are important. A long lunge emphasizes the Gluteus Maximus; a short lunge emphasizes Quads.",
             "Push up and go back to the starting position as you exhale. Tip: Use the ball of your feet to push in order to accentuate the quadriceps. To focus on the glutes, press with your heels.",
             "Now repeat with the opposite leg."
         ],
@@ -4935,7 +4119,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Traps
@@ -4953,7 +4137,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "Position a box a couple feet to the side of a bench. Hold a dumbbell to your chest with both hands and seat yourself on the bench facing the box. This will be your starting position.",
@@ -4990,7 +4174,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -5028,7 +4212,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5046,13 +4230,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Stand up straight while holding a dumbbell on each hand (palms facing the side of your legs).",
@@ -5064,19 +4248,19 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dumbbell Squat To A Bench",
+        name: "Dumbbell Squat To a Bench",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Stand up straight with a flat bench behind you while holding a dumbbell on each hand (palms facing the side of your legs).",
@@ -5088,13 +4272,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dumbbell Step Ups",
+        name: "Dumbbell Step Up",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -5110,7 +4294,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dumbbell Tricep Extension -Pronated Grip",
+        name: "Dumbbell Tricep Extension",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -5128,78 +4312,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Dynamic Back Stretch",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand with your feet shoulder width apart. This will be your starting position.",
-            "Keeping your arms straight, swing them straight up in front of you 5-10 times, increasing the range of motion each time until your arms are above your head."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Dynamic Chest Stretch",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Chest
-        ],
-        secondary_muscles: &[
-            Muscle::MiddleBack
-        ],
-        instructions: &[
-            "Stand with your hands together, arms extended directly in front of you. This will be your starting position.",
-            "Keeping your arms straight, quickly move your arms back as far as possible and back in again, similar to an exaggerated clapping motion. Repeat 5-10 times, increasing speed as you do so."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Elbow Circles",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Sit or stand with your feet slightly apart.",
-            "Place your hands on your shoulders with your elbows at shoulder level and pointing out.",
-            "Slowly make a circle with your elbows. Breathe out as you start the circle and breathe in as you complete the circle."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Elbows Back",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders],
-        instructions: &[
-            "Stand up straight.",
-            "Place both hands on your lower back, fingers pointing downward and elbows out.",
-            "Then gently pull your elbows back aiming to touch them together."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Elbow to Knee",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie on the floor, crossing your right leg across your bent left knee. Clasp your hands behind your head, beginning with your shoulder blades on the ground. This will be your starting position.",
@@ -5215,7 +4333,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -5230,13 +4348,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Elevated Cable Rows",
+        name: "Elevated Cable Row",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[Muscle::MiddleBack, Muscle::Traps],
+        secondary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::Traps],
         instructions: &[
             "Get a platform of some sort (it can be an aerobics or calf raise platform) that is around 4-6 inches in height.",
             "Place it on the seat of the cable row machine.",
@@ -5249,33 +4367,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Elliptical Trainer",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, step onto the elliptical and select the desired option from the menu. Most ellipticals have a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. Elevation can be adjusted to change the intensity of the workout.",
-            "The handles can be used to monitor your heart rate to help you stay at an appropriate intensity."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Exercise Ball Crunch",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5294,7 +4392,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5312,8 +4410,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Lie on the floor and position a kettlebell for one arm to press. The kettlebell should be held by the handle. The leg on the same side that you are pressing should be bent, with the knee crossing over the midline of the body.",
             "Press the kettlebell by extending the elbow and adducting the arm, pressing it above your body. Return to the starting position."
@@ -5327,7 +4425,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5341,13 +4439,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "External Rotation with Band",
+        name: "Band External Rotation",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5360,13 +4458,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "External Rotation with Cable",
+        name: "Cable External Rotation",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5421,10 +4519,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Facing a high pulley with a rope or dual handles attached, pull the weight directly towards your face, separating your hands as you do so. Keep your upper arms parallel to the ground."
@@ -5432,34 +4530,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Farmer's Walk",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Forearms],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "There are various implements that can be used for the farmers walk. These can also be performed with heavy dumbbells or short bars if these implements aren't available. Begin by standing between the implements.",
-            "After gripping the handles, lift them up by driving through your heels, keeping your back straight and your head up.",
-            "Walk taking short, quick steps, and don't forget to breathe. Move for a given distance, typically 50-100 feet, as fast as possible."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
         name: "Fast Skipping",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Quadriceps],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
             Muscle::Abductors,
             Muscle::Adductors,
@@ -5475,7 +4551,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Finger Curls",
+        name: "Finger Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -5493,13 +4569,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Flat Bench Cable Flyes",
+        name: "Flat Bench Cable Flye",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5518,9 +4594,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5537,9 +4613,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5551,7 +4627,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Flexor Incline Dumbbell Curls",
+        name: "Flexor Incline Dumbbell Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -5590,7 +4666,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Floor Press",
+        name: "Barbell Floor Press",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
@@ -5599,32 +4675,11 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Adjust the j-hooks so they are at the appropriate height to rack the bar. Begin lying on the floor with your head near the end of a power rack. Keeping your shoulder blades pulled together; pull the bar off of the hooks.",
-            "Lower the bar towards the bottom of your chest or upper stomach, squeezing the bar and attempting to pull it apart as you do so. Ensure that you tuck your elbows throughout the movement. Lower the bar until your upper arm contacts the ground and pause, preventing any slamming or bouncing of the weight.",
-            "Press the bar back up as fast as you can, keeping the bar, your wrists, and elbows in line as you do so."
-        ],
-        category: Category::Powerlifting
-    },
-    Exercise {
-        name: "Floor Press with Chains",
-        force: Force::Push,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Barbell,
-        primary_muscles: &[
-            Muscle::Triceps
-        ],
-        secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "Adjust the j-hooks so they are at the appropriate height to rack the bar. For this exercise, drape the chains directly over the end of the bar, trying to keep the ends away from the plates.",
-            "Begin lying on the floor with your head near the end of a power rack. Keeping your shoulder blades pulled together, pull the bar off of the hooks.",
             "Lower the bar towards the bottom of your chest or upper stomach, squeezing the bar and attempting to pull it apart as you do so. Ensure that you tuck your elbows throughout the movement. Lower the bar until your upper arm contacts the ground and pause, preventing any slamming or bouncing of the weight.",
             "Press the bar back up as fast as you can, keeping the bar, your wrists, and elbows in line as you do so."
         ],
@@ -5635,7 +4690,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
         ],
@@ -5652,55 +4707,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Foot-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "This exercise stretches the fascia of the muscles in the feet. Start off seated with your shoes removed. Using a foot roller or a similar object, such as a small section of pvc pipe, place your foot against the roller across the arch of your foot. This will be your starting position.",
-            "Press down firmly, rolling across the arch of your foot. Hold for 10-30 seconds, and then switch feet."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Forward Drag with Press",
-        force: Force::Push,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Chest
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "Attach a dual handled chain or rope attachment to the sled. You should be facing away from the sled, holding a handle in each hand.",
-            "Begin the movement by moving forward for one step. Leaning forward, extend through the legs and hips to move, pausing with each step to extend through the elbows, pressing your hands forward. Step forward until you return to the start position prepared to press."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
         name: "Frankenstein Squat",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings
@@ -5718,9 +4734,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -5738,13 +4754,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Frog Hops",
+        name: "Frog Jump",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -5755,16 +4771,16 @@ pub const EXERCISES: [Exercise; 873] = [
             "Stand with your hands behind your head, and squat down keeping your torso upright and your head up. This will be your starting position.",
             "Jump forward several feet, avoiding jumping unnecessarily high. As your feet contact the ground, absorb the impact through your legs, and jump again. Repeat this action 5-10 times."
         ],
-        category: Category::Stretching
+        category: Category::Plyometrics
     },
     Exercise {
-        name: "Frog Sit-Ups",
+        name: "Frog Sit Up",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5785,7 +4801,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -5803,13 +4819,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Front Barbell Squat To A Bench",
+        name: "Front Barbell Squat To a Bench",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -5831,7 +4847,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
@@ -5840,7 +4856,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Begin with a box of an appropriate height 1-2 feet in front of you. Stand with your feet should width apart. This will be your starting position.",
@@ -5857,7 +4873,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5870,13 +4886,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Front Cone Hops (or hurdle hops)",
+        name: "Front Cone Hops / Hurdle Hops",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Cone,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -5886,7 +4902,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Hamstrings
         ],
         instructions: &[
-            "Set up a row of cones or other small barriers, placing them a few feet apart.",
+            "Set up a row of cones, hurdles or other small barriers, placing them a few feet apart.",
             "Stand in front of the first cone with your feet shoulder width apart. This will be your starting position.",
             "Begin by jumping with both feet over the first cone, swinging both arms as you jump.",
             "Absorb the impact of landing by bending the knees, rebounding out of the first leap by jumping over the next cone.",
@@ -5901,7 +4917,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5919,7 +4935,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5932,27 +4948,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Front Leg Raises",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand next to a chair or other support, holding on with one hand.",
-            "Swing your leg forward, keeping the leg straight. Continue with a downward swing, bringing the leg as far back as your flexibility allows. Repeat 5-10 times, and then switch legs."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Front Plate Raise",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -5970,11 +4972,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
             Muscle::Lats,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -5993,10 +4995,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Glutes,
             Muscle::Hamstrings
         ],
@@ -6009,13 +5011,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Front Squats With Two Kettlebells",
+        name: "Front Squat with Two Kettlebells",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -6035,7 +5037,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -6057,8 +5059,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Either standing or seated on a high bench, grasp two stirrup cables that are attached to the high pulleys. Grab with the opposing hand so your arms are crisscrossed about you and your palms are facing forward.",
@@ -6071,9 +5073,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[Muscle::Biceps, Muscle::MiddleBack],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         instructions: &[
             "Grasp the pull-up bar with a shoulder width underhand grip.",
             "Now hang with your arms fully extended and stick your chest out and lean back. Tip: You will be leaning back throughout the entire movement. This will be your starting position.",
@@ -6104,7 +5106,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
         ],
@@ -6126,13 +5128,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Stand holding a light kettlebell by the horns close to your chest. This will be your starting position.",
@@ -6151,9 +5153,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Begin with a bar on a rack at shoulder height. Rack the bar across the rear of your shoulders as you would a power squat, not on top of your shoulders. Keep your back tight, shoulder blades pinched together, and your knees slightly bent. Step back from the rack.",
@@ -6172,9 +5174,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Begin with a bar on a rack at about the same height as your stomach. Bend over underneath the bar and rack the bar across the rear of your shoulders as you would a power squat, not on top of your shoulders. At the proper height, you should be near parallel to the floor when bent over. Keep your back tight, shoulder blades pinched together, and your knees slightly bent. Keep your back arched and your cervical spine in proper alignment.",
@@ -6187,8 +5189,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats],
         instructions: &[
             "Hang from a chin-up bar using an underhand grip (palms facing you) that is slightly wider than shoulder width.",
@@ -6200,28 +5202,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Groin and Back Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Adductors
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Sit on the floor with your knees bent and feet together.",
-            "Interlock your fingers behind your head. This will be your starting position.",
-            "Curl downwards, bringing your elbows to the inside of your thighs. After a brief pause, return to the starting position with your head up and your back straight. Repeat for 10-20 repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Groiners",
+        name: "Groiner",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Adductors
         ],
@@ -6231,7 +5216,7 @@ pub const EXERCISES: [Exercise; 873] = [
             "Using both legs, jump forward landing with your feet next to your hands. Keep your head up as you do so.",
             "Return to the starting position and immediately repeat the movement, continuing for 10-20 repetitions."
         ],
-        category: Category::Stretching
+        category: Category::Strength
     },
     Exercise {
         name: "Hack Squat",
@@ -6239,7 +5224,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "Place the back of your torso against the back pad of the machine and hook your shoulders under the shoulder pads provided.",
@@ -6253,7 +5238,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hammer Curls",
+        name: "Hammer Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -6277,8 +5262,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Lie back on an incline bench with a dumbbell on each hand on top of your thighs. The palms of your hand will be facing each other.",
             "By using your thighs to help you get the dumbbells up, clean the dumbbells one arm at a time so that you can hold them at shoulder width.",
@@ -6291,44 +5276,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hamstring-SMR",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[],
-        instructions: &[
-            "In a seated position, extend your legs over a foam roll so that it is position on the back of the upper legs. Place your hands to the side or behind you to help support your weight. This will be your starting position.",
-            "Using your hands, lift your hips off of the floor and shift your weight on the foam roll to one leg. Relax the hamstrings of the leg you are stretching.",
-            "Roll over the foam from below the hip to above the back of the knee, pausing at points of tension for 10-30 seconds. Repeat for the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Hamstring Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on your back with one leg extended above you, with the hip at ninety degrees. Keep the other leg flat on the floor.",
-            "Loop a belt, band, or rope over the ball of your foot. This will be your starting position.",
-            "Pull on the belt to create tension in the calves and hamstrings. Hold this stretch for 10-30 seconds, and repeat with the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Handstand Push-Ups",
+        name: "Handstand Push Up",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Shoulders],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "With your back to the wall bend at the waist and place both hands on the floor at shoulder width.",
@@ -6340,21 +5293,21 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hang Clean - Below the Knees",
+        name: "Hang Clean Below Knee",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -6372,15 +5325,15 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -6400,9 +5353,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Begin with a bar on a rack at about the same height as your stomach. Suspend the bar using chains or suspension straps.",
@@ -6417,9 +5370,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -6435,8 +5388,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Hang from a chin-up bar with your legs and feet together using an overhand grip (palms facing away from you) that is slightly wider than shoulder width. Tip: You may use wrist wraps in order to facilitate holding on to the bar.",
@@ -6448,7 +5401,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hang Snatch - Below Knees",
+        name: "Hang Snatch Below Knee",
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
@@ -6457,13 +5410,13 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -6484,13 +5437,13 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -6508,14 +5461,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -6526,28 +5479,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "Heavy Bag Thrust",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Chest
-        ],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "Utilize a heavy bag for this exercise. Assume an upright stance next to the bag, with your feet staggered, fairly wide apart. Place your hand on the bag at about chest height. This will be your starting position.",
-            "Begin by twisting at the waist, pushing the bag forward as hard as possible. Perform this move quickly, pushing the bag away from your body.",
-            "Receive the bag as it swings back by reversing these steps."
-        ],
-        category: Category::Plyometrics
-    },
-    Exercise {
-        name: "High Cable Curls",
+        name: "High Cable Curl",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
@@ -6565,30 +5497,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hip Circles (prone)",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Abductors
-        ],
-        secondary_muscles: &[
-            Muscle::Adductors
-        ],
-        instructions: &[
-            "Position yourself on your hands and knees on the ground. Maintaining good posture, raise one bent knee off of the ground. This will be your starting position.",
-            "Keeping the knee in a bent position, rotate the femur in an arc, attempting to make a big circle with your knee.",
-            "Perform this slowly for a number of repetitions, and repeat on the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Hip Extension with Bands",
+        name: "Band Hip Extension",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Glutes
         ],
@@ -6604,12 +5517,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hip Flexion with Band",
+        name: "Band Hip Flexion",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
-        primary_muscles: &[Muscle::Quadriceps],
+        equipment: Equipment::ResistanceBand,
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[],
         instructions: &[
             "Secure one end of the band to the lower portion of a post and attach the other to one ankle.",
@@ -6620,11 +5533,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hip Lift with Band",
+        name: "Band Hip Lift",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Glutes
         ],
@@ -6641,76 +5554,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Hug A Ball",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::ExerciseBall,
-        primary_muscles: &[
-            Muscle::LowerBack
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes
-        ],
-        instructions: &[
-            "Seat yourself on the floor.",
-            "Straddle an exercise ball between both legs and lower your hips down toward the floor.",
-            "Hug your arms around the ball to support your body. Adjust your legs so that your feet are flat on the floor and your knees line up over your ankles. Keep a good grip on the ball so it doesn't roll away from you and send you back onto your buttocks."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Hug Knees To Chest",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::LowerBack
-        ],
-        secondary_muscles: &[
-            Muscle::Glutes
-        ],
-        instructions: &[
-            "Lie down on your back and pull both knees up to your chest.",
-            "Hold your arms under the knees, not over (that would put to much pressure on your knee joints).",
-            "Slowly pull the knees toward your shoulders. This also stretches your buttocks muscles."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Hurdle Hops",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Abductors,
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Set up a row of hurdles or other small barriers, placing them a few feet apart.",
-            "Stand in front of the first hurdle with your feet shoulder width apart. This will be your starting position.",
-            "Begin by jumping with both feet over the first hurdle, swinging both arms as you jump.",
-            "Absorb the impact of landing by bending the knees, rebounding out of the first leap by jumping over the next hurdle. Continue until you have jumped over all of the hurdles."
-        ],
-        category: Category::Plyometrics
-    },
-    Exercise {
         name: "Hyperextensions (Back Extensions)",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -6727,12 +5577,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Hyperextensions With No Hyperextension Bench",
+        name: "Hyperextensions with no Hyperextension Bench",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::LowerBack],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "With someone holding down your legs, slide yourself down to the edge a flat bench until your hips hang off the end of the bench. Tip: Your entire upper body should be hanging down towards the floor. Also, you will be in the same position as if you were on a hyperextension bench but the range of motion will be shorter due to the height of the flat bench vs. that of the hyperextension bench.",
@@ -6744,28 +5594,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Iliotibial Tract-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[
-            Muscle::Abductors
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lay on your side, with the bottom leg placed onto a foam roller between the hip and the knee. The other leg can be crossed in front of you.",
-            "Place as much of your weight as is tolerable onto your bottom leg; there is no need to keep your bottom leg in contact with the ground. Be sure to relax the muscles of the leg you are stretching.",
-            "Roll your leg over the foam from you hip to your knee, pausing for 10-30 seconds at points of tension. Repeat with the opposite leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Inchworm",
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
@@ -6777,7 +5610,7 @@ pub const EXERCISES: [Exercise; 873] = [
             "Now, keep your hands in place and slowly take short steps with your feet, moving only a few inches at a time.",
             "Continue walking until your feet are by hour hands, keeping your legs straight as you do so."
         ],
-        category: Category::Stretching
+        category: Category::Strength
     },
     Exercise {
         name: "Incline Barbell Triceps Extension",
@@ -6808,11 +5641,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Grab a dumbbell in each hand and lie face down on an incline bench that is set to an incline that is approximately 30 degrees.",
@@ -6826,16 +5659,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Cable Chest Press",
+        name: "Incline Cable Pecs Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -6852,10 +5685,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "To get yourself into the starting position, set the pulleys at the floor level (lowest level possible on the machine that is below your torso).",
@@ -6868,16 +5701,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Dumbbell Bench With Palms Facing In",
+        name: "Incline Dumbbell Bench with Palms Facing In",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -6910,13 +5743,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Dumbbell Flyes",
+        name: "Incline Dumbbell Flye",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Hold a dumbbell on each hand and lie on an incline bench that is set to an incline angle of no more than 30 degrees.",
             "Extend your arms above you with a slight bend at the elbows.",
@@ -6928,16 +5761,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Dumbbell Flyes - With A Twist",
+        name: "Incline Dumbbell Flyes with a Twist",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Hold a dumbbell in each hand and lie on an incline bench that is set to an incline angle of no more than 30 degrees.",
@@ -6956,10 +5789,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -6974,7 +5807,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Hammer Curls",
+        name: "Incline Hammer Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -7008,17 +5841,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Push-Up Close-Grip",
+        name: "Incline Push Up Close-Grip",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Stand facing a Smith machine bar or sturdy elevated platform at an appropriate height.",
@@ -7030,16 +5863,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Push-Up Depth Jump",
+        name: "Incline Push Up Depth Jump",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7051,16 +5884,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Incline Push-Up",
+        name: "Incline Push Up",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7071,17 +5904,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Push-Up Medium",
+        name: "Incline Push Up Medium",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7094,13 +5927,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Push-Up Reverse Grip",
+        name: "Incline Push Up Reverse Grip",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Abdominals, Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::Abs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Stand facing a Smith machine bar or sturdy elevated platform at an appropriate height.",
             "Place your hands on the bar palms up, with your hands about shoulder width apart.",
@@ -7111,13 +5944,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Incline Push-Up Wide",
+        name: "Incline Push Up Wide",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Abdominals, Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::Abs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Stand facing a Smith machine bar or sturdy elevated platform at an appropriate height.",
             "Place your hands on the bar, with your hands wider than shoulder width.",
@@ -7128,45 +5961,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Intermediate Groin Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on your back with your legs extended. Loop a belt, rope, or band around one of your feet, and swing that leg as far to the side as you can. This will be your starting position.",
-            "Pull gently on the belt to create tension in your groin and hamstring muscles. Hold for 10-20 seconds, and repeat on the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Intermediate Hip Flexor and Quad Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie face down on the floor, with a rope, belt, or band looped around one foot.",
-            "Flex the knee and extend the hip of the leg to be stretched, using both hands to pull on the belt. Your knee and your hip should come off of the floor, creating tension in the hip flexors and quadriceps. Hold the stretch for 10-20 seconds, and repeat on the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Internal Rotation with Band",
+        name: "Band Internal Rotation",
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -7184,7 +5985,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::None,
-        primary_muscles: &[Muscle::MiddleBack],
+        primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Lats],
         instructions: &[
             "Position a bar in a rack to about waist height. You can also use a smith machine.",
@@ -7196,12 +5997,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Inverted Row with Straps",
+        name: "Suspended Inverted Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::MiddleBack],
+        equipment: Equipment::SuspensionTrainer,
+        primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats],
         instructions: &[
             "Hang a rope or suspension straps from a rack or other stable object. Grasp the ends and position yourself in a supine position hanging from the ropes. Your body should be straight with your heels on the ground with your arms fully extended. This will be your starting position.",
@@ -7212,50 +6013,33 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Iron Crosses (stretch)",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie face down on the floor, with your arms extended out to your side, palms pressed to the floor. This will be your starting position.",
-            "To begin, flex one knee and bring that leg across the back of your body, attempting to touch it to the ground near the opposite hand.",
-            "Promptly return the leg to the starting postion, and quickly repeat with the other leg. Continue alternating for 10-20 repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Iron Cross",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[],
         category: Category::Strength
     },
     Exercise {
-        name: "Isometric Chest Squeezes",
+        name: "Isometric Pecs Squeeze",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "While either seating or standing, bend your arms at a 90-degree angle and place the palms of your hands together in front of your chest. Tip: Your hands should be open with the palms together and fingers facing forward (perpendicular to your torso).",
             "Push both hands against each other as you contract your chest. Start with slow tension and increase slowly. Keep breathing normally as you execute this contraction.",
@@ -7266,11 +6050,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Isometric Neck Exercise - Front And Back",
+        name: "Isometric Neck Exercise Front And Back",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Neck
         ],
@@ -7285,11 +6069,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Isometric Neck Exercise - Sides",
+        name: "Isometric Neck Exercise Sides",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Neck
         ],
@@ -7308,13 +6092,13 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7326,27 +6110,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "IT Band and Glute Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Abductors],
-        secondary_muscles: &[],
-        instructions: &[
-            "Loop a belt, rope, or band around one of your feet, and swing that leg across your body to the opposite side, keeping the leg extended as you lay on the ground. This will be your starting position.",
-            "Keeping your foot off of the floor, pull on the belt, using the tension to pull the toes up. Hold for 10-20 seconds, and repeat on the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Jackknife Sit-Up",
+        name: "Jackknife Sit Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -7358,13 +6128,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Janda Sit-Up",
+        name: "Janda Sit Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -7376,19 +6146,19 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Jefferson Squats",
+        name: "Jefferson Squat",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
+            Muscle::ErectorSpinae,
             Muscle::Traps
         ],
         instructions: &[
@@ -7409,12 +6179,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7430,8 +6200,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[Muscle::Abdominals, Muscle::Calves],
+        primary_muscles: &[Muscle::Quads],
+        secondary_muscles: &[Muscle::Abs, Muscle::Calves],
         instructions: &[
             "This movement strengthens the dip portion of the jerk. Begin with the bar racked in the jerk position, with the shoulders forward to create a shelf and the bar lightly contacting the throat. The feet should be directly under the hips, with the feet turned out as is comfortable.",
             "Keeping the torso vertical, dip by flexing the knees, allowing them to travel forward and without moving the hips to the rear. The dip should not be excessive. Return the weight to the starting position by driving forcefully though the feet."
@@ -7448,8 +6218,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Start the exercise the same way you would a close grip bench press. You will lie on a flat bench while holding a barbell at arms length (fully extended) with the elbows in. However, instead of having the arms perpendicular to the torso, make sure the bar is set in a direct line above the upper chest. This will be your starting position.",
@@ -7461,58 +6231,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Jogging, Treadmill",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, step onto the treadmill and select the desired option from the menu. Most treadmills have a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. Elevation can be adjusted to change the intensity of the workout.",
-            "Treadmills offer convenience, cardiovascular benefits, and usually have less impact than jogging outside. A 150 lb person will burn almost 250 calories jogging for 30 minutes, compared to more than 450 calories running. Maintain proper posture as you jog, and only hold onto the handles when necessary, such as when dismounting or checking your heart rate."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
-        name: "Keg Load",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Biceps,
-            Muscle::Calves,
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "To load kegs, place the desired number a distance from the loading platform, typically 30-50 feet.",
-            "Begin by grabbing the close handle of the first keg, tilting it onto its side to grab the opposite edge of the bottom of the keg. Lift the keg up to your chest.",
-            "The higher you can place the keg, the faster you should be able to move to the platform. Shouldering is usually not allowed. Be sure to keep a firm hold on the keg. Move as quickly as possible to the platform, and load it, extending through your hips, knees, and ankles to get it as high as possible.",
-            "Return to the starting position to retrieve the next keg, and repeat until the event is completed."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
         name: "Kettlebell Arnold Press",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "Clean a kettlebell to your shoulder. Clean the kettlebell to your shoulder by extending through the legs and hips as you raise the kettlebell towards your shoulder. The palm should be facing inward.",
@@ -7533,8 +6257,8 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -7550,8 +6274,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Undefined,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::Hamstrings, Muscle::Shoulders],
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::Hamstrings, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Place one kettlebell between your legs and take a wider than shoulder width stance. Bend over by pushing your butt out and keeping your back flat.",
             "Pick up a kettlebell and pass it to your other hand between your legs. The receiving hand should reach from behind the legs. Go back and forth for several repetitions."
@@ -7565,7 +6289,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::LowerBack, Muscle::Shoulders, Muscle::Traps],
+        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Traps],
         instructions: &[
             "Place kettlebell between your feet. To get in the starting position, push your butt back and look straight ahead.",
             "Clean kettlebell to your shoulder. Clean the kettlebell to your shoulders by extending through the legs and hips as you raise the kettlebell towards your shoulder. The wrist should rotate as you do so.",
@@ -7580,7 +6304,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Glutes, Muscle::LowerBack],
+        secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae],
         instructions: &[
             "Hold a kettlebell by the handle in one hand. Stand on one leg, on the same side that you hold the kettlebell.",
             "Keeping that knee slightly bent, perform a stiff legged deadlift by bending at the hip, extending your free leg behind you for balance.",
@@ -7589,18 +6313,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Kettlebell Pass Between The Legs",
+        name: "Kettlebell Pass Between the Legs",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Place one kettlebell between your legs and take a comfortable stance. Bend over by pushing your butt out and keeping your back flat.",
@@ -7615,10 +6339,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         instructions: &[
             "With a wide stance, hold a kettlebell with both hands. Allow it to hang at waist level with your arms extended. This will be your starting position.",
@@ -7635,13 +6359,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Pick up a kettlebell with two hands and hold it by the horns. Hold one leg off of the floor and squat down on the other.",
@@ -7658,7 +6382,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -7676,7 +6400,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "Clean two kettlebells two your shoulders.",
@@ -7698,8 +6422,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps,
-            Muscle::Shoulders
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Place a kettlebell on the ground between your feet. Position your feet in a wide stance, and grasp the kettlebell with two hands. Set your hips back as far as possible, with your knees bent. Keep your chest and head up. This will be your starting position.",
@@ -7714,10 +6438,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7729,13 +6453,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Kettlebell Turkish Get-Up (Lunge style)",
+        name: "Kettlebell Turkish Get Up (Lunge style)",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Abdominals, Muscle::Hamstrings, Muscle::Quadriceps, Muscle::Triceps],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Abs, Muscle::Hamstrings, Muscle::Quads, Muscle::Triceps],
         instructions: &[
             "Lie on your back on the floor and press a kettlebell to the top position by extending the elbow. Bend the knee on the same side as the kettlebell.",
             "Keeping the kettlebell locked out at all times, pivot to the opposite side and use your non- working arm to assist you in driving forward to the lunge position. Using your free hand, push yourself to a seated position, then progressing to one knee.",
@@ -7744,17 +6468,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Kettlebell Turkish Get-Up (Squat style)",
+        name: "Kettlebell Turkish Get Up (Squat style)",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Hamstrings,
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7771,12 +6495,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -7791,16 +6515,16 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::GymnasticRings,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Biceps,
             Muscle::Forearms,
-            Muscle::MiddleBack,
-            Muscle::Shoulders,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -7814,52 +6538,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Knee Across The Body",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Glutes
-        ],
-        secondary_muscles: &[
-            Muscle::Abductors,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "Lie down on the floor with your right leg straight. Bend your left leg and lower it across your body, holding the knee down toward the floor with your right hand. (The knee doesn't need to touch the floor if you're tight.)",
-            "Place your left arm comfortably beside you and turn your head to the left. Imagine you have a weight tied to your tailbone. let your tailbone fall back toward the floor as your chest reaches in the opposite direction to stretch your lower back. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Knee Circles",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[
-            Muscle::Hamstrings,
-            Muscle::Quadriceps
-        ],
-        instructions: &[
-            "Stand with your legs together and hands by your waist.",
-            "Now move your knees in a circular motion as you breathe normally.",
-            "Repeat for the recommended amount of repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Knee/Hip Raise On Parallel Bars",
+        name: "Parallel Bars Knee Raise",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::ParallelBars,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -7878,10 +6563,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Undefined,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         instructions: &[
             "This drill helps increase arm efficiency during the run. Begin kneeling, left foot in front, right knee down. Apply pressure through the front heel to keep your glutes and hamstrings activated.",
@@ -7892,12 +6577,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Kneeling Cable Crunch With Alternating Oblique Twists",
+        name: "Kneeling Cable Crunch with Alternating Oblique Twists",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Abdominals],
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Connect a rope attachment to a high pulley cable and position a mat on the floor in front of it.",
@@ -7905,7 +6590,7 @@ pub const EXERCISES: [Exercise; 873] = [
             "Position the rope behind your head with your hands by your ears.",
             "Keep your hands in the same place, contract your abs and pull downward on the rope in a crunching movement until your elbows reach your knees.",
             "Pause briefly at the bottom and rise up in a slow and controlled manner until you reach the starting position.",
-            "Repeat the same downward movement until youâ€™re halfway down, at which time youâ€™ll begin rotating one of your elbows to the opposite knee.",
+            "Repeat the same downward movement until you're halfway down, at which time you'll begin rotating one of your elbows to the opposite knee.",
             "Again, pause briefly at the bottom and rise up in a slow and controlled manner until you reach the starting position.",
             "Repeat the same movement as before, but alternate the other elbow to the opposite knee.",
             "Continue this series of movements to failure."
@@ -7934,29 +6619,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Kneeling Forearm Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Forearms
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Start by kneeling on a mat with your palms flat and your fingers pointing back toward your knees.",
-            "Slowly lean back keeping your palms flat on the floor until you feel a stretch in your wrists and forearms. Hold for 20-30 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Kneeling High Pulley Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[Muscle::Biceps, Muscle::MiddleBack],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         instructions: &[
             "Select the appropriate weight using a pulley that is above your head. Attach a rope to the cable and kneel a couple of feet away, holding the rope out in front of you with both arms extended. This will be your starting position.",
             "Initiate the movement by flexing the elbows and fully retracting your shoulders, pulling the rope toward your upper chest with your elbows out.",
@@ -7965,31 +6634,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Kneeling Hip Flexor",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        instructions: &[
-            "Kneel on a mat and bring your right knee up so the bottom of your foot is on the floor and extend your left leg out behind you so the top of your foot is on the floor.",
-            "Shift your weight forward until you feel a stretch in your hip. Hold for 15 seconds, then repeat for your other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Kneeling Jump Squat",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Glutes],
-        secondary_muscles: &[Muscle::Calves, Muscle::Hamstrings, Muscle::Quadriceps],
+        secondary_muscles: &[Muscle::Calves, Muscle::Hamstrings, Muscle::Quads],
         instructions: &[
             "Begin kneeling on the floor with a barbell racked across the back of your shoulders, or you can use your body weight for this exercise. This can be done inside of a power rack to make unracking easier.",
             "Sit back with your hips until your glutes touch your feet, keeping your head and chest up.",
@@ -8009,7 +6660,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Attach a single handle to a high pulley and make your weight selection.",
@@ -8029,9 +6680,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Glutes
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Set the bar to the proper height in a power rack. Kneel behind the bar; it may be beneficial to put a mat down to pad your knees. Slide under the bar, racking it across the back of your shoulders. Your shoulder blades should be retracted and the bar tight across your back. Unrack the weight.",
@@ -8045,7 +6696,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
@@ -8054,7 +6705,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Begin in a comfortable standing position with your knees slightly bent. Hold your hands in front of you, palms down with your fingertips together at chest height. This will be your starting position.",
@@ -8070,12 +6721,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Shoulders
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Position a bar into a landmine or securely anchor it in a corner. Load the bar to an appropriate weight.",
@@ -8093,14 +6744,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Hamstrings,
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[
@@ -8117,7 +6768,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Adductors
         ],
@@ -8126,7 +6777,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Assume a half squat position facing 90 degrees from your direction of travel. This will be your starting position.",
@@ -8142,7 +6793,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Adductors
         ],
@@ -8151,7 +6802,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Assume a comfortable standing position, with a short box positioned next to you. This will be your starting position.",
@@ -8167,7 +6818,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Cone,
         primary_muscles: &[
             Muscle::Adductors
         ],
@@ -8176,7 +6827,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Position a number of cones in a row several feet apart.",
@@ -8187,13 +6838,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Lateral Raise - With Bands",
+        name: "Band Lateral Raise",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -8205,29 +6856,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Latissimus Dorsi-SMR",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[
-            Muscle::Lats
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "While lying on the floor, place a foam roll under your back and to one side, just behind your arm pit. This will be your starting position.",
-            "Keep the arm of the side being stretched behind and to the side of you as you shift your weight onto your lats, keeping your upper body off of the ground. Hold for 10-30 seconds, and switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Leg Extensions",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -8243,7 +6878,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
         ],
@@ -8266,10 +6901,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -8285,7 +6920,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "Using a leg press machine, sit down on the machine and place your legs on the platform directly in front of you at a medium (shoulder width) foot stance. (Note: For the purposes of this discussion we will use the medium stance described above which targets overall development; however you can choose any of the three stances described in the foot positioning section).",
@@ -8301,9 +6936,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -8315,33 +6950,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Leg-Up Hamstring Stretch",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie flat on your back, bend one knee, and put that foot flat on the floor to stabilize your spine.",
-            "Extend the other leg in the air. If you're tight, you wont be able to straighten it. That's okay. Extend the knee so that the sole of the lifted foot faces the ceiling (or as close as you can get it).",
-            "Slowly straighten the legs as much as possible and then pull the leg toward your nose. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Leverage Chest Press",
+        name: "Leverage Pecs Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -8359,7 +6977,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -8372,13 +6990,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Leverage Decline Chest Press",
+        name: "Leverage Decline Pecs Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Load an appropriate weight onto the pins and adjust the seat for your height. The handles should be near the bottom of the pectorals at the beginning of the motion. Your chest and head should be up and your shoulder blades retracted. This will be your starting position.",
             "Press the handles forward by extending through the elbow.",
@@ -8393,7 +7011,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Lats
@@ -8407,16 +7025,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Leverage Incline Chest Press",
+        name: "Leverage Incline Pecs Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -8437,7 +7055,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Load an appropriate weight onto the pins and adjust the seat height so that the handles are at chest level. Grasp the handles with either a neutral or pronated grip. This will be your starting position.",
@@ -8453,7 +7071,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -8497,7 +7115,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Calves,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "This drill helps you accelerate as quickly as possible into a sprint from a dead stop. It helps to use a line to start from. Begin with two feet on the line. Place your left foot with the toe next to your right ankle. Place your right foot 4-6 inches behind the left.",
@@ -8519,7 +7137,7 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Lean at around 45 degrees against a wall. Your feet should be together, glutes contracted.",
@@ -8534,9 +7152,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -8552,79 +7170,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Log Lift",
-        force: Force::Push,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Chest,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Traps,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "Begin standing with the log in front of you. Grasp the handles, and begin to clean the log. As you are bent over to start the clean, attempt to get the log as high as possible, pulling it into your chest. Extend through the hips and knees to bring it up to complete the clean.",
-            "Push your head back and look up, creating a shelf on your chest to rest the log. Begin the press by dipping, flexing slightly through the knees and reversing the motion. This push press will generate momentum to start the log moving vertically. Continue by extending through the elbows to press the log above your head. There are no strict rules on form, so use whatever techniques you are most efficient with. As the log is pressed, ensure that you push your head through on each repetition, looking forward.",
-            "Repeat as many times as possible. Attempt to control the descent of the log as it is returned to the ground."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "London Bridges",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Lats
-        ],
-        secondary_muscles: &[
-            Muscle::Biceps,
-            Muscle::Forearms,
-            Muscle::MiddleBack
-        ],
-        instructions: &[
-            "Attach a climbing rope to a high beam or cross member. Below it, ensure that the smith machine bar is locked in place with the safeties and cannot move. Alternatively, a secure box could also be utilized.",
-            "Stand on the bar, using the rope to balance yourself. This will be your starting position.",
-            "Keeping your body straight, lean back and lower your body by slowly going hand over hand with the rope. Continue until you are perpendicular to the ground.",
-            "Keeping your body straight, reverse the motion, going hand over hand back to the starting position."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Looking At Ceiling",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Kneel on the floor, holding your heels with both hands.",
-            "Lift your buttocks up and forward while bringing your head back to look up at the ceiling, to give an arch in your back."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Low Cable Crossover",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "To move into the starting position, place the pulleys at the low position, select the resistance to be used and grasp a handle in each hand.",
@@ -8655,45 +7210,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Lower Back Curl",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on your stomach with your arms out to your sides. This will be your starting position.",
-            "Using your lower back muscles, extend your spine lifting your chest off of the ground. Do not use your arms to push yourself up. Keep your head up during the movement. Repeat for 10-20 repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Lower Back-SMR",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[],
-        instructions: &[
-            "In a seated position, place a foam roll under your lower back. Cross your arms in front of you and protract your shoulders. This will be your starting position.",
-            "Raise your hips off of the floor and lean back, keeping your weight on your lower back. Now shift your weight slightly to one side, keeping your weight off of the spine and on the muscles to the side of it. Roll over your lower back, holding points of tension for 10-30 seconds. Repeat on the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Low Pulley Row To Neck",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -8717,7 +7244,7 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Stand with your torso upright holding a kettlebell in your right hand. This will be your starting position.",
@@ -8734,7 +7261,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "Adjust a bar in a Smith machine to an appropriate height. Position yourself under the bar, racking it across the back of your shoulders. Unrack the bar, and then split your feet, moving one foot forward and one foot back. This will be your starting position.",
@@ -8743,23 +7270,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Repeat for the recommended amount of repetitions."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Lying Bent Leg Groin",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Adductors
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on your back with your knees bent and the soles of the feet pressed together. Have your partner hold your knees. This will be your starting position.",
-            "Attempt to squeeze your knees together, while your partner prevents any movement from occurring.",
-            "After 10-20 seconds, relax your muscles as your partner gently pushes your knees towards the floor. Be sure to inform your helper when the stretch is adequate to prevent injury or overstretching."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Lying Cable Curl",
@@ -8786,7 +7296,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -8802,7 +7312,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Lying Close-Grip Barbell Triceps Extension Behind The Head",
+        name: "Lying Close-Grip Barbell Triceps Extension Behind the Head",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
@@ -8840,7 +7350,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Lying Close-Grip Bar Curl On High Pulley",
+        name: "Lying Close-Grip Bar Curl on High Pulley",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -8861,24 +7371,6 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Lying Crossover",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Abductors
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on your back with your legs extended.",
-            "Cross one leg over your body with the knee bent, attempting to touch the knee to the ground. Your partner should kneel beside you, holding your shoulder down with one hand and controlling the crossed leg with the other. this will be your starting position.",
-            "Attempt to raise the bent knee off of the ground as your partner prevents any actual movement.",
-            "After 10-20 seconds, relax the leg as your partner gently presses the knee towards the floor. Repeat with the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Lying Dumbbell Tricep Extension",
         force: Force::Push,
         level: Level::Intermediate,
@@ -8888,8 +7380,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lie on a flat bench while holding two dumbbells directly in front of you. Your arms should be fully extended at a 90-degree angle from your torso and the floor. The palms should be facing in and the elbows should be tucked in. This is the starting position.",
@@ -8904,7 +7396,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Neck
         ],
@@ -8922,7 +7414,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[Muscle::Neck],
         secondary_muscles: &[],
         instructions: &[
@@ -8932,45 +7424,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Repeat for the recommended amount of repetitions."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Lying Glute",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Glutes
-        ],
-        secondary_muscles: &[
-            Muscle::Abductors
-        ],
-        instructions: &[
-            "Lie on your back with your partner kneeling beside you.",
-            "Flex the hip of one leg, raising it off of the floor. Rotate the leg so the foot is over the opposite hip, the lower leg perpendicular to your body. Your partner should hold the knee and ankle in place. This will be your starting position.",
-            "Attempt to push your leg towards your partner, who should be preventing any actual movement of the leg.",
-            "After 10-20 seconds, completely relax as your partner gently pushes the ankle and knee towards your chest. Be sure to inform your helper when the stretch is adequate to prevent injury or overstretching."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Lying Hamstring",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Calves
-        ],
-        instructions: &[
-            "Lie on your back with your legs extended. Your partner should be kneeling beside you. Raise one leg up towards the ceiling and have your partner hold the ankle. Your partner can use their shoulder to brace your leg if necessary. This will be your starting position.",
-            "With your partner holding your leg in place, attempt to flex the knee, contracting the hamstrings for 10-20 seconds.",
-            "Then relax your leg, allowing your partner to gently push the leg towards your head. Be sure to inform your helper when the stretch is adequate to prevent injury or overstretching. Switch sides once complete."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Lying High Bench Barbell Curl",
@@ -8991,7 +7444,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Lying Leg Curls",
+        name: "Lying Leg Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -9013,7 +7466,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -9037,7 +7490,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9050,31 +7503,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Lying Prone Quadriceps",
-        force: Force::Undefined,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lay face down on the floor with your partner kneeling beside you. Flex one knee and raise that leg off the ground, attempting to touch your glutes with your foot. Your partner should hold the knee and ankle. This will be your starting position.",
-            "Attempt to extend your knee while your partner prevents any actual movement.",
-            "After 10-20 seconds, relax your muscles as your partner gently pushes the foot towards your glutes, further stretching the quadriceps and hip flexors.",
-            "After 10-20 seconds, switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Lying Rear Delt Raise",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9112,7 +7547,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -9152,14 +7587,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
-            "Sit down on the Chest Press Machine and select the weight.",
+            "Sit down on the Pecs Press Machine and select the weight.",
             "Step on the lever provided by the machine since it will help you to bring the handles forward so that you can grab the handles and fully extend the arms.",
             "Grab the handles with a palms-down grip and lift your elbows so that your upper arms are parallel to the floor to the sides of your torso. Tip: Your forearms will be pointing forward since you are grabbing the handles. Once you bring the handles forward and extend the arms you will be at the starting position.",
             "Now bring the handles back towards you as you breathe in.",
@@ -9188,7 +7623,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Machine Preacher Curls",
+        name: "Machine Preacher Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -9213,7 +7648,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -9246,16 +7681,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Medicine Ball Chest Pass",
+        name: "Medicine Ball Pecs Pass",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -9274,10 +7709,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "For this exercise you will need a medicine ball and a partner. Stand back to back with your partner, spaced 2-3 feet apart. This will be your starting position.",
@@ -9294,12 +7729,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Assume a semisquat stance with a medicine ball in your hands. Your arms should hang so the ball is near your feet.",
@@ -9315,7 +7750,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9327,27 +7762,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Middle Back Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::MiddleBack],
-        secondary_muscles: &[Muscle::Abdominals, Muscle::Lats, Muscle::LowerBack],
-        instructions: &[
-            "Stand so your feet are shoulder width apart and your hands are on your hips.",
-            "Twist at your waist until you feel a stretch. Hold for 10 to 15 seconds, then twist to the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Mixed Grip Chin",
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -9367,7 +7788,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Abductors
         ],
@@ -9386,12 +7807,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Hamstrings,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Begin in a pushup position, with your weight supported by your hands and toes. Flexing the knee and hip, bring one leg until the knee is approximately under the hip. This will be your starting position.",
@@ -9410,7 +7831,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Calves,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "This move helps prepare your running form to help you excel at sprinting. As you run, be sure to flex the knee, aiming to kick your glutes as the hip extends.",
@@ -9430,9 +7851,9 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -9443,20 +7864,20 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "Muscle Up",
+        name: "Ring Muscle Up",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::GymnasticRings,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Biceps,
             Muscle::Forearms,
-            Muscle::MiddleBack,
-            Muscle::Shoulders,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -9469,12 +7890,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Narrow Stance Hack Squats",
+        name: "Narrow Stance Hack Squat",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "Place the back of your torso against the back pad of the machine and hook your shoulders under the shoulder pads provided.",
@@ -9494,7 +7915,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -9511,13 +7932,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Narrow Stance Squats",
+        name: "Narrow Stance Squat",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings, Muscle::LowerBack],
+        primary_muscles: &[Muscle::Quads],
+        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings, Muscle::ErectorSpinae],
         instructions: &[
             "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack that best matches your height. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
             "Hold on to the bar using both arms at each side and lift it off the rack by first pushing with your legs and at the same time straightening your torso.",
@@ -9533,9 +7954,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::LowerBack],
+        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae],
         instructions: &[
             "Using the leg pad of a lat pulldown machine or a preacher bench, position yourself so that your ankles are under the pads, knees on the seat, and you are facing away from the machine. You should be upright and maintaining good posture.",
             "This will be your starting position. Lower yourself under control until your knees are almost completely straight.",
@@ -9551,10 +7972,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -9567,29 +7988,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Neck-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Neck
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Using a muscle roller or a rolling pin, place the roller behind your head and against your neck. Make sure that you do not place the roller directly against the spine, but turned slightly so that the roller is pressed against the muscles to either side of the spine. This will be your starting position.",
-            "Starting at the top of your neck, slowly roll down the muscles of your neck, pausing at points of tension for 10-30 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Oblique Crunches",
+        name: "Oblique Crunch",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9604,13 +8009,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Oblique Crunches - On The Floor",
+        name: "Oblique Crunch on the Floor",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9629,7 +8034,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -9644,26 +8049,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "One Arm Against Wall",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[],
-        instructions: &[
-            "From a standing position, place a bent arm against a wall or doorway.",
-            "Slowly lean toward your arm until you feel a stretch in your lats."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "One Arm Chin-Up",
+        name: "One Arm Chin Up",
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::MiddleBack],
+        equipment: Equipment::PullUpBar,
+        primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Biceps, Muscle::Forearms, Muscle::Lats],
         instructions: &[
             "For this exercise, start out by placing a towel around a chin up bar.",
@@ -9682,8 +8073,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Lie down on a flat bench with a dumbbell in one hand on top of your thigh.",
             "By using your thigh to help you get the dumbbell up, clean the dumbbell up so that you can hold it in front of you at shoulder width. Use the hand you are not lifting with to help position the dumbbell over you properly.",
@@ -9721,12 +8112,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Choose a flat bench and place a dumbbell on each side of it.",
@@ -9746,7 +8137,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9769,8 +8160,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lie down on a flat surface with your back pressing against the floor or an exercise mat. Make sure your knees are bent.",
@@ -9790,7 +8181,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9812,7 +8203,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9832,7 +8223,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -9856,8 +8247,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -9874,7 +8265,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -9893,11 +8284,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Calves,
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[
@@ -9909,13 +8300,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One-Arm Kettlebell Military Press To The Side",
+        name: "One-Arm Kettlebell Military Press To the Side",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -9934,7 +8325,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -9952,8 +8343,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Calves, Muscle::Quadriceps, Muscle::Triceps],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Calves, Muscle::Quads, Muscle::Triceps],
         instructions: &[
             "Hold a kettlebell by the handle. Clean the kettlebell to your shoulder by extending through the legs and hips as you pull the kettlebell towards your shoulder. Rotate your wrist as you do so, so that the palm faces forward. This will be your starting position.",
             "Dip your body by bending the knees, keeping your torso upright.",
@@ -9968,7 +8359,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -9986,13 +8377,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
+            Muscle::ErectorSpinae,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -10009,8 +8400,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings, Muscle::Quadriceps, Muscle::Triceps],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings, Muscle::Quads, Muscle::Triceps],
         instructions: &[
             "Hold a kettlebell by the handle. Clean the kettlebell to your shoulder by extending through the legs and hips as you pull the kettlebell towards your shoulder. Rotate your wrist as you do so, so that the palm faces forward. This will be your starting position.",
             "Dip your body by bending the knees, keeping your torso upright.",
@@ -10027,11 +8418,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Hold a kettlebell in one hand by the handle.",
@@ -10048,7 +8439,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::LowerBack, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[],
         category: Category::Strength
     },
@@ -10059,7 +8450,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[Muscle::Biceps, Muscle::MiddleBack],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         instructions: &[
             "Select an appropriate weight and adjust the knee pad to help keep you down. Grasp the handle with a pronated grip. This will be your starting position.",
             "Pull the handle down, squeezing your elbow to your side as you flex the elbow.",
@@ -10075,7 +8466,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -10097,11 +8488,11 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Start in a standing position with a staggered, athletic stance. Hold a medicine ball in one hand, on the same side as your back leg. This will be your starting position.",
@@ -10123,9 +8514,9 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Place one kettlebell between your feet.",
@@ -10136,19 +8527,19 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One-Arm Overhead Kettlebell Squats",
+        name: "One-Arm Overhead Kettlebell Squat",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Clean and press a kettlebell with one arm. Clean the kettlebell to your shoulder by extending through the legs and hips as you pull the kettlebell towards your shoulder. Rotate your wrist as you do so. Press the weight overhead by extending through the elbow.This will be your starting position.",
@@ -10181,13 +8572,13 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
+            Muscle::ErectorSpinae,
             Muscle::Traps
         ],
         instructions: &[
@@ -10207,12 +8598,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
             "Pick a dumbbell and place it in one of your hands. Your non lifting hand should be used to grab something steady such as an incline bench press. Lean towards your lifting arm and away from the hand that is gripping the incline bench as this will allow you to keep your balance.",
-            "Stand with a straight torso and have the dumbbell by your side at armâ€™s length with the palm of the hand facing you. This will be your starting position.",
+            "Stand with a straight torso and have the dumbbell by your side at arm's length with the palm of the hand facing you. This will be your starting position.",
             "While maintaining the torso stationary (no swinging), lift the dumbbell to your side with a slight bend on the elbow and your hand slightly tilted forward as if pouring water in a glass. Continue to go up until you arm is parallel to the floor. Exhale as you execute this movement and pause for a second at the top.",
             "Lower the dumbbell back down slowly to the starting position as you inhale.",
             "Repeat for the recommended amount of repetitions.",
@@ -10240,33 +8631,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Half Locust",
+        name: "One Arm Hang",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Biceps,
-            Muscle::Chest
-        ],
-        instructions: &[
-            "Lie facedown on the floor.",
-            "Put your left hand under your left hipbone to pad your hip and pubic bone.",
-            "Bend your right knee so you can hold the foot in your right hand.",
-            "Lift the foot in the air and simultaneously lift your shoulders off the floor. This also stretches the right hip flexor and the chest and shoulders. Switch sides. If it doesn't bother your back, you can try it with both arms and legs at the same time."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "One Handed Hang",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
         ],
@@ -10276,28 +8645,7 @@ pub const EXERCISES: [Exercise; 873] = [
         instructions: &[
             "Grab onto a chinup bar with one hand, using a pronated grip. Keep your feet on the floor or a step. Allow the majority of your weight to hang from that hand, while keeping your feet on the ground. Hold for 10-20 seconds and switch sides."
         ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "One Knee To Chest",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Glutes
-        ],
-        secondary_muscles: &[
-            Muscle::Hamstrings,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "Start off by lying on the floor.",
-            "Extend one leg straight and pull the other knee to your chest. Hold under the knee joint to protect the kneecap.",
-            "Gently tug that knee toward your nose.",
-            "Switch sides. This stretches the buttocks and lower back of the bent leg and the hip flexor of the straight leg."
-        ],
-        category: Category::Stretching
+        category: Category::Strength
     },
     Exercise {
         name: "One Leg Barbell Squat",
@@ -10306,7 +8654,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -10347,47 +8695,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "On-Your-Back Quad Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie on a flat bench or step, and hang one leg and arm over the side.",
-            "Bend the knee and hold the top of the foot. As you do this, be careful not to arch your lower back.",
-            "Pull the belly button to the spine to stay in neutral. Press your foot down and into your hand. To add the hip stretch, lift the hip of the leg you're holding up toward the ceiling.",
-            "Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "On Your Side Quad Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Start off by lying on your right side, with your right knee bent at a 90-degree angle resting on the floor in front of you (this stabilizes the torso).",
-            "Bend your left knee behind you and hold your left foot with your left hand. To stretch your hip flexor, press your left hip forward as you push your left foot back into your hand. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Open Palm Kettlebell Clean",
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Glutes, Muscle::LowerBack, Muscle::Quadriceps, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae, Muscle::Quads, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Place one kettlebell between your feet. Clean the kettlebell by extending through the legs and hips as you raise the kettlebell towards your shoulders.",
             "Release the kettlebell as it comes up, and let it flip so that the ball of the kettlebell lands in the palms of your hands.",
@@ -10396,17 +8710,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Otis-Up",
+        name: "Otis Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders,
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -10438,21 +8752,6 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Overhead Lat",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[Muscle::Triceps],
-        instructions: &[
-            "Sit upright on the floor with your partner behind you. Raise one arm straight up, and flex the elbow, attempting to touch your hand to your back. Your parner should hold your tricep and wrist. This will be your starting position.",
-            "Attempt to pull your upper arm to your side as your partner prevents you from doing actually doing so.",
-            "After 10-20 seconds, relax the arm and allow your partner to further stretch the lat by applying gentle pressure to the tricep. Hold for 10-20 seconds, and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Overhead Slam",
         force: Force::Pull,
         level: Level::Beginner,
@@ -10477,15 +8776,15 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -10499,56 +8798,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "Overhead Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Abdominals
-        ],
-        secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Forearms,
-            Muscle::Lats,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "Standing straight up, lace your fingers together and open your palms to the ceiling. Keep your shoulders down as you extend your arms up.",
-            "To create a full torso stretch, pull your tailbone down and stabilize your torso as you do this. Stretch the muscles on both the front and the back of the torso."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Overhead Triceps",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Triceps
-        ],
-        secondary_muscles: &[
-            Muscle::Lats
-        ],
-        instructions: &[
-            "Sit upright on the floor with your partner behind you. Raise one arm straight up, and flex the elbow, attempting to touch your hand to your back. Your parner should hold your elbow and wrist. This will be your starting position.",
-            "Attempt to extend the arm straight into the air as your partner prevents you from doing actually doing so.",
-            "After 10-20 seconds, relax the arm and allow your partner to further stretch the tricep by applying gentle pressure to the wrist. Hold for 10-20 seconds, and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Pallof Press",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
-            "Connect a standard handle to a tower, andâ€”if possibleâ€”position the cable to shoulder height. If not, a low pulley will suffice.",
-            "With your side to the cable, grab the handle with both hands and step away from the tower. You should be approximately armâ€™s length away from the pulley, with the tension of the weight on the cable.",
+            "Connect a standard handle to a tower, and, if possible, position the cable to shoulder height. If not, a low pulley will suffice.",
+            "With your side to the cable, grab the handle with both hands and step away from the tower. You should be approximately arm's length away from the pulley, with the tension of the weight on the cable.",
             "With your feet positioned hip-width apart and knees slightly bent, hold the cable to the middle of your chest. This will be your starting position.",
             "Press the cable away from your chest, fully extending both arms. You core should be tight and engaged.",
             "Hold the repetition for several seconds before returning to the starting position.",
@@ -10557,22 +8816,22 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Pallof Press With Rotation",
+        name: "Pallof Press with Rotation",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders,
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
             "Connect a standard handle to a tower, and position the cable to shoulder height.",
-            "With your side to the cable, grab the handle with one hand and step away from the tower. You should be approximately armâ€™s length away from the pulley, with the tension of the weight on the cable. Align outstretched arm with cable.",
+            "With your side to the cable, grab the handle with one hand and step away from the tower. You should be approximately arm's length away from the pulley, with the tension of the weight on the cable. Align outstretched arm with cable.",
             "With your feet positioned hip-width apart, pull the cable into your chest and grab the handle with your other hand. Both hands should be on the handle at this time.",
             "Facing forward, press the cable away from your chest. You core should be tight and engaged.",
             "Keeping your hips straight, twist your torso away from the pulley until you get a full quarter rotation.",
@@ -10584,7 +8843,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Palms-Down Dumbbell Wrist Curl Over A Bench",
+        name: "Dumbbell Reverse Wrist Curl Over a Bench",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -10605,7 +8864,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Palms-Down Wrist Curl Over A Bench",
+        name: "Reverse Wrist Curl Over a Bench",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -10624,7 +8883,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Palms-Up Barbell Wrist Curl Over A Bench",
+        name: "Barbell Wrist Curl Over a Bench",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -10645,7 +8904,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Palms-Up Dumbbell Wrist Curl Over A Bench",
+        name: "Dumbbell Wrist Curl Over a Bench",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -10664,13 +8923,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Parallel Bar Dip",
+        name: "Parallel Bars Dip",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::ParallelBars,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Stand between a set of parallel bars. Place a hand on each bar, and then take a small jump to help you get into the starting position with your arms locked out.",
             "Begin by flexing the elbow, lowering your body until your arms break 90 degrees. Avoid swinging, and maintain good posture throughout the descent.",
@@ -10678,53 +8937,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Repeat for the desired number of repetitions."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Pelvic Tilt Into Bridge",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::LowerBack
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lie down with your feet on the floor, heels directly under your knees.",
-            "Lift only your tailbone to the ceiling to stretch your lower back. (Don't lift the entire spine yet.) Pull in your stomach.",
-            "To go into a bridge, lift the entire spine except the neck."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Peroneals-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[Muscle::Calves],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lay on your side, supporting your weight on your forearm and on a foam roller placed on the outside of your lower leg. Your upper leg can either be on top of your lower leg, or you can cross it in front of you. This will be your starting position.",
-            "Raise your hips off of the ground and begin to roll from below the knee to above the ankle on the side of your leg, pausing at points of tension for 10-30 seconds. Repeat on the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Peroneals Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "In a seated position, loop a belt, rope, or band around one foot. This will be your starting position.",
-            "With the leg extended and the heel off of the ground, pull on the belt so that the foot is inverted, with the inside of the foot being pulled towards you. Hold for 10-20 seconds, and then switch sides."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Physioball Hip Bridge",
@@ -10746,13 +8958,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Pin Presses",
+        name: "Pin Press",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Forearms, Muscle::Lats, Muscle::MiddleBack, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::Forearms, Muscle::Lats, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Pin presses remove the eccentric phase of the bench press, developing starting strength. They also allow you to train a desired range of motion.",
             "The bench should be set up in a power rack. Set the pins to the desired point in your range of motion, whether it just be lockout or an inch off of your chest. The bar should be moved to the pins and prepared for lifting.",
@@ -10764,27 +8976,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Piriformis-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[Muscle::Glutes],
-        secondary_muscles: &[],
-        instructions: &[
-            "Sit with your buttocks on top of a foam roll. Bend your knees, and then cross one leg so that the ankle is over the knee. This will be your starting position.",
-            "Shift your weight to the side of the crossed leg, rolling over the buttocks until you feel tension in your upper glute. You may assist the stretch by using one hand to pull the bent knee towards your chest. Hold this position for 10-30 seconds, and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Plank",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -10798,7 +8996,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Static,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Forearms
         ],
@@ -10817,9 +9015,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -10832,11 +9030,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Platform Hamstring Slides",
+        name: "Hamstring Slides",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Sliders,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
@@ -10858,10 +9056,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings
@@ -10881,8 +9079,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Place a kettlebell on the floor. Place yourself in a pushup position, on your toes with one hand on the ground and one hand holding the kettlebell, with your elbows extended. This will be your starting position.",
             "Begin by lowering yourself as low as you can, keeping your back straight.",
@@ -10895,9 +9093,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Move into a prone position on the floor, supporting your weight on your hands and toes.",
             "Your arms should be fully extended with the hands around shoulder width. Keep your body straight throughout the movement. This will be your starting position.",
@@ -10907,20 +9105,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "For added difficulty, add claps into the movement while you are air borne."
         ],
         category: Category::Plyometrics
-    },
-    Exercise {
-        name: "Posterior Tibialis Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Calves],
-        secondary_muscles: &[],
-        instructions: &[
-            "In a seated position, loop a belt, rope, or band around one foot. This will be your starting position.",
-            "With the leg extended and the heel off of the ground, pull on the belt so that the foot is everted, with the outside of the foot being pulled towards you. Hold for 10-20 seconds, and then switch sides."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Power Clean",
@@ -10935,10 +9119,10 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -10980,7 +9164,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Hamstrings
         ],
         secondary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "With a barbell on boxes of the desired height, take a grip just outside the legs. Lower your hips with the weight focused on the heels, back straight, head facing forward, chest up, with your shoulders just in front of the bar. This will be your starting position.",
@@ -10998,14 +9182,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11024,7 +9208,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -11048,9 +9232,9 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -11069,14 +9253,14 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -11088,30 +9272,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Keeping the bar aligned over the front of the heels, your head and chest up, drive through heels of the feet to move to a standing position. Carefully return the weight to the boxes."
         ],
         category: Category::OlympicWeightlifting
-    },
-    Exercise {
-        name: "Power Stairs",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "In the power stairs, implements are moved up a staircase. For training purposes, these can be performed with a tire or box.",
-            "Begin by taking the implement with both hands. Set your feet wide, with your head and chest up. Drive through the ground with your heels, extending your knees and hips to raise the weight from the ground.",
-            "As you lean back, attempt to swing the weight onto the stairs, which are usually around 16-18\" high. You can use your legs to help push the weight onto the stair.",
-            "Repeat for 3-5 repetitions, and continue with a heavier weight, moving as fast as possible."
-        ],
-        category: Category::Strongman
     },
     Exercise {
         name: "Preacher Curl",
@@ -11153,17 +9313,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Press Sit-Up",
+        name: "Press Sit Up",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders,
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11190,36 +9350,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Prowler Sprint",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Chest,
-            Muscle::Glutes,
-            Muscle::Quadriceps,
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "Place your sled on an appropriate surface, loaded to a suitable weight. The sled should provide enough resistance to require effort, but not so heavy that you are significantly slowed down.",
-            "You may use the upright or the low handles for this exercise. Place your hands on the handles with your arms extended, leaning into the implement.",
-            "With good posture, drive through the ground with alternating, short steps. Move as fast as you can for a short distance."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Pull Through",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Glutes],
-        secondary_muscles: &[Muscle::Hamstrings, Muscle::LowerBack],
+        secondary_muscles: &[Muscle::Hamstrings, Muscle::ErectorSpinae],
         instructions: &[
             "Begin standing a few feet in front of a low pulley with a rope or handle attached. Face away from the machine, straddling the cable, with your feet set wide apart.",
             "Begin the movement by reaching through your legs as far as possible, bending at the hips. Keep your knees slightly bent. Keeping your arms straight, extend through the hip to stand straight up. Avoid pulling upward through the shoulders; all of the motion should originate through the hips."
@@ -11227,17 +9364,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Pullups",
+        name: "Pull Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Grab the pull-up bar with the palms facing forward using the prescribed grip. Note on grips: For a wide grip, your hands need to be spaced out at a distance wider than your shoulder width. For a medium grip, your hands need to be spaced out at a distance equal to your shoulder width and for a close grip at a distance smaller than your shoulder width.",
@@ -11249,13 +9386,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Push Press - Behind the Neck",
+        name: "Push Press Behind the Neck",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Calves, Muscle::Quadriceps, Muscle::Triceps],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Calves, Muscle::Quads, Muscle::Triceps],
         instructions: &[
             "Standing with the weight racked on the back of the shoulders, begin with the dip. With your feet directly under your hips, flex the knees without moving the hips backward. Go down only slightly, and reverse direction as powerfully as possible. Drive through the heels create as much speed and force as possible, moving the bar in a vertical path.",
             "Using the momentum generated, finish pressing the weight overhead be extending through the arms.",
@@ -11270,10 +9407,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Triceps
         ],
         instructions: &[],
@@ -11284,12 +9421,12 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11301,13 +9438,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Push-Ups - Close Triceps Position",
+        name: "Diamond Push Up",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Lie on the floor face down and place your hands closer than shoulder width for a close hand position. Make sure that you are holding your torso up at arms' length.",
             "Lower yourself until your chest almost touches the floor as you inhale.",
@@ -11321,12 +9458,12 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11338,16 +9475,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Push-Ups With Feet Elevated",
+        name: "Push Up with Feet Elevated",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11360,16 +9497,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Push-Ups With Feet On An Exercise Ball",
+        name: "Push Up with Feet on an Exercise Ball",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11386,13 +9523,13 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11405,17 +9542,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Push-Up Wide",
+        name: "Push Up Wide",
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Shoulders,
+            Muscle::Abs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11427,57 +9564,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Pyramid",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::ExerciseBall,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[Muscle::Shoulders],
-        instructions: &[
-            "Start off by rolling your torso forward onto the ball so your hips rest on top of the ball and become the highest point of your body.",
-            "Rest your hands and feet on the floor. Your arms and legs can be slightly bent or straight, depending on the size of the ball, your flexibility, and the length of your limbs. This also helps develop stabilizing strength in your torso and shoulders."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Quadriceps-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lay facedown on the floor with your weight supported by your hands or forearms. Place a foam roll underneath one leg on the quadriceps, and keep the foot off of the ground. Make sure to relax the leg as much as possible. This will be your starting position.",
-            "Shifting as much weight onto the leg to be stretched as is tolerable, roll over the foam from above the knee to below the hip, holding points of tension for 10-30 seconds. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Quad Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[],
-        instructions: &[
-            "Lay on your side. Loop a belt, rope, or band around your top foot. Flex the knee and extend your hip, attempting to touch your glutes with your foot, and holding the belt with your hands. This will be your starting position.",
-            "With the belt being held over the shoulder or overhead, gently pull to increase the stretch in the quadriceps. Hold for 10-20 seconds, and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Quick Leap",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -11497,7 +9590,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Forearms, Muscle::Traps],
         instructions: &[
             "This drill teaches the delivery of the barbell to the rack position on the shoulders. Begin holding a bar in the scarecrow position, with the upper arms parallel to the floor, and the forearms hanging down. Use a hook grip, with your fingers wrapped over your thumbs.",
@@ -11512,7 +9605,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::LowerBack],
+        primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[Muscle::Forearms, Muscle::Glutes, Muscle::Hamstrings, Muscle::Traps],
         instructions: &[
             "Set up in a power rack with the bar on the pins. The pins should be set to the desired point; just below the knees, just above, or in the mid thigh position. Position yourself against the bar in proper deadlifting position. Your feet should be under your hips, your grip shoulder width, back arched, and hips back to engage the hamstrings. Since the weight is typically heavy, you may use a mixed grip, a hook grip, or use straps to aid in holding the weight.",
@@ -11522,19 +9615,19 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Rack Pull with Bands",
+        name: "Band Rack Pull",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -11545,53 +9638,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Rear Leg Raises",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Place yourself on your hands knees on an exercise mat. Your head should be looking forward and the bend of the knees should create a 90-degree angle between the hamstrings and the calves. This will be your starting position.",
-            "Extend one leg up and behind you. The knee and hip should both extend. Repeat for 5-10 repetitions, and then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Recumbent Bike",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, seat yourself on the bike and adjust the seat to your height.",
-            "Select the desired option from the menu. You may have to start pedaling to turn it on. You can use the manual setting, or you can select a program to use. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. The level of resistance can be changed throughout the workout. The handles can be used to monitor your heart rate to help you stay at an appropriate intensity.",
-            "Recumbent bikes offer convenience, cardiovascular benefits, and have less impact than other activities. A 150 lb person will burn about 230 calories cycling at a moderate rate for 30 minutes, compared to 450 calories or more running."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Return Push from Stance",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Triceps
         ],
         instructions: &[
@@ -11613,11 +9669,11 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Forearms,
             Muscle::Lats,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Position a bench inside a power rack, with the bar set to the correct height. Begin by anchoring bands either to band pegs or to the top of the rack. Ensure that you will be position properly under the bands. Attach the other end to the barbell.",
@@ -11634,7 +9690,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -11643,7 +9699,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Begin in a power rack with a box at the appropriate height behind you. Set up the bands either on band pegs or attached to the top of the rack, ensuring they will be directly above the bar during the squat. Attach the other end to the bar.",
@@ -11659,14 +9715,14 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::LowerBack],
+        primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[
             Muscle::Abductors,
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Set the bar up in a power rack. Attach bands to the top of the rack, using either bands pegs or the frame itself. Attach the other end of the bands to the bar.",
@@ -11684,14 +9740,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Begin in a power rack with the pins and bar set at the appropriate height. After loading the bar, attach bands to the top of the rack, using either pegs or the frame itself. Attach the other end of the bands to the bar.",
@@ -11716,8 +9772,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -11750,7 +9806,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Reverse Barbell Preacher Curls",
+        name: "Reverse Barbell Preacher Curl",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
@@ -11791,9 +9847,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -11812,7 +9868,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -11826,12 +9882,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Reverse Flyes With External Rotation",
+        name: "Reverse Flyes with External Rotation",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
         instructions: &[
             "To begin, lie down on an incline bench set at a 30-degree angle with the chest and stomach pressing against the incline.",
@@ -11845,18 +9901,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Reverse Grip Bent-Over Rows",
+        name: "Reverse Grip Bent-Over Row",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Stand erect while holding a barbell with a supinated grip (palms facing up).",
@@ -11908,7 +9964,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -11920,11 +9976,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Reverse Plate Curls",
+        name: "Reverse Plate Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Biceps
         ],
@@ -11947,7 +10003,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Lie back on a flat bench. Using a close, supinated grip (around shoulder width), lift the bar from the rack and hold it straight over you with your arms locked extended in front of you and perpendicular to the floor. This will be your starting position.",
             "As you breathe in, come down slowly until you feel the bar on your middle chest. Tip: Make sure that as opposed to a regular bench press, you keep the elbows close to the torso at all times in order to maximize triceps involvement.",
@@ -11958,76 +10014,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Rhomboids-SMR",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::FoamRoll,
-        primary_muscles: &[Muscle::MiddleBack],
-        secondary_muscles: &[Muscle::Traps],
-        instructions: &[
-            "Lay down with your back on the floor. Place a foam roll underneath your upper back, and cross your arms in front of you, protracting your shoulders. This will be your starting position.",
-            "Raise your hips off of the ground, placing your weight onto the foam roll. Shift your weight to one side at a time, rolling over your middle and upper back. Pause at points of tension for 10-30 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Rickshaw Carry",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Forearms],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Position the frame at the starting point, and load with the appropriate weight. Standing in the center of the frame, begin by gripping the handles and driving through your heels to lift the frame. Ensure your chest and head are up and your back is straight.",
-            "Immediately begin walking briskly with quick, controlled steps. Keep your chest up and head forward, and make sure you continue breathing. Bring the frame to the ground after you have reached the end point."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Rickshaw Deadlift",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Load the frame with the desired weight. Center yourself between the handles. You feet should be about hip width apart. Bend at the hips to grip the handles, allowing your shoulder blades to protract.",
-            "With your feet and your grip set, take a big breath and then lower your hips and flex the knees. Look forward with your head, keep your chest up and your back arched, and begin driving through the heels to move the weight upward. As the weight comes up, pull your shoulder blades together as you drive your hips forward.",
-            "Lower the weight by bending at the hips and guiding it to the ground."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Ring Dips",
+        name: "Ring Dip",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::GymnasticRings,
         primary_muscles: &[
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Grip a ring in each hand, and then take a small jump to help you get into the starting position with your arms locked out.",
@@ -12042,9 +10039,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -12080,13 +10077,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Rocky Pull-Ups/Pulldowns",
+        name: "Rocky Pull Up/Pulldown",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[Muscle::Lats],
-        secondary_muscles: &[Muscle::Biceps, Muscle::MiddleBack, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Grab the pull-up bar with the palms facing forward using a wide grip.",
             "As you have both arms extended in front of you holding the bar at the chosen grip width, bring your torso back around 30 degrees or so while creating a curvature on your lower back and sticking your chest out. This is your starting position.",
@@ -12109,7 +10106,7 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Put a barbell in front of you on the ground and grab it using a pronated (palms facing down) grip that a little wider than shoulder width. Tip: Depending on the weight used, you may need wrist wraps to perform the exercise and also a raised platform in order to allow for better range of motion.",
@@ -12121,7 +10118,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Romanian Deadlift from Deficit",
+        name: "Deficit Romanian Deadlift",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
@@ -12132,39 +10129,15 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
+            Muscle::ErectorSpinae,
             Muscle::Traps
         ],
         instructions: &[
-            "Begin standing while holding a bar at armâ€™s length in front of you. You can stand on a raised platform to increase the range of motion.",
+            "Begin standing while holding a bar at arm's length in front of you. You can stand on a raised platform to increase the range of motion.",
             "Begin by flexing the knees slightly, and then flex at the hip, moving your butt back as far as possible, lowering the torso as far as flexibility allows. The back should remain in absolute extension at all times, and the bar should remain in contact with the legs. If done properly, there should be heavy tension felt in the hamstrings.",
             "Reverse the motion to return to the starting position."
         ],
         category: Category::OlympicWeightlifting
-    },
-    Exercise {
-        name: "Rope Climb",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Lats
-        ],
-        secondary_muscles: &[
-            Muscle::Biceps,
-            Muscle::Forearms,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "Grab the rope with both hands above your head. Pull down on the rope as you take a small jump.",
-            "Wrap the rope around one leg, using your feet to pinch the rope. Reach up as high as possible with your arms, gripping the rope tightly.",
-            "Release the rope from your feet as you pull yourself up with your arms, bringing your knees towards your chest.",
-            "Resecure your feet on the rope, and then stand up to take another high hold on the rope. Continue until you reach the top of the rope.",
-            "To lower yourself, loosen the grip of your feet on the rope as you slide down using a hand over hand motion."
-        ],
-        category: Category::Strength
     },
     Exercise {
         name: "Rope Crunch",
@@ -12173,7 +10146,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -12184,25 +10157,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "These can be done with twists or to the side to hit the obliques."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Rope Jumping",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Hold an end of the rope in each hand. Position the rope behind you on the ground. Raise your arms up and turn the rope over your head bringing it down in front of you. When it reaches the ground, jump over it. Find a good turning pace that can be maintained. Different speeds and techniques can be used to introduce variation.",
-            "Rope jumping is exciting, challenges your coordination, and requires a lot of energy. A 150 lb person will burn about 350 calories jumping rope for 30 minutes, compared to over 450 calories running."
-        ],
-        category: Category::Cardio
     },
     Exercise {
         name: "Rope Straight-Arm Pulldown",
@@ -12221,99 +10175,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Round The World Shoulder Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Biceps,
-            Muscle::Chest
-        ],
-        instructions: &[
-            "Stand up straight with your legs together, holding a bodybar or broomstick.",
-            "Hold the pole behind your hips with a wider than shoulder width grip. Your palms should be down and your thumbs facing out.",
-            "Slowly lift your arms up behind your head. Don't force it if it gets hard to lift further."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Rowing, Stationary",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Biceps,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::MiddleBack
-        ],
-        instructions: &[
-            "To begin, seat yourself on the rower. Make sure that your heels are resting comfortably against the base of the foot pedals and that the straps are secured. Select the program that you wish to use, if applicable. Sit up straight and bend forward at the hips.",
-            "There are three phases of movement when using a rower. The first phase is when you come forward on the rower. Your knees are bent and against your chest. Your upper body is leaning slightly forward while still maintaining good posture. Next, push against the foot pedals and extend your legs while bringing your hands to your upper abdominal area, squeezing your shoulders back as you do so. To avoid straining your back, use primarily your leg and hip muscles.",
-            "The recovery phase simply involves straightening your arms, bending the knees, and bringing your body forward again as you transition back into the first phase."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
-        name: "Runner's Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Calves
-        ],
-        instructions: &[
-            "It's easiest to get into this stretch if you start standing up, put one leg behind you, and slowly lower your torso down to the floor.",
-            "Keep the front heel on the floor (if it lifts up, scoot your other leg further back).",
-            "Place your hands on either side of your front leg. To get more out of this stretch, push your butt up toward the ceiling, and then gradually lower it back toward the floor. You'll Stretch the hip flexor of the back leg and the hamstring and buttocks of the front."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Running, Treadmill",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, step onto the treadmill and select the desired option from the menu. Most treadmills have a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. Elevation can be adjusted to change the intensity of the workout.",
-            "Treadmills offer convenience, cardiovascular benefits, and usually have less impact than running outside. A 150 lb person will burn over 450 calories running 8 miles per hour for 30 minutes. Maintain proper posture as you run, and only hold onto the handles when necessary, such as when dismounting or checking your heart rate."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Russian Twist",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Lie down on the floor placing your feet either under something that will not move or by having a partner hold them. Your legs should be bent at the knees.",
@@ -12325,42 +10196,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Sandbag Load",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Biceps,
-            Muscle::Calves,
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Shoulders,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "To load sandbags or other objects, begin with the implements placed a distance from the loading platform, typically 50 feet.",
-            "Begin by lifting the sandbag. Sandbags are extremely awkward, and the manner of lifting them can vary depending on the particular sandbag used. Reach as far around it as possible, extending through the hips and knees to pull it up high. Shouldering is usually not allowed.",
-            "Move as quickly as possible to the platform, and load it, extending through your hips, knees, and ankles to get it as high as possible. Place it onto the platform, ensuring it doesn't fall off.",
-            "Return to the starting position to retrieve the next sandbag, and repeat until the event is completed."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Scapular Pull-Up",
+        name: "Scapular Pull Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[Muscle::Traps],
-        secondary_muscles: &[Muscle::Lats, Muscle::MiddleBack],
+        secondary_muscles: &[Muscle::Lats, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         instructions: &[
             "Take a pronated grip on a pull-up bar.",
             "From a hanging position, raise yourself a few inches without using your arms. Do this by depressing your shoulder girdle in a reverse shrugging motion.",
@@ -12369,13 +10211,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Scissor Kick",
+        name: "Scissor Kicks",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -12385,16 +10227,16 @@ pub const EXERCISES: [Exercise; 873] = [
             "Switch movements by raising your right leg up and lowering your left leg. Remember to breathe while performing this exercise.",
             "Repeat for the recommended amount of repetitions."
         ],
-        category: Category::Stretching
+        category: Category::Strength
     },
     Exercise {
         name: "Scissors Jump",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -12413,7 +10255,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Hamstrings
         ],
@@ -12433,7 +10275,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -12454,7 +10296,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -12495,7 +10337,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -12529,33 +10371,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated Biceps",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Biceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders],
-        instructions: &[
-            "Sit on the floor with your knees bent and your partner standing behind you. Extend your arms straight behind you with your palms facing each other. Your partner will hold your wrists for you. This will be the starting position.",
-            "Attempt to flex your elbows, while your partner prevents any actual movement.",
-            "After 10-20 seconds, relax your arms while your partner gently pulls your wrists up to stretch your biceps. Be sure to let your partner know when the stretch is appropriate to prevent injury or overstretching."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Seated Cable Rows",
+        name: "Seated Cable Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "For this exercise you will need access to a low pulley row machine with a V-bar. Note: The V-bar will enable you to have a neutral grip where the palms of your hands face each other. To get into the starting position, first sit down on the machine and place your feet on the front platform or crossbar provided making sure that your knees are slightly bent and not locked.",
@@ -12573,7 +10400,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -12605,27 +10432,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Repeat for the recommended amount of repetitions."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Seated Calf Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[
-            Muscle::Hamstrings,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "Sit up straight on an exercise mat.",
-            "Bend one knee and put that foot on the floor to stabilize the torso.",
-            "Straighten your other leg and flex your ankle.",
-            "Using a band, towel, or your hand if you can reach, pull the toes toward you. Hold for 10 to 20 seconds, then switch sides."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Seated Close-Grip Concentration Barbell Curl",
@@ -12684,7 +10490,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated Dumbbell Palms-Down Wrist Curl",
+        name: "Seated Dumbbell Reverse Wrist Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -12705,7 +10511,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated Dumbbell Palms-Up Wrist Curl",
+        name: "Seated Dumbbell Wrist Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -12732,7 +10538,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -12752,9 +10558,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -12766,65 +10572,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated Floor Hamstring Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Calves
-        ],
-        instructions: &[
-            "Sit on a mat with your right leg extended in front of you and your left leg bent with your foot against your right inner thigh.",
-            "Lean forward from your hips and reach for your ankle until you feel a stretch in your hamstring. Hold for 15 seconds, then repeat for your other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Seated Front Deltoid",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Chest
-        ],
-        instructions: &[
-            "Sit upright on the floor with your legs bent, your partner standing behind you. Stick your arms straight out to your sides, with your palms facing the ground. Attempt to move them as far behind you as possible, as your assistant holds your wrists. This will be your starting position.",
-            "Keeping your elbows straight, attempt to move your arms to the front, with your partner gently restraining you to prevent any actual movement for 10-20 seconds.",
-            "Now, relax your muscles and allow your partner to gently increase the stretch on the shoulders and chest. Hold for 10 to 20 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Seated Glute",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Glutes],
-        secondary_muscles: &[Muscle::Adductors],
-        instructions: &[
-            "In a seated position with your knees bent, cross one ankle over the opposite knee. Your partner will stand behind you. Now, lean forward as your partner braces your shoulders with their hands. This will be your starting position.",
-            "Attempt to push your torso back for 10-20 seconds, as your partner prevents any actual movement of your torso.",
-            "Now relax your muscles as your partner increases the stretch by gently pushing your torso forward for 10-20 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Seated Good Mornings",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
             Muscle::Glutes
@@ -12838,48 +10592,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Seated Hamstring and Calf Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Calves
-        ],
-        instructions: &[
-            "Loop a belt, rope, or band around one foot. Sit down with both legs extended . This will be your starting position.",
-            "Leaning forward slightly, pull on the belt to draw the toes of your foot back. Hold this position for 10-20 seconds and then repeat with the other leg."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Seated Hamstring",
-        force: Force::Static,
-        level: Level::Expert,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Calves
-        ],
-        instructions: &[
-            "In a seated position with your legs extended, have your partner stand behind you. Now, lean forward as your partner braces your shoulders with their hands. This will be your starting position.",
-            "Attempt to push your torso back for 10-20 seconds, as your partner prevents any actual movement of your torso.",
-            "Now relax your muscles as your partner increases the stretch by gently pushing your torso forward for 10-20 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Seated Head Harness Neck Resistance",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Cone,
         primary_muscles: &[Muscle::Neck],
         secondary_muscles: &[],
         instructions: &[
@@ -12914,9 +10631,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -12928,13 +10645,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated One-arm Cable Pulley Rows",
+        name: "Seated One-Arm Cable Pulley Row",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -12952,7 +10669,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated One-Arm Dumbbell Palms-Down Wrist Curl",
+        name: "Seated One-Arm Dumbbell Reverse Wrist Curl",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
@@ -12972,7 +10689,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated One-Arm Dumbbell Palms-Up Wrist Curl",
+        name: "Seated One-Arm Dumbbell Wrist Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -12992,25 +10709,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated Overhead Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Abdominals
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Sit up straight on an exercise mat.",
-            "Touch the soles of your feet together with your feet six to eight inches in front of your hips.",
-            "Place one hand on the floor beside you and your other hand behind your head.",
-            "Lift your elbow to the ceiling as you incline your torso to the other side. Hold for 10 to 20 seconds, then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Seated Palms-Down Barbell Wrist Curl",
+        name: "Seated Barbell Reverse Wrist Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -13049,7 +10748,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
         instructions: &[
             "Pick a couple of dumbbells and sit at the end of a flat bench with your feet firmly on the floor. Hold the dumbbells with your palms facing in and your arms straight down at your sides at arms' length. This will be your starting position.",
@@ -13078,7 +10777,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Seated Two-Arm Palms-Up Low-Pulley Wrist Curl",
+        name: "Seated Two-Arm Low-Pulley Wrist Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -13107,10 +10806,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Abdominals,
+            Muscle::Abs,
             Muscle::Triceps
         ],
         instructions: &[
@@ -13133,7 +10832,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Attach a single handle to a low cable.",
@@ -13144,31 +10843,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Shoulder Circles",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Traps
-        ],
-        instructions: &[
-            "With shoulders relaxed and arms resting loosely at your sides (or in your lap if you're seated), gently roll your shoulders forward, up, back, and down.",
-            "Reverse direction. You can do this exercise alternating shoulders or both at the same time."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Shoulder Press - With Bands",
+        name: "Band Shoulder Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -13181,54 +10862,24 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Shoulder Raise",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Lats
-        ],
-        instructions: &[
-            "Relax your arms to your sides and raise your shoulders up toward your ears, then back down."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Shoulder Stretch",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[],
-        instructions: &[
-            "Reach your left arm across your body and hold it straight."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Side Bridge",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::Shoulders],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[],
         category: Category::Strength
     },
     Exercise {
-        name: "Side Hop-Sprint",
+        name: "Lateral Hop To Sprint",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Cone,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -13248,8 +10899,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[],
         category: Category::Strength
@@ -13261,7 +10912,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -13279,7 +10930,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Traps
@@ -13295,81 +10946,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Side Leg Raises",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Adductors
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand next to a chair, which you may hold onto as a support. Stand on one leg. This will be your starting position.",
-            "Keeping your leg straight, raise it as far out to the side as possible, and swing it back down, allowing it to cross the opposite leg.",
-            "Repeat this swinging motion 5-10 times, increasing the range of motion as you do so."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Side-Lying Floor Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Lats
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "First lie on your left side, bending your left knee in front of you to stabilize your torso (use your abdominal muscles as well to hold you upright).",
-            "Straighten your right leg and rest the right foot on the floor behind your left. Straighten your right arm over your head and gently pull on your right wrist to stretch the entire right side of the body. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Side Lying Groin Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Adductors
-        ],
-        secondary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Start off by lying on your right side and bend your right knee in front of you to stabilize the torso.",
-            "Rest your head on your right hand or shoulder. Lift your left leg upward and hold it by the back of the knee (easier) or the foot (harder).",
-            "Pull your left knee in toward your left shoulder and simultaneously press your foot or knee down to the floor. To intensify this stretch, straighten your left leg. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Side Neck Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Neck
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Start with your shoulders relaxed, gently tilt your head towards your shoulder.",
-            "Assist stretch with a gentle pull on the side of the head."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Side Standing Long Jump",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -13388,9 +10971,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -13410,15 +10993,15 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Forearms,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Grab the pull-up bar with the palms facing forward using a wide grip.",
@@ -13432,31 +11015,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Side Wrist Pull",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[
-            Muscle::Forearms,
-            Muscle::Lats
-        ],
-        instructions: &[
-            "This stretch works best standing. Cross your left arm over the midline of your body and hold the left wrist in your right hand down at the level of your hips. Start the stretch with a bent left arm.",
-            "Slowly straighten, pull, and lift it up to shoulder height, as pictured. Feel this stretch originate in your back, not your shoulders, and don't pull too hard on the shoulders joint. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Single-Arm Cable Crossover",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Chest],
+        primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[],
         instructions: &[
             "Begin by moving the pulleys to the high position, select the resistance to be used, and take a handle in each hand.",
@@ -13473,8 +11037,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Chest, Muscle::Triceps],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Pecs, Muscle::Triceps],
         instructions: &[
             "Position a bar into a landmine or securely anchor it in a corner. Load the bar to an appropriate weight.",
             "Raise the bar from the floor, taking it to your shoulders with one or both hands. Adopt a wide stance. This will be your starting position.",
@@ -13484,13 +11048,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Single-Arm Push-Up",
+        name: "Single-Arm Push Up",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Begin laying prone on the ground. Move yourself into a position supporting your weight on your toes and one arm. Your working arm should be placed directly under the shoulder, fully extended. Your legs should be extended, and for this movement you may need a wider base, placing your feet further apart than in a normal push-up.",
             "Maintain good posture, and place your free hand behind your back. This will be your starting position.",
@@ -13504,8 +11068,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Quadriceps],
+        equipment: Equipment::Cone,
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "This drill teaches quick foot action. You need a single cone. Begin standing next to the cone with one arm back and one arm forward.",
@@ -13521,7 +11085,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Forearms,
@@ -13539,9 +11103,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -13560,7 +11124,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
         ],
@@ -13580,8 +11144,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Quadriceps],
+        equipment: Equipment::Box,
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "Position a box in a rack. Secure a band or rope in place above the box.",
@@ -13595,9 +11159,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Cone,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -13618,9 +11182,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Cone,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -13643,7 +11207,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -13659,8 +11223,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Quadriceps],
+        equipment: Equipment::Box,
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Hamstrings],
         instructions: &[
             "Stand on the ground with one foot resting on the box, heel close to the edge.",
@@ -13674,9 +11238,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -13692,33 +11256,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Sit Squats",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Abductors,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Stand with your feet shoulder width apart. This will be your starting position.",
-            "Begin the movement by flexing your knees and hips, sitting back with your hips.",
-            "Continue until you have squatted a portion of the way down, but are above parallel, and quickly reverse the motion until you return to the starting position. Repeat for 5-10 repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Sit-Up",
+        name: "Sit Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::None,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Lie down on the floor placing your feet either under something that will not move or by having a partner hold them. Your legs should be bent at the knees.",
@@ -13730,174 +11273,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Skating",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[
-            Muscle::Abductors,
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Roller skating is a fun activity which can be effective in improving cardiorespiratory fitness and muscular endurance. It requires relatively good balance and coordination. It is necessary to learn the basics of skating including turning and stopping and to wear protective gear to avoid possible injury.",
-            "You can skate at a comfortable pace for 30 minutes straight. If you want a cardio challenge, do interval skating: speed skate two minutes of every five minutes, using the remaining three minutes to recover. A 150 lb person will typically burn about 175 calories in 30 minutes skating at a comfortable pace, similar to brisk walking."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
-        name: "Sled Drag - Harness",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, load the sled with the desired weight and attach the pulling strap. You can pull with handles, use a harness, or attach the pulling strap to a weight belt.",
-            "Whether pulling forwards or backwards, lean in the direction of travel and progress by extending through the hips and knees."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Sledgehammer Swings",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Abdominals
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Forearms,
-            Muscle::Lats,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "You will need a tire and a sledgehammer for this exercise. Stand in front of the tire about two feet away from it with a staggered stance. Grip the sledgehammer.",
-            "If you are right handed, your left hand should be at the bottom of the handle, and your right hand should be choking up closer to the head.",
-            "As you bring the sledge up, your right hand slides toward the head; as you swing down, your right hand will slide down to join your left hand. Slam it down as hard as you can against the tire. Control the bounce of the hammer off of the tire.",
-            "Repeat on the other side."
-        ],
-        category: Category::Plyometrics
-    },
-    Exercise {
-        name: "Sled Overhead Backward Walk",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Calves, Muscle::MiddleBack, Muscle::Quadriceps],
-        instructions: &[
-            "Attach dual handles to a sled connected by a rope or chain. Load the sled to a light weight.",
-            "Face the sled, backing up until there is some tension in the line. Hold your hands directly above your head with your elbows extended. This will be your starting position.",
-            "Walk backwards, keeping your arms raised above your head. Avoid jerky movements."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Sled Overhead Triceps Extension",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Triceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Attach dual handles to a sled using a chain or rope. Load the sled to an appropriate load.",
-            "Facing away from the sled, step away until there is tension in the line. Raise your hands above your head, keeping them together, palms facing each other. Your elbows should be pointed upward with the elbows flexed. This will be your starting position.",
-            "Extend through the elbow to straighten the arm. Ensure that your upper arm stays in position to isolate the triceps.",
-            "Upon full extension, step forward to take the slack out of the line. You may keep your feet staggered for more stability."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Sled Push",
-        force: Force::Push,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Chest,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "Load your pushing sled with the desired weight.",
-            "Take an athletic posture, leaning into the sled with your arms fully extended, grasping the handles. Push the sled as fast as possible, focusing on extending your hips and knees to strengthen your posterior chain."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Sled Reverse Flye",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Shoulders
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Attach dual handles to a sled connected by a rope or chain. Load the sled to a light weight.",
-            "Face the sled, backing up until there is some tension in the line. Take both handles at arms length at about waist level. Bend the knees slightly and keep your chest and head up. This will be your starting position.",
-            "Without flexing the elbow, pull the handles upward and apart, performing a reverse fly with some external rotation. Your palms should be facing forward as you do this.",
-            "Return to the starting position, taking a couple steps back to take the slack out of the line."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Sled Row",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::MiddleBack
-        ],
-        secondary_muscles: &[
-            Muscle::Biceps,
-            Muscle::Lats
-        ],
-        instructions: &[
-            "Attach dual handles to a sled connected by a rope or chain. Load the sled to an appropriate weight. Face the sled, backing up until there is some tension in the line.",
-            "With a handle in each hand, bend the knees slightly, keep your head and chest up, and begin with your arms extended.",
-            "To initiate the movement, flex the elbow as you retract your shoulder blades, pulling the sled towards you.",
-            "Take a step or two back to get tension in the line and repeat."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
         name: "Smith Incline Shoulder Raise",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         instructions: &[
             "Place an incline bench underneath the smith machine. Place the barbell at a height that you can reach when lying down and your arms are almost fully extended. Once the weight you need is selected, lie down on the incline bench and make sure your shoulders are aligned right under the barbell.",
@@ -13919,7 +11304,7 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Traps
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "With the bar at thigh level, load an appropriate weight.",
@@ -13936,8 +11321,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Place a flat bench underneath the smith machine. Now place the barbell at a height that you can reach when lying down and your arms are almost fully extended. Once the weight you need is selected, lie down on the flat bench. Using a pronated grip that is wider than shoulder width, unlock the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.",
             "As you breathe in, come down slowly until you feel the bar on your middle chest.",
@@ -13954,12 +11339,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Set the barbell attached to the smith machine to a height that is about 2 inches below your knees.",
@@ -13995,7 +11380,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Place a flat bench underneath the smith machine. Place the barbell at a height that you can reach when lying down and your arms are almost fully extended. Once the weight you need is selected, lie down on the flat bench. Using a close and pronated grip (palms facing forward) that is around shoulder width, unlock the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.",
             "As you breathe in, come down slowly until you feel the bar on your middle chest. Tip: Make sure that as opposed to a regular bench press, you keep the elbows close to the torso at all times in order to maximize triceps involvement.",
@@ -14012,10 +11397,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -14036,9 +11421,9 @@ pub const EXERCISES: [Exercise; 873] = [
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -14058,7 +11443,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -14075,8 +11460,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Place an incline bench underneath the smith machine. Place the barbell at a height that you can reach when lying down and your arms are almost fully extended. Once the weight you need is selected, lie down on the incline bench and make sure your upper chest is aligned with the barbell. Using a pronated grip (palms facing forward) that is wider than shoulder width, unlock the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.",
             "As you breathe in, come down slowly until you feel the bar on your upper chest.",
@@ -14093,7 +11478,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -14114,7 +11499,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -14136,7 +11521,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -14157,7 +11542,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -14174,7 +11559,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Smith Machine Reverse Calf Raises",
+        name: "Smith Machine Reverse Calf Raise",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -14200,13 +11585,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "To begin, first set the bar on the height that best matches your height. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
@@ -14229,7 +11614,7 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "To begin, set the bar on the smith machine to a height that is around the middle of your thighs. Once the correct height is chosen and the bar is loaded, grasp the bar using a pronated (palms forward) grip that is shoulder width apart. You may need some wrist wraps if using a significant amount of weight.",
@@ -14247,7 +11632,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Traps],
-        secondary_muscles: &[Muscle::Biceps, Muscle::MiddleBack, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "To begin, set the bar on the smith machine to a height that is around the middle of your thighs. Once the correct height is chosen and the bar is loaded, grasp the bar using a pronated (palms forward) grip that is shoulder width apart. You may need some wrist wraps if using a significant amount of weight.",
             "Lift the barbell up and fully extend your arms with your back straight. There should be a slight bend at the elbows. This is the starting position.",
@@ -14264,7 +11649,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Machine,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -14289,13 +11674,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -14319,8 +11704,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -14337,14 +11722,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Biceps,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -14366,15 +11751,15 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -14394,7 +11779,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::LowerBack, Muscle::Quadriceps, Muscle::Traps],
+        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae, Muscle::Quads, Muscle::Traps],
         instructions: &[
             "With a barbell on the floor close to the shins, take a wide snatch grip. Lower your hips with the weight focused on the heels, back straight, head facing forward, chest up, with your shoulders just in front of the bar. This will be your starting position.",
             "Begin the first pull by driving through the heels, extending your knees. Your back angle should stay the same, and your arms should remain straight. Move the weight with control as you continue to above the knees.",
@@ -14410,7 +11795,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Traps],
-        secondary_muscles: &[Muscle::Forearms, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Forearms, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Begin with a wide grip, with the bar hanging at the mid thigh position. You can use a hook or overhand grip. Your back should be straight and inclined slightly forward.",
             "Shrug your shoulders towards your ears. While this exercise can usually by loaded with heavier weight than a snatch, avoid overloading to the point that the execution slows down."
@@ -14422,7 +11807,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Triceps
         ],
@@ -14442,7 +11827,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -14459,19 +11844,19 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Speed Squats",
+        name: "Speed Squat",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack that best matches your height. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
@@ -14489,8 +11874,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::Glutes, Muscle::Shoulders],
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::Glutes, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Hold a dumbbell in each hand with a pronated grip. Your feet should be wide with your hips and knees extended. This will be your starting position.",
             "Begin the movement by pulling both of the dumbbells to one side next to your hip, rotating your torso.",
@@ -14504,13 +11889,13 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders,
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -14540,44 +11925,21 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Spinal Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::MiddleBack
-        ],
-        secondary_muscles: &[
-            Muscle::Lats,
-            Muscle::LowerBack,
-            Muscle::Neck,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "Sit in a chair so your back is straight and your feet planted on the floor.",
-            "Interlace your fingers behind your head, elbows out and your chin down.",
-            "Twist your upper body to one side about 3 times as far as you can. Then lean forward and twist your torso to reach your elbow to the floor on the inside of your knee.",
-            "Return to upright position and then repeat for your other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Split Clean",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps
         ],
         instructions: &[
@@ -14597,18 +11959,18 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
             "Standing with the weight racked on the front of the shoulders, begin with the dip. With your feet directly under your hips, flex the knees without moving the hips backward.",
             "Go down only slightly, and reverse direction as powerfully as possible. Drive through the heels create as much speed and force as possible, and be sure to move your head out of the way as the bar leaves the shoulders. At this moment as the feet leave the floor, the feet must be placed into the receiving position as quickly as possible.",
-            "In the brief moment the feet are not actively driving against the platform, the athleteâ€™s effort to push the bar up will drive them down. The feet should be moved to a split stance, one foot forward, one foot back, with the knees partially bent. Receive the bar with the arms locked out overhead.",
+            "In the brief moment the feet are not actively driving against the platform, the athlete's effort to push the bar up will drive them down. The feet should be moved to a split stance, one foot forward, one foot back, with the knees partially bent. Receive the bar with the arms locked out overhead.",
             "Return to a standing position, bringing the feet together."
         ],
         category: Category::OlympicWeightlifting
@@ -14618,9 +11980,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -14650,9 +12012,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Forearms,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Quadriceps,
-            Muscle::Shoulders,
+            Muscle::ErectorSpinae,
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Traps,
             Muscle::Triceps
         ],
@@ -14667,7 +12029,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "Split Squats",
+        name: "Split Squat Jump",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Undefined,
@@ -14678,22 +12040,22 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         instructions: &[
             "Being in a standing position. Jump into a split leg position, with one leg forward and one leg back, flexing the knees and lowering your hips slightly as you do so.",
-            "As you descend, immediately reverse direction, standing back up and jumping, reversing the position of your legs. Repeat 5-10 times on each leg."
+            "As you descend, immediately reverse direction, standing back up and jumping, reversing the position of your legs."
         ],
-        category: Category::Stretching
+        category: Category::Plyometrics
     },
     Exercise {
-        name: "Split Squat with Dumbbells",
+        name: "Dumbbell Split Squat",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -14713,35 +12075,35 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
             "Standing with the weight racked on the front of the shoulders, begin with the dip. With your feet directly under your hips, flex the knees without moving the hips backward. Go down only slightly, and reverse direction as powerfully as possible. Drive through the heels create as much speed and force as possible, and be sure to move your head out of the way as the bar leaves the shoulders.",
-            "At this moment as the feet leave the floor, the feet must be placed into the receiving position as quickly as possible. In the brief moment the feet are not actively driving against the platform, the athleteâ€™s effort to push the bar up will drive them down. The feet should move forcefully to just outside the hips, turned out as necessary. Receive the bar with your body in a full squat and the arms fully extended overhead.",
+            "At this moment as the feet leave the floor, the feet must be placed into the receiving position as quickly as possible. In the brief moment the feet are not actively driving against the platform, the athlete's effort to push the bar up will drive them down. The feet should move forcefully to just outside the hips, turned out as necessary. Receive the bar with your body in a full squat and the arms fully extended overhead.",
             "Keeping the bar aligned over the front of the heels, your head and chest up, drive throught heels of the feet to move to a standing position. Carefully return the weight to floor."
         ],
         category: Category::Strength
     },
     Exercise {
-        name: "Squats - With Bands",
+        name: "Band Squat",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "To start out, make sure that the exercise band is at an even split between both the left and right side of the body. To do this, use your hands to grab both sides of the band and place both feet in the middle of the band. Your feet should be shoulder width apart from each other.",
@@ -14753,20 +12115,20 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Squat with Bands",
+        name: "Band Barbell Squat",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Adductors,
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Set up the bands on the sleeves, secured to either band pegs, the rack, or dumbbells so that there is appropriate tension.",
@@ -14777,75 +12139,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Squat with Chains",
-        force: Force::Push,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "To set up the chains, begin by looping the leader chain over the sleeves of the bar. The heavy chain should be attached using a snap hook. Adjust the length of the lead chain so that a few links are still on the floor at the top of the movement.",
-            "Begin by stepping under the bar and placing it across the back of the shoulders. Squeeze your shoulder blades together and rotate your elbows forward, attempting to bend the bar across your shoulders. Remove the bar from the rack, creating a tight arch in your lower back, and step back into position. Place your feet wide for more emphasis on the back, glutes, adductors, and hamstrings. Keep your head facing forward.",
-            "With your back, shoulders, and core tight, push your knees and butt out and you begin your descent. Sit back with your hips as much as possible. Ideally, your shins should be perpendicular to the ground. Lower bar position necessitates a greater torso lean to keep the bar over the heels. Continue until you break parallel, which is defined as the crease of the hip being in line with the top of the knee.",
-            "Keeping the weight on your heels and pushing your feet and knees out, drive upward as you lead the movement with your head. Continue upward, maintaining tightness head to toe, until you have returned to the starting position."
-        ],
-        category: Category::Powerlifting
-    },
-    Exercise {
-        name: "Squat with Plate Movers",
-        force: Force::Push,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[
-            Muscle::Abductors,
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, first set the bar on a rack to just below shoulder level. Position a weight plate on the ground a couple feet back from the rack. Once the bar is loaded, step under it and place the back of your shoulders across it.",
-            "Hold on to the bar with both hands and lift it off the rack by first pushing with your legs and at the same time straighten your torso.",
-            "Step away from the rack and adopt a wide stance with the toes slightly pointed out, with one foot on the weight plate. Keep your head up at all times. This will be your starting position.",
-            "Begin to slowly lower the bar by bending the knees and hips. Continue down until the angle between the upper leg and the calves becomes slightly less than 90-degrees.",
-            "Raise the bar as you exhale by pushing the floor with the heels of your feet as you extend the hips and knees.",
-            "At the top of the movement, side step, bringing your feet together on the opposite side of the plate.",
-            "Using your inside foot, push the weight plate, sliding it across the floor to where you were just standing.",
-            "Place your inside foot on the weight plate, adopting a wide stance for the next repetition."
-        ],
-        category: Category::Strength
-    },
-    Exercise {
-        name: "Stairmaster",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
-        instructions: &[
-            "To begin, step onto the stairmaster and select the desired option from the menu. You can choose a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise.",
-            "Pump your legs up and down in an established rhythm, driving the pedals down but not all the way to the floor. It is recommended that you maintain your grip on the handles so that you donâ€™t fall. The handles can be used to monitor your heart rate to help you stay at an appropriate intensity.",
-            "Stairmasters offer convenience, cardiovascular benefits, and usually have less impact than running outside. They are typically much harder than other cardio equipment. A 150 lb person will typically burn over 300 calories in 30 minutes, compared to about 175 calories walking."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Standing Alternating Dumbbell Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "Stand with a dumbbell in each hand. Raise the dumbbells to your shoulders with your palms facing forward and your elbows pointed out. This will be your starting position.",
@@ -14880,7 +12179,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -14902,7 +12201,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Shoulders],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "With a dumbbell in one hand and the palm facing your torso, bend your knees slightly and bring your torso forward, by bending at the waist, while keeping the back straight until it is almost parallel to the floor. Make sure that you keep the head up.",
             "The upper arm should be close to the torso and parallel to the floor while the forearm is pointing towards the floor as the hand holds the weight. Tip: There should be a 90-degree angle between the forearm and the upper arm. This is your starting position.",
@@ -14950,32 +12249,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Standing Biceps Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Biceps
-        ],
-        secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "Clasp your hands behind your back with your palms together, straighten arms and then rotate them so your palms face downward.",
-            "Raise your arms up and hold until you feel a stretch in your biceps."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Standing Bradford Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -14991,13 +12271,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Standing Cable Chest Press",
+        name: "Standing Cable Pecs Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Position dual pulleys to chest height and select an appropriate weight. Stand a foot or two in front of the cables, holding one in each hand. You can stagger your stance for better stability.",
             "Position the upper arm at a 90 degree angle with the shoulder blades together. This will be your starting position.",
@@ -15013,14 +12293,14 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Connect a standard handle on a tower, and move the cable to the lowest pulley position.",
-            "With your side to the cable, grab the handle with one hand and step away from the tower. You should be approximately armâ€™s length away from the pulley, with the tension of the weight on the cable. Your outstretched arm should be aligned with the cable.",
+            "With your side to the cable, grab the handle with one hand and step away from the tower. You should be approximately arm's length away from the pulley, with the tension of the weight on the cable. Your outstretched arm should be aligned with the cable.",
             "With your feet positioned shoulder width apart, squat down and grab the handle with both hands. Your arms should still be fully extended.",
             "In one motion, pull the handle up and across your body until your arms are in a fully-extended position above your head.",
             "Keep your back straight and your arms close to your body as you pivot your back foot and straighten your legs to get a full range of motion.",
@@ -15036,11 +12316,11 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::Abs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Connect a standard handle to a tower, and move the cable to the highest pulley position.",
-            "With your side to the cable, grab the handle with one hand and step away from the tower. You should be approximately armâ€™s length away from the pulley, with the tension of the weight on the cable. Your outstretched arm should be aligned with the cable.",
+            "With your side to the cable, grab the handle with one hand and step away from the tower. You should be approximately arm's length away from the pulley, with the tension of the weight on the cable. Your outstretched arm should be aligned with the cable.",
             "With your feet positioned shoulder width apart, reach upward with your other hand and grab the handle with both hands. Your arms should still be fully extended.",
             "In one motion, pull the handle down and across your body to your front knee while rotating your torso.",
             "Keep your back and arms straight and core tight while you pivot your back foot and bend your knees to get a full range of motion.",
@@ -15051,7 +12331,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Standing Calf Raises",
+        name: "Standing Calf Rais",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -15108,7 +12388,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -15147,7 +12427,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -15185,7 +12465,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Traps],
-        secondary_muscles: &[Muscle::Biceps, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Biceps, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Grasp a dumbbell in each hand with a pronated (palms forward) grip that is slightly less than shoulder width. The dumbbells should be resting on top of your thighs. Your arms should be extended with a slight bend at the elbows and your back should be straight. This will be your starting position.",
             "Use your side shoulders to lift the dumbbells as you exhale. The dumbbells should be close to the body as you move it up and the elbows should drive the motion. Continue to lift them until they nearly touch your chin. Tip: Your elbows should drive the motion. As you lift the dumbbells, your elbows should always be higher than your forearms. Also, keep your torso stationary and pause for a second at the top of the movement.",
@@ -15195,29 +12475,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Standing Elevated Quad Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Start by standing with your back about two to three feet away from a bench or step.",
-            "Lift one leg behind you and rest your foot on the step,either on your instep or the ball of your foot, whichever you find most comfortable.",
-            "Keep your supporting knee slightly bent and avoid letting that knee extend out beyond your toes. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Standing Front Barbell Raise Over Head",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
         instructions: &[
             "To begin, stand straight with a barbell in your hands. You should grip the bar with palms facing down and a closer than shoulder width grip apart from each other.",
@@ -15227,78 +12490,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Repeat for the recommended amount of repetitions."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Standing Gastrocnemius Calf Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Place your right heel on a step with your knee extended and lean forward to grab your right toe with your right hand. Your left knee should be slightly bent and your back should be straight.",
-            "Support your weight on your left leg and place your left hand on your left thigh.",
-            "Pull your right toes toward your knee until you feel a stretch in your calf."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Standing Hamstring and Calf Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Being by looping a belt, band, or rope around one foot. While standing, place that foot forward.",
-            "Bend your back leg, while keeping the front one straight. Now raise the toes of your front foot off of the ground and lean forward.",
-            "Using the belt, pull on the top of the foot to increase the stretch in the calf. Hold for 10-20 seconds and repeat with the other foot."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Standing Hip Circles",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[
-            Muscle::Abductors
-        ],
-        secondary_muscles: &[
-            Muscle::Adductors
-        ],
-        instructions: &[
-            "Begin standing on one leg, holding to a vertical support.",
-            "Raise the unsupported knee to 90 degrees. This will be your starting position.",
-            "Open the hip as far as possible, attempting to make a big circle with your knee.",
-            "Perform this movement slowly for a number of repetitions, and repeat on the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Standing Hip Flexors",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand up straight with the spine vertical, the left foot slightly in front of the right.",
-            "Bend both knees and lift the back heel off the floor as you press the right hip forward. You can't get a thorough, deep stretch in this position, however, because it's hard to relax the hip flexor and stand on it at the same time. Switch sides."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Standing Inner-Biceps Curl",
@@ -15320,24 +12511,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Repeat for the recommended amount of repetitions."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Standing Lateral Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Abdominals
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Take a slightly wider than hip distance stance with your knees slightly bent.",
-            "Place your right hand on your right hip to support the spine.",
-            "Raise your left arm in a vertical line and place your left hand behind your head. Keep it there as you incline your torso to the right.",
-            "Keep your weight evenly distributed between both legs (don't lean into your left hip). Switch sides."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "Standing Leg Curl",
@@ -15363,9 +12536,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -15387,7 +12560,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::SideDelts
         ],
         secondary_muscles: &[
             Muscle::Forearms
@@ -15412,8 +12585,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Grab a single handle with your left arm next to the low pulley machine. Turn away from the machine keeping the handle to the side of your body with your arm fully extended. Now use both hands to elevate the single handle directly above the head with the palm facing forward. Keep your upper arm completely vertical (perpendicular to the floor) and put your right hand on your left elbow to help keep it steady. This is the starting position.",
@@ -15431,7 +12604,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -15451,7 +12624,7 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Forearms
         ],
@@ -15516,8 +12689,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "To begin, stand up with a dumbbell held in one hand. Your feet should be about shoulder width apart from each other. Now fully extend the arm with the dumbbell over your head. Tip: The small finger of your hand should be facing the ceiling and the palm of your hand should be facing forward. The dumbbell should be above your head.",
@@ -15536,7 +12709,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Shoulders],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "To begin, stand up holding a barbell or e-z bar using a pronated grip (palms facing forward) with your hands closer than shoulder width apart from each other. Your feet should be about shoulder width apart.",
             "Now elevate the barbell above your head until your arms are fully extended. Keep your elbows in. This will be your starting position.",
@@ -15553,7 +12726,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -15576,7 +12749,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Triceps
@@ -15590,7 +12763,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Standing Palms-Up Barbell Behind The Back Wrist Curl",
+        name: "Standing Barbell Behind the Back Wrist Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -15608,28 +12781,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Standing Pelvic Tilt",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::LowerBack],
-        secondary_muscles: &[Muscle::Glutes],
-        instructions: &[
-            "Start off with your feet hip-distance apart.",
-            "Bend your knees slightly to keep them soft and springy.",
-            "You may want to move your pelvis forward and backward and back few times before holding the tailbone forward in this stretch."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Standing Rope Crunch",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Cable,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -15641,45 +12799,11 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Standing Soleus And Achilles Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Calves
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand with your feet hip-distance apart, one foot slightly in front of the other.",
-            "Bend both knees, keeping your back heel on the floor. Switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Standing Toe Touches",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::Calves
-        ],
-        instructions: &[
-            "Stand with some space in front and behind you.",
-            "Bend at the waist, keeping your legs straight, until you can relax and let your upper body hang down in front of you. Let your arms and hands hang down naturally. Hold for 10 to 20 seconds."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Standing Towel Triceps Extension",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
         ],
@@ -15699,10 +12823,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Lats
         ],
         instructions: &[
@@ -15717,15 +12841,15 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Begin in a relaxed stance with your feet shoulder width apart and hold your arms close to the body.",
@@ -15735,27 +12859,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Step Mill",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[Muscle::Quadriceps],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
-        instructions: &[
-            "To begin, step onto the stepmill and select the desired option from the menu. You can choose a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. Use caution so that you donâ€™t trip as you climb the stairs. It is recommended that you maintain your grip on the handles so that you donâ€™t fall.",
-            "Stepmills offer convenience, cardiovascular benefits, and usually have less impact than running outside while offering a similar rate of calories burned. They are typically much harder than other cardio equipment. A 150 lb person will typically burn over 300 calories in 30 minutes, compared to about 175 calories walking."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Step-up with Knee Raise",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[Muscle::Glutes],
-        secondary_muscles: &[Muscle::Hamstrings, Muscle::Quadriceps],
+        secondary_muscles: &[Muscle::Hamstrings, Muscle::Quads],
         instructions: &[
             "Stand facing a box or bench of an appropriate height with your feet together. This will be your starting position.",
             "Begin the movement by stepping up, putting your left foot on the top of the bench. Extend through the hip and knee of your front leg to stand up on the box. As you stand on the box with your left leg, flex your right knee and hip, bringing your knee as high as you can.",
@@ -15764,13 +12874,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Stiff Leg Barbell Good Morning",
+        name: "Stiff-Legged Barbell Good Morning",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -15793,7 +12903,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Glutes, Muscle::LowerBack],
+        secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae],
         instructions: &[
             "Grasp a bar using an overhand grip (palms facing down). You may need some wrist wraps if using a significant amount of weight.",
             "Stand with your torso straight and your legs spaced using a shoulder width or narrower stance. The knees should be slightly bent. This is your starting position.",
@@ -15810,7 +12920,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Glutes, Muscle::LowerBack],
+        secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae],
         instructions: &[
             "Grasp a couple of dumbbells holding them by your side at arm's length.",
             "Stand with your torso straight and your legs spaced using a shoulder width or narrower stance. The knees should be slightly bent. This is your starting position.",
@@ -15821,34 +12931,17 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Stomach Vacuum",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Abdominals],
-        secondary_muscles: &[],
-        instructions: &[
-            "To begin, stand straight with your feet shoulder width apart from each other. Place your hands on your hips. This is the starting position.",
-            "Now slowly inhale as much air as possible and then start to exhale as much as possible while bringing your stomach in as much as possible and hold this position. Try to visualize your navel touching your backbone.",
-            "One isometric contraction is around 20 seconds. During the 20 second hold, try to breathe normally. Then inhale and bring your stomach back to the starting position.",
-            "Once you have practiced this exercise, try to perform this exercise for longer than 20 seconds. Tip: You can work your way up to 40-60 seconds.",
-            "Repeat for the recommended amount of sets."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Straight-Arm Dumbbell Pullover",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
             Muscle::Lats,
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -15881,13 +12974,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Straight Bar Bench Mid Rows",
+        name: "Straight Bar Bench Mid Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -15901,13 +12994,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Straight Raises on Incline Bench",
+        name: "Straight Raise on Incline Bench",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Traps
@@ -15925,9 +13018,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Box,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -15956,9 +13049,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -15970,7 +13063,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Sumo Deadlift with Bands",
+        name: "Band Sumo Deadlift",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
@@ -15982,9 +13075,9 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Adductors,
             Muscle::Forearms,
             Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
+            Muscle::ErectorSpinae,
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::Quads,
             Muscle::Traps
         ],
         instructions: &[
@@ -15997,39 +13090,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Powerlifting
     },
     Exercise {
-        name: "Sumo Deadlift with Chains",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[
-            Muscle::Abductors,
-            Muscle::Adductors,
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::LowerBack,
-            Muscle::MiddleBack,
-            Muscle::Quadriceps,
-            Muscle::Traps
-        ],
-        instructions: &[
-            "You can attach the chains to the sleeves of the bar, or just drape the middle over the bar so there is a greater weight increase as you lift. Attempt to keep the ends of the chains away from the plates so you don't hit them when you lower the weight.",
-            "Begin with a bar loaded on the ground. Approach the bar so that the bar intersects the middle of the feet. The feet should be set very wide, near the collars. Bend at the hips to grip the bar. The arms should be directly below the shoulders, inside the legs, and you can use a pronated grip, a mixed grip, or hook grip. Relax the shoulders, which in effect lengthens your arms.",
-            "Take a breath, and then lower your hips, looking forward with your head with your chest up. Drive through the floor, spreading your feet apart, with your weight on the back half of your feet. Extend through the hips and knees.",
-            "As the bar passes through the knees, lean back and drive the hips into the bar, pulling your shoulder blades together.",
-            "Return the weight to the ground by bending at the hips and controlling the weight on the way down."
-        ],
-        category: Category::Powerlifting
-    },
-    Exercise {
         name: "Superman",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -16041,10 +13108,10 @@ pub const EXERCISES: [Exercise; 873] = [
             "Slowly begin to lower your arms, legs and chest back down to the starting position while inhaling.",
             "Repeat for the recommended amount of repetitions prescribed in your program."
         ],
-        category: Category::Stretching
+        category: Category::Strength
     },
     Exercise {
-        name: "Supine Chest Throw",
+        name: "Supine Pecs Throw",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
@@ -16053,8 +13120,8 @@ pub const EXERCISES: [Exercise; 873] = [
             Muscle::Triceps
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "This drill is great for chest passes when you lack a partner or a wall of sufficient strength. Lay on the ground on your back with your knees bent.",
@@ -16071,12 +13138,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lay on the ground on your back with your knees bent. Hold the ball with one hand, extending the arm fully behind your head. This will be your starting position.",
@@ -16092,12 +13159,12 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Chest,
+            Muscle::Pecs,
             Muscle::Lats,
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Lay on the ground on your back with your knees bent.",
@@ -16112,14 +13179,14 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[
-            Muscle::Chest,
-            Muscle::LowerBack,
-            Muscle::Shoulders
+            Muscle::Pecs,
+            Muscle::ErectorSpinae,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Adjust the straps so the handles are at an appropriate height, below waist level.",
@@ -16131,16 +13198,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Suspended Push-Up",
+        name: "Suspended Push Up",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -16156,8 +13223,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Abdominals],
+        equipment: Equipment::SuspensionTrainer,
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "Secure a set of suspension straps with the handles hanging about a foot off of the ground. Move yourself into a pushup plank position facing away from the rack.",
@@ -16172,9 +13239,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -16192,9 +13259,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Abductors,
@@ -16216,9 +13283,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Forearms, Muscle::Shoulders, Muscle::Triceps],
+        equipment: Equipment::Weight,
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::Forearms, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
         instructions: &[
             "Begin in a standing position.",
             "Press two lightweight plates together with your hands. Hold the plates together close to your chest to create an isometric contraction in your chest muscles. Your fingers should be pointed forward. This is your starting position.",
@@ -16234,7 +13301,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Isolation,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Lie down on a flat bench with a dumbbell in each hand on top of your thighs. The palms of your hand will be facing each other.",
             "By using your thighs to help you get the dumbbells up, clean the dumbbells one arm at a time so that you can hold them in front of you at shoulder width. Note: when holding the dumbbells in front of you, make sure your arms are wider than shoulder width apart from each other using a pronated (palms forward) grip. Allow your elbows to point out. This is your starting position.",
@@ -16245,13 +13312,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "T-Bar Row with Handle",
+        name: "Handle T-Bar Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -16267,7 +13334,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "The Straddle",
+        name: "Straddle Leg Lift",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
@@ -16283,7 +13350,7 @@ pub const EXERCISES: [Exercise; 873] = [
             "Begin in a seated, upright position. Start by extending your legs in front of you in a V.",
             "With your hands on the floor, lean forward as far as possible. Hold for 10 to 20 seconds."
         ],
-        category: Category::Stretching
+        category: Category::Strength
     },
     Exercise {
         name: "Thigh Abductor",
@@ -16327,40 +13394,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Tire Flip",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Chest,
-            Muscle::Forearms,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack,
-            Muscle::Shoulders,
-            Muscle::Traps,
-            Muscle::Triceps
-        ],
-        instructions: &[
-            "Begin by gripping the bottom of the tire on the tread, and position your feet back a bit. Your chest should be driving into the tire.",
-            "To lift the tire, extend through the hips, knees, and ankles, driving into the tire and up.",
-            "As the tire reaches a 45 degree angle, step forward and drive a knee into the tire. As you do so adjust your grip to the upper portion of the tire and push it forward as hard as possible to complete the turn. Repeat as necessary."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Toe Touchers",
+        name: "Toe Touches",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -16371,52 +13411,16 @@ pub const EXERCISES: [Exercise; 873] = [
             "Slowly begin to lower your torso and arms back down to the starting position while inhaling. Remember to keep your arms straight out pointing towards your toes.",
             "Repeat for the recommended amount of repetitions."
         ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Torso Rotation",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::ExerciseBall,
-        primary_muscles: &[
-            Muscle::Abdominals
-        ],
-        secondary_muscles: &[],
-        instructions: &[
-            "Stand upright holding an exercise ball with both hands. Extend your arms so the ball is straight out in front of you. This will be your starting position.",
-            "Rotate your torso to one side, keeping your eyes on the ball as you move. Now, rotate back to the opposite direction. Repeat for 10-20 repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Trail Running/Walking",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "Running or hiking on trails will get the blood pumping and heart beating almost immediately. Make sure you have good shoes. While you use the muscles in your calves and buttocks to pull yourself up a hill, the knees, joints and ankles absorb the bulk of the pounding coming back down. Take smaller steps as you walk downhill, keep your knees bent to reduce the impact and slow down to avoid falling.",
-            "A 150 lb person can burn over 200 calories for 30 minutes walking uphill, compared to 175 on a flat surface. If running the trail, a 150 lb person can burn well over 500 calories in 30 minutes."
-        ],
-        category: Category::Cardio
+        category: Category::Strength
     },
     Exercise {
         name: "Trap Bar Deadlift",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::TrapBar,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Glutes,
@@ -16449,24 +13453,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Tricep Side Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Triceps
-        ],
-        secondary_muscles: &[
-            Muscle::Shoulders
-        ],
-        instructions: &[
-            "Bring right arm across your body and over your left shoulder, holding your elbow with your left hand, until you feel a stretch in your tricep. Then repeat for your other arm."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Triceps Overhead Extension with Rope",
+        name: "Rope Overhead Triceps Extension",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -16501,7 +13488,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Triceps Pushdown - Rope Attachment",
+        name: "Rope Triceps Pushdown",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -16520,7 +13507,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Triceps Pushdown - V-Bar Attachment",
+        name: "V-Bar Triceps Pushdown",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
@@ -16539,30 +13526,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Triceps Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Triceps
-        ],
-        secondary_muscles: &[
-            Muscle::Lats
-        ],
-        instructions: &[
-            "Reach your hand behind your head, grasp your elbow and gently pull. Hold for 10 to 20 seconds, then switch sides."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Tuck Crunch",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -16600,13 +13570,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack,
+            Muscle::ErectorSpinae,
             Muscle::Traps
         ],
         instructions: &[
@@ -16622,8 +13592,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Calves, Muscle::Quadriceps, Muscle::Triceps],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
+        secondary_muscles: &[Muscle::Calves, Muscle::Quads, Muscle::Triceps],
         instructions: &[
             "Clean two kettlebells to your shoulders. Clean the kettlebells to your shoulders by extending through the legs and hips as you swing the kettlebells towards your shoulders. Rotate your wrists as you do so, so that the palms face forward. Squat down a few inches and reverse the motion rapidly driving both kettlebells overhead. Immediately after the initial push, squat down again and get under the kettlebells. Once the kettlebells are locked out, stand upright to complete the exercise."
         ],
@@ -16635,7 +13605,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
         instructions: &[
             "Clean two kettlebells to your shoulders. Clean the kettlebells to your shoulders by extending through the legs and hips as you swing the kettlebells towards your shoulders. Rotate your wrists as you do so, so that the palms face forward.",
@@ -16650,7 +13620,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         secondary_muscles: &[
             Muscle::Biceps,
@@ -16663,7 +13633,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Underhand Cable Pulldowns",
+        name: "Underhand Cable Pulldown",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
@@ -16673,8 +13643,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Sit down on a pull-down machine with a wide bar attached to the top pulley. Adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.",
@@ -16687,48 +13657,12 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Upper Back-Leg Grab",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Hamstrings
-        ],
-        secondary_muscles: &[
-            Muscle::LowerBack,
-            Muscle::MiddleBack
-        ],
-        instructions: &[
-            "While seated, bend forward to hug your thighs from underneath with both arms.",
-            "Keep your knees together and your legs extended out as you bring your chest down to your knees. You can also stretch your middle back by pulling your back away from your knees as your hugging them."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Upper Back Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::MiddleBack
-        ],
-        secondary_muscles: &[
-            Muscle::MiddleBack
-        ],
-        instructions: &[
-            "Clasp fingers together with your thumbs pointing down, round your shoulders as you reach your hands forward."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Upright Barbell Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Shoulders],
+        primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Traps],
         instructions: &[
             "Grasp a barbell with an overhand grip that is slightly less than shoulder width. The bar should be resting on the top of your thighs with your arms extended and a slight bend in your elbows. Your back should also be straight. This will be your starting position.",
@@ -16745,7 +13679,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Traps],
-        secondary_muscles: &[Muscle::Shoulders],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         instructions: &[
             "Grasp a straight bar cable attachment that is attached to a low pulley with a pronated (palms facing your thighs) grip that is slightly less than shoulder width. The bar should be resting on top of your thighs. Your arms should be extended with a slight bend at the elbows and your back should be straight. This will be your starting position.",
             "Use your side shoulders to lift the cable bar as you exhale. The bar should be close to the body as you move it up. Continue to lift it until it nearly touches your chin. Tip: Your elbows should drive the motion. As you lift the bar, your elbows should always be higher than your forearms. Also, keep your torso stationary and pause for a second at the top of the movement.",
@@ -16755,16 +13689,16 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Upright Row - With Bands",
+        name: "Band Upright Row",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Bands,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Traps
         ],
         secondary_muscles: &[
-            Muscle::Shoulders
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "To begin, stand on an exercise band so that tension begins at arm's length. Grasp the handles using a pronated (palms facing your thighs) grip that is slightly less than shoulder width. The handles should be resting on top of your thighs. Your arms should be extended with a slight bend at the elbows and your back should be straight. This will be your starting position.",
@@ -16773,20 +13707,6 @@ pub const EXERCISES: [Exercise; 873] = [
             "Repeat for the recommended amount of repetitions."
         ],
         category: Category::Strength
-    },
-    Exercise {
-        name: "Upward Stretch",
-        force: Force::Static,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Shoulders],
-        secondary_muscles: &[Muscle::Chest, Muscle::Lats],
-        instructions: &[
-            "Extend both hands straight above your head, palms touching.",
-            "Slowly push your hands up and back, keeping your back straight."
-        ],
-        category: Category::Stretching
     },
     Exercise {
         name: "V-Bar Pulldown",
@@ -16799,8 +13719,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Sit down on a pull-down machine with a V-Bar attached to the top pulley.",
@@ -16813,18 +13733,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "V-Bar Pullup",
+        name: "V-Bar Pull Up",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Start by placing the middle of the V-bar in the middle of the pull-up bar (assuming that the pull-up station you are using does not have neutral grip handles). The V-Bar handles will be facing down so that you can hang from the pull-up bar through the use of the handles.",
@@ -16846,8 +13766,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Glutes,
-            Muscle::Quadriceps,
-            Muscle::Shoulders
+            Muscle::Quads,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
         ],
         instructions: &[
             "Allow the dumbbell to hang at arms length between your legs, holding it with both hands. Keep your back straight and your head up.",
@@ -16858,38 +13778,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Walking, Treadmill",
-        force: Force::Undefined,
-        level: Level::Beginner,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::Machine,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings
-        ],
-        instructions: &[
-            "To begin, step onto the treadmill and select the desired option from the menu. Most treadmills have a manual setting, or you can select a program to run. Typically, you can enter your age and weight to estimate the amount of calories burned during exercise. Elevation can be adjusted to change the intensity of the workout.",
-            "Treadmills offer convenience, cardiovascular benefits, and usually have less impact than walking outside. When walking, you should move at a moderate to fast pace, not a leisurely one. Being an activity of lower intensity, walking doesnâ€™t burn as many calories as some other activities, but still provides great benefit. A 150 lb person will burn about 175 calories walking 4 miles per hour for 30 minutes, compared to 450 calories running twice as fast. Maintain proper posture as you walk, and only hold onto the handles when necessary, such as when dismounting or checking your heart rate."
-        ],
-        category: Category::Cardio
-    },
-    Exercise {
         name: "Weighted Ball Hyperextension",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         secondary_muscles: &[
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "To begin, lie down on an exercise ball with your torso pressing against the ball and parallel to the floor. The ball of your feet should be pressed against the floor to help keep you balanced. Place a weighted plate under your chin or behind your neck. This is the starting position.",
@@ -16905,7 +13805,7 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::ExerciseBall,
-        primary_muscles: &[Muscle::Abdominals],
+        primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
         instructions: &[
             "To begin, lie down on an exercise ball with your left side of the torso (waist, hips and shoulder) pressed against the ball.",
@@ -16923,9 +13823,9 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::Weight,
         primary_muscles: &[Muscle::Triceps],
-        secondary_muscles: &[Muscle::Chest, Muscle::Shoulders],
+        secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts],
         instructions: &[
             "For this exercise you will need to place a bench behind your back and another one in front of you. With the benches perpendicular to your body, hold on to one bench on its edge with the hands close to your body, separated at shoulder width. Your arms should be fully extended.",
             "The legs will be extended forward on top of the other bench. Your legs should be parallel to the floor while your torso is to be perpendicular to the floor. Have your partner place the dumbbell on your lap. Note: This exercise is best performed with a partner as placing the weight on your lap can be challenging and cause injury without assistance. This will be your starting position.",
@@ -16936,13 +13836,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Weighted Crunches",
+        name: "Weighted Crunch",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -16961,13 +13861,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Position a lightly loaded barbell across the back of your shoulders. You could also use a weighted vest, sandbag, or other type of resistance for this exercise.",
@@ -16978,21 +13878,21 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Weighted Pull Ups",
+        name: "Weighted Pull Up",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts
         ],
         instructions: &[
             "Attach a weight to a dip belt and secure it around your waist. Grab the pull-up bar with the palms of your hands facing forward. For a medium grip, your hands should be spaced at shoulder width. Both arms should be extended in front of you holding the bar at the chosen grip.",
-            "Youâ€™ll want to bring your torso back about 30 degrees while creating a curvature in your lower back and sticking your chest out. This will be your starting position.",
+            "You'll want to bring your torso back about 30 degrees while creating a curvature in your lower back and sticking your chest out. This will be your starting position.",
             "Now, exhale and pull your torso up until your head is above your hands. Concentrate on squeezing yourshoulder blades back and down as you reach the top contracted position.",
             "After a brief moment at the top contracted position, inhale and slowly lower your torso back to the starting position with your arms extended and your lats fully stretched."
         ],
@@ -17005,7 +13905,7 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
@@ -17021,13 +13921,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Weighted Sit-Ups - With Bands",
+        name: "Band Weighted Sit Up",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::ResistanceBand,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -17043,8 +13943,8 @@ pub const EXERCISES: [Exercise; 873] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[Muscle::Quadriceps],
+        equipment: Equipment::Weight,
+        primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
         instructions: &[
             "Start by positioning two flat benches shoulder width apart from each other. Stand on top of them and wrap the weighted belt around your waist with the amount of weight you feel comfortable with. Make sure your toes are facing out.",
@@ -17061,8 +13961,8 @@ pub const EXERCISES: [Exercise; 873] = [
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
-        primary_muscles: &[Muscle::Chest],
-        secondary_muscles: &[Muscle::Shoulders, Muscle::Triceps],
+        primary_muscles: &[Muscle::Pecs],
+        secondary_muscles: &[Muscle::FrontDelts, Muscle::Triceps],
         instructions: &[
             "Lie back on a flat bench with feet firm on the floor. Using a wide, pronated (palms forward) grip that is around 3 inches away from shoulder width (for each hand), lift the bar from the rack and hold it straight over you with your arms locked. The bar will be perpendicular to the torso and the floor. This will be your starting position.",
             "As you breathe in, come down slowly until you feel the bar on your middle chest.",
@@ -17078,10 +13978,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -17099,10 +13999,10 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Chest
+            Muscle::Pecs
         ],
         secondary_muscles: &[
-            Muscle::Shoulders,
+            Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts,
             Muscle::Triceps
         ],
         instructions: &[
@@ -17126,8 +14026,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::RearDelts
         ],
         instructions: &[
             "Sit down on a pull-down machine with a wide bar attached to the top pulley. Make sure that you adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.",
@@ -17140,7 +14040,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Wide-Grip Pulldown Behind The Neck",
+        name: "Wide-Grip Pulldown Behind the Neck",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
@@ -17150,8 +14050,8 @@ pub const EXERCISES: [Exercise; 873] = [
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::RearDelts
         ],
         instructions: &[
             "Sit down on a pull-down machine with a wide bar attached to the top pulley. Make sure that you adjust the knee pad of the machine to fit your height. These pads will prevent your body from being raised by the resistance attached to the bar.",
@@ -17164,18 +14064,18 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Wide-Grip Rear Pull-Up",
+        name: "Wide-Grip Rear Pull Up",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
         ],
         secondary_muscles: &[
             Muscle::Biceps,
-            Muscle::MiddleBack,
-            Muscle::Shoulders
+            Muscle::Lats, Muscle::Traps, Muscle::RearDelts,
+            Muscle::RearDelts
         ],
         instructions: &[
             "Grab the pull-up bar with the palms facing forward using a wide grip.",
@@ -17212,13 +14112,13 @@ pub const EXERCISES: [Exercise; 873] = [
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,
             Muscle::Glutes,
             Muscle::Hamstrings,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "This exercise is best performed inside a squat rack for safety purposes. To begin, first set the bar on a rack that best matches your height. Once the correct height is chosen and the bar is loaded, step under the bar and place the back of your shoulders (slightly below the neck) across it.",
@@ -17231,7 +14131,7 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Wide Stance Stiff Legs",
+        name: "Wide Stance Stiff-Legged Deadlift",
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
@@ -17242,7 +14142,7 @@ pub const EXERCISES: [Exercise; 873] = [
         secondary_muscles: &[
             Muscle::Adductors,
             Muscle::Glutes,
-            Muscle::LowerBack
+            Muscle::ErectorSpinae
         ],
         instructions: &[
             "Begin with a barbell loaded on the floor. Adopt a wide stance, and then bend at the hips to grab the bar. Your hips should be as far back as possible, and your legs nearly straight. Keep your back straight, and your head and chest up. This will be your starting position.",
@@ -17251,34 +14151,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "Windmills",
-        force: Force::Pull,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[
-            Muscle::Abductors
-        ],
-        secondary_muscles: &[
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "Lie on your back with your arms extended out to the sides and your legs straight. This will be your starting position.",
-            "Lift one leg and quickly cross it over your body, attempting to touch the ground near the opposite hand.",
-            "Return to the starting position, and repeat with the opposite leg. Continue to alternate for 10-20 repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Wind Sprints",
+        name: "Wind Sprint",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
-        equipment: Equipment::BodyOnly,
+        equipment: Equipment::None,
         primary_muscles: &[
-            Muscle::Abdominals
+            Muscle::Abs
         ],
         secondary_muscles: &[],
         instructions: &[
@@ -17290,43 +14169,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "World's Greatest Stretch",
-        force: Force::Static,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Undefined,
-        equipment: Equipment::None,
-        primary_muscles: &[Muscle::Hamstrings],
-        secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Quadriceps],
-        instructions: &[
-            "This is a three-part stretch. Begin by lunging forward, with your front foot flat on the ground and on the toes of your back foot. With your knees bent, squat down until your knee is almost touching the ground. Keep your torso erect, and hold this position for 10-20 seconds.",
-            "Now, place the arm on the same side as your front leg on the ground, with the elbow next to the foot. Your other hand should be placed on the ground, parallel to your lead leg, to help support you during this portion of the stretch.",
-            "After 10-20 seconds, place your hands on either side of your front foot. Raise the toes of the front foot off of the ground, and straighten your leg. You may need to reposition your rear leg to do so. Hold for 10-20 seconds, and then repeat the entire sequence for the other side."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
-        name: "Wrist Circles",
-        force: Force::Pull,
-        level: Level::Beginner,
-        mechanic: Mechanic::Isolation,
-        equipment: Equipment::BodyOnly,
-        primary_muscles: &[Muscle::Forearms],
-        secondary_muscles: &[],
-        instructions: &[
-            "Start by standing straight with your feet being shoulder width apart from each other. Elevate your arms to the side of you until they are fully extended and parallel to the floor at a height that is evenly aligned with your shoulders. Tip: Your torso and arms should form the letter \"T: Your palms should be facing down. This is the starting position.",
-            "Keeping your entire body stationary except for the wrists, begin to rotate both wrists forward in a circular motion. Tip: Pretend that you are trying to draw circles by using your hands as the brush. Breathe normally as you perform this exercise.",
-            "Repeat for the recommended amount of repetitions."
-        ],
-        category: Category::Stretching
-    },
-    Exercise {
         name: "Wrist Roller",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
-        equipment: Equipment::Other,
+        equipment: Equipment::WristRoller,
         primary_muscles: &[Muscle::Forearms],
-        secondary_muscles: &[Muscle::Shoulders],
+        secondary_muscles: &[Muscle::FrontDelts],
         instructions: &[
             "To begin, stand straight up grabbing a wrist roller using a pronated grip (palms facing down). Your feet should be shoulder width apart.",
             "Slowly lift both arms until they are fully extended and parallel to the floor in front of you. Note: Make sure the rope is not wrapped around the roller. Your entire body should be stationary except for the forearms. This is the starting position.",
@@ -17354,38 +14203,13 @@ pub const EXERCISES: [Exercise; 873] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Yoke Walk",
-        force: Force::Undefined,
-        level: Level::Intermediate,
-        mechanic: Mechanic::Compound,
-        equipment: Equipment::Other,
-        primary_muscles: &[
-            Muscle::Quadriceps
-        ],
-        secondary_muscles: &[
-            Muscle::Abdominals,
-            Muscle::Abductors,
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::Glutes,
-            Muscle::Hamstrings,
-            Muscle::LowerBack
-        ],
-        instructions: &[
-            "The yoke is usually done with a yoke apparatus, but is sometimes seen with refrigerators or other heavy objects.",
-            "Begin by racking the apparatus across the back of the shoulders. With your head looking forward and back arched, lift the yoke by driving through the heels.",
-            "Begin walking as quickly as possible using short, quick steps. You may hold the side posts of the yoke to help steady it and hold it in position. Continue for the given distance as fast as possible, usually 75-100 feet."
-        ],
-        category: Category::Strongman
-    },
-    Exercise {
-        name: "Zercher Squats",
+        name: "Zercher Squat",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
         equipment: Equipment::Barbell,
         primary_muscles: &[
-            Muscle::Quadriceps
+            Muscle::Quads
         ],
         secondary_muscles: &[
             Muscle::Calves,

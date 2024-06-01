@@ -403,7 +403,9 @@ fn view_training_sessions_dialog(
             return empty![];
         }
     }
-    let save_disabled = loading || form.date.1.is_none();
+    let today = Local::now().date_naive();
+    let date_valid = form.date.1.map_or(false, |d| d <= today);
+    let save_disabled = loading || !date_valid;
     common::view_dialog(
         "primary",
         title,
@@ -416,11 +418,12 @@ fn view_training_sessions_dialog(
                     input_ev(Ev::Input, Msg::DateChanged),
                     input![
                         C!["input"],
-                        C![IF![form.date.1.is_none() => "is-danger"]],
+                        C![IF![!date_valid => "is-danger"]],
                         attrs! {
                             At::Type => "date",
                             At::Value => form.date.0,
                             At::Disabled => date_disabled.as_at_value(),
+                            At::Max => today,
                         }
                     ],
                 ]

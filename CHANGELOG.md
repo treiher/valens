@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Reject future training dates
+- Reject trainings, body weight, body fat and period entries in the future
 
 ## [0.4.1] - 2024-05-20
 

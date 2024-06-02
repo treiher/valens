@@ -1261,14 +1261,8 @@ fn view_muscles(routine: &data::Routine, data_model: &data::Model) -> Node<Msg> 
     let stimulus_per_muscle = routine
         .stimulus_per_muscle(&data_model.exercises)
         .iter()
-        .map(|(id, stimulus)| {
-            (
-                domain::Muscle::from_repr(*id)
-                    .as_ref()
-                    .map(|m| domain::Muscle::name(*m))
-                    .unwrap_or_default(),
-                *stimulus,
-            )
+        .filter_map(|(id, stimulus)| {
+            domain::Muscle::from_repr(*id).map(|muscle| (muscle, *stimulus))
         })
         .collect::<Vec<_>>();
     if stimulus_per_muscle.is_empty() {

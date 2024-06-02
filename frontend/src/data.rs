@@ -279,10 +279,14 @@ impl Routine {
     }
 
     pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
-        let mut result: BTreeMap<u8, u32> = BTreeMap::new();
+        let mut result: BTreeMap<u8, u32> = domain::Muscle::iter()
+            .map(|m| (domain::Muscle::id(*m), 0))
+            .collect();
         for section in &self.sections {
             for (id, stimulus) in section.stimulus_per_muscle(exercises) {
-                *result.entry(id).or_insert(0) += stimulus;
+                if result.contains_key(&id) {
+                    *result.entry(id).or_insert(0) += stimulus;
+                }
             }
         }
         result

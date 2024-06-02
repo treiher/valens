@@ -1950,14 +1950,8 @@ fn view_muscles(training_session: &data::TrainingSession, data_model: &data::Mod
     let stimulus_per_muscle = training_session
         .stimulus_per_muscle(&data_model.exercises)
         .iter()
-        .map(|(id, stimulus)| {
-            (
-                domain::Muscle::from_repr(*id)
-                    .as_ref()
-                    .map(|m| domain::Muscle::name(*m))
-                    .unwrap_or_default(),
-                *stimulus,
-            )
+        .filter_map(|(id, stimulus)| {
+            domain::Muscle::from_repr(*id).map(|muscle| (muscle, *stimulus))
         })
         .collect::<Vec<_>>();
     if stimulus_per_muscle.is_empty() {

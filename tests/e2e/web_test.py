@@ -490,7 +490,7 @@ def test_training_session(driver: webdriver.Chrome) -> None:
     page.load()
 
     page.wait_for_title(str(workout.date))
-    assert page.get_sets() == sets
+    assert page.get_sets() == [*sets, "Pecs", "2"]
 
     page.edit()
 

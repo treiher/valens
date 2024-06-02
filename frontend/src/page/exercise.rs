@@ -422,12 +422,15 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                 C!["mx-2"],
                 C!["mb-5"],
                 muscles.iter().map(|(m, stimulus)| {
-                    span![
-                        C!["tag"],
-                        C!["is-link"],
-                        C![IF![*stimulus < 100 => "is-light"]],
-                        domain::Muscle::name(**m)
-                    ]
+                    common::view_element_with_description(
+                        span![
+                            C!["tag"],
+                            C!["is-link"],
+                            C![IF![*stimulus < 100 => "is-light"]],
+                            domain::Muscle::name(**m)
+                        ],
+                        domain::Muscle::description(**m),
+                    )
                 })
             ]
         }

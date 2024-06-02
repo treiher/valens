@@ -193,3 +193,15 @@ div.is-calendar {
 .is-scrollbar-width-none {
     scrollbar-width: none;
 }
+
+// Tags
+
+.tags.has-addons .tag:not(:first-child) {
+    border-left: 1px solid;
+}
+
+// Dropdown menu
+
+.dropdown-menu.has-no-min-width {
+    min-width: auto;
+}

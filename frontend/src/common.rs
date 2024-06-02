@@ -1087,32 +1087,76 @@ where
     ]
 }
 
-pub fn view_sets_per_muscle<Ms>(stimulus_per_muscle: &[(&str, u32)]) -> Node<Ms>
+pub fn view_sets_per_muscle<Ms>(stimulus_per_muscle: &[(domain::Muscle, u32)]) -> Vec<Node<Ms>>
+where
+    Ms: 'static,
+{
+    let mut stimulus_per_muscle = stimulus_per_muscle.to_vec();
+    stimulus_per_muscle.sort_by(|a, b| b.1.cmp(&a.1));
+    let mut groups = vec![vec![], vec![], vec![], vec![]];
+    for (muscle, stimulus) in stimulus_per_muscle {
+        let name = domain::Muscle::name(muscle);
+        let description = domain::Muscle::description(muscle);
+        let sets = f64::from(stimulus) / 100.0;
+        let sets_str = format!("{:.1$}", sets, usize::from(sets.fract() != 0.0));
+        if sets > 10.0 {
+            groups[0].push((name, description, sets_str, vec!["is-dark"]));
+        } else if sets >= 3.0 {
+            groups[1].push((name, description, sets_str, vec!["is-dark", "is-link"]));
+        } else if sets > 0.0 {
+            groups[2].push((name, description, sets_str, vec!["is-light", "is-link"]));
+        } else {
+            groups[3].push((name, description, sets_str, vec!["is-light"]));
+        }
+    }
+    groups
+        .iter()
+        .filter(|g| !g.is_empty())
+        .map(|g| view_tags_with_addons(g))
+        .collect::<Vec<_>>()
+}
+
+fn view_tags_with_addons<Ms>(tags: &[(&str, &str, String, Vec<&str>)]) -> Node<Ms>
 where
     Ms: 'static,
 {
     div![
-        C!["table-container"],
-        table![
-            C!["table"],
-            C!["is-flex"],
-            C!["has-text-centered"],
-            tbody![
-                C!["mx-auto"],
-                stimulus_per_muscle
-                    .iter()
-                    .map(|(name, stimulus)| {
-                        let sets = f64::from(*stimulus) / 100.0;
-                        tr![
-                            td![C!["is-borderless"], C!["py-1"], name],
-                            td![
-                                C!["is-borderless"],
-                                C!["py-1"],
-                                format!("{:.1$}", sets, usize::from(sets.fract() != 0.0))
-                            ]
-                        ]
-                    })
-                    .collect::<Vec<_>>(),
+        C!["field"],
+        C!["is-grouped"],
+        C!["is-grouped-multiline"],
+        C!["is-justify-content-center"],
+        C!["mx-2"],
+        tags.iter().map(|(name, description, value, attributes)| {
+            view_element_with_description(
+                div![
+                    C!["tags"],
+                    C!["has-addons"],
+                    span![C!["tag"], attributes.iter().map(|a| C![a]), name],
+                    span![C!["tag"], attributes.iter().map(|a| C![a]), value]
+                ],
+                description,
+            )
+        })
+    ]
+}
+
+pub fn view_element_with_description<Ms>(element: Node<Ms>, description: &str) -> Node<Ms> {
+    div![
+        C!["dropdown"],
+        C!["is-hoverable"],
+        div![
+            C!["dropdown-trigger"],
+            div![C!["control"], C!["is-clickable"], element]
+        ],
+        IF![
+            not(description.is_empty()) =>
+            div![
+                C!["dropdown-menu"],
+                C!["has-no-min-width"],
+                div![
+                    C!["dropdown-content"],
+                    div![C!["dropdown-item"], description]
+                ]
             ]
         ]
     ]

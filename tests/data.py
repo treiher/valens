@@ -181,6 +181,7 @@ def users() -> list[User]:
                             ],
                         ),
                     ],
+                    archived=False,
                 ),
                 Routine(
                     id=3,
@@ -212,6 +213,7 @@ def users() -> list[User]:
                             ],
                         ),
                     ],
+                    archived=False,
                 ),
             ],
             workouts=[
@@ -343,8 +345,9 @@ def users() -> list[User]:
                             ],
                         ),
                     ],
+                    archived=False,
                 ),
-                Routine(id=4, user_id=2, name="Empty", notes="TBD"),
+                Routine(id=4, user_id=2, name="Empty", notes="TBD", archived=False),
             ],
             workouts=[
                 Workout(

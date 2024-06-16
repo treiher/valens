@@ -201,6 +201,7 @@ class Routine(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(String)
+    archived: Mapped[bool] = mapped_column(default=False)
 
     sections: Mapped[list[RoutineSection]] = relationship(
         "RoutineSection", back_populates="routine", cascade="all, delete-orphan"

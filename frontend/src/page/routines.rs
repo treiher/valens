@@ -19,6 +19,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
     Model {
         search_term: String::new(),
         dialog: Dialog::Hidden,
+        archive_visible: false,
         loading: false,
     }
 }
@@ -30,6 +31,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 pub struct Model {
     search_term: String,
     dialog: Dialog,
+    archive_visible: bool,
     loading: bool,
 }
 
@@ -60,7 +62,10 @@ pub enum Msg {
     NameChanged(String),
     TemplateRoutineChanged(String),
 
+    ShowArchive,
+
     SaveRoutine,
+    ChangeArchived(u32, bool),
     DeleteRoutine(u32),
     DataEvent(data::Event),
 }
@@ -139,6 +144,10 @@ pub fn update(
             }
         },
 
+        Msg::ShowArchive => {
+            model.archive_visible = true;
+        }
+
         Msg::SaveRoutine => {
             model.loading = true;
             match model.dialog {
@@ -153,12 +162,17 @@ pub fn update(
                         form.id,
                         form.name.parsed.clone(),
                         None,
+                        None,
                     ));
                 }
                 Dialog::Hidden | Dialog::DeleteRoutine(_) => {
                     panic!();
                 }
             };
+        }
+        Msg::ChangeArchived(id, archived) => {
+            model.loading = true;
+            orders.notify(data::Msg::ModifyRoutine(id, None, Some(archived), None));
         }
         Msg::DeleteRoutine(id) => {
             model.loading = true;
@@ -189,14 +203,14 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             view_routine_dialog(
                 &model.dialog,
-                &data_model.routines_sorted_by_last_use(),
+                &data_model.routines_sorted_by_last_use(|r: &data::Routine| !r.archived),
                 model.loading
             ),
             div![
                 C!["px-4"],
                 common::view_search_box(&model.search_term, Msg::SearchTermChanged)
             ],
-            view_table(&model.search_term, data_model),
+            view_table(&model.search_term, model.archive_visible, data_model),
             common::view_fab("plus", |_| Msg::ShowAddRoutineDialog),
         ]
     }
@@ -318,7 +332,13 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: boo
     )
 }
 
-fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
+fn view_table(search_term: &str, archive_visible: bool, data_model: &data::Model) -> Node<Msg> {
+    let routines = data_model.routines_sorted_by_last_use(|r: &data::Routine| {
+        !r.archived && r.name.to_lowercase().contains(&search_term.to_lowercase())
+    });
+    let archived_routines = data_model.routines_sorted_by_last_use(|r: &data::Routine| {
+        r.archived && r.name.to_lowercase().contains(&search_term.to_lowercase())
+    });
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -326,43 +346,94 @@ fn view_table(search_term: &str, data_model: &data::Model) -> Node<Msg> {
             C!["table"],
             C!["is-fullwidth"],
             C!["is-hoverable"],
-            tbody![&data_model
-                .routines_sorted_by_last_use()
-                .iter()
-                .filter(|e| e.name.to_lowercase().contains(&search_term.to_lowercase()))
-                .map(|e| {
-                    let id = e.id;
-                    tr![td![
-                        C!["is-flex"],
-                        C!["is-justify-content-space-between"],
-                        a![
-                            attrs! {
-                                At::Href => {
-                                    crate::Urls::new(&data_model.base_url)
-                                        .routine()
-                                        .add_hash_path_part(id.to_string())
-                                }
-                            },
-                            e.name.to_string(),
+            tbody![routines.iter().map(|r| view_table_row(
+                r.id,
+                &r.name,
+                r.archived,
+                &data_model.base_url
+            ))],
+        ],
+        IF![!archived_routines.is_empty() =>
+            if archive_visible {
+                nodes![
+                    common::view_title(&span!["Archive"], 3),
+                    table![
+                        C!["table"],
+                        C!["is-fullwidth"],
+                        C!["is-hoverable"],
+                        tbody![archived_routines
+                            .iter()
+                            .map(|r|
+                                view_table_row(r.id, &r.name, r.archived, &data_model.base_url)
+                            )
                         ],
-                        p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
+                    ]
+                ]
+            } else {
+                nodes![
+                    div![
+                        C!["has-text-centered"],
+                        button![
+                            C!["button"],
+                            C!["is-small"],
+                            ev(Ev::Click, move |_| Msg::ShowArchive),
+                            span![
                                 C!["icon"],
-                                C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditRoutineDialog(id)),
-                                i![C!["fas fa-edit"]]
+                                C!["is-small"],
+                                i![C!["fas fa-box-archive"]]
                             ],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteRoutineDialog(id)),
-                                i![C!["fas fa-times"]]
-                            ]
+                            span!["Show archive"]
                         ]
-                    ]]
-                })
-                .collect::<Vec<_>>()],
+                    ]
+                ]
+            }
         ]
     ]
+}
+
+fn view_table_row(id: u32, name: &str, archived: bool, base_url: &Url) -> Node<Msg> {
+    tr![td![
+        C!["is-flex"],
+        C!["is-justify-content-space-between"],
+        a![
+            attrs! {
+                At::Href => {
+                    crate::Urls::new(base_url)
+                        .routine()
+                        .add_hash_path_part(id.to_string())
+                }
+            },
+            name,
+        ],
+        p![
+            C!["is-flex is-flex-wrap-nowrap"],
+            if archived {
+                a![
+                    C!["icon"],
+                    C!["mr-1"],
+                    ev(Ev::Click, move |_| Msg::ChangeArchived(id, false)),
+                    i![C!["fas fa-box-open"]]
+                ]
+            } else {
+                a![
+                    C!["icon"],
+                    C!["mr-1"],
+                    ev(Ev::Click, move |_| Msg::ChangeArchived(id, true)),
+                    i![C!["fas fa-box-archive"]]
+                ]
+            },
+            a![
+                C!["icon"],
+                C!["mx-1"],
+                ev(Ev::Click, move |_| Msg::ShowEditRoutineDialog(id)),
+                i![C!["fas fa-edit"]]
+            ],
+            a![
+                C!["icon"],
+                C!["ml-1"],
+                ev(Ev::Click, move |_| Msg::ShowDeleteRoutineDialog(id)),
+                i![C!["fas fa-times"]]
+            ]
+        ]
+    ]]
 }

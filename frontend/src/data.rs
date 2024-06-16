@@ -106,8 +106,8 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn routines_sorted_by_last_use(&self) -> Vec<Routine> {
-        sort_routines_by_last_use(&self.routines, &self.training_sessions)
+    pub fn routines_sorted_by_last_use(&self, filter: impl Fn(&Routine) -> bool) -> Vec<Routine> {
+        sort_routines_by_last_use(&self.routines, &self.training_sessions, filter)
     }
 
     pub fn training_sessions_date_range(&self) -> std::ops::RangeInclusive<NaiveDate> {
@@ -119,9 +119,10 @@ impl Model {
 fn sort_routines_by_last_use(
     routines: &BTreeMap<u32, Routine>,
     training_sessions: &BTreeMap<u32, TrainingSession>,
+    filter: impl Fn(&Routine) -> bool,
 ) -> Vec<Routine> {
     let mut map: BTreeMap<u32, NaiveDate> = BTreeMap::new();
-    for routine_id in routines.keys() {
+    for (routine_id, _) in routines.iter().filter(|(_, r)| filter(r)) {
         map.insert(
             *routine_id,
             NaiveDate::MIN + Duration::days(i64::from(*routine_id)),
@@ -129,7 +130,10 @@ fn sort_routines_by_last_use(
     }
     for training_session in training_sessions.values() {
         if let Some(routine_id) = training_session.routine_id {
-            if routines.contains_key(&routine_id) && training_session.date > map[&routine_id] {
+            if routines.contains_key(&routine_id)
+                && filter(&routines[&routine_id])
+                && training_session.date > map[&routine_id]
+            {
                 map.insert(routine_id, training_session.date);
             }
         }
@@ -266,6 +270,7 @@ pub struct Routine {
     pub id: u32,
     pub name: String,
     pub notes: Option<String>,
+    pub archived: bool,
     pub sections: Vec<RoutinePart>,
 }
 
@@ -1039,7 +1044,7 @@ pub enum Msg {
     RoutinesRead(Result<Vec<Routine>, String>),
     CreateRoutine(String, u32),
     RoutineCreated(Result<Routine, String>),
-    ModifyRoutine(u32, Option<String>, Option<Vec<RoutinePart>>),
+    ModifyRoutine(u32, Option<String>, Option<bool>, Option<Vec<RoutinePart>>),
     RoutineModified(Result<Routine, String>),
     DeleteRoutine(u32),
     RoutineDeleted(Result<u32, String>),
@@ -1720,6 +1725,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                         .json(&json!({
                             "name": routine_name,
                             "notes": "",
+                            "archived": false,
                             "sections": sections
                         }))
                         .expect("serialization failed"),
@@ -1738,10 +1744,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .errors
                 .push("Failed to create routine: ".to_owned() + &message);
         }
-        Msg::ModifyRoutine(id, name, sections) => {
+        Msg::ModifyRoutine(id, name, archived, sections) => {
             let mut content = Map::new();
             if let Some(name) = name {
                 content.insert("name".into(), json!(name));
+            }
+            if let Some(archived) = archived {
+                content.insert("archived".into(), json!(archived));
             }
             if let Some(sections) = sections {
                 content.insert("sections".into(), json!(sections));
@@ -2098,7 +2107,7 @@ mod tests {
             ),
         ]);
         assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions),
+            sort_routines_by_last_use(&routines, &training_sessions, |_| true),
             vec![routine(2), routine(3), routine(4), routine(1)]
         );
     }
@@ -2108,7 +2117,7 @@ mod tests {
         let routines = BTreeMap::new();
         let training_sessions = BTreeMap::new();
         assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions),
+            sort_routines_by_last_use(&routines, &training_sessions, |_| true),
             vec![]
         );
     }
@@ -2131,8 +2140,36 @@ mod tests {
             ),
         ]);
         assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions),
+            sort_routines_by_last_use(&routines, &training_sessions, |_| true),
             vec![routine(2), routine(1)]
+        );
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use_filter() {
+        let routines = BTreeMap::from([
+            (1, routine(1)),
+            (2, routine(2)),
+            (3, routine(3)),
+            (4, routine(4)),
+        ]);
+        let training_sessions = BTreeMap::from([
+            (
+                1,
+                training_session(1, Some(3), NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+            ),
+            (
+                2,
+                training_session(2, Some(2), NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+            ),
+            (
+                3,
+                training_session(3, Some(3), NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+            ),
+        ]);
+        assert_eq!(
+            sort_routines_by_last_use(&routines, &training_sessions, |r| r.id > 2),
+            vec![routine(3), routine(4)]
         );
     }
 
@@ -2141,6 +2178,7 @@ mod tests {
             id,
             name: id.to_string(),
             notes: None,
+            archived: false,
             sections: vec![],
         }
     }

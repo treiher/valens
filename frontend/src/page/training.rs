@@ -262,7 +262,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             data_model.training_sessions_date_range().into();
         div![
             view_training_sessions_dialog(
-                &data_model.routines_sorted_by_last_use(),
+                &data_model.routines_sorted_by_last_use(|r: &data::Routine| !r.archived),
                 &model.dialog,
                 model.loading
             ),

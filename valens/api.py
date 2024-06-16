@@ -788,6 +788,7 @@ def create_routine() -> ResponseReturnValue:
             user_id=session["user_id"],
             name=data["name"],
             notes=data["notes"],
+            archived=data["archived"],
             sections=to_routine_sections(data["sections"]),
         )
     except (DeserializationError, KeyError, ValueError) as e:
@@ -833,6 +834,8 @@ def update_routine(id_: int) -> ResponseReturnValue:
             routine.name = data["name"]
         if "notes" in data or request.method == "PUT":
             routine.notes = data["notes"]
+        if "archived" in data or request.method == "PUT":
+            routine.archived = data["archived"]
         if "sections" in data or request.method == "PUT":
             routine.sections = to_routine_sections(data["sections"])
     except (DeserializationError, KeyError, ValueError) as e:

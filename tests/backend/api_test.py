@@ -345,6 +345,7 @@ def test_delete_user(client: Client) -> None:
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 1,
@@ -436,6 +437,7 @@ def test_delete_user(client: Client) -> None:
                     "id": 3,
                     "name": "R2",
                     "notes": None,
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 5,
@@ -742,6 +744,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                 "id": 5,
                 "name": "New Routine",
                 "notes": "Something New",
+                "archived": True,
                 "sections": [
                     {
                         "rounds": 2,
@@ -805,6 +808,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "id": 5,
                     "name": "New Routine",
                     "notes": "Something New",
+                    "archived": True,
                     "sections": [
                         {
                             "rounds": 2,
@@ -867,6 +871,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 1,
@@ -958,6 +963,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "id": 3,
                     "name": "R2",
                     "notes": None,
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 5,
@@ -1370,6 +1376,7 @@ def test_create_workout(
             {
                 "name": "Changed Routine",
                 "notes": "First Changed Routine",
+                "archived": True,
                 "sections": [
                     {
                         "rounds": 3,
@@ -1424,6 +1431,7 @@ def test_create_workout(
                 "id": 1,
                 "name": "Changed Routine",
                 "notes": "First Changed Routine",
+                "archived": True,
                 "sections": [
                     {
                         "rounds": 3,
@@ -1479,6 +1487,7 @@ def test_create_workout(
                     "id": 1,
                     "name": "Changed Routine",
                     "notes": "First Changed Routine",
+                    "archived": True,
                     "sections": [
                         {
                             "rounds": 3,
@@ -1533,6 +1542,7 @@ def test_create_workout(
                     "id": 3,
                     "name": "R2",
                     "notes": None,
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 5,
@@ -1562,6 +1572,7 @@ def test_create_workout(
                 "id": 3,
                 "name": "R2",
                 "notes": "",
+                "archived": False,
                 "sections": [],
             },
         ),
@@ -1825,6 +1836,7 @@ def test_replace(
                 "id": 1,
                 "name": "Changed Routine",
                 "notes": "First Routine",
+                "archived": False,
                 "sections": [
                     {
                         "rounds": 1,
@@ -1917,6 +1929,7 @@ def test_replace(
                     "id": 1,
                     "name": "Changed Routine",
                     "notes": "First Routine",
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 1,
@@ -2008,6 +2021,7 @@ def test_replace(
                     "id": 3,
                     "name": "R2",
                     "notes": None,
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 5,
@@ -2046,6 +2060,7 @@ def test_replace(
                 "id": 1,
                 "name": "R1",
                 "notes": "Changed Notes",
+                "archived": False,
                 "sections": [
                     {
                         "rounds": 1,
@@ -2138,6 +2153,7 @@ def test_replace(
                     "id": 1,
                     "name": "R1",
                     "notes": "Changed Notes",
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 1,
@@ -2229,6 +2245,7 @@ def test_replace(
                     "id": 3,
                     "name": "R2",
                     "notes": None,
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 5,
@@ -2257,6 +2274,230 @@ def test_replace(
             {
                 "name": "R2",
                 "notes": "",
+            },
+        ),
+        (
+            "/api/routines/1",
+            {
+                "archived": True,
+            },
+            {
+                "id": 1,
+                "name": "R1",
+                "notes": "First Routine",
+                "archived": True,
+                "sections": [
+                    {
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "exercise_id": 3,
+                                "reps": 0,
+                                "time": 0,
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                            },
+                            {
+                                "exercise_id": None,
+                                "reps": 0,
+                                "time": 30,
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                            },
+                        ],
+                    },
+                    {
+                        "rounds": 2,
+                        "parts": [
+                            {
+                                "exercise_id": 1,
+                                "reps": 0,
+                                "time": 0,
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                            },
+                            {
+                                "exercise_id": None,
+                                "reps": 0,
+                                "time": 60,
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                            },
+                            {
+                                "rounds": 2,
+                                "parts": [
+                                    {
+                                        "exercise_id": 1,
+                                        "reps": 0,
+                                        "time": 0,
+                                        "weight": 0.0,
+                                        "rpe": 0.0,
+                                        "automatic": False,
+                                    },
+                                    {
+                                        "exercise_id": None,
+                                        "reps": 0,
+                                        "time": 30,
+                                        "weight": 0.0,
+                                        "rpe": 0.0,
+                                        "automatic": False,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "rounds": 3,
+                        "parts": [
+                            {
+                                "exercise_id": 3,
+                                "reps": 0,
+                                "time": 20,
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": True,
+                            },
+                            {
+                                "exercise_id": None,
+                                "reps": 0,
+                                "time": 10,
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": True,
+                            },
+                        ],
+                    },
+                ],
+            },
+            [
+                {
+                    "id": 1,
+                    "name": "R1",
+                    "notes": "First Routine",
+                    "archived": True,
+                    "sections": [
+                        {
+                            "rounds": 1,
+                            "parts": [
+                                {
+                                    "exercise_id": 3,
+                                    "reps": 0,
+                                    "time": 0,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "exercise_id": None,
+                                    "reps": 0,
+                                    "time": 30,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": False,
+                                },
+                            ],
+                        },
+                        {
+                            "rounds": 2,
+                            "parts": [
+                                {
+                                    "exercise_id": 1,
+                                    "reps": 0,
+                                    "time": 0,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "exercise_id": None,
+                                    "reps": 0,
+                                    "time": 60,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": False,
+                                },
+                                {
+                                    "rounds": 2,
+                                    "parts": [
+                                        {
+                                            "exercise_id": 1,
+                                            "reps": 0,
+                                            "time": 0,
+                                            "weight": 0.0,
+                                            "rpe": 0.0,
+                                            "automatic": False,
+                                        },
+                                        {
+                                            "exercise_id": None,
+                                            "reps": 0,
+                                            "time": 30,
+                                            "weight": 0.0,
+                                            "rpe": 0.0,
+                                            "automatic": False,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            "rounds": 3,
+                            "parts": [
+                                {
+                                    "exercise_id": 3,
+                                    "reps": 0,
+                                    "time": 20,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "exercise_id": None,
+                                    "reps": 0,
+                                    "time": 10,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": True,
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "id": 3,
+                    "name": "R2",
+                    "notes": None,
+                    "archived": False,
+                    "sections": [
+                        {
+                            "rounds": 5,
+                            "parts": [
+                                {
+                                    "exercise_id": 3,
+                                    "reps": 0,
+                                    "time": 20,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": True,
+                                },
+                                {
+                                    "exercise_id": None,
+                                    "reps": 0,
+                                    "time": 10,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": True,
+                                },
+                            ],
+                        }
+                    ],
+                },
+            ],
+            {
+                "name": "R2",
             },
         ),
         (
@@ -2316,6 +2557,7 @@ def test_replace(
                 "id": 1,
                 "name": "R1",
                 "notes": "First Routine",
+                "archived": False,
                 "sections": [
                     {
                         "rounds": 3,
@@ -2371,6 +2613,7 @@ def test_replace(
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 3,
@@ -2425,6 +2668,7 @@ def test_replace(
                     "id": 3,
                     "name": "R2",
                     "notes": None,
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 5,
@@ -2450,7 +2694,7 @@ def test_replace(
                     ],
                 },
             ],
-            {"name": "R2", "notes": "", "sections": []},
+            {"name": "R2", "notes": "", "archived": False, "sections": []},
         ),
         (
             "/api/workouts/1",
@@ -3174,6 +3418,7 @@ def test_modify(
                     "id": 1,
                     "name": "R1",
                     "notes": "First Routine",
+                    "archived": False,
                     "sections": [
                         {
                             "rounds": 1,

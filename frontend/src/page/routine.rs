@@ -317,6 +317,7 @@ pub fn update(
             orders.notify(data::Msg::ModifyRoutine(
                 model.routine_id,
                 model.name.parsed.clone(),
+                None,
                 Some(to_routine_parts(&model.sections)),
             ));
         }

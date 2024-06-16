@@ -4,7 +4,7 @@ use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::{data, domain};
+use crate::{catalog, data, domain};
 
 pub const ENTER_KEY: u32 = 13;
 
@@ -996,13 +996,18 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
     }
 }
 
+#[derive(Default, PartialEq)]
+pub struct ExerciseFilter {
+    pub muscles: HashSet<domain::Muscle>,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn view_exercises_with_search<Ms>(
     exercises: &BTreeMap<u32, data::Exercise>,
     search_term: &str,
     search_term_changed: impl FnOnce(String) -> Ms + 'static + Clone,
-    filter: &HashSet<usize>,
-    filter_changed: impl FnOnce(usize) -> Ms + 'static + Clone,
+    filter: &ExerciseFilter,
+    filter_changed: impl FnOnce(domain::Muscle) -> Ms + 'static + Clone,
     create_exercise: Option<impl FnOnce(web_sys::Event) -> Ms + 'static + Clone>,
     loading: bool,
     selected: impl FnOnce(u32) -> Ms + 'static + Clone,
@@ -1012,16 +1017,9 @@ pub fn view_exercises_with_search<Ms>(
 where
     Ms: 'static,
 {
-    let mut muscle_filter = domain::Muscle::iter()
-        .enumerate()
-        .map(|(i, m)| (i, false, domain::Muscle::id(*m), domain::Muscle::name(*m)))
+    let muscle_filter = domain::Muscle::iter()
+        .map(|m| (m, filter.muscles.contains(m)))
         .collect::<Vec<_>>();
-    for i in filter {
-        if let Some(f) = muscle_filter.get_mut(*i) {
-            f.1 = true;
-        }
-    }
-    muscle_filter.sort_by(|a, b| b.1.cmp(&a.1));
 
     let mut exercises = exercises
         .values()
@@ -1029,14 +1027,29 @@ where
             e.name
                 .to_lowercase()
                 .contains(search_term.to_lowercase().trim())
-                && (muscle_filter.iter().filter(|f| f.1).count() == 0
-                    || muscle_filter
+                && (filter.muscles.is_empty()
+                    || filter
+                        .muscles
                         .iter()
-                        .filter(|f| f.1)
-                        .all(|f| e.muscle_stimulus().contains_key(&f.2)))
+                        .all(|m| e.muscle_stimulus().contains_key(&domain::Muscle::id(*m))))
         })
         .collect::<Vec<_>>();
     exercises.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut catalog_exercises = catalog::EXERCISES
+        .iter()
+        .filter(|e| {
+            e.name
+                .to_lowercase()
+                .contains(search_term.to_lowercase().trim())
+                && (filter.muscles.is_empty()
+                    || filter
+                        .muscles
+                        .iter()
+                        .all(|m| e.primary_muscles.contains(m) || e.secondary_muscles.contains(m)))
+        })
+        .collect::<Vec<_>>();
+    catalog_exercises.sort_by(|a, b| a.name.cmp(b.name));
 
     nodes![
         div![
@@ -1074,17 +1087,17 @@ where
                 C!["is-flex-wrap-nowrap"],
                 C!["is-overflow-scroll"],
                 C!["is-scrollbar-width-none"],
-                muscle_filter.iter().map(|(i, enabled, _, name)| {
+                muscle_filter.iter().map(|(muscle, enabled)| {
                     span![
                         C!["tag"],
                         C!["is-hoverable"],
                         IF![*enabled => C!["is-link"]],
                         ev(Ev::Click, {
-                            let index = *i;
+                            let muscle = *muscle;
                             let filter_changed = filter_changed.clone();
-                            move |_| filter_changed(index)
+                            move |_| filter_changed(*muscle)
                         }),
-                        &name
+                        &domain::Muscle::name(**muscle)
                     ]
                 })
             ],
@@ -1139,6 +1152,44 @@ where
                             } else {
                                 empty![]
                             }
+                        ]
+                    ]]
+                })],
+            ]
+        ],
+        IF![!catalog_exercises.is_empty() => view_title(&span!["Exercise catalog"], 3)],
+        div![
+            C!["table-container"],
+            C!["mt-2"],
+            table![
+                C!["table"],
+                C!["is-fullwidth"],
+                C!["is-hoverable"],
+                tbody![catalog_exercises.iter().map(|e| {
+                    tr![td![
+                        C!["is-flex"],
+                        C!["is-justify-content-space-between"],
+                        C!["has-text-link"],
+                        span![
+                            // ev(Ev::Click, {
+                            //     let exercise_id = i;
+                            //     let selected = selected.clone();
+                            //     move |_| selected(exercise_id)
+                            // }),
+                            e.name.to_string(),
+                        ],
+                        p![
+                            C!["is-flex is-flex-wrap-nowrap"],
+                            span![
+                                C!["icon"],
+                                C!["mr-1"],
+                                // ev(Ev::Click, {
+                                //     let exercise_id = e.id;
+                                //     let edit = edit.clone();
+                                //     move |_| edit(exercise_id)
+                                // }),
+                                i![C!["fas fa-plus"]]
+                            ]
                         ]
                     ]]
                 })],

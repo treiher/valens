@@ -1,9 +1,10 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 use seed::{prelude::*, *};
 
 use crate::common;
 use crate::data;
+use crate::domain;
 
 // ------ ------
 //     Init
@@ -20,7 +21,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 
     Model {
         search_term: String::new(),
-        filter: HashSet::new(),
+        filter: common::ExerciseFilter::default(),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -32,7 +33,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 
 pub struct Model {
     search_term: String,
-    filter: HashSet<usize>,
+    filter: common::ExerciseFilter,
     dialog: Dialog,
     loading: bool,
 }
@@ -60,7 +61,7 @@ pub enum Msg {
     CloseExerciseDialog,
 
     SearchTermChanged(String),
-    FilterChanged(usize),
+    FilterChanged(domain::Muscle),
     NameChanged(String),
 
     GoToExercise(u32),
@@ -105,11 +106,11 @@ pub fn update(
         Msg::SearchTermChanged(search_term) => {
             model.search_term = search_term;
         }
-        Msg::FilterChanged(index) => {
-            if model.filter.contains(&index) {
-                model.filter.remove(&index);
+        Msg::FilterChanged(muscle) => {
+            if model.filter.muscles.contains(&muscle) {
+                model.filter.muscles.remove(&muscle);
             } else {
-                model.filter.insert(index);
+                model.filter.muscles.insert(muscle);
             }
         }
         Msg::NameChanged(name) => match model.dialog {

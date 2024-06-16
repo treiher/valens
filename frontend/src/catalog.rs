@@ -1,37 +1,42 @@
 use crate::domain::Muscle;
 
 pub struct Exercise {
-    name: &'static str,
-    force: Force,
-    level: Level,
-    mechanic: Mechanic,
-    equipment: Equipment,
-    primary_muscles: &'static [Muscle],
-    secondary_muscles: &'static [Muscle],
-    instructions: &'static [&'static str],
-    category: Category,
+    pub name: &'static str,
+    pub force: Force,
+    pub level: Level,
+    pub mechanic: Mechanic,
+    pub equipment: Equipment,
+    pub primary_muscles: &'static [Muscle],
+    pub secondary_muscles: &'static [Muscle],
+    pub instructions: &'static [&'static str],
+    pub category: Category,
 }
 
-enum Force {
+pub enum Laterality {
+    Bilateral,
+    Unilateral,
+}
+
+pub enum Force {
     Undefined,
     Pull,
     Push,
     Static,
 }
 
-enum Level {
+pub enum Level {
     Beginner,
     Intermediate,
     Expert,
 }
 
-enum Mechanic {
+pub enum Mechanic {
     Undefined,
     Compound,
     Isolation,
 }
 
-enum Equipment {
+pub enum Equipment {
     None,
     AbRoller,
     Barbell,
@@ -41,7 +46,6 @@ enum Equipment {
     Dumbbell,
     EZCurlBar,
     ExerciseBall,
-    FoamRoll,
     GymnasticRings,
     Kettlebell,
     Machine,
@@ -56,7 +60,7 @@ enum Equipment {
     WristRoller,
 }
 
-enum Category {
+pub enum Category {
     OlympicWeightlifting,
     Plyometrics,
     Powerlifting,

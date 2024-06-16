@@ -1,6 +1,6 @@
 use std::slice::Iter;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub enum Muscle {
     // Neck
     Neck = 1,

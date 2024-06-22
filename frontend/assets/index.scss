@@ -211,3 +211,29 @@ div.is-calendar {
 .has-background-scheme-main {
     background-color: var(--bulma-scheme-main);
 }
+
+.has-background-auto-text-95 {
+    background-color: var(--bulma-text-95);
+}
+
+[data-theme=light],
+.theme-dark {
+  .has-background-auto-text-95 {
+    background-color: var(--bulma-text-95) !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    .has-background-auto-text-95 {
+      background-color: var(--bulma-text-95-invert);
+    }
+  }
+}
+
+[data-theme=dark],
+.theme-dark {
+  .has-background-auto-text-95 {
+    background-color: var(--bulma-text-95-invert) !important;
+  }
+}

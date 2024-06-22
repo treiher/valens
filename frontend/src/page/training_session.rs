@@ -1967,7 +1967,7 @@ fn view_muscles(training_session: &data::TrainingSession, data_model: &data::Mod
     }
 }
 
-fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<Msg> {
+fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
     let sections = determine_sections(&model.form.elements);
     let valid = model.form.valid();
     let save_disabled = not(model.form.changed()) || not(valid);
@@ -2008,12 +2008,12 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                             },
                             C!["message"],
                             C!["is-info"],
-                            C!["has-background-white"],
                             IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
                             IF![idx > 0 => C!["mt-3"]],
                             C!["mb-0"],
                             div![
                                 C!["message-body"],
+                                C!["has-background-scheme-main"],
                                 C!["p-3"],
                                 exercise_forms.iter().enumerate().map(|(position, s)| {
                                     let input_fields = div![
@@ -2217,12 +2217,12 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
                         },
                         C!["message"],
                         C!["is-success"],
-                        C!["has-background-white"],
                         IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
                         IF![idx > 0 => C!["mt-3"]],
                         C!["mb-0"],
                         div![
                             C!["message-body"],
+                            C!["has-background-scheme-main"],
                             C!["p-3"],
                             if let Some(guide) = &model.guide {
                                 if guide.timer.is_set() && guide.element_idx == element_idx {
@@ -2259,16 +2259,14 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
         };
         div![
             C!["message"],
-            C!["has-background-white-bis"],
+            C!["has-background-auto-text-95"],
             C!["p-3"],
-            C!["mb-3"],
+            C!["mb-4"],
             section_form
         ]
     }).collect::<Vec<_>>();
 
-    div![
-        C!["container"],
-        C!["px-2"],
+    nodes![
         IF![
             model.guide.is_none() =>
             div![
@@ -2289,25 +2287,34 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Node<M
             },
             &form,
             div![
-                C!["has-text-centered"],
-                C!["m-5"],
-                button![
-                    C!["button"],
-                    C!["is-light"],
-                    ev(Ev::Click, move |_| Msg::ShowAppendExerciseDialog),
-                    span![C!["icon"], i![C!["fas fa-plus"]]]
-                ]
+                C!["message"],
+                C!["has-background-auto-text-95"],
+                C!["p-3"],
+                C!["mb-4"],
+                div![
+                    C!["has-text-centered"],
+                    C!["m-5"],
+                    button![
+                        C!["button"],
+                        C!["is-white-soft"],
+                        ev(Ev::Click, move |_| Msg::ShowAppendExerciseDialog),
+                        span![C!["icon"], i![C!["fas fa-plus"]]]
+                    ]
+                ],
             ],
             div![
-                C!["field"],
-                label![C!["label"], "Notes"],
-                input_ev(Ev::Input, Msg::NotesChanged),
-                textarea![
-                    C!["textarea"],
-                    C![IF![model.form.notes_changed => "is-info"]],
-                    &model.form.notes,
-                ]
-            ],
+                C!["p-3"],
+                div![
+                    C!["field"],
+                    label![C!["label"], "Notes"],
+                    input_ev(Ev::Input, Msg::NotesChanged),
+                    textarea![
+                        C!["textarea"],
+                        C![IF![model.form.notes_changed => "is-info"]],
+                        &model.form.notes,
+                    ]
+                ],
+            ]
         ],
         IF![
             model.guide.is_none() =>

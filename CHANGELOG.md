@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use term RPE instead of intensity
 - Improve display of charts when all values are zero
-- Background color of sections on routine page
+- Background color of sections on routine page and training session page
 
 ### Fixed
 

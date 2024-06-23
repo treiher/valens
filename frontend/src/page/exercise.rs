@@ -272,7 +272,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         &exercise_interval,
                         Msg::ChangeInterval
                     ),
-                    view_charts(&training_sessions, &model.interval),
+                    view_charts(&training_sessions, &model.interval, data_model.theme()),
                     view_calendar(&training_sessions, &model.interval),
                     training::view_table(
                         &training_sessions,
@@ -440,6 +440,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
 pub fn view_charts<Ms>(
     training_sessions: &[&data::TrainingSession],
     interval: &common::Interval,
+    theme: &data::Theme,
 ) -> Vec<Node<Ms>> {
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut volume_load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
@@ -497,6 +498,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -510,6 +512,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -520,6 +523,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -563,6 +567,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -582,6 +587,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -600,6 +606,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
     ]

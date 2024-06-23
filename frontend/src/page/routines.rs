@@ -309,6 +309,7 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[data::Routine], loading: boo
                     button![
                         C!["button"],
                         C!["is-light"],
+                        C!["is-soft"],
                         ev(Ev::Click, |_| Msg::CloseRoutineDialog),
                         "Cancel",
                     ]

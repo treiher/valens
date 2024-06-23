@@ -343,6 +343,7 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                     button![
                         C!["button"],
                         C!["is-light"],
+                        C!["is-soft"],
                         ev(Ev::Click, |_| Msg::CloseUserDialog),
                         "Cancel",
                     ]

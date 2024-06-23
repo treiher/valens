@@ -1166,9 +1166,9 @@ fn view_routine_part(
                                 span![
                                     C!["icon"],
                                     if *automatic {
-                                        C!["has-text-dark"]
+                                        C!["has-text-dark-bold"]
                                     } else {
-                                        C!["has-text-grey-lighter"]
+                                        C!["has-text-dark-soft"]
                                     },
                                     common::automatic_icon()
                                 ]
@@ -1301,7 +1301,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         C!["mt-6"],
         common::view_title(&span!["Training sessions"], 5),
         common::view_interval_buttons(&model.interval, &routine_interval, Msg::ChangeInterval),
-        view_charts(&training_sessions, &model.interval),
+        view_charts(&training_sessions, &model.interval, data_model.theme()),
         training::view_calendar(&training_sessions, &model.interval),
         training::view_table(
             &training_sessions,
@@ -1314,6 +1314,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
 pub fn view_charts<Ms>(
     training_sessions: &[&data::TrainingSession],
     interval: &common::Interval,
+    theme: &data::Theme,
 ) -> Vec<Node<Ms>> {
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
@@ -1343,6 +1344,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -1356,6 +1358,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -1381,6 +1384,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(5.),
                 Some(10.),
+                theme,
             )
         ),
     ]

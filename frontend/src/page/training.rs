@@ -328,7 +328,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 long_term_load,
                 total_set_volume_per_week,
                 avg_rpe_per_week,
-                &model.interval
+                &model.interval,
+                data_model.theme()
             ),
             view_calendar(&training_sessions, &model.interval),
             view_table(
@@ -476,6 +477,7 @@ fn view_training_sessions_dialog(
                     button![
                         C!["button"],
                         C!["is-light"],
+                        C!["is-soft"],
                         ev(Ev::Click, |_| Msg::CloseTrainingSessionDialog),
                         "Cancel",
                     ]
@@ -505,6 +507,7 @@ pub fn view_charts<Ms>(
     total_set_volume_per_week: Vec<(NaiveDate, f32)>,
     avg_rpe_per_week: Vec<(NaiveDate, f32)>,
     interval: &common::Interval,
+    theme: &data::Theme,
 ) -> Vec<Node<Ms>> {
     let long_term_load_high = long_term_load
         .iter()
@@ -533,6 +536,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -543,6 +547,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(0.),
                 Some(10.),
+                theme,
             )
         ),
         common::view_chart(
@@ -553,6 +558,7 @@ pub fn view_charts<Ms>(
                 interval.last,
                 Some(5.),
                 Some(10.),
+                theme,
             )
         ),
     ]

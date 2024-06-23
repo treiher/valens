@@ -102,6 +102,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             model.interval.last,
                             Some(0.),
                             Some(10.),
+                            data_model.theme()
                         )
                     )
                 ]

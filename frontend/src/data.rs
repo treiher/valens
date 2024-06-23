@@ -19,6 +19,7 @@ const STORAGE_KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
 pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
     let settings = gloo_storage::LocalStorage::get(STORAGE_KEY_SETTINGS).unwrap_or(Settings {
         beep_volume: 80,
+        theme: Theme::Light,
         automatic_metronome: false,
         notifications: false,
     });
@@ -113,6 +114,36 @@ impl Model {
     pub fn training_sessions_date_range(&self) -> std::ops::RangeInclusive<NaiveDate> {
         let dates = self.training_sessions.values().map(|t| t.date);
         dates.clone().min().unwrap_or_default()..=dates.max().unwrap_or_default()
+    }
+
+    pub fn theme(&self) -> &Theme {
+        match self.settings.theme {
+            Theme::System => {
+                if let Some(window) = web_sys::window() {
+                    if let Ok(prefers_dark_scheme) =
+                        window.match_media("(prefers-color-scheme: dark)")
+                    {
+                        if let Some(media_query_list) = prefers_dark_scheme {
+                            if media_query_list.matches() {
+                                &Theme::Dark
+                            } else {
+                                &Theme::Light
+                            }
+                        } else {
+                            error!("failed to determine preferred color scheme");
+                            &Theme::Light
+                        }
+                    } else {
+                        error!("failed to match media to determine preferred color scheme");
+                        &Theme::Light
+                    }
+                } else {
+                    error!("failed to access window to determine preferred color scheme");
+                    &Theme::Light
+                }
+            }
+            Theme::Light | Theme::Dark => &self.settings.theme,
+        }
     }
 }
 
@@ -396,8 +427,16 @@ pub enum TrainingSessionElement {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Settings {
     pub beep_volume: u8,
+    pub theme: Theme,
     pub automatic_metronome: bool,
     pub notifications: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq)]
+pub enum Theme {
+    System,
+    Light,
+    Dark,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -1059,6 +1098,7 @@ pub enum Msg {
     TrainingSessionDeleted(Result<u32, String>),
 
     SetBeepVolume(u8),
+    SetTheme(Theme),
     SetAutomaticMetronome(bool),
     SetNotifications(bool),
 
@@ -1918,6 +1958,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.settings.beep_volume = value;
             local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
             orders.notify(Event::BeepVolumeChanged);
+        }
+        Msg::SetTheme(theme) => {
+            model.settings.theme = theme;
+            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
         }
         Msg::SetAutomaticMetronome(value) => {
             model.settings.automatic_metronome = value;

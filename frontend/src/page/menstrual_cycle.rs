@@ -313,6 +313,7 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                     button![
                         C!["button"],
                         C!["is-light"],
+                        C!["is-soft"],
                         ev(Ev::Click, |_| Msg::ClosePeriodDialog),
                         "Cancel",
                     ]
@@ -358,6 +359,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             model.interval.last,
             Some(0.),
             Some(4.),
+            data_model.theme(),
         ),
     )
 }

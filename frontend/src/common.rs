@@ -115,12 +115,12 @@ pub fn view_dialog<Ms>(
             C!["modal-content"],
             div![
                 C!["message"],
-                C!["has-background-white"],
                 C![format!("is-{color}")],
                 C!["mx-2"],
                 div![
                     C!["message-body"],
-                    C!["has-text-dark"],
+                    C!["has-text-text-bold"],
+                    C!["has-background-scheme-main"],
                     div![C!["title"], C![format!("has-text-{color}")], title],
                     content
                 ]
@@ -185,7 +185,13 @@ pub fn view_delete_confirmation_dialog<Ms>(
                 C!["is-grouped-centered"],
                 div![
                     C!["control"],
-                    button![C!["button"], C!["is-light"], cancel_event, "No"]
+                    button![
+                        C!["button"],
+                        C!["is-light"],
+                        C!["is-soft"],
+                        cancel_event,
+                        "No"
+                    ]
                 ],
                 div![
                     C!["control"],
@@ -470,7 +476,12 @@ pub fn automatic_icon<Ms>() -> Node<Ms> {
             St::LineHeight => "1.5em",
         },
         i![C!["fas fa-circle fa-stack-1x"]],
-        i![C!["fas fa-a fa-inverse fa-stack-1x"]]
+        i![
+            style! {
+                St::Color => "var(--bulma-scheme-main)",
+            },
+            C!["fas fa-a fa-inverse fa-stack-1x"]
+        ]
     ]
 }
 
@@ -547,7 +558,7 @@ pub fn view_calendar<Ms>(entries: Vec<(NaiveDate, usize, f64)>, interval: &Inter
                                         }
                                     } else if *date < interval.first || *date > interval.last {
                                         style! {
-                                            St::BackgroundColor => "#FFFFFF"
+                                            St::BackgroundColor => "var(--bulma-scheme-main)"
                                         }
                                     } else {
                                         style! {}
@@ -620,6 +631,7 @@ pub fn plot_line_chart(
     x_max: NaiveDate,
     y_min_opt: Option<f32>,
     y_max_opt: Option<f32>,
+    theme: &data::Theme,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let (y_min, y_max, y_margin) = determine_y_bounds(
         data.iter()
@@ -633,8 +645,9 @@ pub fn plot_line_chart(
 
     {
         let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
+        let (color, background_color) = colors(theme);
 
-        root.fill(&WHITE)?;
+        root.fill(&background_color)?;
 
         let mut chart_builder = ChartBuilder::on(&root);
         chart_builder
@@ -651,8 +664,9 @@ pub fn plot_line_chart(
             .configure_mesh()
             .disable_x_mesh()
             .set_all_tick_mark_size(3u32)
-            .axis_style(BLACK.mix(0.3))
-            .light_line_style(WHITE.mix(0.0))
+            .axis_style(color.mix(0.3))
+            .light_line_style(color.mix(0.0))
+            .label_style(&color)
             .x_labels(2)
             .y_labels(6)
             .draw()?;
@@ -685,6 +699,7 @@ pub fn plot_dual_line_chart(
     secondary_data: &[(Vec<(NaiveDate, f32)>, usize)],
     x_min: NaiveDate,
     x_max: NaiveDate,
+    theme: &data::Theme,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let (y1_min, y1_max, y1_margin) = determine_y_bounds(
         data.iter()
@@ -706,8 +721,9 @@ pub fn plot_dual_line_chart(
 
     {
         let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
+        let (color, background_color) = colors(theme);
 
-        root.fill(&WHITE)?;
+        root.fill(&background_color)?;
 
         let mut chart = ChartBuilder::on(&root)
             .margin(10f32)
@@ -721,8 +737,9 @@ pub fn plot_dual_line_chart(
             .configure_mesh()
             .disable_x_mesh()
             .set_all_tick_mark_size(3u32)
-            .axis_style(BLACK.mix(0.3))
-            .light_line_style(WHITE.mix(0.0))
+            .axis_style(color.mix(0.3))
+            .light_line_style(background_color.mix(0.0))
+            .label_style(&color)
             .x_labels(2)
             .y_labels(6)
             .draw()?;
@@ -730,7 +747,7 @@ pub fn plot_dual_line_chart(
         chart
             .configure_secondary_axes()
             .set_all_tick_mark_size(3u32)
-            .axis_style(BLACK.mix(0.3))
+            .axis_style(color.mix(0.3))
             .draw()?;
 
         for (series, color_idx) in secondary_data {
@@ -780,6 +797,7 @@ pub fn plot_bar_chart(
     x_max: NaiveDate,
     y_min_opt: Option<f32>,
     y_max_opt: Option<f32>,
+    theme: &data::Theme,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let (y1_min, y1_max, _) = determine_y_bounds(
         data.iter()
@@ -802,8 +820,9 @@ pub fn plot_bar_chart(
 
     {
         let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
+        let (color, background_color) = colors(theme);
 
-        root.fill(&WHITE)?;
+        root.fill(&background_color)?;
 
         let mut chart = ChartBuilder::on(&root)
             .margin(10f32)
@@ -820,8 +839,9 @@ pub fn plot_bar_chart(
             .configure_mesh()
             .disable_x_mesh()
             .set_all_tick_mark_size(3u32)
-            .axis_style(BLACK.mix(0.3))
-            .light_line_style(WHITE.mix(0.0))
+            .axis_style(color.mix(0.3))
+            .light_line_style(background_color.mix(0.0))
+            .label_style(&color)
             .x_labels(2)
             .y_labels(6)
             .draw()?;
@@ -829,7 +849,7 @@ pub fn plot_bar_chart(
         chart
             .configure_secondary_axes()
             .set_all_tick_mark_size(3u32)
-            .axis_style(BLACK.mix(0.3))
+            .axis_style(color.mix(0.3))
             .draw()?;
 
         for (series, color_idx) in data {
@@ -865,6 +885,14 @@ pub fn plot_bar_chart(
     }
 
     Ok(result)
+}
+
+fn colors(theme: &data::Theme) -> (RGBColor, RGBColor) {
+    let dark = RGBColor(20, 22, 26);
+    match theme {
+        data::Theme::System | data::Theme::Light => (dark, WHITE),
+        data::Theme::Dark => (WHITE, dark),
+    }
 }
 
 fn determine_y_bounds(
@@ -1018,7 +1046,7 @@ where
                     span![
                         C!["tag"],
                         C!["is-hoverable"],
-                        C![if *enabled { "is-link" } else { "is-light" }],
+                        IF![*enabled => C!["is-link"]],
                         ev(Ev::Click, {
                             let index = *i;
                             let filter_changed = filter_changed.clone();
@@ -1106,7 +1134,7 @@ where
         } else if sets > 0.0 {
             groups[2].push((name, description, sets_str, vec!["is-light", "is-link"]));
         } else {
-            groups[3].push((name, description, sets_str, vec!["is-light"]));
+            groups[3].push((name, description, sets_str, vec![]));
         }
     }
     groups

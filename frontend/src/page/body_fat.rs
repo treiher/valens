@@ -663,6 +663,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                         button![
                             C!["button"],
                             C!["is-light"],
+                            C!["is-soft"],
                             ev(Ev::Click, |_| Msg::CloseBodyFatDialog),
                             "Cancel",
                         ]
@@ -768,6 +769,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             )],
             model.interval.first,
             model.interval.last,
+            data_model.theme(),
         ),
     )
 }

@@ -28,6 +28,10 @@ fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
         .stream(streams::window_event(Ev::Click, |_| Msg::HideMenu))
         .notify(data::Msg::InitializeSession);
 
+    let data = data::init(url, &mut orders.proxy(Msg::Data));
+
+    set_theme(&data.settings.theme);
+
     Model {
         navbar: Navbar {
             title: String::from("Valens"),
@@ -36,7 +40,7 @@ fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
         },
         page: None,
         settings_dialog_visible: false,
-        data: data::init(url, &mut orders.proxy(Msg::Data)),
+        data,
     }
 }
 
@@ -250,6 +254,7 @@ enum Msg {
     ShowSettingsDialog,
     CloseSettingsDialog,
     BeepVolumeChanged(String),
+    SetTheme(data::Theme),
     ToggleAutomaticMetronome,
     ToggleNotifications,
     UpdateApp,
@@ -320,6 +325,10 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             if let Ok(value) = input.parse::<u8>() {
                 orders.send_msg(Msg::Data(data::Msg::SetBeepVolume(value)));
             }
+        }
+        Msg::SetTheme(theme) => {
+            set_theme(&theme);
+            orders.send_msg(Msg::Data(data::Msg::SetTheme(theme)));
         }
         Msg::ToggleAutomaticMetronome => {
             orders.send_msg(Msg::Data(data::Msg::SetAutomaticMetronome(not(model
@@ -709,6 +718,44 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
             ],
             p![
                 C!["mb-5"],
+                h1![C!["subtitle"], "Theme"],
+                div![
+                    C!["field"],
+                    C!["has-addons"],
+                    p![
+                        C!["control"],
+                        button![
+                            C!["button"],
+                            C![IF![data_model.settings.theme == data::Theme::Light => "is-link"]],
+                            &ev(Ev::Click, move |_| Msg::SetTheme(data::Theme::Light)),
+                            span![C!["icon"], C!["is-small"], i![C!["fas fa-sun"]]],
+                            span!["Light"],
+                        ]
+                    ],
+                    p![
+                        C!["control"],
+                        span![
+                            C!["button"],
+                            C![IF![data_model.settings.theme == data::Theme::Dark => "is-link"]],
+                            &ev(Ev::Click, move |_| Msg::SetTheme(data::Theme::Dark)),
+                            span![C!["icon"], i![C!["fas fa-moon"]]],
+                            span!["Dark"],
+                        ]
+                    ],
+                    p![
+                        C!["control"],
+                        span![
+                            C!["button"],
+                            C![IF![data_model.settings.theme == data::Theme::System => "is-link"]],
+                            &ev(Ev::Click, move |_| Msg::SetTheme(data::Theme::System)),
+                            span![C!["icon"], i![C!["fas fa-desktop"]]],
+                            span!["System"],
+                        ]
+                    ],
+                ],
+            ],
+            p![
+                C!["mb-5"],
                 h1![C!["subtitle"], "Metronome"],
                 button![
                     C!["button"],
@@ -782,6 +829,20 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
         ],
         &ev(Ev::Click, |_| Msg::CloseSettingsDialog),
     )
+}
+
+fn set_theme(theme: &data::Theme) {
+    if let Some(window) = web_sys::window() {
+        if let Some(document) = window.document() {
+            if let Some(html_element) = document.document_element() {
+                let _ = match theme {
+                    data::Theme::System => html_element.remove_attribute("data-theme"),
+                    data::Theme::Light => html_element.set_attribute("data-theme", "light"),
+                    data::Theme::Dark => html_element.set_attribute("data-theme", "dark"),
+                };
+            }
+        }
+    }
 }
 
 // ------ ------

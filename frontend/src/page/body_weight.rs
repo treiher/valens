@@ -331,6 +331,7 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                     button![
                         C!["button"],
                         C!["is-light"],
+                        C!["is-soft"],
                         ev(Ev::Click, |_| Msg::CloseBodyWeightDialog),
                         "Cancel",
                     ]
@@ -390,6 +391,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             model.interval.last,
             None,
             None,
+            data_model.theme(),
         ),
     )
 }

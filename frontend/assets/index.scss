@@ -112,11 +112,11 @@ input[type=number] {
 
 // Field Set
 
-$fieldset-background-color: bulma.$scheme-main !default;
-$fieldset-border-color: bulma.$border !default;
-$fieldset-color: bulma.$text-strong !default;
+$fieldset-background-color: var(--bulma-scheme-main);
+$fieldset-border-color: var(--bulma-border);
+$fieldset-color: var(--bulma-text-strong);
 $fieldset-padding: 1.5em;
-$fieldset-radius: bulma.$radius !default;
+$fieldset-radius: var(--bulma-radius);
 
 .fieldset {
     background-color: $fieldset-background-color;
@@ -140,9 +140,9 @@ div.is-calendar {
         direction: ltr;
         tr {
             td {
-                color: bulma.$white;
-                background-color: bulma.$grey-lighter;
-                border: 1px solid bulma.$white;
+                color: var(--bulma-scheme-main);
+                background-color: var(--bulma-border);
+                border: 1px solid var(--bulma-scheme-main);
                 text-align: center;
                 div {
                     width: 10pt;

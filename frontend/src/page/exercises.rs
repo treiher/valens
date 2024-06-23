@@ -282,6 +282,7 @@ fn view_exercise_dialog(
                     button![
                         C!["button"],
                         C!["is-light"],
+                        C!["is-soft"],
                         ev(Ev::Click, |_| Msg::CloseExerciseDialog),
                         "Cancel",
                     ]

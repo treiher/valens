@@ -680,6 +680,7 @@ pub fn plot_line_chart(
             .disable_x_mesh()
             .set_all_tick_mark_size(3u32)
             .axis_style(color.mix(0.3))
+            .bold_line_style(color.mix(0.05))
             .light_line_style(color.mix(0.0))
             .label_style(&color)
             .x_labels(2)
@@ -757,7 +758,8 @@ pub fn plot_dual_line_chart(
             .disable_x_mesh()
             .set_all_tick_mark_size(3u32)
             .axis_style(color.mix(0.3))
-            .light_line_style(background_color.mix(0.0))
+            .bold_line_style(color.mix(0.05))
+            .light_line_style(color.mix(0.0))
             .label_style(&color)
             .x_labels(2)
             .y_labels(6)
@@ -767,6 +769,7 @@ pub fn plot_dual_line_chart(
             .configure_secondary_axes()
             .set_all_tick_mark_size(3u32)
             .axis_style(color.mix(0.3))
+            .label_style(&color)
             .draw()?;
 
         for (series, color_idx) in secondary_data {
@@ -863,7 +866,8 @@ pub fn plot_bar_chart(
             .disable_x_mesh()
             .set_all_tick_mark_size(3u32)
             .axis_style(color.mix(0.3))
-            .light_line_style(background_color.mix(0.0))
+            .bold_line_style(color.mix(0.05))
+            .light_line_style(color.mix(0.0))
             .label_style(&color)
             .x_labels(2)
             .y_labels(6)
@@ -873,6 +877,7 @@ pub fn plot_bar_chart(
             .configure_secondary_axes()
             .set_all_tick_mark_size(3u32)
             .axis_style(color.mix(0.3))
+            .label_style(&color)
             .draw()?;
 
         for (series, color_idx) in data {

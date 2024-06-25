@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use seed::{prelude::*, *};
 
 use crate::common;
+use crate::component;
 use crate::data;
-use crate::domain;
 
 // ------ ------
 //     Init
@@ -21,7 +21,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 
     Model {
         search_term: String::new(),
-        filter: common::ExerciseFilter::default(),
+        exercise_list: component::exercise_list::Model::new(true, true, true),
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -33,7 +33,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
 
 pub struct Model {
     search_term: String,
-    filter: common::ExerciseFilter,
+    exercise_list: component::exercise_list::Model,
     dialog: Dialog,
     loading: bool,
 }
@@ -60,8 +60,7 @@ pub enum Msg {
     ShowDeleteExerciseDialog(u32),
     CloseExerciseDialog,
 
-    SearchTermChanged(String),
-    FilterChanged(domain::Muscle),
+    ExerciseList(component::exercise_list::Msg),
     NameChanged(String),
 
     GoToExercise(u32),
@@ -103,15 +102,24 @@ pub fn update(
             Url::go_and_replace(&crate::Urls::new(&data_model.base_url).exercises());
         }
 
-        Msg::SearchTermChanged(search_term) => {
-            model.search_term = search_term;
-        }
-        Msg::FilterChanged(muscle) => {
-            if model.filter.muscles.contains(&muscle) {
-                model.filter.muscles.remove(&muscle);
-            } else {
-                model.filter.muscles.insert(muscle);
-            }
+        Msg::ExerciseList(msg) => {
+            match component::exercise_list::update(
+                msg,
+                &mut model.exercise_list,
+                &mut orders.proxy(Msg::ExerciseList),
+            ) {
+                component::exercise_list::OutMsg::None
+                | component::exercise_list::OutMsg::CreateClicked(_) => {}
+                component::exercise_list::OutMsg::Selected(exercise_id) => {
+                    orders.send_msg(Msg::GoToExercise(exercise_id));
+                }
+                component::exercise_list::OutMsg::EditClicked(exercise_id) => {
+                    orders.send_msg(Msg::ShowEditExerciseDialog(exercise_id));
+                }
+                component::exercise_list::OutMsg::DeleteClicked(exercise_id) => {
+                    orders.send_msg(Msg::ShowDeleteExerciseDialog(exercise_id));
+                }
+            };
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
@@ -197,18 +205,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else {
         div![
             view_exercise_dialog(&model.dialog, &data_model.exercises, model.loading),
-            common::view_exercises_with_search(
-                &data_model.exercises,
-                &model.search_term,
-                Msg::SearchTermChanged,
-                &model.filter,
-                Msg::FilterChanged,
-                None::<fn(web_sys::Event) -> Msg>,
-                model.loading,
-                Msg::GoToExercise,
-                &Some(Msg::ShowEditExerciseDialog),
-                &Some(Msg::ShowDeleteExerciseDialog)
-            ),
+            component::exercise_list::view(&model.exercise_list, data_model)
+                .map_msg(Msg::ExerciseList),
             common::view_fab("plus", |_| Msg::ShowAddExerciseDialog),
         ]
     }

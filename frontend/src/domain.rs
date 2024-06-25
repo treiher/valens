@@ -1,4 +1,4 @@
-use std::slice::Iter;
+use std::{collections::HashSet, slice::Iter};
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub enum Muscle {
@@ -130,5 +130,89 @@ impl Muscle {
             Muscle::Adductors => "Inner thighs",
             Muscle::Calves => "Back of lower legs",
         }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq)]
+pub enum Force {
+    Undefined,
+    Pull,
+    Push,
+    Static,
+}
+
+#[derive(Eq, Hash, PartialEq)]
+pub enum Level {
+    Beginner,
+    Intermediate,
+    Expert,
+}
+
+#[derive(Eq, Hash, PartialEq)]
+pub enum Mechanic {
+    Undefined,
+    Compound,
+    Isolation,
+}
+
+#[derive(Eq, Hash, PartialEq)]
+pub enum Laterality {
+    Bilateral,
+    Unilateral,
+}
+
+#[derive(Eq, Hash, PartialEq)]
+pub enum Equipment {
+    None,
+    AbRoller,
+    Barbell,
+    Box,
+    Cable,
+    Cone,
+    Dumbbell,
+    EZCurlBar,
+    ExerciseBall,
+    GymnasticRings,
+    Kettlebell,
+    Machine,
+    MedicineBall,
+    ParallelBars,
+    PullUpBar,
+    ResistanceBand,
+    Sliders,
+    SuspensionTrainer,
+    TrapBar,
+    Weight,
+    WristRoller,
+}
+
+#[derive(Eq, Hash, PartialEq)]
+pub enum Category {
+    OlympicWeightlifting,
+    Plyometrics,
+    Powerlifting,
+    Strength,
+}
+
+#[derive(Default)]
+pub struct ExerciseFilter {
+    pub muscles: HashSet<Muscle>,
+    pub force: HashSet<Force>,
+    pub level: HashSet<Level>,
+    pub mechanic: HashSet<Mechanic>,
+    pub laterality: HashSet<Laterality>,
+    pub equipment: HashSet<Equipment>,
+    pub category: HashSet<Category>,
+}
+
+impl ExerciseFilter {
+    pub fn is_empty(&self) -> bool {
+        self.muscles.is_empty()
+            && self.force.is_empty()
+            && self.level.is_empty()
+            && self.mechanic.is_empty()
+            && self.laterality.is_empty()
+            && self.equipment.is_empty()
+            && self.category.is_empty()
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
@@ -996,17 +996,12 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
     }
 }
 
-#[derive(Default, PartialEq)]
-pub struct ExerciseFilter {
-    pub muscles: HashSet<domain::Muscle>,
-}
-
 #[allow(clippy::too_many_arguments)]
 pub fn view_exercises_with_search<Ms>(
     exercises: &BTreeMap<u32, data::Exercise>,
     search_term: &str,
     search_term_changed: impl FnOnce(String) -> Ms + 'static + Clone,
-    filter: &ExerciseFilter,
+    filter: &domain::ExerciseFilter,
     filter_changed: impl FnOnce(domain::Muscle) -> Ms + 'static + Clone,
     create_exercise: Option<impl FnOnce(web_sys::Event) -> Ms + 'static + Clone>,
     loading: bool,
@@ -1036,17 +1031,13 @@ where
         .collect::<Vec<_>>();
     exercises.sort_by(|a, b| a.name.cmp(&b.name));
 
-    let mut catalog_exercises = catalog::EXERCISES
+    let catalog_exercises = catalog::exercises(filter);
+    let mut catalog_exercises = catalog_exercises
         .iter()
         .filter(|e| {
             e.name
                 .to_lowercase()
                 .contains(search_term.to_lowercase().trim())
-                && (filter.muscles.is_empty()
-                    || filter
-                        .muscles
-                        .iter()
-                        .all(|m| e.primary_muscles.contains(m) || e.secondary_muscles.contains(m)))
         })
         .collect::<Vec<_>>();
     catalog_exercises.sort_by(|a, b| a.name.cmp(b.name));
@@ -1057,6 +1048,15 @@ where
             C!["is-grouped"],
             C![IF![edit.is_some() || delete.is_some() => "px-4"]],
             view_search_box(search_term, search_term_changed),
+            div![
+                C!["control"],
+                button![
+                    C!["button"],
+                    C![IF![!filter.is_empty() => "is-link"]],
+                    //ev(Ev::Click, view_filter_dialog),
+                    span![C!["icon"], i![C!["fas fa-filter"]]]
+                ]
+            ],
             if let Some(create_exercise) = create_exercise {
                 let disabled = loading
                     || search_term.is_empty()

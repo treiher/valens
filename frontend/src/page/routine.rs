@@ -80,7 +80,7 @@ impl Model {
 
 enum Dialog {
     Hidden,
-    SelectExercise(Vec<usize>, String, common::ExerciseFilter),
+    SelectExercise(Vec<usize>, String, domain::ExerciseFilter),
     DeleteTrainingSession(u32),
 }
 
@@ -324,7 +324,7 @@ pub fn update(
 
         Msg::ShowSelectExerciseDialog(part_id) => {
             model.dialog =
-                Dialog::SelectExercise(part_id, String::new(), common::ExerciseFilter::default());
+                Dialog::SelectExercise(part_id, String::new(), domain::ExerciseFilter::default());
         }
         Msg::ShowDeleteTrainingSessionDialog(position) => {
             model.dialog = Dialog::DeleteTrainingSession(position);
@@ -798,6 +798,7 @@ fn view_dialog(
             common::view_dialog(
                 "primary",
                 "Select exercise",
+                // TODO: Replace by component::exercise_list::view()
                 common::view_exercises_with_search(
                     exercises,
                     search_term,

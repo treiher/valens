@@ -365,14 +365,13 @@ impl Guide {
     }
 }
 
-#[derive(PartialEq)]
 enum Dialog {
     Hidden,
     StopwatchMetronomTimer,
     Options(usize, usize),
-    ReplaceExercise(usize, usize, String, common::ExerciseFilter),
-    AddExercise(usize, usize, String, common::ExerciseFilter),
-    AppendExercise(String, common::ExerciseFilter),
+    ReplaceExercise(usize, usize, String, domain::ExerciseFilter),
+    AddExercise(usize, usize, String, domain::ExerciseFilter),
+    AppendExercise(String, domain::ExerciseFilter),
 }
 
 struct StopwatchMetronomTimer {
@@ -1142,7 +1141,7 @@ pub fn update(
                 element_idx,
                 exercise_idx,
                 String::new(),
-                common::ExerciseFilter::default(),
+                domain::ExerciseFilter::default(),
             );
         }
         Msg::ShowAddExerciseDialog(element_idx, exercise_idx) => {
@@ -1150,11 +1149,11 @@ pub fn update(
                 element_idx,
                 exercise_idx,
                 String::new(),
-                common::ExerciseFilter::default(),
+                domain::ExerciseFilter::default(),
             );
         }
         Msg::ShowAppendExerciseDialog => {
-            model.dialog = Dialog::AppendExercise(String::new(), common::ExerciseFilter::default());
+            model.dialog = Dialog::AppendExercise(String::new(), domain::ExerciseFilter::default());
         }
         Msg::SearchTermChanged(search_term) => {
             if let Dialog::ReplaceExercise(_, _, st, _)
@@ -1840,7 +1839,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else if let Some(training_session) =
         data_model.training_sessions.get(&model.training_session_id)
     {
-        if model.dialog == Dialog::Hidden {
+        if let Dialog::Hidden = model.dialog {
             div![
                 view_title(training_session, data_model),
                 if model.editing || model.guide.is_some() {
@@ -2732,12 +2731,13 @@ fn view_replace_exercise_dialog(
     element_idx: usize,
     exercise_idx: usize,
     search_term: &str,
-    filter: &common::ExerciseFilter,
+    filter: &domain::ExerciseFilter,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
     let element_idx = element_idx;
     let exercise_idx = exercise_idx;
+    // TODO: Replace by component::exercise_list::view()
     common::view_exercises_with_search(
         exercises,
         search_term,
@@ -2756,12 +2756,13 @@ fn view_add_exercise_dialog(
     element_idx: usize,
     exercise_idx: usize,
     search_term: &str,
-    filter: &common::ExerciseFilter,
+    filter: &domain::ExerciseFilter,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
     let element_idx = element_idx;
     let exercise_idx = exercise_idx;
+    // TODO: Replace by component::exercise_list::view()
     common::view_exercises_with_search(
         exercises,
         search_term,
@@ -2778,10 +2779,11 @@ fn view_add_exercise_dialog(
 
 fn view_append_exercise_dialog(
     search_term: &str,
-    filter: &common::ExerciseFilter,
+    filter: &domain::ExerciseFilter,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
+    // TODO: Replace by component::exercise_list::view()
     common::view_exercises_with_search(
         exercises,
         search_term,

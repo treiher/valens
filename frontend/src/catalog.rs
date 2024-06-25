@@ -1,10 +1,13 @@
-use crate::domain::Muscle;
+use crate::domain::{
+    Category, Equipment, ExerciseFilter, Force, Laterality, Level, Mechanic, Muscle,
+};
 
 pub struct Exercise {
     pub name: &'static str,
     pub force: Force,
     pub level: Level,
     pub mechanic: Mechanic,
+    pub laterality: Laterality,
     pub equipment: Equipment,
     pub primary_muscles: &'static [Muscle],
     pub secondary_muscles: &'static [Muscle],
@@ -12,59 +15,24 @@ pub struct Exercise {
     pub category: Category,
 }
 
-pub enum Laterality {
-    Bilateral,
-    Unilateral,
-}
-
-pub enum Force {
-    Undefined,
-    Pull,
-    Push,
-    Static,
-}
-
-pub enum Level {
-    Beginner,
-    Intermediate,
-    Expert,
-}
-
-pub enum Mechanic {
-    Undefined,
-    Compound,
-    Isolation,
-}
-
-pub enum Equipment {
-    None,
-    AbRoller,
-    Barbell,
-    Box,
-    Cable,
-    Cone,
-    Dumbbell,
-    EZCurlBar,
-    ExerciseBall,
-    GymnasticRings,
-    Kettlebell,
-    Machine,
-    MedicineBall,
-    ParallelBars,
-    PullUpBar,
-    ResistanceBand,
-    Sliders,
-    SuspensionTrainer,
-    TrapBar,
-    Weight,
-    WristRoller,
-}
-
-pub enum Category {
-    OlympicWeightlifting,
-    Plyometrics,
-    Powerlifting,
-    Strength,
+pub fn exercises(filter: &ExerciseFilter) -> Vec<&'static Exercise> {
+    EXERCISES
+        .iter()
+        .filter(|e| {
+            (filter.force.is_empty() || filter.force.contains(&e.force))
+                && (filter.level.is_empty() || filter.level.contains(&e.level))
+                && (filter.mechanic.is_empty() || filter.mechanic.contains(&e.mechanic))
+                && (filter.laterality.is_empty() || filter.laterality.contains(&e.laterality))
+                && (filter.equipment.is_empty() || filter.equipment.contains(&e.equipment))
+                && (filter.muscles.is_empty()
+                    || filter
+                        .muscles
+                        .iter()
+                        .all(|m| e.primary_muscles.contains(m) || e.secondary_muscles.contains(m)))
+                && (filter.category.is_empty() || filter.category.contains(&e.category))
+                && (filter.level.is_empty() || filter.level.contains(&e.level))
+        })
+        .collect()
 }
 
 pub const EXERCISES: [Exercise; 703] = [
@@ -73,6 +41,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -90,6 +59,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Abs
@@ -108,6 +78,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::AbRoller,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -124,6 +95,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -140,6 +112,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -160,6 +133,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -182,6 +156,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -199,6 +174,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -220,6 +196,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -244,6 +221,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -264,6 +242,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts
@@ -283,6 +262,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Pecs
@@ -305,6 +285,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[
@@ -327,6 +308,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -342,6 +324,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -362,6 +345,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -385,6 +369,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -407,6 +392,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -428,6 +414,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -447,6 +434,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -470,6 +458,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -488,6 +477,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -510,6 +500,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
@@ -532,6 +523,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -552,6 +544,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -572,6 +565,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Adductors
@@ -592,6 +586,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -613,6 +608,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Triceps
@@ -630,6 +626,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::ErectorSpinae, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -646,6 +643,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Abs
@@ -667,6 +665,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -689,6 +688,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -710,6 +710,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -728,6 +729,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -756,6 +758,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -781,6 +784,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Glutes
@@ -801,6 +805,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -823,6 +828,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -845,6 +851,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Glutes
@@ -865,6 +872,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -882,6 +890,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -902,6 +911,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -925,6 +935,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::RearDelts],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
@@ -942,6 +953,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Abs
@@ -964,6 +976,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
@@ -982,6 +995,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -1004,6 +1018,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Traps
@@ -1025,6 +1040,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Traps
@@ -1043,6 +1059,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Abs
@@ -1063,6 +1080,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -1085,6 +1103,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -1110,6 +1129,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -1137,6 +1157,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings, Muscle::Quads],
@@ -1153,6 +1174,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -1175,6 +1197,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
@@ -1196,6 +1219,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -1219,6 +1243,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::Forearms, Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -1235,6 +1260,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -1254,6 +1280,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Quads
@@ -1276,6 +1303,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats
@@ -1300,6 +1328,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -1318,6 +1347,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -1337,6 +1367,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -1359,6 +1390,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::RearDelts
@@ -1378,6 +1410,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::ErectorSpinae, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::Traps],
@@ -1395,6 +1428,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::ErectorSpinae, Muscle::Traps],
@@ -1413,6 +1447,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -1436,6 +1471,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -1452,6 +1488,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -1473,6 +1510,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[
@@ -1495,6 +1533,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::Forearms, Muscle::Lats, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -1511,6 +1550,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[],
@@ -1528,6 +1568,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
@@ -1549,6 +1590,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[
             Muscle::Pecs
@@ -1572,6 +1614,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -1592,6 +1635,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -1612,6 +1656,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -1634,6 +1679,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Forearms
@@ -1653,6 +1699,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -1668,6 +1715,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -1691,6 +1739,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -1716,6 +1765,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -1740,6 +1790,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -1765,6 +1816,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -1783,6 +1835,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[],
@@ -1800,6 +1853,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
@@ -1819,6 +1873,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -1838,6 +1893,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Pecs
@@ -1859,6 +1915,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Pecs
@@ -1880,6 +1937,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -1900,6 +1958,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Quads
@@ -1923,6 +1982,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Biceps
@@ -1943,6 +2003,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Quads
@@ -1964,6 +2025,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[],
@@ -1981,6 +2043,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -2000,6 +2063,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -2019,6 +2083,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[],
@@ -2036,6 +2101,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -2053,6 +2119,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -2068,10 +2135,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Cable One Arm Tricep Extension",
+        name: "Cable One-Arm Tricep Extension",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -2092,6 +2160,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Biceps
@@ -2115,6 +2184,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::RearDelts
@@ -2133,6 +2203,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -2153,6 +2224,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -2172,6 +2244,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -2195,6 +2268,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -2216,6 +2290,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -2235,6 +2310,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -2259,6 +2335,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -2279,6 +2356,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Traps
@@ -2298,6 +2376,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Forearms],
         secondary_muscles: &[],
@@ -2316,6 +2395,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Traps
@@ -2334,6 +2414,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
@@ -2350,6 +2431,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
@@ -2367,6 +2449,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Calves
@@ -2386,6 +2469,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Calves
@@ -2405,6 +2489,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Forearms],
@@ -2421,6 +2506,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Adductors
@@ -2445,6 +2531,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Lats
@@ -2466,6 +2553,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -2490,6 +2578,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Pecs
@@ -2511,6 +2600,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::Abs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -2527,6 +2617,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Pecs
@@ -2548,6 +2639,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Pecs
@@ -2569,6 +2661,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[Muscle::Biceps, Muscle::Forearms, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
@@ -2586,6 +2679,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[
@@ -2614,6 +2708,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -2646,6 +2741,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[
@@ -2668,6 +2764,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -2696,6 +2793,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -2720,6 +2818,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -2743,6 +2842,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Traps
@@ -2762,6 +2862,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -2785,6 +2886,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -2807,6 +2909,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -2829,6 +2932,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -2850,6 +2954,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[Muscle::Forearms],
@@ -2867,6 +2972,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[
             Muscle::Triceps
@@ -2889,6 +2995,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -2913,6 +3020,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
@@ -2935,6 +3043,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -2956,6 +3065,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -2973,6 +3083,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -2994,6 +3105,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -3013,6 +3125,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -3033,6 +3146,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -3056,6 +3170,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Pecs
@@ -3079,6 +3194,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -3097,6 +3213,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -3114,6 +3231,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -3133,6 +3251,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -3154,6 +3273,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -3175,6 +3295,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[
@@ -3197,6 +3318,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -3220,6 +3342,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -3244,6 +3367,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -3262,6 +3386,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -3280,6 +3405,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -3299,6 +3425,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -3318,6 +3445,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -3337,6 +3465,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -3355,6 +3484,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -3376,6 +3506,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -3393,6 +3524,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Pecs
@@ -3415,6 +3547,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[
@@ -3437,6 +3570,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Quads
@@ -3461,6 +3595,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Triceps
@@ -3483,6 +3618,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ParallelBars,
         primary_muscles: &[
             Muscle::Pecs
@@ -3504,6 +3640,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ParallelBars,
         primary_muscles: &[
             Muscle::Triceps
@@ -3525,6 +3662,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
@@ -3542,6 +3680,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -3567,6 +3706,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -3592,6 +3732,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -3613,6 +3754,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -3634,6 +3776,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Abs
@@ -3657,6 +3800,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -3681,6 +3825,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -3701,6 +3846,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -3716,6 +3862,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[Muscle::Forearms],
@@ -3733,6 +3880,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -3750,6 +3898,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -3771,6 +3920,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -3791,6 +3941,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[
@@ -3816,6 +3967,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -3836,6 +3988,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -3855,6 +4008,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -3878,6 +4032,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -3899,6 +4054,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Quads
@@ -3921,6 +4077,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -3942,6 +4099,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -3962,6 +4120,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
@@ -3979,6 +4138,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -3999,6 +4159,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -4017,6 +4178,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -4037,6 +4199,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4059,6 +4222,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -4079,6 +4243,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4099,6 +4264,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4121,6 +4287,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4140,6 +4307,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
@@ -4156,6 +4324,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Calves
@@ -4176,6 +4345,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4198,6 +4368,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Traps],
         secondary_muscles: &[],
@@ -4214,6 +4385,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Abs
@@ -4232,6 +4404,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4256,6 +4429,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4280,6 +4454,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4302,6 +4477,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -4320,6 +4496,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -4335,6 +4512,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4356,6 +4534,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::Traps],
@@ -4375,6 +4554,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
             Muscle::Abs
@@ -4394,6 +4574,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
             Muscle::Abs
@@ -4413,6 +4594,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -4427,6 +4609,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4447,6 +4630,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4466,6 +4650,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4484,6 +4669,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[],
@@ -4501,6 +4687,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[
             Muscle::Triceps
@@ -4521,6 +4708,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4538,6 +4726,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
@@ -4559,6 +4748,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -4577,6 +4767,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Pecs
@@ -4598,6 +4789,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -4617,6 +4809,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -4635,6 +4828,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[],
@@ -4653,6 +4847,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -4674,6 +4869,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -4694,6 +4890,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
@@ -4715,6 +4912,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4738,6 +4936,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -4762,6 +4961,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -4782,6 +4982,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -4803,6 +5004,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4827,6 +5029,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -4851,6 +5054,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -4875,6 +5079,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4894,6 +5099,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cone,
         primary_muscles: &[
             Muscle::Quads
@@ -4919,6 +5125,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4937,6 +5144,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4956,6 +5164,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -4974,6 +5183,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -4997,6 +5207,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -5019,6 +5230,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Quads
@@ -5039,6 +5251,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -5057,6 +5270,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -5077,6 +5291,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
@@ -5095,6 +5310,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes],
@@ -5110,6 +5326,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
@@ -5130,6 +5347,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Quads
@@ -5152,6 +5370,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -5173,6 +5392,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -5193,6 +5413,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats],
@@ -5210,6 +5431,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Adductors
@@ -5227,6 +5449,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
@@ -5246,6 +5469,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -5265,6 +5489,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -5284,6 +5509,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -5301,6 +5527,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -5327,6 +5554,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -5352,6 +5580,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -5374,6 +5603,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -5392,6 +5622,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -5409,6 +5640,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -5436,6 +5668,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -5463,6 +5696,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -5487,6 +5721,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Biceps
@@ -5505,6 +5740,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Glutes
@@ -5525,6 +5761,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[],
@@ -5541,6 +5778,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Glutes
@@ -5562,6 +5800,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -5585,6 +5824,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings],
@@ -5602,6 +5842,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -5621,6 +5862,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -5643,6 +5885,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -5667,6 +5910,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Pecs
@@ -5687,6 +5931,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Pecs
@@ -5709,6 +5954,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -5733,6 +5979,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -5751,6 +5998,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -5769,6 +6017,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -5791,6 +6040,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -5815,6 +6065,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[],
@@ -5830,6 +6081,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -5849,6 +6101,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
@@ -5871,6 +6124,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Pecs
@@ -5892,6 +6146,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -5912,6 +6167,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -5935,6 +6191,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::Abs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -5952,6 +6209,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::Abs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -5969,6 +6227,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -5988,6 +6247,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Lats],
@@ -6005,6 +6265,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats],
@@ -6021,6 +6282,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6041,6 +6303,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -6058,6 +6321,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Neck
@@ -6077,6 +6341,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Neck
@@ -6096,6 +6361,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -6118,6 +6384,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -6136,6 +6403,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -6154,6 +6422,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -6181,6 +6450,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6203,6 +6473,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Abs, Muscle::Calves],
@@ -6217,6 +6488,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -6239,6 +6511,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -6254,6 +6527,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -6277,6 +6551,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::Hamstrings, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -6291,6 +6566,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Traps],
@@ -6306,6 +6582,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae],
@@ -6321,6 +6598,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Abs
@@ -6341,6 +6619,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6361,6 +6640,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Quads
@@ -6384,6 +6664,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6403,6 +6684,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -6418,6 +6700,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Traps
@@ -6440,6 +6723,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6461,6 +6745,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Abs, Muscle::Hamstrings, Muscle::Quads, Muscle::Triceps],
@@ -6476,6 +6761,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[
@@ -6497,6 +6783,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Abs
@@ -6519,6 +6806,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::GymnasticRings,
         primary_muscles: &[
             Muscle::Lats
@@ -6546,6 +6834,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ParallelBars,
         primary_muscles: &[
             Muscle::Abs
@@ -6565,6 +6854,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6585,6 +6875,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -6606,6 +6897,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -6627,6 +6919,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
@@ -6642,6 +6935,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Glutes],
         secondary_muscles: &[Muscle::Calves, Muscle::Hamstrings, Muscle::Quads],
@@ -6658,6 +6952,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -6679,6 +6974,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Glutes
@@ -6700,6 +6996,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -6723,6 +7020,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Abs
@@ -6746,6 +7044,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6772,6 +7071,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Adductors
@@ -6797,6 +7097,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Adductors
@@ -6822,6 +7123,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cone,
         primary_muscles: &[
             Muscle::Adductors
@@ -6846,6 +7148,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -6864,6 +7167,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -6882,6 +7186,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
@@ -6903,6 +7208,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Pecs
@@ -6923,6 +7229,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
@@ -6940,6 +7247,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -6958,6 +7266,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Pecs
@@ -6979,6 +7288,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -6998,6 +7308,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -7013,6 +7324,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -7033,6 +7345,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Pecs
@@ -7053,6 +7366,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Lats
@@ -7073,6 +7387,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -7092,6 +7407,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Traps
@@ -7113,6 +7429,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -7134,6 +7451,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -7156,6 +7474,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Quads
@@ -7178,6 +7497,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Pecs
@@ -7198,6 +7518,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -7218,6 +7539,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -7241,6 +7563,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -7264,6 +7587,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
@@ -7280,6 +7604,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[],
@@ -7298,6 +7623,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -7320,6 +7646,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -7339,6 +7666,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[
             Muscle::Triceps
@@ -7358,6 +7686,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Biceps
@@ -7379,6 +7708,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -7400,6 +7730,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Neck
@@ -7418,6 +7749,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[Muscle::Neck],
         secondary_muscles: &[],
@@ -7434,6 +7766,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -7452,6 +7785,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[],
@@ -7468,6 +7802,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -7492,6 +7827,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -7511,6 +7847,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::RearDelts
@@ -7530,6 +7867,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -7549,6 +7887,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -7572,6 +7911,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[],
@@ -7589,6 +7929,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Pecs
@@ -7613,6 +7954,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Biceps
@@ -7631,6 +7973,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Biceps
@@ -7650,6 +7993,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -7671,6 +8015,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Triceps
@@ -7689,6 +8034,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Pecs
@@ -7711,6 +8057,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Abs
@@ -7731,6 +8078,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -7752,6 +8100,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -7770,6 +8119,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -7792,6 +8142,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Abductors
@@ -7809,6 +8160,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -7829,6 +8181,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -7849,6 +8202,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -7872,6 +8226,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::GymnasticRings,
         primary_muscles: &[
             Muscle::Lats
@@ -7898,6 +8253,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
@@ -7917,6 +8273,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -7940,6 +8297,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings, Muscle::ErectorSpinae],
@@ -7958,6 +8316,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae],
@@ -7974,6 +8333,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -7996,6 +8356,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -8017,6 +8378,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -8036,6 +8398,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -8053,10 +8416,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::OlympicWeightlifting
     },
     Exercise {
-        name: "One Arm Chin Up",
+        name: "One-Arm Chin Up",
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Biceps, Muscle::Forearms, Muscle::Lats],
@@ -8072,10 +8436,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Arm Dumbbell Bench Press",
+        name: "One-Arm Dumbbell Bench Press",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -8091,10 +8456,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Arm Dumbbell Preacher Curl",
+        name: "One-Arm Dumbbell Preacher Curl",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -8114,6 +8480,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -8139,6 +8506,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -8155,10 +8523,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Arm Floor Press",
+        name: "One-Arm Floor Press",
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -8183,6 +8552,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -8205,6 +8575,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8225,6 +8596,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8245,6 +8617,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -8267,6 +8640,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Pecs
@@ -8286,6 +8660,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8308,6 +8683,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8327,6 +8703,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8346,6 +8723,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Calves, Muscle::Quads, Muscle::Triceps],
@@ -8361,6 +8739,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -8379,6 +8758,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8403,6 +8783,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings, Muscle::Quads, Muscle::Triceps],
@@ -8420,6 +8801,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8441,6 +8823,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -8448,10 +8831,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Arm Lat Pulldown",
+        name: "One-Arm Lat Pulldown",
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
@@ -8468,6 +8852,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -8490,6 +8875,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Abs
@@ -8511,6 +8897,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -8535,6 +8922,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Quads
@@ -8553,10 +8941,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Arm Pronated Dumbbell Triceps Extension",
+        name: "One-Arm Pronated Dumbbell Triceps Extension",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[],
@@ -8575,6 +8964,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
@@ -8600,6 +8990,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -8616,10 +9007,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Arm Supinated Dumbbell Triceps Extension",
+        name: "One-Arm Supinated Dumbbell Triceps Extension",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[],
@@ -8635,10 +9027,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Arm Hang",
+        name: "One-Arm Hang",
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
@@ -8652,10 +9045,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "One Leg Barbell Squat",
+        name: "One-Leg Barbell Squat",
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -8681,6 +9075,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Glutes
@@ -8703,6 +9098,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae, Muscle::Quads, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -8718,6 +9114,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Abs
@@ -8740,6 +9137,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Biceps
@@ -8760,6 +9158,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Lats
@@ -8778,6 +9177,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -8806,6 +9206,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -8824,6 +9225,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -8851,6 +9253,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -8872,6 +9275,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Forearms],
         secondary_muscles: &[],
@@ -8891,6 +9295,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -8912,6 +9317,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Forearms],
         secondary_muscles: &[],
@@ -8931,6 +9337,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ParallelBars,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -8947,6 +9354,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
             Muscle::Glutes
@@ -8966,6 +9374,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::Forearms, Muscle::Lats, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -8984,6 +9393,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -9000,6 +9410,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Forearms
@@ -9019,6 +9430,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Abs
@@ -9038,6 +9450,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Sliders,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -9058,6 +9471,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Quads
@@ -9082,6 +9496,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -9097,6 +9512,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -9115,6 +9531,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -9163,6 +9580,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -9184,6 +9602,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -9210,6 +9629,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -9229,6 +9649,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -9256,6 +9677,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
@@ -9282,6 +9704,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -9301,6 +9724,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -9321,6 +9745,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Abs
@@ -9343,6 +9768,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[],
@@ -9358,6 +9784,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Glutes],
         secondary_muscles: &[Muscle::Hamstrings, Muscle::ErectorSpinae],
@@ -9372,6 +9799,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
@@ -9394,6 +9822,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Calves, Muscle::Quads, Muscle::Triceps],
@@ -9409,6 +9838,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -9425,6 +9855,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -9446,6 +9877,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -9462,6 +9894,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -9483,6 +9916,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -9505,6 +9939,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
             Muscle::Pecs
@@ -9527,6 +9962,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -9550,6 +9986,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Pecs
@@ -9572,6 +10009,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Quads
@@ -9593,6 +10031,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Forearms, Muscle::Traps],
@@ -9608,6 +10047,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[Muscle::Forearms, Muscle::Glutes, Muscle::Hamstrings, Muscle::Traps],
@@ -9623,6 +10063,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -9646,6 +10087,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -9668,6 +10110,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -9692,6 +10135,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -9718,6 +10162,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::ErectorSpinae],
         secondary_muscles: &[
@@ -9742,6 +10187,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -9766,6 +10212,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -9794,6 +10241,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -9814,6 +10262,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[
             Muscle::Biceps
@@ -9835,6 +10284,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[Muscle::Forearms],
@@ -9851,6 +10301,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -9870,6 +10321,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -9890,6 +10342,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
@@ -9909,6 +10362,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -9932,6 +10386,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[],
@@ -9949,6 +10404,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes],
@@ -9966,6 +10422,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -9984,6 +10441,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Biceps
@@ -10005,6 +10463,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -10022,6 +10481,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::GymnasticRings,
         primary_muscles: &[
             Muscle::Triceps
@@ -10043,6 +10503,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -10063,6 +10524,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Calves
@@ -10085,6 +10547,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -10103,6 +10566,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -10126,6 +10590,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -10148,6 +10613,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -10167,6 +10633,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Lats],
         secondary_muscles: &[],
@@ -10183,6 +10650,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -10204,6 +10672,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[Muscle::Traps],
         secondary_muscles: &[Muscle::Lats, Muscle::Lats, Muscle::Traps, Muscle::RearDelts],
@@ -10219,6 +10688,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -10238,6 +10708,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -10259,6 +10730,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -10277,6 +10749,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -10298,6 +10771,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Abs
@@ -10318,6 +10792,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -10339,6 +10814,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::RearDelts
@@ -10359,6 +10835,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -10379,6 +10856,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -10402,6 +10880,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -10422,6 +10901,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Calves
@@ -10442,6 +10922,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -10461,6 +10942,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -10480,6 +10962,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[],
@@ -10498,6 +10981,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -10519,6 +11003,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -10540,6 +11025,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -10562,6 +11048,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -10580,6 +11067,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -10600,6 +11088,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cone,
         primary_muscles: &[Muscle::Neck],
         secondary_muscles: &[],
@@ -10618,6 +11107,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[],
@@ -10635,6 +11125,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -10653,6 +11144,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -10677,6 +11169,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -10697,6 +11190,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -10717,6 +11211,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Forearms],
         secondary_muscles: &[],
@@ -10734,6 +11229,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Forearms],
         secondary_muscles: &[],
@@ -10751,6 +11247,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
@@ -10767,6 +11264,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -10785,6 +11283,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Forearms
@@ -10808,6 +11307,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -10830,6 +11330,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -10851,6 +11352,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -10870,6 +11372,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -10881,6 +11384,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cone,
         primary_muscles: &[
             Muscle::Quads
@@ -10903,6 +11407,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -10914,6 +11419,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -10932,6 +11438,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -10954,6 +11461,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -10975,6 +11483,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Quads
@@ -10997,6 +11506,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
@@ -11023,6 +11533,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[],
@@ -11040,6 +11551,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Pecs, Muscle::Triceps],
@@ -11056,6 +11568,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -11072,6 +11585,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cone,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
@@ -11087,6 +11601,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -11103,10 +11618,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Single Leg Butt Kick",
+        name: "Single-Leg Butt Kick",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -11124,10 +11640,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Plyometrics
     },
     Exercise {
-        name: "Single Leg Glute Bridge",
+        name: "Single-Leg Glute Bridge",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Glutes
@@ -11148,6 +11665,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Box,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Glutes, Muscle::Hamstrings],
@@ -11163,6 +11681,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cone,
         primary_muscles: &[
             Muscle::Quads
@@ -11186,6 +11705,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cone,
         primary_muscles: &[
             Muscle::Quads
@@ -11209,6 +11729,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -11223,10 +11744,11 @@ pub const EXERCISES: [Exercise; 703] = [
         category: Category::Strength
     },
     Exercise {
-        name: "Single Leg Push-off",
+        name: "Single-Leg Push-off",
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Box,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Hamstrings],
@@ -11242,6 +11764,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Quads
@@ -11264,6 +11787,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -11281,6 +11805,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -11303,6 +11828,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Traps
@@ -11324,6 +11850,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -11341,6 +11868,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -11365,6 +11893,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
@@ -11382,6 +11911,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -11399,6 +11929,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Undefined,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Pecs
@@ -11421,6 +11952,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[
@@ -11445,6 +11977,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Abs
@@ -11463,6 +11996,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -11480,6 +12014,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -11501,6 +12036,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -11523,6 +12059,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -11544,6 +12081,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -11567,6 +12105,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Calves
@@ -11587,6 +12126,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -11612,6 +12152,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -11634,6 +12175,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Traps],
         secondary_muscles: &[Muscle::Biceps, Muscle::Lats, Muscle::Traps, Muscle::RearDelts, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -11651,6 +12193,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Quads
@@ -11676,6 +12219,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -11700,6 +12244,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -11724,6 +12269,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -11753,6 +12299,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -11781,6 +12328,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::ErectorSpinae, Muscle::Quads, Muscle::Traps],
@@ -11797,6 +12345,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Traps],
         secondary_muscles: &[Muscle::Forearms, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -11811,6 +12360,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Triceps
@@ -11829,6 +12379,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -11852,6 +12403,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -11877,6 +12429,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::Glutes, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -11893,6 +12446,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -11914,6 +12468,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::EZCurlBar,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[],
@@ -11933,6 +12488,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -11961,6 +12517,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -11984,6 +12541,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -12007,6 +12565,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -12037,6 +12596,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -12057,6 +12617,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Quads
@@ -12078,6 +12639,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[
@@ -12099,6 +12661,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Quads
@@ -12123,6 +12686,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -12147,6 +12711,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -12163,6 +12728,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
@@ -12181,6 +12747,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -12203,6 +12770,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -12221,6 +12789,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -12239,6 +12808,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Biceps
@@ -12257,6 +12827,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -12279,6 +12850,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -12295,6 +12867,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -12319,6 +12892,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -12339,6 +12913,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[Muscle::Calves],
         secondary_muscles: &[],
@@ -12356,6 +12931,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Biceps],
         secondary_muscles: &[Muscle::Forearms],
@@ -12372,6 +12948,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Calves
@@ -12390,6 +12967,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -12409,6 +12987,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -12429,6 +13008,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts
@@ -12448,6 +13028,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -12467,6 +13048,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Traps],
         secondary_muscles: &[Muscle::Biceps, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -12483,6 +13065,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[],
@@ -12500,6 +13083,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -12521,6 +13105,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -12540,6 +13125,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -12562,6 +13148,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::SideDelts
@@ -12584,6 +13171,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -12606,6 +13194,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -12628,6 +13217,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[
             Muscle::Forearms
@@ -12648,6 +13238,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Biceps
@@ -12668,6 +13259,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -12688,6 +13280,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -12711,6 +13304,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -12728,6 +13322,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -12751,6 +13346,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -12771,6 +13367,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Forearms],
         secondary_muscles: &[],
@@ -12789,6 +13386,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Abs
@@ -12807,6 +13405,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Triceps
@@ -12825,6 +13424,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -12845,6 +13445,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Quads
@@ -12867,6 +13468,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[Muscle::Glutes],
         secondary_muscles: &[Muscle::Hamstrings, Muscle::Quads],
@@ -12882,6 +13484,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -12905,6 +13508,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae],
@@ -12922,6 +13526,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Hamstrings],
         secondary_muscles: &[Muscle::Glutes, Muscle::ErectorSpinae],
@@ -12939,6 +13544,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -12963,6 +13569,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -12982,6 +13589,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -13002,6 +13610,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -13022,6 +13631,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Box,
         primary_muscles: &[
             Muscle::Quads
@@ -13045,6 +13655,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -13071,6 +13682,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -13098,6 +13710,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -13119,6 +13732,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Triceps
@@ -13140,6 +13754,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Abs
@@ -13161,6 +13776,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Abs
@@ -13183,6 +13799,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
             Muscle::Abs
@@ -13206,6 +13823,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
             Muscle::Pecs
@@ -13227,6 +13845,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -13243,6 +13862,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -13263,6 +13883,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::SuspensionTrainer,
         primary_muscles: &[
             Muscle::Quads
@@ -13287,6 +13908,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::Forearms, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts, Muscle::Triceps],
@@ -13303,6 +13925,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -13320,6 +13943,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -13342,6 +13966,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Static,
         level: Level::Beginner,
         mechanic: Mechanic::Undefined,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -13361,6 +13986,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Abductors
@@ -13381,6 +14007,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Machine,
         primary_muscles: &[
             Muscle::Adductors
@@ -13402,6 +14029,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -13422,6 +14050,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::TrapBar,
         primary_muscles: &[
             Muscle::Quads
@@ -13443,6 +14072,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Triceps
@@ -13461,6 +14091,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -13479,6 +14110,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[],
@@ -13496,6 +14128,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -13515,6 +14148,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Triceps
@@ -13534,6 +14168,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -13554,6 +14189,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -13572,6 +14208,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts
@@ -13595,6 +14232,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Calves, Muscle::Quads, Muscle::Triceps],
@@ -13608,6 +14246,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Triceps],
@@ -13622,6 +14261,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Kettlebell,
         primary_muscles: &[
             Muscle::Lats, Muscle::Traps, Muscle::RearDelts
@@ -13641,6 +14281,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -13665,6 +14306,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
         secondary_muscles: &[Muscle::Traps],
@@ -13681,6 +14323,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[Muscle::Traps],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::SideDelts, Muscle::RearDelts],
@@ -13697,6 +14340,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Traps
@@ -13717,6 +14361,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -13741,6 +14386,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
@@ -13764,6 +14410,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -13786,6 +14433,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[
             Muscle::ErectorSpinae
@@ -13808,6 +14456,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ExerciseBall,
         primary_muscles: &[Muscle::Abs],
         secondary_muscles: &[],
@@ -13827,6 +14476,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[Muscle::Triceps],
         secondary_muscles: &[Muscle::Pecs, Muscle::FrontDelts],
@@ -13844,6 +14494,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::MedicineBall,
         primary_muscles: &[
             Muscle::Abs
@@ -13863,6 +14514,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -13886,6 +14538,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
@@ -13907,6 +14560,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -13929,6 +14583,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::ResistanceBand,
         primary_muscles: &[
             Muscle::Abs
@@ -13947,6 +14602,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Weight,
         primary_muscles: &[Muscle::Quads],
         secondary_muscles: &[Muscle::Calves, Muscle::Glutes, Muscle::Hamstrings],
@@ -13964,6 +14620,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[Muscle::Pecs],
         secondary_muscles: &[Muscle::FrontDelts, Muscle::Triceps],
@@ -13980,6 +14637,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -14001,6 +14659,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Pecs
@@ -14024,6 +14683,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -14048,6 +14708,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Cable,
         primary_muscles: &[
             Muscle::Lats
@@ -14072,6 +14733,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::PullUpBar,
         primary_muscles: &[
             Muscle::Lats
@@ -14095,6 +14757,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -14114,6 +14777,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -14139,6 +14803,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Hamstrings
@@ -14159,6 +14824,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::None,
         primary_muscles: &[
             Muscle::Abs
@@ -14177,6 +14843,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::WristRoller,
         primary_muscles: &[Muscle::Forearms],
         secondary_muscles: &[Muscle::FrontDelts],
@@ -14194,6 +14861,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Beginner,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Forearms
@@ -14211,6 +14879,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Push,
         level: Level::Expert,
         mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Barbell,
         primary_muscles: &[
             Muscle::Quads
@@ -14235,6 +14904,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps
@@ -14259,6 +14929,7 @@ pub const EXERCISES: [Exercise; 703] = [
         force: Force::Pull,
         level: Level::Intermediate,
         mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
         equipment: Equipment::Dumbbell,
         primary_muscles: &[
             Muscle::Biceps

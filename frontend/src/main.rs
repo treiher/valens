@@ -11,6 +11,7 @@ use seed::{prelude::*, *};
 
 mod catalog;
 mod common;
+mod component;
 mod data;
 mod domain;
 mod page;

@@ -537,7 +537,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
         common::view_chart(
             &[("Set volume (weekly total)", common::COLOR_SET_VOLUME)],
@@ -548,7 +549,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
         common::view_chart(
             &[("RPE (weekly average)", common::COLOR_RPE)],
@@ -559,7 +561,8 @@ pub fn view_charts<Ms>(
                 Some(5.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
     ]
 }

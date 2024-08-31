@@ -771,6 +771,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             model.interval.last,
             data_model.theme(),
         ),
+        true,
     )
 }
 

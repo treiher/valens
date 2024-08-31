@@ -103,7 +103,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             Some(0.),
                             Some(10.),
                             data_model.theme()
-                        )
+                        ),
+                        true,
                     )
                 ]
             })

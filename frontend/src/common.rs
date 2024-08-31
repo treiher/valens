@@ -589,40 +589,51 @@ pub fn view_calendar<Ms>(entries: Vec<(NaiveDate, usize, f64)>, interval: &Inter
 
 pub fn view_chart<Ms>(
     labels: &[(&str, usize)],
-    chart: Result<String, Box<dyn std::error::Error>>,
+    chart: Result<Option<String>, Box<dyn std::error::Error>>,
+    no_data_label: bool,
 ) -> Node<Ms> {
-    div![
-        C!["container"],
-        C!["has-text-centered"],
-        h1![
-            C!["is-size-6"],
-            C!["has-text-weight-bold"],
-            labels
-                .iter()
-                .map(|(label, color_idx)| {
-                    span![
-                        C!["icon-text"],
-                        C!["mx-1"],
-                        span![
-                            C!["icon"],
-                            style![
-                                St::Color => {
-                                    let (r, g, b) = Palette99::pick(*color_idx).mix(0.9).rgb();
-                                    format!("#{r:02x}{g:02x}{b:02x}")
-                                }
-                            ],
-                            i![C!["fas fa-square"]]
-                        ],
-                        span![label],
-                    ]
-                })
-                .collect::<Vec<_>>(),
-        ],
-        raw![&chart.unwrap_or_else(|err| {
-            error!("failed to plot chart:", err);
-            String::new()
-        })],
-    ]
+    match chart {
+        Ok(result) => match result {
+            None => if no_data_label {
+                div![
+                    C!["is-size-7"],
+                    C!["block"],
+                    C!["has-text-centered"],
+                    C!["mb-4"],
+                    "No data.".to_string(),
+                ] } else { empty![] },
+            Some(value) => div![
+                C!["container"],
+                C!["has-text-centered"],
+                h1![
+                    C!["is-size-6"],
+                    C!["has-text-weight-bold"],
+                    labels
+                        .iter()
+                        .map(|(label, color_idx)| {
+                            span![
+                                C!["icon-text"],
+                                C!["mx-1"],
+                                span![
+                                    C!["icon"],
+                                    style![
+                                        St::Color => {
+                                            let (r, g, b) = Palette99::pick(*color_idx).mix(0.9).rgb();
+                                            format!("#{r:02x}{g:02x}{b:02x}")
+                                        }
+                                    ],
+                                    i![C!["fas fa-square"]]
+                                ],
+                                span![label],
+                            ]
+                        })
+                        .collect::<Vec<_>>(),
+                ],
+                raw![&value],
+            ],
+        },
+        Err(err) => div![raw![&format!("failed to plot chart: {err}")]],
+    }
 }
 
 pub fn plot_line_chart(
@@ -632,7 +643,11 @@ pub fn plot_line_chart(
     y_min_opt: Option<f32>,
     y_max_opt: Option<f32>,
     theme: &data::Theme,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    if all_zeros(data) {
+        return Ok(None);
+    }
+
     let (y_min, y_max, y_margin) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
@@ -691,7 +706,7 @@ pub fn plot_line_chart(
         root.present()?;
     }
 
-    Ok(result)
+    Ok(Some(result))
 }
 
 pub fn plot_dual_line_chart(
@@ -700,7 +715,11 @@ pub fn plot_dual_line_chart(
     x_min: NaiveDate,
     x_max: NaiveDate,
     theme: &data::Theme,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    if all_zeros(data) && all_zeros(secondary_data) {
+        return Ok(None);
+    }
+
     let (y1_min, y1_max, y1_margin) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
@@ -787,7 +806,7 @@ pub fn plot_dual_line_chart(
         root.present()?;
     }
 
-    Ok(result)
+    Ok(Some(result))
 }
 
 pub fn plot_bar_chart(
@@ -798,7 +817,11 @@ pub fn plot_bar_chart(
     y_min_opt: Option<f32>,
     y_max_opt: Option<f32>,
     theme: &data::Theme,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    if all_zeros(data) && all_zeros(secondary_data) {
+        return Ok(None);
+    }
+
     let (y1_min, y1_max, _) = determine_y_bounds(
         data.iter()
             .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
@@ -884,7 +907,11 @@ pub fn plot_bar_chart(
         root.present()?;
     }
 
-    Ok(result)
+    Ok(Some(result))
+}
+
+fn all_zeros(data: &[(Vec<(NaiveDate, f32)>, usize)]) -> bool {
+    return data.iter().all(|p| p.0.iter().all(|s| s.1 == 0.0));
 }
 
 fn colors(theme: &data::Theme) -> (RGBColor, RGBColor) {

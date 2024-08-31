@@ -499,7 +499,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
         common::view_chart(
             &[("Volume load", common::COLOR_VOLUME_LOAD)],
@@ -513,7 +514,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
         common::view_chart(
             &[("Time under tension (s)", common::COLOR_TUT)],
@@ -524,7 +526,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
         common::view_chart(
             &[
@@ -568,7 +571,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
         common::view_chart(
             &[("Weight (kg)", common::COLOR_WEIGHT)],
@@ -588,7 +592,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
         common::view_chart(
             &[("Time (s)", common::COLOR_TIME)],
@@ -607,7 +612,8 @@ pub fn view_charts<Ms>(
                 Some(0.),
                 Some(10.),
                 theme,
-            )
+            ),
+            false,
         ),
     ]
 }

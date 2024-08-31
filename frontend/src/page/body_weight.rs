@@ -393,6 +393,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             None,
             data_model.theme(),
         ),
+        true,
     )
 }
 

@@ -573,6 +573,19 @@ pub fn view_table<Ms: 'static>(
     base_url: &Url,
     delete_training_session_message: fn(u32) -> Ms,
 ) -> Node<Ms> {
+    let (has_avg_rpe_data, has_tut_data, has_avg_reps_data, has_avg_weight_data, has_avg_time_data) =
+        training_sessions
+            .iter()
+            .fold((false, false, false, false, false), |r, t| {
+                (
+                    r.0 || t.avg_rpe().is_some(),
+                    r.1 || t.tut().is_some(),
+                    r.2 || t.avg_reps().is_some(),
+                    r.3 || t.avg_weight().is_some(),
+                    r.4 || t.avg_time().is_some(),
+                )
+            });
+
     div![
         C!["table-container"],
         C!["mt-4"],
@@ -586,13 +599,13 @@ pub fn view_table<Ms: 'static>(
                 th!["Routine"],
                 th!["Load"],
                 th!["Set volume"],
-                th!["RPE"],
+                IF![has_avg_rpe_data => th!["RPE"]],
                 th!["Volume load"],
-                th!["TUT"],
-                th!["Reps"],
-                th!["Reps+RIR"],
-                th!["Weight (kg)"],
-                th!["Time (s)"],
+                IF![has_tut_data => th!["TUT"]],
+                IF![has_avg_reps_data => th!["Reps"]],
+                IF![has_avg_reps_data && has_avg_rpe_data => th!["Reps+RIR"]],
+                IF![has_avg_weight_data => th!["Weight (kg)"]],
+                IF![has_avg_time_data => th!["Time (s)"]],
                 th![]
             ]],
             tbody![training_sessions
@@ -624,18 +637,19 @@ pub fn view_table<Ms: 'static>(
                             }
                         ],
                         td![&t.load()],
-                        td![&t.set_volume()],
-                        td![common::value_or_dash(t.avg_rpe())],
+                        td![t.set_volume()],
+                        IF![has_avg_rpe_data => td![common::value_or_dash(t.avg_rpe())]],
                         td![&t.volume_load()],
-                        td![common::value_or_dash(t.tut())],
-                        td![common::value_or_dash(t.avg_reps())],
-                        td![if let (Some(avg_reps), Some(avg_rpe)) = (t.avg_reps(), t.avg_rpe()) {
-                            format!("{:.1}", avg_reps + 10.0 - avg_rpe)
-                        } else {
-                            "-".into()
-                        }],
-                        td![common::value_or_dash(t.avg_weight())],
-                        td![common::value_or_dash(t.avg_time())],
+                        IF![has_tut_data => td![common::value_or_dash(t.tut())]],
+                        IF![has_avg_reps_data => td![common::value_or_dash(t.avg_reps())]],
+                        IF![has_avg_reps_data && has_avg_rpe_data =>
+                            td![if let (Some(avg_reps), Some(avg_rpe)) = (t.avg_reps(), t.avg_rpe()) {
+                                format!("{:.1}", avg_reps + 10.0 - avg_rpe)
+                            } else {
+                                "-".into()
+                            }]],
+                        IF![has_avg_weight_data => td![common::value_or_dash(t.avg_weight())]],
+                        IF![has_avg_time_data => td![common::value_or_dash(t.avg_time())]],
                         td![p![
                             C!["is-flex is-flex-wrap-nowrap"],
                             a![

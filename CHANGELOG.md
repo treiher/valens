@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve display of charts when all values are zero
 - Background color of sections on routine page and training session page
 - Omit charts that contain no data
+- Hide empty columns in training tables
 
 ### Fixed
 

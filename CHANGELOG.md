@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background color of sections on routine page and training session page
 - Omit charts that contain no data
 - Hide empty columns in training tables
+- Consider sets without RPE value to be hard sets
 
 ### Fixed
 

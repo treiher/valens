@@ -654,7 +654,7 @@ impl TrainingSession {
             .iter()
             .filter_map(|e| match e {
                 TrainingSessionElement::Set { rpe, .. } => {
-                    if rpe.unwrap_or(0.0) >= 7.0 {
+                    if rpe.unwrap_or(10.0) >= 7.0 {
                         Some(1)
                     } else {
                         None

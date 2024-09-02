@@ -329,14 +329,17 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 total_set_volume_per_week,
                 avg_rpe_per_week,
                 &model.interval,
-                data_model.theme()
+                data_model.theme(),
+                data_model.settings.show_rpe,
             ),
             view_calendar(&training_sessions, &model.interval),
             view_table(
                 &training_sessions,
                 &data_model.routines,
                 &data_model.base_url,
-                Msg::ShowDeleteTrainingSessionDialog
+                Msg::ShowDeleteTrainingSessionDialog,
+                data_model.settings.show_rpe,
+                data_model.settings.show_tut,
             ),
             common::view_fab("plus", |_| Msg::ShowAddTrainingSessionDialog),
         ]
@@ -508,6 +511,7 @@ pub fn view_charts<Ms>(
     avg_rpe_per_week: Vec<(NaiveDate, f32)>,
     interval: &common::Interval,
     theme: &data::Theme,
+    show_rpe: bool,
 ) -> Vec<Node<Ms>> {
     let long_term_load_high = long_term_load
         .iter()
@@ -552,18 +556,21 @@ pub fn view_charts<Ms>(
             ),
             false,
         ),
-        common::view_chart(
-            &[("RPE (weekly average)", common::COLOR_RPE)],
-            common::plot_line_chart(
-                &[(avg_rpe_per_week, common::COLOR_RPE)],
-                interval.first,
-                interval.last,
-                Some(5.),
-                Some(10.),
-                theme,
-            ),
-            false,
-        ),
+        IF![
+            show_rpe =>
+            common::view_chart(
+                &[("RPE (weekly average)", common::COLOR_RPE)],
+                common::plot_line_chart(
+                    &[(avg_rpe_per_week, common::COLOR_RPE)],
+                    interval.first,
+                    interval.last,
+                    Some(5.),
+                    Some(10.),
+                    theme,
+                ),
+                false,
+            )
+        ],
     ]
 }
 
@@ -572,6 +579,8 @@ pub fn view_table<Ms: 'static>(
     routines: &BTreeMap<u32, data::Routine>,
     base_url: &Url,
     delete_training_session_message: fn(u32) -> Ms,
+    show_rpe: bool,
+    show_tut: bool,
 ) -> Node<Ms> {
     let (has_avg_rpe_data, has_tut_data, has_avg_reps_data, has_avg_weight_data, has_avg_time_data) =
         training_sessions
@@ -599,13 +608,13 @@ pub fn view_table<Ms: 'static>(
                 th!["Routine"],
                 th!["Load"],
                 th!["Set volume"],
-                IF![has_avg_rpe_data => th!["RPE"]],
+                IF![show_rpe && has_avg_rpe_data => th!["RPE"]],
                 th!["Volume load"],
-                IF![has_tut_data => th!["TUT"]],
+                IF![show_tut && has_tut_data => th!["TUT"]],
                 IF![has_avg_reps_data => th!["Reps"]],
-                IF![has_avg_reps_data && has_avg_rpe_data => th!["Reps+RIR"]],
+                IF![show_rpe && has_avg_reps_data && has_avg_rpe_data => th!["Reps+RIR"]],
                 IF![has_avg_weight_data => th!["Weight (kg)"]],
-                IF![has_avg_time_data => th!["Time (s)"]],
+                IF![show_tut && has_avg_time_data => th!["Time (s)"]],
                 th![]
             ]],
             tbody![training_sessions
@@ -638,18 +647,18 @@ pub fn view_table<Ms: 'static>(
                         ],
                         td![&t.load()],
                         td![t.set_volume()],
-                        IF![has_avg_rpe_data => td![common::value_or_dash(t.avg_rpe())]],
+                        IF![show_rpe && has_avg_rpe_data => td![common::value_or_dash(t.avg_rpe())]],
                         td![&t.volume_load()],
-                        IF![has_tut_data => td![common::value_or_dash(t.tut())]],
+                        IF![show_tut && has_tut_data => td![common::value_or_dash(t.tut())]],
                         IF![has_avg_reps_data => td![common::value_or_dash(t.avg_reps())]],
-                        IF![has_avg_reps_data && has_avg_rpe_data =>
+                        IF![show_rpe && has_avg_reps_data && has_avg_rpe_data =>
                             td![if let (Some(avg_reps), Some(avg_rpe)) = (t.avg_reps(), t.avg_rpe()) {
                                 format!("{:.1}", avg_reps + 10.0 - avg_rpe)
                             } else {
                                 "-".into()
                             }]],
                         IF![has_avg_weight_data => td![common::value_or_dash(t.avg_weight())]],
-                        IF![has_avg_time_data => td![common::value_or_dash(t.avg_time())]],
+                        IF![show_tut && has_avg_time_data => td![common::value_or_dash(t.avg_time())]],
                         td![p![
                             C!["is-flex is-flex-wrap-nowrap"],
                             a![

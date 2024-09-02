@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Descriptions of measuring points on body fat page
 - Archiving of routines
 - Button for saving changes during guided training session
+- Settings for hiding UI elements related to RPE and TUT
 
 ### Changed
 

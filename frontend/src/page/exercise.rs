@@ -272,18 +272,28 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         &exercise_interval,
                         Msg::ChangeInterval
                     ),
-                    view_charts(&training_sessions, &model.interval, data_model.theme()),
+                    view_charts(
+                        &training_sessions,
+                        &model.interval,
+                        data_model.theme(),
+                        data_model.settings.show_rpe,
+                        data_model.settings.show_tut,
+                    ),
                     view_calendar(&training_sessions, &model.interval),
                     training::view_table(
                         &training_sessions,
                         &data_model.routines,
                         &data_model.base_url,
-                        Msg::ShowDeleteTrainingSessionDialog
+                        Msg::ShowDeleteTrainingSessionDialog,
+                        data_model.settings.show_rpe,
+                        data_model.settings.show_tut,
                     ),
                     view_sets(
                         &training_sessions,
                         &data_model.routines,
                         &data_model.base_url,
+                        data_model.settings.show_rpe,
+                        data_model.settings.show_tut,
                     ),
                     view_dialog(&model.dialog, model.loading),
                     common::view_fab("edit", |_| Msg::EditExercise),
@@ -441,6 +451,8 @@ pub fn view_charts<Ms>(
     training_sessions: &[&data::TrainingSession],
     interval: &common::Interval,
     theme: &data::Theme,
+    show_rpe: bool,
+    show_tut: bool,
 ) -> Vec<Node<Ms>> {
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut volume_load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
@@ -486,6 +498,42 @@ pub fn view_charts<Ms>(
                 .or_insert(vec![avg_time]);
         }
     }
+
+    let mut labels = vec![("Repetitions", common::COLOR_REPS)];
+
+    let mut data = vec![(
+        reps_rpe
+            .iter()
+            .map(|(date, (avg_reps, _))| {
+                #[allow(clippy::cast_precision_loss)]
+                (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
+            })
+            .collect::<Vec<_>>(),
+        common::COLOR_REPS,
+    )];
+
+    if show_rpe {
+        labels.push(("+ Repetititions in reserve", common::COLOR_REPS_RIR));
+        data.push((
+            reps_rpe
+                .into_iter()
+                .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
+                    #[allow(clippy::cast_precision_loss)]
+                    let avg_reps =
+                        avg_reps_values.iter().sum::<f32>() / avg_reps_values.len() as f32;
+                    #[allow(clippy::cast_precision_loss)]
+                    let avg_rpe = avg_rpe_values.iter().sum::<f32>() / avg_rpe_values.len() as f32;
+                    if avg_rpe_values.is_empty() {
+                        None
+                    } else {
+                        Some((date, avg_reps + 10.0 - avg_rpe))
+                    }
+                })
+                .collect::<Vec<_>>(),
+            common::COLOR_REPS_RIR,
+        ));
+    }
+
     nodes![
         common::view_chart(
             &[("Set volume", common::COLOR_SET_VOLUME)],
@@ -517,55 +565,24 @@ pub fn view_charts<Ms>(
             ),
             false,
         ),
+        IF![show_tut =>
+            common::view_chart(
+                &[("Time under tension (s)", common::COLOR_TUT)],
+                common::plot_line_chart(
+                    &[(tut.into_iter().collect::<Vec<_>>(), common::COLOR_TUT,)],
+                    interval.first,
+                    interval.last,
+                    Some(0.),
+                    Some(10.),
+                    theme,
+                ),
+                false,
+            )
+        ],
         common::view_chart(
-            &[("Time under tension (s)", common::COLOR_TUT)],
+            &labels,
             common::plot_line_chart(
-                &[(tut.into_iter().collect::<Vec<_>>(), common::COLOR_TUT,)],
-                interval.first,
-                interval.last,
-                Some(0.),
-                Some(10.),
-                theme,
-            ),
-            false,
-        ),
-        common::view_chart(
-            &[
-                ("Repetitions", common::COLOR_REPS),
-                ("+ Repetititions in reserve", common::COLOR_REPS_RIR)
-            ],
-            common::plot_line_chart(
-                &[
-                    (
-                        reps_rpe
-                            .iter()
-                            .map(|(date, (avg_reps, _))| {
-                                #[allow(clippy::cast_precision_loss)]
-                                (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
-                            })
-                            .collect::<Vec<_>>(),
-                        common::COLOR_REPS,
-                    ),
-                    (
-                        reps_rpe
-                            .into_iter()
-                            .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
-                                #[allow(clippy::cast_precision_loss)]
-                                let avg_reps = avg_reps_values.iter().sum::<f32>()
-                                    / avg_reps_values.len() as f32;
-                                #[allow(clippy::cast_precision_loss)]
-                                let avg_rpe = avg_rpe_values.iter().sum::<f32>()
-                                    / avg_rpe_values.len() as f32;
-                                if avg_rpe_values.is_empty() {
-                                    None
-                                } else {
-                                    Some((date, avg_reps + 10.0 - avg_rpe))
-                                }
-                            })
-                            .collect::<Vec<_>>(),
-                        common::COLOR_REPS_RIR,
-                    ),
-                ],
+                &data,
                 interval.first,
                 interval.last,
                 Some(0.),
@@ -595,26 +612,28 @@ pub fn view_charts<Ms>(
             ),
             false,
         ),
-        common::view_chart(
-            &[("Time (s)", common::COLOR_TIME)],
-            common::plot_line_chart(
-                &[(
-                    time.into_iter()
-                        .map(|(date, values)| {
-                            #[allow(clippy::cast_precision_loss)]
-                            (date, values.iter().sum::<f32>() / values.len() as f32)
-                        })
-                        .collect::<Vec<_>>(),
-                    common::COLOR_TIME,
-                )],
-                interval.first,
-                interval.last,
-                Some(0.),
-                Some(10.),
-                theme,
-            ),
-            false,
-        ),
+        IF![show_tut =>
+            common::view_chart(
+                &[("Time (s)", common::COLOR_TIME)],
+                common::plot_line_chart(
+                    &[(
+                        time.into_iter()
+                            .map(|(date, values)| {
+                                #[allow(clippy::cast_precision_loss)]
+                                (date, values.iter().sum::<f32>() / values.len() as f32)
+                            })
+                            .collect::<Vec<_>>(),
+                        common::COLOR_TIME,
+                    )],
+                    interval.first,
+                    interval.last,
+                    Some(0.),
+                    Some(10.),
+                    theme,
+                ),
+                false,
+            )
+        ],
     ]
 }
 
@@ -665,6 +684,8 @@ fn view_sets(
     training_sessions: &[&data::TrainingSession],
     routines: &BTreeMap<u32, data::Routine>,
     base_url: &Url,
+    show_rpe: bool,
+    show_tut: bool,
 ) -> Vec<Node<Msg>> {
     training_sessions
             .iter()
@@ -711,7 +732,7 @@ fn view_sets(
                                 div![
                                     span![
                                         style! {St::WhiteSpace => "nowrap" },
-                                        common::format_set(*reps, *time, *weight, *rpe)
+                                        common::format_set(*reps, *time, show_tut, *weight, *rpe, show_rpe)
                                     ]
                                 ]
                             } else {

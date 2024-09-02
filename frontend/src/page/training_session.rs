@@ -891,7 +891,12 @@ pub fn update(
             update_streams(model, orders);
             orders.notify(data::Msg::StartTrainingSession(model.training_session_id));
             update_metronome(model, orders, data_model.settings.automatic_metronome);
-            show_element_notification(model, data_model.settings.notifications);
+            show_element_notification(
+                model,
+                data_model.settings.notifications,
+                data_model.settings.show_rpe,
+                data_model.settings.show_tut,
+            );
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
@@ -913,7 +918,12 @@ pub fn update(
                 .restore(ongoing_training_session.timer_state);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
             update_streams(model, orders);
-            show_element_notification(model, data_model.settings.notifications);
+            show_element_notification(
+                model,
+                data_model.settings.notifications,
+                data_model.settings.show_rpe,
+                data_model.settings.show_tut,
+            );
             orders.force_render_now().send_msg(Msg::ScrollToSection);
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
@@ -1010,7 +1020,12 @@ pub fn update(
                     guide.element_idx = element_idx;
                     guide.element_start_time = Utc::now();
                     update_metronome(model, orders, data_model.settings.automatic_metronome);
-                    show_element_notification(model, data_model.settings.notifications);
+                    show_element_notification(
+                        model,
+                        data_model.settings.notifications,
+                        data_model.settings.show_rpe,
+                        data_model.settings.show_tut,
+                    );
                 }
             }
             update_guide(model);
@@ -1400,7 +1415,12 @@ fn close_notifications() {
     }
 }
 
-fn show_element_notification(model: &mut Model, notifications_enabled: bool) {
+fn show_element_notification(
+    model: &mut Model,
+    notifications_enabled: bool,
+    show_rpe: bool,
+    show_tut: bool,
+) {
     if not(notifications_enabled) {
         close_notifications();
         return;
@@ -1417,8 +1437,10 @@ fn show_element_notification(model: &mut Model, notifications_enabled: bool) {
                     let mut previously = common::format_set(
                         exercise.prev_reps,
                         exercise.prev_time,
+                        show_tut,
                         exercise.prev_weight,
                         exercise.prev_rpe,
+                        show_rpe,
                     );
                     if not(previously.is_empty()) {
                         previously = format!("Previously:\n{previously}\n");
@@ -1426,8 +1448,10 @@ fn show_element_notification(model: &mut Model, notifications_enabled: bool) {
                     let mut target = common::format_set(
                         exercise.target_reps,
                         exercise.target_time,
+                        show_tut,
                         exercise.target_weight,
                         exercise.target_rpe,
+                        show_rpe,
                     );
                     if not(target.is_empty()) {
                         target = format!("Target:\n{target}\n");
@@ -1909,8 +1933,10 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                                                 common::format_set(
                                                     e.reps.parsed,
                                                     e.time.parsed,
+                                                    data_model.settings.show_tut,
                                                     e.weight.parsed,
-                                                    e.rpe.parsed
+                                                    e.rpe.parsed,
+                                                    data_model.settings.show_rpe,
                                                 )
                                             ]
                                         ]
@@ -2047,33 +2073,37 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                                 ],
                                                 span![C!["icon"], C!["is-small"], C!["is-right"], "✕"],
                                             ],
-                                            div![
-                                                C!["control"],
-                                                C!["has-icons-right"],
-                                                C!["has-text-right"],
-                                                input_ev(Ev::Input, move |v| Msg::TimeChanged(element_idx, position, v)),
-                                                keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                                    IF!(
-                                                        not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                            Msg::SaveTrainingSession
-                                                        }
-                                                    )
-                                                }),
-                                                input![
-                                                    C!["input"],
-                                                    C!["has-text-right"],
-                                                    C![IF![not(s.time.valid()) => "is-danger"]],
-                                                    C![IF![s.time.changed() => "is-info"]],
-                                                    attrs! {
-                                                        At::Type => "number",
-                                                        At::Min => 0,
-                                                        At::Max => 999,
-                                                        At::Step => 1,
-                                                        At::Size => 2,
-                                                        At::Value => s.time.input,
-                                                    },
-                                                ],
-                                                span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                            IF![
+                                                data_model.settings.show_tut => {
+                                                    div![
+                                                        C!["control"],
+                                                        C!["has-icons-right"],
+                                                        C!["has-text-right"],
+                                                        input_ev(Ev::Input, move |v| Msg::TimeChanged(element_idx, position, v)),
+                                                        keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                            IF!(
+                                                                not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                                    Msg::SaveTrainingSession
+                                                                }
+                                                            )
+                                                        }),
+                                                        input![
+                                                            C!["input"],
+                                                            C!["has-text-right"],
+                                                            C![IF![not(s.time.valid()) => "is-danger"]],
+                                                            C![IF![s.time.changed() => "is-info"]],
+                                                            attrs! {
+                                                                At::Type => "number",
+                                                                At::Min => 0,
+                                                                At::Max => 999,
+                                                                At::Step => 1,
+                                                                At::Size => 2,
+                                                                At::Value => s.time.input,
+                                                            },
+                                                        ],
+                                                        span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                                    ]
+                                                }
                                             ],
                                             div![
                                                 C!["control"],
@@ -2100,30 +2130,34 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                                 ],
                                                 span![C!["icon"], C!["is-small"], C!["is-right"], "kg"],
                                             ],
-                                            div![
-                                                C!["control"],
-                                                C!["has-icons-left"],
-                                                C!["has-text-right"],
-                                                input_ev(Ev::Input, move |v| Msg::RPEChanged(element_idx, position, v)),
-                                                keyboard_ev(Ev::KeyDown, move |keyboard_event| {
-                                                    IF!(
-                                                        not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
-                                                            Msg::SaveTrainingSession
-                                                        }
-                                                    )
-                                                }),
-                                                input![
-                                                    C!["input"],
-                                                    C!["has-text-right"],
-                                                    C![IF![not(s.rpe.valid()) => "is-danger"]],
-                                                    C![IF![s.rpe.changed() => "is-info"]],
-                                                    attrs! {
-                                                        At::from("inputmode") => "numeric",
-                                                        At::Size => 2,
-                                                        At::Value => s.rpe.input,
-                                                    },
-                                                ],
-                                                span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
+                                            IF![
+                                                data_model.settings.show_rpe => {
+                                                    div![
+                                                        C!["control"],
+                                                        C!["has-icons-left"],
+                                                        C!["has-text-right"],
+                                                        input_ev(Ev::Input, move |v| Msg::RPEChanged(element_idx, position, v)),
+                                                        keyboard_ev(Ev::KeyDown, move |keyboard_event| {
+                                                            IF!(
+                                                                not(save_disabled) && keyboard_event.key_code() == common::ENTER_KEY => {
+                                                                    Msg::SaveTrainingSession
+                                                                }
+                                                            )
+                                                        }),
+                                                        input![
+                                                            C!["input"],
+                                                            C!["has-text-right"],
+                                                            C![IF![not(s.rpe.valid()) => "is-danger"]],
+                                                            C![IF![s.rpe.changed() => "is-info"]],
+                                                            attrs! {
+                                                                At::from("inputmode") => "numeric",
+                                                                At::Size => 2,
+                                                                At::Value => s.rpe.input,
+                                                            },
+                                                        ],
+                                                        span![C!["icon"], C!["is-small"], C!["is-left"], "@"],
+                                                    ]
+                                                }
                                             ],
                                         ];
                                     div![
@@ -2161,8 +2195,21 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                             input_fields
                                         },
                                         {
-                                            let target = common::format_set(s.target_reps, s.target_time, s.target_weight, s.target_rpe);
-                                            let previous = common::format_set(s.prev_reps, s.prev_time, s.prev_weight, s.prev_rpe);
+                                            let target = common::format_set(
+                                                s.target_reps,
+                                                s.target_time,
+                                                data_model.settings.show_tut,
+                                                s.target_weight,
+                                                s.target_rpe,
+                                                data_model.settings.show_rpe
+                                            );
+                                            let previous = common::format_set(
+                                                s.prev_reps,
+                                                s.prev_time,
+                                                data_model.settings.show_tut,
+                                                s.prev_weight,
+                                                s.prev_rpe,
+                                                data_model.settings.show_rpe);
                                             p![
                                                 IF![not(target.is_empty()) =>
                                                     span![

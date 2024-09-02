@@ -856,7 +856,16 @@ fn view_routine(data_model: &data::Model, routine_sections: &[Form], editing: bo
         &routine_sections
             .iter()
             .enumerate()
-            .map(|(i, s)| { view_routine_part(data_model, s, vec![i], editing) })
+            .map(|(i, s)| {
+                view_routine_part(
+                    data_model,
+                    s,
+                    vec![i],
+                    editing,
+                    data_model.settings.show_rpe,
+                    data_model.settings.show_tut,
+                )
+            })
             .collect::<Vec<_>>(),
         IF![editing => view_add_section_button(vec![])]
     ]
@@ -867,6 +876,8 @@ fn view_routine_part(
     part: &Form,
     id: Vec<usize>,
     editing: bool,
+    show_rpe: bool,
+    show_tut: bool,
 ) -> Node<Msg> {
     match part {
         Form::Section { rounds, parts } => {
@@ -937,7 +948,9 @@ fn view_routine_part(
                             data_model,
                             p,
                             [&[i], &id[..]].concat(),
-                            editing
+                            editing,
+                            show_rpe,
+                            show_tut,
                         ))
                         .collect::<Vec<_>>(),
                     IF![editing => view_add_part_buttons(data_model,id)]
@@ -1058,39 +1071,42 @@ fn view_routine_part(
                                     ]
                                 ]
                             ],
-                            div![
-                                C!["field"],
-                                C!["mb-0"],
-                                C!["mr-2"],
+                            IF![
+                                show_tut =>
                                 div![
-                                    C!["control"],
-                                    C!["has-icons-left"],
-                                    C!["has-icons-right"],
-                                    input_ev(Ev::Input, {
-                                        let id = id.clone();
-                                        move |v| Msg::TimeChanged(id, v)
-                                    }),
-                                    span![
-                                        C!["icon"],
-                                        C!["is-small"],
-                                        C!["is-left"],
-                                        i![C!["fas fa-clock-rotate-left"]]
-                                    ],
-                                    input![
-                                        C!["input"],
-                                        C!["has-text-right"],
-                                        C![IF![not(time.valid()) => "is-danger"]],
-                                        C![IF![time.changed() => "is-info"]],
-                                        attrs! {
-                                            At::Type => "number",
-                                            At::Min => 1,
-                                            At::Max => 999,
-                                            At::Step => 1,
-                                            At::Size => 2,
-                                            At::Value => time.input,
-                                        }
-                                    ],
-                                    span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                    C!["field"],
+                                    C!["mb-0"],
+                                    C!["mr-2"],
+                                    div![
+                                        C!["control"],
+                                        C!["has-icons-left"],
+                                        C!["has-icons-right"],
+                                        input_ev(Ev::Input, {
+                                            let id = id.clone();
+                                            move |v| Msg::TimeChanged(id, v)
+                                        }),
+                                        span![
+                                            C!["icon"],
+                                            C!["is-small"],
+                                            C!["is-left"],
+                                            i![C!["fas fa-clock-rotate-left"]]
+                                        ],
+                                        input![
+                                            C!["input"],
+                                            C!["has-text-right"],
+                                            C![IF![not(time.valid()) => "is-danger"]],
+                                            C![IF![time.changed() => "is-info"]],
+                                            attrs! {
+                                                At::Type => "number",
+                                                At::Min => 1,
+                                                At::Max => 999,
+                                                At::Step => 1,
+                                                At::Size => 2,
+                                                At::Value => time.input,
+                                            }
+                                        ],
+                                        span![C!["icon"], C!["is-small"], C!["is-right"], "s"],
+                                    ]
                                 ]
                             ],
                             IF![
@@ -1129,7 +1145,7 @@ fn view_routine_part(
                                 ]
                             ],
                             IF![
-                                exercise_id.is_some() =>
+                                show_rpe && exercise_id.is_some() =>
                                 div![
                                     C!["field"],
                                     C!["mb-0"],
@@ -1187,7 +1203,7 @@ fn view_routine_part(
                                 }
                             ],
                             IF![
-                                if let Some(time) = time.parsed { time > 0 } else { false } => {
+                                if let Some(time) = time.parsed { time > 0 } else { false } && show_tut => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
@@ -1207,7 +1223,7 @@ fn view_routine_part(
                                 }
                             ],
                             IF![
-                                if let Some(rpe) = rpe.parsed { rpe > 0.0 } else { false } => {
+                                if let Some(rpe) = rpe.parsed { rpe > 0.0 } else { false } && show_rpe => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
@@ -1301,13 +1317,20 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         C!["mt-6"],
         common::view_title(&span!["Training sessions"], 5),
         common::view_interval_buttons(&model.interval, &routine_interval, Msg::ChangeInterval),
-        view_charts(&training_sessions, &model.interval, data_model.theme()),
+        view_charts(
+            &training_sessions,
+            &model.interval,
+            data_model.theme(),
+            data_model.settings.show_rpe,
+        ),
         training::view_calendar(&training_sessions, &model.interval),
         training::view_table(
             &training_sessions,
             &data_model.routines,
             &data_model.base_url,
-            Msg::ShowDeleteTrainingSessionDialog
+            Msg::ShowDeleteTrainingSessionDialog,
+            data_model.settings.show_rpe,
+            data_model.settings.show_tut,
         ),
     ]
 }
@@ -1315,6 +1338,7 @@ pub fn view_charts<Ms>(
     training_sessions: &[&data::TrainingSession],
     interval: &common::Interval,
     theme: &data::Theme,
+    show_rpe: bool,
 ) -> Vec<Node<Ms>> {
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
@@ -1363,33 +1387,36 @@ pub fn view_charts<Ms>(
             ),
             false,
         ),
-        common::view_chart(
-            &[("RPE", common::COLOR_RPE)],
-            common::plot_line_chart(
-                &[(
-                    rpe.into_iter()
-                        .map(|(date, values)| {
-                            #[allow(clippy::cast_precision_loss)]
-                            (
-                                date,
-                                if values.is_empty() {
-                                    0.
-                                } else {
-                                    values.iter().sum::<f32>() / values.len() as f32
-                                },
-                            )
-                        })
-                        .collect::<Vec<_>>(),
-                    common::COLOR_RPE,
-                )],
-                interval.first,
-                interval.last,
-                Some(5.),
-                Some(10.),
-                theme,
-            ),
-            false,
-        ),
+        IF![
+            show_rpe =>
+            common::view_chart(
+                &[("RPE", common::COLOR_RPE)],
+                common::plot_line_chart(
+                    &[(
+                        rpe.into_iter()
+                            .map(|(date, values)| {
+                                #[allow(clippy::cast_precision_loss)]
+                                (
+                                    date,
+                                    if values.is_empty() {
+                                        0.
+                                    } else {
+                                        values.iter().sum::<f32>() / values.len() as f32
+                                    },
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                        common::COLOR_RPE,
+                    )],
+                    interval.first,
+                    interval.last,
+                    Some(5.),
+                    Some(10.),
+                    theme,
+                ),
+                false,
+            )
+        ],
     ]
 }
 

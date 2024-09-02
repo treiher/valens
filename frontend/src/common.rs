@@ -1220,8 +1220,10 @@ pub fn view_element_with_description<Ms>(element: Node<Ms>, description: &str) -
 pub fn format_set(
     reps: Option<u32>,
     time: Option<u32>,
+    show_tut: bool,
     weight: Option<f32>,
     rpe: Option<f32>,
+    show_rpe: bool,
 ) -> String {
     let mut parts = vec![];
 
@@ -1232,7 +1234,7 @@ pub fn format_set(
     }
 
     if let Some(time) = time {
-        if time > 0 {
+        if show_tut && time > 0 {
             parts.push(format!("{time} s"));
         }
     }
@@ -1246,7 +1248,7 @@ pub fn format_set(
     let mut result = parts.join(" × ");
 
     if let Some(rpe) = rpe {
-        if rpe > 0.0 {
+        if show_rpe && rpe > 0.0 {
             result.push_str(&format!(" @ {rpe}"));
         }
     }

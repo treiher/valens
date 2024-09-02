@@ -257,6 +257,8 @@ enum Msg {
     SetTheme(data::Theme),
     ToggleAutomaticMetronome,
     ToggleNotifications,
+    ToggleShowRPE,
+    ToggleShowTUT,
     UpdateApp,
     GoUp,
     LogOut,
@@ -358,6 +360,18 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     .send_msg(Msg::Data(data::Msg::SetNotifications(true)));
             }
         },
+        Msg::ToggleShowRPE => {
+            orders.send_msg(Msg::Data(data::Msg::SetShowRPE(not(model
+                .data
+                .settings
+                .show_rpe))));
+        }
+        Msg::ToggleShowTUT => {
+            orders.send_msg(Msg::Data(data::Msg::SetShowTUT(not(model
+                .data
+                .settings
+                .show_tut))));
+        }
         Msg::UpdateApp => {
             orders.skip().send_msg(Msg::Data(data::Msg::UpdateApp));
         }
@@ -770,6 +784,56 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                     } else {
                         "Manual"
                     },
+                ],
+            ],
+            p![
+                C!["mb-5"],
+                h1![C!["subtitle"], "Rating of Perceived Exertion (RPE)"],
+                div![
+                    C!["field"],
+                    C!["is-grouped"],
+                    div![
+                        C!["control"],
+                        button![
+                            C!["button"],
+                            if data_model.settings.show_rpe {
+                                C!["is-primary"]
+                            } else {
+                                C![]
+                            },
+                            ev(Ev::Click, |_| Msg::ToggleShowRPE),
+                            if data_model.settings.show_rpe {
+                                "Enabled"
+                            } else {
+                                "Disabled"
+                            },
+                        ]
+                    ],
+                ],
+            ],
+            p![
+                C!["mb-5"],
+                h1![C!["subtitle"], "Time Under Tension (TUT)"],
+                div![
+                    C!["field"],
+                    C!["is-grouped"],
+                    div![
+                        C!["control"],
+                        button![
+                            C!["button"],
+                            if data_model.settings.show_tut {
+                                C!["is-primary"]
+                            } else {
+                                C![]
+                            },
+                            ev(Ev::Click, |_| Msg::ToggleShowTUT),
+                            if data_model.settings.show_tut {
+                                "Enabled"
+                            } else {
+                                "Disabled"
+                            },
+                        ]
+                    ],
                 ],
             ],
             {

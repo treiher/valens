@@ -22,6 +22,8 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         theme: Theme::Light,
         automatic_metronome: false,
         notifications: false,
+        show_rpe: true,
+        show_tut: true,
     });
     let ongoing_training_session =
         gloo_storage::LocalStorage::get(STORAGE_KEY_ONGOING_TRAINING_SESSION).unwrap_or(None);
@@ -425,11 +427,14 @@ pub enum TrainingSessionElement {
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
     pub beep_volume: u8,
     pub theme: Theme,
     pub automatic_metronome: bool,
     pub notifications: bool,
+    pub show_rpe: bool,
+    pub show_tut: bool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq)]
@@ -1104,6 +1109,8 @@ pub enum Msg {
     SetTheme(Theme),
     SetAutomaticMetronome(bool),
     SetNotifications(bool),
+    SetShowRPE(bool),
+    SetShowTUT(bool),
 
     StartTrainingSession(u32),
     UpdateTrainingSession(usize, TimerState),
@@ -1972,6 +1979,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SetNotifications(value) => {
             model.settings.notifications = value;
+            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+        }
+        Msg::SetShowRPE(value) => {
+            model.settings.show_rpe = value;
+            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+        }
+        Msg::SetShowTUT(value) => {
+            model.settings.show_tut = value;
             local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
         }
 

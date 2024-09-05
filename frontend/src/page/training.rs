@@ -627,7 +627,7 @@ pub fn view_table<Ms: 'static>(
                         td![&t.set_volume()],
                         td![common::value_or_dash(t.avg_rpe())],
                         td![&t.volume_load()],
-                        td![&t.tut()],
+                        td![common::value_or_dash(t.tut())],
                         td![common::value_or_dash(t.avg_reps())],
                         td![if let (Some(avg_reps), Some(avg_rpe)) = (t.avg_reps(), t.avg_rpe()) {
                             format!("{:.1}", avg_reps + 10.0 - avg_rpe)

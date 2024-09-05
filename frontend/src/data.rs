@@ -693,18 +693,21 @@ impl TrainingSession {
         sets.iter().sum::<u32>()
     }
 
-    pub fn tut(&self) -> u32 {
+    pub fn tut(&self) -> Option<u32> {
         let sets = &self
             .elements
             .iter()
             .map(|e| match e {
                 TrainingSessionElement::Set { reps, time, .. } => {
-                    reps.unwrap_or(1) * time.unwrap_or(0)
+                    time.as_ref().map(|v| reps.unwrap_or(1) * v)
                 }
-                _ => 0,
+                _ => None,
             })
             .collect::<Vec<_>>();
-        sets.iter().sum::<u32>()
+        if sets.iter().all(Option::is_none) {
+            return None;
+        }
+        Some(sets.iter().filter_map(|e| *e).sum::<u32>())
     }
 
     pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {

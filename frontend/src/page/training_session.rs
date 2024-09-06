@@ -2316,22 +2316,19 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                 ],
             ]
         ],
-        IF![
-            model.guide.is_none() =>
-            button![
-                C!["button"],
-                C!["is-fab"],
-                C!["is-medium"],
-                C!["is-link"],
-                C![IF![not(valid) => "is-danger"]],
-                C![IF![model.loading => "is-loading"]],
-                attrs![
-                    At::Disabled => save_disabled.as_at_value(),
-                ],
-                ev(Ev::Click, |_| Msg::SaveTrainingSession),
-                span![C!["icon"], i![C!["fas fa-save"]]]
-            ]
-        ],
+        button![
+            C!["button"],
+            C!["is-fab"],
+            C!["is-medium"],
+            C!["is-link"],
+            C![IF![not(valid) => "is-danger"]],
+            C![IF![model.loading => "is-loading"]],
+            attrs![
+                At::Disabled => save_disabled.as_at_value(),
+            ],
+            ev(Ev::Click, |_| Msg::SaveTrainingSession),
+            span![C!["icon"], i![C!["fas fa-save"]]]
+        ]
     ]
 }
 

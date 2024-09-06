@@ -10,12 +10,12 @@ import selenium.webdriver
 from valens import app, database as db
 
 
-@pytest.fixture()
+@pytest.fixture
 def alembic_config() -> dict[str, str]:
     return {"script_location": "valens:migrations"}
 
 
-@pytest.fixture()
+@pytest.fixture
 def alembic_engine() -> object:
     with NamedTemporaryFile() as tmp_file:
         app.config["DATABASE"] = f"sqlite:///{tmp_file.name}"
@@ -31,7 +31,7 @@ def pytest_addoption(parser: _pytest.config.argparsing.Parser) -> None:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def chrome_options(
     chrome_options: selenium.webdriver.chrome.options.Options,
     pytestconfig: _pytest.config.Config,
@@ -41,7 +41,7 @@ def chrome_options(
     return chrome_options
 
 
-@pytest.fixture()
+@pytest.fixture
 def firefox_options(
     firefox_options: selenium.webdriver.firefox.options.Options,
     pytestconfig: _pytest.config.Config,

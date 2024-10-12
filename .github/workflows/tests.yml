@@ -10,8 +10,7 @@ env:
   PYTHON_VERSION: "3.11"
   RUST_VERSION: "1.68.2"
   TRUNK_VERSION: "0.17.5"
-  POETRY_VERSION: "1.7.1"
-  POETRY_DYNAMIC_VERSIONING_VERSION: "1.2.0"
+  UV_VERSION: "0.4.20"
 
 jobs:
   check_general:
@@ -19,18 +18,18 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: poetry
       - name: Install dependencies
         run: |
-          poetry install
+          uv sync
       - name: Check
         run: |
           make check_general
@@ -40,10 +39,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
@@ -62,18 +62,18 @@ jobs:
         target: [black, ruff, mypy]
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: poetry
       - name: Install dependencies
         run: |
-          poetry install
+          uv sync
       - name: Check
         run: |
           make check_${{ matrix.target }}
@@ -86,15 +86,15 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: poetry
       - name: Set up Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
@@ -115,10 +115,11 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --profile minimal
@@ -136,18 +137,18 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: poetry
       - name: Install dependencies
         run: |
-          poetry install
+          uv sync
       - name: Test
         run: |
           make test_backend
@@ -157,15 +158,15 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: poetry
       - name: Set up Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
@@ -176,7 +177,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt install libarchive-tools
-          poetry install
+          uv sync
           cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Test
         run: |
@@ -190,15 +191,15 @@ jobs:
         PYTHON_VERSION: "3.x"
     steps:
       - uses: actions/checkout@v4
-      - name: Install Poetry
-        run: |
-          pipx install poetry==${{ env.POETRY_VERSION }}
-          pipx inject poetry poetry-dynamic-versioning==${{ env.POETRY_DYNAMIC_VERSIONING_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: poetry
       - name: Set up Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --target wasm32-unknown-unknown --profile minimal
@@ -209,8 +210,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt install libarchive-tools
-          poetry lock
-          poetry install
+          uv lock --upgrade
+          uv sync
           cargo update --manifest-path=frontend/Cargo.toml
           cargo install --locked trunk
       - name: Test

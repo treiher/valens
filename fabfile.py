@@ -17,7 +17,7 @@ def deploy(
         directory = str(Path(package).parent)
         filename = Path(package).name
     else:
-        version = subprocess.check_output(["poetry", "version", "-s"]).decode("utf-8").strip()
+        version = subprocess.check_output(["uv", "run", "hatch", "version"]).decode("utf-8").strip()
         directory = "dist"
         filename = f"valens-{version}-py3-none-any.whl"
 

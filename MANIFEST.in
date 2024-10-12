@@ -1,5 +1,0 @@
-# All SCM-managed files are automatically added to the sdist by setuptools_scm.
-prune *
-exclude *.ini .gitignore Makefile MANIFEST.in
-graft valens
-global-exclude *.py[cod]

@@ -121,7 +121,7 @@ With compression enabled, the amount of data transferred can be significantly re
 The following software is required:
 
 - Python 3
-- [Poetry](https://python-poetry.org/) with [dynamic versioning plugin](https://github.com/mtkennerly/poetry-dynamic-versioning)
+- [uv](https://github.com/astral-sh/uv)
 - Rust toolchain
 - tmux (optional)
 
@@ -142,7 +142,7 @@ $ cargo install --locked trunk
 Install the Python project and development tools.
 
 ```console
-$ poetry install
+$ uv sync
 ```
 
 ### Running development servers
@@ -174,12 +174,6 @@ $ make dist
 ```
 
 ### Deploying the application
-
-Install [Fabric](https://www.fabfile.org/).
-
-```console
-$ poetry install --only=deploy
-```
 
 Deploy the latest distribution package.
 

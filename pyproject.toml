@@ -1,13 +1,11 @@
-[tool.poetry]
+[project]
 name = "valens"
-version = "0.0.0"
 description = "An app for tracking your health and training progress."
-license = "AGPL-3.0"
+license = {text = "AGPL-3.0"}
 authors = [
-    "Tobias Reiher <valens@ardeidae.de>"
+    {name = "Tobias Reiher", email = "valens@ardeidae.de"},
 ]
 readme = "README.md"
-repository = "https://github.com/treiher/valens"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
@@ -19,57 +17,61 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Other/Nonlisted Topic",
 ]
-include = [
-    { path = "valens/frontend/*" },
-    { path = "valens/frontend/fonts/*" },
-    { path = "valens/frontend/images/*" },
-    { path = "valens/frontend/js/*" },
+dynamic = ["version"]
+requires-python = ">=3.9, <4"
+dependencies = [
+    "alembic >=1.6, <2",
+    "flask >=3, <4",
+    "sqlalchemy >=2, <3",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9, <4"
-alembic = ">=1.6, <2"
-flask = ">=3, <4"
-sqlalchemy = ">=2, <3"
-
-[tool.poetry.group.dev.dependencies]
-black = ">=23.1"
-fabric = ">=3"
-mypy = ">=1"
-pytest = ">=5"
-pytest-alembic = ">=0.3.1"
-pytest-cov = ">=2.10"
-pytest-selenium = ">=4.0.2"
-pytest-xdist = ">=1.32.0"
-ruff = ">=0.0.260"
-sqlalchemy = {extras = ["mypy"], version = ">=2, <3"}
-types-selenium = ">=3"
-python-kacl = "^0.4.6"
-
-[tool.poetry.group.debug]
-optional = true
-
-[tool.poetry.group.debug.dependencies]
-pytest-flakefinder = ">=1, <2"
-
-[tool.poetry.group.deploy]
-optional = true
-
-[tool.poetry.group.deploy.dependencies]
-fabric = ">=3, <4"
-
-[tool.poetry.scripts]
+[project.scripts]
 valens = "valens.cli:main"
 
-[tool.poetry-dynamic-versioning]
-enable = true
-bump = true
+[project.urls]
+Homepage = "https://pypi.org/project/valens/"
+Changelog = "https://github.com/treiher/valens/blob/main/CHANGELOG.md"
+Issues = "https://github.com/treiher/valens/issues"
+Repository = "https://github.com/treiher/valens"
 
 [build-system]
-requires = ["poetry-core >=1", "poetry-dynamic-versioning >=1, <2"]
-build-backend = "poetry_dynamic_versioning.backend"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+ignore-vcs = true
+include = [
+    "/valens",
+]
+
+[tool.hatch.build.targets.wheel]
+artifacts = [
+    "/valens/frontend",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "black >=23.1",
+    "fabric >=3, <4",
+    "hatch >=1",
+    "mypy >=1",
+    "pytest >=5",
+    "pytest-alembic >=0.3.1",
+    "pytest-cov >=2.10.0",
+    "pytest-flakefinder >=1, <2",
+    "pytest-selenium >=4.0.2",
+    "pytest-xdist >=1.32.0",
+    "python-kacl >=0.4.6",
+    "ruff >=0.0.260",
+    "sqlalchemy[mypy] >=2, <3",
+    "types-selenium >=3",
+]
 
 [tool.black]
 line-length = 100

@@ -50,7 +50,7 @@ check_mypy:
 
 format:
 	cargo fmt --manifest-path=frontend/Cargo.toml
-	uv run -- ruff --fix-only $(PYTHON_PACKAGES) | true
+	uv run -- ruff check --fix-only $(PYTHON_PACKAGES) | true
 	uv run -- black $(PYTHON_PACKAGES)
 
 .PHONY: test test_frontend test_backend test_e2e

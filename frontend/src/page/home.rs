@@ -14,7 +14,9 @@ pub fn init(
     data_model: &data::Model,
     navbar: &mut crate::Navbar,
 ) -> Model {
-    navbar.title = data_model.session.as_ref().unwrap().name.clone();
+    navbar
+        .title
+        .clone_from(&data_model.session.as_ref().unwrap().name);
 
     Model {}
 }

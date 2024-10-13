@@ -13,7 +13,7 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar)
     navbar.title = String::from("Valens");
     navbar.items = vec![(
         ev(Ev::Click, move |_| {
-            crate::Urls::new(&url.to_hash_base_url())
+            crate::Urls::new(url.to_hash_base_url())
                 .admin()
                 .go_and_load();
         }),

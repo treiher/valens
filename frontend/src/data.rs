@@ -180,6 +180,7 @@ fn sort_routines_by_last_use(
 
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct Session {
+    #[allow(dead_code)]
     pub id: u32,
     pub name: String,
     pub sex: u8,
@@ -875,7 +876,7 @@ fn calculate_weighted_sum_of_load(
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
+    let mut day = training_sessions.first().map_or(today, |t| t.date);
     while day <= today {
         result.insert(day, 0.0);
         day += Duration::days(1);
@@ -1007,7 +1008,7 @@ fn training_session_weeks<T: Default>(
     let mut result: BTreeMap<NaiveDate, T> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = training_sessions.get(0).map_or(today, |t| t.date);
+    let mut day = training_sessions.first().map_or(today, |t| t.date);
     while day <= today.week(Weekday::Mon).last_day() {
         result.insert(day.week(Weekday::Mon).last_day(), T::default());
         day += Duration::days(7);
@@ -1177,7 +1178,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::UpdateApp => {
             match common::post_message_to_service_worker(&common::ServiceWorkerMessage::UpdateCache)
             {
-                Ok(_) => Url::reload(),
+                Ok(()) => Url::reload(),
                 Err(err) => {
                     model.errors.push(format!("Update failed: {err}"));
                 }
@@ -1227,7 +1228,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::SessionReceived(Ok(new_session)) => {
             model.session = Some(new_session);
             orders.send_msg(Msg::Refresh).request_url(
-                crate::Urls::new(&model.base_url.clone().set_hash_path([""; 0])).home(),
+                crate::Urls::new(model.base_url.clone().set_hash_path([""; 0])).home(),
             );
         }
         Msg::SessionReceived(Err(message)) => {
@@ -1262,7 +1263,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     .await
                 });
         }
-        Msg::SessionDeleted(Ok(_)) => {
+        Msg::SessionDeleted(Ok(())) => {
             model.session = None;
             orders.request_url(crate::Urls::new(&model.base_url).login());
         }

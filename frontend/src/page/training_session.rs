@@ -1505,7 +1505,7 @@ fn replace_exercise(
                     }
                 }
                 *exercise_id = new_exercise_id;
-                *exercise_name = data_exercises[&new_exercise_id].name.clone();
+                exercise_name.clone_from(&data_exercises[&new_exercise_id].name);
             }
         }
     }
@@ -1712,7 +1712,7 @@ fn append_exercise(
     });
 }
 
-fn is_set(elements: &mut Vec<FormElement>, element_idx: usize) -> bool {
+fn is_set(elements: &mut [FormElement], element_idx: usize) -> bool {
     if element_idx >= elements.len() {
         return false;
     }
@@ -2728,8 +2728,6 @@ fn view_replace_exercise_dialog(
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
-    let element_idx = element_idx;
-    let exercise_idx = exercise_idx;
     common::view_exercises_with_search(
         exercises,
         search_term,
@@ -2752,8 +2750,6 @@ fn view_add_exercise_dialog(
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
-    let element_idx = element_idx;
-    let exercise_idx = exercise_idx;
     common::view_exercises_with_search(
         exercises,
         search_term,

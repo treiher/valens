@@ -1175,10 +1175,7 @@ fn view_routine_part(
                             ],
                             button![
                                 C!["button"],
-                                ev(Ev::Click, {
-                                    let id = id;
-                                    move |_| Msg::AutomaticChanged(id)
-                                }),
+                                ev(Ev::Click, move |_| Msg::AutomaticChanged(id)),
                                 span![
                                     C!["icon"],
                                     if *automatic {
@@ -1448,10 +1445,7 @@ fn view_position_buttons(id: Vec<usize>) -> Node<Msg> {
             C!["is-small"],
             C!["is-danger"],
             C!["ml-2"],
-            ev(Ev::Click, {
-                let id = id;
-                move |_| Msg::RemovePart(id)
-            }),
+            ev(Ev::Click, move |_| Msg::RemovePart(id)),
             span![C!["icon"], i![C!["fas fa-remove"]],]
         ],
     ]
@@ -1502,10 +1496,7 @@ fn view_add_section_button(id: Vec<usize>) -> Node<Msg> {
         C!["has-background-grey"],
         C!["mt-2"],
         C!["mr-2"],
-        ev(Ev::Click, {
-            let id = id;
-            move |_| Msg::AddSection(id)
-        }),
+        ev(Ev::Click, move |_| Msg::AddSection(id)),
         span![
             i![C!["fas fa-repeat"]],
             i![C!["ml-1"], C!["fas fa-plus-circle"]],
@@ -1513,7 +1504,7 @@ fn view_add_section_button(id: Vec<usize>) -> Node<Msg> {
     ]
 }
 
-fn get_part<'a>(sections: &'a mut Vec<Form>, id: &[usize]) -> Option<&'a mut Form> {
+fn get_part<'a>(sections: &'a mut [Form], id: &[usize]) -> Option<&'a mut Form> {
     if let Some(i) = id.last() {
         if i < &sections.len() {
             let p = &mut sections[*i];

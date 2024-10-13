@@ -1148,7 +1148,7 @@ where
 {
     let mut stimulus_per_muscle = stimulus_per_muscle.to_vec();
     stimulus_per_muscle.sort_by(|a, b| b.1.cmp(&a.1));
-    let mut groups = vec![vec![], vec![], vec![], vec![]];
+    let mut groups = [vec![], vec![], vec![], vec![]];
     for (muscle, stimulus) in stimulus_per_muscle {
         let name = domain::Muscle::name(muscle);
         let description = domain::Muscle::description(muscle);

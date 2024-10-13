@@ -228,7 +228,7 @@ impl Page {
                     navbar,
                 )),
                 None | Some(_) => {
-                    Urls::new(&url.to_hash_base_url()).login().go_and_push();
+                    Urls::new(url.to_hash_base_url()).login().go_and_push();
                     Self::Login(page::login::init(
                         url,
                         &mut orders.proxy(Msg::Login),

@@ -1072,7 +1072,7 @@ fn view_routine_part(
                                 ]
                             ],
                             IF![
-                                show_tut =>
+                                show_tut || exercise_id.is_none() =>
                                 div![
                                     C!["field"],
                                     C!["mb-0"],

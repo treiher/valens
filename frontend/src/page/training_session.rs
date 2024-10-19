@@ -139,6 +139,28 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                         } else {
                             (None, None, None, None)
                         };
+
+                    let (prev_set_reps, prev_set_time, prev_set_weight, prev_set_rpe) =
+                        if let Some(prev_set) = elements
+                            .iter()
+                            .filter_map(|e| match e {
+                                FormElement::Set { exercises } => Some(exercises),
+                                _ => None,
+                            })
+                            .flatten()
+                            .filter(|pe| pe.exercise_id == *exercise_id)
+                            .last()
+                        {
+                            (
+                                prev_set.reps.parsed.filter(|v| *v > 0),
+                                prev_set.time.parsed.filter(|v| *v > 0),
+                                prev_set.weight.parsed.filter(|v| *v > 0.),
+                                prev_set.rpe.parsed.filter(|v| *v > 0.),
+                            )
+                        } else {
+                            (None, None, None, None)
+                        };
+
                     exercises.push(ExerciseForm {
                         exercise_id: *exercise_id,
                         exercise_name: data_model
@@ -173,6 +195,10 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                         prev_time,
                         prev_weight,
                         prev_rpe,
+                        prev_set_reps,
+                        prev_set_time,
+                        prev_set_weight,
+                        prev_set_rpe,
                         automatic: *automatic,
                     });
                     if target_time.is_some() && target_reps.is_none() {
@@ -328,6 +354,10 @@ struct ExerciseForm {
     prev_time: Option<u32>,
     prev_weight: Option<f32>,
     prev_rpe: Option<f32>,
+    prev_set_reps: Option<u32>,
+    prev_set_time: Option<u32>,
+    prev_set_weight: Option<f32>,
+    prev_set_rpe: Option<f32>,
     automatic: bool,
 }
 
@@ -662,6 +692,7 @@ pub enum Msg {
 
     EnterTargetValues(usize, usize),
     EnterPreviousValues(usize, usize),
+    EnterPreviousSetValues(usize, usize),
 
     StartGuidedTrainingSession,
     ContinueGuidedTrainingSession(data::OngoingTrainingSession),
@@ -880,6 +911,41 @@ pub fn update(
                 *rpe = common::InputField {
                     input: prev_rpe.map(|v| v.to_string()).unwrap_or_default(),
                     parsed: some_or_default(*prev_rpe),
+                    orig: rpe.orig.clone(),
+                };
+            }
+        }
+        Msg::EnterPreviousSetValues(element_idx, exercise_idx) => {
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
+                let ExerciseForm {
+                    reps,
+                    time,
+                    weight,
+                    rpe,
+                    prev_set_reps,
+                    prev_set_time,
+                    prev_set_weight,
+                    prev_set_rpe,
+                    ..
+                } = &mut exercises[exercise_idx];
+                *reps = common::InputField {
+                    input: prev_set_reps.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(*prev_set_reps),
+                    orig: reps.orig.clone(),
+                };
+                *time = common::InputField {
+                    input: prev_set_time.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(*prev_set_time),
+                    orig: time.orig.clone(),
+                };
+                *weight = common::InputField {
+                    input: prev_set_weight.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(*prev_set_weight),
+                    orig: weight.orig.clone(),
+                };
+                *rpe = common::InputField {
+                    input: prev_set_rpe.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(*prev_set_rpe),
                     orig: rpe.orig.clone(),
                 };
             }
@@ -1618,6 +1684,10 @@ fn add_set(elements: &mut Vec<FormElement>, element_idx: usize) {
                         prev_time: None,
                         prev_weight: None,
                         prev_rpe: None,
+                        prev_set_reps: None,
+                        prev_set_time: None,
+                        prev_set_weight: None,
+                        prev_set_rpe: None,
                         automatic: e.automatic,
                     })
                     .collect::<Vec<_>>(),
@@ -1662,6 +1732,10 @@ fn add_exercise(
                     prev_time: None,
                     prev_weight: None,
                     prev_rpe: None,
+                    prev_set_reps: None,
+                    prev_set_time: None,
+                    prev_set_weight: None,
+                    prev_set_rpe: None,
                     automatic: false,
                 },
             );
@@ -1734,6 +1808,10 @@ fn append_exercise(
             prev_time: None,
             prev_weight: None,
             prev_rpe: None,
+            prev_set_reps: None,
+            prev_set_time: None,
+            prev_set_weight: None,
+            prev_set_rpe: None,
             automatic: false,
         }],
     });
@@ -2237,6 +2315,13 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                                 s.prev_weight,
                                                 s.prev_rpe,
                                                 data_model.settings.show_rpe);
+                                            let previous_set = common::format_set(
+                                                s.prev_set_reps,
+                                                s.prev_set_time,
+                                                data_model.settings.show_tut,
+                                                s.prev_set_weight,
+                                                s.prev_set_rpe,
+                                                data_model.settings.show_rpe);
                                             p![
                                                 IF![not(target.is_empty()) =>
                                                     span![
@@ -2257,6 +2342,17 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                                         a![
                                                             ev(Ev::Click, move |_| Msg::EnterPreviousValues(element_idx, position)),
                                                             previous
+                                                        ]
+                                                    ]
+                                                ],
+                                                IF![not(previous_set.is_empty()) =>
+                                                    span![
+                                                        C!["icon-text"],
+                                                        C!["mr-4"],
+                                                        span![C!["icon"], i![C!["fas fa-angle-double-up"]]],
+                                                        a![
+                                                            ev(Ev::Click, move |_| Msg::EnterPreviousSetValues(element_idx, position)),
+                                                            previous_set
                                                         ]
                                                     ]
                                                 ],
@@ -4771,6 +4867,10 @@ mod tests {
             prev_time: None,
             prev_weight: None,
             prev_rpe: None,
+            prev_set_reps: None,
+            prev_set_time: None,
+            prev_set_weight: None,
+            prev_set_rpe: None,
             automatic: false,
         }
     }

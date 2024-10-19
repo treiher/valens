@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Button for saving changes during guided training session
 - Settings for hiding UI elements related to RPE and TUT
 - Option to prefer exercise in training session
+- Shortcut for inserting values of previous set into current set
 
 ### Changed
 

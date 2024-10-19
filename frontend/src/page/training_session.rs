@@ -684,6 +684,7 @@ pub enum Msg {
     FilterChanged(usize),
     CreateExercise,
     ReplaceExercise(usize, usize, u32),
+    PreferExercise(usize),
     DeferExercise(usize),
     AddSet(usize),
     AddExercise(usize, usize, u32),
@@ -1192,6 +1193,13 @@ pub fn update(
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
         }
+        Msg::PreferExercise(element_idx) => {
+            prefer_exercise(&mut model.form.elements, element_idx);
+            update_metronome(model, orders, data_model.settings.automatic_metronome);
+            orders
+                .send_msg(Msg::SaveTrainingSession)
+                .send_msg(Msg::CloseDialog);
+        }
         Msg::DeferExercise(element_idx) => {
             defer_exercise(&mut model.form.elements, element_idx);
             update_metronome(model, orders, data_model.settings.automatic_metronome);
@@ -1509,6 +1517,25 @@ fn replace_exercise(
             }
         }
     }
+}
+
+fn prefer_exercise(elements: &mut [FormElement], element_idx: usize) {
+    let sections = determine_sections(elements);
+    let Some(preferred_section) = sections.iter().find(|s| (s.0..=s.1).contains(&element_idx))
+    else {
+        return;
+    };
+    if preferred_section.0 == 0 {
+        return;
+    }
+    let Some(deferred_section) = sections
+        .iter()
+        .find(|s| (s.0..=s.1).contains(&(preferred_section.0 - 1)))
+    else {
+        return;
+    };
+    elements[deferred_section.0..=preferred_section.1]
+        .rotate_right(preferred_section.1 - preferred_section.0 + 1);
 }
 
 fn defer_exercise(elements: &mut Vec<FormElement>, element_idx: usize) {
@@ -2639,6 +2666,22 @@ fn view_options_dialog(element_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                 C!["mt-3"],
                 a![
                     C!["has-text-weight-bold"],
+                    ev(Ev::Click, move |_| Msg::PreferExercise(
+                        element_idx
+                    )),
+                    span![
+                        C!["icon-text"],
+                        span![C!["icon"], i![C!["fas fa-arrow-turn-up"]]],
+                        span!["Prefer exercise"],
+                    ]
+                ]
+            ]
+        ],
+        IF![exercise_idx == 0 =>
+            p![
+                C!["mt-3"],
+                a![
+                    C!["has-text-weight-bold"],
                     ev(Ev::Click, move |_| Msg::DeferExercise(
                         element_idx
                     )),
@@ -3047,6 +3090,208 @@ mod tests {
     }
 
     #[test]
+    fn test_prefer_exercise_first_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+            rest(1),
+            set(vec![exercise(2, 2)]),
+            rest(2),
+        ];
+        prefer_exercise(&mut elements, 0);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 1)]),
+                rest(1),
+                set(vec![exercise(2, 2)]),
+                rest(2),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prefer_exercise_penultimate_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+            rest(1),
+            set(vec![exercise(2, 2)]),
+            rest(2),
+        ];
+        prefer_exercise(&mut elements, 2);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(1, 1)]),
+                rest(1),
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(2, 2)]),
+                rest(2),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prefer_exercise_penultimate_set_without_trailing_rest() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+            rest(1),
+            set(vec![exercise(2, 2)]),
+        ];
+        prefer_exercise(&mut elements, 2);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(1, 1)]),
+                rest(1),
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(2, 2)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prefer_exercise_last_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+            rest(1),
+            set(vec![exercise(2, 2)]),
+            rest(2),
+        ];
+        prefer_exercise(&mut elements, 4);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(2, 2)]),
+                rest(2),
+                set(vec![exercise(1, 1)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prefer_exercise_multiple_sets() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 2)]),
+            rest(4),
+            set(vec![exercise(5, 2)]),
+            rest(5),
+        ];
+        prefer_exercise(&mut elements, 4);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(4, 2)]),
+                rest(4),
+                set(vec![exercise(5, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prefer_exercise_multiple_sets_last_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 2)]),
+            rest(4),
+            set(vec![exercise(5, 2)]),
+            rest(5),
+        ];
+        prefer_exercise(&mut elements, 6);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(4, 2)]),
+                rest(4),
+                set(vec![exercise(5, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prefer_exercise_supersets() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0), exercise(1, 1)]),
+            rest(0),
+            set(vec![exercise(2, 0), exercise(3, 1)]),
+            rest(1),
+            set(vec![exercise(4, 0), exercise(5, 2)]),
+            rest(2),
+            set(vec![exercise(6, 0), exercise(7, 2)]),
+            rest(3),
+            set(vec![exercise(8, 1), exercise(9, 2)]),
+            rest(4),
+            set(vec![exercise(10, 1), exercise(11, 2)]),
+            rest(5),
+        ];
+        prefer_exercise(&mut elements, 4);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(4, 0), exercise(5, 2)]),
+                rest(2),
+                set(vec![exercise(6, 0), exercise(7, 2)]),
+                rest(3),
+                set(vec![exercise(0, 0), exercise(1, 1)]),
+                rest(0),
+                set(vec![exercise(2, 0), exercise(3, 1)]),
+                rest(1),
+                set(vec![exercise(8, 1), exercise(9, 2)]),
+                rest(4),
+                set(vec![exercise(10, 1), exercise(11, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
     fn test_defer_exercise_first_set() {
         let mut elements = vec![
             set(vec![exercise(0, 0)]),
@@ -3167,6 +3412,42 @@ mod tests {
                 rest(3),
                 set(vec![exercise(0, 0)]),
                 rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(4, 2)]),
+                rest(4),
+                set(vec![exercise(5, 2)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_defer_exercise_multiple_sets_last_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 2)]),
+            rest(4),
+            set(vec![exercise(5, 2)]),
+            rest(5),
+        ];
+        defer_exercise(&mut elements, 2);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
                 set(vec![exercise(1, 0)]),
                 rest(1),
                 set(vec![exercise(4, 2)]),

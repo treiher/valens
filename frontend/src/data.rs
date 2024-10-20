@@ -1,3 +1,4 @@
+use std::cmp;
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter::zip;
 
@@ -857,7 +858,7 @@ fn calculate_training_stats(
     TrainingStats {
         short_term_load,
         long_term_load,
-        total_set_volume_per_week: calculate_total_set_volume_per_week(training_sessions),
+        total_set_volume_per_week: calculate_total_set_volume_per_time_span(training_sessions, 7),
         avg_rpe_per_week: calculate_avg_rpe_per_week(training_sessions),
         stimulus_for_each_muscle_per_week: calculate_stimulus_for_each_muscle_per_week(
             training_sessions,
@@ -924,19 +925,25 @@ fn calculate_average_weighted_sum_of_load(
         .collect::<Vec<_>>()
 }
 
-fn calculate_total_set_volume_per_week(
+fn calculate_total_set_volume_per_time_span(
     training_sessions: &[&TrainingSession],
+    days: u32,
 ) -> Vec<(NaiveDate, f32)> {
-    let mut result: BTreeMap<NaiveDate, f32> = training_session_weeks(training_sessions);
-
-    #[allow(clippy::cast_precision_loss)]
-    for t in training_sessions {
-        result
-            .entry(t.date.week(Weekday::Mon).last_day())
-            .and_modify(|e| *e += t.set_volume() as f32);
-    }
-
-    result.into_iter().collect()
+    (0..training_sessions.len()).map(|i| {
+        (
+            training_sessions[i].date,
+            training_sessions[cmp::max(0, i as i32 - days as i32 - 1) as usize..=i]
+                .iter()
+                .filter_map(|s| {
+                    if training_sessions[i].date - s.date < Duration::days(days as i64) {
+                        Some(s.set_volume() as f32)
+                    } else {
+                        None
+                    }
+                })
+                .sum::<f32>(),
+        )
+    }).collect()
 }
 
 fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(NaiveDate, f32)> {

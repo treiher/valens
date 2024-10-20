@@ -1862,7 +1862,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         if model.dialog == Dialog::Hidden {
             div![
                 view_title(training_session, data_model),
-                if model.editing || model.guide.is_some() {
+                div![if model.editing || model.guide.is_some() {
                     nodes![view_training_session_form(model, data_model)]
                 } else {
                     nodes![
@@ -1871,7 +1871,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         view_muscles(training_session, data_model),
                         common::view_fab("edit", |_| Msg::EditTrainingSession)
                     ]
-                }
+                }]
             ]
         } else {
             div![

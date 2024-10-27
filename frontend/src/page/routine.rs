@@ -30,7 +30,7 @@ pub fn init(
     navbar.title = String::from("Routine");
 
     let mut model = Model {
-        interval: common::init_interval(&[], true),
+        interval: common::init_interval(&[], common::DefaultInterval::All),
         routine_id,
         name: common::InputField::default(),
         sections: vec![],
@@ -679,7 +679,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
             .filter(|t| t.routine_id == Some(model.routine_id))
             .map(|t| t.date)
             .collect::<Vec<NaiveDate>>(),
-        true,
+        common::DefaultInterval::All,
     );
 
     let routine = &data_model.routines.get(&model.routine_id);

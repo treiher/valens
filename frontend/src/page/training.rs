@@ -31,7 +31,7 @@ pub fn init(
                 .values()
                 .map(|t| t.date)
                 .collect::<Vec<NaiveDate>>(),
-            false,
+            common::DefaultInterval::_1M,
         ),
         dialog: Dialog::Hidden,
         loading: false,
@@ -182,7 +182,7 @@ pub fn update(
                             .values()
                             .map(|t| t.date)
                             .collect::<Vec<NaiveDate>>(),
-                        false,
+                        common::DefaultInterval::_1M,
                     );
                 }
                 data::Event::TrainingSessionCreatedOk => {

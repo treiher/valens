@@ -39,6 +39,15 @@ impl From<std::ops::RangeInclusive<NaiveDate>> for Interval {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum DefaultInterval {
+    All,
+    _1Y = 365,
+    _6M = 182,
+    _3M = 91,
+    _1M = 30,
+}
+
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct InputField<T> {
@@ -67,13 +76,15 @@ impl<T> InputField<T> {
     }
 }
 
-pub fn init_interval(dates: &[NaiveDate], show_all: bool) -> Interval {
+pub fn init_interval(dates: &[NaiveDate], default_interval: DefaultInterval) -> Interval {
     let today = Local::now().date_naive();
     let mut first = dates.iter().copied().min().unwrap_or(today);
     let mut last = dates.iter().copied().max().unwrap_or(today);
 
-    if not(show_all) && last >= today - Duration::days(30) {
-        first = today - Duration::days(30);
+    if default_interval != DefaultInterval::All
+        && last >= today - Duration::days(default_interval as i64)
+    {
+        first = today - Duration::days(default_interval as i64);
     };
 
     last = today;
@@ -268,27 +279,27 @@ where
         ),
         (
             "1Y",
-            today - Duration::days(365),
+            today - Duration::days(DefaultInterval::_1Y as i64),
             today,
-            current.last == today && duration == Duration::days(366),
+            current.last == today && duration == Duration::days(DefaultInterval::_1Y as i64 + 1),
         ),
         (
             "6M",
-            today - Duration::days(182),
+            today - Duration::days(DefaultInterval::_6M as i64),
             today,
-            current.last == today && duration == Duration::days(183),
+            current.last == today && duration == Duration::days(DefaultInterval::_6M as i64 + 1),
         ),
         (
             "3M",
-            today - Duration::days(91),
+            today - Duration::days(DefaultInterval::_3M as i64),
             today,
-            current.last == today && duration == Duration::days(92),
+            current.last == today && duration == Duration::days(DefaultInterval::_3M as i64 + 1),
         ),
         (
             "1M",
-            today - Duration::days(30),
+            today - Duration::days(DefaultInterval::_1M as i64),
             today,
-            current.last == today && duration == Duration::days(31),
+            current.last == today && duration == Duration::days(DefaultInterval::_1M as i64 + 1),
         ),
         (
             "+",

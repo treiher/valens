@@ -19,7 +19,7 @@ pub fn init(data_model: &data::Model, navbar: &mut crate::Navbar) -> Model {
                 .values()
                 .map(|t| t.date)
                 .collect::<Vec<NaiveDate>>(),
-            false,
+            common::DefaultInterval::_1M,
         ),
     }
 }

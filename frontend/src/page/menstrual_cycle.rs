@@ -29,7 +29,7 @@ pub fn init(
                 .keys()
                 .copied()
                 .collect::<Vec<NaiveDate>>(),
-            false,
+            common::DefaultInterval::_3M,
         ),
         dialog: Dialog::Hidden,
         loading: false,
@@ -185,7 +185,7 @@ pub fn update(
                             .keys()
                             .copied()
                             .collect::<Vec<NaiveDate>>(),
-                        false,
+                        common::DefaultInterval::_3M,
                     );
                 }
                 data::Event::PeriodCreatedOk

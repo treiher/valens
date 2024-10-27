@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Omit charts that contain no data
 - Hide empty columns in training tables
 - Consider sets without RPE value to be hard sets
+- Default interval on exercise, body weight, body fat and menstrual cycle page to three months
 
 ### Fixed
 

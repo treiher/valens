@@ -30,7 +30,7 @@ pub fn init(
     navbar.title = String::from("Exercise");
 
     let mut model = Model {
-        interval: common::init_interval(&[], true),
+        interval: common::init_interval(&[], common::DefaultInterval::_3M),
         exercise_id,
         name: common::InputField::default(),
         muscle_stimulus: BTreeMap::new(),
@@ -216,7 +216,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
             .filter(|t| t.exercises().contains(&model.exercise_id))
             .map(|t| t.date)
             .collect::<Vec<NaiveDate>>(),
-        false,
+        common::DefaultInterval::_3M,
     );
 
     let exercise = &data_model.exercises.get(&model.exercise_id);

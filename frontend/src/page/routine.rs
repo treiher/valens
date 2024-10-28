@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::prelude::*;
 use seed::{prelude::*, *};
@@ -80,7 +80,7 @@ impl Model {
 
 enum Dialog {
     Hidden,
-    SelectExercise(Vec<usize>, String, HashSet<usize>),
+    SelectExercise(Vec<usize>, String, domain::ExerciseFilter),
     DeleteTrainingSession(u32),
 }
 
@@ -287,7 +287,7 @@ pub enum Msg {
     AutomaticChanged(Vec<usize>),
 
     SearchTermChanged(String),
-    FilterChanged(usize),
+    FilterChanged(domain::Muscle),
 
     CreateExercise,
     DeleteTrainingSession(u32),
@@ -323,7 +323,8 @@ pub fn update(
         }
 
         Msg::ShowSelectExerciseDialog(part_id) => {
-            model.dialog = Dialog::SelectExercise(part_id, String::new(), HashSet::new());
+            model.dialog =
+                Dialog::SelectExercise(part_id, String::new(), domain::ExerciseFilter::default());
         }
         Msg::ShowDeleteTrainingSessionDialog(position) => {
             model.dialog = Dialog::DeleteTrainingSession(position);
@@ -617,12 +618,12 @@ pub fn update(
                 *dialog_search_term = search_term;
             }
         }
-        Msg::FilterChanged(index) => {
+        Msg::FilterChanged(muscle) => {
             if let Dialog::SelectExercise(_, _, dialog_filter) = &mut model.dialog {
-                if dialog_filter.contains(&index) {
-                    dialog_filter.remove(&index);
+                if dialog_filter.muscles.contains(&muscle) {
+                    dialog_filter.muscles.remove(&muscle);
                 } else {
-                    dialog_filter.insert(index);
+                    dialog_filter.muscles.insert(muscle);
                 }
             }
         }

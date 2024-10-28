@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
@@ -400,9 +400,9 @@ enum Dialog {
     Hidden,
     StopwatchMetronomTimer,
     Options(usize, usize),
-    ReplaceExercise(usize, usize, String, HashSet<usize>),
-    AddExercise(usize, usize, String, HashSet<usize>),
-    AppendExercise(String, HashSet<usize>),
+    ReplaceExercise(usize, usize, String, domain::ExerciseFilter),
+    AddExercise(usize, usize, String, domain::ExerciseFilter),
+    AppendExercise(String, domain::ExerciseFilter),
 }
 
 struct StopwatchMetronomTimer {
@@ -712,7 +712,7 @@ pub enum Msg {
     ShowAddExerciseDialog(usize, usize),
     ShowAppendExerciseDialog,
     SearchTermChanged(String),
-    FilterChanged(usize),
+    FilterChanged(domain::Muscle),
     CreateExercise,
     ReplaceExercise(usize, usize, u32),
     PreferExercise(usize),
@@ -1205,15 +1205,23 @@ pub fn update(
             model.dialog = Dialog::Options(element_idx, exercise_idx);
         }
         Msg::ShowReplaceExerciseDialog(element_idx, exercise_idx) => {
-            model.dialog =
-                Dialog::ReplaceExercise(element_idx, exercise_idx, String::new(), HashSet::new());
+            model.dialog = Dialog::ReplaceExercise(
+                element_idx,
+                exercise_idx,
+                String::new(),
+                domain::ExerciseFilter::default(),
+            );
         }
         Msg::ShowAddExerciseDialog(element_idx, exercise_idx) => {
-            model.dialog =
-                Dialog::AddExercise(element_idx, exercise_idx, String::new(), HashSet::new());
+            model.dialog = Dialog::AddExercise(
+                element_idx,
+                exercise_idx,
+                String::new(),
+                domain::ExerciseFilter::default(),
+            );
         }
         Msg::ShowAppendExerciseDialog => {
-            model.dialog = Dialog::AppendExercise(String::new(), HashSet::new());
+            model.dialog = Dialog::AppendExercise(String::new(), domain::ExerciseFilter::default());
         }
         Msg::SearchTermChanged(search_term) => {
             if let Dialog::ReplaceExercise(_, _, st, _)
@@ -1223,15 +1231,15 @@ pub fn update(
                 *st = search_term;
             }
         }
-        Msg::FilterChanged(index) => {
+        Msg::FilterChanged(muscle) => {
             if let Dialog::ReplaceExercise(_, _, _, filter)
             | Dialog::AddExercise(_, _, _, filter)
             | Dialog::AppendExercise(_, filter) = &mut model.dialog
             {
-                if filter.contains(&index) {
-                    filter.remove(&index);
+                if filter.muscles.contains(&muscle) {
+                    filter.muscles.remove(&muscle);
                 } else {
-                    filter.insert(index);
+                    filter.muscles.insert(muscle);
                 }
             }
         }
@@ -2863,7 +2871,7 @@ fn view_replace_exercise_dialog(
     element_idx: usize,
     exercise_idx: usize,
     search_term: &str,
-    filter: &HashSet<usize>,
+    filter: &domain::ExerciseFilter,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
@@ -2885,7 +2893,7 @@ fn view_add_exercise_dialog(
     element_idx: usize,
     exercise_idx: usize,
     search_term: &str,
-    filter: &HashSet<usize>,
+    filter: &domain::ExerciseFilter,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {
@@ -2905,7 +2913,7 @@ fn view_add_exercise_dialog(
 
 fn view_append_exercise_dialog(
     search_term: &str,
-    filter: &HashSet<usize>,
+    filter: &domain::ExerciseFilter,
     loading: bool,
     exercises: &BTreeMap<u32, data::Exercise>,
 ) -> Vec<Node<Msg>> {

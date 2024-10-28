@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
@@ -1012,8 +1012,8 @@ pub fn view_exercises_with_search<Ms>(
     exercises: &BTreeMap<u32, data::Exercise>,
     search_term: &str,
     search_term_changed: impl FnOnce(String) -> Ms + 'static + Clone,
-    filter: &HashSet<usize>,
-    filter_changed: impl FnOnce(usize) -> Ms + 'static + Clone,
+    filter: &domain::ExerciseFilter,
+    filter_changed: impl FnOnce(domain::Muscle) -> Ms + 'static + Clone,
     create_exercise: Option<impl FnOnce(web_sys::Event) -> Ms + 'static + Clone>,
     loading: bool,
     selected: impl FnOnce(u32) -> Ms + 'static + Clone,
@@ -1023,16 +1023,9 @@ pub fn view_exercises_with_search<Ms>(
 where
     Ms: 'static,
 {
-    let mut muscle_filter = domain::Muscle::iter()
-        .enumerate()
-        .map(|(i, m)| (i, false, domain::Muscle::id(*m), domain::Muscle::name(*m)))
+    let muscle_filter = domain::Muscle::iter()
+        .map(|m| (m, filter.muscles.contains(m)))
         .collect::<Vec<_>>();
-    for i in filter {
-        if let Some(f) = muscle_filter.get_mut(*i) {
-            f.1 = true;
-        }
-    }
-    muscle_filter.sort_by(|a, b| b.1.cmp(&a.1));
 
     let mut exercises = exercises
         .values()
@@ -1040,11 +1033,11 @@ where
             e.name
                 .to_lowercase()
                 .contains(search_term.to_lowercase().trim())
-                && (muscle_filter.iter().filter(|f| f.1).count() == 0
-                    || muscle_filter
+                && (filter.muscles.is_empty()
+                    || filter
+                        .muscles
                         .iter()
-                        .filter(|f| f.1)
-                        .all(|f| e.muscle_stimulus().contains_key(&f.2)))
+                        .all(|m| e.muscle_stimulus().contains_key(&domain::Muscle::id(*m))))
         })
         .collect::<Vec<_>>();
     exercises.sort_by(|a, b| a.name.cmp(&b.name));
@@ -1085,17 +1078,17 @@ where
                 C!["is-flex-wrap-nowrap"],
                 C!["is-overflow-scroll"],
                 C!["is-scrollbar-width-none"],
-                muscle_filter.iter().map(|(i, enabled, _, name)| {
+                muscle_filter.iter().map(|(muscle, enabled)| {
                     span![
                         C!["tag"],
                         C!["is-hoverable"],
                         IF![*enabled => C!["is-link"]],
                         ev(Ev::Click, {
-                            let index = *i;
+                            let muscle = *muscle;
                             let filter_changed = filter_changed.clone();
-                            move |_| filter_changed(index)
+                            move |_| filter_changed(*muscle)
                         }),
-                        &name
+                        &domain::Muscle::name(**muscle)
                     ]
                 })
             ],

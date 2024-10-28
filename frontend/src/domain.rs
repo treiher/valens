@@ -1,6 +1,6 @@
-use std::slice::Iter;
+use std::{collections::HashSet, slice::Iter};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub enum Muscle {
     // Neck
     Neck = 1,
@@ -131,4 +131,9 @@ impl Muscle {
             Muscle::Calves => "Back of lower legs",
         }
     }
+}
+
+#[derive(Default, PartialEq)]
+pub struct ExerciseFilter {
+    pub muscles: HashSet<Muscle>,
 }

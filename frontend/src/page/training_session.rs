@@ -4,9 +4,9 @@ use std::collections::{BTreeMap, HashMap};
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
 
-use crate::common;
 use crate::data;
 use crate::domain;
+use crate::{common, component};
 
 // ------ ------
 //     Init
@@ -395,14 +395,13 @@ impl Guide {
     }
 }
 
-#[derive(PartialEq)]
 enum Dialog {
     Hidden,
     StopwatchMetronomTimer,
     Options(usize, usize),
-    ReplaceExercise(usize, usize, String, domain::ExerciseFilter),
-    AddExercise(usize, usize, String, domain::ExerciseFilter),
-    AppendExercise(String, domain::ExerciseFilter),
+    ReplaceExercise(usize, usize, component::exercise_list::Model),
+    AddExercise(usize, usize, component::exercise_list::Model),
+    AppendExercise(component::exercise_list::Model),
 }
 
 struct StopwatchMetronomTimer {
@@ -711,9 +710,6 @@ pub enum Msg {
     ShowReplaceExerciseDialog(usize, usize),
     ShowAddExerciseDialog(usize, usize),
     ShowAppendExerciseDialog,
-    SearchTermChanged(String),
-    FilterChanged(domain::Muscle),
-    CreateExercise,
     ReplaceExercise(usize, usize, u32),
     PreferExercise(usize),
     DeferExercise(usize),
@@ -723,6 +719,8 @@ pub enum Msg {
     RemoveExercise(usize, usize),
     AppendExercise(u32),
     CloseDialog,
+
+    ExerciseList(component::exercise_list::Msg),
 
     UpdateStopwatchMetronomTimer,
 
@@ -1208,52 +1206,20 @@ pub fn update(
             model.dialog = Dialog::ReplaceExercise(
                 element_idx,
                 exercise_idx,
-                String::new(),
-                domain::ExerciseFilter::default(),
+                component::exercise_list::Model::new(true, false, false, false),
             );
         }
         Msg::ShowAddExerciseDialog(element_idx, exercise_idx) => {
             model.dialog = Dialog::AddExercise(
                 element_idx,
                 exercise_idx,
-                String::new(),
-                domain::ExerciseFilter::default(),
+                component::exercise_list::Model::new(true, false, false, false),
             );
         }
         Msg::ShowAppendExerciseDialog => {
-            model.dialog = Dialog::AppendExercise(String::new(), domain::ExerciseFilter::default());
-        }
-        Msg::SearchTermChanged(search_term) => {
-            if let Dialog::ReplaceExercise(_, _, st, _)
-            | Dialog::AddExercise(_, _, st, _)
-            | Dialog::AppendExercise(st, _) = &mut model.dialog
-            {
-                *st = search_term;
-            }
-        }
-        Msg::FilterChanged(muscle) => {
-            if let Dialog::ReplaceExercise(_, _, _, filter)
-            | Dialog::AddExercise(_, _, _, filter)
-            | Dialog::AppendExercise(_, filter) = &mut model.dialog
-            {
-                if filter.muscles.contains(&muscle) {
-                    filter.muscles.remove(&muscle);
-                } else {
-                    filter.muscles.insert(muscle);
-                }
-            }
-        }
-        Msg::CreateExercise => {
-            model.loading = true;
-            if let Dialog::ReplaceExercise(_, _, search_term, _)
-            | Dialog::AddExercise(_, _, search_term, _)
-            | Dialog::AppendExercise(search_term, _) = &model.dialog
-            {
-                orders.notify(data::Msg::CreateExercise(
-                    search_term.trim().to_string(),
-                    vec![],
-                ));
-            };
+            model.dialog = Dialog::AppendExercise(component::exercise_list::Model::new(
+                true, false, false, false,
+            ));
         }
         Msg::ReplaceExercise(element_idx, exercise_idx, new_exercise_id) => {
             replace_exercise(
@@ -1320,6 +1286,65 @@ pub fn update(
         Msg::CloseDialog => {
             model.dialog = Dialog::Hidden;
         }
+
+        Msg::ExerciseList(msg) => match &mut model.dialog {
+            Dialog::Hidden | Dialog::StopwatchMetronomTimer | Dialog::Options(_, _) => {}
+            Dialog::ReplaceExercise(element_idx, exercise_idx, exercise_list_model) => {
+                match component::exercise_list::update(
+                    msg,
+                    exercise_list_model,
+                    &mut orders.proxy(Msg::ExerciseList),
+                ) {
+                    component::exercise_list::OutMsg::None
+                    | component::exercise_list::OutMsg::EditClicked(_)
+                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    component::exercise_list::OutMsg::CreateClicked(name) => {
+                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                    }
+                    component::exercise_list::OutMsg::Selected(exercise_id) => {
+                        orders.send_msg(Msg::ReplaceExercise(
+                            *element_idx,
+                            *exercise_idx,
+                            exercise_id,
+                        ));
+                    }
+                };
+            }
+            Dialog::AddExercise(element_idx, exercise_idx, exercise_list_model) => {
+                match component::exercise_list::update(
+                    msg,
+                    exercise_list_model,
+                    &mut orders.proxy(Msg::ExerciseList),
+                ) {
+                    component::exercise_list::OutMsg::None
+                    | component::exercise_list::OutMsg::EditClicked(_)
+                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    component::exercise_list::OutMsg::CreateClicked(name) => {
+                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                    }
+                    component::exercise_list::OutMsg::Selected(exercise_id) => {
+                        orders.send_msg(Msg::AddExercise(*element_idx, *exercise_idx, exercise_id));
+                    }
+                };
+            }
+            Dialog::AppendExercise(exercise_list_model) => {
+                match component::exercise_list::update(
+                    msg,
+                    exercise_list_model,
+                    &mut orders.proxy(Msg::ExerciseList),
+                ) {
+                    component::exercise_list::OutMsg::None
+                    | component::exercise_list::OutMsg::EditClicked(_)
+                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    component::exercise_list::OutMsg::CreateClicked(name) => {
+                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                    }
+                    component::exercise_list::OutMsg::Selected(exercise_id) => {
+                        orders.send_msg(Msg::AppendExercise(exercise_id));
+                    }
+                };
+            }
+        },
 
         Msg::UpdateStopwatchMetronomTimer => {
             model.smt.stopwatch.update();
@@ -1945,7 +1970,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else if let Some(training_session) =
         data_model.training_sessions.get(&model.training_session_id)
     {
-        if model.dialog == Dialog::Hidden {
+        if let Dialog::Hidden = model.dialog {
             div![
                 view_title(training_session, data_model),
                 div![if model.editing || model.guide.is_some() {
@@ -1963,12 +1988,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             div![
                 Node::NoChange,
                 Node::NoChange,
-                view_dialog(
-                    &model.dialog,
-                    &model.smt,
-                    model.loading,
-                    &data_model.exercises,
-                ),
+                view_dialog(&model.dialog, &model.smt, model.loading, data_model),
             ]
         }
     } else {
@@ -2525,7 +2545,7 @@ fn view_dialog(
     dialog: &Dialog,
     smt: &StopwatchMetronomTimer,
     loading: bool,
-    exercises: &BTreeMap<u32, data::Exercise>,
+    data_model: &data::Model,
 ) -> Node<Msg> {
     let content = match dialog {
         Dialog::Hidden => nodes![],
@@ -2533,28 +2553,11 @@ fn view_dialog(
         Dialog::Options(element_idx, exercise_idx) => {
             view_options_dialog(*element_idx, *exercise_idx)
         }
-        Dialog::ReplaceExercise(element_idx, exercise_idx, search_term, filter) => {
-            view_replace_exercise_dialog(
-                *element_idx,
-                *exercise_idx,
-                search_term,
-                filter,
-                loading,
-                exercises,
-            )
-        }
-        Dialog::AddExercise(element_idx, exercise_idx, search_term, filter) => {
-            view_add_exercise_dialog(
-                *element_idx,
-                *exercise_idx,
-                search_term,
-                filter,
-                loading,
-                exercises,
-            )
-        }
-        Dialog::AppendExercise(search_term, filter) => {
-            view_append_exercise_dialog(search_term, filter, loading, exercises)
+        Dialog::ReplaceExercise(_, _, exercise_list_model)
+        | Dialog::AddExercise(_, _, exercise_list_model)
+        | Dialog::AppendExercise(exercise_list_model) => {
+            component::exercise_list::view(exercise_list_model, loading, data_model)
+                .map_msg(Msg::ExerciseList)
         }
     };
 
@@ -2865,70 +2868,6 @@ fn view_options_dialog(element_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
             ]
         ]
     ]
-}
-
-fn view_replace_exercise_dialog(
-    element_idx: usize,
-    exercise_idx: usize,
-    search_term: &str,
-    filter: &domain::ExerciseFilter,
-    loading: bool,
-    exercises: &BTreeMap<u32, data::Exercise>,
-) -> Vec<Node<Msg>> {
-    common::view_exercises_with_search(
-        exercises,
-        search_term,
-        Msg::SearchTermChanged,
-        filter,
-        Msg::FilterChanged,
-        Some(|_| Msg::CreateExercise),
-        loading,
-        move |exercise_id| Msg::ReplaceExercise(element_idx, exercise_idx, exercise_id),
-        &None::<fn(u32) -> Msg>,
-        &None::<fn(u32) -> Msg>,
-    )
-}
-
-fn view_add_exercise_dialog(
-    element_idx: usize,
-    exercise_idx: usize,
-    search_term: &str,
-    filter: &domain::ExerciseFilter,
-    loading: bool,
-    exercises: &BTreeMap<u32, data::Exercise>,
-) -> Vec<Node<Msg>> {
-    common::view_exercises_with_search(
-        exercises,
-        search_term,
-        Msg::SearchTermChanged,
-        filter,
-        Msg::FilterChanged,
-        Some(|_| Msg::CreateExercise),
-        loading,
-        move |exercise_id| Msg::AddExercise(element_idx, exercise_idx, exercise_id),
-        &None::<fn(u32) -> Msg>,
-        &None::<fn(u32) -> Msg>,
-    )
-}
-
-fn view_append_exercise_dialog(
-    search_term: &str,
-    filter: &domain::ExerciseFilter,
-    loading: bool,
-    exercises: &BTreeMap<u32, data::Exercise>,
-) -> Vec<Node<Msg>> {
-    common::view_exercises_with_search(
-        exercises,
-        search_term,
-        Msg::SearchTermChanged,
-        filter,
-        Msg::FilterChanged,
-        Some(|_| Msg::CreateExercise),
-        loading,
-        Msg::AppendExercise,
-        &None::<fn(u32) -> Msg>,
-        &None::<fn(u32) -> Msg>,
-    )
 }
 
 fn some_or_default<T: Default>(value: Option<T>) -> Option<T> {

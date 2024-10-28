@@ -4,6 +4,7 @@ use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::common;
+use crate::component;
 use crate::data;
 use crate::domain;
 use crate::page::training;
@@ -80,7 +81,7 @@ impl Model {
 
 enum Dialog {
     Hidden,
-    SelectExercise(Vec<usize>, String, domain::ExerciseFilter),
+    SelectExercise(Vec<usize>, component::exercise_list::Model),
     DeleteTrainingSession(u32),
 }
 
@@ -286,10 +287,8 @@ pub enum Msg {
     RPEChanged(Vec<usize>, String),
     AutomaticChanged(Vec<usize>),
 
-    SearchTermChanged(String),
-    FilterChanged(domain::Muscle),
+    ExerciseList(component::exercise_list::Msg),
 
-    CreateExercise,
     DeleteTrainingSession(u32),
     DataEvent(data::Event),
 
@@ -323,8 +322,10 @@ pub fn update(
         }
 
         Msg::ShowSelectExerciseDialog(part_id) => {
-            model.dialog =
-                Dialog::SelectExercise(part_id, String::new(), domain::ExerciseFilter::default());
+            model.dialog = Dialog::SelectExercise(
+                part_id,
+                component::exercise_list::Model::new(true, false, false, false),
+            );
         }
         Msg::ShowDeleteTrainingSessionDialog(position) => {
             model.dialog = Dialog::DeleteTrainingSession(position);
@@ -613,30 +614,26 @@ pub fn update(
             }
         }
 
-        Msg::SearchTermChanged(search_term) => {
-            if let Dialog::SelectExercise(_, dialog_search_term, _) = &mut model.dialog {
-                *dialog_search_term = search_term;
-            }
-        }
-        Msg::FilterChanged(muscle) => {
-            if let Dialog::SelectExercise(_, _, dialog_filter) = &mut model.dialog {
-                if dialog_filter.muscles.contains(&muscle) {
-                    dialog_filter.muscles.remove(&muscle);
-                } else {
-                    dialog_filter.muscles.insert(muscle);
-                }
+        Msg::ExerciseList(msg) => {
+            if let Dialog::SelectExercise(part_id, exercise_list_model) = &mut model.dialog {
+                match component::exercise_list::update(
+                    msg,
+                    exercise_list_model,
+                    &mut orders.proxy(Msg::ExerciseList),
+                ) {
+                    component::exercise_list::OutMsg::None
+                    | component::exercise_list::OutMsg::EditClicked(_)
+                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    component::exercise_list::OutMsg::CreateClicked(name) => {
+                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                    }
+                    component::exercise_list::OutMsg::Selected(exercise_id) => {
+                        orders.send_msg(Msg::ExerciseChanged(part_id.clone(), exercise_id));
+                    }
+                };
             }
         }
 
-        Msg::CreateExercise => {
-            model.loading = true;
-            if let Dialog::SelectExercise(_, search_term, _) = &model.dialog {
-                orders.notify(data::Msg::CreateExercise(
-                    search_term.trim().to_string(),
-                    vec![],
-                ));
-            };
-        }
         Msg::DeleteTrainingSession(id) => {
             model.loading = true;
             orders.notify(data::Msg::DeleteTrainingSession(id));
@@ -723,7 +720,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             } else {
                 empty![]
             },
-            view_dialog(&model.dialog, &data_model.exercises, model.loading),
+            view_dialog(&model.dialog, model.loading, data_model),
             view_routine(data_model, &model.sections, model.editing),
             if model.editing {
                 nodes![button![
@@ -786,33 +783,15 @@ fn view_title(model: &Model) -> Node<Msg> {
     ]
 }
 
-fn view_dialog(
-    dialog: &Dialog,
-    exercises: &BTreeMap<u32, data::Exercise>,
-    loading: bool,
-) -> Node<Msg> {
+fn view_dialog(dialog: &Dialog, loading: bool, data_model: &data::Model) -> Node<Msg> {
     match dialog {
-        Dialog::SelectExercise(part_id, search_term, filter) => {
-            let part_id = part_id.clone();
-
-            common::view_dialog(
-                "primary",
-                "Select exercise",
-                common::view_exercises_with_search(
-                    exercises,
-                    search_term,
-                    Msg::SearchTermChanged,
-                    filter,
-                    Msg::FilterChanged,
-                    Some(|_| Msg::CreateExercise),
-                    loading,
-                    |exercise_id| Msg::ExerciseChanged(part_id, exercise_id),
-                    &None::<fn(u32) -> Msg>,
-                    &None::<fn(u32) -> Msg>,
-                ),
-                &ev(Ev::Click, |_| Msg::CloseDialog),
-            )
-        }
+        Dialog::SelectExercise(_, exercise_list_model) => common::view_dialog(
+            "primary",
+            "Select exercise",
+            component::exercise_list::view(exercise_list_model, loading, data_model)
+                .map_msg(Msg::ExerciseList),
+            &ev(Ev::Click, |_| Msg::CloseDialog),
+        ),
         Dialog::DeleteTrainingSession(id) => {
             #[allow(clippy::clone_on_copy)]
             let id = id.clone();

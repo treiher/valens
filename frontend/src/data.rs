@@ -109,6 +109,19 @@ pub struct Model {
 }
 
 impl Model {
+    pub fn exercises(&self, filter: &domain::ExerciseFilter) -> Vec<&Exercise> {
+        self.exercises
+            .values()
+            .filter(|e| {
+                filter.muscles.is_empty()
+                    || filter
+                        .muscles
+                        .iter()
+                        .all(|m| e.muscle_stimulus().contains_key(&domain::Muscle::id(*m)))
+            })
+            .collect()
+    }
+
     pub fn routines_sorted_by_last_use(&self, filter: impl Fn(&Routine) -> bool) -> Vec<Routine> {
         sort_routines_by_last_use(&self.routines, &self.training_sessions, filter)
     }

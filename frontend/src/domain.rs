@@ -137,3 +137,9 @@ impl Muscle {
 pub struct ExerciseFilter {
     pub muscles: HashSet<Muscle>,
 }
+
+impl ExerciseFilter {
+    pub fn is_empty(&self) -> bool {
+        self.muscles.is_empty()
+    }
+}

@@ -10,6 +10,7 @@ use crate::{common, data, domain};
 pub struct Model {
     search_term: String,
     filter: domain::ExerciseFilter,
+    view_filter_dialog: bool,
     view_create: bool,
     view_edit: bool,
     view_delete: bool,
@@ -27,6 +28,7 @@ impl Model {
         Self {
             search_term: String::new(),
             filter: domain::ExerciseFilter::default(),
+            view_filter_dialog: false,
             view_create,
             view_edit,
             view_delete,
@@ -47,6 +49,9 @@ pub enum Msg {
     CreateClicked(String),
     EditClicked(u32),
     DeleteClicked(u32),
+
+    ShowFilterDialog,
+    CloseFilterDialog,
 }
 
 pub enum OutMsg {
@@ -76,6 +81,15 @@ pub fn update(msg: Msg, model: &mut Model, _orders: &mut impl Orders<Msg>) -> Ou
         Msg::CreateClicked(exercise_id) => OutMsg::CreateClicked(exercise_id),
         Msg::EditClicked(exercise_id) => OutMsg::EditClicked(exercise_id),
         Msg::DeleteClicked(exercise_id) => OutMsg::DeleteClicked(exercise_id),
+
+        Msg::ShowFilterDialog => {
+            model.view_filter_dialog = true;
+            OutMsg::None
+        }
+        Msg::CloseFilterDialog => {
+            model.view_filter_dialog = false;
+            OutMsg::None
+        }
     }
 }
 
@@ -100,11 +114,21 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
     exercises.sort_by(|a, b| a.name.cmp(&b.name));
 
     nodes![
+        IF![model.view_filter_dialog => view_filter_dialog(&muscle_filter, exercises.len())],
         div![
             C!["field"],
             C!["is-grouped"],
             C![IF![model.search_bar_padding => "px-4"]],
             common::view_search_box(&model.search_term, Msg::SearchTermChanged),
+            div![
+                C!["control"],
+                button![
+                    C!["button"],
+                    C![IF![!model.filter.is_empty() => "is-link"]],
+                    ev(Ev::Click, |_| Msg::ShowFilterDialog),
+                    span![C!["icon"], i![C!["fas fa-filter"]]]
+                ]
+            ],
             if model.view_create {
                 let disabled = loading
                     || model.search_term.is_empty()
@@ -134,24 +158,26 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
         div![
             C!["is-flex"],
             C![IF![model.search_bar_padding => "px-4"]],
-            div![C!["mr-1"], span![C!["icon"], i![C!["fas fa-filter"]]]],
             div![
                 C!["tags"],
                 C!["is-flex-wrap-nowrap"],
                 C!["is-overflow-scroll"],
                 C!["is-scrollbar-width-none"],
-                muscle_filter.iter().map(|(muscle, enabled)| {
-                    span![
-                        C!["tag"],
-                        C!["is-hoverable"],
-                        IF![*enabled => C!["is-link"]],
-                        ev(Ev::Click, {
-                            let muscle = *muscle;
-                            move |_| Msg::FilterChanged(*muscle)
-                        }),
-                        &domain::Muscle::name(**muscle)
-                    ]
-                })
+                muscle_filter
+                    .iter()
+                    .filter(|(_, enabled)| *enabled)
+                    .map(|(muscle, _)| {
+                        span![
+                            C!["tag"],
+                            C!["is-hoverable"],
+                            C!["is-link"],
+                            ev(Ev::Click, {
+                                let muscle = *muscle;
+                                move |_| Msg::FilterChanged(*muscle)
+                            }),
+                            &domain::Muscle::name(**muscle)
+                        ]
+                    })
             ],
         ],
         div![
@@ -207,4 +233,54 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
             ]
         ],
     ]
+}
+
+fn view_filter_dialog(
+    muscle_filter: &[(&domain::Muscle, bool)],
+    exercise_count: usize,
+) -> Node<Msg> {
+    common::view_dialog(
+        "primary",
+        "Filter exercises",
+        nodes![
+            div![
+                C!["block"],
+                label![C!["subtitle"], "Muscles"],
+                div![
+                    C!["container"],
+                    C!["py-3"],
+                    div![
+                        C!["tags"],
+                        muscle_filter.iter().map(|(muscle, enabled)| {
+                            span![
+                                C!["tag"],
+                                C!["is-hoverable"],
+                                IF![*enabled => C!["is-link"]],
+                                ev(Ev::Click, {
+                                    let muscle = **muscle;
+                                    move |_| Msg::FilterChanged(muscle)
+                                }),
+                                &domain::Muscle::name(**muscle)
+                            ]
+                        })
+                    ]
+                ],
+            ],
+            div![
+                C!["field"],
+                C!["is-grouped"],
+                C!["is-grouped-centered"],
+                div![
+                    C!["control"],
+                    button![
+                        C!["button"],
+                        C!["is-primary"],
+                        &ev(Ev::Click, |_| Msg::CloseFilterDialog),
+                        format!("Show {exercise_count} exercises")
+                    ]
+                ],
+            ],
+        ],
+        &ev(Ev::Click, |_| Msg::CloseFilterDialog),
+    )
 }

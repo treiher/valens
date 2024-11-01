@@ -35,6 +35,25 @@ impl Model {
             search_bar_padding,
         }
     }
+
+    #[allow(clippy::fn_params_excessive_bools)]
+    pub fn new_with_filter(
+        view_create: bool,
+        view_edit: bool,
+        view_delete: bool,
+        search_bar_padding: bool,
+        filter: domain::ExerciseFilter,
+    ) -> Self {
+        Self {
+            search_term: String::new(),
+            filter,
+            view_filter_dialog: false,
+            view_create,
+            view_edit,
+            view_delete,
+            search_bar_padding,
+        }
+    }
 }
 
 // ------ ------

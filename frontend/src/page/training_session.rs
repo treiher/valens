@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
@@ -1203,10 +1203,25 @@ pub fn update(
             model.dialog = Dialog::Options(element_idx, exercise_idx);
         }
         Msg::ShowReplaceExerciseDialog(element_idx, exercise_idx) => {
+            let mut muscles = HashSet::new();
+            if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
+                let exercise_id = exercises[exercise_idx].exercise_id;
+                for m in &data_model.exercises[&exercise_id].muscles {
+                    if let Some(muscle) = domain::Muscle::from_repr(m.muscle_id) {
+                        muscles.insert(muscle);
+                    }
+                }
+            }
             model.dialog = Dialog::ReplaceExercise(
                 element_idx,
                 exercise_idx,
-                component::exercise_list::Model::new(true, false, false, false),
+                component::exercise_list::Model::new_with_filter(
+                    true,
+                    false,
+                    false,
+                    false,
+                    domain::ExerciseFilter { muscles },
+                ),
             );
         }
         Msg::ShowAddExerciseDialog(element_idx, exercise_idx) => {

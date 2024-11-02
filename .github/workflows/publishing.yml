@@ -35,7 +35,8 @@ jobs:
           workspaces: frontend
       - name: Install dependencies
         run: |
-          sudo apt install libarchive-tools
+          sudo apt-get update
+          sudo apt-get install libarchive-tools
           uv sync
           cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Build distribution

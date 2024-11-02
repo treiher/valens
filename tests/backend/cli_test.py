@@ -65,3 +65,13 @@ def test_main_demo_public(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(demo, "run", lambda x, y, z: demo_called.append(1))
     assert cli.main() == 0
     assert demo_called
+
+
+def test_main_demo_db_exists(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    db_file = tmp_path / "db"
+    db_file.touch()
+    monkeypatch.setattr(sys, "argv", ["valens", "demo", "--database", str(db_file)])
+    demo_called = []
+    monkeypatch.setattr(demo, "run", lambda x, y, z: demo_called.append(1))
+    assert cli.main() == 2
+    assert not demo_called

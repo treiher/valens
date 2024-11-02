@@ -48,6 +48,11 @@ def main() -> int:
     )
     parser_demo.set_defaults(func=run_demo)
     parser_demo.add_argument(
+        "--database",
+        type=Path,
+        help="path to the database file that will be created",
+    )
+    parser_demo.add_argument(
         "--public",
         action="store_true",
         help="make the server publicly available (sould be only used on a trusted network)",
@@ -66,30 +71,40 @@ def main() -> int:
         parser.print_usage()
         return 2
 
-    args.func(args)
-
-    return 0
+    return args.func(args)
 
 
-def create_config(args: argparse.Namespace) -> None:
+def create_config(args: argparse.Namespace) -> int:
     config_file = config.create_config_file(
         args.directory, Path.home() / ".local/share/valens/valens.db"
     )
     print(f"Created {config_file}")
+    return 0
 
 
-def upgrade(_: argparse.Namespace) -> None:
+def upgrade(_: argparse.Namespace) -> int:
     with app.app_context():
         config.check_config_file(os.environ.copy())
         db.upgrade()
+    return 0
 
 
-def run(args: argparse.Namespace) -> None:
+def run(args: argparse.Namespace) -> int:
     with app.app_context():
         config.check_config_file(os.environ.copy())
         app.run("0.0.0.0" if args.public else "127.0.0.1", args.port)
+    return 0
 
 
-def run_demo(args: argparse.Namespace) -> None:
+def run_demo(args: argparse.Namespace) -> int:
+    if isinstance(args.database, Path) and args.database.exists():
+        print(f'Database "{args.database}" already exists, exiting.', file=sys.stderr)
+        return 2
+
     with NamedTemporaryFile() as f:
-        demo.run(f"sqlite:///{f.name}", "0.0.0.0" if args.public else "127.0.0.1", args.port)
+        demo.run(
+            f"sqlite:///{args.database or f.name}",
+            "0.0.0.0" if args.public else "127.0.0.1",
+            args.port,
+        )
+    return 0

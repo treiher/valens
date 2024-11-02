@@ -2,8 +2,16 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::iter::zip;
 
 use chrono::{prelude::*, Duration};
+use gloo_console::error;
+use gloo_net::http::Request;
 use gloo_storage::Storage;
-use seed::{prelude::*, *};
+use seed::{
+    app::{subs, Orders},
+    button, div, nodes, p,
+    prelude::{ev, El, Ev, Node},
+    virtual_dom::{ToClasses, UpdateEl},
+    Url, C, IF,
+};
 use serde_json::{json, Map};
 
 use crate::{
@@ -975,10 +983,10 @@ fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(Na
         .map(|(date, values)| {
             (
                 date,
-                if not(values.is_empty()) {
-                    values.iter().sum::<f32>() / values.len() as f32
-                } else {
+                if values.is_empty() {
                     0.0
+                } else {
+                    values.iter().sum::<f32>() / values.len() as f32
                 },
             )
         })
@@ -1232,8 +1240,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::RequestSession(user_id) => {
             orders.skip().perform_cmd(async move {
                 fetch(
-                    Request::new("api/session")
-                        .method(Method::Post)
+                    Request::post("api/session")
                         .json(&json!({ "id": user_id }))
                         .expect("serialization failed"),
                     Msg::SessionReceived,
@@ -1254,7 +1261,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to request session: ".to_owned() + &message);
         }
         Msg::InitializeSession => {
-            orders.perform_cmd(async { fetch("api/session", Msg::SessionInitialized).await });
+            orders.perform_cmd(async {
+                fetch(
+                    Request::get("api/session").build().unwrap(),
+                    Msg::SessionInitialized,
+                )
+                .await
+            });
         }
         Msg::SessionInitialized(Ok(session)) => {
             model.session = Some(session);
@@ -1272,7 +1285,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .send_msg(Msg::ClearSessionDependentData)
                 .perform_cmd(async {
                     fetch_no_content(
-                        Request::new("api/session").method(Method::Delete),
+                        Request::delete("api/session").build().unwrap(),
                         Msg::SessionDeleted,
                         (),
                     )
@@ -1290,7 +1303,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadVersion => {
-            orders.perform_cmd(async { fetch("api/version", Msg::VersionRead).await });
+            orders.perform_cmd(async {
+                fetch(
+                    Request::get("api/version").build().unwrap(),
+                    Msg::VersionRead,
+                )
+                .await
+            });
         }
         Msg::VersionRead(Ok(version)) => {
             model.version = version;
@@ -1311,7 +1330,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadUsers => {
             model.loading_users = true;
-            orders.perform_cmd(async { fetch("api/users", Msg::UsersRead).await });
+            orders.perform_cmd(async {
+                fetch(Request::get("api/users").build().unwrap(), Msg::UsersRead).await
+            });
         }
         Msg::UsersRead(Ok(users)) => {
             let users = users.into_iter().map(|e| (e.id, e)).collect();
@@ -1330,8 +1351,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::CreateUser(user) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new("api/users")
-                        .method(Method::Post)
+                    Request::post("api/users")
                         .json(&user)
                         .expect("serialization failed"),
                     Msg::UserCreated,
@@ -1352,8 +1372,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ReplaceUser(user) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/users/{}", user.id))
-                        .method(Method::Put)
+                    Request::put(&format!("api/users/{}", user.id))
                         .json(&NewUser {
                             name: user.name,
                             sex: user.sex,
@@ -1377,7 +1396,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteUser(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/users/{id}")).method(Method::Delete),
+                    Request::delete(&format!("api/users/{id}")).build().unwrap(),
                     Msg::UserDeleted,
                     id,
                 )
@@ -1398,7 +1417,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ReadBodyWeight => {
             model.loading_body_weight = true;
             orders.skip().perform_cmd(async {
-                fetch("api/body_weight?format=statistics", Msg::BodyWeightRead).await
+                fetch(
+                    Request::get("api/body_weight?format=statistics")
+                        .build()
+                        .unwrap(),
+                    Msg::BodyWeightRead,
+                )
+                .await
             });
         }
         Msg::BodyWeightRead(Ok(body_weight)) => {
@@ -1419,8 +1444,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::CreateBodyWeight(body_weight) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new("api/body_weight")
-                        .method(Method::Post)
+                    Request::post("api/body_weight")
                         .json(&body_weight)
                         .expect("serialization failed"),
                     Msg::BodyWeightCreated,
@@ -1442,8 +1466,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ReplaceBodyWeight(body_weight) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/body_weight/{}", body_weight.date))
-                        .method(Method::Put)
+                    Request::put(&format!("api/body_weight/{}", body_weight.date))
                         .json(&json!({ "weight": body_weight.weight }))
                         .expect("serialization failed"),
                     Msg::BodyWeightReplaced,
@@ -1465,7 +1488,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteBodyWeight(date) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/body_weight/{date}")).method(Method::Delete),
+                    Request::delete(&format!("api/body_weight/{date}"))
+                        .build()
+                        .unwrap(),
                     Msg::BodyWeightDeleted,
                     date,
                 )
@@ -1487,7 +1512,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ReadBodyFat => {
             model.loading_body_fat = true;
             orders.skip().perform_cmd(async {
-                fetch("api/body_fat?format=statistics", Msg::BodyFatRead).await
+                fetch(
+                    Request::get("api/body_fat?format=statistics")
+                        .build()
+                        .unwrap(),
+                    Msg::BodyFatRead,
+                )
+                .await
             });
         }
         Msg::BodyFatRead(Ok(body_fat)) => {
@@ -1507,8 +1538,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::CreateBodyFat(body_fat) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new("api/body_fat")
-                        .method(Method::Post)
+                    Request::post("api/body_fat")
                         .json(&body_fat)
                         .expect("serialization failed"),
                     Msg::BodyFatCreated,
@@ -1529,8 +1559,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ReplaceBodyFat(body_fat) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/body_fat/{}", body_fat.date))
-                        .method(Method::Put)
+                    Request::put(&format!("api/body_fat/{}", body_fat.date))
                         .json(&json!({
                             "chest": body_fat.chest,
                             "abdominal": body_fat.abdominal,
@@ -1559,7 +1588,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteBodyFat(date) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/body_fat/{date}")).method(Method::Delete),
+                    Request::delete(&format!("api/body_fat/{date}"))
+                        .build()
+                        .unwrap(),
                     Msg::BodyFatDeleted,
                     date,
                 )
@@ -1579,9 +1610,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadPeriod => {
             model.loading_period = true;
-            orders
-                .skip()
-                .perform_cmd(async { fetch("api/period", Msg::PeriodRead).await });
+            orders.skip().perform_cmd(async {
+                fetch(Request::get("api/period").build().unwrap(), Msg::PeriodRead).await
+            });
         }
         Msg::PeriodRead(Ok(period)) => {
             let period = period.into_iter().map(|e| (e.date, e)).collect();
@@ -1602,8 +1633,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::CreatePeriod(period) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new("api/period")
-                        .method(Method::Post)
+                    Request::post("api/period")
                         .json(&period)
                         .expect("serialization failed"),
                     Msg::PeriodCreated,
@@ -1626,8 +1656,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ReplacePeriod(period) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/period/{}", period.date))
-                        .method(Method::Put)
+                    Request::put(&format!("api/period/{}", period.date))
                         .json(&json!({ "intensity": period.intensity }))
                         .expect("serialization failed"),
                     Msg::PeriodReplaced,
@@ -1650,7 +1679,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeletePeriod(date) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/period/{date}")).method(Method::Delete),
+                    Request::delete(&format!("api/period/{date}"))
+                        .build()
+                        .unwrap(),
                     Msg::PeriodDeleted,
                     date,
                 )
@@ -1672,9 +1703,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadExercises => {
             model.loading_exercises = true;
-            orders
-                .skip()
-                .perform_cmd(async { fetch("api/exercises", Msg::ExercisesRead).await });
+            orders.skip().perform_cmd(async {
+                fetch(
+                    Request::get("api/exercises").build().unwrap(),
+                    Msg::ExercisesRead,
+                )
+                .await
+            });
         }
         Msg::ExercisesRead(Ok(exercises)) => {
             let exercises = exercises.into_iter().map(|e| (e.id, e)).collect();
@@ -1693,8 +1728,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::CreateExercise(exercise_name, muscles) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new("api/exercises")
-                        .method(Method::Post)
+                    Request::post("api/exercises")
                         .json(&json!({ "name": exercise_name, "muscles": muscles }))
                         .expect("serialization failed"),
                     Msg::ExerciseCreated,
@@ -1715,8 +1749,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ReplaceExercise(exercise) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/exercises/{}", exercise.id))
-                        .method(Method::Put)
+                    Request::put(&format!("api/exercises/{}", exercise.id))
                         .json(&exercise)
                         .expect("serialization failed"),
                     Msg::ExerciseReplaced,
@@ -1741,7 +1774,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteExercise(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/exercises/{id}")).method(Method::Delete),
+                    Request::delete(&format!("api/exercises/{id}"))
+                        .build()
+                        .unwrap(),
                     Msg::ExerciseDeleted,
                     id,
                 )
@@ -1761,9 +1796,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadRoutines => {
             model.loading_routines = true;
-            orders
-                .skip()
-                .perform_cmd(async { fetch("api/routines", Msg::RoutinesRead).await });
+            orders.skip().perform_cmd(async {
+                fetch(
+                    Request::get("api/routines").build().unwrap(),
+                    Msg::RoutinesRead,
+                )
+                .await
+            });
         }
         Msg::RoutinesRead(Ok(routines)) => {
             let routines = routines.into_iter().map(|r| (r.id, r)).collect();
@@ -1787,8 +1826,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             };
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new("api/routines")
-                        .method(Method::Post)
+                    Request::post("api/routines")
                         .json(&json!({
                             "name": routine_name,
                             "notes": "",
@@ -1824,8 +1862,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/routines/{id}"))
-                        .method(Method::Patch)
+                    Request::patch(&format!("api/routines/{id}"))
                         .json(&content)
                         .expect("serialization failed"),
                     Msg::RoutineModified,
@@ -1846,7 +1883,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteRoutine(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/routines/{id}")).method(Method::Delete),
+                    Request::delete(&format!("api/routines/{id}"))
+                        .build()
+                        .unwrap(),
                     Msg::RoutineDeleted,
                     id,
                 )
@@ -1866,9 +1905,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadTrainingSessions => {
             model.loading_training_sessions = true;
-            orders
-                .skip()
-                .perform_cmd(async { fetch("api/workouts", Msg::TrainingSessionsRead).await });
+            orders.skip().perform_cmd(async {
+                fetch(
+                    Request::get("api/workouts").build().unwrap(),
+                    Msg::TrainingSessionsRead,
+                )
+                .await
+            });
         }
         Msg::TrainingSessionsRead(Ok(training_sessions)) => {
             let training_sessions = training_sessions.into_iter().map(|t| (t.id, t)).collect();
@@ -1891,8 +1934,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::CreateTrainingSession(routine_id, date, notes, elements) => {
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new("api/workouts")
-                        .method(Method::Post)
+                    Request::post("api/workouts")
                         .json(&json!({
                             "routine_id": routine_id,
                             "date": date,
@@ -1931,8 +1973,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
             orders.perform_cmd(async move {
                 fetch(
-                    Request::new(format!("api/workouts/{id}"))
-                        .method(Method::Patch)
+                    Request::patch(&format!("api/workouts/{id}"))
                         .json(&content)
                         .expect("serialization failed"),
                     Msg::TrainingSessionModified,
@@ -1959,7 +2000,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::DeleteTrainingSession(id) => {
             orders.perform_cmd(async move {
                 fetch_no_content(
-                    Request::new(format!("api/workouts/{id}")).method(Method::Delete),
+                    Request::delete(&format!("api/workouts/{id}"))
+                        .build()
+                        .unwrap(),
                     Msg::TrainingSessionDeleted,
                     id,
                 )
@@ -2038,35 +2081,46 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     }
 }
 
-async fn fetch<'a, Ms, T>(
-    request: impl Into<Request<'a>>,
-    message: fn(Result<T, String>) -> Ms,
-) -> Ms
+async fn fetch<'a, Ms, T>(request: Request, message: fn(Result<T, String>) -> Ms) -> Ms
 where
     T: 'static + for<'de> serde::Deserialize<'de>,
 {
-    match seed::browser::fetch::fetch(request).await {
-        Ok(response) => match response.check_status() {
-            Ok(response) => match response.json::<T>().await {
-                Ok(data) => message(Ok(data)),
-                Err(error) => message(Err(format!("deserialization failed: {error:?}"))),
-            },
-            Err(error) => message(Err(format!("unexpected response: {error:?}"))),
-        },
+    match request.send().await {
+        Ok(response) => {
+            if response.ok() {
+                match response.json::<T>().await {
+                    Ok(data) => message(Ok(data)),
+                    Err(error) => message(Err(format!("deserialization failed: {error:?}"))),
+                }
+            } else {
+                message(Err(format!(
+                    "{} {}",
+                    response.status(),
+                    response.status_text()
+                )))
+            }
+        }
         Err(_) => message(Err("no connection".into())),
     }
 }
 
 async fn fetch_no_content<'a, Ms, T>(
-    request: impl Into<Request<'a>>,
+    request: Request,
     message: fn(Result<T, String>) -> Ms,
     id: T,
 ) -> Ms {
-    match seed::browser::fetch::fetch(request).await {
-        Ok(response) => match response.check_status() {
-            Ok(_) => message(Ok(id)),
-            Err(error) => message(Err(format!("unexpected response: {error:?}"))),
-        },
+    match request.send().await {
+        Ok(response) => {
+            if response.ok() {
+                message(Ok(id))
+            } else {
+                message(Err(format!(
+                    "unexpected response: {} {}",
+                    response.status(),
+                    response.status_text()
+                )))
+            }
+        }
         Err(_) => message(Err("no connection".into())),
     }
 }

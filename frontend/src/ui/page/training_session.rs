@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{prelude::*, Duration};
+use gloo_console::error;
 use seed::{prelude::*, *};
 
 use crate::{

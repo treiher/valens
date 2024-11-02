@@ -6,6 +6,8 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4.20", default-features = false, features = ["serde", "wasmbind"] }
+gloo-console = "0.3.0"
+gloo-net = { version = "0.6.0", default-features = false, features = ["http", "json"] }
 gloo-storage = "0.3.0"
 plotters = { version = "0.3.2", default-features = false, features = ["svg_backend", "datetime", "line_series", "histogram", "point_series"] }
 seed = "0.8"

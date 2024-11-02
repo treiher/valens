@@ -1,6 +1,9 @@
 use seed::{prelude::*, *};
 
-use crate::{common, data, domain};
+use crate::{
+    domain,
+    ui::{common, data},
+};
 
 // ------ ------
 //     Model

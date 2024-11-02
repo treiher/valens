@@ -1,13 +1,12 @@
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::data;
+use crate::ui::{self, common, data};
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
+pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut ui::Navbar) -> Model {
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddRoutineDialog);
     }
@@ -102,7 +101,7 @@ pub fn update(
         }
         Msg::CloseRoutineDialog => {
             model.dialog = Dialog::Hidden;
-            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).routines());
+            Url::go_and_replace(&ui::Urls::new(&data_model.base_url).routines());
         }
 
         Msg::SearchTermChanged(search_term) => {
@@ -399,7 +398,7 @@ fn view_table_row(id: u32, name: &str, archived: bool, base_url: &Url) -> Node<M
         a![
             attrs! {
                 At::Href => {
-                    crate::Urls::new(base_url)
+                    ui::Urls::new(base_url)
                         .routine()
                         .add_hash_path_part(id.to_string())
                 }

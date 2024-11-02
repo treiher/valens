@@ -1,21 +1,18 @@
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::data;
+use crate::ui::{self, common, data};
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
+pub fn init(url: Url, orders: &mut impl Orders<Msg>, navbar: &mut ui::Navbar) -> Model {
     orders.notify(data::Msg::ReadUsers);
 
     navbar.title = String::from("Valens");
     navbar.items = vec![(
         ev(Ev::Click, move |_| {
-            crate::Urls::new(url.to_hash_base_url())
-                .admin()
-                .go_and_load();
+            ui::Urls::new(url.to_hash_base_url()).admin().go_and_load();
         }),
         String::from("gears"),
     )];

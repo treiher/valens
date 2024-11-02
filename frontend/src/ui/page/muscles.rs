@@ -1,15 +1,16 @@
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::data;
-use crate::domain;
+use crate::{
+    domain,
+    ui::{self, common, data},
+};
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(data_model: &data::Model, navbar: &mut crate::Navbar) -> Model {
+pub fn init(data_model: &data::Model, navbar: &mut ui::Navbar) -> Model {
     navbar.title = String::from("Muscles");
 
     Model {

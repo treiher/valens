@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::{common, data};
+use crate::ui::{self, common, data};
 
 // ------ ------
 //     Init
@@ -12,7 +12,7 @@ pub fn init(
     _url: Url,
     _orders: &mut impl Orders<Msg>,
     data_model: &data::Model,
-    navbar: &mut crate::Navbar,
+    navbar: &mut ui::Navbar,
 ) -> Model {
     navbar
         .title
@@ -136,19 +136,19 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
             "Training",
             &training_subtitle,
             &training_content,
-            crate::Urls::new(&data_model.base_url).training()
+            ui::Urls::new(&data_model.base_url).training()
         ),
         view_tile(
             "Body weight",
             &body_weight_subtitle,
             &body_weight_content,
-            crate::Urls::new(&data_model.base_url).body_weight()
+            ui::Urls::new(&data_model.base_url).body_weight()
         ),
         view_tile(
             "Body fat",
             &body_fat_subtitle,
             &body_fat_content,
-            crate::Urls::new(&data_model.base_url).body_fat()
+            ui::Urls::new(&data_model.base_url).body_fat()
         ),
         IF![
             data_model.session.as_ref().unwrap().sex == 0 => {
@@ -156,7 +156,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
                     "Menstrual cycle",
                     &menstrual_cycle_subtitle,
                     &menstrual_cycle_content,
-                    crate::Urls::new(&data_model.base_url).menstrual_cycle())
+                    ui::Urls::new(&data_model.base_url).menstrual_cycle())
             }
         ],
     ]

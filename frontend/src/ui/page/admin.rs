@@ -1,13 +1,12 @@
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::data;
+use crate::ui::{self, common, data};
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(_: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
+pub fn init(_: Url, orders: &mut impl Orders<Msg>, navbar: &mut ui::Navbar) -> Model {
     orders
         .subscribe(Msg::DataEvent)
         .notify(data::Msg::ReadVersion)

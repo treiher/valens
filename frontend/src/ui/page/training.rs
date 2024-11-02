@@ -3,8 +3,7 @@ use std::collections::BTreeMap;
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::data;
+use crate::ui::{self, common, data};
 
 // ------ ------
 //     Init
@@ -14,7 +13,7 @@ pub fn init(
     mut url: Url,
     orders: &mut impl Orders<Msg>,
     data_model: &data::Model,
-    navbar: &mut crate::Navbar,
+    navbar: &mut ui::Navbar,
 ) -> Model {
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddTrainingSessionDialog);
@@ -97,7 +96,7 @@ pub fn update(
         }
         Msg::CloseTrainingSessionDialog => {
             model.dialog = Dialog::Hidden;
-            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).training());
+            Url::go_and_replace(&ui::Urls::new(&data_model.base_url).training());
         }
 
         Msg::DateChanged(date) => match model.dialog {
@@ -190,7 +189,7 @@ pub fn update(
                         data_model.training_sessions.last_key_value()
                     {
                         orders.request_url(
-                            crate::Urls::new(&data_model.base_url)
+                            ui::Urls::new(&data_model.base_url)
                                 .training_session()
                                 .add_hash_path_part(training_session_id.to_string())
                                 .add_hash_path_part("edit"),
@@ -283,7 +282,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["has-text-link"],
                             C!["p-3"],
                             attrs! {
-                                At::Href => crate::Urls::new(&data_model.base_url).routines(),
+                                At::Href => ui::Urls::new(&data_model.base_url).routines(),
                             },
                             "Routines",
                         ]
@@ -297,7 +296,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["has-text-link"],
                             C!["p-3"],
                             attrs! {
-                                At::Href => crate::Urls::new(&data_model.base_url).exercises(),
+                                At::Href => ui::Urls::new(&data_model.base_url).exercises(),
                             },
                             "Exercises",
                         ]
@@ -311,7 +310,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["has-text-link"],
                             C!["p-3"],
                             attrs! {
-                                At::Href => crate::Urls::new(&data_model.base_url).muscles(),
+                                At::Href => ui::Urls::new(&data_model.base_url).muscles(),
                             },
                             "Muscles",
                         ]
@@ -626,7 +625,7 @@ pub fn view_table<Ms: 'static>(
                     tr![
                         td![a![
                             attrs! {
-                                At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
+                                At::Href => ui::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
                             },
                             span![style! {St::WhiteSpace => "nowrap" }, t.date.to_string()]
                         ]],
@@ -634,7 +633,7 @@ pub fn view_table<Ms: 'static>(
                             if let Some(routine_id) = t.routine_id {
                                 a![
                                     attrs! {
-                                        At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.unwrap().to_string()),
+                                        At::Href => ui::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.unwrap().to_string()),
                                     },
                                     match &routines.get(&routine_id) {
                                         Some(routine) => raw![&routine.name],

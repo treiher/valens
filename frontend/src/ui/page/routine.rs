@@ -3,11 +3,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::component;
-use crate::data;
-use crate::domain;
-use crate::page::training;
+use crate::{
+    domain,
+    ui::{self, common, component, data, page::training},
+};
 
 // ------ ------
 //     Init
@@ -17,7 +16,7 @@ pub fn init(
     mut url: Url,
     orders: &mut impl Orders<Msg>,
     data_model: &data::Model,
-    navbar: &mut crate::Navbar,
+    navbar: &mut ui::Navbar,
 ) -> Model {
     let routine_id = url
         .next_hash_path_part()
@@ -305,7 +304,7 @@ pub fn update(
         Msg::EditRoutine => {
             model.editing = true;
             Url::go_and_push(
-                &crate::Urls::new(&data_model.base_url)
+                &ui::Urls::new(&data_model.base_url)
                     .routine()
                     .add_hash_path_part(model.routine_id.to_string())
                     .add_hash_path_part("edit"),
@@ -334,7 +333,7 @@ pub fn update(
             model.dialog = Dialog::Hidden;
             model.loading = false;
             Url::go_and_replace(
-                &crate::Urls::new(&data_model.base_url)
+                &ui::Urls::new(&data_model.base_url)
                     .routine()
                     .add_hash_path_part(model.routine_id.to_string()),
             );
@@ -650,7 +649,7 @@ pub fn update(
                     model.editing = false;
                     model.mark_as_unchanged();
                     Url::go_and_push(
-                        &crate::Urls::new(&data_model.base_url)
+                        &ui::Urls::new(&data_model.base_url)
                             .routine()
                             .add_hash_path_part(model.routine_id.to_string()),
                     );
@@ -993,7 +992,7 @@ fn view_routine_part(
                                 a![
                                     attrs! {
                                         At::Href => {
-                                            crate::Urls::new(&data_model.base_url)
+                                            ui::Urls::new(&data_model.base_url)
                                                 .exercise()
                                                 .add_hash_path_part(exercise_id.to_string())
                                         }
@@ -1242,7 +1241,7 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
                         C!["m-2"],
                         a![
                             attrs! {
-                                At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(exercise_id.to_string()),
+                                At::Href => ui::Urls::new(&data_model.base_url).exercise().add_hash_path_part(exercise_id.to_string()),
                             },
                             &data_model.exercises.get(exercise_id).unwrap().name
                         ]

@@ -2,15 +2,13 @@ use std::collections::BTreeMap;
 
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::component;
-use crate::data;
+use crate::ui::{self, common, component, data};
 
 // ------ ------
 //     Init
 // ------ ------
 
-pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Navbar) -> Model {
+pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut ui::Navbar) -> Model {
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddExerciseDialog);
     }
@@ -97,7 +95,7 @@ pub fn update(
         }
         Msg::CloseExerciseDialog => {
             model.dialog = Dialog::Hidden;
-            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).exercises());
+            Url::go_and_replace(&ui::Urls::new(&data_model.base_url).exercises());
         }
 
         Msg::ExerciseList(msg) => {
@@ -150,7 +148,7 @@ pub fn update(
         },
 
         Msg::GoToExercise(id) => {
-            let url = crate::Urls::new(&data_model.base_url)
+            let url = ui::Urls::new(&data_model.base_url)
                 .exercise()
                 .add_hash_path_part(id.to_string());
             url.go_and_push();

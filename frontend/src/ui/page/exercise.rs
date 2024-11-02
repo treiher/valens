@@ -3,10 +3,10 @@ use std::collections::BTreeMap;
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::data;
-use crate::domain;
-use crate::page::training;
+use crate::{
+    domain,
+    ui::{self, common, data, page::training},
+};
 
 // ------ ------
 //     Init
@@ -16,7 +16,7 @@ pub fn init(
     mut url: Url,
     orders: &mut impl Orders<Msg>,
     data_model: &data::Model,
-    navbar: &mut crate::Navbar,
+    navbar: &mut ui::Navbar,
 ) -> Model {
     let exercise_id = url
         .next_hash_path_part()
@@ -108,7 +108,7 @@ pub fn update(
         Msg::EditExercise => {
             model.editing = true;
             Url::go_and_push(
-                &crate::Urls::new(&data_model.base_url)
+                &ui::Urls::new(&data_model.base_url)
                     .exercise()
                     .add_hash_path_part(model.exercise_id.to_string())
                     .add_hash_path_part("edit"),
@@ -137,7 +137,7 @@ pub fn update(
             model.dialog = Dialog::Hidden;
             model.loading = false;
             Url::go_and_replace(
-                &crate::Urls::new(&data_model.base_url)
+                &ui::Urls::new(&data_model.base_url)
                     .routine()
                     .add_hash_path_part(model.exercise_id.to_string()),
             );
@@ -189,7 +189,7 @@ pub fn update(
                     model.editing = false;
                     model.mark_as_unchanged();
                     Url::go_and_push(
-                        &crate::Urls::new(&data_model.base_url)
+                        &ui::Urls::new(&data_model.base_url)
                             .exercise()
                             .add_hash_path_part(model.exercise_id.to_string()),
                     );
@@ -699,7 +699,7 @@ fn view_sets(
                         C!["mb-2"],
                         a![
                             attrs! {
-                                At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
+                                At::Href => ui::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
                             },
                             span![style! {St::WhiteSpace => "nowrap" }, t.date.to_string()]
                         ],
@@ -707,7 +707,7 @@ fn view_sets(
                         if let Some(routine_id) = t.routine_id {
                             a![
                                 attrs! {
-                                    At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.unwrap().to_string()),
+                                    At::Href => ui::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.unwrap().to_string()),
                                 },
                                 match &routines.get(&routine_id) {
                                     Some(routine) => raw![&routine.name],

@@ -4,9 +4,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
 
-use crate::data;
-use crate::domain;
-use crate::{common, component};
+use crate::{
+    domain,
+    ui::{self, common, component, data},
+};
 
 // ------ ------
 //     Init
@@ -16,7 +17,7 @@ pub fn init(
     mut url: Url,
     orders: &mut impl Orders<Msg>,
     data_model: &data::Model,
-    navbar: &mut crate::Navbar,
+    navbar: &mut ui::Navbar,
 ) -> Model {
     let training_session_id = url
         .next_hash_path_part()
@@ -35,9 +36,7 @@ pub fn init(
 
     navbar.title = String::from("Training session");
     navbar.items = vec![(
-        ev(Ev::Click, |_| {
-            crate::Msg::TrainingSession(Msg::ShowSMTDialog)
-        }),
+        ev(Ev::Click, |_| ui::Msg::TrainingSession(Msg::ShowSMTDialog)),
         String::from("stopwatch"),
     )];
 
@@ -963,7 +962,7 @@ pub fn update(
                 data_model.settings.show_tut,
             );
             Url::go_and_push(
-                &crate::Urls::new(&data_model.base_url)
+                &ui::Urls::new(&data_model.base_url)
                     .training_session()
                     .add_hash_path_part(model.training_session_id.to_string())
                     .add_hash_path_part("guide"),
@@ -991,7 +990,7 @@ pub fn update(
             );
             orders.force_render_now().send_msg(Msg::ScrollToSection);
             Url::go_and_push(
-                &crate::Urls::new(&data_model.base_url)
+                &ui::Urls::new(&data_model.base_url)
                     .training_session()
                     .add_hash_path_part(model.training_session_id.to_string())
                     .add_hash_path_part("guide"),
@@ -1118,7 +1117,7 @@ pub fn update(
         Msg::EditTrainingSession => {
             model.editing = true;
             Url::go_and_push(
-                &crate::Urls::new(&data_model.base_url)
+                &ui::Urls::new(&data_model.base_url)
                     .training_session()
                     .add_hash_path_part(model.training_session_id.to_string())
                     .add_hash_path_part("edit"),
@@ -2021,7 +2020,7 @@ fn view_title(training_session: &data::TrainingSession, data_model: &data::Model
             common::view_title(
                 &a![
                     attrs! {
-                        At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
+                        At::Href => ui::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
                     },
                     &routine.name
                 ],
@@ -2055,7 +2054,7 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                                     C!["has-text-weight-bold"],
                                     a![
                                         attrs! {
-                                            At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
+                                            At::Href => ui::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
                                         },
                                         span![style! {St::WhiteSpace => "nowrap" }, &e.exercise_name]
                                     ]
@@ -2319,7 +2318,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                                 a![
                                                     attrs! {
                                                         At::Href => {
-                                                            crate::Urls::new(&data_model.base_url)
+                                                            ui::Urls::new(&data_model.base_url)
                                                                 .exercise()
                                                                 .add_hash_path_part(s.exercise_id.to_string())
                                                         },
@@ -2900,7 +2899,7 @@ fn show_guide_timer(exercise: &ExerciseForm) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::InputField;
+    use common::InputField;
     use pretty_assertions::assert_eq;
 
     #[test]

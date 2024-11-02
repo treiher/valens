@@ -6,7 +6,10 @@ use gloo_storage::Storage;
 use seed::{prelude::*, *};
 use serde_json::{json, Map};
 
-use crate::{common, domain};
+use crate::{
+    domain,
+    ui::{self, common},
+};
 
 const STORAGE_KEY_SETTINGS: &str = "settings";
 const STORAGE_KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
@@ -1240,9 +1243,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SessionReceived(Ok(new_session)) => {
             model.session = Some(new_session);
-            orders.send_msg(Msg::Refresh).request_url(
-                crate::Urls::new(model.base_url.clone().set_hash_path([""; 0])).home(),
-            );
+            orders
+                .send_msg(Msg::Refresh)
+                .request_url(ui::Urls::new(model.base_url.clone().set_hash_path([""; 0])).home());
         }
         Msg::SessionReceived(Err(message)) => {
             model.session = None;
@@ -1278,7 +1281,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SessionDeleted(Ok(())) => {
             model.session = None;
-            orders.request_url(crate::Urls::new(&model.base_url).login());
+            orders.request_url(ui::Urls::new(&model.base_url).login());
         }
         Msg::SessionDeleted(Err(message)) => {
             model

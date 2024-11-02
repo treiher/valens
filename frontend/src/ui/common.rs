@@ -4,7 +4,7 @@ use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::{data, domain};
+use crate::{domain, ui::data};
 
 pub const ENTER_KEY: u32 = 13;
 

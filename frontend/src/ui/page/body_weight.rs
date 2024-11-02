@@ -5,8 +5,7 @@ use chrono::prelude::*;
 use chrono::Duration;
 use seed::{prelude::*, *};
 
-use crate::common;
-use crate::data;
+use crate::ui::{self, common, data};
 
 // ------ ------
 //     Init
@@ -16,7 +15,7 @@ pub fn init(
     mut url: Url,
     orders: &mut impl Orders<Msg>,
     data_model: &data::Model,
-    navbar: &mut crate::Navbar,
+    navbar: &mut ui::Navbar,
 ) -> Model {
     if url.next_hash_path_part() == Some("add") {
         orders.send_msg(Msg::ShowAddBodyWeightDialog);
@@ -116,7 +115,7 @@ pub fn update(
         }
         Msg::CloseBodyWeightDialog => {
             model.dialog = Dialog::Hidden;
-            Url::go_and_replace(&crate::Urls::new(&data_model.base_url).body_weight());
+            Url::go_and_replace(&ui::Urls::new(&data_model.base_url).body_weight());
         }
 
         Msg::DateChanged(date) => match model.dialog {

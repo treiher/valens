@@ -96,7 +96,7 @@ pub enum Msg {
     DateChanged(String),
     ChestChanged(String),
     AbdominalChanged(String),
-    TighChanged(String),
+    ThighChanged(String),
     TricepChanged(String),
     SubscapularChanged(String),
     SuprailiacChanged(String),
@@ -270,7 +270,7 @@ pub fn update(
                 panic!();
             }
         },
-        Msg::TighChanged(thigh) => match model.dialog {
+        Msg::ThighChanged(thigh) => match model.dialog {
             Dialog::AddBodyFat(ref mut form) | Dialog::EditBodyFat(ref mut form) => {
                 match thigh.parse::<u8>() {
                     Ok(parsed_thigh) => {
@@ -551,7 +551,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                                 "Thigh",
                                 "Vertical fold midway between knee cap and top of thigh",
                                 &form.thigh,
-                                Msg::TighChanged,
+                                Msg::ThighChanged,
                                 save_disabled
                             ),
                         ]
@@ -575,7 +575,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                                 "Thigh",
                                 "Vertical fold midway between knee cap and top of thigh",
                                 &form.thigh,
-                                Msg::TighChanged,
+                                Msg::ThighChanged,
                                 save_disabled
                             ),
                         ]
@@ -834,7 +834,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     nodes![
                         th!["Tricep (mm)"],
                         th!["Suprailiac (mm)"],
-                        th!["Tigh (mm)"],
+                        th!["Thigh (mm)"],
                         th!["Chest (mm)"],
                         th!["Abdominal (mm)"],
                         th!["Subscapular (mm)"],
@@ -844,7 +844,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     nodes![
                         th!["Chest (mm)"],
                         th!["Abdominal (mm)"],
-                        th!["Tigh (mm)"],
+                        th!["Thigh (mm)"],
                         th!["Tricep (mm)"],
                         th!["Subscapular (mm)"],
                         th!["Suprailiac (mm)"],

@@ -513,7 +513,7 @@ pub fn view_charts<Ms>(
     )];
 
     if show_rpe {
-        labels.push(("+ Repetititions in reserve", common::COLOR_REPS_RIR));
+        labels.push(("+ Repetitions in reserve", common::COLOR_REPS_RIR));
         data.push((
             reps_rpe
                 .into_iter()

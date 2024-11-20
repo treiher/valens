@@ -1338,27 +1338,28 @@ pub fn view_charts<Ms>(
     nodes![
         common::view_chart(
             &[("Load", common::COLOR_LOAD)],
-            common::plot_line_chart(
-                &[(load.into_iter().collect::<Vec<_>>(), common::COLOR_LOAD)],
+            common::plot_chart(
+                &[common::PlotData {
+                    values: load.into_iter().collect::<Vec<_>>(),
+                    plots: common::plot_line_with_dots(common::COLOR_LOAD),
+                    params: common::PlotParams::primary_range(0., 10.),
+                }],
                 interval.first,
                 interval.last,
-                Some(0.),
-                Some(10.),
                 theme,
             ),
             false,
         ),
         common::view_chart(
             &[("Set volume", common::COLOR_SET_VOLUME)],
-            common::plot_line_chart(
-                &[(
-                    set_volume.into_iter().collect::<Vec<_>>(),
-                    common::COLOR_SET_VOLUME,
-                )],
+            common::plot_chart(
+                &[common::PlotData {
+                    values: set_volume.into_iter().collect::<Vec<_>>(),
+                    plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
+                    params: common::PlotParams::primary_range(0., 10.),
+                }],
                 interval.first,
                 interval.last,
-                Some(0.),
-                Some(10.),
                 theme,
             ),
             false,
@@ -1367,9 +1368,9 @@ pub fn view_charts<Ms>(
             show_rpe =>
             common::view_chart(
                 &[("RPE", common::COLOR_RPE)],
-                common::plot_line_chart(
-                    &[(
-                        rpe.into_iter()
+                common::plot_chart(
+                    &[common::PlotData{
+                        values: rpe.into_iter()
                             .map(|(date, values)| {
                                 #[allow(clippy::cast_precision_loss)]
                                 (
@@ -1382,12 +1383,11 @@ pub fn view_charts<Ms>(
                                 )
                             })
                             .collect::<Vec<_>>(),
-                        common::COLOR_RPE,
-                    )],
+                        plots: common::plot_line_with_dots(common::COLOR_RPE),
+                        params: common::PlotParams::primary_range(5., 10.)
+                    }],
                     interval.first,
                     interval.last,
-                    Some(5.),
-                    Some(10.),
                     theme,
                 ),
                 false,

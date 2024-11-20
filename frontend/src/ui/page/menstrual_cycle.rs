@@ -345,19 +345,17 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
 
     common::view_chart(
         vec![("Intensity", common::COLOR_PERIOD_INTENSITY)].as_slice(),
-        common::plot_bar_chart(
-            &[(
-                period
+        common::plot_chart(
+            &[common::PlotData {
+                values: period
                     .iter()
                     .map(|p| (p.date, f32::from(p.intensity)))
                     .collect::<Vec<_>>(),
-                common::COLOR_PERIOD_INTENSITY,
-            )],
-            &[],
+                plots: [common::PlotType::Histogram(common::COLOR_PERIOD_INTENSITY)].to_vec(),
+                params: common::PlotParams::primary_range(0., 4.),
+            }],
             model.interval.first,
             model.interval.last,
-            Some(0.),
-            Some(4.),
             data_model.theme(),
         ),
         true,

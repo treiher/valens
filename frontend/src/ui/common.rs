@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    borrow::BorrowMut,
+    collections::{BTreeMap, HashMap},
+};
 
 use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
@@ -24,6 +27,89 @@ pub const COLOR_REPS: usize = 3;
 pub const COLOR_REPS_RIR: usize = 4;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
+
+#[derive(Clone)]
+pub enum PlotType {
+    Circle(usize, u32),
+    Line(usize, u32),
+    Histogram(usize),
+}
+
+pub fn plot_line_with_dots(color: usize) -> Vec<PlotType> {
+    [PlotType::Line(color, 2), PlotType::Circle(color, 2)].to_vec()
+}
+
+#[derive(Default)]
+pub struct PlotParams {
+    pub y_min_opt: Option<f32>,
+    pub y_max_opt: Option<f32>,
+    pub secondary: bool,
+}
+
+impl PlotParams {
+    pub fn default() -> Self {
+        Self {
+            y_min_opt: None,
+            y_max_opt: None,
+            secondary: false,
+        }
+    }
+
+    pub fn primary_range(min: f32, max: f32) -> Self {
+        Self {
+            y_min_opt: Some(min),
+            y_max_opt: Some(max),
+            secondary: false,
+        }
+    }
+
+    pub const SECONDARY: Self = Self {
+        y_max_opt: None,
+        y_min_opt: None,
+        secondary: true,
+    };
+}
+
+pub struct PlotData {
+    pub values: Vec<(NaiveDate, f32)>,
+    pub plots: Vec<PlotType>,
+    pub params: PlotParams,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct Bounds {
+    min: f32,
+    max: f32,
+}
+
+impl Bounds {
+    fn min_with_margin(self) -> f32 {
+        assert!(0. <= self.min);
+        assert!(self.min <= self.max);
+
+        if self.min <= f32::EPSILON {
+            return self.min;
+        }
+        self.min - self.margin()
+    }
+
+    fn max_with_margin(self) -> f32 {
+        assert!(0. <= self.min);
+        assert!(self.min <= self.max);
+
+        self.max + self.margin()
+    }
+
+    fn margin(self) -> f32 {
+        assert!(0. <= self.min);
+        assert!(self.min <= self.max);
+
+        if (self.max - self.min).abs() > f32::EPSILON {
+            return (self.max - self.min) * 0.1;
+        }
+        0.1
+    }
+}
 
 pub struct Interval {
     pub first: NaiveDate,
@@ -647,25 +733,19 @@ pub fn view_chart<Ms>(
     }
 }
 
-pub fn plot_line_chart(
-    data: &[(Vec<(NaiveDate, f32)>, usize)],
+pub fn plot_chart(
+    data: &[PlotData],
     x_min: NaiveDate,
     x_max: NaiveDate,
-    y_min_opt: Option<f32>,
-    y_max_opt: Option<f32>,
     theme: &data::Theme,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if all_zeros(data) {
         return Ok(None);
     }
 
-    let (y_min, y_max, y_margin) = determine_y_bounds(
-        data.iter()
-            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
-            .collect::<Vec<_>>(),
-        y_min_opt,
-        y_max_opt,
-    );
+    let (Some(primary_bounds), secondary_bounds) = determine_y_bounds(data) else {
+        return Ok(None);
+    };
 
     let mut result = String::new();
 
@@ -681,196 +761,21 @@ pub fn plot_line_chart(
             .x_label_area_size(30f32)
             .y_label_area_size(40f32);
 
-        let mut chart = chart_builder.build_cartesian_2d(
-            x_min..x_max,
-            f32::max(0., y_min - y_margin)..y_max + y_margin,
-        )?;
-
-        chart
-            .configure_mesh()
-            .disable_x_mesh()
-            .set_all_tick_mark_size(3u32)
-            .axis_style(color.mix(0.3))
-            .bold_line_style(color.mix(0.05))
-            .light_line_style(color.mix(0.0))
-            .label_style(&color)
-            .x_labels(2)
-            .y_labels(6)
-            .draw()?;
-
-        for (series, color_idx) in data {
-            let mut series = series.iter().collect::<Vec<_>>();
-            series.sort_by_key(|e| e.0);
-            let color = Palette99::pick(*color_idx).mix(0.9);
-
-            chart.draw_series(LineSeries::new(
-                series.iter().map(|(x, y)| (*x, *y)),
-                color.stroke_width(2),
-            ))?;
-
-            chart.draw_series(
-                series
-                    .iter()
-                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
-            )?;
-        }
-
-        root.present()?;
-    }
-
-    Ok(Some(result))
-}
-
-pub fn plot_dual_line_chart(
-    data: &[(Vec<(NaiveDate, f32)>, usize)],
-    secondary_data: &[(Vec<(NaiveDate, f32)>, usize)],
-    x_min: NaiveDate,
-    x_max: NaiveDate,
-    theme: &data::Theme,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    if all_zeros(data) && all_zeros(secondary_data) {
-        return Ok(None);
-    }
-
-    let (y1_min, y1_max, y1_margin) = determine_y_bounds(
-        data.iter()
-            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
-            .collect::<Vec<_>>(),
-        None,
-        None,
-    );
-    let (y2_min, y2_max, y2_margin) = determine_y_bounds(
-        secondary_data
-            .iter()
-            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
-            .collect::<Vec<_>>(),
-        None,
-        None,
-    );
-
-    let mut result = String::new();
-
-    {
-        let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
-        let (color, background_color) = colors(theme);
-
-        root.fill(&background_color)?;
-
         let mut chart = ChartBuilder::on(&root)
             .margin(10f32)
             .x_label_area_size(30f32)
             .y_label_area_size(40f32)
-            .right_y_label_area_size(40f32)
-            .build_cartesian_2d(x_min..x_max, y1_min - y1_margin..y1_max + y1_margin)?
-            .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
-
-        chart
-            .configure_mesh()
-            .disable_x_mesh()
-            .set_all_tick_mark_size(3u32)
-            .axis_style(color.mix(0.3))
-            .bold_line_style(color.mix(0.05))
-            .light_line_style(color.mix(0.0))
-            .label_style(&color)
-            .x_labels(2)
-            .y_labels(6)
-            .draw()?;
-
-        chart
-            .configure_secondary_axes()
-            .set_all_tick_mark_size(3u32)
-            .axis_style(color.mix(0.3))
-            .label_style(&color)
-            .draw()?;
-
-        for (series, color_idx) in secondary_data {
-            let mut series = series.iter().collect::<Vec<_>>();
-            series.sort_by_key(|e| e.0);
-            let color = Palette99::pick(*color_idx).mix(0.9);
-
-            chart.draw_secondary_series(LineSeries::new(
-                series.iter().map(|(x, y)| (*x, *y)),
-                color.stroke_width(2),
-            ))?;
-
-            chart.draw_secondary_series(
-                series
-                    .iter()
-                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
-            )?;
-        }
-
-        for (series, color_idx) in data {
-            let mut series = series.iter().collect::<Vec<_>>();
-            series.sort_by_key(|e| e.0);
-            let color = Palette99::pick(*color_idx).mix(0.9);
-
-            chart.draw_series(LineSeries::new(
-                series.iter().map(|(x, y)| (*x, *y)),
-                color.stroke_width(2),
-            ))?;
-
-            chart.draw_series(
-                series
-                    .iter()
-                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
-            )?;
-        }
-
-        root.present()?;
-    }
-
-    Ok(Some(result))
-}
-
-pub fn plot_bar_chart(
-    data: &[(Vec<(NaiveDate, f32)>, usize)],
-    secondary_data: &[(Vec<(NaiveDate, f32)>, usize)],
-    x_min: NaiveDate,
-    x_max: NaiveDate,
-    y_min_opt: Option<f32>,
-    y_max_opt: Option<f32>,
-    theme: &data::Theme,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    if all_zeros(data) && all_zeros(secondary_data) {
-        return Ok(None);
-    }
-
-    let (y1_min, y1_max, _) = determine_y_bounds(
-        data.iter()
-            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
-            .collect::<Vec<_>>(),
-        y_min_opt,
-        y_max_opt,
-    );
-    let y1_margin = 0.;
-    let (y2_min, y2_max, y2_margin) = determine_y_bounds(
-        secondary_data
-            .iter()
-            .flat_map(|(s, _)| s.iter().map(|(_, y)| *y))
-            .collect::<Vec<_>>(),
-        None,
-        None,
-    );
-
-    let mut result = String::new();
-
-    {
-        let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
-        let (color, background_color) = colors(theme);
-
-        root.fill(&background_color)?;
-
-        let mut chart = ChartBuilder::on(&root)
-            .margin(10f32)
-            .x_label_area_size(30f32)
-            .y_label_area_size(40f32)
-            .right_y_label_area_size(30f32)
+            .right_y_label_area_size(secondary_bounds.map_or_else(|| 0f32, |_| 40f32))
             .build_cartesian_2d(
-                (x_min..x_max).into_segmented(),
-                y1_min - y1_margin..y1_max + y1_margin,
+                x_min..x_max,
+                primary_bounds.min_with_margin()..primary_bounds.max_with_margin(),
             )?
-            .set_secondary_coord(x_min..x_max, y2_min - y2_margin..y2_max + y2_margin);
+            .set_secondary_coord(
+                x_min..x_max,
+                secondary_bounds
+                    .as_ref()
+                    .map_or(0.0..0.0, |b| b.min_with_margin()..b.max_with_margin()),
+            );
 
         chart
             .configure_mesh()
@@ -884,40 +789,63 @@ pub fn plot_bar_chart(
             .y_labels(6)
             .draw()?;
 
-        chart
-            .configure_secondary_axes()
-            .set_all_tick_mark_size(3u32)
-            .axis_style(color.mix(0.3))
-            .label_style(&color)
-            .draw()?;
-
-        for (series, color_idx) in data {
-            let mut series = series.iter().collect::<Vec<_>>();
-            series.sort_by_key(|e| e.0);
-            let color = Palette99::pick(*color_idx).mix(0.9).filled();
-            let histogram = Histogram::vertical(&chart)
-                .style(color)
-                .margin(0) // https://github.com/plotters-rs/plotters/issues/300
-                .data(series.iter().map(|(x, y)| (*x, *y)));
-
-            chart.draw_series(histogram)?;
+        if secondary_bounds.is_some() {
+            chart
+                .configure_secondary_axes()
+                .set_all_tick_mark_size(3u32)
+                .axis_style(color.mix(0.3))
+                .label_style(&color)
+                .draw()?;
         }
 
-        for (series, color_idx) in secondary_data {
-            let mut series = series.iter().collect::<Vec<_>>();
+        for plot_data in data {
+            let mut series = plot_data.values.iter().collect::<Vec<_>>();
             series.sort_by_key(|e| e.0);
-            let color = Palette99::pick(*color_idx).mix(0.9);
 
-            chart.draw_secondary_series(LineSeries::new(
-                series.iter().map(|(x, y)| (*x, *y)),
-                color.stroke_width(2),
-            ))?;
+            for plot in &plot_data.plots {
+                match *plot {
+                    PlotType::Circle(color, size) => {
+                        let data = series
+                            .iter()
+                            .map(|(x, y)| {
+                                Circle::new(
+                                    (*x, *y),
+                                    size,
+                                    Palette99::pick(color).mix(0.9).filled(),
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        if plot_data.params.secondary {
+                            chart.draw_secondary_series(data)?
+                        } else {
+                            chart.draw_series(data)?
+                        }
+                    }
+                    PlotType::Line(color, size) => {
+                        let data = LineSeries::new(
+                            series.iter().map(|(x, y)| (*x, *y)),
+                            Palette99::pick(color).mix(0.9).stroke_width(size),
+                        );
+                        if plot_data.params.secondary {
+                            chart.draw_secondary_series(data)?
+                        } else {
+                            chart.draw_series(data)?
+                        }
+                    }
+                    PlotType::Histogram(color) => {
+                        let data = Histogram::vertical(&chart)
+                            .style(Palette99::pick(color).mix(0.9).filled())
+                            .margin(0) // https://github.com/plotters-rs/plotters/issues/300
+                            .data(series.iter().map(|(x, y)| (*x, *y)));
 
-            chart.draw_secondary_series(
-                series
-                    .iter()
-                    .map(|(x, y)| Circle::new((*x, *y), 2, color.filled())),
-            )?;
+                        if plot_data.params.secondary {
+                            chart.draw_secondary_series(data)?
+                        } else {
+                            chart.draw_series(data)?
+                        }
+                    }
+                };
+            }
         }
 
         root.present()?;
@@ -926,8 +854,11 @@ pub fn plot_bar_chart(
     Ok(Some(result))
 }
 
-fn all_zeros(data: &[(Vec<(NaiveDate, f32)>, usize)]) -> bool {
-    return data.iter().all(|p| p.0.iter().all(|s| s.1 == 0.0));
+fn all_zeros(data: &[PlotData]) -> bool {
+    data.iter()
+        .map(|v| v.values.iter().all(|(_, v)| *v == 0.0))
+        .reduce(|l, r| l && r)
+        .unwrap_or(true)
 }
 
 fn colors(theme: &data::Theme) -> (RGBColor, RGBColor) {
@@ -938,26 +869,36 @@ fn colors(theme: &data::Theme) -> (RGBColor, RGBColor) {
     }
 }
 
-fn determine_y_bounds(
-    y: Vec<f32>,
-    y_min_opt: Option<f32>,
-    y_max_opt: Option<f32>,
-) -> (f32, f32, f32) {
-    let y_min = f32::min(
-        y_min_opt.unwrap_or(f32::MAX),
-        y.clone().into_iter().reduce(f32::min).unwrap_or(0.),
-    );
-    let y_max = f32::max(
-        y_max_opt.unwrap_or(0.),
-        y.into_iter().reduce(f32::max).unwrap_or(0.),
-    );
-    let y_margin = if (y_max - y_min).abs() > f32::EPSILON || y_min == 0. {
-        (y_max - y_min) * 0.1
-    } else {
-        0.1
-    };
+fn determine_y_bounds(data: &[PlotData]) -> (Option<Bounds>, Option<Bounds>) {
+    let mut primary_bounds: Option<Bounds> = None;
+    let mut secondary_bounds: Option<Bounds> = None;
 
-    (y_min, y_max, y_margin)
+    for plot in data.iter().filter(|plot| !plot.values.is_empty()) {
+        let min = plot
+            .values
+            .iter()
+            .map(|(_, v)| *v)
+            .fold(plot.params.y_min_opt.unwrap_or(f32::MAX), f32::min);
+        let max = plot
+            .values
+            .iter()
+            .map(|(_, v)| *v)
+            .fold(plot.params.y_max_opt.unwrap_or(0.), f32::max);
+
+        assert!(min <= max, "min={min}, max={max}");
+
+        let b = if plot.params.secondary {
+            secondary_bounds.borrow_mut()
+        } else {
+            primary_bounds.borrow_mut()
+        }
+        .get_or_insert(Bounds { min, max });
+
+        b.min = f32::min(b.min, min);
+        b.max = f32::max(b.max, max);
+    }
+
+    (primary_bounds, secondary_bounds)
 }
 
 fn chart_width() -> u32 {

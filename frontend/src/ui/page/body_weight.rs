@@ -361,10 +361,10 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ("Avg. weight (kg)", common::COLOR_AVG_BODY_WEIGHT),
         ]
         .as_slice(),
-        common::plot_line_chart(
+        common::plot_chart(
             &[
-                (
-                    data_model
+                common::PlotData {
+                    values: data_model
                         .body_weight
                         .values()
                         .filter(|bw| {
@@ -372,10 +372,11 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         })
                         .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
-                    common::COLOR_BODY_WEIGHT,
-                ),
-                (
-                    data_model
+                    plots: common::plot_line_with_dots(common::COLOR_BODY_WEIGHT),
+                    params: common::PlotParams::default(),
+                },
+                common::PlotData {
+                    values: data_model
                         .body_weight_stats
                         .values()
                         .filter(|bws| {
@@ -383,13 +384,12 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         })
                         .filter_map(|bws| bws.avg_weight.map(|avg_weight| (bws.date, avg_weight)))
                         .collect::<Vec<_>>(),
-                    common::COLOR_AVG_BODY_WEIGHT,
-                ),
+                    plots: common::plot_line_with_dots(common::COLOR_AVG_BODY_WEIGHT),
+                    params: common::PlotParams::default(),
+                },
             ],
             model.interval.first,
             model.interval.last,
-            None,
-            None,
             data_model.theme(),
         ),
         true,

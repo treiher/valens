@@ -97,12 +97,14 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     ],
                     common::view_chart(
                         &[("Set volume (weekly total)", common::COLOR_SET_VOLUME)],
-                        common::plot_line_chart(
-                            &[(set_volume, common::COLOR_SET_VOLUME)],
+                        common::plot_chart(
+                            &[common::PlotData {
+                                values: set_volume,
+                                plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
+                                params: common::PlotParams::primary_range(0., 10.),
+                            }],
                             model.interval.first,
                             model.interval.last,
-                            Some(0.),
-                            Some(10.),
                             data_model.theme()
                         ),
                         true,

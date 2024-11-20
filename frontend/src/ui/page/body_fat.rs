@@ -742,30 +742,33 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ("Weight (kg)", common::COLOR_BODY_WEIGHT),
         ]
         .as_slice(),
-        common::plot_dual_line_chart(
+        common::plot_chart(
             &[
-                (
-                    body_fat
+                common::PlotData {
+                    values: body_weight
+                        .iter()
+                        .map(|bw| (bw.date, bw.weight))
+                        .collect::<Vec<_>>(),
+                    plots: common::plot_line_with_dots(common::COLOR_BODY_WEIGHT),
+                    params: common::PlotParams::SECONDARY,
+                },
+                common::PlotData {
+                    values: body_fat
                         .iter()
                         .filter_map(|bf| bf.jp3(sex).map(|jp3| (bf.date, jp3)))
                         .collect::<Vec<_>>(),
-                    common::COLOR_BODY_FAT_JP3,
-                ),
-                (
-                    body_fat
+                    plots: common::plot_line_with_dots(common::COLOR_BODY_FAT_JP3),
+                    params: common::PlotParams::default(),
+                },
+                common::PlotData {
+                    values: body_fat
                         .iter()
                         .filter_map(|bf| bf.jp7(sex).map(|jp7| (bf.date, jp7)))
                         .collect::<Vec<_>>(),
-                    common::COLOR_BODY_FAT_JP7,
-                ),
+                    plots: common::plot_line_with_dots(common::COLOR_BODY_FAT_JP7),
+                    params: common::PlotParams::default(),
+                },
             ],
-            &[(
-                body_weight
-                    .iter()
-                    .map(|bw| (bw.date, bw.weight))
-                    .collect::<Vec<_>>(),
-                common::COLOR_BODY_WEIGHT,
-            )],
             model.interval.first,
             model.interval.last,
             data_model.theme(),

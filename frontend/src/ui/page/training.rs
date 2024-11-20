@@ -528,29 +528,45 @@ pub fn view_charts<Ms>(
                 ("Short-term load", common::COLOR_LOAD),
                 ("Long-term load", common::COLOR_LONG_TERM_LOAD)
             ],
-            common::plot_line_chart(
+            common::plot_chart(
                 &[
-                    (long_term_load_low, common::COLOR_LONG_TERM_LOAD_BOUNDS),
-                    (long_term_load_high, common::COLOR_LONG_TERM_LOAD_BOUNDS),
-                    (long_term_load, common::COLOR_LONG_TERM_LOAD),
-                    (short_term_load, common::COLOR_LOAD)
+                    common::PlotData {
+                        values: long_term_load_low,
+                        plots: common::plot_line_with_dots(common::COLOR_LONG_TERM_LOAD_BOUNDS),
+                        params: common::PlotParams::primary_range(0., 10.),
+                    },
+                    common::PlotData {
+                        values: long_term_load_high,
+                        plots: common::plot_line_with_dots(common::COLOR_LONG_TERM_LOAD_BOUNDS),
+                        params: common::PlotParams::primary_range(0., 10.),
+                    },
+                    common::PlotData {
+                        values: long_term_load,
+                        plots: common::plot_line_with_dots(common::COLOR_LONG_TERM_LOAD),
+                        params: common::PlotParams::primary_range(0., 10.),
+                    },
+                    common::PlotData {
+                        values: short_term_load,
+                        plots: common::plot_line_with_dots(common::COLOR_LOAD),
+                        params: common::PlotParams::primary_range(0., 10.),
+                    }
                 ],
                 interval.first,
                 interval.last,
-                Some(0.),
-                Some(10.),
                 theme,
             ),
             false,
         ),
         common::view_chart(
             &[("Set volume (weekly total)", common::COLOR_SET_VOLUME)],
-            common::plot_line_chart(
-                &[(total_set_volume_per_week, common::COLOR_SET_VOLUME)],
+            common::plot_chart(
+                &[common::PlotData {
+                    values: total_set_volume_per_week,
+                    plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
+                    params: common::PlotParams::primary_range(0., 10.),
+                }],
                 interval.first,
                 interval.last,
-                Some(0.),
-                Some(10.),
                 theme,
             ),
             false,
@@ -559,12 +575,13 @@ pub fn view_charts<Ms>(
             show_rpe =>
             common::view_chart(
                 &[("RPE (weekly average)", common::COLOR_RPE)],
-                common::plot_line_chart(
-                    &[(avg_rpe_per_week, common::COLOR_RPE)],
+                common::plot_chart(
+                    &[common::PlotData{values: avg_rpe_per_week,
+                        plots: common::plot_line_with_dots(common::COLOR_RPE),
+                        params: common::PlotParams::primary_range(5., 10.)
+                    }],
                     interval.first,
                     interval.last,
-                    Some(5.),
-                    Some(10.),
                     theme,
                 ),
                 false,

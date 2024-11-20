@@ -501,21 +501,22 @@ pub fn view_charts<Ms>(
 
     let mut labels = vec![("Repetitions", common::COLOR_REPS)];
 
-    let mut data = vec![(
-        reps_rpe
+    let mut data = vec![common::PlotData {
+        values: reps_rpe
             .iter()
             .map(|(date, (avg_reps, _))| {
                 #[allow(clippy::cast_precision_loss)]
                 (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
             })
             .collect::<Vec<_>>(),
-        common::COLOR_REPS,
-    )];
+        plots: common::plot_line_with_dots(common::COLOR_REPS),
+        params: common::PlotParams::primary_range(0., 10.),
+    }];
 
     if show_rpe {
         labels.push(("+ Repetitions in reserve", common::COLOR_REPS_RIR));
-        data.push((
-            reps_rpe
+        data.push(common::PlotData {
+            values: reps_rpe
                 .into_iter()
                 .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
                     #[allow(clippy::cast_precision_loss)]
@@ -530,37 +531,36 @@ pub fn view_charts<Ms>(
                     }
                 })
                 .collect::<Vec<_>>(),
-            common::COLOR_REPS_RIR,
-        ));
+            plots: common::plot_line_with_dots(common::COLOR_REPS_RIR),
+            params: common::PlotParams::primary_range(0., 10.),
+        });
     }
 
     nodes![
         common::view_chart(
             &[("Set volume", common::COLOR_SET_VOLUME)],
-            common::plot_line_chart(
-                &[(
-                    set_volume.into_iter().collect::<Vec<_>>(),
-                    common::COLOR_SET_VOLUME,
-                )],
+            common::plot_chart(
+                &[common::PlotData {
+                    values: set_volume.into_iter().collect::<Vec<_>>(),
+                    plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
+                    params: common::PlotParams::primary_range(0., 10.),
+                }],
                 interval.first,
                 interval.last,
-                Some(0.),
-                Some(10.),
                 theme,
             ),
             false,
         ),
         common::view_chart(
             &[("Volume load", common::COLOR_VOLUME_LOAD)],
-            common::plot_line_chart(
-                &[(
-                    volume_load.into_iter().collect::<Vec<_>>(),
-                    common::COLOR_VOLUME_LOAD,
-                )],
+            common::plot_chart(
+                &[common::PlotData {
+                    values: volume_load.into_iter().collect::<Vec<_>>(),
+                    plots: common::plot_line_with_dots(common::COLOR_VOLUME_LOAD),
+                    params: common::PlotParams::primary_range(0., 10.),
+                }],
                 interval.first,
                 interval.last,
-                Some(0.),
-                Some(10.),
                 theme,
             ),
             false,
@@ -568,12 +568,14 @@ pub fn view_charts<Ms>(
         IF![show_tut =>
             common::view_chart(
                 &[("Time under tension (s)", common::COLOR_TUT)],
-                common::plot_line_chart(
-                    &[(tut.into_iter().collect::<Vec<_>>(), common::COLOR_TUT,)],
+                common::plot_chart(
+                    &[common::PlotData {
+                        values: tut.into_iter().collect::<Vec<_>>(),
+                        plots: common::plot_line_with_dots(common::COLOR_TUT),
+                        params: common::PlotParams::primary_range(0., 10.),
+                    }],
                     interval.first,
                     interval.last,
-                    Some(0.),
-                    Some(10.),
                     theme,
                 ),
                 false,
@@ -581,33 +583,25 @@ pub fn view_charts<Ms>(
         ],
         common::view_chart(
             &labels,
-            common::plot_line_chart(
-                &data,
-                interval.first,
-                interval.last,
-                Some(0.),
-                Some(10.),
-                theme,
-            ),
+            common::plot_chart(&data, interval.first, interval.last, theme),
             false,
         ),
         common::view_chart(
             &[("Weight (kg)", common::COLOR_WEIGHT)],
-            common::plot_line_chart(
-                &[(
-                    weight
+            common::plot_chart(
+                &[common::PlotData {
+                    values: weight
                         .into_iter()
                         .map(|(date, values)| {
                             #[allow(clippy::cast_precision_loss)]
                             (date, values.iter().sum::<f32>() / values.len() as f32)
                         })
                         .collect::<Vec<_>>(),
-                    common::COLOR_WEIGHT,
-                )],
+                    plots: common::plot_line_with_dots(common::COLOR_WEIGHT),
+                    params: common::PlotParams::primary_range(0., 10.),
+                }],
                 interval.first,
                 interval.last,
-                Some(0.),
-                Some(10.),
                 theme,
             ),
             false,
@@ -615,20 +609,19 @@ pub fn view_charts<Ms>(
         IF![show_tut =>
             common::view_chart(
                 &[("Time (s)", common::COLOR_TIME)],
-                common::plot_line_chart(
-                    &[(
-                        time.into_iter()
+                common::plot_chart(
+                    &[common::PlotData{
+                        values: time.into_iter()
                             .map(|(date, values)| {
                                 #[allow(clippy::cast_precision_loss)]
                                 (date, values.iter().sum::<f32>() / values.len() as f32)
                             })
                             .collect::<Vec<_>>(),
-                        common::COLOR_TIME,
-                    )],
+                        plots: common::plot_line_with_dots(common::COLOR_TIME),
+                        params: common::PlotParams::primary_range(0., 10.)
+                    }],
                     interval.first,
                     interval.last,
-                    Some(0.),
-                    Some(10.),
                     theme,
                 ),
                 false,

@@ -69,24 +69,21 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 Msg::ChangeInterval
             ),
             domain::Muscle::iter().map(|m| {
-                let set_volume = data_model
-                    .training_stats
-                    .stimulus_for_each_muscle_per_week
-                    .get(&domain::Muscle::id(*m))
-                    .map(|stimulus_per_muscle| {
-                        stimulus_per_muscle
-                            .iter()
-                            .filter(|(date, _)| {
-                                *date >= model.interval.first
-                                    && *date <= model.interval.last.week(Weekday::Mon).last_day()
-                            })
-                            .map(
-                                #[allow(clippy::cast_precision_loss)]
-                                |(date, stimulus)| (*date, *stimulus as f32 / 100.0),
-                            )
-                            .collect()
-                    })
-                    .unwrap_or_default();
+                #[allow(clippy::cast_precision_loss)]
+                let total_7day_set_volume = common::centered_moving_total(
+                    &data_model
+                        .training_sessions
+                        .iter()
+                        .filter_map(|(_, s)| {
+                            s.stimulus_per_muscle(&data_model.exercises)
+                                .get(&domain::Muscle::id(*m))
+                                .map(|stimulus| (s.date, *stimulus as f32 / 100.))
+                        })
+                        .collect::<Vec<_>>(),
+                    &model.interval,
+                    3,
+                );
+
                 div![
                     common::view_title(&span![domain::Muscle::name(*m)], 1),
                     div![
@@ -96,12 +93,12 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         domain::Muscle::description(*m)
                     ],
                     common::view_chart(
-                        &[("Set volume (weekly total)", common::COLOR_SET_VOLUME)],
+                        &[("Set volume (7 day total)", common::COLOR_SET_VOLUME)],
                         common::plot_chart(
                             &[common::PlotData {
-                                values: set_volume,
-                                plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
-                                params: common::PlotParams::primary_range(0., 10.),
+                                values: total_7day_set_volume,
+                                plots: common::plot_line(common::COLOR_SET_VOLUME),
+                                params: common::PlotParams::default(),
                             }],
                             model.interval.first,
                             model.interval.last,

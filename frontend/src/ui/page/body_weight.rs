@@ -366,7 +366,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::plot_chart(
             &[
                 common::PlotData {
-                    values: data_model
+                    values_high: data_model
                         .body_weight
                         .values()
                         .filter(|bw| {
@@ -374,11 +374,12 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         })
                         .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_BODY_WEIGHT),
                     params: common::PlotParams::default(),
                 },
                 common::PlotData {
-                    values: data_model
+                    values_high: data_model
                         .avg_body_weight
                         .values()
                         .filter(|bw| {
@@ -386,6 +387,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         })
                         .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_AVG_BODY_WEIGHT),
                     params: common::PlotParams::default(),
                 },

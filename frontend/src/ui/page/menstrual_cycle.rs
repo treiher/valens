@@ -350,10 +350,11 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
         vec![("Intensity", common::COLOR_PERIOD_INTENSITY)].as_slice(),
         common::plot_chart(
             &[common::PlotData {
-                values: period
+                values_high: period
                     .iter()
                     .map(|p| (p.date, f32::from(p.intensity)))
                     .collect::<Vec<_>>(),
+                values_low: None,
                 plots: [common::PlotType::Histogram(common::COLOR_PERIOD_INTENSITY)].to_vec(),
                 params: common::PlotParams::primary_range(0., 4.),
             }],

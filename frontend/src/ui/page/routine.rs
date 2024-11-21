@@ -1340,7 +1340,8 @@ pub fn view_charts<Ms>(
             &[("Load", common::COLOR_LOAD)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: load.into_iter().collect::<Vec<_>>(),
+                    values_high: load.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_LOAD),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
@@ -1354,7 +1355,8 @@ pub fn view_charts<Ms>(
             &[("Set volume", common::COLOR_SET_VOLUME)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_high: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
@@ -1370,7 +1372,7 @@ pub fn view_charts<Ms>(
                 &[("RPE", common::COLOR_RPE)],
                 common::plot_chart(
                     &[common::PlotData{
-                        values: rpe.into_iter()
+                        values_high: rpe.into_iter()
                             .map(|(date, values)| {
                                 #[allow(clippy::cast_precision_loss)]
                                 (
@@ -1383,6 +1385,7 @@ pub fn view_charts<Ms>(
                                 )
                             })
                             .collect::<Vec<_>>(),
+                        values_low: None,
                         plots: common::plot_line_with_dots(common::COLOR_RPE),
                         params: common::PlotParams::primary_range(5., 10.)
                     }],

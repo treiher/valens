@@ -68,7 +68,6 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         training_stats: TrainingStats {
             short_term_load: Vec::new(),
             long_term_load: Vec::new(),
-            avg_rpe_per_week: Vec::new(),
         },
         settings,
         ongoing_training_session,
@@ -272,7 +271,6 @@ pub struct CycleStats {
 pub struct TrainingStats {
     pub short_term_load: Vec<(NaiveDate, f32)>,
     pub long_term_load: Vec<(NaiveDate, f32)>,
-    pub avg_rpe_per_week: Vec<(NaiveDate, f32)>,
 }
 
 impl TrainingStats {
@@ -292,7 +290,6 @@ impl TrainingStats {
     pub fn clear(&mut self) {
         self.short_term_load.clear();
         self.long_term_load.clear();
-        self.avg_rpe_per_week.clear();
     }
 }
 
@@ -876,7 +873,6 @@ fn calculate_training_stats(training_sessions: &[&TrainingSession]) -> TrainingS
     TrainingStats {
         short_term_load,
         long_term_load,
-        avg_rpe_per_week: calculate_avg_rpe_per_week(training_sessions),
     }
 }
 
@@ -936,48 +932,6 @@ fn calculate_average_weighted_sum_of_load(
             )
         })
         .collect::<Vec<_>>()
-}
-
-fn calculate_avg_rpe_per_week(training_sessions: &[&TrainingSession]) -> Vec<(NaiveDate, f32)> {
-    let mut result: BTreeMap<NaiveDate, Vec<f32>> = training_session_weeks(training_sessions);
-
-    for t in training_sessions {
-        if let Some(avg_rpe) = t.avg_rpe() {
-            result
-                .entry(t.date.week(Weekday::Mon).last_day())
-                .and_modify(|e| e.push(avg_rpe));
-        }
-    }
-
-    #[allow(clippy::cast_precision_loss)]
-    result
-        .into_iter()
-        .map(|(date, values)| {
-            (
-                date,
-                if values.is_empty() {
-                    0.0
-                } else {
-                    values.iter().sum::<f32>() / values.len() as f32
-                },
-            )
-        })
-        .collect()
-}
-
-fn training_session_weeks<T: Default>(
-    training_sessions: &[&TrainingSession],
-) -> BTreeMap<NaiveDate, T> {
-    let mut result: BTreeMap<NaiveDate, T> = BTreeMap::new();
-
-    let today = Local::now().date_naive();
-    let mut day = training_sessions.first().map_or(today, |t| t.date);
-    while day <= today.week(Weekday::Mon).last_day() {
-        result.insert(day.week(Weekday::Mon).last_day(), T::default());
-        day += Duration::days(7);
-    }
-
-    result
 }
 
 // ------ ------

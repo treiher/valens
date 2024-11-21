@@ -748,26 +748,29 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::plot_chart(
             &[
                 common::PlotData {
-                    values: body_weight
+                    values_high: body_weight
                         .iter()
                         .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_BODY_WEIGHT),
                     params: common::PlotParams::SECONDARY,
                 },
                 common::PlotData {
-                    values: body_fat
+                    values_high: body_fat
                         .iter()
                         .filter_map(|bf| bf.jp3(sex).map(|jp3| (bf.date, jp3)))
                         .collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_BODY_FAT_JP3),
                     params: common::PlotParams::default(),
                 },
                 common::PlotData {
-                    values: body_fat
+                    values_high: body_fat
                         .iter()
                         .filter_map(|bf| bf.jp7(sex).map(|jp7| (bf.date, jp7)))
                         .collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_BODY_FAT_JP7),
                     params: common::PlotParams::default(),
                 },

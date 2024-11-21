@@ -493,13 +493,14 @@ pub fn view_charts<Ms>(
     let mut labels = vec![("Repetitions", common::COLOR_REPS)];
 
     let mut data = vec![common::PlotData {
-        values: reps_rpe
+        values_high: reps_rpe
             .iter()
             .map(|(date, (avg_reps, _))| {
                 #[allow(clippy::cast_precision_loss)]
                 (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
             })
             .collect::<Vec<_>>(),
+        values_low: None,
         plots: common::plot_line_with_dots(common::COLOR_REPS),
         params: common::PlotParams::primary_range(0., 10.),
     }];
@@ -507,7 +508,7 @@ pub fn view_charts<Ms>(
     if show_rpe {
         labels.push(("+ Repetitions in reserve", common::COLOR_REPS_RIR));
         data.push(common::PlotData {
-            values: reps_rpe
+            values_high: reps_rpe
                 .into_iter()
                 .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
                     #[allow(clippy::cast_precision_loss)]
@@ -522,6 +523,7 @@ pub fn view_charts<Ms>(
                     }
                 })
                 .collect::<Vec<_>>(),
+            values_low: None,
             plots: common::plot_line_with_dots(common::COLOR_REPS_RIR),
             params: common::PlotParams::primary_range(0., 10.),
         });
@@ -532,7 +534,8 @@ pub fn view_charts<Ms>(
             &[("Set volume", common::COLOR_SET_VOLUME)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_high: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
@@ -546,7 +549,8 @@ pub fn view_charts<Ms>(
             &[("Volume load", common::COLOR_VOLUME_LOAD)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: volume_load.into_iter().collect::<Vec<_>>(),
+                    values_high: volume_load.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_VOLUME_LOAD),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
@@ -561,7 +565,8 @@ pub fn view_charts<Ms>(
                 &[("Time under tension (s)", common::COLOR_TUT)],
                 common::plot_chart(
                     &[common::PlotData {
-                        values: tut.into_iter().collect::<Vec<_>>(),
+                        values_high: tut.into_iter().collect::<Vec<_>>(),
+                        values_low: None,
                         plots: common::plot_line_with_dots(common::COLOR_TUT),
                         params: common::PlotParams::primary_range(0., 10.),
                     }],
@@ -581,13 +586,14 @@ pub fn view_charts<Ms>(
             &[("Weight (kg)", common::COLOR_WEIGHT)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: weight
+                    values_high: weight
                         .into_iter()
                         .map(|(date, values)| {
                             #[allow(clippy::cast_precision_loss)]
                             (date, values.iter().sum::<f32>() / values.len() as f32)
                         })
                         .collect::<Vec<_>>(),
+                    values_low: None,
                     plots: common::plot_line_with_dots(common::COLOR_WEIGHT),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
@@ -602,12 +608,13 @@ pub fn view_charts<Ms>(
                 &[("Time (s)", common::COLOR_TIME)],
                 common::plot_chart(
                     &[common::PlotData{
-                        values: time.into_iter()
+                        values_high: time.into_iter()
                             .map(|(date, values)| {
                                 #[allow(clippy::cast_precision_loss)]
                                 (date, values.iter().sum::<f32>() / values.len() as f32)
                             })
                             .collect::<Vec<_>>(),
+                        values_low: None,
                         plots: common::plot_line_with_dots(common::COLOR_TIME),
                         params: common::PlotParams::primary_range(0., 10.)
                     }],

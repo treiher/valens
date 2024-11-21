@@ -232,16 +232,17 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .filter(|(date, _)| *date >= model.interval.first && *date <= model.interval.last)
             .copied()
             .collect::<Vec<_>>();
-        let total_set_volume_per_week = data_model
-            .training_stats
-            .total_set_volume_per_week
-            .iter()
-            .filter(|(date, _)| {
-                *date >= model.interval.first
-                    && *date <= model.interval.last.week(Weekday::Mon).last_day()
-            })
-            .copied()
-            .collect::<Vec<_>>();
+        #[allow(clippy::cast_precision_loss)]
+        let total_7day_set_volume = common::centered_moving_total(
+            &data_model
+                .training_sessions
+                .values()
+                .map(|s| (s.date, s.set_volume() as f32))
+                .collect::<Vec<_>>(),
+            &model.interval,
+            3,
+        );
+
         let avg_rpe_per_week = data_model
             .training_stats
             .avg_rpe_per_week
@@ -326,7 +327,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             view_charts(
                 short_term_load,
                 long_term_load,
-                total_set_volume_per_week,
+                total_7day_set_volume,
                 avg_rpe_per_week,
                 &model.interval,
                 data_model.theme(),
@@ -507,7 +508,7 @@ fn view_training_sessions_dialog(
 pub fn view_charts<Ms>(
     short_term_load: Vec<(NaiveDate, f32)>,
     long_term_load: Vec<(NaiveDate, f32)>,
-    total_set_volume_per_week: Vec<(NaiveDate, f32)>,
+    total_set_volume: Vec<(NaiveDate, f32)>,
     avg_rpe_per_week: Vec<(NaiveDate, f32)>,
     interval: &common::Interval,
     theme: &data::Theme,
@@ -559,11 +560,11 @@ pub fn view_charts<Ms>(
             false,
         ),
         common::view_chart(
-            &[("Set volume (weekly total)", common::COLOR_SET_VOLUME)],
+            &[("Set volume (7 day total)", common::COLOR_SET_VOLUME)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: total_set_volume_per_week,
-                    plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
+                    values: total_set_volume,
+                    plots: [common::PlotType::Line(common::COLOR_SET_VOLUME, 2)].to_vec(),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
                 interval.first,

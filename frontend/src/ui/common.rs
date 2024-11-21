@@ -39,6 +39,10 @@ pub fn plot_line_with_dots(color: usize) -> Vec<PlotType> {
     [PlotType::Line(color, 2), PlotType::Circle(color, 2)].to_vec()
 }
 
+pub fn plot_line(color: usize) -> Vec<PlotType> {
+    [PlotType::Line(color, 2)].to_vec()
+}
+
 #[derive(Default)]
 pub struct PlotParams {
     pub y_min_opt: Option<f32>,
@@ -1164,7 +1168,8 @@ pub fn centered_moving_grouping(
                     .filter_map(|d| grouped.get(&d))
                     .copied()
                     .collect::<Vec<_>>(),
-            ).map(|result| (center, result))
+            )
+            .map(|result| (center, result))
         })
         .collect::<Vec<_>>()
 }

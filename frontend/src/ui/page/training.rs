@@ -243,16 +243,15 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             3,
         );
 
-        let avg_rpe_per_week = data_model
-            .training_stats
-            .avg_rpe_per_week
-            .iter()
-            .filter(|(date, _)| {
-                *date >= model.interval.first
-                    && *date <= model.interval.last.week(Weekday::Mon).last_day()
-            })
-            .copied()
-            .collect::<Vec<_>>();
+        let average_7day_rpe = common::centered_moving_average(
+            &data_model
+                .training_sessions
+                .values()
+                .filter_map(|s| s.avg_rpe().map(|v| (s.date, v)))
+                .collect::<Vec<_>>(),
+            &model.interval,
+            3,
+        );
         let mut training_sessions = data_model
             .training_sessions
             .values()
@@ -328,7 +327,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 short_term_load,
                 long_term_load,
                 total_7day_set_volume,
-                avg_rpe_per_week,
+                &average_7day_rpe,
                 &model.interval,
                 data_model.theme(),
                 data_model.settings.show_rpe,
@@ -508,8 +507,8 @@ fn view_training_sessions_dialog(
 pub fn view_charts<Ms>(
     short_term_load: Vec<(NaiveDate, f32)>,
     long_term_load: Vec<(NaiveDate, f32)>,
-    total_set_volume: Vec<(NaiveDate, f32)>,
-    avg_rpe_per_week: Vec<(NaiveDate, f32)>,
+    total_7day_set_volume: Vec<(NaiveDate, f32)>,
+    average_7day_rpe: &[Vec<(NaiveDate, f32)>],
     interval: &common::Interval,
     theme: &data::Theme,
     show_rpe: bool,
@@ -563,8 +562,8 @@ pub fn view_charts<Ms>(
             &[("Set volume (7 day total)", common::COLOR_SET_VOLUME)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: total_set_volume,
-                    plots: [common::PlotType::Line(common::COLOR_SET_VOLUME, 2)].to_vec(),
+                    values: total_7day_set_volume,
+                    plots: common::plot_line(common::COLOR_SET_VOLUME),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
                 interval.first,
@@ -576,12 +575,12 @@ pub fn view_charts<Ms>(
         IF![
             show_rpe =>
             common::view_chart(
-                &[("RPE (weekly average)", common::COLOR_RPE)],
+                &[("RPE (7 day average)", common::COLOR_RPE)],
                 common::plot_chart(
-                    &[common::PlotData{values: avg_rpe_per_week,
-                        plots: common::plot_line_with_dots(common::COLOR_RPE),
+                    &average_7day_rpe.iter().map(|values| common::PlotData{values: values.clone(),
+                        plots: common::plot_line(common::COLOR_RPE),
                         params: common::PlotParams::primary_range(5., 10.)
-                    }],
+                    }).collect::<Vec<_>>(),
                     interval.first,
                     interval.last,
                     theme,

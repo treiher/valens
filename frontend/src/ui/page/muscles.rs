@@ -73,8 +73,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 let total_7day_set_volume = common::centered_moving_total(
                     &data_model
                         .training_sessions
-                        .iter()
-                        .filter_map(|(_, s)| {
+                        .values()
+                        .filter_map(|s| {
                             s.stimulus_per_muscle(&data_model.exercises)
                                 .get(&domain::Muscle::id(*m))
                                 .map(|stimulus| (s.date, *stimulus as f32 / 100.))
@@ -98,7 +98,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             &[common::PlotData {
                                 values: total_7day_set_volume,
                                 plots: common::plot_line(common::COLOR_SET_VOLUME),
-                                params: common::PlotParams::default(),
+                                params: common::PlotParams::primary_range(0., 10.),
                             }],
                             model.interval.first,
                             model.interval.last,

@@ -31,9 +31,9 @@ check_kacl:
 	uv run -- kacl-cli verify
 
 check_frontend:
-	cargo fmt --manifest-path=frontend/Cargo.toml -- --check
-	cargo check --manifest-path=frontend/Cargo.toml
-	cargo clippy --manifest-path=frontend/Cargo.toml -- --warn clippy::pedantic --deny warnings
+	cargo fmt -- --check
+	cargo check
+	cargo clippy -- --warn clippy::pedantic --deny warnings
 
 check_backend: check_lockfile check_black check_ruff check_mypy
 
@@ -49,7 +49,7 @@ check_mypy:
 .PHONY: format
 
 format:
-	cargo fmt --manifest-path=frontend/Cargo.toml
+	cargo fmt
 	uv run -- ruff check --fix-only $(PYTHON_PACKAGES) | true
 	uv run -- black $(PYTHON_PACKAGES)
 
@@ -58,7 +58,7 @@ format:
 test: test_frontend test_backend test_installation test_e2e
 
 test_frontend:
-	cargo test --manifest-path=frontend/Cargo.toml
+	cargo test
 
 test_backend:
 	mkdir -p valens/frontend

@@ -1633,7 +1633,7 @@ fn replace_exercise(
     }
 }
 
-fn prefer_exercise(elements: &mut [FormElement], element_idx: usize) {
+fn prefer_exercise(elements: &mut Vec<FormElement>, element_idx: usize) {
     let sections = determine_sections(elements);
     let Some(preferred_section) = sections.iter().find(|s| (s.0..=s.1).contains(&element_idx))
     else {
@@ -1648,8 +1648,18 @@ fn prefer_exercise(elements: &mut [FormElement], element_idx: usize) {
     else {
         return;
     };
-    elements[deferred_section.0..=preferred_section.1]
-        .rotate_right(preferred_section.1 - preferred_section.0 + 1);
+    let mut trailing_rest = 0;
+    if preferred_section.1 + 1 == elements.len() {
+        if let Some(FormElement::Set { .. }) = elements.last() {
+            elements.push(FormElement::Rest {
+                target_time: 0,
+                automatic: true,
+            });
+            trailing_rest += 1;
+        }
+    }
+    elements[deferred_section.0..=preferred_section.1 + trailing_rest]
+        .rotate_right(preferred_section.1 + trailing_rest - preferred_section.0 + 1);
 }
 
 fn defer_exercise(elements: &mut Vec<FormElement>, element_idx: usize) {
@@ -3235,6 +3245,29 @@ mod tests {
                 rest(0),
                 set(vec![exercise(2, 2)]),
                 rest(2),
+                set(vec![exercise(1, 1)]),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_prefer_exercise_last_set_without_trailing_rest() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 1)]),
+            rest(1),
+            set(vec![exercise(2, 2)]),
+        ];
+        prefer_exercise(&mut elements, 4);
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(2, 2)]),
+                rest(0),
                 set(vec![exercise(1, 1)]),
                 rest(1),
             ]

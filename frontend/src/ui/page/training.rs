@@ -252,11 +252,12 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             })
             .copied()
             .collect::<Vec<_>>();
-        let training_sessions = data_model
+        let mut training_sessions = data_model
             .training_sessions
             .values()
             .filter(|t| t.date >= model.interval.first && t.date <= model.interval.last)
             .collect::<Vec<_>>();
+        training_sessions.sort_by_key(|t| t.date);
         let training_sessions_interval: common::Interval =
             data_model.training_sessions_date_range().into();
         div![

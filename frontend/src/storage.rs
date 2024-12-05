@@ -225,9 +225,7 @@ impl Routine {
     }
 
     pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
-        let mut result: BTreeMap<u8, u32> = domain::Muscle::iter()
-            .map(|m| (domain::Muscle::id(*m), 0))
-            .collect();
+        let mut result: BTreeMap<u8, u32> = domain::Muscle::iter().map(|m| (m.id(), 0)).collect();
         for section in &self.sections {
             for (id, stimulus) in section.stimulus_per_muscle(exercises) {
                 if result.contains_key(&id) {

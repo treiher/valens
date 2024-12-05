@@ -345,7 +345,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
         .map(|m| {
             let stimulus = model
                 .muscle_stimulus
-                .get(&domain::Muscle::id(*m))
+                .get(&m.id())
                 .copied()
                 .unwrap_or_default();
             (m, stimulus)
@@ -362,8 +362,8 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                     C!["is-mobile"],
                     div![
                         C!["column"],
-                        p![domain::Muscle::name(m)],
-                        p![C!["is-size-7"], domain::Muscle::description(m)]
+                        p![m.name()],
+                        p![C!["is-size-7"], m.description()]
                     ],
                     div![
                         C!["column"],
@@ -379,10 +379,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                     C!["button"],
                                     C!["is-small"],
                                     C![IF![*stimulus == 100 => "is-link"]],
-                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
-                                        domain::Muscle::id(m),
-                                        100
-                                    )),
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(m.id(), 100)),
                                     "primary",
                                 ]
                             ],
@@ -392,10 +389,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                     C!["button"],
                                     C!["is-small"],
                                     C![IF![*stimulus > 0 && *stimulus < 100 => "is-link"]],
-                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
-                                        domain::Muscle::id(m),
-                                        50
-                                    )),
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(m.id(), 50)),
                                     "secondary",
                                 ]
                             ],
@@ -405,10 +399,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                     C!["button"],
                                     C!["is-small"],
                                     C![IF![*stimulus == 0 => "is-link"]],
-                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
-                                        domain::Muscle::id(m),
-                                        0
-                                    )),
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(m.id(), 0)),
                                     "none",
                                 ]
                             ],
@@ -437,9 +428,9 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                             C!["tag"],
                             C!["is-link"],
                             C![IF![*stimulus < 100 => "is-light"]],
-                            domain::Muscle::name(**m)
+                            m.name()
                         ],
-                        domain::Muscle::description(**m),
+                        m.description(),
                     )
                 })
             ]

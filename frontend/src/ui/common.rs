@@ -960,8 +960,8 @@ where
     stimulus_per_muscle.sort_by(|a, b| b.1.cmp(&a.1));
     let mut groups = [vec![], vec![], vec![], vec![]];
     for (muscle, stimulus) in stimulus_per_muscle {
-        let name = domain::Muscle::name(muscle);
-        let description = domain::Muscle::description(muscle);
+        let name = muscle.name();
+        let description = muscle.description();
         let sets = f64::from(stimulus) / 100.0;
         let sets_str = format!("{:.1$}", sets, usize::from(sets.fract() != 0.0));
         if sets > 10.0 {

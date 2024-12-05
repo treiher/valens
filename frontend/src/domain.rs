@@ -58,8 +58,8 @@ impl Muscle {
         MUSCLES.iter()
     }
 
-    pub fn id(muscle: Muscle) -> u8 {
-        muscle as u8
+    pub fn id(self) -> u8 {
+        self as u8
     }
 
     pub fn from_repr(repr: u8) -> Option<Muscle> {
@@ -86,8 +86,8 @@ impl Muscle {
         }
     }
 
-    pub fn name(muscle: Muscle) -> &'static str {
-        match muscle {
+    pub fn name(self) -> &'static str {
+        match self {
             Muscle::Neck => "Neck",
             Muscle::Pecs => "Pecs",
             Muscle::Traps => "Traps",
@@ -109,9 +109,9 @@ impl Muscle {
         }
     }
 
-    pub fn description(muscle: Muscle) -> &'static str {
+    pub fn description(self) -> &'static str {
         #[allow(clippy::match_same_arms)]
-        match muscle {
+        match self {
             Muscle::Neck => "",
             Muscle::Pecs => "Chest",
             Muscle::Traps => "Upper back",
@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn test_muscle_id() {
         for muscle in Muscle::iter() {
-            assert_eq!(Muscle::from_repr(Muscle::id(*muscle)).unwrap(), *muscle);
+            assert_eq!(Muscle::from_repr(muscle.id()).unwrap(), *muscle);
         }
 
         assert_eq!(Muscle::from_repr(u8::MAX), None);
@@ -165,7 +165,7 @@ mod tests {
         let mut names = HashSet::new();
 
         for muscle in Muscle::iter() {
-            let name = Muscle::name(*muscle);
+            let name = muscle.name();
 
             assert!(!name.is_empty());
             assert!(!names.contains(name));
@@ -179,7 +179,7 @@ mod tests {
         let mut descriptions = HashSet::new();
 
         for muscle in Muscle::iter() {
-            let description = Muscle::description(*muscle);
+            let description = muscle.description();
 
             assert!(description.is_empty() || !descriptions.contains(description));
 

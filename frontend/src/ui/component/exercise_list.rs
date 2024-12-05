@@ -197,7 +197,7 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
                                 let muscle = *muscle;
                                 move |_| Msg::FilterChanged(*muscle)
                             }),
-                            &domain::Muscle::name(**muscle)
+                            &muscle.name()
                         ]
                     })
             ],
@@ -282,7 +282,7 @@ fn view_filter_dialog(
                                     let muscle = **muscle;
                                     move |_| Msg::FilterChanged(muscle)
                                 }),
-                                &domain::Muscle::name(**muscle)
+                                &muscle.name()
                             ]
                         })
                     ]

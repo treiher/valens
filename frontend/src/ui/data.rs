@@ -124,7 +124,7 @@ impl Model {
                     || filter
                         .muscles
                         .iter()
-                        .all(|m| e.muscle_stimulus().contains_key(&domain::Muscle::id(*m)))
+                        .all(|m| e.muscle_stimulus().contains_key(&m.id()))
             })
             .collect()
     }

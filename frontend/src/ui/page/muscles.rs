@@ -76,7 +76,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         .values()
                         .filter_map(|s| {
                             s.stimulus_per_muscle(&data_model.exercises)
-                                .get(&domain::Muscle::id(*m))
+                                .get(&m.id())
                                 .map(|stimulus| (s.date, *stimulus as f32 / 100.))
                         })
                         .collect::<Vec<_>>(),
@@ -85,12 +85,12 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 );
 
                 div![
-                    common::view_title(&span![domain::Muscle::name(*m)], 1),
+                    common::view_title(&span![m.name()], 1),
                     div![
                         C!["block"],
                         C!["is-size-7"],
                         C!["has-text-centered"],
-                        domain::Muscle::description(*m)
+                        m.description()
                     ],
                     common::view_chart(
                         &[("Set volume (7 day total)", common::COLOR_SET_VOLUME)],

@@ -1,6 +1,7 @@
 use std::{collections::HashSet, slice::Iter};
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[cfg_attr(test, derive(Debug))]
 pub enum Muscle {
     // Neck
     Neck = 1,
@@ -141,5 +142,56 @@ pub struct ExerciseFilter {
 impl ExerciseFilter {
     pub fn is_empty(&self) -> bool {
         self.muscles.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_muscle_id() {
+        for muscle in Muscle::iter() {
+            assert_eq!(Muscle::from_repr(Muscle::id(*muscle)).unwrap(), *muscle);
+        }
+
+        assert_eq!(Muscle::from_repr(u8::MAX), None);
+    }
+
+    #[test]
+    fn test_muscle_name() {
+        let mut names = HashSet::new();
+
+        for muscle in Muscle::iter() {
+            let name = Muscle::name(*muscle);
+
+            assert!(!name.is_empty());
+            assert!(!names.contains(name));
+
+            names.insert(name);
+        }
+    }
+
+    #[test]
+    fn test_muscle_description() {
+        let mut descriptions = HashSet::new();
+
+        for muscle in Muscle::iter() {
+            let description = Muscle::description(*muscle);
+
+            assert!(description.is_empty() || !descriptions.contains(description));
+
+            descriptions.insert(description);
+        }
+    }
+
+    #[test]
+    fn test_exercise_filter_is_empty() {
+        assert!(ExerciseFilter {
+            muscles: HashSet::new()
+        }
+        .is_empty());
     }
 }

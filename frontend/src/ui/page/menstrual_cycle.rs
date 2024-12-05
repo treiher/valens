@@ -1,7 +1,10 @@
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::ui::{self, common, data};
+use crate::{
+    storage,
+    ui::{self, common, data},
+};
 
 // ------ ------
 //     Init
@@ -154,13 +157,13 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddPeriod(ref mut form) => {
-                    orders.notify(data::Msg::CreatePeriod(data::Period {
+                    orders.notify(data::Msg::CreatePeriod(storage::Period {
                         date: form.date.1.unwrap(),
                         intensity: form.intensity.1.unwrap(),
                     }));
                 }
                 Dialog::EditPeriod(ref mut form) => {
-                    orders.notify(data::Msg::ReplacePeriod(data::Period {
+                    orders.notify(data::Msg::ReplacePeriod(storage::Period {
                         date: form.date.1.unwrap(),
                         intensity: form.intensity.1.unwrap(),
                     }));

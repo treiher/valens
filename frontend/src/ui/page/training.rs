@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::ui::{self, common, data};
+use crate::{
+    storage,
+    ui::{self, common, data},
+};
 
 // ------ ------
 //     Init
@@ -146,7 +149,7 @@ pub fn update(
                             .sections
                             .iter()
                             .flat_map(to_training_session_elements)
-                            .collect::<Vec<data::TrainingSessionElement>>();
+                            .collect::<Vec<storage::TrainingSessionElement>>();
                         orders.notify(data::Msg::CreateTrainingSession(
                             Some(routine_id),
                             date,
@@ -262,7 +265,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             data_model.training_sessions_date_range().into();
         div![
             view_training_sessions_dialog(
-                &data_model.routines_sorted_by_last_use(|r: &data::Routine| !r.archived),
+                &data_model.routines_sorted_by_last_use(|r: &storage::Routine| !r.archived),
                 &model.dialog,
                 model.loading
             ),
@@ -347,7 +350,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 }
 
 pub fn view_calendar<Ms>(
-    training_sessions: &[&data::TrainingSession],
+    training_sessions: &[&storage::TrainingSession],
     interval: &common::Interval,
 ) -> Node<Ms> {
     let mut load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
@@ -388,7 +391,7 @@ pub fn view_calendar<Ms>(
 }
 
 fn view_training_sessions_dialog(
-    routines: &[data::Routine],
+    routines: &[storage::Routine],
     dialog: &Dialog,
     loading: bool,
 ) -> Node<Msg> {
@@ -592,8 +595,8 @@ pub fn view_charts<Ms>(
 }
 
 pub fn view_table<Ms: 'static>(
-    training_sessions: &[&data::TrainingSession],
-    routines: &BTreeMap<u32, data::Routine>,
+    training_sessions: &[&storage::TrainingSession],
+    routines: &BTreeMap<u32, storage::Routine>,
     base_url: &Url,
     delete_training_session_message: fn(u32) -> Ms,
     show_rpe: bool,
@@ -692,10 +695,12 @@ pub fn view_table<Ms: 'static>(
     ]
 }
 
-fn to_training_session_elements(part: &data::RoutinePart) -> Vec<data::TrainingSessionElement> {
+fn to_training_session_elements(
+    part: &storage::RoutinePart,
+) -> Vec<storage::TrainingSessionElement> {
     let mut result = vec![];
     match part {
-        data::RoutinePart::RoutineSection { rounds, parts, .. } => {
+        storage::RoutinePart::RoutineSection { rounds, parts, .. } => {
             for _ in 0..*rounds {
                 for p in parts {
                     for s in to_training_session_elements(p) {
@@ -704,7 +709,7 @@ fn to_training_session_elements(part: &data::RoutinePart) -> Vec<data::TrainingS
                 }
             }
         }
-        data::RoutinePart::RoutineActivity {
+        storage::RoutinePart::RoutineActivity {
             exercise_id,
             reps,
             time,
@@ -713,7 +718,7 @@ fn to_training_session_elements(part: &data::RoutinePart) -> Vec<data::TrainingS
             automatic,
         } => {
             result.push(if let Some(exercise_id) = exercise_id {
-                data::TrainingSessionElement::Set {
+                storage::TrainingSessionElement::Set {
                     exercise_id: *exercise_id,
                     reps: None,
                     time: None,
@@ -726,7 +731,7 @@ fn to_training_session_elements(part: &data::RoutinePart) -> Vec<data::TrainingS
                     automatic: *automatic,
                 }
             } else {
-                data::TrainingSessionElement::Rest {
+                storage::TrainingSessionElement::Rest {
                     target_time: if *time > 0 { Some(*time) } else { None },
                     automatic: *automatic,
                 }

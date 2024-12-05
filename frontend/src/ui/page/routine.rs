@@ -4,7 +4,7 @@ use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::{
-    domain,
+    domain, storage,
     ui::{self, common, component, data, page::training},
 };
 
@@ -151,10 +151,10 @@ impl Form {
     }
 }
 
-impl From<&data::RoutinePart> for Form {
-    fn from(part: &data::RoutinePart) -> Self {
+impl From<&storage::RoutinePart> for Form {
+    fn from(part: &storage::RoutinePart) -> Self {
         match part {
-            data::RoutinePart::RoutineSection { rounds, parts, .. } => {
+            storage::RoutinePart::RoutineSection { rounds, parts, .. } => {
                 let rounds_str = if *rounds == 1 {
                     String::new()
                 } else {
@@ -169,7 +169,7 @@ impl From<&data::RoutinePart> for Form {
                     parts: parts.iter().map(Into::into).collect(),
                 }
             }
-            data::RoutinePart::RoutineActivity {
+            storage::RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
                 time,
@@ -233,11 +233,11 @@ impl From<&data::RoutinePart> for Form {
     }
 }
 
-fn to_routine_parts(parts: &[Form]) -> Vec<data::RoutinePart> {
+fn to_routine_parts(parts: &[Form]) -> Vec<storage::RoutinePart> {
     parts
         .iter()
         .map(|p| match p {
-            Form::Section { rounds, parts } => data::RoutinePart::RoutineSection {
+            Form::Section { rounds, parts } => storage::RoutinePart::RoutineSection {
                 rounds: rounds.parsed.unwrap(),
                 parts: to_routine_parts(parts),
             },
@@ -248,7 +248,7 @@ fn to_routine_parts(parts: &[Form]) -> Vec<data::RoutinePart> {
                 weight,
                 rpe,
                 automatic,
-            } => data::RoutinePart::RoutineActivity {
+            } => storage::RoutinePart::RoutineActivity {
                 exercise_id: *exercise_id,
                 reps: reps.parsed.unwrap_or(0),
                 time: time.parsed.unwrap_or(0),
@@ -807,7 +807,7 @@ fn view_dialog(dialog: &Dialog, loading: bool, data_model: &data::Model) -> Node
     }
 }
 
-fn view_summary(routine: &data::Routine) -> Node<Msg> {
+fn view_summary(routine: &storage::Routine) -> Node<Msg> {
     div![
         C!["columns"],
         C!["is-gapless"],
@@ -1252,7 +1252,7 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
     }
 }
 
-fn view_muscles(routine: &data::Routine, data_model: &data::Model) -> Node<Msg> {
+fn view_muscles(routine: &storage::Routine, data_model: &data::Model) -> Node<Msg> {
     let stimulus_per_muscle = routine
         .stimulus_per_muscle(&data_model.exercises)
         .iter()
@@ -1311,7 +1311,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
     ]
 }
 pub fn view_charts<Ms>(
-    training_sessions: &[&data::TrainingSession],
+    training_sessions: &[&storage::TrainingSession],
     interval: &common::Interval,
     theme: &data::Theme,
     show_rpe: bool,

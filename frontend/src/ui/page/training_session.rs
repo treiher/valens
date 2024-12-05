@@ -6,7 +6,7 @@ use gloo_console::error;
 use seed::{prelude::*, *};
 
 use crate::{
-    domain,
+    domain, storage,
     ui::{self, common, component, data},
 };
 
@@ -91,7 +91,10 @@ pub fn init(
     }
 }
 
-fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data::Model) -> Form {
+fn init_form(
+    training_session: Option<&storage::TrainingSession>,
+    data_model: &data::Model,
+) -> Form {
     let previous_sets = previous_sets(training_session, data_model);
     if let Some(training_session) = training_session {
         let mut elements = vec![];
@@ -100,7 +103,7 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
 
         for e in &training_session.elements {
             match e {
-                data::TrainingSessionElement::Set {
+                storage::TrainingSessionElement::Set {
                     exercise_id,
                     reps,
                     time,
@@ -124,7 +127,7 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                         .or_insert(0);
                     let (prev_reps, prev_time, prev_weight, prev_rpe) =
                         if let Some(prev_sets) = previous_sets.get(exercise_id) {
-                            if let Some(data::TrainingSessionElement::Set {
+                            if let Some(storage::TrainingSessionElement::Set {
                                 reps,
                                 time,
                                 weight,
@@ -208,7 +211,7 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
                         exercises = vec![];
                     }
                 }
-                data::TrainingSessionElement::Rest {
+                storage::TrainingSessionElement::Rest {
                     target_time,
                     automatic,
                 } => {
@@ -243,10 +246,10 @@ fn init_form(training_session: Option<&data::TrainingSession>, data_model: &data
 }
 
 fn previous_sets(
-    training_session: Option<&data::TrainingSession>,
+    training_session: Option<&storage::TrainingSession>,
     data_model: &data::Model,
-) -> HashMap<u32, Vec<data::TrainingSessionElement>> {
-    let mut sets: HashMap<u32, Vec<data::TrainingSessionElement>> = HashMap::new();
+) -> HashMap<u32, Vec<storage::TrainingSessionElement>> {
+    let mut sets: HashMap<u32, Vec<storage::TrainingSessionElement>> = HashMap::new();
     if let Some(training_session) = training_session {
         if let Some(previous_training_session) = &data_model
             .training_sessions
@@ -260,7 +263,7 @@ fn previous_sets(
             .last()
         {
             for e in &previous_training_session.elements {
-                if let data::TrainingSessionElement::Set { exercise_id, .. } = e {
+                if let storage::TrainingSessionElement::Set { exercise_id, .. } = e {
                     sets.entry(*exercise_id).or_default().push(e.clone());
                 }
             }
@@ -1137,7 +1140,7 @@ pub fn update(
                         .flat_map(|e| match e {
                             FormElement::Set { exercises } => exercises
                                 .iter()
-                                .map(|e| data::TrainingSessionElement::Set {
+                                .map(|e| storage::TrainingSessionElement::Set {
                                     exercise_id: e.exercise_id,
                                     reps: e.reps.parsed.filter(|reps| *reps > 0),
                                     time: e.time.parsed.filter(|time| *time > 0),
@@ -1153,7 +1156,7 @@ pub fn update(
                             FormElement::Rest {
                                 target_time,
                                 automatic,
-                            } => vec![data::TrainingSessionElement::Rest {
+                            } => vec![storage::TrainingSessionElement::Rest {
                                 target_time: if *target_time > 0 {
                                     Some(*target_time)
                                 } else {
@@ -1600,7 +1603,7 @@ fn replace_exercise(
     element_idx: usize,
     exercise_idx: usize,
     new_exercise_id: u32,
-    data_exercises: &BTreeMap<u32, data::Exercise>,
+    data_exercises: &BTreeMap<u32, storage::Exercise>,
 ) {
     let mut current_exercise_id = None;
     let mut current_exercise_ids = vec![];
@@ -1759,7 +1762,7 @@ fn add_exercise(
     element_idx: usize,
     exercise_idx: usize,
     new_exercise_id: u32,
-    data_exercises: &BTreeMap<u32, data::Exercise>,
+    data_exercises: &BTreeMap<u32, storage::Exercise>,
 ) {
     let mut current_exercise_ids = vec![];
     for mut element in elements.iter_mut().skip(element_idx) {
@@ -1842,7 +1845,7 @@ fn remove_exercise(elements: &mut Vec<FormElement>, element_idx: usize, exercise
 fn append_exercise(
     elements: &mut Vec<FormElement>,
     exercise_id: u32,
-    data_exercises: &BTreeMap<u32, data::Exercise>,
+    data_exercises: &BTreeMap<u32, storage::Exercise>,
 ) {
     if let Some(FormElement::Set { exercises: _ }) = elements.last() {
         elements.push(FormElement::Rest {
@@ -2021,7 +2024,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_title(training_session: &data::TrainingSession, data_model: &data::Model) -> Node<Msg> {
+fn view_title(training_session: &storage::TrainingSession, data_model: &data::Model) -> Node<Msg> {
     div![
         common::view_title(&span![training_session.date.to_string()], 3),
         if let Some(routine) = data_model
@@ -2112,7 +2115,7 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
         .collect::<Vec<_>>()
 }
 
-fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
+fn view_notes(training_session: &storage::TrainingSession) -> Node<Msg> {
     if let Some(notes) = &training_session.notes {
         if notes.is_empty() {
             empty![]
@@ -2130,7 +2133,10 @@ fn view_notes(training_session: &data::TrainingSession) -> Node<Msg> {
     }
 }
 
-fn view_muscles(training_session: &data::TrainingSession, data_model: &data::Model) -> Node<Msg> {
+fn view_muscles(
+    training_session: &storage::TrainingSession,
+    data_model: &data::Model,
+) -> Node<Msg> {
     let stimulus_per_muscle = training_session
         .stimulus_per_muscle(&data_model.exercises)
         .iter()
@@ -4835,10 +4841,10 @@ mod tests {
         );
     }
 
-    fn exercises(id: u32) -> BTreeMap<u32, data::Exercise> {
+    fn exercises(id: u32) -> BTreeMap<u32, storage::Exercise> {
         BTreeMap::from([(
             id,
-            data::Exercise {
+            storage::Exercise {
                 id,
                 name: id.to_string(),
                 muscles: Vec::new(),

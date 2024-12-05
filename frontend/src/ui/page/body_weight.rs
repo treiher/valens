@@ -5,7 +5,10 @@ use chrono::prelude::*;
 use chrono::Duration;
 use seed::{prelude::*, *};
 
-use crate::ui::{self, common, data};
+use crate::{
+    storage,
+    ui::{self, common, data},
+};
 
 // ------ ------
 //     Init
@@ -164,13 +167,13 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddBodyWeight(ref mut form) => {
-                    orders.notify(data::Msg::CreateBodyWeight(data::BodyWeight {
+                    orders.notify(data::Msg::CreateBodyWeight(storage::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
                     }));
                 }
                 Dialog::EditBodyWeight(ref mut form) => {
-                    orders.notify(data::Msg::ReplaceBodyWeight(data::BodyWeight {
+                    orders.notify(data::Msg::ReplaceBodyWeight(storage::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
                     }));

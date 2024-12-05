@@ -1,7 +1,10 @@
 use chrono::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::ui::{self, common, data};
+use crate::{
+    storage,
+    ui::{self, common, data},
+};
 
 // ------ ------
 //     Init
@@ -375,7 +378,7 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddBodyFat(ref mut form) => {
-                    orders.notify(data::Msg::CreateBodyFat(data::BodyFat {
+                    orders.notify(data::Msg::CreateBodyFat(storage::BodyFat {
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,
@@ -387,7 +390,7 @@ pub fn update(
                     }));
                 }
                 Dialog::EditBodyFat(ref mut form) => {
-                    orders.notify(data::Msg::ReplaceBodyFat(data::BodyFat {
+                    orders.notify(data::Msg::ReplaceBodyFat(storage::BodyFat {
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,

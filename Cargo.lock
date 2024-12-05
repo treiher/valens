@@ -33,6 +33,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c07dab4369547dbe5114677b33fbbf724971019f3818172d59a97a61c774ffd"
 
 [[package]]
+name = "async-trait"
+version = "0.1.83"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1053,6 +1064,7 @@ name = "valens-frontend"
 version = "0.0.0"
 dependencies = [
  "assert_approx_eq",
+ "async-trait",
  "chrono",
  "gloo-console",
  "gloo-net",

@@ -5,6 +5,7 @@ authors = ["Tobias Reiher <valens@ardeidae.de>"]
 edition = "2021"
 
 [dependencies]
+async-trait = "0.1.83"
 chrono = { version = "0.4.20", default-features = false, features = ["serde", "wasmbind"] }
 gloo-console = "0.3.0"
 gloo-net = { version = "0.6.0", default-features = false, features = ["http", "json"] }

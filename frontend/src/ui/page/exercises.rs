@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 
 use seed::{prelude::*, *};
 
-use crate::ui::{self, common, component, data};
+use crate::{
+    storage,
+    ui::{self, common, component, data},
+};
 
 // ------ ------
 //     Init
@@ -164,7 +167,7 @@ pub fn update(
                     ));
                 }
                 Dialog::EditExercise(ref mut form) => {
-                    orders.notify(data::Msg::ReplaceExercise(data::Exercise {
+                    orders.notify(data::Msg::ReplaceExercise(storage::Exercise {
                         id: form.id,
                         name: form.name.parsed.clone().unwrap(),
                         muscles: vec![],
@@ -212,7 +215,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 
 fn view_exercise_dialog(
     dialog: &Dialog,
-    exercises: &BTreeMap<u32, data::Exercise>,
+    exercises: &BTreeMap<u32, storage::Exercise>,
     loading: bool,
 ) -> Node<Msg> {
     let title;

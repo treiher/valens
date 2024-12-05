@@ -7,6 +7,7 @@
 )]
 
 mod domain;
+mod storage;
 mod ui;
 
 fn main() {

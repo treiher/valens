@@ -1,10 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::iter::zip;
+use std::{collections::BTreeMap, iter::zip, sync::Arc};
 
 use chrono::{prelude::*, Duration};
 use gloo_console::error;
-use gloo_net::http::Request;
-use gloo_storage::Storage;
+use gloo_storage::Storage as GlooStorage;
 use seed::{
     app::{subs, Orders},
     button, div, nodes, p,
@@ -12,10 +10,9 @@ use seed::{
     virtual_dom::{ToClasses, UpdateEl},
     Url, C, IF,
 };
-use serde_json::{json, Map};
 
 use crate::{
-    domain,
+    domain, storage,
     ui::{self, common},
 };
 
@@ -39,6 +36,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
     let ongoing_training_session =
         gloo_storage::LocalStorage::get(STORAGE_KEY_ONGOING_TRAINING_SESSION).unwrap_or(None);
     Model {
+        store: Arc::new(storage::rest::Storage),
         base_url: url.to_hash_base_url(),
         errors: Vec::new(),
         app_update_available: false,
@@ -80,28 +78,29 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
 
 #[allow(clippy::struct_excessive_bools)]
 pub struct Model {
+    store: Arc<dyn storage::Storage>,
     pub base_url: Url,
     errors: Vec<String>,
     app_update_available: bool,
 
     // ------ Data -----
-    pub session: Option<Session>,
+    pub session: Option<storage::Session>,
     pub version: String,
-    pub users: BTreeMap<u32, User>,
+    pub users: BTreeMap<u32, storage::User>,
     pub loading_users: bool,
 
     // ------ Session-dependent data ------
-    pub body_weight: BTreeMap<NaiveDate, BodyWeight>,
+    pub body_weight: BTreeMap<NaiveDate, storage::BodyWeight>,
     pub loading_body_weight: bool,
-    pub body_fat: BTreeMap<NaiveDate, BodyFat>,
+    pub body_fat: BTreeMap<NaiveDate, storage::BodyFat>,
     pub loading_body_fat: bool,
-    pub period: BTreeMap<NaiveDate, Period>,
+    pub period: BTreeMap<NaiveDate, storage::Period>,
     pub loading_period: bool,
-    pub exercises: BTreeMap<u32, Exercise>,
+    pub exercises: BTreeMap<u32, storage::Exercise>,
     pub loading_exercises: bool,
-    pub routines: BTreeMap<u32, Routine>,
+    pub routines: BTreeMap<u32, storage::Routine>,
     pub loading_routines: bool,
-    pub training_sessions: BTreeMap<u32, TrainingSession>,
+    pub training_sessions: BTreeMap<u32, storage::TrainingSession>,
     pub loading_training_sessions: bool,
     pub last_refresh: DateTime<Utc>,
 
@@ -117,7 +116,7 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn exercises(&self, filter: &domain::ExerciseFilter) -> Vec<&Exercise> {
+    pub fn exercises(&self, filter: &domain::ExerciseFilter) -> Vec<&storage::Exercise> {
         self.exercises
             .values()
             .filter(|e| {
@@ -130,7 +129,10 @@ impl Model {
             .collect()
     }
 
-    pub fn routines_sorted_by_last_use(&self, filter: impl Fn(&Routine) -> bool) -> Vec<Routine> {
+    pub fn routines_sorted_by_last_use(
+        &self,
+        filter: impl Fn(&storage::Routine) -> bool,
+    ) -> Vec<storage::Routine> {
         sort_routines_by_last_use(&self.routines, &self.training_sessions, filter)
     }
 
@@ -171,10 +173,10 @@ impl Model {
 }
 
 fn sort_routines_by_last_use(
-    routines: &BTreeMap<u32, Routine>,
-    training_sessions: &BTreeMap<u32, TrainingSession>,
-    filter: impl Fn(&Routine) -> bool,
-) -> Vec<Routine> {
+    routines: &BTreeMap<u32, storage::Routine>,
+    training_sessions: &BTreeMap<u32, storage::TrainingSession>,
+    filter: impl Fn(&storage::Routine) -> bool,
+) -> Vec<storage::Routine> {
     let mut map: BTreeMap<u32, NaiveDate> = BTreeMap::new();
     for (routine_id, _) in routines.iter().filter(|(_, r)| filter(r)) {
         map.insert(
@@ -199,55 +201,10 @@ fn sort_routines_by_last_use(
         .collect()
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
-pub struct Session {
-    #[allow(dead_code)]
-    pub id: u32,
-    pub name: String,
-    pub sex: u8,
-}
-
-#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct User {
-    pub id: u32,
-    pub name: String,
-    pub sex: i8,
-}
-
-#[derive(serde::Serialize, Debug, Clone)]
-pub struct NewUser {
-    pub name: String,
-    pub sex: i8,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-pub struct BodyWeight {
-    pub date: NaiveDate,
-    pub weight: f32,
-}
-
 #[derive(Clone)]
 pub struct BodyWeightStats {
     pub date: NaiveDate,
     pub avg_weight: Option<f32>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct BodyFat {
-    pub date: NaiveDate,
-    pub chest: Option<u8>,
-    pub abdominal: Option<u8>,
-    pub thigh: Option<u8>,
-    pub tricep: Option<u8>,
-    pub subscapular: Option<u8>,
-    pub suprailiac: Option<u8>,
-    pub midaxillary: Option<u8>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct Period {
-    pub date: NaiveDate,
-    pub intensity: u8,
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
@@ -293,156 +250,6 @@ impl TrainingStats {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct Exercise {
-    pub id: u32,
-    pub name: String,
-    pub muscles: Vec<ExerciseMuscle>,
-}
-
-impl Exercise {
-    pub fn muscle_stimulus(&self) -> BTreeMap<u8, u8> {
-        self.muscles
-            .iter()
-            .map(|m| (m.muscle_id, m.stimulus))
-            .collect()
-    }
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct ExerciseMuscle {
-    pub muscle_id: u8,
-    pub stimulus: u8,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-pub struct Routine {
-    pub id: u32,
-    pub name: String,
-    pub notes: Option<String>,
-    pub archived: bool,
-    pub sections: Vec<RoutinePart>,
-}
-
-impl Routine {
-    pub fn duration(&self) -> Duration {
-        self.sections.iter().map(RoutinePart::duration).sum()
-    }
-
-    pub fn num_sets(&self) -> u32 {
-        self.sections.iter().map(RoutinePart::num_sets).sum()
-    }
-
-    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
-        let mut result: BTreeMap<u8, u32> = domain::Muscle::iter()
-            .map(|m| (domain::Muscle::id(*m), 0))
-            .collect();
-        for section in &self.sections {
-            for (id, stimulus) in section.stimulus_per_muscle(exercises) {
-                if result.contains_key(&id) {
-                    *result.entry(id).or_insert(0) += stimulus;
-                }
-            }
-        }
-        result
-    }
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-#[serde(untagged)]
-pub enum RoutinePart {
-    RoutineSection {
-        rounds: u32,
-        parts: Vec<RoutinePart>,
-    },
-    RoutineActivity {
-        exercise_id: Option<u32>,
-        reps: u32,
-        time: u32,
-        weight: f32,
-        rpe: f32,
-        automatic: bool,
-    },
-}
-
-impl RoutinePart {
-    pub fn duration(&self) -> Duration {
-        match self {
-            RoutinePart::RoutineSection { rounds, parts } => {
-                parts.iter().map(RoutinePart::duration).sum::<Duration>()
-                    * (*rounds).try_into().unwrap_or(1)
-            }
-            RoutinePart::RoutineActivity { reps, time, .. } => {
-                let r = if *reps > 0 { *reps } else { 1 };
-                let t = if *time > 0 { *time } else { 4 };
-                Duration::seconds(i64::from(r * t))
-            }
-        }
-    }
-
-    pub fn num_sets(&self) -> u32 {
-        match self {
-            RoutinePart::RoutineSection { rounds, parts } => {
-                parts.iter().map(RoutinePart::num_sets).sum::<u32>() * *rounds
-            }
-            RoutinePart::RoutineActivity { exercise_id, .. } => exercise_id.is_some().into(),
-        }
-    }
-
-    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
-        match self {
-            RoutinePart::RoutineSection { rounds, parts } => {
-                let mut result: BTreeMap<u8, u32> = BTreeMap::new();
-                for part in parts {
-                    for (id, stimulus) in part.stimulus_per_muscle(exercises) {
-                        *result.entry(id).or_insert(0) += stimulus * rounds;
-                    }
-                }
-                result
-            }
-            RoutinePart::RoutineActivity { exercise_id, .. } => exercises
-                .get(&exercise_id.unwrap_or_default())
-                .map(|e| {
-                    e.muscle_stimulus()
-                        .iter()
-                        .map(|(id, stimulus)| (*id, u32::from(*stimulus)))
-                        .collect()
-                })
-                .unwrap_or_default(),
-        }
-    }
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-pub struct TrainingSession {
-    pub id: u32,
-    pub routine_id: Option<u32>,
-    pub date: NaiveDate,
-    pub notes: Option<String>,
-    pub elements: Vec<TrainingSessionElement>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-#[serde(untagged)]
-pub enum TrainingSessionElement {
-    Set {
-        exercise_id: u32,
-        reps: Option<u32>,
-        time: Option<u32>,
-        weight: Option<f32>,
-        rpe: Option<f32>,
-        target_reps: Option<u32>,
-        target_time: Option<u32>,
-        target_weight: Option<f32>,
-        target_rpe: Option<f32>,
-        automatic: bool,
-    },
-    Rest {
-        target_time: Option<u32>,
-        automatic: bool,
-    },
-}
-
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
@@ -477,291 +284,6 @@ pub enum TimerState {
     Paused { time: i64 },
 }
 
-impl BodyFat {
-    pub fn jp3(&self, sex: u8) -> Option<f32> {
-        if sex == 0 {
-            Some(Self::jackson_pollock(
-                f32::from(self.tricep?) + f32::from(self.suprailiac?) + f32::from(self.thigh?),
-                1.099_492_1,
-                0.000_992_9,
-                0.000_002_3,
-                0.000_139_2,
-            ))
-        } else if sex == 1 {
-            Some(Self::jackson_pollock(
-                f32::from(self.chest?) + f32::from(self.abdominal?) + f32::from(self.thigh?),
-                1.109_38,
-                0.000_826_7,
-                0.000_001_6,
-                0.000_257_4,
-            ))
-        } else {
-            None
-        }
-    }
-
-    pub fn jp7(&self, sex: u8) -> Option<f32> {
-        if sex == 0 {
-            Some(Self::jackson_pollock(
-                f32::from(self.chest?)
-                    + f32::from(self.abdominal?)
-                    + f32::from(self.thigh?)
-                    + f32::from(self.tricep?)
-                    + f32::from(self.subscapular?)
-                    + f32::from(self.suprailiac?)
-                    + f32::from(self.midaxillary?),
-                1.097,
-                0.000_469_71,
-                0.000_000_56,
-                0.000_128_28,
-            ))
-        } else if sex == 1 {
-            Some(Self::jackson_pollock(
-                f32::from(self.chest?)
-                    + f32::from(self.abdominal?)
-                    + f32::from(self.thigh?)
-                    + f32::from(self.tricep?)
-                    + f32::from(self.subscapular?)
-                    + f32::from(self.suprailiac?)
-                    + f32::from(self.midaxillary?),
-                1.112,
-                0.000_434_99,
-                0.000_000_55,
-                0.000_288_26,
-            ))
-        } else {
-            None
-        }
-    }
-
-    fn jackson_pollock(sum: f32, k0: f32, k1: f32, k2: f32, ka: f32) -> f32 {
-        let age = 30.; // assume an age of 30
-        (495. / (k0 - (k1 * sum) + (k2 * sum * sum) - (ka * age))) - 450.
-    }
-}
-
-impl Routine {
-    pub fn exercises(&self) -> BTreeSet<u32> {
-        self.sections
-            .iter()
-            .flat_map(RoutinePart::exercises)
-            .collect::<BTreeSet<_>>()
-    }
-}
-
-impl RoutinePart {
-    fn exercises(&self) -> BTreeSet<u32> {
-        let mut result: BTreeSet<u32> = BTreeSet::new();
-        match self {
-            RoutinePart::RoutineSection { parts, .. } => {
-                for p in parts {
-                    result.extend(Self::exercises(p));
-                }
-            }
-            RoutinePart::RoutineActivity { exercise_id, .. } => {
-                if let Some(id) = exercise_id {
-                    result.insert(*id);
-                }
-            }
-        }
-        result
-    }
-}
-
-impl TrainingSession {
-    pub fn exercises(&self) -> BTreeSet<u32> {
-        self.elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { exercise_id, .. } => Some(*exercise_id),
-                _ => None,
-            })
-            .collect::<BTreeSet<_>>()
-    }
-
-    pub fn avg_reps(&self) -> Option<f32> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { reps, .. } => *reps,
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
-        }
-    }
-
-    pub fn avg_time(&self) -> Option<f32> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { time, .. } => *time,
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
-        }
-    }
-
-    pub fn avg_weight(&self) -> Option<f32> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { weight, .. } => *weight,
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<f32>() / sets.len() as f32)
-        }
-    }
-
-    pub fn avg_rpe(&self) -> Option<f32> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { rpe, .. } => *rpe,
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<f32>() / sets.len() as f32)
-        }
-    }
-
-    pub fn load(&self) -> u32 {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set {
-                    reps, time, rpe, ..
-                } => Some(if let Some(rpe) = *rpe {
-                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    if rpe > 5.0 {
-                        (2.0_f32).powf(rpe - 5.0).round() as u32
-                    } else {
-                        1
-                    }
-                } else {
-                    u32::from(reps.is_some() || time.is_some())
-                }),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        sets.iter().sum::<u32>()
-    }
-
-    pub fn set_volume(&self) -> u32 {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { rpe, .. } => {
-                    if rpe.unwrap_or(10.0) >= 7.0 {
-                        Some(1)
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        sets.iter().sum::<u32>()
-    }
-
-    pub fn volume_load(&self) -> u32 {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { reps, weight, .. } => {
-                    if let Some(reps) = reps {
-                        #[allow(
-                            clippy::cast_possible_truncation,
-                            clippy::cast_precision_loss,
-                            clippy::cast_sign_loss
-                        )]
-                        if let Some(weight) = weight {
-                            Some((*reps as f32 * weight).round() as u32)
-                        } else {
-                            Some(*reps)
-                        }
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        sets.iter().sum::<u32>()
-    }
-
-    pub fn tut(&self) -> Option<u32> {
-        let sets = &self
-            .elements
-            .iter()
-            .map(|e| match e {
-                TrainingSessionElement::Set { reps, time, .. } => {
-                    time.as_ref().map(|v| reps.unwrap_or(1) * v)
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        if sets.iter().all(Option::is_none) {
-            return None;
-        }
-        Some(sets.iter().filter_map(|e| *e).sum::<u32>())
-    }
-
-    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
-        let mut result: BTreeMap<u8, u32> = BTreeMap::new();
-        for element in &self.elements {
-            if let TrainingSessionElement::Set {
-                exercise_id,
-                reps,
-                time,
-                rpe,
-                ..
-            } = element
-            {
-                if reps.is_none() && time.is_none() {
-                    continue;
-                }
-                if let Some(rpe) = rpe {
-                    if *rpe < 7.0 {
-                        continue;
-                    }
-                }
-                if let Some(exercise) = exercises.get(exercise_id) {
-                    for (id, stimulus) in &exercise.muscle_stimulus() {
-                        *result.entry(*id).or_insert(0) += u32::from(*stimulus);
-                    }
-                }
-            }
-        }
-        result
-    }
-}
-
 impl OngoingTrainingSession {
     pub fn new(training_session_id: u32) -> OngoingTrainingSession {
         OngoingTrainingSession {
@@ -775,7 +297,7 @@ impl OngoingTrainingSession {
 }
 
 fn calculate_body_weight_stats(
-    body_weight: &BTreeMap<NaiveDate, BodyWeight>,
+    body_weight: &BTreeMap<NaiveDate, storage::BodyWeight>,
 ) -> BTreeMap<NaiveDate, BodyWeightStats> {
     let body_weight = body_weight.values().collect::<Vec<_>>();
 
@@ -807,7 +329,7 @@ fn calculate_body_weight_stats(
         .collect()
 }
 
-fn determine_cycles(period: &BTreeMap<NaiveDate, Period>) -> Vec<Cycle> {
+fn determine_cycles(period: &BTreeMap<NaiveDate, storage::Period>) -> Vec<Cycle> {
     if period.is_empty() {
         return vec![];
     }
@@ -867,7 +389,7 @@ pub fn calculate_cycle_stats(cycles: &[&Cycle]) -> CycleStats {
     }
 }
 
-fn calculate_training_stats(training_sessions: &[&TrainingSession]) -> TrainingStats {
+fn calculate_training_stats(training_sessions: &[&storage::TrainingSession]) -> TrainingStats {
     let short_term_load = calculate_weighted_sum_of_load(training_sessions, 7);
     let long_term_load = calculate_average_weighted_sum_of_load(&short_term_load, 28);
     TrainingStats {
@@ -877,7 +399,7 @@ fn calculate_training_stats(training_sessions: &[&TrainingSession]) -> TrainingS
 }
 
 fn calculate_weighted_sum_of_load(
-    training_sessions: &[&TrainingSession],
+    training_sessions: &[&storage::TrainingSession],
     window_size: usize,
 ) -> Vec<(NaiveDate, f32)> {
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
@@ -950,9 +472,9 @@ pub enum Msg {
     ClearSessionDependentData,
 
     RequestSession(u32),
-    SessionReceived(Result<Session, String>),
+    SessionReceived(Result<storage::Session, String>),
     InitializeSession,
-    SessionInitialized(Result<Session, String>),
+    SessionInitialized(Result<storage::Session, String>),
 
     DeleteSession,
     SessionDeleted(Result<(), String>),
@@ -961,65 +483,79 @@ pub enum Msg {
     VersionRead(Result<String, String>),
 
     ReadUsers,
-    UsersRead(Result<Vec<User>, String>),
-    CreateUser(NewUser),
-    UserCreated(Result<User, String>),
-    ReplaceUser(User),
-    UserReplaced(Result<User, String>),
+    UsersRead(Result<Vec<storage::User>, String>),
+    CreateUser(storage::NewUser),
+    UserCreated(Result<storage::User, String>),
+    ReplaceUser(storage::User),
+    UserReplaced(Result<storage::User, String>),
     DeleteUser(u32),
     UserDeleted(Result<u32, String>),
 
     ReadBodyWeight,
-    BodyWeightRead(Result<Vec<BodyWeight>, String>),
-    CreateBodyWeight(BodyWeight),
-    BodyWeightCreated(Result<BodyWeight, String>),
-    ReplaceBodyWeight(BodyWeight),
-    BodyWeightReplaced(Result<BodyWeight, String>),
+    BodyWeightRead(Result<Vec<storage::BodyWeight>, String>),
+    CreateBodyWeight(storage::BodyWeight),
+    BodyWeightCreated(Result<storage::BodyWeight, String>),
+    ReplaceBodyWeight(storage::BodyWeight),
+    BodyWeightReplaced(Result<storage::BodyWeight, String>),
     DeleteBodyWeight(NaiveDate),
     BodyWeightDeleted(Result<NaiveDate, String>),
 
     ReadBodyFat,
-    BodyFatRead(Result<Vec<BodyFat>, String>),
-    CreateBodyFat(BodyFat),
-    BodyFatCreated(Result<BodyFat, String>),
-    ReplaceBodyFat(BodyFat),
-    BodyFatReplaced(Result<BodyFat, String>),
+    BodyFatRead(Result<Vec<storage::BodyFat>, String>),
+    CreateBodyFat(storage::BodyFat),
+    BodyFatCreated(Result<storage::BodyFat, String>),
+    ReplaceBodyFat(storage::BodyFat),
+    BodyFatReplaced(Result<storage::BodyFat, String>),
     DeleteBodyFat(NaiveDate),
     BodyFatDeleted(Result<NaiveDate, String>),
 
     ReadPeriod,
-    PeriodRead(Result<Vec<Period>, String>),
-    CreatePeriod(Period),
-    PeriodCreated(Result<Period, String>),
-    ReplacePeriod(Period),
-    PeriodReplaced(Result<Period, String>),
+    PeriodRead(Result<Vec<storage::Period>, String>),
+    CreatePeriod(storage::Period),
+    PeriodCreated(Result<storage::Period, String>),
+    ReplacePeriod(storage::Period),
+    PeriodReplaced(Result<storage::Period, String>),
     DeletePeriod(NaiveDate),
     PeriodDeleted(Result<NaiveDate, String>),
 
     ReadExercises,
-    ExercisesRead(Result<Vec<Exercise>, String>),
-    CreateExercise(String, Vec<ExerciseMuscle>),
-    ExerciseCreated(Result<Exercise, String>),
-    ReplaceExercise(Exercise),
-    ExerciseReplaced(Result<Exercise, String>),
+    ExercisesRead(Result<Vec<storage::Exercise>, String>),
+    CreateExercise(String, Vec<storage::ExerciseMuscle>),
+    ExerciseCreated(Result<storage::Exercise, String>),
+    ReplaceExercise(storage::Exercise),
+    ExerciseReplaced(Result<storage::Exercise, String>),
     DeleteExercise(u32),
     ExerciseDeleted(Result<u32, String>),
 
     ReadRoutines,
-    RoutinesRead(Result<Vec<Routine>, String>),
+    RoutinesRead(Result<Vec<storage::Routine>, String>),
     CreateRoutine(String, u32),
-    RoutineCreated(Result<Routine, String>),
-    ModifyRoutine(u32, Option<String>, Option<bool>, Option<Vec<RoutinePart>>),
-    RoutineModified(Result<Routine, String>),
+    RoutineCreated(Result<storage::Routine, String>),
+    ModifyRoutine(
+        u32,
+        Option<String>,
+        Option<bool>,
+        Option<Vec<storage::RoutinePart>>,
+    ),
+    RoutineModified(Result<storage::Routine, String>),
     DeleteRoutine(u32),
     RoutineDeleted(Result<u32, String>),
 
     ReadTrainingSessions,
-    TrainingSessionsRead(Result<Vec<TrainingSession>, String>),
-    CreateTrainingSession(Option<u32>, NaiveDate, String, Vec<TrainingSessionElement>),
-    TrainingSessionCreated(Result<TrainingSession, String>),
-    ModifyTrainingSession(u32, Option<String>, Option<Vec<TrainingSessionElement>>),
-    TrainingSessionModified(Result<TrainingSession, String>),
+    TrainingSessionsRead(Result<Vec<storage::TrainingSession>, String>),
+    CreateTrainingSession(
+        Option<u32>,
+        NaiveDate,
+        String,
+        Vec<storage::TrainingSessionElement>,
+    ),
+    TrainingSessionCreated(Result<storage::TrainingSession, String>),
+    ModifyTrainingSession(
+        u32,
+        Option<String>,
+        Option<Vec<storage::TrainingSessionElement>>,
+    ),
+    TrainingSessionModified(Result<storage::TrainingSession, String>),
     DeleteTrainingSession(u32),
     TrainingSessionDeleted(Result<u32, String>),
 
@@ -1131,14 +667,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::RequestSession(user_id) => {
+            let store = model.store.clone();
             orders.skip().perform_cmd(async move {
-                fetch(
-                    Request::post("api/session")
-                        .json(&json!({ "id": user_id }))
-                        .expect("serialization failed"),
-                    Msg::SessionReceived,
-                )
-                .await
+                Msg::SessionReceived(store.request_session(user_id).await)
             });
         }
         Msg::SessionReceived(Ok(new_session)) => {
@@ -1154,13 +685,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to request session: ".to_owned() + &message);
         }
         Msg::InitializeSession => {
-            orders.perform_cmd(async {
-                fetch(
-                    Request::get("api/session").build().unwrap(),
-                    Msg::SessionInitialized,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(
+                async move { Msg::SessionInitialized(store.initialize_session().await) },
+            );
         }
         Msg::SessionInitialized(Ok(session)) => {
             model.session = Some(session);
@@ -1173,17 +701,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             orders.notify(subs::UrlChanged(Url::current()));
         }
         Msg::DeleteSession => {
+            let store = model.store.clone();
             orders
                 .skip()
                 .send_msg(Msg::ClearSessionDependentData)
-                .perform_cmd(async {
-                    fetch_no_content(
-                        Request::delete("api/session").build().unwrap(),
-                        Msg::SessionDeleted,
-                        (),
-                    )
-                    .await
-                });
+                .perform_cmd(async move { Msg::SessionDeleted(store.delete_session().await) });
         }
         Msg::SessionDeleted(Ok(())) => {
             model.session = None;
@@ -1196,13 +718,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadVersion => {
-            orders.perform_cmd(async {
-                fetch(
-                    Request::get("api/version").build().unwrap(),
-                    Msg::VersionRead,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(async move { Msg::VersionRead(store.read_version().await) });
         }
         Msg::VersionRead(Ok(version)) => {
             model.version = version;
@@ -1223,9 +740,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadUsers => {
             model.loading_users = true;
-            orders.perform_cmd(async {
-                fetch(Request::get("api/users").build().unwrap(), Msg::UsersRead).await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(async move { Msg::UsersRead(store.read_users().await) });
         }
         Msg::UsersRead(Ok(users)) => {
             let users = users.into_iter().map(|e| (e.id, e)).collect();
@@ -1242,15 +758,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.loading_users = false;
         }
         Msg::CreateUser(user) => {
-            orders.perform_cmd(async move {
-                fetch(
-                    Request::post("api/users")
-                        .json(&user)
-                        .expect("serialization failed"),
-                    Msg::UserCreated,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(async move { Msg::UserCreated(store.create_user(user).await) });
         }
         Msg::UserCreated(Ok(user)) => {
             model.users.insert(user.id, user);
@@ -1263,18 +772,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create user: ".to_owned() + &message);
         }
         Msg::ReplaceUser(user) => {
-            orders.perform_cmd(async move {
-                fetch(
-                    Request::put(&format!("api/users/{}", user.id))
-                        .json(&NewUser {
-                            name: user.name,
-                            sex: user.sex,
-                        })
-                        .expect("serialization failed"),
-                    Msg::UserReplaced,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(async move { Msg::UserReplaced(store.replace_user(user).await) });
         }
         Msg::UserReplaced(Ok(user)) => {
             model.users.insert(user.id, user);
@@ -1287,14 +786,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace user: ".to_owned() + &message);
         }
         Msg::DeleteUser(id) => {
-            orders.perform_cmd(async move {
-                fetch_no_content(
-                    Request::delete(&format!("api/users/{id}")).build().unwrap(),
-                    Msg::UserDeleted,
-                    id,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(async move { Msg::UserDeleted(store.delete_user(id).await) });
         }
         Msg::UserDeleted(Ok(id)) => {
             model.users.remove(&id);
@@ -1309,15 +802,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadBodyWeight => {
             model.loading_body_weight = true;
-            orders.skip().perform_cmd(async {
-                fetch(
-                    Request::get("api/body_weight?format=statistics")
-                        .build()
-                        .unwrap(),
-                    Msg::BodyWeightRead,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::BodyWeightRead(store.read_body_weight().await) });
         }
         Msg::BodyWeightRead(Ok(body_weight)) => {
             let body_weight = body_weight.into_iter().map(|e| (e.date, e)).collect();
@@ -1335,14 +823,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.loading_body_weight = false;
         }
         Msg::CreateBodyWeight(body_weight) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::post("api/body_weight")
-                        .json(&body_weight)
-                        .expect("serialization failed"),
-                    Msg::BodyWeightCreated,
-                )
-                .await
+                Msg::BodyWeightCreated(store.create_body_weight(body_weight).await)
             });
         }
         Msg::BodyWeightCreated(Ok(body_weight)) => {
@@ -1357,14 +840,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create body weight: ".to_owned() + &message);
         }
         Msg::ReplaceBodyWeight(body_weight) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::put(&format!("api/body_weight/{}", body_weight.date))
-                        .json(&json!({ "weight": body_weight.weight }))
-                        .expect("serialization failed"),
-                    Msg::BodyWeightReplaced,
-                )
-                .await
+                Msg::BodyWeightReplaced(store.replace_body_weight(body_weight).await)
             });
         }
         Msg::BodyWeightReplaced(Ok(body_weight)) => {
@@ -1379,15 +857,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace body weight: ".to_owned() + &message);
         }
         Msg::DeleteBodyWeight(date) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch_no_content(
-                    Request::delete(&format!("api/body_weight/{date}"))
-                        .build()
-                        .unwrap(),
-                    Msg::BodyWeightDeleted,
-                    date,
-                )
-                .await
+                Msg::BodyWeightDeleted(store.delete_body_weight(date).await)
             });
         }
         Msg::BodyWeightDeleted(Ok(date)) => {
@@ -1404,15 +876,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadBodyFat => {
             model.loading_body_fat = true;
-            orders.skip().perform_cmd(async {
-                fetch(
-                    Request::get("api/body_fat?format=statistics")
-                        .build()
-                        .unwrap(),
-                    Msg::BodyFatRead,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::BodyFatRead(store.read_body_fat().await) });
         }
         Msg::BodyFatRead(Ok(body_fat)) => {
             let body_fat = body_fat.into_iter().map(|e| (e.date, e)).collect();
@@ -1429,14 +896,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.loading_body_fat = false;
         }
         Msg::CreateBodyFat(body_fat) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::post("api/body_fat")
-                        .json(&body_fat)
-                        .expect("serialization failed"),
-                    Msg::BodyFatCreated,
-                )
-                .await
+                Msg::BodyFatCreated(store.create_body_fat(body_fat).await)
             });
         }
         Msg::BodyFatCreated(Ok(body_fat)) => {
@@ -1450,22 +912,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create body fat: ".to_owned() + &message);
         }
         Msg::ReplaceBodyFat(body_fat) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::put(&format!("api/body_fat/{}", body_fat.date))
-                        .json(&json!({
-                            "chest": body_fat.chest,
-                            "abdominal": body_fat.abdominal,
-                            "thigh": body_fat.thigh,
-                            "tricep": body_fat.tricep,
-                            "subscapular": body_fat.subscapular,
-                            "suprailiac": body_fat.suprailiac,
-                            "midaxillary": body_fat.midaxillary,
-                        }))
-                        .expect("serialization failed"),
-                    Msg::BodyFatReplaced,
-                )
-                .await
+                Msg::BodyFatReplaced(store.replace_body_fat(body_fat).await)
             });
         }
         Msg::BodyFatReplaced(Ok(body_fat)) => {
@@ -1479,16 +928,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace body fat: ".to_owned() + &message);
         }
         Msg::DeleteBodyFat(date) => {
-            orders.perform_cmd(async move {
-                fetch_no_content(
-                    Request::delete(&format!("api/body_fat/{date}"))
-                        .build()
-                        .unwrap(),
-                    Msg::BodyFatDeleted,
-                    date,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders
+                .perform_cmd(async move { Msg::BodyFatDeleted(store.delete_body_fat(date).await) });
         }
         Msg::BodyFatDeleted(Ok(date)) => {
             model.body_fat.remove(&date);
@@ -1503,9 +945,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadPeriod => {
             model.loading_period = true;
-            orders.skip().perform_cmd(async {
-                fetch(Request::get("api/period").build().unwrap(), Msg::PeriodRead).await
-            });
+            let store = model.store.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::PeriodRead(store.read_period().await) });
         }
         Msg::PeriodRead(Ok(period)) => {
             let period = period.into_iter().map(|e| (e.date, e)).collect();
@@ -1524,15 +967,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.loading_period = false;
         }
         Msg::CreatePeriod(period) => {
-            orders.perform_cmd(async move {
-                fetch(
-                    Request::post("api/period")
-                        .json(&period)
-                        .expect("serialization failed"),
-                    Msg::PeriodCreated,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders
+                .perform_cmd(async move { Msg::PeriodCreated(store.create_period(period).await) });
         }
         Msg::PeriodCreated(Ok(period)) => {
             model.period.insert(period.date, period);
@@ -1547,15 +984,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create period: ".to_owned() + &message);
         }
         Msg::ReplacePeriod(period) => {
-            orders.perform_cmd(async move {
-                fetch(
-                    Request::put(&format!("api/period/{}", period.date))
-                        .json(&json!({ "intensity": period.intensity }))
-                        .expect("serialization failed"),
-                    Msg::PeriodReplaced,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(
+                async move { Msg::PeriodReplaced(store.replace_period(period).await) },
+            );
         }
         Msg::PeriodReplaced(Ok(period)) => {
             model.period.insert(period.date, period);
@@ -1570,16 +1002,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace period: ".to_owned() + &message);
         }
         Msg::DeletePeriod(date) => {
-            orders.perform_cmd(async move {
-                fetch_no_content(
-                    Request::delete(&format!("api/period/{date}"))
-                        .build()
-                        .unwrap(),
-                    Msg::PeriodDeleted,
-                    date,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(async move { Msg::PeriodDeleted(store.delete_period(date).await) });
         }
         Msg::PeriodDeleted(Ok(date)) => {
             model.period.remove(&date);
@@ -1596,13 +1020,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadExercises => {
             model.loading_exercises = true;
-            orders.skip().perform_cmd(async {
-                fetch(
-                    Request::get("api/exercises").build().unwrap(),
-                    Msg::ExercisesRead,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::ExercisesRead(store.read_exercises().await) });
         }
         Msg::ExercisesRead(Ok(exercises)) => {
             let exercises = exercises.into_iter().map(|e| (e.id, e)).collect();
@@ -1618,15 +1039,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to read exercises: ".to_owned() + &message);
             model.loading_exercises = false;
         }
-        Msg::CreateExercise(exercise_name, muscles) => {
+        Msg::CreateExercise(name, muscles) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::post("api/exercises")
-                        .json(&json!({ "name": exercise_name, "muscles": muscles }))
-                        .expect("serialization failed"),
-                    Msg::ExerciseCreated,
-                )
-                .await
+                Msg::ExerciseCreated(store.create_exercise(name, muscles).await)
             });
         }
         Msg::ExerciseCreated(Ok(exercise)) => {
@@ -1640,14 +1056,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create exercise: ".to_owned() + &message);
         }
         Msg::ReplaceExercise(exercise) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::put(&format!("api/exercises/{}", exercise.id))
-                        .json(&exercise)
-                        .expect("serialization failed"),
-                    Msg::ExerciseReplaced,
-                )
-                .await
+                Msg::ExerciseReplaced(store.replace_exercise(exercise).await)
             });
         }
         Msg::ExerciseReplaced(Ok(exercise)) => {
@@ -1663,16 +1074,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace exercise: ".to_owned() + &message);
         }
         Msg::DeleteExercise(id) => {
-            orders.perform_cmd(async move {
-                fetch_no_content(
-                    Request::delete(&format!("api/exercises/{id}"))
-                        .build()
-                        .unwrap(),
-                    Msg::ExerciseDeleted,
-                    id,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders
+                .perform_cmd(async move { Msg::ExerciseDeleted(store.delete_exercise(id).await) });
         }
         Msg::ExerciseDeleted(Ok(id)) => {
             model.exercises.remove(&id);
@@ -1687,13 +1091,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadRoutines => {
             model.loading_routines = true;
-            orders.skip().perform_cmd(async {
-                fetch(
-                    Request::get("api/routines").build().unwrap(),
-                    Msg::RoutinesRead,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::RoutinesRead(store.read_routines().await) });
         }
         Msg::RoutinesRead(Ok(routines)) => {
             let routines = routines.into_iter().map(|r| (r.id, r)).collect();
@@ -1709,25 +1110,15 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to read routines: ".to_owned() + &message);
             model.loading_routines = false;
         }
-        Msg::CreateRoutine(routine_name, template_routine_id) => {
+        Msg::CreateRoutine(name, template_routine_id) => {
             let sections = if model.routines.contains_key(&template_routine_id) {
-                json!(model.routines[&template_routine_id].sections)
+                model.routines[&template_routine_id].sections.clone()
             } else {
-                json!([])
+                vec![]
             };
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::post("api/routines")
-                        .json(&json!({
-                            "name": routine_name,
-                            "notes": "",
-                            "archived": false,
-                            "sections": sections
-                        }))
-                        .expect("serialization failed"),
-                    Msg::RoutineCreated,
-                )
-                .await
+                Msg::RoutineCreated(store.create_routine(name, sections).await)
             });
         }
         Msg::RoutineCreated(Ok(routine)) => {
@@ -1741,24 +1132,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create routine: ".to_owned() + &message);
         }
         Msg::ModifyRoutine(id, name, archived, sections) => {
-            let mut content = Map::new();
-            if let Some(name) = name {
-                content.insert("name".into(), json!(name));
-            }
-            if let Some(archived) = archived {
-                content.insert("archived".into(), json!(archived));
-            }
-            if let Some(sections) = sections {
-                content.insert("sections".into(), json!(sections));
-            }
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::patch(&format!("api/routines/{id}"))
-                        .json(&content)
-                        .expect("serialization failed"),
-                    Msg::RoutineModified,
-                )
-                .await
+                Msg::RoutineModified(store.modify_routine(id, name, archived, sections).await)
             });
         }
         Msg::RoutineModified(Ok(routine)) => {
@@ -1772,16 +1148,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to modify routine: ".to_owned() + &message);
         }
         Msg::DeleteRoutine(id) => {
-            orders.perform_cmd(async move {
-                fetch_no_content(
-                    Request::delete(&format!("api/routines/{id}"))
-                        .build()
-                        .unwrap(),
-                    Msg::RoutineDeleted,
-                    id,
-                )
-                .await
-            });
+            let store = model.store.clone();
+            orders.perform_cmd(async move { Msg::RoutineDeleted(store.delete_routine(id).await) });
         }
         Msg::RoutineDeleted(Ok(id)) => {
             model.routines.remove(&id);
@@ -1796,12 +1164,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::ReadTrainingSessions => {
             model.loading_training_sessions = true;
-            orders.skip().perform_cmd(async {
-                fetch(
-                    Request::get("api/workouts").build().unwrap(),
-                    Msg::TrainingSessionsRead,
-                )
-                .await
+            let store = model.store.clone();
+            orders.skip().perform_cmd(async move {
+                Msg::TrainingSessionsRead(store.read_training_sessions().await)
             });
         }
         Msg::TrainingSessionsRead(Ok(training_sessions)) => {
@@ -1821,19 +1186,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.loading_training_sessions = false;
         }
         Msg::CreateTrainingSession(routine_id, date, notes, elements) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::post("api/workouts")
-                        .json(&json!({
-                            "routine_id": routine_id,
-                            "date": date,
-                            "notes": notes,
-                            "elements": elements
-                        }))
-                        .expect("serialization failed"),
-                    Msg::TrainingSessionCreated,
+                Msg::TrainingSessionCreated(
+                    store
+                        .create_training_session(routine_id, date, notes, elements)
+                        .await,
                 )
-                .await
             });
         }
         Msg::TrainingSessionCreated(Ok(training_session)) => {
@@ -1851,21 +1210,11 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create training session: ".to_owned() + &message);
         }
         Msg::ModifyTrainingSession(id, notes, elements) => {
-            let mut content = Map::new();
-            if let Some(notes) = notes {
-                content.insert("notes".into(), json!(notes));
-            }
-            if let Some(elements) = elements {
-                content.insert("elements".into(), json!(elements));
-            }
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch(
-                    Request::patch(&format!("api/workouts/{id}"))
-                        .json(&content)
-                        .expect("serialization failed"),
-                    Msg::TrainingSessionModified,
+                Msg::TrainingSessionModified(
+                    store.modify_training_session(id, notes, elements).await,
                 )
-                .await
             });
         }
         Msg::TrainingSessionModified(Ok(training_session)) => {
@@ -1883,15 +1232,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to modify training session: ".to_owned() + &message);
         }
         Msg::DeleteTrainingSession(id) => {
+            let store = model.store.clone();
             orders.perform_cmd(async move {
-                fetch_no_content(
-                    Request::delete(&format!("api/workouts/{id}"))
-                        .build()
-                        .unwrap(),
-                    Msg::TrainingSessionDeleted,
-                    id,
-                )
-                .await
+                Msg::TrainingSessionDeleted(store.delete_training_session(id).await)
             });
         }
         Msg::TrainingSessionDeleted(Ok(id)) => {
@@ -1964,50 +1307,6 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     }
 }
 
-async fn fetch<'a, Ms, T>(request: Request, message: fn(Result<T, String>) -> Ms) -> Ms
-where
-    T: 'static + for<'de> serde::Deserialize<'de>,
-{
-    match request.send().await {
-        Ok(response) => {
-            if response.ok() {
-                match response.json::<T>().await {
-                    Ok(data) => message(Ok(data)),
-                    Err(error) => message(Err(format!("deserialization failed: {error:?}"))),
-                }
-            } else {
-                message(Err(format!(
-                    "{} {}",
-                    response.status(),
-                    response.status_text()
-                )))
-            }
-        }
-        Err(_) => message(Err("no connection".into())),
-    }
-}
-
-async fn fetch_no_content<'a, Ms, T>(
-    request: Request,
-    message: fn(Result<T, String>) -> Ms,
-    id: T,
-) -> Ms {
-    match request.send().await {
-        Ok(response) => {
-            if response.ok() {
-                message(Ok(id))
-            } else {
-                message(Err(format!(
-                    "unexpected response: {} {}",
-                    response.status(),
-                    response.status_text()
-                )))
-            }
-        }
-        Err(_) => message(Err("no connection".into())),
-    }
-}
-
 fn local_storage_set<T: serde::Serialize>(key: &str, value: &T, errors: &mut Vec<String>) {
     if let Err(message) = gloo_storage::LocalStorage::set(key, value) {
         errors.push(format!("Failed to store {key} in local storage: {message}"));
@@ -2068,19 +1367,19 @@ mod tests {
         assert_eq!(
             determine_cycles(&BTreeMap::from(
                 [
-                    Period {
+                    storage::Period {
                         date: from_num_days(1),
                         intensity: 3,
                     },
-                    Period {
+                    storage::Period {
                         date: from_num_days(5),
                         intensity: 4,
                     },
-                    Period {
+                    storage::Period {
                         date: from_num_days(8),
                         intensity: 2,
                     },
-                    Period {
+                    storage::Period {
                         date: from_num_days(33),
                         intensity: 1,
                     }
@@ -2189,8 +1488,8 @@ mod tests {
         );
     }
 
-    fn routine(id: u32) -> Routine {
-        Routine {
+    fn routine(id: u32) -> storage::Routine {
+        storage::Routine {
             id,
             name: id.to_string(),
             notes: None,
@@ -2199,8 +1498,12 @@ mod tests {
         }
     }
 
-    fn training_session(id: u32, routine_id: Option<u32>, date: NaiveDate) -> TrainingSession {
-        TrainingSession {
+    fn training_session(
+        id: u32,
+        routine_id: Option<u32>,
+        date: NaiveDate,
+    ) -> storage::TrainingSession {
+        storage::TrainingSession {
             id,
             routine_id,
             date,

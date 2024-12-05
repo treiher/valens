@@ -1,6 +1,9 @@
 use seed::{prelude::*, *};
 
-use crate::ui::{self, common, data};
+use crate::{
+    storage,
+    ui::{self, common, data},
+};
 
 // ------ ------
 //     Init
@@ -31,8 +34,8 @@ pub struct Model {
 
 enum Dialog {
     Hidden,
-    AddUser(data::NewUser, String),
-    EditUser(data::User, String),
+    AddUser(storage::NewUser, String),
+    EditUser(storage::User, String),
     DeleteUser(u32),
 }
 
@@ -68,7 +71,7 @@ pub fn update(
     match msg {
         Msg::ShowAddUserDialog => {
             model.dialog = Dialog::AddUser(
-                data::NewUser {
+                storage::NewUser {
                     name: String::new(),
                     sex: 0,
                 },
@@ -120,10 +123,10 @@ pub fn update(
         },
         Msg::SexChanged(sex) => match model.dialog {
             Dialog::AddUser(ref mut user, _) => {
-                user.sex = sex.parse::<i8>().unwrap();
+                user.sex = sex.parse::<u8>().unwrap();
             }
             Dialog::EditUser(ref mut user, _) => {
-                user.sex = sex.parse::<i8>().unwrap();
+                user.sex = sex.parse::<u8>().unwrap();
             }
             Dialog::Hidden | Dialog::DeleteUser(_) => {
                 panic!();

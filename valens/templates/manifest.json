@@ -15,7 +15,7 @@
       "purpose": "any maskable"
     }
   ],
-  "start_url": "{{ public_url }}",
+  "start_url": "{{ public_url }}/app",
   "theme_color": "#48C774",
   "background_color": "#48C774",
   "display": "standalone"

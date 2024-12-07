@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reject trainings, body weight, body fat and period entries in the future
 - Order of training sessions on training page
+- Caching to improve startup time
 
 ## [0.4.1] - 2024-05-20
 

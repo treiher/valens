@@ -73,6 +73,7 @@ function addResourcesToCache() {
             "images/favicon-32x32.png",
             "index.css",
             "manifest.json",
+            "service-worker.js",
         ]);
     })
 };

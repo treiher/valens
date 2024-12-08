@@ -237,3 +237,16 @@ div.is-calendar {
     background-color: var(--bulma-text-95-invert) !important;
   }
 }
+
+// Animation
+
+.is-visible-with-delay {
+  opacity: 0;
+  animation: 1s forwards fade-in;
+  animation-delay: 5s;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

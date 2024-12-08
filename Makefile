@@ -58,7 +58,7 @@ format:
 test: test_frontend test_backend test_installation test_e2e
 
 test_frontend:
-	cargo test
+	cargo llvm-cov nextest --no-fail-fast
 
 test_backend:
 	mkdir -p valens/frontend

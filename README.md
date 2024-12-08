@@ -136,7 +136,7 @@ $ rustup target add wasm32-unknown-unknown
 Install the Rust development tools.
 
 ```console
-$ cargo install --locked trunk
+$ cargo install --locked trunk cargo-llvm-cov cargo-nextest
 ```
 
 Install the Python project and development tools.

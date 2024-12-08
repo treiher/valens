@@ -9,6 +9,8 @@ on:
 env:
   PYTHON_VERSION: "3.11"
   RUST_VERSION: "1.81"
+  CARGO_LLVM_COV_VERSION: "0.6.14"
+  NEXTEST_VERSION: "0.9.85"
   TRUNK_VERSION: "0.17.5"
   UV_VERSION: "0.4.20"
 
@@ -125,6 +127,10 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --profile minimal
           echo ~/.cargo/bin >> $GITHUB_PATH
+      - name: Install cargo-llvm-cov and Nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }},nextest@${{ env.NEXTEST_VERSION }}
       - name: Check
         run: |
           make test_frontend

@@ -1266,18 +1266,16 @@ pub fn value_based_centered_moving_average(
     let length = data.len();
     data.iter()
         .enumerate()
-        .filter_map(|(i, (date, _))| {
-            if i >= window / 2 && i < length - window / 2 {
-                #[allow(clippy::cast_precision_loss)]
-                let avg = data[i - window / 2..=i + window / 2]
-                    .iter()
-                    .map(|(_, value)| value)
-                    .sum::<f32>()
-                    / window as f32;
-                Some((*date, avg))
-            } else {
-                None
-            }
+        .map(|(i, (date, _))| {
+            #[allow(clippy::cast_precision_loss)]
+            let avg = data[i.saturating_sub(window / 2)..=(i + window / 2).min(length - 1)]
+                .iter()
+                .map(|(_, value)| value)
+                .sum::<f32>()
+                / window
+                    .min(length - (i.saturating_sub(window / 2)))
+                    .min(i + window / 2 + 1) as f32;
+            (*date, avg)
         })
         .collect()
 }
@@ -1601,6 +1599,52 @@ mod tests {
                 .iter()
                 .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
                 .collect::<Vec<_>>(),
+        );
+    }
+
+    #[rstest]
+    #[case::empty_series(
+        0,
+        &[],
+        vec![]
+    )]
+    #[case::zero_radius_single_value(
+        0,
+        &[(2020, 2, 3, 1.0)],
+        vec![(2020, 2, 3, 1.0)]
+    )]
+    #[case::zero_radius_multiple_days(
+        0,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 1.0), (2020, 2, 5, 1.0)],
+        vec![(2020, 2, 3, 1.0), (2020, 2, 4, 1.0), (2020, 2, 5, 1.0)]
+    )]
+    #[case::nonzero_radius_multiple_days(
+        1,
+        &[(2020, 2, 3, 1.0), (2020, 2, 5, 2.0), (2020, 2, 7, 3.0)],
+        vec![(2020, 2, 3, 1.5), (2020, 2, 5, 2.0), (2020, 2, 7, 2.5)]
+    )]
+    #[case::nonzero_radius_multiple_days(
+        2,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0), (2020, 2, 6, 4.0), (2020, 2, 6, 5.0)],
+        vec![(2020, 2, 3, 2.0), (2020, 2, 4, 2.5), (2020, 2, 5, 3.0), (2020, 2, 6, 3.5), (2020, 2, 6, 4.0)]
+    )]
+    fn test_value_based_centered_moving_average(
+        #[case] radius: usize,
+        #[case] input: &[(i32, u32, u32, f32)],
+        #[case] expected: Vec<(i32, u32, u32, f32)>,
+    ) {
+        assert_eq!(
+            super::value_based_centered_moving_average(
+                &input
+                    .iter()
+                    .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
+                    .collect::<Vec<_>>(),
+                radius,
+            ),
+            expected
+                .iter()
+                .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
+                .collect::<Vec<_>>()
         );
     }
 }

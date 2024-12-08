@@ -1252,6 +1252,36 @@ pub fn centered_moving_average(
     )
 }
 
+/// Calculate a series of moving averages from a given series of (date, value) pairs.
+///
+/// The data argument must have only one value per day.
+///
+/// The radius argument determines the number of values to include into the calculated
+/// average before and after each value.
+pub fn value_based_centered_moving_average(
+    data: &[(NaiveDate, f32)],
+    radius: usize,
+) -> Vec<(NaiveDate, f32)> {
+    let window = 2 * radius + 1;
+    let length = data.len();
+    data.iter()
+        .enumerate()
+        .filter_map(|(i, (date, _))| {
+            if i >= window / 2 && i < length - window / 2 {
+                #[allow(clippy::cast_precision_loss)]
+                let avg = data[i - window / 2..=i + window / 2]
+                    .iter()
+                    .map(|(_, value)| value)
+                    .sum::<f32>()
+                    / window as f32;
+                Some((*date, avg))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

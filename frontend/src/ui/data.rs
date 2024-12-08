@@ -60,7 +60,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
             NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
             Utc,
         ),
-        body_weight_stats: BTreeMap::new(),
+        avg_body_weight: BTreeMap::new(),
         cycles: Vec::new(),
         current_cycle: None,
         training_stats: TrainingStats {
@@ -105,7 +105,7 @@ pub struct Model {
     pub last_refresh: DateTime<Utc>,
 
     // ------ Derived data ------
-    pub body_weight_stats: BTreeMap<NaiveDate, BodyWeightStats>,
+    pub avg_body_weight: BTreeMap<NaiveDate, storage::BodyWeight>,
     pub cycles: Vec<Cycle>,
     pub current_cycle: Option<CurrentCycle>,
     pub training_stats: TrainingStats,
@@ -201,12 +201,6 @@ fn sort_routines_by_last_use(
         .collect()
 }
 
-#[derive(Clone)]
-pub struct BodyWeightStats {
-    pub date: NaiveDate,
-    pub avg_weight: Option<f32>,
-}
-
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 pub struct Cycle {
     pub begin: NaiveDate,
@@ -296,36 +290,16 @@ impl OngoingTrainingSession {
     }
 }
 
-fn calculate_body_weight_stats(
+fn calculate_avg_body_weight(
     body_weight: &BTreeMap<NaiveDate, storage::BodyWeight>,
-) -> BTreeMap<NaiveDate, BodyWeightStats> {
-    let body_weight = body_weight.values().collect::<Vec<_>>();
-
-    // centered rolling mean
-    let window = 9;
-    let length = body_weight.len();
-    body_weight
-        .iter()
-        .enumerate()
-        .map(|(i, bw)| {
-            (
-                bw.date,
-                BodyWeightStats {
-                    date: bw.date,
-                    avg_weight: if i >= window / 2 && i < length - window / 2 {
-                        #[allow(clippy::cast_precision_loss)]
-                        let avg_weight = body_weight[i - window / 2..=i + window / 2]
-                            .iter()
-                            .map(|bw| bw.weight)
-                            .sum::<f32>()
-                            / window as f32;
-                        Some(avg_weight)
-                    } else {
-                        None
-                    },
-                },
-            )
-        })
+) -> BTreeMap<NaiveDate, storage::BodyWeight> {
+    let data = body_weight
+        .values()
+        .map(|bw| (bw.date, bw.weight))
+        .collect::<Vec<_>>();
+    common::value_based_centered_moving_average(&data, 4)
+        .into_iter()
+        .map(|(date, weight)| (date, storage::BodyWeight { date, weight }))
         .collect()
 }
 
@@ -660,7 +634,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.exercises.clear();
             model.routines.clear();
             model.training_sessions.clear();
-            model.body_weight_stats.clear();
+            model.avg_body_weight.clear();
             model.cycles.clear();
             model.current_cycle = None;
             model.training_stats.clear();
@@ -811,7 +785,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let body_weight = body_weight.into_iter().map(|e| (e.date, e)).collect();
             if model.body_weight != body_weight {
                 model.body_weight = body_weight;
-                model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
+                model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
                 orders.notify(Event::DataChanged);
             }
             model.loading_body_weight = false;
@@ -830,7 +804,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightCreated(Ok(body_weight)) => {
             model.body_weight.insert(body_weight.date, body_weight);
-            model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
+            model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
             orders.notify(Event::BodyWeightCreatedOk);
         }
         Msg::BodyWeightCreated(Err(message)) => {
@@ -847,7 +821,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightReplaced(Ok(body_weight)) => {
             model.body_weight.insert(body_weight.date, body_weight);
-            model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
+            model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
             orders.notify(Event::BodyWeightReplacedOk);
         }
         Msg::BodyWeightReplaced(Err(message)) => {
@@ -864,7 +838,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightDeleted(Ok(date)) => {
             model.body_weight.remove(&date);
-            model.body_weight_stats = calculate_body_weight_stats(&model.body_weight);
+            model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
             orders.notify(Event::BodyWeightDeletedOk);
         }
         Msg::BodyWeightDeleted(Err(message)) => {

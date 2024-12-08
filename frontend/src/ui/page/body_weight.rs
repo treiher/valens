@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::iter::zip;
 
 use chrono::prelude::*;
 use chrono::Duration;
@@ -380,12 +379,12 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 },
                 common::PlotData {
                     values: data_model
-                        .body_weight_stats
+                        .avg_body_weight
                         .values()
-                        .filter(|bws| {
-                            bws.date >= model.interval.first && bws.date <= model.interval.last
+                        .filter(|bw| {
+                            bw.date >= model.interval.first && bw.date <= model.interval.last
                         })
-                        .filter_map(|bws| bws.avg_weight.map(|avg_weight| (bws.date, avg_weight)))
+                        .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
                     plots: common::plot_line_with_dots(common::COLOR_AVG_BODY_WEIGHT),
                     params: common::PlotParams::default(),
@@ -454,72 +453,71 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 th!["Avg. weekly change (%)"],
                 th![]
             ]],
-            tbody![zip(
-                data_model.body_weight.values(),
-                data_model.body_weight_stats.values()
-            )
-            .rev()
-            .filter(|(bw, _)| bw.date >= model.interval.first && bw.date <= model.interval.last)
-            .map(|(bw, bws)| {
-                let date = bw.date;
-                tr![
-                    td![span![
-                        style! {St::WhiteSpace => "nowrap" },
-                        bw.date.to_string(),
-                    ]],
-                    td![format!("{:.1}", bw.weight)],
-                    td![common::value_or_dash(bws.avg_weight)],
-                    td![
-                        if let Some(value) = avg_weekly_change(&data_model.body_weight_stats, bws) {
+            tbody![data_model
+                .body_weight
+                .values()
+                .rev()
+                .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+                .map(|bw| {
+                    let date = bw.date;
+                    let avg_bw = data_model.avg_body_weight.get(&bw.date);
+                    tr![
+                        td![span![
+                            style! {St::WhiteSpace => "nowrap" },
+                            date.to_string(),
+                        ]],
+                        td![format!("{:.1}", bw.weight)],
+                        td![common::value_or_dash(avg_bw.map(|bw| bw.weight))],
+                        td![if let Some(value) =
+                            avg_weekly_change(&data_model.avg_body_weight, avg_bw)
+                        {
                             format!("{value:+.1}")
                         } else {
                             "-".into()
-                        }
-                    ],
-                    td![p![
-                        C!["is-flex is-flex-wrap-nowrap"],
-                        a![
-                            C!["icon"],
-                            C!["mr-1"],
-                            ev(Ev::Click, move |_| Msg::ShowEditBodyWeightDialog(date)),
-                            i![C!["fas fa-edit"]]
-                        ],
-                        a![
-                            C!["icon"],
-                            C!["ml-1"],
-                            ev(Ev::Click, move |_| Msg::ShowDeleteBodyWeightDialog(date)),
-                            i![C!["fas fa-times"]]
-                        ]
-                    ]]
-                ]
-            })
-            .collect::<Vec<_>>()],
+                        }],
+                        td![p![
+                            C!["is-flex is-flex-wrap-nowrap"],
+                            a![
+                                C!["icon"],
+                                C!["mr-1"],
+                                ev(Ev::Click, move |_| Msg::ShowEditBodyWeightDialog(date)),
+                                i![C!["fas fa-edit"]]
+                            ],
+                            a![
+                                C!["icon"],
+                                C!["ml-1"],
+                                ev(Ev::Click, move |_| Msg::ShowDeleteBodyWeightDialog(date)),
+                                i![C!["fas fa-times"]]
+                            ]
+                        ]]
+                    ]
+                })],
         ]
     ]
 }
 
 fn avg_weekly_change(
-    body_weight_stats: &BTreeMap<NaiveDate, data::BodyWeightStats>,
-    current: &data::BodyWeightStats,
+    avg_body_weight: &BTreeMap<NaiveDate, storage::BodyWeight>,
+    current: Option<&storage::BodyWeight>,
 ) -> Option<f32> {
-    let prev_date = current.date - Duration::days(7);
-    let prev_bws = if let Some(bws) = body_weight_stats.get(&prev_date) {
-        bws.clone()
+    let prev_date = current?.date - Duration::days(7);
+    let prev_avg_bw = if let Some(avg_bw) = avg_body_weight.get(&prev_date) {
+        avg_bw.clone()
     } else {
-        let n = neighbors(body_weight_stats, prev_date);
+        let n = neighbors(avg_body_weight, prev_date);
         interpolate_avg_body_weight(n?.0, n?.1, prev_date)
     };
-    Some((current.avg_weight? - prev_bws.avg_weight?) / prev_bws.avg_weight? * 100.)
+    Some((current?.weight - prev_avg_bw.weight) / prev_avg_bw.weight * 100.)
 }
 
 fn neighbors(
-    body_weight_stats: &BTreeMap<NaiveDate, data::BodyWeightStats>,
+    body_weight: &BTreeMap<NaiveDate, storage::BodyWeight>,
     date: NaiveDate,
-) -> Option<(&data::BodyWeightStats, &data::BodyWeightStats)> {
+) -> Option<(&storage::BodyWeight, &storage::BodyWeight)> {
     use std::ops::Bound::{Excluded, Unbounded};
 
-    let mut before = body_weight_stats.range((Unbounded, Excluded(date)));
-    let mut after = body_weight_stats.range((Excluded(date), Unbounded));
+    let mut before = body_weight.range((Unbounded, Excluded(date)));
+    let mut after = body_weight.range((Excluded(date), Unbounded));
 
     Some((
         before.next_back().map(|(_, v)| v)?,
@@ -528,22 +526,16 @@ fn neighbors(
 }
 
 fn interpolate_avg_body_weight(
-    a: &data::BodyWeightStats,
-    b: &data::BodyWeightStats,
+    a: &storage::BodyWeight,
+    b: &storage::BodyWeight,
     date: NaiveDate,
-) -> data::BodyWeightStats {
+) -> storage::BodyWeight {
     #[allow(clippy::cast_precision_loss)]
-    data::BodyWeightStats {
+    storage::BodyWeight {
         date,
-        avg_weight: if let Some(a_avg_weight) = a.avg_weight {
-            b.avg_weight.map(|b_avg_weight| {
-                a_avg_weight
-                    + (b_avg_weight - a_avg_weight)
-                        * ((date - a.date).num_days() as f32 / (b.date - a.date).num_days() as f32)
-            })
-        } else {
-            None
-        },
+        weight: a.weight
+            + (b.weight - a.weight)
+                * ((date - a.date).num_days() as f32 / (b.date - a.date).num_days() as f32),
     }
 }
 
@@ -565,10 +557,10 @@ mod tests {
         assert_eq!(
             avg_weekly_change(
                 &BTreeMap::new(),
-                &data::BodyWeightStats {
+                Some(&storage::BodyWeight {
                     date: from_num_days(1),
-                    avg_weight: Some(70.0)
-                }
+                    weight: 70.0
+                })
             ),
             None
         );
@@ -576,15 +568,15 @@ mod tests {
             avg_weekly_change(
                 &BTreeMap::from([(
                     from_num_days(0),
-                    data::BodyWeightStats {
+                    storage::BodyWeight {
                         date: from_num_days(0),
-                        avg_weight: Some(70.0)
+                        weight: 70.0
                     }
                 )]),
-                &data::BodyWeightStats {
+                Some(&storage::BodyWeight {
                     date: from_num_days(7),
-                    avg_weight: Some(70.0)
-                }
+                    weight: 70.0
+                })
             ),
             Some(0.0)
         );
@@ -592,15 +584,15 @@ mod tests {
             avg_weekly_change(
                 &BTreeMap::from([(
                     from_num_days(0),
-                    data::BodyWeightStats {
+                    storage::BodyWeight {
                         date: from_num_days(0),
-                        avg_weight: Some(70.0)
+                        weight: 70.0
                     }
                 )]),
-                &data::BodyWeightStats {
+                Some(&storage::BodyWeight {
                     date: from_num_days(7),
-                    avg_weight: Some(70.7)
-                }
+                    weight: 70.7
+                })
             )
             .unwrap(),
             1.0,
@@ -611,23 +603,23 @@ mod tests {
                 &BTreeMap::from([
                     (
                         from_num_days(0),
-                        data::BodyWeightStats {
+                        storage::BodyWeight {
                             date: from_num_days(0),
-                            avg_weight: Some(69.0)
+                            weight: 69.0
                         }
                     ),
                     (
                         from_num_days(2),
-                        data::BodyWeightStats {
+                        storage::BodyWeight {
                             date: from_num_days(2),
-                            avg_weight: Some(71.0)
+                            weight: 71.0
                         }
                     )
                 ]),
-                &data::BodyWeightStats {
+                Some(&storage::BodyWeight {
                     date: from_num_days(8),
-                    avg_weight: Some(69.44)
-                }
+                    weight: 69.44
+                })
             )
             .unwrap(),
             -0.8,

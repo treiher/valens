@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consider sets without RPE value to be hard sets
 - Default interval on exercise, body weight, body fat and menstrual cycle page to three months
 - Calculate average body weight even with less than nine values
+- Use 7 day centered moving total for set volume chart on training page
+- Use 7 day centered moving average for RPE chart on training page
+- Improve appearance of charts on training page
 
 ### Fixed
 

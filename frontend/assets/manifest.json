@@ -15,6 +15,7 @@
       "purpose": "any maskable"
     }
   ],
+  "id": "/valens",
   "start_url": "/app",
   "theme_color": "#48C774",
   "background_color": "#48C774",

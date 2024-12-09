@@ -101,8 +101,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                 plots: common::plot_line(common::COLOR_SET_VOLUME),
                                 params: common::PlotParams::primary_range(0., 10.),
                             }],
-                            model.interval.first,
-                            model.interval.last,
+                            &model.interval,
                             data_model.theme()
                         ),
                         true,

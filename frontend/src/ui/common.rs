@@ -713,10 +713,45 @@ pub fn view_chart<Ms>(
     }
 }
 
+/// Plot data onto a chart.
+///
+/// The x domain of the chart is configured by the interval parameter. The
+/// theme to be used is determined by the theme parameter.
+///
+/// Multiple, independent series can be plotted at once. Every `PlotData`
+/// element of the data parameter contains one or two such series to be
+/// plotted with the same parameters. The `values_high` element contains
+/// the first series, the optional `values_low` a possible second series.
+///
+/// The `plots` element of `PlotData` is a list of plots to perform on
+/// each series:
+///
+///   - Circle: plot a circle with the given color and size for each element
+///   - Line: plot the series as a line with the given color and thickness
+///   - Histogram: plot the series as a histogram with the given color
+///   - Area: plot the series as area or band plot (see details below)
+///
+/// For the `Area` plot type, values are treated specially. If `values_low`
+/// is None, the area below the series in `values_high` is filled with the
+/// given color at the given alpha value. If `values_low` contains a series,
+/// a band chart between the two series is plotted instead. To ensure proper
+/// rendering, the low and high series of a band plot should start and end
+/// on the same date.
+///
+/// The `params` element of `PlotData` configures the y domain and determines
+/// whether the series are plotted for the primary or secondary axis of the
+/// chart. If `data` contains no series for the secondary axis, the secondary
+/// axis is omitted.
+///
+/// The plotting order (and thus the stacking of plots) is as follows:
+///   - Every series in `data` is plotted in order
+///   - For every series all plots are plotted in order
+///   - For every plot, `values_low` is plotted before `values_high`
+///     (except for `AreaPlot`, where both are plotted together)
+///
 pub fn plot_chart(
     data: &[PlotData],
-    x_min: NaiveDate,
-    x_max: NaiveDate,
+    interval: &Interval,
     theme: &ui::Theme,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if all_zeros(data) {
@@ -747,11 +782,11 @@ pub fn plot_chart(
             .y_label_area_size(40f32)
             .right_y_label_area_size(secondary_bounds.map_or_else(|| 0f32, |_| 40f32))
             .build_cartesian_2d(
-                x_min..x_max,
+                interval.first..interval.last,
                 primary_bounds.min_with_margin()..primary_bounds.max_with_margin(),
             )?
             .set_secondary_coord(
-                x_min..x_max,
+                interval.first..interval.last,
                 secondary_bounds
                     .as_ref()
                     .map_or(0.0..0.0, |b| b.min_with_margin()..b.max_with_margin()),

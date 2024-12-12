@@ -696,7 +696,7 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
             Some(Page::TrainingSession(model)) =>
                 page::training_session::view(model, data_model).map_msg(Msg::TrainingSession),
             Some(Page::NotFound) => page::not_found::view(),
-            None => common::view_loading(),
+            None => common::view_page_loading(),
         }
     ]
 }

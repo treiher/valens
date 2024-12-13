@@ -271,9 +271,11 @@ impl TrainingSession {
             .elements
             .iter()
             .filter_map(|e| match e {
-                TrainingSessionElement::Set { rpe, .. } => {
+                TrainingSessionElement::Set {
+                    reps, time, rpe, ..
+                } => {
                     if rpe.unwrap_or(10.0) >= 7.0 {
-                        Some(1)
+                        Some(u32::from(reps.is_some() || time.is_some()))
                     } else {
                         None
                     }
@@ -1370,7 +1372,7 @@ mod tests {
 
     #[rstest]
     #[case(&*TRAINING_SESSION, 2)]
-    #[case(&*EMPTY_TRAINING_SESSION, 3)]
+    #[case(&*EMPTY_TRAINING_SESSION, 0)]
     fn test_training_session_set_volume(
         #[case] training_session: &TrainingSession,
         #[case] expected: u32,

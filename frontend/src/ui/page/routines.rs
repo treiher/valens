@@ -1,7 +1,7 @@
 use seed::{prelude::*, *};
 
 use crate::{
-    storage,
+    domain,
     ui::{self, common, data},
 };
 
@@ -205,7 +205,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             view_routine_dialog(
                 &model.dialog,
-                &data_model.routines_sorted_by_last_use(|r: &storage::Routine| !r.archived),
+                &data_model.routines_sorted_by_last_use(|r: &domain::Routine| !r.archived),
                 model.loading
             ),
             div![
@@ -218,7 +218,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_routine_dialog(dialog: &Dialog, routines: &[storage::Routine], loading: bool) -> Node<Msg> {
+fn view_routine_dialog(dialog: &Dialog, routines: &[domain::Routine], loading: bool) -> Node<Msg> {
     let title;
     let form;
     let mut template_selection = false;
@@ -336,10 +336,10 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[storage::Routine], loading: 
 }
 
 fn view_table(search_term: &str, archive_visible: bool, data_model: &data::Model) -> Node<Msg> {
-    let routines = data_model.routines_sorted_by_last_use(|r: &storage::Routine| {
+    let routines = data_model.routines_sorted_by_last_use(|r: &domain::Routine| {
         !r.archived && r.name.to_lowercase().contains(&search_term.to_lowercase())
     });
-    let archived_routines = data_model.routines_sorted_by_last_use(|r: &storage::Routine| {
+    let archived_routines = data_model.routines_sorted_by_last_use(|r: &domain::Routine| {
         r.archived && r.name.to_lowercase().contains(&search_term.to_lowercase())
     });
     div![

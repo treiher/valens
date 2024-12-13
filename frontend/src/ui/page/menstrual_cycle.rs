@@ -2,7 +2,7 @@ use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::{
-    storage,
+    domain,
     ui::{self, common, data},
 };
 
@@ -25,13 +25,13 @@ pub fn init(
     navbar.title = String::from("Menstrual cycle");
 
     Model {
-        interval: common::init_interval(
+        interval: domain::init_interval(
             &data_model
                 .period
                 .keys()
                 .copied()
                 .collect::<Vec<NaiveDate>>(),
-            common::DefaultInterval::_3M,
+            domain::DefaultInterval::_3M,
         ),
         dialog: Dialog::Hidden,
         loading: false,
@@ -43,7 +43,7 @@ pub fn init(
 // ------ ------
 
 pub struct Model {
-    interval: common::Interval,
+    interval: domain::Interval,
     dialog: Dialog,
     loading: bool,
 }
@@ -157,13 +157,13 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddPeriod(ref mut form) => {
-                    orders.notify(data::Msg::CreatePeriod(storage::Period {
+                    orders.notify(data::Msg::CreatePeriod(domain::Period {
                         date: form.date.1.unwrap(),
                         intensity: form.intensity.1.unwrap(),
                     }));
                 }
                 Dialog::EditPeriod(ref mut form) => {
-                    orders.notify(data::Msg::ReplacePeriod(storage::Period {
+                    orders.notify(data::Msg::ReplacePeriod(domain::Period {
                         date: form.date.1.unwrap(),
                         intensity: form.intensity.1.unwrap(),
                     }));
@@ -181,13 +181,13 @@ pub fn update(
             model.loading = false;
             match event {
                 data::Event::DataChanged => {
-                    model.interval = common::init_interval(
+                    model.interval = domain::init_interval(
                         &data_model
                             .period
                             .keys()
                             .copied()
                             .collect::<Vec<NaiveDate>>(),
-                        common::DefaultInterval::_3M,
+                        domain::DefaultInterval::_3M,
                     );
                 }
                 data::Event::PeriodCreatedOk
@@ -215,7 +215,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_page_loading()
     } else {
         let dates = data_model.period.values().map(|p| p.date);
-        let period_interval = common::Interval {
+        let period_interval = domain::Interval {
             first: dates.clone().min().unwrap_or_default(),
             last: dates.max().unwrap_or_default(),
         };
@@ -388,7 +388,7 @@ fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .iter()
         .filter(|c| c.begin >= model.interval.first && c.begin <= model.interval.last)
         .collect::<Vec<_>>();
-    let stats = data::calculate_cycle_stats(cycles);
+    let stats = domain::cycle_stats(cycles);
     common::view_box(
         "Avg. cycle length",
         &if not(cycles.is_empty()) {
@@ -403,7 +403,7 @@ fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
     )
 }
 
-fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<Msg> {
+fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<Msg> {
     common::view_calendar(
         data_model
             .period

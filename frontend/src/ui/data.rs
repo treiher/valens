@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, iter::zip, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{prelude::*, Duration};
 use gloo_console::error;
@@ -63,7 +63,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
         avg_body_weight: BTreeMap::new(),
         cycles: Vec::new(),
         current_cycle: None,
-        training_stats: TrainingStats {
+        training_stats: domain::TrainingStats {
             short_term_load: Vec::new(),
             long_term_load: Vec::new(),
         },
@@ -84,31 +84,31 @@ pub struct Model {
     app_update_available: bool,
 
     // ------ Data -----
-    pub session: Option<storage::Session>,
+    pub session: Option<domain::User>,
     pub version: String,
-    pub users: BTreeMap<u32, storage::User>,
+    pub users: BTreeMap<u32, domain::User>,
     pub loading_users: bool,
 
     // ------ Session-dependent data ------
-    pub body_weight: BTreeMap<NaiveDate, storage::BodyWeight>,
+    pub body_weight: BTreeMap<NaiveDate, domain::BodyWeight>,
     pub loading_body_weight: bool,
-    pub body_fat: BTreeMap<NaiveDate, storage::BodyFat>,
+    pub body_fat: BTreeMap<NaiveDate, domain::BodyFat>,
     pub loading_body_fat: bool,
-    pub period: BTreeMap<NaiveDate, storage::Period>,
+    pub period: BTreeMap<NaiveDate, domain::Period>,
     pub loading_period: bool,
-    pub exercises: BTreeMap<u32, storage::Exercise>,
+    pub exercises: BTreeMap<u32, domain::Exercise>,
     pub loading_exercises: bool,
-    pub routines: BTreeMap<u32, storage::Routine>,
+    pub routines: BTreeMap<u32, domain::Routine>,
     pub loading_routines: bool,
-    pub training_sessions: BTreeMap<u32, storage::TrainingSession>,
+    pub training_sessions: BTreeMap<u32, domain::TrainingSession>,
     pub loading_training_sessions: bool,
     pub last_refresh: DateTime<Utc>,
 
     // ------ Derived data ------
-    pub avg_body_weight: BTreeMap<NaiveDate, storage::BodyWeight>,
-    pub cycles: Vec<Cycle>,
-    pub current_cycle: Option<CurrentCycle>,
-    pub training_stats: TrainingStats,
+    pub avg_body_weight: BTreeMap<NaiveDate, domain::BodyWeight>,
+    pub cycles: Vec<domain::Cycle>,
+    pub current_cycle: Option<domain::CurrentCycle>,
+    pub training_stats: domain::TrainingStats,
 
     // ------ Client-side data ------
     pub settings: Settings,
@@ -116,7 +116,7 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn exercises(&self, filter: &domain::ExerciseFilter) -> Vec<&storage::Exercise> {
+    pub fn exercises(&self, filter: &domain::ExerciseFilter) -> Vec<&domain::Exercise> {
         self.exercises
             .values()
             .filter(|e| {
@@ -131,8 +131,8 @@ impl Model {
 
     pub fn routines_sorted_by_last_use(
         &self,
-        filter: impl Fn(&storage::Routine) -> bool,
-    ) -> Vec<storage::Routine> {
+        filter: impl Fn(&domain::Routine) -> bool,
+    ) -> Vec<domain::Routine> {
         sort_routines_by_last_use(&self.routines, &self.training_sessions, filter)
     }
 
@@ -173,10 +173,10 @@ impl Model {
 }
 
 fn sort_routines_by_last_use(
-    routines: &BTreeMap<u32, storage::Routine>,
-    training_sessions: &BTreeMap<u32, storage::TrainingSession>,
-    filter: impl Fn(&storage::Routine) -> bool,
-) -> Vec<storage::Routine> {
+    routines: &BTreeMap<u32, domain::Routine>,
+    training_sessions: &BTreeMap<u32, domain::TrainingSession>,
+    filter: impl Fn(&domain::Routine) -> bool,
+) -> Vec<domain::Routine> {
     let mut map: BTreeMap<u32, NaiveDate> = BTreeMap::new();
     for (routine_id, _) in routines.iter().filter(|(_, r)| filter(r)) {
         map.insert(
@@ -199,49 +199,6 @@ fn sort_routines_by_last_use(
     list.iter()
         .map(|(routine_id, _)| routines[routine_id].clone())
         .collect()
-}
-
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
-pub struct Cycle {
-    pub begin: NaiveDate,
-    pub length: Duration,
-}
-
-pub struct CurrentCycle {
-    pub begin: NaiveDate,
-    pub time_left: Duration,
-    pub time_left_variation: Duration,
-}
-
-#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
-pub struct CycleStats {
-    pub length_median: Duration,
-    pub length_variation: Duration,
-}
-
-pub struct TrainingStats {
-    pub short_term_load: Vec<(NaiveDate, f32)>,
-    pub long_term_load: Vec<(NaiveDate, f32)>,
-}
-
-impl TrainingStats {
-    pub const LOAD_RATIO_LOW: f32 = 0.8;
-    pub const LOAD_RATIO_HIGH: f32 = 1.5;
-
-    pub fn load_ratio(&self) -> Option<f32> {
-        let long_term_load = self.long_term_load.last().map_or(0., |(_, l)| *l);
-        if long_term_load > 0. {
-            let short_term_load = self.short_term_load.last().map_or(0., |(_, l)| *l);
-            Some(short_term_load / long_term_load)
-        } else {
-            None
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.short_term_load.clear();
-        self.long_term_load.clear();
-    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -290,146 +247,6 @@ impl OngoingTrainingSession {
     }
 }
 
-fn calculate_avg_body_weight(
-    body_weight: &BTreeMap<NaiveDate, storage::BodyWeight>,
-) -> BTreeMap<NaiveDate, storage::BodyWeight> {
-    let data = body_weight
-        .values()
-        .map(|bw| (bw.date, bw.weight))
-        .collect::<Vec<_>>();
-    common::value_based_centered_moving_average(&data, 4)
-        .into_iter()
-        .map(|(date, weight)| (date, storage::BodyWeight { date, weight }))
-        .collect()
-}
-
-fn determine_cycles(period: &BTreeMap<NaiveDate, storage::Period>) -> Vec<Cycle> {
-    if period.is_empty() {
-        return vec![];
-    }
-
-    let mut result = vec![];
-    let mut begin = period.keys().min().copied().unwrap();
-    let mut last = begin;
-
-    let period = period.values().collect::<Vec<_>>();
-
-    for p in &period[1..] {
-        if p.date - last > Duration::days(3) {
-            result.push(Cycle {
-                begin,
-                length: p.date - begin,
-            });
-            begin = p.date;
-        }
-        last = p.date;
-    }
-
-    result
-}
-
-fn determine_current_cycle(cycles: &[Cycle]) -> Option<CurrentCycle> {
-    if cycles.is_empty() {
-        return None;
-    }
-
-    let today = Local::now().date_naive();
-    let cycles = cycles
-        .iter()
-        .filter(|c| (c.begin >= today - Duration::days(182) && c.begin <= today))
-        .collect::<Vec<_>>();
-    let stats = calculate_cycle_stats(&cycles);
-
-    if let Some(last_cycle) = cycles.last() {
-        let begin = last_cycle.begin + last_cycle.length;
-        Some(CurrentCycle {
-            begin,
-            time_left: stats.length_median - (today - begin + Duration::days(1)),
-            time_left_variation: stats.length_variation,
-        })
-    } else {
-        None
-    }
-}
-
-pub fn calculate_cycle_stats(cycles: &[&Cycle]) -> CycleStats {
-    let mut cycle_lengths = cycles.iter().map(|c| c.length).collect::<Vec<_>>();
-    cycle_lengths.sort();
-    CycleStats {
-        length_median: common::quartile(&cycle_lengths, common::Quartile::Q2),
-        length_variation: (common::quartile(&cycle_lengths, common::Quartile::Q3)
-            - common::quartile(&cycle_lengths, common::Quartile::Q1))
-            / 2,
-    }
-}
-
-fn calculate_training_stats(training_sessions: &[&storage::TrainingSession]) -> TrainingStats {
-    let short_term_load = calculate_weighted_sum_of_load(training_sessions, 7);
-    let long_term_load = calculate_average_weighted_sum_of_load(&short_term_load, 28);
-    TrainingStats {
-        short_term_load,
-        long_term_load,
-    }
-}
-
-fn calculate_weighted_sum_of_load(
-    training_sessions: &[&storage::TrainingSession],
-    window_size: usize,
-) -> Vec<(NaiveDate, f32)> {
-    let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
-
-    let today = Local::now().date_naive();
-    let mut day = training_sessions.first().map_or(today, |t| t.date);
-    while day <= today {
-        result.insert(day, 0.0);
-        day += Duration::days(1);
-    }
-
-    for t in training_sessions {
-        #[allow(clippy::cast_precision_loss)]
-        result
-            .entry(t.date)
-            .and_modify(|e| *e += t.load() as f32)
-            .or_insert(t.load() as f32);
-    }
-
-    #[allow(clippy::cast_precision_loss)]
-    let weighting: Vec<f32> = (0..window_size)
-        .map(|i| 1. - 1. / window_size as f32 * i as f32)
-        .collect();
-    let mut window: Vec<f32> = (0..window_size).map(|_| 0.).collect();
-
-    result
-        .into_iter()
-        .map(|(date, load)| {
-            window.rotate_right(1);
-            window[0] = load;
-            (
-                date,
-                zip(&window, &weighting)
-                    .map(|(load, weight)| load * weight)
-                    .sum(),
-            )
-        })
-        .collect()
-}
-
-fn calculate_average_weighted_sum_of_load(
-    weighted_sum_of_load: &[(NaiveDate, f32)],
-    window_size: usize,
-) -> Vec<(NaiveDate, f32)> {
-    #[allow(clippy::cast_precision_loss)]
-    weighted_sum_of_load
-        .windows(window_size)
-        .map(|window| {
-            (
-                window.last().unwrap().0,
-                window.iter().map(|(_, l)| l).sum::<f32>() / window_size as f32,
-            )
-        })
-        .collect::<Vec<_>>()
-}
-
 // ------ ------
 //    Update
 // ------ ------
@@ -446,9 +263,9 @@ pub enum Msg {
     ClearSessionDependentData,
 
     RequestSession(u32),
-    SessionReceived(Result<storage::Session, String>),
+    SessionReceived(Result<domain::User, String>),
     InitializeSession,
-    SessionInitialized(Result<storage::Session, String>),
+    SessionInitialized(Result<domain::User, String>),
 
     DeleteSession,
     SessionDeleted(Result<(), String>),
@@ -457,79 +274,79 @@ pub enum Msg {
     VersionRead(Result<String, String>),
 
     ReadUsers,
-    UsersRead(Result<Vec<storage::User>, String>),
-    CreateUser(storage::NewUser),
-    UserCreated(Result<storage::User, String>),
-    ReplaceUser(storage::User),
-    UserReplaced(Result<storage::User, String>),
+    UsersRead(Result<Vec<domain::User>, String>),
+    CreateUser(String, u8),
+    UserCreated(Result<domain::User, String>),
+    ReplaceUser(domain::User),
+    UserReplaced(Result<domain::User, String>),
     DeleteUser(u32),
     UserDeleted(Result<u32, String>),
 
     ReadBodyWeight,
-    BodyWeightRead(Result<Vec<storage::BodyWeight>, String>),
-    CreateBodyWeight(storage::BodyWeight),
-    BodyWeightCreated(Result<storage::BodyWeight, String>),
-    ReplaceBodyWeight(storage::BodyWeight),
-    BodyWeightReplaced(Result<storage::BodyWeight, String>),
+    BodyWeightRead(Result<Vec<domain::BodyWeight>, String>),
+    CreateBodyWeight(domain::BodyWeight),
+    BodyWeightCreated(Result<domain::BodyWeight, String>),
+    ReplaceBodyWeight(domain::BodyWeight),
+    BodyWeightReplaced(Result<domain::BodyWeight, String>),
     DeleteBodyWeight(NaiveDate),
     BodyWeightDeleted(Result<NaiveDate, String>),
 
     ReadBodyFat,
-    BodyFatRead(Result<Vec<storage::BodyFat>, String>),
-    CreateBodyFat(storage::BodyFat),
-    BodyFatCreated(Result<storage::BodyFat, String>),
-    ReplaceBodyFat(storage::BodyFat),
-    BodyFatReplaced(Result<storage::BodyFat, String>),
+    BodyFatRead(Result<Vec<domain::BodyFat>, String>),
+    CreateBodyFat(domain::BodyFat),
+    BodyFatCreated(Result<domain::BodyFat, String>),
+    ReplaceBodyFat(domain::BodyFat),
+    BodyFatReplaced(Result<domain::BodyFat, String>),
     DeleteBodyFat(NaiveDate),
     BodyFatDeleted(Result<NaiveDate, String>),
 
     ReadPeriod,
-    PeriodRead(Result<Vec<storage::Period>, String>),
-    CreatePeriod(storage::Period),
-    PeriodCreated(Result<storage::Period, String>),
-    ReplacePeriod(storage::Period),
-    PeriodReplaced(Result<storage::Period, String>),
+    PeriodRead(Result<Vec<domain::Period>, String>),
+    CreatePeriod(domain::Period),
+    PeriodCreated(Result<domain::Period, String>),
+    ReplacePeriod(domain::Period),
+    PeriodReplaced(Result<domain::Period, String>),
     DeletePeriod(NaiveDate),
     PeriodDeleted(Result<NaiveDate, String>),
 
     ReadExercises,
-    ExercisesRead(Result<Vec<storage::Exercise>, String>),
-    CreateExercise(String, Vec<storage::ExerciseMuscle>),
-    ExerciseCreated(Result<storage::Exercise, String>),
-    ReplaceExercise(storage::Exercise),
-    ExerciseReplaced(Result<storage::Exercise, String>),
+    ExercisesRead(Result<Vec<domain::Exercise>, String>),
+    CreateExercise(String, Vec<domain::ExerciseMuscle>),
+    ExerciseCreated(Result<domain::Exercise, String>),
+    ReplaceExercise(domain::Exercise),
+    ExerciseReplaced(Result<domain::Exercise, String>),
     DeleteExercise(u32),
     ExerciseDeleted(Result<u32, String>),
 
     ReadRoutines,
-    RoutinesRead(Result<Vec<storage::Routine>, String>),
+    RoutinesRead(Result<Vec<domain::Routine>, String>),
     CreateRoutine(String, u32),
-    RoutineCreated(Result<storage::Routine, String>),
+    RoutineCreated(Result<domain::Routine, String>),
     ModifyRoutine(
         u32,
         Option<String>,
         Option<bool>,
-        Option<Vec<storage::RoutinePart>>,
+        Option<Vec<domain::RoutinePart>>,
     ),
-    RoutineModified(Result<storage::Routine, String>),
+    RoutineModified(Result<domain::Routine, String>),
     DeleteRoutine(u32),
     RoutineDeleted(Result<u32, String>),
 
     ReadTrainingSessions,
-    TrainingSessionsRead(Result<Vec<storage::TrainingSession>, String>),
+    TrainingSessionsRead(Result<Vec<domain::TrainingSession>, String>),
     CreateTrainingSession(
         Option<u32>,
         NaiveDate,
         String,
-        Vec<storage::TrainingSessionElement>,
+        Vec<domain::TrainingSessionElement>,
     ),
-    TrainingSessionCreated(Result<storage::TrainingSession, String>),
+    TrainingSessionCreated(Result<domain::TrainingSession, String>),
     ModifyTrainingSession(
         u32,
         Option<String>,
-        Option<Vec<storage::TrainingSessionElement>>,
+        Option<Vec<domain::TrainingSessionElement>>,
     ),
-    TrainingSessionModified(Result<storage::TrainingSession, String>),
+    TrainingSessionModified(Result<domain::TrainingSession, String>),
     DeleteTrainingSession(u32),
     TrainingSessionDeleted(Result<u32, String>),
 
@@ -731,9 +548,10 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to read users: ".to_owned() + &message);
             model.loading_users = false;
         }
-        Msg::CreateUser(user) => {
+        Msg::CreateUser(name, sex) => {
             let storage = model.storage.clone();
-            orders.perform_cmd(async move { Msg::UserCreated(storage.create_user(user).await) });
+            orders
+                .perform_cmd(async move { Msg::UserCreated(storage.create_user(name, sex).await) });
         }
         Msg::UserCreated(Ok(user)) => {
             model.users.insert(user.id, user);
@@ -785,7 +603,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let body_weight = body_weight.into_iter().map(|e| (e.date, e)).collect();
             if model.body_weight != body_weight {
                 model.body_weight = body_weight;
-                model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
+                model.avg_body_weight = domain::avg_body_weight(&model.body_weight);
                 orders.notify(Event::DataChanged);
             }
             model.loading_body_weight = false;
@@ -804,7 +622,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightCreated(Ok(body_weight)) => {
             model.body_weight.insert(body_weight.date, body_weight);
-            model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
+            model.avg_body_weight = domain::avg_body_weight(&model.body_weight);
             orders.notify(Event::BodyWeightCreatedOk);
         }
         Msg::BodyWeightCreated(Err(message)) => {
@@ -821,7 +639,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightReplaced(Ok(body_weight)) => {
             model.body_weight.insert(body_weight.date, body_weight);
-            model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
+            model.avg_body_weight = domain::avg_body_weight(&model.body_weight);
             orders.notify(Event::BodyWeightReplacedOk);
         }
         Msg::BodyWeightReplaced(Err(message)) => {
@@ -838,7 +656,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::BodyWeightDeleted(Ok(date)) => {
             model.body_weight.remove(&date);
-            model.avg_body_weight = calculate_avg_body_weight(&model.body_weight);
+            model.avg_body_weight = domain::avg_body_weight(&model.body_weight);
             orders.notify(Event::BodyWeightDeletedOk);
         }
         Msg::BodyWeightDeleted(Err(message)) => {
@@ -929,8 +747,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let period = period.into_iter().map(|e| (e.date, e)).collect();
             if model.period != period {
                 model.period = period;
-                model.cycles = determine_cycles(&model.period);
-                model.current_cycle = determine_current_cycle(&model.cycles);
+                model.cycles = domain::cycles(&model.period);
+                model.current_cycle = domain::current_cycle(&model.cycles);
                 orders.notify(Event::DataChanged);
             }
             model.loading_period = false;
@@ -949,8 +767,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodCreated(Ok(period)) => {
             model.period.insert(period.date, period);
-            model.cycles = determine_cycles(&model.period);
-            model.current_cycle = determine_current_cycle(&model.cycles);
+            model.cycles = domain::cycles(&model.period);
+            model.current_cycle = domain::current_cycle(&model.cycles);
             orders.notify(Event::PeriodCreatedOk);
         }
         Msg::PeriodCreated(Err(message)) => {
@@ -967,8 +785,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodReplaced(Ok(period)) => {
             model.period.insert(period.date, period);
-            model.cycles = determine_cycles(&model.period);
-            model.current_cycle = determine_current_cycle(&model.cycles);
+            model.cycles = domain::cycles(&model.period);
+            model.current_cycle = domain::current_cycle(&model.cycles);
             orders.notify(Event::PeriodReplacedOk);
         }
         Msg::PeriodReplaced(Err(message)) => {
@@ -984,8 +802,8 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodDeleted(Ok(date)) => {
             model.period.remove(&date);
-            model.cycles = determine_cycles(&model.period);
-            model.current_cycle = determine_current_cycle(&model.cycles);
+            model.cycles = domain::cycles(&model.period);
+            model.current_cycle = domain::current_cycle(&model.cycles);
             orders.notify(Event::PeriodDeletedOk);
         }
         Msg::PeriodDeleted(Err(message)) => {
@@ -1041,7 +859,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::ExerciseReplaced(Ok(exercise)) => {
             model.exercises.insert(exercise.id, exercise);
             model.training_stats =
-                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+                domain::training_stats(&model.training_sessions.values().collect::<Vec<_>>());
             orders.notify(Event::ExerciseReplacedOk);
         }
         Msg::ExerciseReplaced(Err(message)) => {
@@ -1153,7 +971,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             if model.training_sessions != training_sessions {
                 model.training_sessions = training_sessions;
                 model.training_stats =
-                    calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+                    domain::training_stats(&model.training_sessions.values().collect::<Vec<_>>());
                 orders.notify(Event::DataChanged);
             }
             model.loading_training_sessions = false;
@@ -1179,7 +997,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .training_sessions
                 .insert(training_session.id, training_session);
             model.training_stats =
-                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+                domain::training_stats(&model.training_sessions.values().collect::<Vec<_>>());
             orders.notify(Event::TrainingSessionCreatedOk);
         }
         Msg::TrainingSessionCreated(Err(message)) => {
@@ -1201,7 +1019,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .training_sessions
                 .insert(training_session.id, training_session);
             model.training_stats =
-                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+                domain::training_stats(&model.training_sessions.values().collect::<Vec<_>>());
             orders.notify(Event::TrainingSessionModifiedOk);
         }
         Msg::TrainingSessionModified(Err(message)) => {
@@ -1219,7 +1037,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         Msg::TrainingSessionDeleted(Ok(id)) => {
             model.training_sessions.remove(&id);
             model.training_stats =
-                calculate_training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+                domain::training_stats(&model.training_sessions.values().collect::<Vec<_>>());
             orders.notify(Event::TrainingSessionDeletedOk);
         }
         Msg::TrainingSessionDeleted(Err(message)) => {
@@ -1336,48 +1154,6 @@ fn view_app_update_dialog(model: &Model) -> Option<Node<Msg>> {
 mod tests {
     use super::*;
 
-    fn from_num_days(days: i32) -> NaiveDate {
-        NaiveDate::from_num_days_from_ce_opt(days).unwrap()
-    }
-
-    #[test]
-    fn test_determine_cycles() {
-        assert_eq!(determine_cycles(&BTreeMap::new()), vec![]);
-        assert_eq!(
-            determine_cycles(&BTreeMap::from(
-                [
-                    storage::Period {
-                        date: from_num_days(1),
-                        intensity: 3,
-                    },
-                    storage::Period {
-                        date: from_num_days(5),
-                        intensity: 4,
-                    },
-                    storage::Period {
-                        date: from_num_days(8),
-                        intensity: 2,
-                    },
-                    storage::Period {
-                        date: from_num_days(33),
-                        intensity: 1,
-                    }
-                ]
-                .map(|p| (p.date, p))
-            )),
-            vec![
-                Cycle {
-                    begin: from_num_days(1),
-                    length: Duration::days(4),
-                },
-                Cycle {
-                    begin: from_num_days(5),
-                    length: Duration::days(28),
-                }
-            ]
-        );
-    }
-
     #[test]
     fn test_sort_routines_by_last_use() {
         let routines = BTreeMap::from([
@@ -1467,8 +1243,8 @@ mod tests {
         );
     }
 
-    fn routine(id: u32) -> storage::Routine {
-        storage::Routine {
+    fn routine(id: u32) -> domain::Routine {
+        domain::Routine {
             id,
             name: id.to_string(),
             notes: None,
@@ -1481,8 +1257,8 @@ mod tests {
         id: u32,
         routine_id: Option<u32>,
         date: NaiveDate,
-    ) -> storage::TrainingSession {
-        storage::TrainingSession {
+    ) -> domain::TrainingSession {
+        domain::TrainingSession {
             id,
             routine_id,
             date,

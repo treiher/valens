@@ -4,7 +4,7 @@ use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::{
-    storage,
+    domain,
     ui::{self, common, data},
 };
 
@@ -27,13 +27,13 @@ pub fn init(
     navbar.title = String::from("Training");
 
     Model {
-        interval: common::init_interval(
+        interval: domain::init_interval(
             &data_model
                 .training_sessions
                 .values()
                 .map(|t| t.date)
                 .collect::<Vec<NaiveDate>>(),
-            common::DefaultInterval::_1M,
+            domain::DefaultInterval::_1M,
         ),
         dialog: Dialog::Hidden,
         loading: false,
@@ -45,7 +45,7 @@ pub fn init(
 // ------ ------
 
 pub struct Model {
-    interval: common::Interval,
+    interval: domain::Interval,
     dialog: Dialog,
     loading: bool,
 }
@@ -149,7 +149,7 @@ pub fn update(
                             .sections
                             .iter()
                             .flat_map(to_training_session_elements)
-                            .collect::<Vec<storage::TrainingSessionElement>>();
+                            .collect::<Vec<domain::TrainingSessionElement>>();
                         orders.notify(data::Msg::CreateTrainingSession(
                             Some(routine_id),
                             date,
@@ -178,13 +178,13 @@ pub fn update(
             model.loading = false;
             match event {
                 data::Event::DataChanged => {
-                    model.interval = common::init_interval(
+                    model.interval = domain::init_interval(
                         &data_model
                             .training_sessions
                             .values()
                             .map(|t| t.date)
                             .collect::<Vec<NaiveDate>>(),
-                        common::DefaultInterval::_1M,
+                        domain::DefaultInterval::_1M,
                     );
                 }
                 data::Event::TrainingSessionCreatedOk => {
@@ -236,7 +236,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .copied()
             .collect::<Vec<_>>();
         #[allow(clippy::cast_precision_loss)]
-        let total_7day_set_volume = common::centered_moving_total(
+        let total_7day_set_volume = domain::centered_moving_total(
             &data_model
                 .training_sessions
                 .values()
@@ -246,7 +246,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             3,
         );
 
-        let average_7day_rpe = common::centered_moving_average(
+        let average_7day_rpe = domain::centered_moving_average(
             &data_model
                 .training_sessions
                 .values()
@@ -261,11 +261,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             .filter(|t| t.date >= model.interval.first && t.date <= model.interval.last)
             .collect::<Vec<_>>();
         training_sessions.sort_by_key(|t| t.date);
-        let training_sessions_interval: common::Interval =
+        let training_sessions_interval: domain::Interval =
             data_model.training_sessions_date_range().into();
         div![
             view_training_sessions_dialog(
-                &data_model.routines_sorted_by_last_use(|r: &storage::Routine| !r.archived),
+                &data_model.routines_sorted_by_last_use(|r: &domain::Routine| !r.archived),
                 &model.dialog,
                 model.loading
             ),
@@ -350,8 +350,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 }
 
 pub fn view_calendar<Ms>(
-    training_sessions: &[&storage::TrainingSession],
-    interval: &common::Interval,
+    training_sessions: &[&domain::TrainingSession],
+    interval: &domain::Interval,
 ) -> Node<Ms> {
     let mut load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
     for training_session in training_sessions {
@@ -391,7 +391,7 @@ pub fn view_calendar<Ms>(
 }
 
 fn view_training_sessions_dialog(
-    routines: &[storage::Routine],
+    routines: &[domain::Routine],
     dialog: &Dialog,
     loading: bool,
 ) -> Node<Msg> {
@@ -512,19 +512,19 @@ pub fn view_charts<Ms>(
     long_term_load: Vec<(NaiveDate, f32)>,
     total_7day_set_volume: Vec<(NaiveDate, f32)>,
     average_7day_rpe: &[Vec<(NaiveDate, f32)>],
-    interval: &common::Interval,
+    interval: &domain::Interval,
     theme: &data::Theme,
     show_rpe: bool,
 ) -> Vec<Node<Ms>> {
     let long_term_load_high = long_term_load
         .iter()
         .copied()
-        .map(|(d, l)| (d, l * data::TrainingStats::LOAD_RATIO_HIGH))
+        .map(|(d, l)| (d, l * domain::TrainingStats::LOAD_RATIO_HIGH))
         .collect::<Vec<_>>();
     let long_term_load_low = long_term_load
         .iter()
         .copied()
-        .map(|(d, l)| (d, l * data::TrainingStats::LOAD_RATIO_LOW))
+        .map(|(d, l)| (d, l * domain::TrainingStats::LOAD_RATIO_LOW))
         .collect::<Vec<_>>();
     nodes![
         common::view_chart(
@@ -595,8 +595,8 @@ pub fn view_charts<Ms>(
 }
 
 pub fn view_table<Ms: 'static>(
-    training_sessions: &[&storage::TrainingSession],
-    routines: &BTreeMap<u32, storage::Routine>,
+    training_sessions: &[&domain::TrainingSession],
+    routines: &BTreeMap<u32, domain::Routine>,
     base_url: &Url,
     delete_training_session_message: fn(u32) -> Ms,
     show_rpe: bool,
@@ -695,12 +695,10 @@ pub fn view_table<Ms: 'static>(
     ]
 }
 
-fn to_training_session_elements(
-    part: &storage::RoutinePart,
-) -> Vec<storage::TrainingSessionElement> {
+fn to_training_session_elements(part: &domain::RoutinePart) -> Vec<domain::TrainingSessionElement> {
     let mut result = vec![];
     match part {
-        storage::RoutinePart::RoutineSection { rounds, parts, .. } => {
+        domain::RoutinePart::RoutineSection { rounds, parts, .. } => {
             for _ in 0..*rounds {
                 for p in parts {
                     for s in to_training_session_elements(p) {
@@ -709,7 +707,7 @@ fn to_training_session_elements(
                 }
             }
         }
-        storage::RoutinePart::RoutineActivity {
+        domain::RoutinePart::RoutineActivity {
             exercise_id,
             reps,
             time,
@@ -718,7 +716,7 @@ fn to_training_session_elements(
             automatic,
         } => {
             result.push(if let Some(exercise_id) = exercise_id {
-                storage::TrainingSessionElement::Set {
+                domain::TrainingSessionElement::Set {
                     exercise_id: *exercise_id,
                     reps: None,
                     time: None,
@@ -731,7 +729,7 @@ fn to_training_session_elements(
                     automatic: *automatic,
                 }
             } else {
-                storage::TrainingSessionElement::Rest {
+                domain::TrainingSessionElement::Rest {
                     target_time: if *time > 0 { Some(*time) } else { None },
                     automatic: *automatic,
                 }

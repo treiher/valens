@@ -5,7 +5,7 @@ use chrono::Duration;
 use seed::{prelude::*, *};
 
 use crate::{
-    storage,
+    domain,
     ui::{self, common, data},
 };
 
@@ -28,13 +28,13 @@ pub fn init(
     navbar.title = String::from("Body weight");
 
     Model {
-        interval: common::init_interval(
+        interval: domain::init_interval(
             &data_model
                 .body_weight
                 .keys()
                 .copied()
                 .collect::<Vec<NaiveDate>>(),
-            common::DefaultInterval::_3M,
+            domain::DefaultInterval::_3M,
         ),
         dialog: Dialog::Hidden,
         loading: false,
@@ -46,7 +46,7 @@ pub fn init(
 // ------ ------
 
 pub struct Model {
-    interval: common::Interval,
+    interval: domain::Interval,
     dialog: Dialog,
     loading: bool,
 }
@@ -166,13 +166,13 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddBodyWeight(ref mut form) => {
-                    orders.notify(data::Msg::CreateBodyWeight(storage::BodyWeight {
+                    orders.notify(data::Msg::CreateBodyWeight(domain::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
                     }));
                 }
                 Dialog::EditBodyWeight(ref mut form) => {
-                    orders.notify(data::Msg::ReplaceBodyWeight(storage::BodyWeight {
+                    orders.notify(data::Msg::ReplaceBodyWeight(domain::BodyWeight {
                         date: form.date.1.unwrap(),
                         weight: form.weight.1.unwrap(),
                     }));
@@ -190,13 +190,13 @@ pub fn update(
             model.loading = false;
             match event {
                 data::Event::DataChanged => {
-                    model.interval = common::init_interval(
+                    model.interval = domain::init_interval(
                         &data_model
                             .body_weight
                             .keys()
                             .copied()
                             .collect::<Vec<NaiveDate>>(),
-                        common::DefaultInterval::_3M,
+                        domain::DefaultInterval::_3M,
                     );
                 }
                 data::Event::BodyWeightCreatedOk
@@ -224,7 +224,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_page_loading()
     } else {
         let dates = data_model.body_weight.values().map(|bw| bw.date);
-        let body_weight_interval = common::Interval {
+        let body_weight_interval = domain::Interval {
             first: dates.clone().min().unwrap_or_default(),
             last: dates.max().unwrap_or_default(),
         };
@@ -398,7 +398,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
     )
 }
 
-fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<Msg> {
+fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<Msg> {
     let body_weight_values = data_model
         .body_weight
         .values()
@@ -497,8 +497,8 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
 }
 
 fn avg_weekly_change(
-    avg_body_weight: &BTreeMap<NaiveDate, storage::BodyWeight>,
-    current: Option<&storage::BodyWeight>,
+    avg_body_weight: &BTreeMap<NaiveDate, domain::BodyWeight>,
+    current: Option<&domain::BodyWeight>,
 ) -> Option<f32> {
     let prev_date = current?.date - Duration::days(7);
     let prev_avg_bw = if let Some(avg_bw) = avg_body_weight.get(&prev_date) {
@@ -511,9 +511,9 @@ fn avg_weekly_change(
 }
 
 fn neighbors(
-    body_weight: &BTreeMap<NaiveDate, storage::BodyWeight>,
+    body_weight: &BTreeMap<NaiveDate, domain::BodyWeight>,
     date: NaiveDate,
-) -> Option<(&storage::BodyWeight, &storage::BodyWeight)> {
+) -> Option<(&domain::BodyWeight, &domain::BodyWeight)> {
     use std::ops::Bound::{Excluded, Unbounded};
 
     let mut before = body_weight.range((Unbounded, Excluded(date)));
@@ -526,12 +526,12 @@ fn neighbors(
 }
 
 fn interpolate_avg_body_weight(
-    a: &storage::BodyWeight,
-    b: &storage::BodyWeight,
+    a: &domain::BodyWeight,
+    b: &domain::BodyWeight,
     date: NaiveDate,
-) -> storage::BodyWeight {
+) -> domain::BodyWeight {
     #[allow(clippy::cast_precision_loss)]
-    storage::BodyWeight {
+    domain::BodyWeight {
         date,
         weight: a.weight
             + (b.weight - a.weight)
@@ -557,7 +557,7 @@ mod tests {
         assert_eq!(
             avg_weekly_change(
                 &BTreeMap::new(),
-                Some(&storage::BodyWeight {
+                Some(&domain::BodyWeight {
                     date: from_num_days(1),
                     weight: 70.0
                 })
@@ -568,12 +568,12 @@ mod tests {
             avg_weekly_change(
                 &BTreeMap::from([(
                     from_num_days(0),
-                    storage::BodyWeight {
+                    domain::BodyWeight {
                         date: from_num_days(0),
                         weight: 70.0
                     }
                 )]),
-                Some(&storage::BodyWeight {
+                Some(&domain::BodyWeight {
                     date: from_num_days(7),
                     weight: 70.0
                 })
@@ -584,12 +584,12 @@ mod tests {
             avg_weekly_change(
                 &BTreeMap::from([(
                     from_num_days(0),
-                    storage::BodyWeight {
+                    domain::BodyWeight {
                         date: from_num_days(0),
                         weight: 70.0
                     }
                 )]),
-                Some(&storage::BodyWeight {
+                Some(&domain::BodyWeight {
                     date: from_num_days(7),
                     weight: 70.7
                 })
@@ -603,20 +603,20 @@ mod tests {
                 &BTreeMap::from([
                     (
                         from_num_days(0),
-                        storage::BodyWeight {
+                        domain::BodyWeight {
                             date: from_num_days(0),
                             weight: 69.0
                         }
                     ),
                     (
                         from_num_days(2),
-                        storage::BodyWeight {
+                        domain::BodyWeight {
                             date: from_num_days(2),
                             weight: 71.0
                         }
                     )
                 ]),
-                Some(&storage::BodyWeight {
+                Some(&domain::BodyWeight {
                     date: from_num_days(8),
                     weight: 69.44
                 })

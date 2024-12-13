@@ -2,7 +2,7 @@ use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::{
-    storage,
+    domain,
     ui::{self, common, data},
 };
 
@@ -25,13 +25,13 @@ pub fn init(
     navbar.title = String::from("Body fat");
 
     Model {
-        interval: common::init_interval(
+        interval: domain::init_interval(
             &data_model
                 .body_fat
                 .keys()
                 .copied()
                 .collect::<Vec<NaiveDate>>(),
-            common::DefaultInterval::_3M,
+            domain::DefaultInterval::_3M,
         ),
         dialog: Dialog::Hidden,
         loading: false,
@@ -43,7 +43,7 @@ pub fn init(
 // ------ ------
 
 pub struct Model {
-    interval: common::Interval,
+    interval: domain::Interval,
     dialog: Dialog,
     loading: bool,
 }
@@ -378,7 +378,7 @@ pub fn update(
             model.loading = true;
             match model.dialog {
                 Dialog::AddBodyFat(ref mut form) => {
-                    orders.notify(data::Msg::CreateBodyFat(storage::BodyFat {
+                    orders.notify(data::Msg::CreateBodyFat(domain::BodyFat {
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,
@@ -390,7 +390,7 @@ pub fn update(
                     }));
                 }
                 Dialog::EditBodyFat(ref mut form) => {
-                    orders.notify(data::Msg::ReplaceBodyFat(storage::BodyFat {
+                    orders.notify(data::Msg::ReplaceBodyFat(domain::BodyFat {
                         date: form.date.1.unwrap(),
                         chest: form.chest.1,
                         abdominal: form.abdominal.1,
@@ -414,13 +414,13 @@ pub fn update(
             model.loading = false;
             match event {
                 data::Event::DataChanged => {
-                    model.interval = common::init_interval(
+                    model.interval = domain::init_interval(
                         &data_model
                             .body_fat
                             .keys()
                             .copied()
                             .collect::<Vec<NaiveDate>>(),
-                        common::DefaultInterval::_3M,
+                        domain::DefaultInterval::_3M,
                     );
                 }
                 data::Event::BodyFatCreatedOk
@@ -448,7 +448,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         common::view_page_loading()
     } else {
         let dates = data_model.body_fat.values().map(|bf| bf.date);
-        let body_fat_interval = common::Interval {
+        let body_fat_interval = domain::Interval {
             first: dates.clone().min().unwrap_or_default(),
             last: dates.max().unwrap_or_default(),
         };
@@ -780,7 +780,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
     )
 }
 
-fn view_calendar(data_model: &data::Model, interval: &common::Interval) -> Node<Msg> {
+fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<Msg> {
     let sex = data_model.session.as_ref().unwrap().sex;
     let body_fat_values = data_model
         .body_fat

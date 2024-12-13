@@ -4,7 +4,7 @@ use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::{
-    domain, storage,
+    domain,
     ui::{self, common, data, page::training},
 };
 
@@ -30,7 +30,7 @@ pub fn init(
     navbar.title = String::from("Exercise");
 
     let mut model = Model {
-        interval: common::init_interval(&[], common::DefaultInterval::_3M),
+        interval: domain::init_interval(&[], domain::DefaultInterval::_3M),
         exercise_id,
         name: common::InputField::default(),
         muscle_stimulus: BTreeMap::new(),
@@ -49,7 +49,7 @@ pub fn init(
 // ------ ------
 
 pub struct Model {
-    interval: common::Interval,
+    interval: domain::Interval,
     exercise_id: u32,
     name: common::InputField<String>,
     muscle_stimulus: BTreeMap<u8, u8>,
@@ -116,13 +116,13 @@ pub fn update(
         }
         Msg::SaveExercise => {
             model.loading = true;
-            orders.notify(data::Msg::ReplaceExercise(storage::Exercise {
+            orders.notify(data::Msg::ReplaceExercise(domain::Exercise {
                 id: model.exercise_id,
                 name: model.name.parsed.clone().unwrap(),
                 muscles: model
                     .muscle_stimulus
                     .iter()
-                    .map(|(muscle_id, stimulus)| storage::ExerciseMuscle {
+                    .map(|(muscle_id, stimulus)| domain::ExerciseMuscle {
                         muscle_id: *muscle_id,
                         stimulus: *stimulus,
                     })
@@ -209,14 +209,14 @@ pub fn update(
 }
 
 fn update_model(model: &mut Model, data_model: &data::Model) {
-    model.interval = common::init_interval(
+    model.interval = domain::init_interval(
         &data_model
             .training_sessions
             .values()
             .filter(|t| t.exercises().contains(&model.exercise_id))
             .map(|t| t.date)
             .collect::<Vec<NaiveDate>>(),
-        common::DefaultInterval::_3M,
+        domain::DefaultInterval::_3M,
     );
 
     let exercise = &data_model.exercises.get(&model.exercise_id);
@@ -241,7 +241,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     } else if model.exercise_id > 0 {
         let exercise_training_sessions = exercise_training_sessions(model, data_model);
         let dates = exercise_training_sessions.iter().map(|t| t.date);
-        let exercise_interval = common::Interval {
+        let exercise_interval = domain::Interval {
             first: dates.clone().min().unwrap_or_default(),
             last: dates.max().unwrap_or_default(),
         };
@@ -439,8 +439,8 @@ fn view_muscles(model: &Model) -> Node<Msg> {
 }
 
 pub fn view_charts<Ms>(
-    training_sessions: &[&storage::TrainingSession],
-    interval: &common::Interval,
+    training_sessions: &[&domain::TrainingSession],
+    interval: &domain::Interval,
     theme: &data::Theme,
     show_rpe: bool,
     show_tut: bool,
@@ -622,8 +622,8 @@ pub fn view_charts<Ms>(
 }
 
 fn view_calendar(
-    training_sessions: &[&storage::TrainingSession],
-    interval: &common::Interval,
+    training_sessions: &[&domain::TrainingSession],
+    interval: &domain::Interval,
 ) -> Node<Msg> {
     let mut volume_load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
     for training_session in training_sessions {
@@ -665,8 +665,8 @@ fn view_calendar(
 }
 
 fn view_sets(
-    training_sessions: &[&storage::TrainingSession],
-    routines: &BTreeMap<u32, storage::Routine>,
+    training_sessions: &[&domain::TrainingSession],
+    routines: &BTreeMap<u32, domain::Routine>,
     base_url: &Url,
     show_rpe: bool,
     show_tut: bool,
@@ -706,7 +706,7 @@ fn view_sets(
                         C!["block"],
                         C!["has-text-centered"],
                         t.elements.iter().map(|e| {
-                            if let storage::TrainingSessionElement::Set {
+                            if let domain::TrainingSessionElement::Set {
                                 reps,
                                 time,
                                 weight,
@@ -750,12 +750,12 @@ fn view_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
 fn exercise_training_sessions(
     model: &Model,
     data_model: &data::Model,
-) -> Vec<storage::TrainingSession> {
+) -> Vec<domain::TrainingSession> {
     data_model
         .training_sessions
         .values()
         .filter(|t| t.exercises().contains(&model.exercise_id))
-        .map(|t| storage::TrainingSession {
+        .map(|t| domain::TrainingSession {
             id: t.id,
             routine_id: t.routine_id,
             date: t.date,
@@ -764,7 +764,7 @@ fn exercise_training_sessions(
                 .elements
                 .iter()
                 .filter(|e| match e {
-                    storage::TrainingSessionElement::Set { exercise_id, .. } => {
+                    domain::TrainingSessionElement::Set { exercise_id, .. } => {
                         *exercise_id == model.exercise_id
                     }
                     _ => false,

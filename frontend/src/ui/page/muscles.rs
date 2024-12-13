@@ -14,13 +14,13 @@ pub fn init(data_model: &data::Model, navbar: &mut ui::Navbar) -> Model {
     navbar.title = String::from("Muscles");
 
     Model {
-        interval: common::init_interval(
+        interval: domain::init_interval(
             &data_model
                 .training_sessions
                 .values()
                 .map(|t| t.date)
                 .collect::<Vec<NaiveDate>>(),
-            common::DefaultInterval::_1M,
+            domain::DefaultInterval::_1M,
         ),
     }
 }
@@ -30,7 +30,7 @@ pub fn init(data_model: &data::Model, navbar: &mut ui::Navbar) -> Model {
 // ------ ------
 
 pub struct Model {
-    interval: common::Interval,
+    interval: domain::Interval,
 }
 
 // ------ ------
@@ -60,7 +60,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     {
         common::view_page_loading()
     } else {
-        let training_sessions_interval: common::Interval =
+        let training_sessions_interval: domain::Interval =
             data_model.training_sessions_date_range().into();
         div![
             common::view_interval_buttons(
@@ -70,7 +70,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ),
             domain::Muscle::iter().map(|m| {
                 #[allow(clippy::cast_precision_loss)]
-                let total_7day_set_volume = common::centered_moving_total(
+                let total_7day_set_volume = domain::centered_moving_total(
                     &data_model
                         .training_sessions
                         .values()

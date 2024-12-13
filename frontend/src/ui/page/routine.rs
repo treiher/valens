@@ -4,7 +4,7 @@ use chrono::prelude::*;
 use seed::{prelude::*, *};
 
 use crate::{
-    domain, storage,
+    domain,
     ui::{self, common, component, data, page::training},
 };
 
@@ -30,7 +30,7 @@ pub fn init(
     navbar.title = String::from("Routine");
 
     let mut model = Model {
-        interval: common::init_interval(&[], common::DefaultInterval::All),
+        interval: domain::init_interval(&[], domain::DefaultInterval::All),
         routine_id,
         name: common::InputField::default(),
         sections: vec![],
@@ -50,7 +50,7 @@ pub fn init(
 // ------ ------
 
 pub struct Model {
-    interval: common::Interval,
+    interval: domain::Interval,
     routine_id: u32,
     name: common::InputField<String>,
     sections: Vec<Form>,
@@ -151,10 +151,10 @@ impl Form {
     }
 }
 
-impl From<&storage::RoutinePart> for Form {
-    fn from(part: &storage::RoutinePart) -> Self {
+impl From<&domain::RoutinePart> for Form {
+    fn from(part: &domain::RoutinePart) -> Self {
         match part {
-            storage::RoutinePart::RoutineSection { rounds, parts, .. } => {
+            domain::RoutinePart::RoutineSection { rounds, parts, .. } => {
                 let rounds_str = if *rounds == 1 {
                     String::new()
                 } else {
@@ -169,7 +169,7 @@ impl From<&storage::RoutinePart> for Form {
                     parts: parts.iter().map(Into::into).collect(),
                 }
             }
-            storage::RoutinePart::RoutineActivity {
+            domain::RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
                 time,
@@ -233,11 +233,11 @@ impl From<&storage::RoutinePart> for Form {
     }
 }
 
-fn to_routine_parts(parts: &[Form]) -> Vec<storage::RoutinePart> {
+fn to_routine_parts(parts: &[Form]) -> Vec<domain::RoutinePart> {
     parts
         .iter()
         .map(|p| match p {
-            Form::Section { rounds, parts } => storage::RoutinePart::RoutineSection {
+            Form::Section { rounds, parts } => domain::RoutinePart::RoutineSection {
                 rounds: rounds.parsed.unwrap(),
                 parts: to_routine_parts(parts),
             },
@@ -248,7 +248,7 @@ fn to_routine_parts(parts: &[Form]) -> Vec<storage::RoutinePart> {
                 weight,
                 rpe,
                 automatic,
-            } => storage::RoutinePart::RoutineActivity {
+            } => domain::RoutinePart::RoutineActivity {
                 exercise_id: *exercise_id,
                 reps: reps.parsed.unwrap_or(0),
                 time: time.parsed.unwrap_or(0),
@@ -669,14 +669,14 @@ pub fn update(
 }
 
 fn update_model(model: &mut Model, data_model: &data::Model) {
-    model.interval = common::init_interval(
+    model.interval = domain::init_interval(
         &data_model
             .training_sessions
             .values()
             .filter(|t| t.routine_id == Some(model.routine_id))
             .map(|t| t.date)
             .collect::<Vec<NaiveDate>>(),
-        common::DefaultInterval::All,
+        domain::DefaultInterval::All,
     );
 
     let routine = &data_model.routines.get(&model.routine_id);
@@ -807,7 +807,7 @@ fn view_dialog(dialog: &Dialog, loading: bool, data_model: &data::Model) -> Node
     }
 }
 
-fn view_summary(routine: &storage::Routine) -> Node<Msg> {
+fn view_summary(routine: &domain::Routine) -> Node<Msg> {
     div![
         C!["columns"],
         C!["is-gapless"],
@@ -1252,7 +1252,7 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
     }
 }
 
-fn view_muscles(routine: &storage::Routine, data_model: &data::Model) -> Node<Msg> {
+fn view_muscles(routine: &domain::Routine, data_model: &data::Model) -> Node<Msg> {
     let stimulus_per_muscle = routine
         .stimulus_per_muscle(&data_model.exercises)
         .iter()
@@ -1283,7 +1283,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         })
         .collect::<Vec<_>>();
     let dates = training_sessions.iter().map(|t| t.date);
-    let routine_interval = common::Interval {
+    let routine_interval = domain::Interval {
         first: dates.clone().min().unwrap_or_default(),
         last: dates.max().unwrap_or_default(),
     };
@@ -1311,8 +1311,8 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
     ]
 }
 pub fn view_charts<Ms>(
-    training_sessions: &[&storage::TrainingSession],
-    interval: &common::Interval,
+    training_sessions: &[&domain::TrainingSession],
+    interval: &domain::Interval,
     theme: &data::Theme,
     show_rpe: bool,
 ) -> Vec<Node<Ms>> {

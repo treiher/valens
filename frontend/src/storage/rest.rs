@@ -4,15 +4,15 @@ use gloo_net::http::Request;
 use serde_json::{json, Map};
 
 use super::{
-    BodyFat, BodyWeight, Exercise, ExerciseMuscle, NewUser, Period, Routine, RoutinePart, Session,
-    TrainingSession, TrainingSessionElement, User,
+    BodyFat, BodyWeight, Exercise, ExerciseMuscle, Period, Routine, RoutinePart, TrainingSession,
+    TrainingSessionElement, User,
 };
 
 pub struct Storage;
 
 #[async_trait(?Send)]
 impl super::Storage for Storage {
-    async fn request_session(&self, user_id: u32) -> Result<Session, String> {
+    async fn request_session(&self, user_id: u32) -> Result<User, String> {
         fetch(
             Request::post("api/session")
                 .json(&json!({ "id": user_id }))
@@ -21,7 +21,7 @@ impl super::Storage for Storage {
         .await
     }
 
-    async fn initialize_session(&self) -> Result<Session, String> {
+    async fn initialize_session(&self) -> Result<User, String> {
         fetch(Request::get("api/session").build().unwrap()).await
     }
 
@@ -36,10 +36,13 @@ impl super::Storage for Storage {
     async fn read_users(&self) -> Result<Vec<User>, String> {
         fetch(Request::get("api/users").build().unwrap()).await
     }
-    async fn create_user(&self, user: NewUser) -> Result<User, String> {
+    async fn create_user(&self, name: String, sex: u8) -> Result<User, String> {
         fetch(
             Request::post("api/users")
-                .json(&user)
+                .json(&json!({
+                    "name": name,
+                    "sex": sex,
+                }))
                 .expect("serialization failed"),
         )
         .await
@@ -47,10 +50,10 @@ impl super::Storage for Storage {
     async fn replace_user(&self, user: User) -> Result<User, String> {
         fetch(
             Request::put(&format!("api/users/{}", user.id))
-                .json(&NewUser {
-                    name: user.name,
-                    sex: user.sex,
-                })
+                .json(&json!({
+                    "name": user.name,
+                    "sex": user.sex,
+                }))
                 .expect("serialization failed"),
         )
         .await

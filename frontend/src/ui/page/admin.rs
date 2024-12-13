@@ -1,7 +1,7 @@
 use seed::{prelude::*, *};
 
 use crate::{
-    storage,
+    domain,
     ui::{self, common, data},
 };
 
@@ -34,8 +34,8 @@ pub struct Model {
 
 enum Dialog {
     Hidden,
-    AddUser(storage::NewUser, String),
-    EditUser(storage::User, String),
+    AddUser(String, u8, String),
+    EditUser(domain::User, String),
     DeleteUser(u32),
 }
 
@@ -70,13 +70,7 @@ pub fn update(
 ) {
     match msg {
         Msg::ShowAddUserDialog => {
-            model.dialog = Dialog::AddUser(
-                storage::NewUser {
-                    name: String::new(),
-                    sex: 0,
-                },
-                String::new(),
-            );
+            model.dialog = Dialog::AddUser(String::new(), 0, String::new());
         }
         Msg::ShowEditUserDialog(id) => {
             model.dialog = Dialog::EditUser(data_model.users[&id].clone(), String::new());
@@ -89,7 +83,7 @@ pub fn update(
         }
 
         Msg::NameChanged(name) => match model.dialog {
-            Dialog::AddUser(ref mut user, ref mut error) => {
+            Dialog::AddUser(ref mut user_name, _, ref mut error) => {
                 if name.trim().is_empty() {
                     *error = ERROR_EMPTY_NAME.into();
                 } else if data_model
@@ -101,7 +95,7 @@ pub fn update(
                 } else {
                     *error = String::new();
                 }
-                user.name = name;
+                *user_name = name;
             }
             Dialog::EditUser(ref mut user, ref mut error) => {
                 if name.trim().is_empty() {
@@ -122,8 +116,8 @@ pub fn update(
             }
         },
         Msg::SexChanged(sex) => match model.dialog {
-            Dialog::AddUser(ref mut user, _) => {
-                user.sex = sex.parse::<u8>().unwrap();
+            Dialog::AddUser(_, ref mut user_sex, _) => {
+                *user_sex = sex.parse::<u8>().unwrap();
             }
             Dialog::EditUser(ref mut user, _) => {
                 user.sex = sex.parse::<u8>().unwrap();
@@ -136,9 +130,9 @@ pub fn update(
         Msg::SaveUser => {
             model.loading = true;
             match model.dialog {
-                Dialog::AddUser(ref mut user, _) => {
-                    user.name = user.name.trim().into();
-                    orders.notify(data::Msg::CreateUser(user.clone()));
+                Dialog::AddUser(ref mut user_name, ref mut user_sex, _) => {
+                    *user_name = user_name.trim().into();
+                    orders.notify(data::Msg::CreateUser(user_name.clone(), *user_sex));
                 }
                 Dialog::EditUser(ref mut user, _) => {
                     user.name = user.name.trim().into();
@@ -178,7 +172,7 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         IF![
-            matches!(model.dialog, Dialog::EditUser(_, _) | Dialog::AddUser(_, _)) => {
+            matches!(model.dialog, Dialog::EditUser(_, _) | Dialog::AddUser(_, _, _)) => {
                 view_user_dialog(&model.dialog, model.loading)
             }
         ],
@@ -263,10 +257,10 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     let sex;
     let name_error;
     match dialog {
-        Dialog::AddUser(ref user, ref error) => {
+        Dialog::AddUser(ref user_name, ref user_sex, ref error) => {
             title = "Add user";
-            name = &user.name;
-            sex = user.sex;
+            name = user_name;
+            sex = *user_sex;
             name_error = error;
         }
         Dialog::EditUser(ref user, ref error) => {

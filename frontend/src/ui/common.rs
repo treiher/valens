@@ -7,7 +7,7 @@ use chrono::{prelude::*, Duration};
 use plotters::prelude::*;
 use seed::{prelude::*, *};
 
-use crate::{domain, ui::data};
+use crate::{domain, ui};
 
 pub const ENTER_KEY: u32 = 13;
 
@@ -709,7 +709,7 @@ pub fn plot_chart(
     data: &[PlotData],
     x_min: NaiveDate,
     x_max: NaiveDate,
-    theme: &data::Theme,
+    theme: &ui::Theme,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if all_zeros(data) {
         return Ok(None);
@@ -833,11 +833,11 @@ fn all_zeros(data: &[PlotData]) -> bool {
         .unwrap_or(true)
 }
 
-fn colors(theme: &data::Theme) -> (RGBColor, RGBColor) {
+fn colors(theme: &ui::Theme) -> (RGBColor, RGBColor) {
     let dark = RGBColor(20, 22, 26);
     match theme {
-        data::Theme::System | data::Theme::Light => (dark, WHITE),
-        data::Theme::Dark => (WHITE, dark),
+        ui::Theme::System | ui::Theme::Light => (dark, WHITE),
+        ui::Theme::Dark => (WHITE, dark),
     }
 }
 

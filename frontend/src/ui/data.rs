@@ -2,7 +2,6 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{prelude::*, Duration};
 use gloo_console::error;
-use gloo_storage::Storage as GlooStorage;
 use seed::{
     app::{subs, Orders},
     button, div, nodes, p,
@@ -16,27 +15,18 @@ use crate::{
     ui::{self, common},
 };
 
-const STORAGE_KEY_SETTINGS: &str = "settings";
-const STORAGE_KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
-
 // ------ ------
 //     Init
 // ------ ------
 
 #[allow(clippy::needless_pass_by_value)]
-pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
-    let settings = gloo_storage::LocalStorage::get(STORAGE_KEY_SETTINGS).unwrap_or(Settings {
-        beep_volume: 80,
-        theme: Theme::Light,
-        automatic_metronome: false,
-        notifications: false,
-        show_rpe: true,
-        show_tut: true,
-    });
-    let ongoing_training_session =
-        gloo_storage::LocalStorage::get(STORAGE_KEY_ONGOING_TRAINING_SESSION).unwrap_or(None);
+pub fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
+    orders
+        .send_msg(Msg::ReadSettings)
+        .send_msg(Msg::ReadOngoingTrainingSession);
     Model {
         storage: Arc::new(storage::rest::Storage),
+        ui_storage: Arc::new(storage::local_storage::UI),
         base_url: url.to_hash_base_url(),
         errors: Vec::new(),
         app_update_available: false,
@@ -67,8 +57,8 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
             short_term_load: Vec::new(),
             long_term_load: Vec::new(),
         },
-        settings,
-        ongoing_training_session,
+        settings: ui::Settings::default(),
+        ongoing_training_session: None,
     }
 }
 
@@ -79,6 +69,7 @@ pub fn init(url: Url, _orders: &mut impl Orders<Msg>) -> Model {
 #[allow(clippy::struct_excessive_bools)]
 pub struct Model {
     storage: Arc<dyn storage::Storage>,
+    ui_storage: Arc<dyn storage::UI>,
     pub base_url: Url,
     errors: Vec<String>,
     app_update_available: bool,
@@ -111,8 +102,8 @@ pub struct Model {
     pub training_stats: domain::TrainingStats,
 
     // ------ Client-side data ------
-    pub settings: Settings,
-    pub ongoing_training_session: Option<OngoingTrainingSession>,
+    pub settings: ui::Settings,
+    pub ongoing_training_session: Option<ui::OngoingTrainingSession>,
 }
 
 impl Model {
@@ -141,33 +132,33 @@ impl Model {
         dates.clone().min().unwrap_or_default()..=dates.max().unwrap_or_default()
     }
 
-    pub fn theme(&self) -> &Theme {
+    pub fn theme(&self) -> &ui::Theme {
         match self.settings.theme {
-            Theme::System => {
+            ui::Theme::System => {
                 if let Some(window) = web_sys::window() {
                     if let Ok(prefers_dark_scheme) =
                         window.match_media("(prefers-color-scheme: dark)")
                     {
                         if let Some(media_query_list) = prefers_dark_scheme {
                             if media_query_list.matches() {
-                                &Theme::Dark
+                                &ui::Theme::Dark
                             } else {
-                                &Theme::Light
+                                &ui::Theme::Light
                             }
                         } else {
                             error!("failed to determine preferred color scheme");
-                            &Theme::Light
+                            &ui::Theme::Light
                         }
                     } else {
                         error!("failed to match media to determine preferred color scheme");
-                        &Theme::Light
+                        &ui::Theme::Light
                     }
                 } else {
                     error!("failed to access window to determine preferred color scheme");
-                    &Theme::Light
+                    &ui::Theme::Light
                 }
             }
-            Theme::Light | Theme::Dark => &self.settings.theme,
+            ui::Theme::Light | ui::Theme::Dark => &self.settings.theme,
         }
     }
 }
@@ -199,52 +190,6 @@ fn sort_routines_by_last_use(
     list.iter()
         .map(|(routine_id, _)| routines[routine_id].clone())
         .collect()
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-#[allow(clippy::struct_excessive_bools)]
-pub struct Settings {
-    pub beep_volume: u8,
-    pub theme: Theme,
-    pub automatic_metronome: bool,
-    pub notifications: bool,
-    pub show_rpe: bool,
-    pub show_tut: bool,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq)]
-pub enum Theme {
-    System,
-    Light,
-    Dark,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
-pub struct OngoingTrainingSession {
-    pub training_session_id: u32,
-    pub start_time: DateTime<Utc>,
-    pub element_idx: usize,
-    pub element_start_time: DateTime<Utc>,
-    pub timer_state: TimerState,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
-pub enum TimerState {
-    Unset,
-    Active { target_time: DateTime<Utc> },
-    Paused { time: i64 },
-}
-
-impl OngoingTrainingSession {
-    pub fn new(training_session_id: u32) -> OngoingTrainingSession {
-        OngoingTrainingSession {
-            training_session_id,
-            start_time: Utc::now(),
-            element_idx: 0,
-            element_start_time: Utc::now(),
-            timer_state: TimerState::Unset,
-        }
-    }
 }
 
 // ------ ------
@@ -351,15 +296,25 @@ pub enum Msg {
     TrainingSessionDeleted(Result<u32, String>),
 
     SetBeepVolume(u8),
-    SetTheme(Theme),
+    SetTheme(ui::Theme),
     SetAutomaticMetronome(bool),
     SetNotifications(bool),
     SetShowRPE(bool),
     SetShowTUT(bool),
 
     StartTrainingSession(u32),
-    UpdateTrainingSession(usize, TimerState),
+    UpdateTrainingSession(usize, ui::TimerState),
     EndTrainingSession,
+
+    ReadSettings,
+    SettingsRead(Result<ui::Settings, String>),
+    WriteSettings,
+    SettingsWritten(Result<(), String>),
+
+    ReadOngoingTrainingSession,
+    OngoingTrainingSessionRead(Result<Option<ui::OngoingTrainingSession>, String>),
+    WriteOngoingTrainingSession,
+    OngoingTrainingSessionWritten(Result<(), String>),
 }
 
 #[derive(Clone)]
@@ -1049,37 +1004,35 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
 
         Msg::SetBeepVolume(value) => {
             model.settings.beep_volume = value;
-            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
-            orders.notify(Event::BeepVolumeChanged);
+            orders
+                .send_msg(Msg::WriteSettings)
+                .notify(Event::BeepVolumeChanged);
         }
         Msg::SetTheme(theme) => {
             model.settings.theme = theme;
-            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+            orders.send_msg(Msg::WriteSettings);
         }
         Msg::SetAutomaticMetronome(value) => {
             model.settings.automatic_metronome = value;
-            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+            orders.send_msg(Msg::WriteSettings);
         }
         Msg::SetNotifications(value) => {
             model.settings.notifications = value;
-            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+            orders.send_msg(Msg::WriteSettings);
         }
         Msg::SetShowRPE(value) => {
             model.settings.show_rpe = value;
-            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+            orders.send_msg(Msg::WriteSettings);
         }
         Msg::SetShowTUT(value) => {
             model.settings.show_tut = value;
-            local_storage_set(STORAGE_KEY_SETTINGS, &model.settings, &mut model.errors);
+            orders.send_msg(Msg::WriteSettings);
         }
 
         Msg::StartTrainingSession(training_session_id) => {
-            model.ongoing_training_session = Some(OngoingTrainingSession::new(training_session_id));
-            local_storage_set(
-                STORAGE_KEY_ONGOING_TRAINING_SESSION,
-                &model.ongoing_training_session,
-                &mut model.errors,
-            );
+            model.ongoing_training_session =
+                Some(ui::OngoingTrainingSession::new(training_session_id));
+            orders.send_msg(Msg::WriteOngoingTrainingSession);
         }
         Msg::UpdateTrainingSession(section_idx, timer_state) => {
             if let Some(ongoing_training_session) = &mut model.ongoing_training_session {
@@ -1087,26 +1040,74 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 ongoing_training_session.element_start_time = Utc::now();
                 ongoing_training_session.timer_state = timer_state;
             }
-            local_storage_set(
-                STORAGE_KEY_ONGOING_TRAINING_SESSION,
-                &model.ongoing_training_session,
-                &mut model.errors,
-            );
+            orders.send_msg(Msg::WriteOngoingTrainingSession);
         }
         Msg::EndTrainingSession => {
             model.ongoing_training_session = None;
-            local_storage_set(
-                STORAGE_KEY_ONGOING_TRAINING_SESSION,
-                &model.ongoing_training_session,
-                &mut model.errors,
-            );
+            orders.send_msg(Msg::WriteOngoingTrainingSession);
         }
-    }
-}
 
-fn local_storage_set<T: serde::Serialize>(key: &str, value: &T, errors: &mut Vec<String>) {
-    if let Err(message) = gloo_storage::LocalStorage::set(key, value) {
-        errors.push(format!("Failed to store {key} in local storage: {message}"));
+        Msg::ReadSettings => {
+            let storage = model.ui_storage.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::SettingsRead(storage.read_settings().await) });
+        }
+        Msg::SettingsRead(Ok(settings)) => {
+            model.settings = settings;
+        }
+        Msg::SettingsRead(Err(message)) => {
+            model
+                .errors
+                .push("Failed to read settings: ".to_owned() + &message);
+        }
+        Msg::WriteSettings => {
+            let settings = model.settings.clone();
+            let storage = model.ui_storage.clone();
+            orders.skip().perform_cmd(async move {
+                Msg::SettingsWritten(storage.write_settings(settings).await)
+            });
+        }
+        Msg::SettingsWritten(result) => {
+            if let Err(message) = result {
+                model
+                    .errors
+                    .push("Failed to write settings: ".to_owned() + &message);
+            }
+        }
+
+        Msg::ReadOngoingTrainingSession => {
+            let storage = model.ui_storage.clone();
+            orders.skip().perform_cmd(async move {
+                Msg::OngoingTrainingSessionRead(storage.read_ongoing_training_session().await)
+            });
+        }
+        Msg::OngoingTrainingSessionRead(Ok(ongoing_training_session)) => {
+            model.ongoing_training_session = ongoing_training_session;
+        }
+        Msg::OngoingTrainingSessionRead(Err(message)) => {
+            model
+                .errors
+                .push("Failed to read ongoing training session: ".to_owned() + &message);
+        }
+        Msg::WriteOngoingTrainingSession => {
+            let ongoing_training_session = model.ongoing_training_session.clone();
+            let storage = model.ui_storage.clone();
+            orders.skip().perform_cmd(async move {
+                Msg::OngoingTrainingSessionWritten(
+                    storage
+                        .write_ongoing_training_session(ongoing_training_session)
+                        .await,
+                )
+            });
+        }
+        Msg::OngoingTrainingSessionWritten(result) => {
+            if let Err(message) = result {
+                model
+                    .errors
+                    .push("Failed to write ongoing training session: ".to_owned() + &message);
+            }
+        }
     }
 }
 

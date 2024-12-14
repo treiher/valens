@@ -513,7 +513,7 @@ pub fn view_charts<Ms>(
     total_7day_set_volume: Vec<(NaiveDate, f32)>,
     average_7day_rpe: &[Vec<(NaiveDate, f32)>],
     interval: &domain::Interval,
-    theme: &data::Theme,
+    theme: &ui::Theme,
     show_rpe: bool,
 ) -> Vec<Node<Ms>> {
     let long_term_load_high = long_term_load

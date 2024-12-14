@@ -1,11 +1,16 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 
-use crate::domain::{
-    BodyFat, BodyWeight, Exercise, ExerciseMuscle, Period, Routine, RoutinePart, TrainingSession,
-    TrainingSessionElement, User,
+use crate::{
+    domain::{
+        BodyFat, BodyWeight, Exercise, ExerciseMuscle, Period, Routine, RoutinePart,
+        TrainingSession, TrainingSessionElement, User,
+    },
+    ui::{OngoingTrainingSession, Settings},
 };
 
+#[allow(clippy::module_name_repetitions)]
+pub mod local_storage;
 pub mod rest;
 
 #[async_trait(?Send)]
@@ -75,4 +80,17 @@ pub trait Storage {
         elements: Option<Vec<TrainingSessionElement>>,
     ) -> Result<TrainingSession, String>;
     async fn delete_training_session(&self, id: u32) -> Result<u32, String>;
+}
+
+#[async_trait(?Send)]
+pub trait UI {
+    async fn read_settings(&self) -> Result<Settings, String>;
+    async fn write_settings(&self, settings: Settings) -> Result<(), String>;
+
+    async fn read_ongoing_training_session(&self)
+        -> Result<Option<OngoingTrainingSession>, String>;
+    async fn write_ongoing_training_session(
+        &self,
+        ongoing_training_session: Option<OngoingTrainingSession>,
+    ) -> Result<(), String>;
 }

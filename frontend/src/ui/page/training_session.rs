@@ -629,30 +629,30 @@ impl Timer {
         }
     }
 
-    fn to_timer_state(&self) -> data::TimerState {
+    fn to_timer_state(&self) -> ui::TimerState {
         if self.is_active() {
-            data::TimerState::Active {
+            ui::TimerState::Active {
                 target_time: self.target_time.unwrap_or(Utc::now()),
             }
         } else if self.is_set() {
-            data::TimerState::Paused {
+            ui::TimerState::Paused {
                 time: self.time.1.unwrap_or(0),
             }
         } else {
-            data::TimerState::Unset
+            ui::TimerState::Unset
         }
     }
 
-    fn restore(&mut self, timer_state: data::TimerState) {
+    fn restore(&mut self, timer_state: ui::TimerState) {
         match timer_state {
-            data::TimerState::Unset => {
+            ui::TimerState::Unset => {
                 self.unset();
             }
-            data::TimerState::Active { target_time } => {
+            ui::TimerState::Active { target_time } => {
                 self.set((target_time - Utc::now()).num_seconds());
                 self.start();
             }
-            data::TimerState::Paused { time } => {
+            ui::TimerState::Paused { time } => {
                 self.set(time);
                 self.pause();
             }
@@ -694,7 +694,7 @@ pub enum Msg {
     EnterPreviousSetValues(usize, usize),
 
     StartGuidedTrainingSession,
-    ContinueGuidedTrainingSession(data::OngoingTrainingSession),
+    ContinueGuidedTrainingSession(ui::OngoingTrainingSession),
     UpdateGuidedTrainingSession,
     StartPauseGuideTimer,
     GoToPreviousSection,

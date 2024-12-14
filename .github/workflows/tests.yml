@@ -215,6 +215,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: frontend
+      - name: Install cargo-llvm-cov and Nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }},nextest@${{ env.NEXTEST_VERSION }}
       - name: Install dependencies
         run: |
           sudo apt-get update

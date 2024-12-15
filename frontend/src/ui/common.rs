@@ -12,43 +12,51 @@ use crate::{domain, ui::data};
 pub const ENTER_KEY: u32 = 13;
 
 pub const COLOR_BODY_WEIGHT: usize = 1;
-pub const COLOR_AVG_BODY_WEIGHT: usize = 2;
+pub const COLOR_AVG_BODY_WEIGHT: usize = 1;
 pub const COLOR_BODY_FAT_JP3: usize = 4;
 pub const COLOR_BODY_FAT_JP7: usize = 0;
 pub const COLOR_PERIOD_INTENSITY: usize = 0;
 pub const COLOR_LOAD: usize = 1;
-pub const COLOR_LONG_TERM_LOAD: usize = 2;
-pub const COLOR_LONG_TERM_LOAD_BOUNDS: usize = 13;
+pub const COLOR_LONG_TERM_LOAD: usize = 1;
 pub const COLOR_RPE: usize = 0;
 pub const COLOR_SET_VOLUME: usize = 3;
 pub const COLOR_VOLUME_LOAD: usize = 6;
 pub const COLOR_TUT: usize = 2;
 pub const COLOR_REPS: usize = 3;
-pub const COLOR_REPS_RIR: usize = 4;
+pub const COLOR_REPS_RIR: usize = 3;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
 
 #[derive(Clone)]
 pub enum PlotType {
-    Circle(usize, u32),
-    Line(usize, u32),
-    Histogram(usize),
+    #[allow(dead_code)]
+    Circle(usize, f64, u32),
+    Line(usize, f64, u32),
+    Histogram(usize, f64),
     Area(usize, f64),
 }
 
-pub fn plot_line_with_dots(color: usize) -> Vec<PlotType> {
-    [PlotType::Line(color, 2), PlotType::Circle(color, 2)].to_vec()
+pub fn plot_line(color: usize, opacity: f64) -> Vec<PlotType> {
+    vec![PlotType::Line(color, opacity, 2)]
 }
 
-pub fn plot_line(color: usize) -> Vec<PlotType> {
-    [PlotType::Line(color, 2)].to_vec()
+pub fn plot_area(color: usize, opacity: f64) -> Vec<PlotType> {
+    vec![PlotType::Area(color, opacity)]
 }
 
-pub fn plot_area_with_border(color: usize, opacity: f64, width: u32) -> Vec<PlotType> {
-    [PlotType::Area(color, opacity), PlotType::Line(color, width)].to_vec()
+pub fn plot_area_with_border(
+    line_color: usize,
+    area_color: usize,
+    opacity: f64,
+    width: u32,
+) -> Vec<PlotType> {
+    vec![
+        PlotType::Area(area_color, opacity),
+        PlotType::Line(line_color, 0.9, width),
+    ]
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct PlotParams {
     pub y_min_opt: Option<f32>,
     pub y_max_opt: Option<f32>,
@@ -79,6 +87,7 @@ impl PlotParams {
     };
 }
 
+#[derive(Clone)]
 pub struct PlotData {
     pub values_high: Vec<(NaiveDate, f32)>,
     pub values_low: Option<Vec<(NaiveDate, f32)>>,
@@ -695,7 +704,7 @@ pub fn view_calendar<Ms>(entries: Vec<(NaiveDate, usize, f64)>, interval: &Inter
 }
 
 pub fn view_chart<Ms>(
-    labels: &[(&str, usize)],
+    labels: &[(&str, usize, f64)],
     chart: Result<Option<String>, Box<dyn std::error::Error>>,
     no_data_label: bool,
 ) -> Node<Ms> {
@@ -717,7 +726,7 @@ pub fn view_chart<Ms>(
                     C!["has-text-weight-bold"],
                     labels
                         .iter()
-                        .map(|(label, color_idx)| {
+                        .map(|(label, color_idx, opacity)| {
                             span![
                                 C!["icon-text"],
                                 C!["mx-1"],
@@ -725,8 +734,11 @@ pub fn view_chart<Ms>(
                                     C!["icon"],
                                     style![
                                         St::Color => {
-                                            let (r, g, b) = Palette99::pick(*color_idx).mix(0.9).rgb();
-                                            format!("#{r:02x}{g:02x}{b:02x}")
+                                            let RGBAColor(r, g, b, a) = Palette99::pick(*color_idx).mix(*opacity);
+                                            #[allow(clippy::cast_possible_truncation)]
+                                            #[allow(clippy::cast_sign_loss)]
+                                            let a = (a*255.0) as u8;
+                                            format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
                                         }
                                     ],
                                     i![C!["fas fa-square"]]
@@ -856,61 +868,67 @@ pub fn plot_chart(
 
             for plot in &plot_data.plots {
                 match *plot {
-                    PlotType::Circle(color, size) => [values_low.as_ref(), values_high.as_ref()]
-                        .into_iter()
-                        .flatten()
-                        .try_for_each(
-                            |values| -> Result<(), DrawingAreaErrorKind<std::io::Error>> {
-                                let data = values.iter().map(|(x, y)| {
-                                    Circle::new(
-                                        (*x, *y),
-                                        size,
-                                        Palette99::pick(color).mix(0.9).filled(),
-                                    )
-                                });
-                                if plot_data.params.secondary {
-                                    chart.draw_secondary_series(data)?;
-                                } else {
-                                    chart.draw_series(data)?;
-                                }
-                                Ok(())
-                            },
-                        )?,
-                    PlotType::Line(color, size) => [values_low.as_ref(), values_high.as_ref()]
-                        .into_iter()
-                        .flatten()
-                        .try_for_each(
-                            |values| -> Result<(), DrawingAreaErrorKind<std::io::Error>> {
-                                let data = LineSeries::new(
-                                    values.iter().map(|(x, y)| (*x, *y)),
-                                    Palette99::pick(color).mix(0.9).stroke_width(size),
-                                );
-                                if plot_data.params.secondary {
-                                    chart.draw_secondary_series(data)?;
-                                } else {
-                                    chart.draw_series(data)?;
-                                }
-                                Ok(())
-                            },
-                        )?,
-                    PlotType::Histogram(color) => [values_low.as_ref(), values_high.as_ref()]
-                        .into_iter()
-                        .flatten()
-                        .try_for_each(
-                            |values| -> Result<(), DrawingAreaErrorKind<std::io::Error>> {
-                                let data = Histogram::vertical(&chart)
-                                    .style(Palette99::pick(color).mix(0.9).filled())
-                                    .margin(0) // https://github.com/plotters-rs/plotters/issues/300
-                                    .data(values.iter().map(|(x, y)| (*x, *y)));
+                    PlotType::Circle(color, opacity, size) => {
+                        [values_low.as_ref(), values_high.as_ref()]
+                            .into_iter()
+                            .flatten()
+                            .try_for_each(
+                                |values| -> Result<(), DrawingAreaErrorKind<std::io::Error>> {
+                                    let data = values.iter().map(|(x, y)| {
+                                        Circle::new(
+                                            (*x, *y),
+                                            size,
+                                            Palette99::pick(color).mix(opacity).filled(),
+                                        )
+                                    });
+                                    if plot_data.params.secondary {
+                                        chart.draw_secondary_series(data)?;
+                                    } else {
+                                        chart.draw_series(data)?;
+                                    }
+                                    Ok(())
+                                },
+                            )?;
+                    }
+                    PlotType::Line(color, opacity, size) => {
+                        [values_low.as_ref(), values_high.as_ref()]
+                            .into_iter()
+                            .flatten()
+                            .try_for_each(
+                                |values| -> Result<(), DrawingAreaErrorKind<std::io::Error>> {
+                                    let data = LineSeries::new(
+                                        values.iter().map(|(x, y)| (*x, *y)),
+                                        Palette99::pick(color).mix(opacity).stroke_width(size),
+                                    );
+                                    if plot_data.params.secondary {
+                                        chart.draw_secondary_series(data)?;
+                                    } else {
+                                        chart.draw_series(data)?;
+                                    }
+                                    Ok(())
+                                },
+                            )?;
+                    }
+                    PlotType::Histogram(color, opacity) => {
+                        [values_low.as_ref(), values_high.as_ref()]
+                            .into_iter()
+                            .flatten()
+                            .try_for_each(
+                                |values| -> Result<(), DrawingAreaErrorKind<std::io::Error>> {
+                                    let data = Histogram::vertical(&chart)
+                                        .style(Palette99::pick(color).mix(opacity).filled())
+                                        .margin(0) // https://github.com/plotters-rs/plotters/issues/300
+                                        .data(values.iter().map(|(x, y)| (*x, *y)));
 
-                                if plot_data.params.secondary {
-                                    chart.draw_secondary_series(data)?;
-                                } else {
-                                    chart.draw_series(data)?;
-                                }
-                                Ok(())
-                            },
-                        )?,
+                                    if plot_data.params.secondary {
+                                        chart.draw_secondary_series(data)?;
+                                    } else {
+                                        chart.draw_series(data)?;
+                                    }
+                                    Ok(())
+                                },
+                            )?;
+                    }
                     PlotType::Area(color, opacity) => {
                         if values_low.is_none() {
                             let data = AreaSeries::new(
@@ -957,6 +975,66 @@ pub fn plot_chart(
     }
 
     Ok(Some(result))
+}
+
+pub fn plot_min_avg_max(
+    data: &Vec<(NaiveDate, f32)>,
+    interval: &Interval,
+    params: PlotParams,
+    color: usize,
+    theme: &data::Theme,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
+
+    for (date, value) in data {
+        date_map.entry(date).or_default().push(*value);
+    }
+
+    let mut values_min: Vec<(NaiveDate, f32)> = vec![];
+    let mut values_avg: Vec<(NaiveDate, f32)> = vec![];
+    let mut values_max: Vec<(NaiveDate, f32)> = vec![];
+
+    #[allow(clippy::cast_precision_loss)]
+    for (date, min, avg, max) in date_map
+        .into_iter()
+        .skip_while(|(d, _)| **d < interval.first)
+        .take_while(|(d, _)| **d <= interval.last)
+        .map(|(date, values)| {
+            (
+                *date,
+                values
+                    .iter()
+                    .fold(f32::MAX, |min, &val| if val < min { val } else { min }),
+                values.iter().sum::<f32>() / values.len() as f32,
+                values
+                    .iter()
+                    .fold(f32::MIN, |max, &val| if val > max { val } else { max }),
+            )
+        })
+    {
+        values_min.push((date, min));
+        values_avg.push((date, avg));
+        values_max.push((date, max));
+    }
+
+    plot_chart(
+        &[
+            PlotData {
+                values_high: values_min,
+                values_low: Some(values_max),
+                plots: plot_area(color, 0.3),
+                params,
+            },
+            PlotData {
+                values_high: values_avg,
+                values_low: None,
+                plots: plot_line(color, 0.9),
+                params,
+            },
+        ],
+        interval,
+        theme,
+    )
 }
 
 fn all_zeros(data: &[PlotData]) -> bool {
@@ -1238,20 +1316,20 @@ pub fn post_message_to_service_worker(message: &ServiceWorkerMessage) -> Result<
 ///
 /// Return `None` in those functions to indicate the absence of a value.
 ///
-pub fn centered_moving_grouping(
-    data: &Vec<(NaiveDate, f32)>,
+pub fn centered_moving_grouping<T: Copy, U: Copy, V: Copy>(
+    data: &Vec<(NaiveDate, U)>,
     interval: &Interval,
     radius: u64,
-    group_day: impl Fn(Vec<f32>) -> Option<f32>,
-    group_range: impl Fn(Vec<f32>) -> Option<f32>,
-) -> Vec<Vec<(NaiveDate, f32)>> {
-    let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
+    group_day: impl Fn(Vec<U>) -> Option<T>,
+    group_range: impl Fn(Vec<T>) -> Option<V>,
+) -> Vec<Vec<(NaiveDate, V)>> {
+    let mut date_map: BTreeMap<&NaiveDate, Vec<U>> = BTreeMap::new();
 
     for (date, value) in data {
         date_map.entry(date).or_default().push(*value);
     }
 
-    let mut grouped: BTreeMap<&NaiveDate, f32> = BTreeMap::new();
+    let mut grouped: BTreeMap<&NaiveDate, T> = BTreeMap::new();
 
     for (date, values) in date_map {
         if let Some(result) = group_day(values) {
@@ -1265,7 +1343,7 @@ pub fn centered_moving_grouping(
         .take_while(|d| *d <= interval.last)
         .fold(
             vec![vec![]],
-            |mut result: Vec<Vec<(NaiveDate, f32)>>, center| {
+            |mut result: Vec<Vec<(NaiveDate, V)>>, center| {
                 let value = group_range(
                     center
                         .checked_sub_days(Days::new(radius))

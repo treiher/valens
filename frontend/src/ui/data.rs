@@ -1009,6 +1009,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .notify(Event::BeepVolumeChanged);
         }
         Msg::SetTheme(theme) => {
+            apply_theme(&theme);
             model.settings.theme = theme;
             orders.send_msg(Msg::WriteSettings);
         }
@@ -1054,6 +1055,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .perform_cmd(async move { Msg::SettingsRead(storage.read_settings().await) });
         }
         Msg::SettingsRead(Ok(settings)) => {
+            apply_theme(&settings.theme);
             model.settings = settings;
         }
         Msg::SettingsRead(Err(message)) => {
@@ -1106,6 +1108,20 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model
                     .errors
                     .push("Failed to write ongoing training session: ".to_owned() + &message);
+            }
+        }
+    }
+}
+
+fn apply_theme(theme: &ui::Theme) {
+    if let Some(window) = web_sys::window() {
+        if let Some(document) = window.document() {
+            if let Some(html_element) = document.document_element() {
+                let _ = match theme {
+                    ui::Theme::System => html_element.remove_attribute("data-theme"),
+                    ui::Theme::Light => html_element.set_attribute("data-theme", "light"),
+                    ui::Theme::Dark => html_element.set_attribute("data-theme", "dark"),
+                };
             }
         }
     }

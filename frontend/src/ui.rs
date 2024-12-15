@@ -22,8 +22,6 @@ fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
 
     let data = data::init(url, &mut orders.proxy(Msg::Data));
 
-    set_theme(&data.settings.theme);
-
     Model {
         navbar: Navbar {
             title: String::from("Valens"),
@@ -380,7 +378,6 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             }
         }
         Msg::SetTheme(theme) => {
-            set_theme(&theme);
             orders.send_msg(Msg::Data(data::Msg::SetTheme(theme)));
         }
         Msg::ToggleAutomaticMetronome => {
@@ -944,20 +941,6 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
         ],
         &ev(Ev::Click, |_| Msg::CloseSettingsDialog),
     )
-}
-
-fn set_theme(theme: &Theme) {
-    if let Some(window) = web_sys::window() {
-        if let Some(document) = window.document() {
-            if let Some(html_element) = document.document_element() {
-                let _ = match theme {
-                    Theme::System => html_element.remove_attribute("data-theme"),
-                    Theme::Light => html_element.set_attribute("data-theme", "light"),
-                    Theme::Dark => html_element.set_attribute("data-theme", "dark"),
-                };
-            }
-        }
-    }
 }
 
 // ------ ------

@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{prelude::*, Duration};
-use gloo_console::error;
+use gloo_console::{debug, error};
 use seed::{
     app::{subs, Orders},
     button, div, nodes, p,
@@ -1055,9 +1055,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.settings = settings;
         }
         Msg::SettingsRead(Err(message)) => {
-            model
-                .errors
-                .push("Failed to read settings: ".to_owned() + &message);
+            debug!("Failed to read settings: ".to_owned() + &message);
         }
         Msg::WriteSettings => {
             let settings = model.settings.clone();
@@ -1068,9 +1066,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SettingsWritten(result) => {
             if let Err(message) = result {
-                model
-                    .errors
-                    .push("Failed to write settings: ".to_owned() + &message);
+                error!("Failed to write settings: ".to_owned() + &message);
             }
         }
 
@@ -1084,9 +1080,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.ongoing_training_session = ongoing_training_session;
         }
         Msg::OngoingTrainingSessionRead(Err(message)) => {
-            model
-                .errors
-                .push("Failed to read ongoing training session: ".to_owned() + &message);
+            debug!("Failed to read ongoing training session: ".to_owned() + &message);
         }
         Msg::WriteOngoingTrainingSession => {
             let ongoing_training_session = model.ongoing_training_session.clone();
@@ -1101,9 +1095,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::OngoingTrainingSessionWritten(result) => {
             if let Err(message) = result {
-                model
-                    .errors
-                    .push("Failed to write ongoing training session: ".to_owned() + &message);
+                error!("Failed to write ongoing training session: ".to_owned() + &message);
             }
         }
     }

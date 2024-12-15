@@ -28,6 +28,8 @@ pub const COLOR_REPS_RIR: usize = 4;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
 
+pub const FONT: (&str, u32) = ("Roboto", 11);
+
 #[derive(Clone)]
 pub enum PlotType {
     Circle(usize, u32),
@@ -756,7 +758,7 @@ pub fn plot_chart(
             .axis_style(color.mix(0.3))
             .bold_line_style(color.mix(0.05))
             .light_line_style(color.mix(0.0))
-            .label_style(&color)
+            .label_style(TextStyle::from(FONT.into_font()).color(&color))
             .x_labels(2)
             .y_labels(6)
             .draw()?;
@@ -766,7 +768,7 @@ pub fn plot_chart(
                 .configure_secondary_axes()
                 .set_all_tick_mark_size(3u32)
                 .axis_style(color.mix(0.3))
-                .label_style(&color)
+                .label_style(TextStyle::from(FONT.into_font()).color(&color))
                 .draw()?;
         }
 

@@ -199,7 +199,6 @@ fn sort_routines_by_last_use(
 #[derive(Clone)]
 pub enum Msg {
     RemoveError,
-    ClearErrors,
 
     UpdateApp,
     CancelAppUpdate,
@@ -369,9 +368,6 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     match msg {
         Msg::RemoveError => {
             model.errors.pop();
-        }
-        Msg::ClearErrors => {
-            model.errors.clear();
         }
 
         Msg::UpdateApp => {

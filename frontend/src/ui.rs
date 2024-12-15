@@ -354,7 +354,6 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::UrlChanged(subs::UrlChanged(url)) => {
             model.page = Some(Page::init(url, orders, &mut model.navbar, &model.data));
-            orders.send_msg(Msg::Data(data::Msg::ClearErrors));
             window().scroll_to_with_scroll_to_options(web_sys::ScrollToOptions::new().top(0.));
         }
 

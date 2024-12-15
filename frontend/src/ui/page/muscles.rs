@@ -93,12 +93,19 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         m.description()
                     ],
                     common::view_chart(
-                        &[("Set volume (7 day total)", common::COLOR_SET_VOLUME)],
+                        &[(
+                            "Set volume (7 day total)",
+                            common::COLOR_SET_VOLUME,
+                            common::OPACITY_LINE
+                        )],
                         common::plot_chart(
                             &[common::PlotData {
                                 values_high: total_7day_set_volume,
                                 values_low: None,
-                                plots: common::plot_line(common::COLOR_SET_VOLUME),
+                                plots: common::plot_area_with_border(
+                                    common::COLOR_SET_VOLUME,
+                                    common::COLOR_SET_VOLUME,
+                                ),
                                 params: common::PlotParams::primary_range(0., 10.),
                             }],
                             &model.interval,

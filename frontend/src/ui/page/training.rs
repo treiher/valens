@@ -328,7 +328,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ),
             view_charts(
                 short_term_load,
-                long_term_load,
+                &long_term_load,
                 total_7day_set_volume,
                 &average_7day_rpe,
                 &model.interval,
@@ -509,7 +509,7 @@ fn view_training_sessions_dialog(
 
 pub fn view_charts<Ms>(
     short_term_load: Vec<(NaiveDate, f32)>,
-    long_term_load: Vec<(NaiveDate, f32)>,
+    long_term_load: &[(NaiveDate, f32)],
     total_7day_set_volume: Vec<(NaiveDate, f32)>,
     average_7day_rpe: &[Vec<(NaiveDate, f32)>],
     interval: &domain::Interval,
@@ -529,25 +529,19 @@ pub fn view_charts<Ms>(
     nodes![
         common::view_chart(
             &[
-                ("Short-term load", common::COLOR_LOAD),
-                ("Long-term load", common::COLOR_LONG_TERM_LOAD)
+                ("Short-term load", common::COLOR_LOAD, common::OPACITY_LINE),
+                (
+                    "Long-term load",
+                    common::COLOR_LONG_TERM_LOAD,
+                    common::OPACITY_AREA
+                )
             ],
             common::plot_chart(
                 &[
                     common::PlotData {
                         values_high: long_term_load_high,
                         values_low: Some(long_term_load_low),
-                        plots: common::plot_area_with_border(
-                            common::COLOR_LONG_TERM_LOAD_BOUNDS,
-                            0.3,
-                            2
-                        ),
-                        params: common::PlotParams::primary_range(0., 10.),
-                    },
-                    common::PlotData {
-                        values_high: long_term_load,
-                        values_low: None,
-                        plots: common::plot_line(common::COLOR_LONG_TERM_LOAD),
+                        plots: common::plot_area(common::COLOR_LONG_TERM_LOAD),
                         params: common::PlotParams::primary_range(0., 10.),
                     },
                     common::PlotData {
@@ -563,12 +557,19 @@ pub fn view_charts<Ms>(
             false,
         ),
         common::view_chart(
-            &[("Set volume (7 day total)", common::COLOR_SET_VOLUME)],
+            &[(
+                "Set volume (7 day total)",
+                common::COLOR_SET_VOLUME,
+                common::OPACITY_LINE
+            )],
             common::plot_chart(
                 &[common::PlotData {
                     values_high: total_7day_set_volume,
                     values_low: None,
-                    plots: common::plot_area_with_border(common::COLOR_SET_VOLUME, 0.2, 2),
+                    plots: common::plot_area_with_border(
+                        common::COLOR_SET_VOLUME,
+                        common::COLOR_SET_VOLUME,
+                    ),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
                 interval,
@@ -579,7 +580,7 @@ pub fn view_charts<Ms>(
         IF![
             show_rpe =>
             common::view_chart(
-                &[("RPE (7 day average)", common::COLOR_RPE)],
+                &[("RPE (7 day average)", common::COLOR_RPE, common::OPACITY_LINE)],
                 common::plot_chart(
                     &average_7day_rpe.iter().map(|values| common::PlotData{values_high: values.clone(),
                         values_low: None,

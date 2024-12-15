@@ -449,8 +449,6 @@ pub fn view_charts<Ms>(
     let mut volume_load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut tut: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut reps_rpe: BTreeMap<NaiveDate, (Vec<f32>, Vec<f32>)> = BTreeMap::new();
-    let mut weight: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
-    let mut time: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
     for training_session in training_sessions {
         #[allow(clippy::cast_precision_loss)]
         set_volume
@@ -477,66 +475,67 @@ pub fn view_charts<Ms>(
                 .entry(training_session.date)
                 .and_modify(|e| e.1.push(avg_rpe));
         }
-        if let Some(avg_weight) = training_session.avg_weight() {
-            weight
-                .entry(training_session.date)
-                .and_modify(|e| e.push(avg_weight))
-                .or_insert(vec![avg_weight]);
-        }
-        if let Some(avg_time) = training_session.avg_time() {
-            time.entry(training_session.date)
-                .and_modify(|e| e.push(avg_time))
-                .or_insert(vec![avg_time]);
-        }
     }
 
-    let mut labels = vec![("Repetitions", common::COLOR_REPS)];
+    let mut labels = vec![("Repetitions", common::COLOR_REPS, common::OPACITY_LINE)];
+    let reps_rpe_values = reps_rpe
+        .iter()
+        .map(|(date, (avg_reps, _))| {
+            #[allow(clippy::cast_precision_loss)]
+            (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
+        })
+        .collect::<Vec<_>>();
 
-    let mut data = vec![common::PlotData {
-        values_high: reps_rpe
-            .iter()
-            .map(|(date, (avg_reps, _))| {
-                #[allow(clippy::cast_precision_loss)]
-                (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
-            })
-            .collect::<Vec<_>>(),
-        values_low: None,
-        plots: common::plot_line_with_dots(common::COLOR_REPS),
-        params: common::PlotParams::primary_range(0., 10.),
-    }];
+    let mut data = vec![];
 
     if show_rpe {
-        labels.push(("+ Repetitions in reserve", common::COLOR_REPS_RIR));
-        data.push(common::PlotData {
-            values_high: reps_rpe
-                .into_iter()
-                .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
-                    #[allow(clippy::cast_precision_loss)]
-                    let avg_reps =
-                        avg_reps_values.iter().sum::<f32>() / avg_reps_values.len() as f32;
-                    #[allow(clippy::cast_precision_loss)]
-                    let avg_rpe = avg_rpe_values.iter().sum::<f32>() / avg_rpe_values.len() as f32;
-                    if avg_rpe_values.is_empty() {
-                        None
-                    } else {
-                        Some((date, avg_reps + 10.0 - avg_rpe))
-                    }
-                })
-                .collect::<Vec<_>>(),
-            values_low: None,
-            plots: common::plot_line_with_dots(common::COLOR_REPS_RIR),
-            params: common::PlotParams::primary_range(0., 10.),
-        });
+        let rir_values = reps_rpe
+            .into_iter()
+            .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
+                #[allow(clippy::cast_precision_loss)]
+                let avg_reps = avg_reps_values.iter().sum::<f32>() / avg_reps_values.len() as f32;
+                #[allow(clippy::cast_precision_loss)]
+                let avg_rpe = avg_rpe_values.iter().sum::<f32>() / avg_rpe_values.len() as f32;
+                if avg_rpe_values.is_empty() {
+                    None
+                } else {
+                    Some((date, avg_reps + 10.0 - avg_rpe))
+                }
+            })
+            .collect::<Vec<_>>();
+        if !rir_values.is_empty() {
+            labels.push((
+                "+ Repetitions in reserve",
+                common::COLOR_REPS_RIR,
+                common::OPACITY_AREA,
+            ));
+            data.push(common::PlotData {
+                values_high: rir_values,
+                values_low: Some(reps_rpe_values.clone()),
+                plots: common::plot_area(common::COLOR_REPS_RIR),
+                params: common::PlotParams::primary_range(0., 10.),
+            });
+        }
     }
+
+    data.push(common::PlotData {
+        values_high: reps_rpe_values,
+        values_low: None,
+        plots: common::plot_line(common::COLOR_REPS),
+        params: common::PlotParams::primary_range(0., 10.),
+    });
 
     nodes![
         common::view_chart(
-            &[("Set volume", common::COLOR_SET_VOLUME)],
+            &[("Set volume", common::COLOR_SET_VOLUME, common::OPACITY_LINE)],
             common::plot_chart(
                 &[common::PlotData {
                     values_high: set_volume.into_iter().collect::<Vec<_>>(),
                     values_low: None,
-                    plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
+                    plots: common::plot_area_with_border(
+                        common::COLOR_SET_VOLUME,
+                        common::COLOR_SET_VOLUME,
+                    ),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
                 interval,
@@ -545,12 +544,19 @@ pub fn view_charts<Ms>(
             false,
         ),
         common::view_chart(
-            &[("Volume load", common::COLOR_VOLUME_LOAD)],
+            &[(
+                "Volume load",
+                common::COLOR_VOLUME_LOAD,
+                common::OPACITY_LINE
+            )],
             common::plot_chart(
                 &[common::PlotData {
                     values_high: volume_load.into_iter().collect::<Vec<_>>(),
                     values_low: None,
-                    plots: common::plot_line_with_dots(common::COLOR_VOLUME_LOAD),
+                    plots: common::plot_area_with_border(
+                        common::COLOR_VOLUME_LOAD,
+                        common::COLOR_VOLUME_LOAD,
+                    ),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
                 interval,
@@ -560,12 +566,12 @@ pub fn view_charts<Ms>(
         ),
         IF![show_tut =>
             common::view_chart(
-                &[("Time under tension (s)", common::COLOR_TUT)],
+                &[("Time under tension (s)", common::COLOR_TUT, common::OPACITY_LINE)],
                 common::plot_chart(
                     &[common::PlotData {
                         values_high: tut.into_iter().collect::<Vec<_>>(),
                         values_low: None,
-                        plots: common::plot_line_with_dots(common::COLOR_TUT),
+                        plots: common::plot_area_with_border(common::COLOR_TUT, common::COLOR_TUT),
                         params: common::PlotParams::primary_range(0., 10.),
                     }],
                     interval,
@@ -576,41 +582,57 @@ pub fn view_charts<Ms>(
         ],
         common::view_chart(&labels, common::plot_chart(&data, interval, theme), false,),
         common::view_chart(
-            &[("Weight (kg)", common::COLOR_WEIGHT)],
-            common::plot_chart(
-                &[common::PlotData {
-                    values_high: weight
-                        .into_iter()
-                        .map(|(date, values)| {
-                            #[allow(clippy::cast_precision_loss)]
-                            (date, values.iter().sum::<f32>() / values.len() as f32)
+            &[
+                ("Weight (kg)", common::COLOR_WEIGHT, common::OPACITY_AREA),
+                (
+                    "Avg. weight (kg)",
+                    common::COLOR_WEIGHT,
+                    common::OPACITY_LINE
+                )
+            ],
+            common::plot_min_avg_max(
+                &training_sessions
+                    .iter()
+                    .flat_map(|s| s
+                        .elements
+                        .iter()
+                        .filter_map(|e| match e {
+                            domain::TrainingSessionElement::Set { weight, .. } =>
+                                weight.map(|w| (s.date, w)),
+                            _ => None,
                         })
-                        .collect::<Vec<_>>(),
-                    values_low: None,
-                    plots: common::plot_line_with_dots(common::COLOR_WEIGHT),
-                    params: common::PlotParams::primary_range(0., 10.),
-                }],
+                        .collect::<Vec<_>>())
+                    .collect::<Vec<_>>(),
                 interval,
+                common::PlotParams::primary_range(0., 10.),
+                common::COLOR_WEIGHT,
                 theme,
             ),
             false,
         ),
         IF![show_tut =>
             common::view_chart(
-                &[("Time (s)", common::COLOR_TIME)],
-                common::plot_chart(
-                    &[common::PlotData{
-                        values_high: time.into_iter()
-                            .map(|(date, values)| {
+                &[
+                    ("Time (s)", common::COLOR_TIME, common::OPACITY_AREA),
+                    ("Avg. time (s)", common::COLOR_TIME, common::OPACITY_LINE)
+                ],
+                common::plot_min_avg_max(
+                    &training_sessions
+                        .iter()
+                        .flat_map(|s| s
+                            .elements
+                            .iter()
+                            .filter_map(|e| match e {
                                 #[allow(clippy::cast_precision_loss)]
-                                (date, values.iter().sum::<f32>() / values.len() as f32)
+                                domain::TrainingSessionElement::Set { time, .. } =>
+                                    time.map(|v| (s.date, v as f32)),
+                                _ => None,
                             })
-                            .collect::<Vec<_>>(),
-                        values_low: None,
-                        plots: common::plot_line_with_dots(common::COLOR_TIME),
-                        params: common::PlotParams::primary_range(0., 10.)
-                    }],
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>(),
                     interval,
+                    common::PlotParams::primary_range(0., 10.),
+                    common::COLOR_TIME,
                     theme,
                 ),
                 false,

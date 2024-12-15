@@ -725,61 +725,103 @@ fn view_body_fat_form_field(
     ]
 }
 
-fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
+fn view_chart(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
     let body_fat = data_model
         .body_fat
         .values()
         .filter(|bf| bf.date >= model.interval.first && bf.date <= model.interval.last)
         .collect::<Vec<_>>();
-    let body_weight = data_model
-        .body_weight
+
+    let avg_body_weight = data_model
+        .avg_body_weight
         .values()
         .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+        .map(|bw| (bw.date, bw.weight))
         .collect::<Vec<_>>();
+
+    let body_weight_plot_data = common::PlotData {
+        values_high: data_model
+            .body_weight
+            .values()
+            .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+            .map(|bw| (bw.date, bw.weight))
+            .collect::<Vec<_>>(),
+        values_low: Some(avg_body_weight.clone()),
+        plots: common::plot_area(common::COLOR_BODY_WEIGHT),
+        params: common::PlotParams::SECONDARY,
+    };
+
+    let avg_body_weight_plot_data = common::PlotData {
+        values_high: avg_body_weight,
+        values_low: None,
+        plots: common::plot_line(common::COLOR_AVG_BODY_WEIGHT),
+        params: common::PlotParams::SECONDARY,
+    };
+
     let sex = data_model.session.as_ref().unwrap().sex;
 
-    common::view_chart(
-        vec![
-            ("JP3 (%)", common::COLOR_BODY_FAT_JP3),
-            ("JP7 (%)", common::COLOR_BODY_FAT_JP7),
-            ("Weight (kg)", common::COLOR_BODY_WEIGHT),
+    let body_fat_jp7 = body_fat
+        .iter()
+        .filter_map(|bf| bf.jp7(sex).map(|jp7| (bf.date, jp7)))
+        .collect::<Vec<_>>();
+
+    let body_fat_jp3 = body_fat
+        .iter()
+        .filter_map(|bf| bf.jp3(sex).map(|jp3| (bf.date, jp3)))
+        .collect::<Vec<_>>();
+
+    nodes![
+        IF![
+            !body_fat_jp3.is_empty() =>
+            common::view_chart(
+                vec![
+                    ("JP3 (%)", common::COLOR_BODY_FAT_JP3, common::OPACITY_LINE),
+                    ("Weight (kg)", common::COLOR_BODY_WEIGHT, common::OPACITY_LINE),
+                ]
+                .as_slice(),
+                common::plot_chart(
+                    &[
+                        body_weight_plot_data.clone(),
+                        avg_body_weight_plot_data.clone(),
+                        common::PlotData {
+                            values_high: body_fat_jp3,
+                            values_low: None,
+                            plots: common::plot_line(common::COLOR_BODY_FAT_JP3),
+                            params: common::PlotParams::default(),
+                        },
+                    ],
+                    &model.interval,
+                    data_model.theme(),
+                ),
+                true,
+            )
+        ],
+        IF![
+            !body_fat_jp7.is_empty() =>
+            common::view_chart(
+                vec![
+                    ("JP7 (%)", common::COLOR_BODY_FAT_JP7, common::OPACITY_LINE),
+                    ("Weight (kg)", common::COLOR_BODY_WEIGHT, common::OPACITY_LINE),
+                ]
+                .as_slice(),
+                common::plot_chart(
+                    &[
+                        body_weight_plot_data,
+                        avg_body_weight_plot_data,
+                        common::PlotData {
+                            values_high: body_fat_jp7,
+                            values_low: None,
+                            plots: common::plot_line(common::COLOR_BODY_FAT_JP7),
+                            params: common::PlotParams::default(),
+                        },
+                    ],
+                    &model.interval,
+                    data_model.theme(),
+                ),
+                true,
+            )
         ]
-        .as_slice(),
-        common::plot_chart(
-            &[
-                common::PlotData {
-                    values_high: body_weight
-                        .iter()
-                        .map(|bw| (bw.date, bw.weight))
-                        .collect::<Vec<_>>(),
-                    values_low: None,
-                    plots: common::plot_line_with_dots(common::COLOR_BODY_WEIGHT),
-                    params: common::PlotParams::SECONDARY,
-                },
-                common::PlotData {
-                    values_high: body_fat
-                        .iter()
-                        .filter_map(|bf| bf.jp3(sex).map(|jp3| (bf.date, jp3)))
-                        .collect::<Vec<_>>(),
-                    values_low: None,
-                    plots: common::plot_line_with_dots(common::COLOR_BODY_FAT_JP3),
-                    params: common::PlotParams::default(),
-                },
-                common::PlotData {
-                    values_high: body_fat
-                        .iter()
-                        .filter_map(|bf| bf.jp7(sex).map(|jp7| (bf.date, jp7)))
-                        .collect::<Vec<_>>(),
-                    values_low: None,
-                    plots: common::plot_line_with_dots(common::COLOR_BODY_FAT_JP7),
-                    params: common::PlotParams::default(),
-                },
-            ],
-            &model.interval,
-            data_model.theme(),
-        ),
-        true,
-    )
+    ]
 }
 
 fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<Msg> {

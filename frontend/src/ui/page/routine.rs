@@ -1318,7 +1318,6 @@ pub fn view_charts<Ms>(
 ) -> Vec<Node<Ms>> {
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
-    let mut rpe: BTreeMap<NaiveDate, Vec<f32>> = BTreeMap::new();
     for training_session in training_sessions {
         #[allow(clippy::cast_precision_loss)]
         load.entry(training_session.date)
@@ -1329,37 +1328,42 @@ pub fn view_charts<Ms>(
             .entry(training_session.date)
             .and_modify(|e| *e += training_session.set_volume() as f32)
             .or_insert(training_session.set_volume() as f32);
-        if let Some(avg_rpe) = training_session.avg_rpe() {
-            rpe.entry(training_session.date)
-                .and_modify(|e| e.push(avg_rpe))
-                .or_insert(vec![avg_rpe]);
-        }
     }
     nodes![
         common::view_chart(
-            &[("Load", common::COLOR_LOAD)],
+            &[("Load", common::COLOR_LOAD, 0.9)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: load.into_iter().collect::<Vec<_>>(),
-                    plots: common::plot_line_with_dots(common::COLOR_LOAD),
+                    values_high: load.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
+                    plots: common::plot_area_with_border(
+                        common::COLOR_LOAD,
+                        common::COLOR_LOAD,
+                        0.3,
+                        2
+                    ),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
-                interval.first,
-                interval.last,
+                interval,
                 theme,
             ),
             false,
         ),
         common::view_chart(
-            &[("Set volume", common::COLOR_SET_VOLUME)],
+            &[("Set volume", common::COLOR_SET_VOLUME, 0.9)],
             common::plot_chart(
                 &[common::PlotData {
-                    values: set_volume.into_iter().collect::<Vec<_>>(),
-                    plots: common::plot_line_with_dots(common::COLOR_SET_VOLUME),
+                    values_high: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
+                    plots: common::plot_area_with_border(
+                        common::COLOR_SET_VOLUME,
+                        common::COLOR_SET_VOLUME,
+                        0.3,
+                        2
+                    ),
                     params: common::PlotParams::primary_range(0., 10.),
                 }],
-                interval.first,
-                interval.last,
+                interval,
                 theme,
             ),
             false,
@@ -1367,27 +1371,26 @@ pub fn view_charts<Ms>(
         IF![
             show_rpe =>
             common::view_chart(
-                &[("RPE", common::COLOR_RPE)],
-                common::plot_chart(
-                    &[common::PlotData{
-                        values: rpe.into_iter()
-                            .map(|(date, values)| {
-                                #[allow(clippy::cast_precision_loss)]
-                                (
-                                    date,
-                                    if values.is_empty() {
-                                        0.
-                                    } else {
-                                        values.iter().sum::<f32>() / values.len() as f32
-                                    },
-                                )
+                &[
+                    ("RPE", common::COLOR_RPE, 0.3),
+                    ("Avg. RPE", common::COLOR_RPE, 0.9)
+                ],
+                common::plot_min_avg_max(
+                    &training_sessions
+                        .iter()
+                        .flat_map(|s| s
+                            .elements
+                            .iter()
+                            .filter_map(|e| match e {
+                                domain::TrainingSessionElement::Set { rpe, .. } =>
+                                    rpe.map(|v| (s.date, v)),
+                                _ => None,
                             })
-                            .collect::<Vec<_>>(),
-                        plots: common::plot_line_with_dots(common::COLOR_RPE),
-                        params: common::PlotParams::primary_range(5., 10.)
-                    }],
-                    interval.first,
-                    interval.last,
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>(),
+                    interval,
+                    common::PlotParams::primary_range(5., 10.),
+                    common::COLOR_RPE,
                     theme,
                 ),
                 false,

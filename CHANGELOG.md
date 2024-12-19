@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unify fonts in charts
 - Allow option to add exercise at any position in training session
 - Keep search term on exercises and routines pages when going back in history
+- Display recent and previous exercises separately
 
 ### Fixed
 

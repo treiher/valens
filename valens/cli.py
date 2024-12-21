@@ -55,7 +55,7 @@ def main() -> int:
     parser_demo.add_argument(
         "--public",
         action="store_true",
-        help="make the server publicly available (sould be only used on a trusted network)",
+        help="make the server publicly available (should only be used on a trusted network)",
     )
     parser_demo.add_argument(
         "--port",

@@ -347,18 +347,21 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
         .collect::<Vec<_>>();
 
     common::view_chart(
-        vec![("Intensity", common::COLOR_PERIOD_INTENSITY)].as_slice(),
+        vec![("Intensity", common::COLOR_PERIOD_INTENSITY, 0.9)].as_slice(),
         common::plot_chart(
             &[common::PlotData {
-                values: period
+                values_high: period
                     .iter()
                     .map(|p| (p.date, f32::from(p.intensity)))
                     .collect::<Vec<_>>(),
-                plots: [common::PlotType::Histogram(common::COLOR_PERIOD_INTENSITY)].to_vec(),
+                values_low: None,
+                plots: vec![common::PlotType::Histogram(
+                    common::COLOR_PERIOD_INTENSITY,
+                    0.9,
+                )],
                 params: common::PlotParams::primary_range(0., 4.),
             }],
-            model.interval.first,
-            model.interval.last,
+            &model.interval,
             data_model.theme(),
         ),
         true,

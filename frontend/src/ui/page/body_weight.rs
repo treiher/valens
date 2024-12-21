@@ -357,16 +357,23 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
 }
 
 fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
+    let avg_body_weight = data_model
+        .avg_body_weight
+        .values()
+        .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+        .map(|bw| (bw.date, bw.weight))
+        .collect::<Vec<_>>();
+
     common::view_chart(
         vec![
-            ("Weight (kg)", common::COLOR_BODY_WEIGHT),
-            ("Avg. weight (kg)", common::COLOR_AVG_BODY_WEIGHT),
+            ("Weight (kg)", common::COLOR_BODY_WEIGHT, 0.3),
+            ("Avg. weight (kg)", common::COLOR_AVG_BODY_WEIGHT, 0.9),
         ]
         .as_slice(),
         common::plot_chart(
             &[
                 common::PlotData {
-                    values: data_model
+                    values_high: data_model
                         .body_weight
                         .values()
                         .filter(|bw| {
@@ -374,24 +381,18 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         })
                         .map(|bw| (bw.date, bw.weight))
                         .collect::<Vec<_>>(),
-                    plots: common::plot_line_with_dots(common::COLOR_BODY_WEIGHT),
+                    values_low: Some(avg_body_weight.clone()),
+                    plots: common::plot_area(common::COLOR_BODY_WEIGHT),
                     params: common::PlotParams::default(),
                 },
                 common::PlotData {
-                    values: data_model
-                        .avg_body_weight
-                        .values()
-                        .filter(|bw| {
-                            bw.date >= model.interval.first && bw.date <= model.interval.last
-                        })
-                        .map(|bw| (bw.date, bw.weight))
-                        .collect::<Vec<_>>(),
-                    plots: common::plot_line_with_dots(common::COLOR_AVG_BODY_WEIGHT),
+                    values_high: avg_body_weight,
+                    values_low: None,
+                    plots: common::plot_line(common::COLOR_AVG_BODY_WEIGHT),
                     params: common::PlotParams::default(),
                 },
             ],
-            model.interval.first,
-            model.interval.last,
+            &model.interval,
             data_model.theme(),
         ),
         true,

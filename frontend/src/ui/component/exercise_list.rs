@@ -1,9 +1,13 @@
+use chrono::{Duration, Local};
 use seed::{prelude::*, *};
+use std::collections::BTreeSet;
 
 use crate::{
     domain,
     ui::{common, data},
 };
+
+const CURRENT_EXERCISE_CUTOFF_DAYS: i64 = 31;
 
 // ------ ------
 //     Model
@@ -120,20 +124,49 @@ pub fn update(msg: Msg, model: &mut Model, _orders: &mut impl Orders<Msg>) -> Ou
 // ------ ------
 
 pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<Msg>> {
+    let cutoff = Local::now().date_naive() - Duration::days(CURRENT_EXERCISE_CUTOFF_DAYS);
     let muscle_filter = domain::Muscle::iter()
         .map(|m| (m, model.filter.muscles.contains(m)))
         .collect::<Vec<_>>();
 
+    let current_exercise_ids = data_model
+        .training_sessions
+        .iter()
+        .filter(|(_, s)| s.date >= cutoff)
+        .flat_map(|(_, session)| session.exercises())
+        .collect::<BTreeSet<_>>();
+
+    let previous_exercise_ids = data_model
+        .training_sessions
+        .iter()
+        .filter(|(_, s)| s.date < cutoff)
+        .flat_map(|(_, session)| session.exercises())
+        .collect::<BTreeSet<_>>();
+
     let exercises = data_model.exercises(&model.filter);
-    let mut exercises = exercises
+
+    let mut current_exercises = exercises
         .iter()
         .filter(|e| {
             e.name
                 .to_lowercase()
                 .contains(model.search_term.to_lowercase().trim())
+                && (current_exercise_ids.contains(&e.id) || !previous_exercise_ids.contains(&e.id))
         })
         .collect::<Vec<_>>();
-    exercises.sort_by(|a, b| a.name.cmp(&b.name));
+    current_exercises.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let mut previous_exercises = exercises
+        .iter()
+        .filter(|e| {
+            e.name
+                .to_lowercase()
+                .contains(model.search_term.to_lowercase().trim())
+                && !current_exercise_ids.contains(&e.id)
+                && previous_exercise_ids.contains(&e.id)
+        })
+        .collect::<Vec<_>>();
+    previous_exercises.sort_by(|a, b| a.name.cmp(&b.name));
 
     nodes![
         IF![model.view_filter_dialog => view_filter_dialog(&muscle_filter, exercises.len())],
@@ -154,7 +187,7 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
             if model.view_create {
                 let disabled = loading
                     || model.search_term.is_empty()
-                    || exercises
+                    || current_exercises
                         .iter()
                         .any(|e| e.name == *model.search_term.trim());
                 div![
@@ -202,59 +235,78 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
                     })
             ],
         ],
-        div![
-            C!["table-container"],
-            C!["mt-2"],
-            table![
-                C!["table"],
-                C!["is-fullwidth"],
-                C!["is-hoverable"],
-                tbody![exercises.iter().map(|e| {
-                    tr![td![
-                        C!["is-flex"],
-                        C!["is-justify-content-space-between"],
-                        C!["has-text-link"],
-                        span![
-                            ev(Ev::Click, {
-                                let exercise_id = e.id;
-                                move |_| Msg::Selected(exercise_id)
-                            }),
-                            e.name.to_string(),
-                        ],
-                        p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            if model.view_edit {
-                                a![
-                                    C!["icon"],
-                                    C!["mr-1"],
-                                    ev(Ev::Click, {
-                                        let exercise_id = e.id;
-                                        move |_| Msg::EditClicked(exercise_id)
-                                    }),
-                                    i![C!["fas fa-edit"]]
-                                ]
-                            } else {
-                                empty![]
-                            },
-                            if model.view_delete {
-                                a![
-                                    C!["icon"],
-                                    C!["ml-1"],
-                                    ev(Ev::Click, {
-                                        let exercise_id = e.id;
-                                        move |_| Msg::DeleteClicked(exercise_id)
-                                    }),
-                                    i![C!["fas fa-times"]]
-                                ]
-                            } else {
-                                empty![]
-                            }
-                        ]
-                    ]]
-                })],
-            ]
-        ],
+        view_exercises(model, &current_exercises),
+        IF![!previous_exercises.is_empty() => nodes!(
+                    div![
+                        C!["container"],
+                        C!["has-text-centered"],
+                        C![format!("mb-3")],
+                        common::view_element_with_description(
+                            h1![C!["title"], C!["is-5"], "Previous exercises"],
+                            &format!("Exercises not performed within the last {CURRENT_EXERCISE_CUTOFF_DAYS} days")
+                        ),
+                    ],
+                view_exercises(model, &previous_exercises))
+        ]
     ]
+}
+
+fn view_exercises(model: &Model, exercises: &[&&domain::Exercise]) -> Vec<Node<Msg>> {
+    if exercises.is_empty() {
+        return vec![];
+    }
+    nodes![div![
+        C!["table-container"],
+        C!["mt-2"],
+        table![
+            C!["table"],
+            C!["is-fullwidth"],
+            C!["is-hoverable"],
+            tbody![exercises.iter().map(|e| {
+                tr![td![
+                    C!["is-flex"],
+                    C!["is-justify-content-space-between"],
+                    C!["has-text-link"],
+                    span![
+                        ev(Ev::Click, {
+                            let exercise_id = e.id;
+                            move |_| Msg::Selected(exercise_id)
+                        }),
+                        e.name.to_string(),
+                    ],
+                    p![
+                        C!["is-flex is-flex-wrap-nowrap"],
+                        if model.view_edit {
+                            a![
+                                C!["icon"],
+                                C!["mr-1"],
+                                ev(Ev::Click, {
+                                    let exercise_id = e.id;
+                                    move |_| Msg::EditClicked(exercise_id)
+                                }),
+                                i![C!["fas fa-edit"]]
+                            ]
+                        } else {
+                            empty![]
+                        },
+                        if model.view_delete {
+                            a![
+                                C!["icon"],
+                                C!["ml-1"],
+                                ev(Ev::Click, {
+                                    let exercise_id = e.id;
+                                    move |_| Msg::DeleteClicked(exercise_id)
+                                }),
+                                i![C!["fas fa-times"]]
+                            ]
+                        } else {
+                            empty![]
+                        }
+                    ]
+                ]]
+            })],
+        ]
+    ]]
 }
 
 fn view_filter_dialog(

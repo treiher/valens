@@ -144,8 +144,8 @@ def test_body_weight_add(driver: webdriver.Chrome) -> None:
 
     page.body_weight_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, weight)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, weight)
 
 
 def test_body_weight_edit(driver: webdriver.Chrome) -> None:
@@ -157,22 +157,22 @@ def test_body_weight_edit(driver: webdriver.Chrome) -> None:
     page = BodyWeightPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, weight)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, weight)
 
     page.click_edit(0)
     page.body_weight_dialog.set_weight(new_weight)
     page.body_weight_dialog.click_cancel()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, weight)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, weight)
 
     page.click_edit(0)
     page.body_weight_dialog.set_weight(new_weight)
     page.body_weight_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, new_weight)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, new_weight)
 
 
 def test_body_weight_delete(driver: webdriver.Chrome) -> None:
@@ -184,19 +184,19 @@ def test_body_weight_delete(driver: webdriver.Chrome) -> None:
     page = BodyWeightPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, date_1)
-    page.wait_for_table_value(1, 2, weight)
+    page.wait_for_table_value(1, 1, 1, date_1)
+    page.wait_for_table_value(1, 1, 2, weight)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, date_1)
-    page.wait_for_table_value(1, 2, weight)
+    page.wait_for_table_value(1, 1, 1, date_1)
+    page.wait_for_table_value(1, 1, 2, weight)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, date_2)
+    page.wait_for_table_value(1, 1, 1, date_2)
 
 
 def test_body_fat_add(driver: webdriver.Chrome) -> None:
@@ -228,9 +228,9 @@ def test_body_fat_add(driver: webdriver.Chrome) -> None:
 
     page.body_fat_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, date)
+    page.wait_for_table_value(1, 1, 1, date)
     for i, v in enumerate(values, start=4):
-        page.wait_for_table_value(1, i, v)
+        page.wait_for_table_value(1, 1, i, v)
 
 
 def test_body_fat_edit(driver: webdriver.Chrome) -> None:
@@ -251,25 +251,25 @@ def test_body_fat_edit(driver: webdriver.Chrome) -> None:
     page = BodyFatPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, date)
+    page.wait_for_table_value(1, 1, 1, date)
     for i, v in enumerate(values, start=4):
-        page.wait_for_table_value(1, i, v)
+        page.wait_for_table_value(1, 1, i, v)
 
     page.click_edit(0)
     page.body_fat_dialog.set_jp7(new_values)
     page.body_fat_dialog.click_cancel()
 
-    page.wait_for_table_value(1, 1, date)
+    page.wait_for_table_value(1, 1, 1, date)
     for i, v in enumerate(values, start=4):
-        page.wait_for_table_value(1, i, v)
+        page.wait_for_table_value(1, 1, i, v)
 
     page.click_edit(0)
     page.body_fat_dialog.set_jp7(new_values)
     page.body_fat_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, date)
+    page.wait_for_table_value(1, 1, 1, date)
     for i, v in enumerate(new_values, start=4):
-        page.wait_for_table_value(1, i, v)
+        page.wait_for_table_value(1, 1, i, v)
 
 
 def test_body_fat_delete(driver: webdriver.Chrome) -> None:
@@ -280,17 +280,17 @@ def test_body_fat_delete(driver: webdriver.Chrome) -> None:
     page = BodyFatPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, date_1)
+    page.wait_for_table_value(1, 1, 1, date_1)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, date_1)
+    page.wait_for_table_value(1, 1, 1, date_1)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, date_2)
+    page.wait_for_table_value(1, 1, 1, date_2)
 
 
 def test_menstrual_cycle_add(driver: webdriver.Chrome) -> None:
@@ -320,8 +320,8 @@ def test_menstrual_cycle_add(driver: webdriver.Chrome) -> None:
 
     page.period_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, intensity)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, intensity)
 
 
 def test_menstrual_cycle_edit(driver: webdriver.Chrome) -> None:
@@ -336,22 +336,22 @@ def test_menstrual_cycle_edit(driver: webdriver.Chrome) -> None:
     page = MenstrualCyclePage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, intensity)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, intensity)
 
     page.click_edit(0)
     page.period_dialog.set_period(new_intensity)
     page.period_dialog.click_cancel()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, intensity)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, intensity)
 
     page.click_edit(0)
     page.period_dialog.set_period(new_intensity)
     page.period_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, date)
-    page.wait_for_table_value(1, 2, new_intensity)
+    page.wait_for_table_value(1, 1, 1, date)
+    page.wait_for_table_value(1, 1, 2, new_intensity)
 
 
 def test_menstrual_cycle_delete(driver: webdriver.Chrome) -> None:
@@ -364,19 +364,19 @@ def test_menstrual_cycle_delete(driver: webdriver.Chrome) -> None:
     page = MenstrualCyclePage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, date_1)
-    page.wait_for_table_value(1, 2, intensity)
+    page.wait_for_table_value(1, 1, 1, date_1)
+    page.wait_for_table_value(1, 1, 2, intensity)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, date_1)
-    page.wait_for_table_value(1, 2, intensity)
+    page.wait_for_table_value(1, 1, 1, date_1)
+    page.wait_for_table_value(1, 1, 2, intensity)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, date_2)
+    page.wait_for_table_value(1, 1, 1, date_2)
 
 
 def test_training_links(driver: webdriver.Chrome) -> None:
@@ -452,19 +452,19 @@ def test_training_delete(driver: webdriver.Chrome) -> None:
     page = TrainingPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, date_1)
-    page.wait_for_table_value(1, 2, routine)
+    page.wait_for_table_value(1, 1, 1, date_1)
+    page.wait_for_table_value(1, 1, 2, routine)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, date_1)
-    page.wait_for_table_value(1, 2, routine)
+    page.wait_for_table_value(1, 1, 1, date_1)
+    page.wait_for_table_value(1, 1, 2, routine)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, date_2)
+    page.wait_for_table_value(1, 1, 1, date_2)
 
 
 def test_training_session(driver: webdriver.Chrome) -> None:
@@ -606,7 +606,7 @@ def test_routines_add(driver: webdriver.Chrome) -> None:
 
     page.routines_dialog.click_cancel()
 
-    page.wait_for_table_value(2, 1, name)
+    page.wait_for_table_value(1, 2, 1, name)
 
     page.click_fab()
 
@@ -615,7 +615,7 @@ def test_routines_add(driver: webdriver.Chrome) -> None:
     page.routines_dialog.set_name(new_name)
     page.routines_dialog.click_save()
 
-    page.wait_for_table_value(2, 1, new_name)
+    page.wait_for_table_value(1, 2, 1, new_name)
 
 
 def test_routines_edit(driver: webdriver.Chrome) -> None:
@@ -628,19 +628,19 @@ def test_routines_edit(driver: webdriver.Chrome) -> None:
     page = RoutinesPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, name)
+    page.wait_for_table_value(1, 1, 1, name)
 
     page.click_edit(0)
     page.routines_dialog.set_name(new_name)
     page.routines_dialog.click_cancel()
 
-    page.wait_for_table_value(1, 1, name)
+    page.wait_for_table_value(1, 1, 1, name)
 
     page.click_edit(0)
     page.routines_dialog.set_name(new_name)
     page.routines_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, new_name)
+    page.wait_for_table_value(1, 1, 1, new_name)
 
 
 def test_routines_delete(driver: webdriver.Chrome) -> None:
@@ -651,19 +651,19 @@ def test_routines_delete(driver: webdriver.Chrome) -> None:
     page = RoutinesPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, name_2)
-    page.wait_for_table_value(2, 1, name_1)
+    page.wait_for_table_value(1, 1, 1, name_2)
+    page.wait_for_table_value(1, 2, 1, name_1)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, name_2)
-    page.wait_for_table_value(2, 1, name_1)
+    page.wait_for_table_value(1, 1, 1, name_2)
+    page.wait_for_table_value(1, 2, 1, name_1)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, name_1)
+    page.wait_for_table_value(1, 1, 1, name_1)
 
 
 def test_routine_edit_save(driver: webdriver.Chrome) -> None:
@@ -1302,7 +1302,7 @@ def test_exercises_add(driver: webdriver.Chrome) -> None:
 
     page.exercises_dialog.click_cancel()
 
-    page.wait_for_table_value(1, 1, name)
+    page.wait_for_table_value(1, 1, 1, name)
 
     page.click_fab()
 
@@ -1311,7 +1311,7 @@ def test_exercises_add(driver: webdriver.Chrome) -> None:
     page.exercises_dialog.set_name(new_name)
     page.exercises_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, new_name)
+    page.wait_for_table_value(1, 1, 1, new_name)
 
 
 def test_exercises_edit(driver: webdriver.Chrome) -> None:
@@ -1325,19 +1325,19 @@ def test_exercises_edit(driver: webdriver.Chrome) -> None:
     page = ExercisesPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, name)
+    page.wait_for_table_value(1, 1, 1, name)
 
     page.click_edit(0)
     page.exercises_dialog.set_name(new_name)
     page.exercises_dialog.click_cancel()
 
-    page.wait_for_table_value(1, 1, name)
+    page.wait_for_table_value(1, 1, 1, name)
 
     page.click_edit(0)
     page.exercises_dialog.set_name(new_name)
     page.exercises_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, new_name)
+    page.wait_for_table_value(1, 1, 1, new_name)
 
 
 def test_exercises_delete(driver: webdriver.Chrome) -> None:
@@ -1349,17 +1349,17 @@ def test_exercises_delete(driver: webdriver.Chrome) -> None:
     page = ExercisesPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, name_1)
+    page.wait_for_table_value(1, 1, 1, name_1)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, name_1)
+    page.wait_for_table_value(1, 1, 1, name_1)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, name_2)
+    page.wait_for_table_value(1, 1, 1, name_2)
 
 
 def test_exercise_delete_workout(driver: webdriver.Chrome) -> None:
@@ -1372,14 +1372,14 @@ def test_exercise_delete_workout(driver: webdriver.Chrome) -> None:
     page = ExercisePage(driver, exercise.id)
     page.load()
 
-    page.wait_for_table_value(1, 1, workout_1)
+    page.wait_for_table_value(1, 1, 1, workout_1)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, workout_1)
+    page.wait_for_table_value(1, 1, 1, workout_1)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, workout_2)
+    page.wait_for_table_value(1, 1, 1, workout_2)

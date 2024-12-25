@@ -844,6 +844,16 @@ impl From<std::ops::RangeInclusive<NaiveDate>> for Interval {
     }
 }
 
+impl Interval {
+    pub fn since(days: i64) -> Self {
+        let today = Local::now().date_naive();
+        Interval {
+            first: today - Duration::days(days),
+            last: today,
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum DefaultInterval {
     All,
@@ -869,6 +879,85 @@ pub fn init_interval(dates: &[NaiveDate], default_interval: DefaultInterval) -> 
     Interval { first, last }
 }
 
+// Calculate the one-rep max for a given exercise and interval.
+//
+// The formula by Epley is used for 1RM calculation. The function returns a tuple
+// of minimum and maximum 1RM (min, max) for each date.
+pub fn one_rep_max_values(
+    training_sessions: &[&TrainingSession],
+    exercise_id: u32,
+    interval: &Interval,
+) -> BTreeMap<NaiveDate, (f32, f32)> {
+    group_days(
+        &training_sessions
+            .iter()
+            .flat_map(|s| {
+                s.elements
+                    .iter()
+                    .filter_map(|e| match e {
+                        TrainingSessionElement::Set {
+                            exercise_id: id,
+                            reps,
+                            weight,
+                            rpe,
+                            ..
+                        } if *id == exercise_id
+                            && interval.first <= s.date
+                            && s.date <= interval.last =>
+                        {
+                            reps.map_or(None, |reps| {
+                                weight.map_or(None, |weight| {
+                                    #[allow(clippy::cast_precision_loss)]
+                                    Some((
+                                        s.date,
+                                        // Epley, B. (1985). “Poundage Chart”. Boyd Epley Workout.
+                                        // Lincoln, NE: Body Enterprises.
+                                        weight * (1. + (reps as f32 + (10. - rpe.unwrap_or(10.))) / 30.),
+                                    ))
+                                })
+                            })
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>(),
+        |x| {
+            let min = x
+                .iter()
+                .reduce(|acc, val| if *val < *acc { val } else { acc });
+            let max = x
+                .iter()
+                .reduce(|acc, val| if *val < *acc { acc } else { val });
+            min.and_then(|min| max.map(|max| (*min, *max)))
+        },
+    )
+}
+
+// Group a series of (date, value) pairs by day.
+//
+/// The `group_day` is called to combine values of the *same* day.
+pub fn group_days<E: Copy, F: Copy>(
+    data: &Vec<(NaiveDate, E)>,
+    group_day: impl Fn(Vec<E>) -> Option<F>,
+) -> BTreeMap<NaiveDate, F> {
+    let mut date_map: BTreeMap<NaiveDate, Vec<E>> = BTreeMap::new();
+
+    for (date, value) in data {
+        date_map.entry(*date).or_default().push(*value);
+    }
+
+    let mut grouped: BTreeMap<NaiveDate, F> = BTreeMap::new();
+
+    for (date, values) in date_map {
+        if let Some(result) = group_day(values) {
+            grouped.insert(date, result);
+        }
+    }
+
+    grouped
+}
+
 /// Group a series of (date, value) pairs.
 ///
 /// The `radius` parameter determines the number of days before and after the
@@ -886,27 +975,14 @@ pub fn init_interval(dates: &[NaiveDate], default_interval: DefaultInterval) -> 
 ///
 /// Return `None` in those functions to indicate the absence of a value.
 ///
-pub fn centered_moving_grouping(
-    data: &Vec<(NaiveDate, f32)>,
+pub fn centered_moving_grouping<E: Copy, F: Copy>(
+    data: &Vec<(NaiveDate, E)>,
     interval: &Interval,
     radius: u64,
-    group_day: impl Fn(Vec<f32>) -> Option<f32>,
-    group_range: impl Fn(Vec<f32>) -> Option<f32>,
+    group_day: impl Fn(Vec<E>) -> Option<F>,
+    group_range: impl Fn(Vec<F>) -> Option<f32>,
 ) -> Vec<Vec<(NaiveDate, f32)>> {
-    let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
-
-    for (date, value) in data {
-        date_map.entry(date).or_default().push(*value);
-    }
-
-    let mut grouped: BTreeMap<&NaiveDate, f32> = BTreeMap::new();
-
-    for (date, values) in date_map {
-        if let Some(result) = group_day(values) {
-            grouped.insert(date, result);
-        }
-    }
-
+    let grouped = group_days(data, group_day);
     interval
         .first
         .iter_days()

@@ -20,8 +20,11 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut ui::Navbar
 
     navbar.title = String::from("Exercises");
 
+    let mut exercise_list = component::exercise_list::Model::new(true, true, true, true);
+    exercise_list.search_term = url.hash_path().get(1).cloned().unwrap_or_default();
+
     Model {
-        exercise_list: component::exercise_list::Model::new(true, true, true, true),
+        exercise_list,
         dialog: Dialog::Hidden,
         loading: false,
     }
@@ -121,6 +124,10 @@ pub fn update(
                     orders.send_msg(Msg::ShowDeleteExerciseDialog(exercise_id));
                 }
             };
+            ui::Urls::new(&data_model.base_url)
+                .exercises()
+                .add_hash_path_part(model.exercise_list.search_term.clone())
+                .go_and_replace();
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {

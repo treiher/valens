@@ -11,7 +11,7 @@ use crate::{
 
 #[allow(clippy::struct_excessive_bools)]
 pub struct Model {
-    search_term: String,
+    pub search_term: String,
     filter: domain::ExerciseFilter,
     view_filter_dialog: bool,
     view_create: bool,

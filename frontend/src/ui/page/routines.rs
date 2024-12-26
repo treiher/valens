@@ -19,7 +19,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut ui::Navbar
     navbar.title = String::from("Routines");
 
     Model {
-        search_term: String::new(),
+        search_term: url.hash_path().get(1).cloned().unwrap_or_default(),
         dialog: Dialog::Hidden,
         archive_visible: false,
         loading: false,
@@ -108,7 +108,11 @@ pub fn update(
         }
 
         Msg::SearchTermChanged(search_term) => {
-            model.search_term = search_term;
+            model.search_term.clone_from(&search_term);
+            ui::Urls::new(&data_model.base_url)
+                .routines()
+                .add_hash_path_part(search_term)
+                .go_and_replace();
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddRoutine(ref mut form) | Dialog::EditRoutine(ref mut form) => {

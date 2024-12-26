@@ -319,13 +319,29 @@ class Page:
             )
         )
 
-    def get_table_value(self, index: int) -> str:
-        return self._driver.find_element(by=By.XPATH, value=f"//tr/td[{index}]").text
+    def get_table_headers(self) -> dict[str, int]:
+        return {
+            th.text: index
+            for index, th in enumerate(
+                self._driver.find_elements(
+                    by=By.XPATH,
+                    value="//table[contains(@class, 'is-hoverable')]/thead/tr/th",
+                ),
+                start=1,
+            )
+        }
 
-    def get_table_body(self) -> list[list[str]]:
+    def get_table_value(self, table: int, row: int, column: int) -> str:
+        return self._driver.find_element(
+            by=By.XPATH,
+            value=f"(//table[contains(@class, 'is-hoverable')])"
+            f"[{table}]/tbody/tr[{row}]/td[{column}]",
+        ).text
+
+    def get_table_body(self, table: int = 1) -> list[list[str]]:
         return [
             [td.text for td in tr.find_elements(By.TAG_NAME, "td")]
-            for tr in self._driver.find_elements(By.XPATH, "//tbody/tr")
+            for tr in self._driver.find_elements(By.XPATH, f"(//tbody)[{table}]/tr")
         ]
 
     def wait_for_fab(self, icon: str) -> None:

@@ -1,3 +1,4 @@
+import datetime
 import sqlite3
 
 from sqlalchemy import select
@@ -13,8 +14,8 @@ def init_db_users() -> None:
         db.session.commit()
 
 
-def init_db_data() -> None:
-    for user in tests.data.users():
+def init_db_data(today: datetime.date = datetime.date(2002, 3, 12)) -> None:
+    for user in tests.data.users(today=today):
         db.session.add(user)
         db.session.commit()
 

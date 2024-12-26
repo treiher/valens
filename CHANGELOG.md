@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Button for saving changes during guided training session
 - Settings for hiding UI elements related to RPE and TUT
 - Option to prefer exercise in training session
+- Option to add same exercise in training session
 - Shortcut for inserting values of previous set into current set
 - Suggestion of exercises that train similar muscles when replacing exercise in training session
 - Splash screen
@@ -34,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use 7 day centered moving average for RPE chart on training page
 - Improve appearance of charts on training page
 - Unify fonts in charts
+- Allow option to add exercise at any position in training session
 
 ### Fixed
 

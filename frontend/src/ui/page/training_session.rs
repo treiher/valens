@@ -714,6 +714,7 @@ pub enum Msg {
     PreferExercise(usize),
     DeferExercise(usize),
     AddSet(usize),
+    AddSameExercise(usize, usize),
     AddExercise(usize, usize, u32),
     RemoveSet(usize),
     RemoveExercise(usize, usize),
@@ -1268,6 +1269,17 @@ pub fn update(
                 .send_msg(Msg::SaveTrainingSession)
                 .send_msg(Msg::CloseDialog);
         }
+        Msg::AddSameExercise(element_idx, exercise_idx) => {
+            add_same_exercise(
+                &mut model.form.elements,
+                element_idx,
+                exercise_idx,
+                &data_model.exercises,
+            );
+            orders
+                .send_msg(Msg::SaveTrainingSession)
+                .send_msg(Msg::CloseDialog);
+        }
         Msg::AddExercise(element_idx, exercise_idx, new_exercise_id) => {
             add_exercise(
                 &mut model.form.elements,
@@ -1751,6 +1763,25 @@ fn add_set(elements: &mut Vec<FormElement>, element_idx: usize) {
                     .collect::<Vec<_>>(),
             },
         );
+    }
+}
+
+fn add_same_exercise(
+    elements: &mut [FormElement],
+    element_idx: usize,
+    exercise_idx: usize,
+    data_exercises: &BTreeMap<u32, domain::Exercise>,
+) {
+    if let Some(FormElement::Set { exercises }) = elements.get(element_idx) {
+        if let Some(exercise) = exercises.get(exercise_idx) {
+            add_exercise(
+                elements,
+                element_idx,
+                exercise_idx,
+                exercise.exercise_id,
+                data_exercises,
+            );
+        }
     }
 }
 
@@ -2841,20 +2872,33 @@ fn view_options_dialog(element_idx: usize, exercise_idx: usize) -> Vec<Node<Msg>
                 ]
             ]
         ],
-        IF![exercise_idx == 0 =>
-            p![
-                C!["mt-3"],
-                a![
-                    C!["has-text-weight-bold"],
-                    ev(Ev::Click, move |_| Msg::ShowAddExerciseDialog(
-                        element_idx,
-                        exercise_idx
-                    )),
-                    span![
-                        C!["icon-text"],
-                        span![C!["icon"], i![C!["fas fa-plus"]]],
-                        span!["Add exercise to sets"],
-                    ]
+        p![
+            C!["mt-3"],
+            a![
+                C!["has-text-weight-bold"],
+                ev(Ev::Click, move |_| Msg::AddSameExercise(
+                    element_idx,
+                    exercise_idx,
+                )),
+                span![
+                    C!["icon-text"],
+                    span![C!["icon"], i![C!["fas fa-plus"]]],
+                    span!["Add same exercise"],
+                ]
+            ]
+        ],
+        p![
+            C!["mt-3"],
+            a![
+                C!["has-text-weight-bold"],
+                ev(Ev::Click, move |_| Msg::ShowAddExerciseDialog(
+                    element_idx,
+                    exercise_idx
+                )),
+                span![
+                    C!["icon-text"],
+                    span![C!["icon"], i![C!["fas fa-plus"]]],
+                    span!["Add other exercise"],
                 ]
             ]
         ],
@@ -3891,6 +3935,150 @@ mod tests {
                 rest(0),
                 set(vec![exercise(1, 0)]),
                 rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_add_same_exercise_first_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        add_same_exercise(&mut elements, 0, 0, &exercises(0));
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0), exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0), exercise(0, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_add_same_exercise_second_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        add_same_exercise(&mut elements, 2, 0, &exercises(0));
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0), exercise(0, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_add_same_exercise_penultimate_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        add_same_exercise(&mut elements, 8, 0, &exercises(0));
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0), exercise(0, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0), exercise(0, 0)]),
+                rest(5),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_add_same_exercise_last_set() {
+        let mut elements = vec![
+            set(vec![exercise(0, 0)]),
+            rest(0),
+            set(vec![exercise(1, 0)]),
+            rest(1),
+            set(vec![exercise(2, 1)]),
+            rest(2),
+            set(vec![exercise(3, 1)]),
+            rest(3),
+            set(vec![exercise(4, 0)]),
+            rest(4),
+            set(vec![exercise(5, 0)]),
+            rest(5),
+        ];
+        add_same_exercise(&mut elements, 10, 0, &exercises(0));
+        assert_eq!(
+            elements,
+            vec![
+                set(vec![exercise(0, 0)]),
+                rest(0),
+                set(vec![exercise(1, 0)]),
+                rest(1),
+                set(vec![exercise(2, 1)]),
+                rest(2),
+                set(vec![exercise(3, 1)]),
+                rest(3),
+                set(vec![exercise(4, 0)]),
+                rest(4),
+                set(vec![exercise(5, 0), exercise(0, 0)]),
+                rest(5),
             ]
         );
     }

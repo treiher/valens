@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import os
 from collections.abc import Generator
 from pathlib import Path
@@ -32,9 +33,30 @@ from .page import (
     TrainingSessionPage,
 )
 
-USERS = tests.data.users()
+TODAY = datetime.date.today()
+USERS = tests.data.users(today=TODAY)
 USER = USERS[0]
 USERNAMES = [user.name for user in USERS]
+
+EXERCISES_IN_CURRENT_WORKOUTS = {
+    e.exercise.name
+    for w in USER.workouts
+    for e in w.elements
+    if isinstance(e, models.WorkoutSet) and w.date >= TODAY - datetime.timedelta(31)
+}
+
+PREVIOUS_WORKOUT_EXERCISES = {
+    e.exercise.name
+    for w in USER.workouts
+    for e in w.elements
+    if isinstance(e, models.WorkoutSet) and e.exercise.name not in EXERCISES_IN_CURRENT_WORKOUTS
+}
+
+CURRENT_WORKOUT_EXERCISES = {
+    e.name
+    for e in USER.exercises
+    if e.name in EXERCISES_IN_CURRENT_WORKOUTS or e.name not in PREVIOUS_WORKOUT_EXERCISES
+}
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +69,7 @@ def _fixture_backend() -> Generator[None, None, None]:
         with app.app_context():
             app.config["DATABASE"] = f"sqlite:///{db_file}"
             app.config["SECRET_KEY"] = b"TEST_KEY"
-            tests.utils.init_db_data()
+            tests.utils.init_db_data(today=TODAY)
 
         with Popen(
             f"{VALENS} run --port {PORT}".split(),
@@ -130,8 +152,8 @@ def test_body_weight_add(driver: webdriver.Chrome) -> None:
 
     page.body_weight_dialog.click_cancel()
 
-    assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != weight
+    assert page.get_table_value(1, 1, 1) != date
+    assert page.get_table_value(1, 1, 2) != weight
 
     page.click_fab()
 
@@ -139,8 +161,8 @@ def test_body_weight_add(driver: webdriver.Chrome) -> None:
 
     page.body_weight_dialog.set_weight(weight)
 
-    assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != weight
+    assert page.get_table_value(1, 1, 1) != date
+    assert page.get_table_value(1, 1, 2) != weight
 
     page.body_weight_dialog.click_save()
 
@@ -208,29 +230,49 @@ def test_body_fat_add(driver: webdriver.Chrome) -> None:
     page.wait_for_dialog()
 
     date = page.body_fat_dialog.get_date()
-    values = ("1", "2", "3", "4", "5", "6", "7")
 
     page.body_fat_dialog.click_cancel()
 
-    assert page.get_table_value(1) != date
-    for i, v in enumerate(values, start=4):
-        assert page.get_table_value(i) != v
+    current_values = {
+        v.date.isoformat(): {
+            "tricep": v.tricep or "-",
+            "suprailiac": v.suprailiac or "-",
+            "thigh": v.thigh or "-",
+            "chest": v.chest or "-",
+            "abdominal": v.abdominal or "-",
+            "subscapular": v.subscapular or "-",
+            "midaxillary": v.midaxillary or "-",
+        }
+        for v in USER.body_fat
+    }
+    headers = {k.lower().split(" ")[0]: v for k, v in page.get_table_headers().items()}
+
+    for row in range(1, 2):
+        date = page.get_table_value(1, row, 1)
+        for entry, value in current_values[date].items():
+            assert page.get_table_value(1, row, headers[entry]) == str(value)
 
     page.click_fab()
 
     page.wait_for_dialog()
 
+    items = (
+        "tricep",
+        "suprailiac",
+        "thigh",
+        "chest",
+        "abdominal",
+        "subscapular",
+        "midaxillary",
+    )
+    values = ("1", "2", "3", "4", "5", "6", "7")
+
     page.body_fat_dialog.set_jp7(values)
-
-    assert page.get_table_value(1) != date
-    for i, v in enumerate(values, start=4):
-        assert page.get_table_value(i) != v
-
     page.body_fat_dialog.click_save()
 
-    page.wait_for_table_value(1, 1, 1, date)
-    for i, v in enumerate(values, start=4):
-        page.wait_for_table_value(1, 1, i, v)
+    page.wait_for_table_value(1, 1, 1, TODAY.isoformat())
+    for item, value in zip(items, values):
+        page.wait_for_table_value(1, 1, headers[item], value)
 
 
 def test_body_fat_edit(driver: webdriver.Chrome) -> None:
@@ -306,8 +348,8 @@ def test_menstrual_cycle_add(driver: webdriver.Chrome) -> None:
 
     page.period_dialog.click_cancel()
 
-    assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != intensity
+    assert page.get_table_value(1, 1, 1) != date
+    assert page.get_table_value(1, 1, 2) != intensity
 
     page.click_fab()
 
@@ -315,8 +357,8 @@ def test_menstrual_cycle_add(driver: webdriver.Chrome) -> None:
 
     page.period_dialog.set_period(intensity)
 
-    assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != intensity
+    assert page.get_table_value(1, 1, 1) != date
+    assert page.get_table_value(1, 1, 2) != intensity
 
     page.period_dialog.click_save()
 
@@ -417,8 +459,8 @@ def test_training_add(driver: webdriver.Chrome) -> None:
 
     page.training_dialog.click_cancel()
 
-    assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != routine
+    assert page.get_table_value(1, 1, 1) != date
+    assert page.get_table_value(1, 1, 2) != routine
 
     page.click_fab()
 
@@ -426,8 +468,8 @@ def test_training_add(driver: webdriver.Chrome) -> None:
 
     page.training_dialog.set_routine(routine)
 
-    assert page.get_table_value(1) != date
-    assert page.get_table_value(2) != routine
+    assert page.get_table_value(1, 1, 1) != date
+    assert page.get_table_value(1, 1, 2) != routine
 
     page.training_dialog.click_save()
 
@@ -490,7 +532,7 @@ def test_training_session(driver: webdriver.Chrome) -> None:
     page.load()
 
     page.wait_for_title(str(workout.date))
-    assert page.get_sets() == [*sets, "Pecs", "2"]
+    assert page.get_sets() == sets
 
     page.edit()
 
@@ -1287,7 +1329,7 @@ def test_routine_delete_training_session(driver: webdriver.Chrome) -> None:
 
 
 def test_exercises_add(driver: webdriver.Chrome) -> None:
-    exercise = sorted(USER.exercises, key=lambda x: x.name)[0]
+    exercise = sorted(USER.exercises, key=lambda x: x.name)[1]
     name = exercise.name
     new_name = "A Exercise"
 
@@ -1296,6 +1338,15 @@ def test_exercises_add(driver: webdriver.Chrome) -> None:
     login(driver)
     page = ExercisesPage(driver)
     page.load()
+
+    expected_current = {e.name for e in USER.exercises if e.name in CURRENT_WORKOUT_EXERCISES}
+    present_current = {e[0] for e in page.get_table_body(1)}
+    assert expected_current == present_current
+
+    expected_previous = {e.name for e in USER.exercises if e.name in PREVIOUS_WORKOUT_EXERCISES}
+    present_previous = {e[0] for e in page.get_table_body(2)}
+    assert expected_previous == present_previous
+
     page.click_fab()
 
     page.wait_for_dialog()
@@ -1315,23 +1366,22 @@ def test_exercises_add(driver: webdriver.Chrome) -> None:
 
 
 def test_exercises_edit(driver: webdriver.Chrome) -> None:
-    exercise = sorted(USER.exercises, key=lambda x: x.name)[0]
-    name = str(exercise.name)
+    current_name = sorted(CURRENT_WORKOUT_EXERCISES)[0]
     new_name = "Changed Exercise"
 
-    assert name != new_name
+    assert current_name != new_name
 
     login(driver)
     page = ExercisesPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, 1, name)
+    page.wait_for_table_value(1, 1, 1, current_name)
 
     page.click_edit(0)
     page.exercises_dialog.set_name(new_name)
     page.exercises_dialog.click_cancel()
 
-    page.wait_for_table_value(1, 1, 1, name)
+    page.wait_for_table_value(1, 1, 1, current_name)
 
     page.click_edit(0)
     page.exercises_dialog.set_name(new_name)
@@ -1341,25 +1391,39 @@ def test_exercises_edit(driver: webdriver.Chrome) -> None:
 
 
 def test_exercises_delete(driver: webdriver.Chrome) -> None:
-    exercises = sorted(USER.exercises, key=lambda x: x.name)
-    name_1 = str(exercises[0].name)
-    name_2 = str(exercises[1].name)
+    current_exercises = sorted(CURRENT_WORKOUT_EXERCISES)
+    current_name_1 = current_exercises[0]
+    current_name_2 = current_exercises[1]
 
     login(driver)
     page = ExercisesPage(driver)
     page.load()
 
-    page.wait_for_table_value(1, 1, 1, name_1)
+    page.wait_for_table_value(1, 1, 1, current_name_1)
 
     page.click_delete(0)
     page.delete_dialog.click_no()
 
-    page.wait_for_table_value(1, 1, 1, name_1)
+    page.wait_for_table_value(1, 1, 1, current_name_1)
 
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    page.wait_for_table_value(1, 1, 1, name_2)
+    page.wait_for_table_value(1, 1, 1, current_name_2)
+
+    previous_name = sorted(PREVIOUS_WORKOUT_EXERCISES)[0]
+
+    page.wait_for_table_value(2, 1, 1, previous_name)
+
+    page.click_delete(0)
+    page.delete_dialog.click_no()
+
+    page.wait_for_table_value(2, 1, 1, previous_name)
+
+    page.click_delete(0)
+    page.delete_dialog.click_yes()
+
+    assert page.get_table_body(2) == []
 
 
 def test_exercise_delete_workout(driver: webdriver.Chrome) -> None:

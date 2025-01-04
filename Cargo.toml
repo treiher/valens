@@ -2,4 +2,7 @@
 members = [
     "frontend",
 ]
+exclude = [
+    "third-party/seed"
+]
 resolver = "2"

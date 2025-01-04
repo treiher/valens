@@ -41,6 +41,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
@@ -88,6 +90,8 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
@@ -118,6 +122,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
@@ -165,6 +171,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
@@ -199,6 +207,8 @@ jobs:
         PYTHON_VERSION: "3.x"
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:

@@ -1225,7 +1225,7 @@ pub fn post_message_to_service_worker(message: &ServiceWorkerMessage) -> Result<
     let Some(service_worker) = window.navigator().service_worker().controller() else {
         return Err("failed to get service worker".to_string());
     };
-    match JsValue::from_serde(message) {
+    match serde_wasm_bindgen::to_value(message) {
         Ok(json_message) => {
             let Err(err) = service_worker.post_message(&json_message) else {
                 return Ok(());

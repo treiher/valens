@@ -46,10 +46,7 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
         loading_routines: false,
         training_sessions: BTreeMap::new(),
         loading_training_sessions: false,
-        last_refresh: DateTime::from_naive_utc_and_offset(
-            NaiveDateTime::from_timestamp_opt(0, 0).unwrap(),
-            Utc,
-        ),
+        last_refresh: DateTime::default(),
         avg_body_weight: BTreeMap::new(),
         cycles: Vec::new(),
         current_cycle: None,

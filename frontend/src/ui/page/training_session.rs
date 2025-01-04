@@ -1107,9 +1107,9 @@ pub fn update(
         }
         Msg::ScrollToSection => {
             if let Some(guide) = &mut model.guide {
-                let mut options = web_sys::ScrollIntoViewOptions::new();
-                options.behavior(web_sys::ScrollBehavior::Smooth);
-                options.block(web_sys::ScrollLogicalPosition::Center);
+                let options = web_sys::ScrollIntoViewOptions::new();
+                options.set_behavior(web_sys::ScrollBehavior::Smooth);
+                options.set_block(web_sys::ScrollLogicalPosition::Center);
                 if let Some(element) = guide.element.get() {
                     element.scroll_into_view_with_scroll_into_view_options(&options);
                 }

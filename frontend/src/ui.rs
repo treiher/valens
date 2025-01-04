@@ -354,7 +354,9 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::UrlChanged(subs::UrlChanged(url)) => {
             model.page = Some(Page::init(url, orders, &mut model.navbar, &model.data));
-            window().scroll_to_with_scroll_to_options(web_sys::ScrollToOptions::new().top(0.));
+            let scroll_to_options = web_sys::ScrollToOptions::new();
+            scroll_to_options.set_top(0.);
+            window().scroll_to_with_scroll_to_options(&scroll_to_options);
         }
 
         Msg::ToggleMenu => model.navbar.menu_visible = not(model.navbar.menu_visible),

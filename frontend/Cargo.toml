@@ -22,4 +22,4 @@ web-sys = { version = "0.3", features = ["AudioContext", "AudioDestinationNode",
 [dev-dependencies]
 assert_approx_eq = "1.1.0"
 pretty_assertions = "1.4.0"
-rstest = "0.23.0"
+rstest = "0.24.0"

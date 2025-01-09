@@ -134,7 +134,7 @@ run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
 
 run_backend: $(CONFIG_FILE)
-	VALENS_CONFIG=$(CONFIG_FILE) uv run -- $(BUILD_DIR)/venv/bin/flask --app valens --debug run -h 0.0.0.0
+	VALENS_CONFIG=$(CONFIG_FILE) uv run -- flask --app valens --debug run -h 0.0.0.0
 
 $(CONFIG_FILE): $(BUILD_DIR)
 	uv run -- valens config -d build

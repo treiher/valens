@@ -31,8 +31,8 @@ def test_root(client: Client) -> None:
         "/app",
         "/manifest.json",
         "/index.css",
-        "/valens-frontend.js",
-        "/valens-frontend_bg.wasm",
+        "/valens-web-app-seed.js",
+        "/valens-web-app-seed_bg.wasm",
         "/service-worker.js",
     ],
 )

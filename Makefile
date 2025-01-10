@@ -5,7 +5,8 @@ BULMA_SLIDER_VERSION := 2.0.5
 FONTAWESOME_VERSION := 6.1.1
 
 PYTHON_PACKAGES := valens tests tools fabfile.py
-FRONTEND_FILES := index.css manifest.json service-worker.js valens-frontend.js valens-frontend_bg.wasm fonts images js
+FRONTEND_CRATE := crates/web-app-seed
+FRONTEND_FILES := index.css manifest.json service-worker.js valens-web-app-seed.js valens-web-app-seed_bg.wasm fonts images js
 PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
@@ -86,7 +87,7 @@ update: update_css update_fonts
 update_css: third-party/bulma third-party/bulma-slider
 
 update_fonts: third-party/fontawesome
-	cp third-party/fontawesome/webfonts/fa-solid-900.{woff2,ttf} frontend/assets/fonts/
+	cp third-party/fontawesome/webfonts/fa-solid-900.{woff2,ttf} $(FRONTEND_CRATE)/assets/fonts/
 
 third-party/bulma:
 	wget -qO- https://github.com/jgthms/bulma/releases/download/$(BULMA_VERSION)/bulma-$(BULMA_VERSION).zip | bsdtar -xf- -C third-party
@@ -118,12 +119,12 @@ $(WHEEL): $(PACKAGE_FRONTEND_FILES)
 valens/frontend:
 	mkdir -p valens/frontend
 
-valens/frontend/%: frontend/dist/%
+valens/frontend/%: $(FRONTEND_CRATE)/dist/%
 	rm -rf $@
 	cp -r $< $@
 
-$(addprefix frontend/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find frontend/src/ -type f -name '*.rs')
-	cd frontend && trunk build --release --filehash false
+$(addprefix $(FRONTEND_CRATE)/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find $(FRONTEND_CRATE)/src/ -type f -name '*.rs')
+	cd $(FRONTEND_CRATE) && trunk build --release --filehash false
 .PHONY: run run_frontend run_backend
 
 run:
@@ -131,7 +132,7 @@ run:
 	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_backend
 
 run_frontend:
-	PATH=~/.cargo/bin:${PATH} trunk --config frontend/Trunk.toml serve --port 8000
+	PATH=~/.cargo/bin:${PATH} trunk --config $(FRONTEND_CRATE)/Trunk.toml serve --port 8000
 
 run_backend: $(CONFIG_FILE)
 	VALENS_CONFIG=$(CONFIG_FILE) uv run -- flask --app valens --debug run -h 0.0.0.0
@@ -148,4 +149,5 @@ clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf valens.egg-info
 	rm -rf valens/frontend
-	cd frontend && trunk clean && cargo clean
+	cargo clean
+	trunk --config $(FRONTEND_CRATE) clean

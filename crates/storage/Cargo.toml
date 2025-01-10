@@ -1,0 +1,17 @@
+[package]
+name = "valens-storage"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+valens-domain = { path = "../domain" }
+valens-web-app = { path = "../web-app" }
+
+async-trait = "0.1.83"
+chrono = { workspace = true, default-features = false, features = ["serde"] }
+gloo-net = { version = "0.6.0", default-features = false, features = ["http", "json"] }
+gloo-storage = "0.3.0"
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

@@ -717,12 +717,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "slice-group-by"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "826167069c09b99d56f31e9ae5c99049e932a98c9dc2dac47645b08dbbf76ba7"
-
-[[package]]
 name = "syn"
 version = "2.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -786,23 +780,59 @@ dependencies = [
 ]
 
 [[package]]
-name = "valens-frontend"
+name = "valens-domain"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "pretty_assertions",
+ "rstest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "valens-storage"
+version = "0.0.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "gloo-net",
+ "gloo-storage",
+ "serde",
+ "serde_json",
+ "valens-domain",
+ "valens-web-app",
+]
+
+[[package]]
+name = "valens-web-app"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "gloo-utils",
+ "plotters",
+ "serde",
+ "serde-wasm-bindgen",
+ "valens-domain",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "valens-web-app-seed"
 version = "0.0.0"
 dependencies = [
  "assert_approx_eq",
- "async-trait",
  "chrono",
  "gloo-console",
- "gloo-net",
- "gloo-storage",
  "plotters",
  "pretty_assertions",
  "rstest",
  "seed",
  "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "slice-group-by",
+ "valens-domain",
+ "valens-storage",
+ "valens-web-app",
  "wasm-bindgen",
  "web-sys",
 ]

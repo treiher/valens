@@ -14,8 +14,8 @@
         <link rel="stylesheet" href="{{ public_url }}/index.css">
         <script src="{{ public_url}}/js/register-sw.js"></script>
         <base href="{{ public_url }}/">
-        <link rel="preload" href="{{ public_url }}/valens-frontend_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
-        <link rel="modulepreload" href="{{ public_url }}/valens-frontend.js">
+        <link rel="preload" href="{{ public_url }}/valens-web-app-seed_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+        <link rel="modulepreload" href="{{ public_url }}/valens-web-app-seed.js">
     </head>
     <body class="has-navbar-fixed-top has-navbar-fixed-bottom">
         <div id="app">
@@ -35,8 +35,8 @@
             </section>
         </div>
         <script type="module">
-            import init from '{{ public_url }}/valens-frontend.js';
-            init('{{ public_url }}/valens-frontend_bg.wasm');
+            import init from '{{ public_url }}/valens-web-app-seed.js';
+            init('{{ public_url }}/valens-web-app-seed_bg.wasm');
         </script>
     </body>
 </html>

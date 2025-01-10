@@ -1,0 +1,17 @@
+[package]
+name = "valens-web-app"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+valens-domain = { path = "../domain" }
+
+chrono = { workspace = true, default-features = false, features = ["serde", "now"] }
+gloo-utils = "0.2.0"
+plotters = { workspace = true, default-features = false, features = ["svg_backend", "datetime", "line_series", "histogram", "point_series", "area_series"] }
+serde = { workspace = true, features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = { workspace = true }
+web-sys = { workspace = true, features = ["Navigator", "ServiceWorker", "ServiceWorkerContainer"] }

@@ -1,0 +1,24 @@
+[package]
+name = "valens-web-app-seed"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+valens-domain = { path = "../domain" }
+valens-web-app = { path = "../web-app" }
+valens-storage = { path = "../storage" }
+
+chrono = { workspace = true, default-features = false, features = ["serde"] }
+gloo-console = "0.3.0"
+plotters = { workspace = true, default-features = false }
+seed = { path = "../../third-party/seed", features = ["routing"] }
+serde = { workspace = true }
+wasm-bindgen = { workspace = true }
+web-sys = { workspace = true, features = ["AudioContext", "AudioDestinationNode", "AudioNode", "AudioParam", "GainNode", "MediaQueryList", "Notification", "NotificationOptions", "NotificationPermission", "OscillatorNode", "ScrollBehavior", "ScrollIntoViewOptions", "ScrollLogicalPosition", "ScrollToOptions", "ServiceWorker", "ServiceWorkerContainer", "Window"] }
+
+[dev-dependencies]
+assert_approx_eq = { workspace = true }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }

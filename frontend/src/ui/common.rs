@@ -26,6 +26,7 @@ pub const COLOR_REPS: usize = 4;
 pub const COLOR_REPS_RIR: usize = 4;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
+pub const COLOR_1RM: usize = 7;
 
 pub const OPACITY_LINE: f64 = 0.9;
 pub const OPACITY_AREA: f64 = 0.3;
@@ -36,7 +37,6 @@ pub const FONT: (&str, u32) = ("Roboto", 11);
 
 #[derive(Clone)]
 pub enum PlotType {
-    #[allow(dead_code)]
     Circle(usize, f64, u32),
     Line(usize, f64, u32),
     Histogram(usize, f64),
@@ -1130,26 +1130,41 @@ where
     ]
 }
 
-pub fn view_element_with_description<Ms>(element: Node<Ms>, description: &str) -> Node<Ms> {
+pub fn view_element_with_tooltip<Ms>(
+    element: Node<Ms>,
+    tooltip: Node<Ms>,
+    right_aligned: bool,
+) -> Node<Ms> {
     div![
         C!["dropdown"],
+        IF![right_aligned => C!["is-right"]],
         C!["is-hoverable"],
         div![
             C!["dropdown-trigger"],
             div![C!["control"], C!["is-clickable"], element]
         ],
-        IF![
-            not(description.is_empty()) =>
+        if let Node::Element(x) = tooltip {
             div![
                 C!["dropdown-menu"],
                 C!["has-no-min-width"],
-                div![
-                    C!["dropdown-content"],
-                    div![C!["dropdown-item"], description]
-                ]
+                div![C!["dropdown-content"], div![C!["dropdown-item"], x]]
             ]
-        ]
+        } else {
+            div![]
+        }
     ]
+}
+
+pub fn view_element_with_description<Ms>(element: Node<Ms>, description: &str) -> Node<Ms> {
+    view_element_with_tooltip(
+        element,
+        if description.is_empty() {
+            Node::Empty
+        } else {
+            div![description]
+        },
+        false,
+    )
 }
 
 pub fn format_set(

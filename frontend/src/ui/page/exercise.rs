@@ -5,7 +5,7 @@ use seed::{prelude::*, *};
 
 use crate::{
     domain,
-    ui::{self, common, data, page::training},
+    ui::{self, common, data, page::training, page::training_session},
 };
 
 // ------ ------
@@ -274,12 +274,18 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     ),
                     view_charts(
                         &training_sessions,
+                        model.exercise_id,
                         &model.interval,
                         data_model.theme(),
                         data_model.settings.show_rpe,
                         data_model.settings.show_tut,
                     ),
                     view_calendar(&training_sessions, &model.interval),
+                    training_session::view_1rm_table(
+                        data_model,
+                        model.exercise_id,
+                        &model.interval
+                    ),
                     training::view_table(
                         &training_sessions,
                         &data_model.routines,
@@ -440,6 +446,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
 
 pub fn view_charts<Ms>(
     training_sessions: &[&domain::TrainingSession],
+    exercise_id: u32,
     interval: &domain::Interval,
     theme: &ui::Theme,
     show_rpe: bool,
@@ -485,6 +492,57 @@ pub fn view_charts<Ms>(
             (*date, avg_reps.iter().sum::<f32>() / avg_reps.len() as f32)
         })
         .collect::<Vec<_>>();
+
+    let one_rep_values = domain::one_rep_max_values(training_sessions, exercise_id, interval);
+    let one_rep_max_values = one_rep_values
+        .iter()
+        .map(|(date, (_, max))| (*date, *max))
+        .collect::<Vec<_>>();
+
+    let mut one_rep_data = vec![];
+
+    one_rep_data.push(common::PlotData {
+        values_high: one_rep_max_values.clone(),
+        values_low: Some(
+            one_rep_values
+                .iter()
+                .map(|(date, (min, _))| (*date, *min))
+                .collect::<Vec<_>>(),
+        ),
+        plots: common::plot_area(common::COLOR_1RM),
+        params: common::PlotParams::default(),
+    });
+
+    one_rep_data.extend(
+        domain::centered_moving_average(&one_rep_max_values, interval, 7)
+            .iter()
+            .map(|values| common::PlotData {
+                values_high: values.clone(),
+                values_low: None,
+                plots: common::plot_line(common::COLOR_1RM),
+                params: common::PlotParams::default(),
+            }),
+    );
+
+    one_rep_data.push(common::PlotData {
+        values_high: one_rep_max_values
+            .into_iter()
+            .reduce(|(acc_date, acc), (date, max)| {
+                if acc < max {
+                    (date, max)
+                } else {
+                    (acc_date, acc)
+                }
+            })
+            .map_or(vec![], |v| vec![v]),
+        values_low: None,
+        plots: vec![common::PlotType::Circle(
+            common::COLOR_1RM,
+            common::OPACITY_AREA,
+            3,
+        )],
+        params: common::PlotParams::default(),
+    });
 
     let mut data = vec![];
 
@@ -638,6 +696,14 @@ pub fn view_charts<Ms>(
                 false,
             )
         ],
+        common::view_chart(
+            &[
+                ("1RM (kg)", common::COLOR_1RM, common::OPACITY_AREA),
+                ("Avg. 1RM (kg)", common::COLOR_1RM, common::OPACITY_LINE)
+            ],
+            common::plot_chart(&one_rep_data, interval, theme),
+            false,
+        ),
     ]
 }
 

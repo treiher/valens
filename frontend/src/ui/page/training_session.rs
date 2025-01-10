@@ -2182,6 +2182,63 @@ fn view_muscles(training_session: &domain::TrainingSession, data_model: &data::M
     }
 }
 
+pub fn view_1rm_table<Ms: 'static>(
+    data_model: &data::Model,
+    exercise_id: u32,
+    interval: &domain::Interval,
+) -> Node<Ms> {
+    let one_rep_max = domain::one_rep_max_values(
+        &data_model.training_sessions.values().collect::<Vec<_>>(),
+        exercise_id,
+        interval,
+    )
+    .into_iter()
+    .reduce(|(acc_date, (_, acc_max)), (date, (_, max))| {
+        if acc_max < max {
+            (date, (0.0, max))
+        } else {
+            (acc_date, (0.0, acc_max))
+        }
+    });
+
+    one_rep_max.map_or(div![], |(date, (_, kg))| {
+        div![
+            C!["mx-3"],
+            common::view_title(&span!["One-rep max"], 3),
+            div![
+                C!["block"],
+                C!["is-size-7"],
+                C!["has-text-centered"],
+                date.to_string()
+            ],
+            table![
+                C!["table"],
+                C!["is-striped"],
+                C!["is-fullwidth"],
+                style![St::WhiteSpace => "nowrap"],
+                thead![tr![
+                    th![C!["has-text-right"], "% 1RM"],
+                    th![C!["has-text-right"], "Reps."],
+                    th![C!["has-text-right"], "Weight (kg)"]
+                ]],
+                tbody![[100.0f32, 90.0, 80.0, 70.0, 60.0, 50.0, 40.0, 30.0]
+                    .iter()
+                    .map(|percentage| tr![
+                        td![C!["has-text-right"], format!("{percentage}")],
+                        td![
+                            C!["has-text-right"],
+                            format!("{:.0}", 3000.0 / *percentage - 29.0)
+                        ],
+                        td![
+                            C!["has-text-right"],
+                            format!("{:.1}", *percentage / 100.0 * kg)
+                        ]
+                    ]),],
+            ]
+        ]
+    })
+}
+
 fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
     let sections = determine_sections(&model.form.elements);
     let valid = model.form.valid();
@@ -2368,10 +2425,17 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                                     },
                                                     &s.exercise_name
                                                 ],
-                                                div![a![
-                                                    ev(Ev::Click, move |_| Msg::ShowOptionsDialog(element_idx, position)),
-                                                    span![C!["icon"], i![C!["fas fa-ellipsis-vertical"]]]
-                                                ]],
+                                                div![
+                                                    common::view_element_with_tooltip(
+                                                        span![C!["icon"], i![C!["fas fa-circle-info"]]],
+                                                        view_1rm_table(data_model, s.exercise_id, &domain::Interval::since(31)),
+                                                        true,
+                                                    ),
+                                                    a![
+                                                        ev(Ev::Click, move |_| Msg::ShowOptionsDialog(element_idx, position)),
+                                                        span![C!["icon"], i![C!["fas fa-ellipsis-vertical"]]]
+                                                    ]
+                                                ],
                                             ],
                                         ],
                                         if let Some(guide) = &model.guide {

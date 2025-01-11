@@ -106,8 +106,6 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: frontend
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -223,8 +221,6 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --target wasm32-unknown-unknown --profile minimal
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: frontend
       - name: Install cargo-llvm-cov and Nextest
         uses: taiki-e/install-action@v2
         with:
@@ -235,7 +231,7 @@ jobs:
           sudo apt-get install libarchive-tools
           uv lock --upgrade
           uv sync
-          cargo update --manifest-path=frontend/Cargo.toml
+          cargo update
           cargo install --locked trunk
       - name: Test
         run: |

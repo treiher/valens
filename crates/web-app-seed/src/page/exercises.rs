@@ -239,6 +239,7 @@ fn view_exercise_dialog(
             let id = exercise.id;
             return common::view_delete_confirmation_dialog(
                 "exercise",
+                &span![&exercise.name],
                 &ev(Ev::Click, move |_| Msg::DeleteExercise(id)),
                 &ev(Ev::Click, |_| Msg::CloseExerciseDialog),
                 loading,
@@ -251,7 +252,7 @@ fn view_exercise_dialog(
     let save_disabled = loading || not(form.name.valid());
     common::view_dialog(
         "primary",
-        title,
+        span![title],
         nodes![
             div![
                 C!["field"],

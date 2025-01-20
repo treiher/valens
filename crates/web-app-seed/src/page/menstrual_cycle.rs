@@ -251,6 +251,7 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
             let date = date.clone();
             return common::view_delete_confirmation_dialog(
                 "period entry",
+                &span!["of ", common::no_wrap(&date.to_string())],
                 &ev(Ev::Click, move |_| Msg::DeletePeriod(date)),
                 &ev(Ev::Click, |_| Msg::ClosePeriodDialog),
                 loading,
@@ -265,7 +266,7 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     let save_disabled = loading || !date_valid || form.intensity.1.is_none();
     common::view_dialog(
         "primary",
-        title,
+        span![title],
         nodes![
             div![
                 C!["field"],
@@ -446,10 +447,7 @@ fn view_period_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .map(|p| {
                     let date = p.date;
                     tr![
-                        td![span![
-                            style! {St::WhiteSpace => "nowrap" },
-                            date.to_string(),
-                        ]],
+                        td![common::no_wrap(&date.to_string())],
                         td![format!("{:.1}", p.intensity)],
                         td![p![
                             C!["is-flex is-flex-wrap-nowrap"],

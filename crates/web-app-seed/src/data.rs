@@ -6,6 +6,7 @@ use seed::{
     app::{subs, Orders},
     button, div, nodes, p,
     prelude::{ev, El, Ev, Node},
+    span,
     virtual_dom::{ToClasses, UpdateEl},
     Url, C, IF,
 };
@@ -1125,7 +1126,7 @@ pub fn view(model: &Model) -> Vec<Node<Msg>> {
 fn view_app_update_dialog(model: &Model) -> Option<Node<Msg>> {
     IF![model.app_update_available => common::view_dialog(
         "info",
-        "Update",
+        span!["Update"],
         nodes![
             div![
                 C!["block"],

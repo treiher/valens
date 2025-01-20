@@ -129,8 +129,8 @@ pub fn update(
             }));
         }
 
-        Msg::ShowDeleteTrainingSessionDialog(position) => {
-            model.dialog = Dialog::DeleteTrainingSession(position);
+        Msg::ShowDeleteTrainingSessionDialog(id) => {
+            model.dialog = Dialog::DeleteTrainingSession(id);
         }
         Msg::CloseDialog => {
             model.dialog = Dialog::Hidden;
@@ -294,7 +294,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         data_model.settings.show_rpe,
                         data_model.settings.show_tut,
                     ),
-                    view_dialog(&model.dialog, model.loading),
+                    view_dialog(&model.dialog, model.loading, data_model),
                     common::view_fab("edit", |_| Msg::EditExercise),
                 ]
             },
@@ -716,7 +716,7 @@ fn view_sets(
                             attrs! {
                                 At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
                             },
-                            span![style! {St::WhiteSpace => "nowrap" }, t.date.to_string()]
+                            common::no_wrap(&t.date.to_string())
                         ],
                         raw!["&emsp;"],
                         if let Some(routine_id) = t.routine_id {
@@ -744,12 +744,7 @@ fn view_sets(
                                 rpe,
                                 ..
                             } = e {
-                                div![
-                                    span![
-                                        style! {St::WhiteSpace => "nowrap" },
-                                        common::format_set(*reps, *time, show_tut, *weight, *rpe, show_rpe)
-                                    ]
-                                ]
+                                div![common::no_wrap(&common::format_set(*reps, *time, show_tut, *weight, *rpe, show_rpe))]
                             } else {
                                 empty![]
                             }
@@ -760,13 +755,19 @@ fn view_sets(
             .collect::<Vec<_>>()
 }
 
-fn view_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
+fn view_dialog(dialog: &Dialog, loading: bool, data_model: &data::Model) -> Node<Msg> {
     match dialog {
         Dialog::DeleteTrainingSession(id) => {
             #[allow(clippy::clone_on_copy)]
             let id = id.clone();
+            let date = data_model
+                .training_sessions
+                .get(&id)
+                .map(|t| t.date)
+                .unwrap_or_default();
             common::view_delete_confirmation_dialog(
-                "training_session",
+                "training session",
+                &span!["of ", common::no_wrap(&date.to_string())],
                 &ev(Ev::Click, move |_| Msg::DeleteTrainingSession(id)),
                 &ev(Ev::Click, |_| Msg::CloseDialog),
                 loading,

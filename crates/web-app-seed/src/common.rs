@@ -57,7 +57,7 @@ pub fn view_box<Ms>(title: &str, content: &str) -> Node<Ms> {
 
 pub fn view_dialog<Ms>(
     color: &str,
-    title: &str,
+    title: Node<Ms>,
     content: Vec<Node<Ms>>,
     close_event: &EventHandler<Ms>,
 ) -> Node<Ms> {
@@ -100,7 +100,7 @@ pub fn view_error_dialog<Ms>(
 
     view_dialog(
         "danger",
-        "Error",
+        span!["Error"],
         nodes![
             div![C!["block"], &error_messages.last()],
             div![
@@ -118,19 +118,20 @@ pub fn view_error_dialog<Ms>(
 }
 
 pub fn view_delete_confirmation_dialog<Ms>(
-    element: &str,
+    element_type: &str,
+    element_name: &Node<Ms>,
     delete_event: &EventHandler<Ms>,
     cancel_event: &EventHandler<Ms>,
     loading: bool,
 ) -> Node<Ms> {
     view_dialog(
         "danger",
-        &format!("Delete the {element}?"),
+        span![format!("Delete the {element_type} "), element_name, "?"],
         nodes![
             div![
                 C!["block"],
                 format!(
-                    "The {element} and all elements that depend on it will be permanently deleted."
+                    "The {element_type} and all elements that depend on it will be permanently deleted."
                 ),
             ],
             div![
@@ -154,7 +155,7 @@ pub fn view_delete_confirmation_dialog<Ms>(
                         C!["is-danger"],
                         C![IF![loading => "is-loading"]],
                         delete_event,
-                        format!("Yes, delete {element}"),
+                        format!("Yes, delete {element_type}"),
                     ]
                 ],
             ],
@@ -673,6 +674,10 @@ pub fn view_element_with_description<Ms>(element: Node<Ms>, description: &str) -
             ]
         ]
     ]
+}
+
+pub fn no_wrap<Ms>(string: &str) -> Node<Ms> {
+    span![style! { St::WhiteSpace => "nowrap" }, string]
 }
 
 pub fn format_set(

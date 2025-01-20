@@ -175,8 +175,14 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             }
         ],
         if let Dialog::DeleteUser(id) = model.dialog {
+            let user_name = data_model
+                .users
+                .get(&id)
+                .map(|u| u.name.clone())
+                .unwrap_or_default();
             common::view_delete_confirmation_dialog(
                 "user",
+                &span![&user_name],
                 &ev(Ev::Click, move |_| Msg::DeleteUser(id)),
                 &ev(Ev::Click, |_| Msg::CloseUserDialog),
                 model.loading,
@@ -273,7 +279,7 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     }
     common::view_dialog(
         "primary",
-        title,
+        span![title],
         nodes![
             div![
                 C!["field"],

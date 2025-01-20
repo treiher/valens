@@ -486,6 +486,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
             let date = date.clone();
             return common::view_delete_confirmation_dialog(
                 "body fat entry",
+                &span!["of ", common::no_wrap(&date.to_string())],
                 &ev(Ev::Click, move |_| Msg::DeleteBodyFat(date)),
                 &ev(Ev::Click, |_| Msg::CloseBodyFatDialog),
                 loading,
@@ -500,7 +501,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
     let save_disabled = loading || !form.is_valid() || !date_valid;
     common::view_dialog(
         "primary",
-        title,
+        span![title],
         nodes![
             div![
                 C!["block"],
@@ -910,10 +911,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .map(|bf| {
                     let date = bf.date;
                     tr![
-                        td![span![
-                            style! {St::WhiteSpace => "nowrap" },
-                            bf.date.to_string(),
-                        ]],
+                        td![common::no_wrap(&bf.date.to_string())],
                         td![common::value_or_dash(bf.jp3(sex))],
                         td![common::value_or_dash(bf.jp7(sex))],
                         if sex == 0 {

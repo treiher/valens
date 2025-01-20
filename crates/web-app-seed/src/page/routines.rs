@@ -236,8 +236,14 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[domain::Routine], loading: b
         }
         Dialog::DeleteRoutine(id) => {
             let id = *id;
+            let name = routines
+                .iter()
+                .find(|r| r.id == id)
+                .map(|r| r.name.clone())
+                .unwrap_or_default();
             return common::view_delete_confirmation_dialog(
                 "routine",
+                &span![&name],
                 &ev(Ev::Click, move |_| Msg::DeleteRoutine(id)),
                 &ev(Ev::Click, |_| Msg::CloseRoutineDialog),
                 loading,
@@ -250,7 +256,7 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[domain::Routine], loading: b
     let save_disabled = loading || not(form.name.valid());
     common::view_dialog(
         "primary",
-        title,
+        span![title],
         nodes![
             div![
                 C!["field"],

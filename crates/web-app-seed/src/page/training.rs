@@ -263,11 +263,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         let training_sessions_interval: domain::Interval =
             data_model.training_sessions_date_range().into();
         div![
-            view_training_sessions_dialog(
-                &data_model.routines_sorted_by_last_use(|r: &domain::Routine| !r.archived),
-                &model.dialog,
-                model.loading
-            ),
+            view_training_sessions_dialog(&model.dialog, model.loading, data_model),
             div![
                 C!["fixed-grid"],
                 C!["has-3-cols"],
@@ -390,9 +386,9 @@ pub fn view_calendar<Ms>(
 }
 
 fn view_training_sessions_dialog(
-    routines: &[domain::Routine],
     dialog: &Dialog,
     loading: bool,
+    data_model: &data::Model,
 ) -> Node<Msg> {
     let title;
     let form;
@@ -403,12 +399,18 @@ fn view_training_sessions_dialog(
             form = f;
             date_disabled = false;
         }
-        Dialog::DeleteTrainingSession(date) => {
+        Dialog::DeleteTrainingSession(id) => {
             #[allow(clippy::clone_on_copy)]
-            let date = date.clone();
+            let id = id.clone();
+            let date = data_model
+                .training_sessions
+                .get(&id)
+                .map(|t| t.date)
+                .unwrap_or_default();
             return common::view_delete_confirmation_dialog(
                 "training session",
-                &ev(Ev::Click, move |_| Msg::DeleteTrainingSession(date)),
+                &span!["of ", common::no_wrap(&date.to_string())],
+                &ev(Ev::Click, move |_| Msg::DeleteTrainingSession(id)),
                 &ev(Ev::Click, |_| Msg::CloseTrainingSessionDialog),
                 loading,
             );
@@ -422,7 +424,7 @@ fn view_training_sessions_dialog(
     let save_disabled = loading || !date_valid;
     common::view_dialog(
         "primary",
-        title,
+        span![title],
         nodes![
             div![
                 C!["field"],
@@ -457,7 +459,8 @@ fn view_training_sessions_dialog(
                                     At::Value => 0,
                                 ]
                             ],
-                            routines
+                            &data_model
+                                .routines_sorted_by_last_use(|r: &domain::Routine| !r.archived)
                                 .iter()
                                 .map(|r| {
                                     option![
@@ -653,7 +656,7 @@ pub fn view_table<Ms: 'static>(
                             attrs! {
                                 At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
                             },
-                            span![style! {St::WhiteSpace => "nowrap" }, t.date.to_string()]
+                            common::no_wrap(&t.date.to_string())
                         ]],
                         td![
                             if let Some(routine_id) = t.routine_id {

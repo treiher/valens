@@ -2101,7 +2101,7 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                                         attrs! {
                                             At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
                                         },
-                                        span![style! {St::WhiteSpace => "nowrap" }, &e.exercise_name]
+                                        common::no_wrap(&e.exercise_name)
                                     ]
                                 ]
                             })
@@ -2120,9 +2120,8 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                                     .map(|e| {
                                         div![
                                             C!["has-text-centered"],
-                                            span![
-                                                style! {St::WhiteSpace => "nowrap" },
-                                                common::format_set(
+                                            common::no_wrap(
+                                                &common::format_set(
                                                     e.reps.parsed,
                                                     e.time.parsed,
                                                     data_model.settings.show_tut,
@@ -2130,7 +2129,7 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                                                     e.rpe.parsed,
                                                     data_model.settings.show_rpe,
                                                 )
-                                            ]
+                                            )
                                         ]
                                     })
                                     .collect::<Vec<_>>()

@@ -261,6 +261,7 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
             let date = date.clone();
             return common::view_delete_confirmation_dialog(
                 "body weight entry",
+                &span!["of ", common::no_wrap(&date.to_string())],
                 &ev(Ev::Click, move |_| Msg::DeleteBodyWeight(date)),
                 &ev(Ev::Click, |_| Msg::CloseBodyWeightDialog),
                 loading,
@@ -275,7 +276,7 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     let save_disabled = loading || !date_valid || form.weight.1.is_none();
     common::view_dialog(
         "primary",
-        title,
+        span![title],
         nodes![
             div![
                 C!["field"],
@@ -469,10 +470,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     let date = bw.date;
                     let avg_bw = data_model.avg_body_weight.get(&bw.date);
                     tr![
-                        td![span![
-                            style! {St::WhiteSpace => "nowrap" },
-                            date.to_string(),
-                        ]],
+                        td![common::no_wrap(&date.to_string())],
                         td![format!("{:.1}", bw.weight)],
                         td![common::value_or_dash(avg_bw.map(|bw| bw.weight))],
                         td![if let Some(value) =

@@ -314,7 +314,7 @@ fn view_filter_dialog(
 ) -> Node<Msg> {
     common::view_dialog(
         "primary",
-        "Filter exercises",
+        span!["Filter exercises"],
         nodes![
             div![
                 C!["block"],

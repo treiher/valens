@@ -785,7 +785,7 @@ fn view_dialog(dialog: &Dialog, loading: bool, data_model: &data::Model) -> Node
     match dialog {
         Dialog::SelectExercise(_, exercise_list_model) => common::view_dialog(
             "primary",
-            "Select exercise",
+            span!["Select exercise"],
             component::exercise_list::view(exercise_list_model, loading, data_model)
                 .map_msg(Msg::ExerciseList),
             &ev(Ev::Click, |_| Msg::CloseDialog),
@@ -793,8 +793,14 @@ fn view_dialog(dialog: &Dialog, loading: bool, data_model: &data::Model) -> Node
         Dialog::DeleteTrainingSession(id) => {
             #[allow(clippy::clone_on_copy)]
             let id = id.clone();
+            let date = data_model
+                .training_sessions
+                .get(&id)
+                .map(|t| t.date)
+                .unwrap_or_default();
             common::view_delete_confirmation_dialog(
-                "training_session",
+                "training session",
+                &span!["of ", common::no_wrap(&date.to_string())],
                 &ev(Ev::Click, move |_| Msg::DeleteTrainingSession(id)),
                 &ev(Ev::Click, |_| Msg::CloseDialog),
                 loading,

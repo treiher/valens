@@ -711,7 +711,7 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
 fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
     common::view_dialog(
         "primary",
-        "Settings",
+        span!["Settings"],
         nodes![
             p![
                 h1![C!["subtitle"], "Beep volume"],

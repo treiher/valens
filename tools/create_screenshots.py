@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from time import sleep
 
 from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionBuilder
 
 from tests.e2e.const import PORT
 from tests.e2e.io import wait_for_output
@@ -60,6 +61,11 @@ def take_screenshots() -> None:
     login_page.load()
     login_page.login(username)
 
+    # Prevent the pointer from hovering over an element
+    action = ActionBuilder(driver)
+    action.pointer_action.move_to_location(0, 100)
+    action.perform()
+
     home_page = HomePage(driver, username)
     home_page.load()
     sleep(0.5)
@@ -84,6 +90,7 @@ def take_screenshots() -> None:
     body_fat_page = BodyFatPage(driver)
     body_fat_page.load()
     body_fat_page.click_plot_6m()
+    sleep(0.5)
 
     save_screenshot("body_fat")
 

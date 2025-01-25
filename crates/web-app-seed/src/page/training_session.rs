@@ -190,18 +190,24 @@ fn init_form(training_session: Option<&domain::TrainingSession>, data_model: &da
                             parsed: some_or_default(*rpe),
                             orig: rpe.map(|v| v.to_string()).unwrap_or_default(),
                         },
-                        target_reps: *target_reps,
-                        target_time: *target_time,
-                        target_weight: *target_weight,
-                        target_rpe: *target_rpe,
-                        prev_reps,
-                        prev_time,
-                        prev_weight,
-                        prev_rpe,
-                        prev_set_reps,
-                        prev_set_time,
-                        prev_set_weight,
-                        prev_set_rpe,
+                        target: Set {
+                            reps: *target_reps,
+                            time: *target_time,
+                            weight: *target_weight,
+                            rpe: *target_rpe,
+                        },
+                        prev: Set {
+                            reps: prev_reps,
+                            time: prev_time,
+                            weight: prev_weight,
+                            rpe: prev_rpe,
+                        },
+                        prev_set: Set {
+                            reps: prev_set_reps,
+                            time: prev_set_time,
+                            weight: prev_set_weight,
+                            rpe: prev_set_rpe,
+                        },
                         automatic: *automatic,
                     });
                     if target_time.is_some() && target_reps.is_none() {
@@ -349,19 +355,19 @@ struct ExerciseForm {
     time: common::InputField<u32>,
     weight: common::InputField<f32>,
     rpe: common::InputField<f32>,
-    target_reps: Option<u32>,
-    target_time: Option<u32>,
-    target_weight: Option<f32>,
-    target_rpe: Option<f32>,
-    prev_reps: Option<u32>,
-    prev_time: Option<u32>,
-    prev_weight: Option<f32>,
-    prev_rpe: Option<f32>,
-    prev_set_reps: Option<u32>,
-    prev_set_time: Option<u32>,
-    prev_set_weight: Option<f32>,
-    prev_set_rpe: Option<f32>,
+    target: Set,
+    prev: Set,
+    prev_set: Set,
     automatic: bool,
+}
+
+#[derive(Clone, Copy, Default)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
+struct Set {
+    reps: Option<u32>,
+    time: Option<u32>,
+    weight: Option<f32>,
+    rpe: Option<f32>,
 }
 
 struct Guide {
@@ -854,30 +860,27 @@ pub fn update(
                     time,
                     weight,
                     rpe,
-                    target_reps,
-                    target_time,
-                    target_weight,
-                    target_rpe,
+                    target,
                     ..
                 } = &mut exercises[exercise_idx];
                 *reps = common::InputField {
-                    input: target_reps.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*target_reps),
+                    input: target.reps.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(target.reps),
                     orig: reps.orig.clone(),
                 };
                 *time = common::InputField {
-                    input: target_time.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*target_time),
+                    input: target.time.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(target.time),
                     orig: time.orig.clone(),
                 };
                 *weight = common::InputField {
-                    input: target_weight.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*target_weight),
+                    input: target.weight.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(target.weight),
                     orig: weight.orig.clone(),
                 };
                 *rpe = common::InputField {
-                    input: target_rpe.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*target_rpe),
+                    input: target.rpe.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(target.rpe),
                     orig: rpe.orig.clone(),
                 };
             }
@@ -889,30 +892,27 @@ pub fn update(
                     time,
                     weight,
                     rpe,
-                    prev_reps,
-                    prev_time,
-                    prev_weight,
-                    prev_rpe,
+                    prev,
                     ..
                 } = &mut exercises[exercise_idx];
                 *reps = common::InputField {
-                    input: prev_reps.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_reps),
+                    input: prev.reps.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev.reps),
                     orig: reps.orig.clone(),
                 };
                 *time = common::InputField {
-                    input: prev_time.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_time),
+                    input: prev.time.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev.time),
                     orig: time.orig.clone(),
                 };
                 *weight = common::InputField {
-                    input: prev_weight.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_weight),
+                    input: prev.weight.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev.weight),
                     orig: weight.orig.clone(),
                 };
                 *rpe = common::InputField {
-                    input: prev_rpe.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_rpe),
+                    input: prev.rpe.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev.rpe),
                     orig: rpe.orig.clone(),
                 };
             }
@@ -924,30 +924,27 @@ pub fn update(
                     time,
                     weight,
                     rpe,
-                    prev_set_reps,
-                    prev_set_time,
-                    prev_set_weight,
-                    prev_set_rpe,
+                    prev_set,
                     ..
                 } = &mut exercises[exercise_idx];
                 *reps = common::InputField {
-                    input: prev_set_reps.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_set_reps),
+                    input: prev_set.reps.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev_set.reps),
                     orig: reps.orig.clone(),
                 };
                 *time = common::InputField {
-                    input: prev_set_time.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_set_time),
+                    input: prev_set.time.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev_set.time),
                     orig: time.orig.clone(),
                 };
                 *weight = common::InputField {
-                    input: prev_set_weight.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_set_weight),
+                    input: prev_set.weight.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev_set.weight),
                     orig: weight.orig.clone(),
                 };
                 *rpe = common::InputField {
-                    input: prev_set_rpe.map(|v| v.to_string()).unwrap_or_default(),
-                    parsed: some_or_default(*prev_set_rpe),
+                    input: prev_set.rpe.map(|v| v.to_string()).unwrap_or_default(),
+                    parsed: some_or_default(prev_set.rpe),
                     orig: rpe.orig.clone(),
                 };
             }
@@ -1008,10 +1005,10 @@ pub fn update(
                         let exercise = &exercises[0];
                         if not(show_guide_timer(exercise)) {
                             guide.timer.reset();
-                        } else if let Some(target_time) = exercise.target_time {
+                        } else if let Some(target_time) = exercise.target.time {
                             if let Some(time) = guide.timer.time.1 {
                                 if time <= 0 {
-                                    if let Some(target_reps) = exercise.target_reps {
+                                    if let Some(target_reps) = exercise.target.reps {
                                         orders.send_msg(Msg::RepsChanged(
                                             guide.element_idx,
                                             0,
@@ -1147,10 +1144,10 @@ pub fn update(
                                     time: e.time.parsed.filter(|time| *time > 0),
                                     weight: e.weight.parsed.filter(|weight| *weight > 0.0),
                                     rpe: e.rpe.parsed.filter(|rpe| *rpe > 0.0),
-                                    target_reps: e.target_reps,
-                                    target_time: e.target_time,
-                                    target_weight: e.target_weight,
-                                    target_rpe: e.target_rpe,
+                                    target_reps: e.target.reps,
+                                    target_time: e.target.time,
+                                    target_weight: e.target.weight,
+                                    target_rpe: e.target.rpe,
                                     automatic: e.automatic,
                                 })
                                 .collect(),
@@ -1289,6 +1286,8 @@ pub fn update(
                 element_idx,
                 exercise_idx,
                 new_exercise_id,
+                Set::default(),
+                false,
                 &data_model.exercises,
             );
             orders
@@ -1469,8 +1468,8 @@ fn update_guide(model: &mut Model) {
                 if not(show_guide_timer(exercise)) {
                     return;
                 }
-                if let Some(target_time) = exercise.target_time {
-                    let target_time = if let Some(target_reps) = exercise.target_reps {
+                if let Some(target_time) = exercise.target.time {
+                    let target_time = if let Some(target_reps) = exercise.target.reps {
                         target_time * target_reps
                     } else {
                         target_time
@@ -1515,8 +1514,8 @@ fn update_metronome(model: &Model, orders: &mut impl Orders<Msg>, automatic_metr
         match &model.form.elements[guide.element_idx] {
             FormElement::Set { exercises } => {
                 let exercise = &exercises[0];
-                if exercise.target_reps.is_some() {
-                    if let Some(target_time) = exercise.target_time {
+                if exercise.target.reps.is_some() {
+                    if let Some(target_time) = exercise.target.time {
                         orders.send_msg(Msg::StartMetronome(target_time));
                     }
                 }
@@ -1572,22 +1571,22 @@ fn show_element_notification(
                     let exercise = &exercises[0];
                     title = exercise.exercise_name.clone();
                     let mut previously = common::format_set(
-                        exercise.prev_reps,
-                        exercise.prev_time,
+                        exercise.prev.reps,
+                        exercise.prev.time,
                         show_tut,
-                        exercise.prev_weight,
-                        exercise.prev_rpe,
+                        exercise.prev.weight,
+                        exercise.prev.rpe,
                         show_rpe,
                     );
                     if not(previously.is_empty()) {
                         previously = format!("Previously:\n{previously}\n");
                     }
                     let mut target = common::format_set(
-                        exercise.target_reps,
-                        exercise.target_time,
+                        exercise.target.reps,
+                        exercise.target.time,
                         show_tut,
-                        exercise.target_weight,
-                        exercise.target_rpe,
+                        exercise.target.weight,
+                        exercise.target.rpe,
                         show_rpe,
                     );
                     if not(target.is_empty()) {
@@ -1749,18 +1748,9 @@ fn add_set(elements: &mut Vec<FormElement>, element_idx: usize) {
                         time: common::InputField::default(),
                         weight: common::InputField::default(),
                         rpe: common::InputField::default(),
-                        target_reps: e.target_reps,
-                        target_time: e.target_time,
-                        target_weight: e.target_weight,
-                        target_rpe: e.target_rpe,
-                        prev_reps: None,
-                        prev_time: None,
-                        prev_weight: None,
-                        prev_rpe: None,
-                        prev_set_reps: None,
-                        prev_set_time: None,
-                        prev_set_weight: None,
-                        prev_set_rpe: None,
+                        target: e.target,
+                        prev: Set::default(),
+                        prev_set: Set::default(),
                         automatic: e.automatic,
                     })
                     .collect::<Vec<_>>(),
@@ -1782,6 +1772,8 @@ fn add_same_exercise(
                 element_idx,
                 exercise_idx,
                 exercise.exercise_id,
+                exercise.target,
+                exercise.automatic,
                 data_exercises,
             );
         }
@@ -1793,6 +1785,8 @@ fn add_exercise(
     element_idx: usize,
     exercise_idx: usize,
     new_exercise_id: u32,
+    target: Set,
+    automatic: bool,
     data_exercises: &BTreeMap<u32, domain::Exercise>,
 ) {
     let mut current_exercise_ids = vec![];
@@ -1816,19 +1810,10 @@ fn add_exercise(
                     time: common::InputField::default(),
                     weight: common::InputField::default(),
                     rpe: common::InputField::default(),
-                    target_reps: None,
-                    target_time: None,
-                    target_weight: None,
-                    target_rpe: None,
-                    prev_reps: None,
-                    prev_time: None,
-                    prev_weight: None,
-                    prev_rpe: None,
-                    prev_set_reps: None,
-                    prev_set_time: None,
-                    prev_set_weight: None,
-                    prev_set_rpe: None,
-                    automatic: false,
+                    target,
+                    prev: Set::default(),
+                    prev_set: Set::default(),
+                    automatic,
                 },
             );
         }
@@ -1892,18 +1877,9 @@ fn append_exercise(
             time: common::InputField::default(),
             weight: common::InputField::default(),
             rpe: common::InputField::default(),
-            target_reps: None,
-            target_time: None,
-            target_weight: None,
-            target_rpe: None,
-            prev_reps: None,
-            prev_time: None,
-            prev_weight: None,
-            prev_rpe: None,
-            prev_set_reps: None,
-            prev_set_time: None,
-            prev_set_weight: None,
-            prev_set_rpe: None,
+            target: Set::default(),
+            prev: Set::default(),
+            prev_set: Set::default(),
             automatic: false,
         }],
     });
@@ -2387,26 +2363,26 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                         },
                                         {
                                             let target = common::format_set(
-                                                s.target_reps,
-                                                s.target_time,
+                                                s.target.reps,
+                                                s.target.time,
                                                 data_model.settings.show_tut,
-                                                s.target_weight,
-                                                s.target_rpe,
+                                                s.target.weight,
+                                                s.target.rpe,
                                                 data_model.settings.show_rpe
                                             );
                                             let previous = common::format_set(
-                                                s.prev_reps,
-                                                s.prev_time,
+                                                s.prev.reps,
+                                                s.prev.time,
                                                 data_model.settings.show_tut,
-                                                s.prev_weight,
-                                                s.prev_rpe,
+                                                s.prev.weight,
+                                                s.prev.rpe,
                                                 data_model.settings.show_rpe);
                                             let previous_set = common::format_set(
-                                                s.prev_set_reps,
-                                                s.prev_set_time,
+                                                s.prev_set.reps,
+                                                s.prev_set.time,
                                                 data_model.settings.show_tut,
-                                                s.prev_set_weight,
-                                                s.prev_set_rpe,
+                                                s.prev_set.weight,
+                                                s.prev_set.rpe,
                                                 data_model.settings.show_rpe);
                                             p![
                                                 IF![not(target.is_empty()) =>
@@ -2950,7 +2926,7 @@ fn some_or_default<T: Default>(value: Option<T>) -> Option<T> {
 }
 
 fn show_guide_timer(exercise: &ExerciseForm) -> bool {
-    exercise.target_time.is_some() && (exercise.target_reps.is_none() || exercise.automatic)
+    exercise.target.time.is_some() && (exercise.target.reps.is_none() || exercise.automatic)
 }
 
 #[cfg(test)]
@@ -4000,7 +3976,7 @@ mod tests {
             vec![
                 set(vec![exercise(0, 0)]),
                 rest(0),
-                set(vec![exercise(1, 0), exercise(0, 0)]),
+                set(vec![exercise(1, 0), exercise(1, 0)]),
                 rest(1),
                 set(vec![exercise(2, 1)]),
                 rest(2),
@@ -4042,9 +4018,9 @@ mod tests {
                 rest(2),
                 set(vec![exercise(3, 1)]),
                 rest(3),
-                set(vec![exercise(4, 0), exercise(0, 0)]),
+                set(vec![exercise(4, 0), exercise(4, 0)]),
                 rest(4),
-                set(vec![exercise(5, 0), exercise(0, 0)]),
+                set(vec![exercise(5, 0), exercise(4, 0)]),
                 rest(5),
             ]
         );
@@ -4080,7 +4056,7 @@ mod tests {
                 rest(3),
                 set(vec![exercise(4, 0)]),
                 rest(4),
-                set(vec![exercise(5, 0), exercise(0, 0)]),
+                set(vec![exercise(5, 0), exercise(5, 0)]),
                 rest(5),
             ]
         );
@@ -4102,7 +4078,7 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 0, 0, 2, &exercises(2));
+        add_exercise(&mut elements, 0, 0, 2, Set::default(), false, &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -4138,7 +4114,7 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 2, 0, 2, &exercises(2));
+        add_exercise(&mut elements, 2, 0, 2, Set::default(), false, &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -4174,7 +4150,7 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 8, 0, 2, &exercises(2));
+        add_exercise(&mut elements, 8, 0, 2, Set::default(), false, &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -4210,7 +4186,15 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 10, 0, 2, &exercises(2));
+        add_exercise(
+            &mut elements,
+            10,
+            0,
+            2,
+            Set::default(),
+            false,
+            &exercises(2),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4246,7 +4230,7 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 0, 0, 3, &exercises(3));
+        add_exercise(&mut elements, 0, 0, 3, Set::default(), false, &exercises(3));
         assert_eq!(
             elements,
             vec![
@@ -4278,7 +4262,7 @@ mod tests {
             set(vec![exercise(6, 0), exercise(7, 2)]),
             rest(3),
         ];
-        add_exercise(&mut elements, 0, 0, 3, &exercises(3));
+        add_exercise(&mut elements, 0, 0, 3, Set::default(), false, &exercises(3));
         assert_eq!(
             elements,
             vec![
@@ -4310,7 +4294,7 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 4, 1, 3, &exercises(3));
+        add_exercise(&mut elements, 4, 1, 3, Set::default(), false, &exercises(3));
         assert_eq!(
             elements,
             vec![
@@ -4338,7 +4322,7 @@ mod tests {
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_exercise(&mut elements, 1, 0, 2, &exercises(2));
+        add_exercise(&mut elements, 1, 0, 2, Set::default(), false, &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -4358,7 +4342,7 @@ mod tests {
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_exercise(&mut elements, 4, 0, 2, &exercises(2));
+        add_exercise(&mut elements, 4, 0, 2, Set::default(), false, &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -4378,7 +4362,7 @@ mod tests {
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_exercise(&mut elements, 0, 1, 2, &exercises(2));
+        add_exercise(&mut elements, 0, 1, 2, Set::default(), false, &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -5045,18 +5029,14 @@ mod tests {
             time: InputField::default(),
             weight: InputField::default(),
             rpe: InputField::default(),
-            target_reps: if entry_id > 0 { Some(entry_id) } else { None },
-            target_time: None,
-            target_weight: None,
-            target_rpe: None,
-            prev_reps: None,
-            prev_time: None,
-            prev_weight: None,
-            prev_rpe: None,
-            prev_set_reps: None,
-            prev_set_time: None,
-            prev_set_weight: None,
-            prev_set_rpe: None,
+            target: Set {
+                reps: if entry_id > 0 { Some(entry_id) } else { None },
+                time: None,
+                weight: None,
+                rpe: None,
+            },
+            prev: Set::default(),
+            prev_set: Set::default(),
             automatic: false,
         }
     }

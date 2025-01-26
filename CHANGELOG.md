@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2025-01-26
 
 ### Added
 
@@ -23,13 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Background color of sections on routine page and training session page
+- Default interval on exercise, body weight, body fat and menstrual cycle page to three months
 - Use term RPE instead of intensity
 - Improve display of charts when all values are zero
-- Background color of sections on routine page and training session page
 - Omit charts that contain no data
 - Hide empty columns in training tables
 - Consider sets without RPE value to be hard sets
-- Default interval on exercise, body weight, body fat and menstrual cycle page to three months
 - Calculate average body weight even with less than nine values
 - Use 7 day centered moving total for set volume chart on training page
 - Use 7 day centered moving average for RPE chart on training page
@@ -42,10 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Reject trainings, body weight, body fat and period entries in the future
 - Order of training sessions on training page
 - Caching to improve startup time
 - Set volume of training sessions by ignoring empty entries
+- Reject trainings, body weight, body fat and period entries in the future
 
 ## [0.4.1] - 2024-05-20
 
@@ -152,7 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of web app
 
-[Unreleased]: https://github.com/treiher/valens/compare/v0.4.1...HEAD
+[0.5.0]: https://github.com/treiher/valens/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/treiher/valens/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/treiher/valens/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/treiher/valens/compare/v0.2.0...v0.3.0

@@ -150,4 +150,4 @@ clean:
 	rm -rf valens.egg-info
 	rm -rf valens/frontend
 	cargo clean
-	trunk --config $(FRONTEND_CRATE) clean
+	cd $(FRONTEND_CRATE) && trunk clean

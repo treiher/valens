@@ -556,14 +556,7 @@ pub fn view_chart<Ms>(
 ) -> Node<Ms> {
     match chart {
         Ok(result) => match result {
-            None => if no_data_label {
-                div![
-                    C!["is-size-7"],
-                    C!["block"],
-                    C!["has-text-centered"],
-                    C!["mb-4"],
-                    "No data.".to_string(),
-                ] } else { empty![] },
+            None => if no_data_label { view_no_data() } else { empty![] },
             Some(value) => div![
                 C!["container"],
                 C!["has-text-centered"],
@@ -599,6 +592,17 @@ pub fn view_chart<Ms>(
         },
         Err(err) => div![raw![&format!("failed to plot chart: {err}")]],
     }
+}
+
+pub fn view_no_data<Ms>() -> Node<Ms> {
+    div![
+        C!["is-size-7"],
+        C!["block"],
+        C!["has-text-centered"],
+        C!["has-text-grey-light"],
+        C!["mb-6"],
+        "No data.".to_string(),
+    ]
 }
 
 pub fn view_sets_per_muscle<Ms>(stimulus_per_muscle: &[(domain::Muscle, u32)]) -> Vec<Node<Ms>>

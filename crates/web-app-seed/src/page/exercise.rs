@@ -266,34 +266,44 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 ]]
             } else {
                 nodes![
-                    common::view_interval_buttons(
-                        &model.interval,
-                        &exercise_interval,
-                        Msg::ChangeInterval
-                    ),
-                    view_charts(
-                        &training_sessions,
-                        &model.interval,
-                        data_model.theme(),
-                        data_model.settings.show_rpe,
-                        data_model.settings.show_tut,
-                    ),
-                    view_calendar(&training_sessions, &model.interval),
-                    training::view_table(
-                        &training_sessions,
-                        &data_model.routines,
-                        &data_model.base_url,
-                        Msg::ShowDeleteTrainingSessionDialog,
-                        data_model.settings.show_rpe,
-                        data_model.settings.show_tut,
-                    ),
-                    view_sets(
-                        &training_sessions,
-                        &data_model.routines,
-                        &data_model.base_url,
-                        data_model.settings.show_rpe,
-                        data_model.settings.show_tut,
-                    ),
+                    if training_sessions.is_empty() {
+                        nodes![if data_model.loading_training_sessions {
+                            common::view_loading()
+                        } else {
+                            common::view_no_data()
+                        }]
+                    } else {
+                        nodes![
+                            common::view_interval_buttons(
+                                &model.interval,
+                                &exercise_interval,
+                                Msg::ChangeInterval
+                            ),
+                            view_charts(
+                                &training_sessions,
+                                &model.interval,
+                                data_model.theme(),
+                                data_model.settings.show_rpe,
+                                data_model.settings.show_tut,
+                            ),
+                            view_calendar(&training_sessions, &model.interval),
+                            training::view_table(
+                                &training_sessions,
+                                &data_model.routines,
+                                &data_model.base_url,
+                                Msg::ShowDeleteTrainingSessionDialog,
+                                data_model.settings.show_rpe,
+                                data_model.settings.show_tut,
+                            ),
+                            view_sets(
+                                &training_sessions,
+                                &data_model.routines,
+                                &data_model.base_url,
+                                data_model.settings.show_rpe,
+                                data_model.settings.show_tut,
+                            ),
+                        ]
+                    },
                     view_dialog(&model.dialog, model.loading, data_model),
                     common::view_fab("edit", |_| Msg::EditExercise),
                 ]

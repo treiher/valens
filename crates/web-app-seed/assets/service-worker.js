@@ -58,8 +58,6 @@ function addResourcesToCache() {
     caches.open(CACHE_NAME).then((cache) => {
         return cache.addAll([
             "app",
-            "valens-frontend_bg.wasm",
-            "valens-frontend.js",
             "fonts/Roboto-Bold.woff",
             "fonts/Roboto-BoldItalic.woff",
             "fonts/Roboto-Italic.woff",
@@ -74,6 +72,8 @@ function addResourcesToCache() {
             "index.css",
             "manifest.json",
             "service-worker.js",
+            "valens-web-app-seed.js",
+            "valens-web-app-seed_bg.wasm",
         ]);
     })
 };

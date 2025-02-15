@@ -15,7 +15,7 @@ import tests.utils
 from valens import app, models
 from valens.config import create_config_file
 
-from .const import PORT, VALENS
+from .const import HOST, PORT, VALENS
 from .io import wait_for_output
 from .page import (
     BodyFatPage,
@@ -107,6 +107,44 @@ def test_login(driver: webdriver.Chrome) -> None:
     assert login_page.users() == USERNAMES
 
     login_page.login(USERNAMES[0])
+
+
+def test_cache(driver: webdriver.Chrome) -> None:
+    login_page = LoginPage(driver)
+    login_page.load()
+
+    cached_files = [
+        entry["requestURL"].split("/")[-1]
+        for cache in driver.execute_cdp_cmd(  # type: ignore[no-untyped-call]
+            "CacheStorage.requestCacheNames", {"securityOrigin": f"http://{HOST}:{PORT}"}
+        )["caches"]
+        for entry in driver.execute_cdp_cmd(  # type: ignore[no-untyped-call]
+            "CacheStorage.requestEntries",
+            {"cacheId": cache["cacheId"]},
+        )["cacheDataEntries"]
+    ]
+
+    expected_files = [
+        "app",
+        "Roboto-Bold.woff",
+        "Roboto-BoldItalic.woff",
+        "Roboto-Italic.woff",
+        "Roboto-Regular.woff",
+        "fa-solid-900.ttf",
+        "fa-solid-900.woff2",
+        "android-chrome-192x192.png",
+        "android-chrome-512x512.png",
+        "apple-touch-icon.png",
+        "favicon-16x16.png",
+        "favicon-32x32.png",
+        "index.css",
+        "manifest.json",
+        "service-worker.js",
+        "valens-web-app-seed.js",
+        "valens-web-app-seed_bg.wasm",
+    ]
+
+    assert cached_files == expected_files
 
 
 def test_home_links(driver: webdriver.Chrome) -> None:

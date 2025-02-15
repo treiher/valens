@@ -123,8 +123,9 @@ valens/frontend/%: $(FRONTEND_CRATE)/dist/%
 	rm -rf $@
 	cp -r $< $@
 
-$(addprefix $(FRONTEND_CRATE)/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find $(FRONTEND_CRATE)/src/ -type f -name '*.rs')
+$(addprefix $(FRONTEND_CRATE)/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find $(FRONTEND_CRATE)/{assets,src}/ -type f)
 	cd $(FRONTEND_CRATE) && trunk build --release --filehash false
+
 .PHONY: run run_frontend run_backend
 
 run:

@@ -4,6 +4,7 @@
 use chrono::{DateTime, Utc};
 
 pub mod chart;
+pub mod log;
 pub mod service_worker;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]

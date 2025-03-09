@@ -1,5 +1,9 @@
+use std::collections::VecDeque;
+
+use log::Level;
 use seed::{prelude::*, *};
 use valens_domain as domain;
+use valens_web_app as web_app;
 
 use crate::{common, data};
 
@@ -191,7 +195,9 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             Node::Empty
         },
         view_users(data_model),
-        view_versions(data_model)
+        view_versions(data_model),
+        view_log(),
+        common::view_fab("user-plus", |_| Msg::ShowAddUserDialog)
     ]
 }
 
@@ -200,7 +206,6 @@ fn view_users(data_model: &data::Model) -> Vec<Node<Msg>> {
         div![
             C!["container"],
             C!["has-text-centered"],
-            C!["mx-3"],
             common::view_title(&span!["Users"], 3),
         ],
         div![
@@ -243,14 +248,6 @@ fn view_users(data_model: &data::Model) -> Vec<Node<Msg>> {
                     })
                     .collect::<Vec<_>>(),],
             ]
-        ],
-        button![
-            C!["button"],
-            C!["is-fab-navbar"],
-            C!["is-medium"],
-            C!["is-link"],
-            ev(Ev::Click, |_| Msg::ShowAddUserDialog),
-            span![C!["icon"], i![C!["fas fa-user-plus"]]]
         ],
     ]
 }
@@ -373,7 +370,7 @@ fn view_versions(data_model: &data::Model) -> Node<Msg> {
     div![
         C!["container"],
         C!["mt-6"],
-        C!["mx-3"],
+        C!["px-3"],
         common::view_title(&span!["Version"], 3),
         common::view_versions(&data_model.version),
         IF![&data_model.version != env!("VALENS_VERSION") =>
@@ -385,5 +382,50 @@ fn view_versions(data_model: &data::Model) -> Node<Msg> {
             "Update"
             ]
         ],
+    ]
+}
+
+fn view_log() -> Node<Msg> {
+    let entries = match *web_app::log::LOG.lock().unwrap() {
+        Some(ref log) => match log.lock().unwrap().read_entries() {
+            Ok(entries) => entries,
+            Err(err) => VecDeque::from([web_app::log::Entry {
+                time: String::new(),
+                level: Level::Error,
+                message: err.to_string(),
+            }]),
+        },
+        None => VecDeque::from([web_app::log::Entry {
+            time: String::new(),
+            level: Level::Error,
+            message: "Log storage is uninitialized".to_string(),
+        }]),
+    };
+    div![
+        C!["container"],
+        C!["mt-6"],
+        C!["px-3"],
+        common::view_title(&span!["Log"], 3),
+        if entries.is_empty() {
+            common::view_no_data()
+        } else {
+            div![entries.iter().map(|e| div![
+                C!["message"],
+                C!["my-1"],
+                C![match e.level {
+                    Level::Error => "is-danger",
+                    Level::Warn => "is-warning",
+                    Level::Info => "is-primary",
+                    Level::Debug => "is-info",
+                    Level::Trace => "is-dark",
+                }],
+                div![
+                    C!["message-body"],
+                    C!["p-2"],
+                    p![C!["is-size-7"], &e.time],
+                    p![&e.message]
+                ],
+            ])]
+        }
     ]
 }

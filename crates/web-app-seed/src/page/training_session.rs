@@ -4,7 +4,7 @@ use std::{
 };
 
 use chrono::{prelude::*, Duration};
-use gloo_console::error;
+use log::error;
 use seed::{prelude::*, *};
 use valens_domain as domain;
 use valens_web_app as web_app;
@@ -48,7 +48,7 @@ pub fn init(
     let audio_context = match web_sys::AudioContext::new() {
         Ok(ctx) => Some(ctx),
         Err(err) => {
-            error!("failed to create audio context:", err);
+            error!("failed to create audio context: {err:?}");
             None
         }
     };
@@ -509,7 +509,7 @@ impl Metronome {
                         0.05,
                         self.beep_volume,
                     ) {
-                        error!("failed to play beep:", err);
+                        error!("failed to play beep: {err:?}");
                     }
                     self.next_beat_time += f64::from(self.interval);
                     self.beat_number += 1;
@@ -601,7 +601,7 @@ impl Timer {
                         0.1,
                         self.beep_volume,
                     ) {
-                        error!("failed to play beep:", err);
+                        error!("failed to play beep: {err:?}");
                     }
                     if let Err(err) = play_beep(
                         audio_context,
@@ -613,7 +613,7 @@ impl Timer {
                         0.1,
                         self.beep_volume,
                     ) {
-                        error!("failed to play beep:", err);
+                        error!("failed to play beep: {err:?}");
                     }
                 }
                 if (0..=2).contains(&time) && Some(time) != self.time.1 {
@@ -630,7 +630,7 @@ impl Timer {
                         if time == 0 { 0.5 } else { 0.15 },
                         self.beep_volume,
                     ) {
-                        error!("failed to play beep:", err);
+                        error!("failed to play beep: {err:?}");
                     }
                 }
             }
@@ -1539,7 +1539,7 @@ fn show_notification(title: &str, body: Option<String>) {
             options,
         })
     {
-        error!("failed to show notification:", err);
+        error!("failed to show notification: {err}");
     }
 }
 
@@ -1547,7 +1547,7 @@ fn close_notifications() {
     if let Err(err) =
         web_app::service_worker::post(&web_app::service_worker::Message::CloseNotifications)
     {
-        error!("failed to close notification:", err);
+        error!("failed to close notification: {err}");
     }
 }
 

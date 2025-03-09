@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Log view
+
 ### Changed
 
 - Omit calendar and tables that contain no data on exercise page

@@ -11,7 +11,7 @@ valens-web-app = { path = "../web-app" }
 valens-storage = { path = "../storage" }
 
 chrono = { workspace = true, default-features = false, features = ["serde"] }
-gloo-console = "0.3.0"
+log = { workspace = true }
 plotters = { workspace = true, default-features = false }
 seed = { path = "../../third-party/seed", features = ["routing"] }
 serde = { workspace = true }

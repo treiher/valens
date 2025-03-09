@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use chrono::{prelude::*, Duration};
-use gloo_console::{debug, error};
+use log::error;
 use seed::{
     app::{subs, Orders},
     button, div, nodes, p,
@@ -1052,7 +1052,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.settings = settings;
         }
         Msg::SettingsRead(Err(message)) => {
-            debug!("Failed to read settings: ".to_owned() + &message);
+            error!("failed to read settings: {message}");
         }
         Msg::WriteSettings => {
             let settings = model.settings.clone();
@@ -1063,7 +1063,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::SettingsWritten(result) => {
             if let Err(message) = result {
-                error!("Failed to write settings: ".to_owned() + &message);
+                error!("failed to write settings: {message}");
             }
         }
 
@@ -1077,7 +1077,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.ongoing_training_session = ongoing_training_session;
         }
         Msg::OngoingTrainingSessionRead(Err(message)) => {
-            debug!("Failed to read ongoing training session: ".to_owned() + &message);
+            error!("failed to read ongoing training session: {message}");
         }
         Msg::WriteOngoingTrainingSession => {
             let ongoing_training_session = model.ongoing_training_session.clone();
@@ -1092,7 +1092,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::OngoingTrainingSessionWritten(result) => {
             if let Err(message) = result {
-                error!("Failed to write ongoing training session: ".to_owned() + &message);
+                error!("failed to write ongoing training session: {message}");
             }
         }
     }

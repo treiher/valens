@@ -6,8 +6,11 @@
     clippy::wildcard_imports
 )]
 
+use std::sync::{Arc, Mutex};
+
 use chrono::{prelude::*, Duration};
 use seed::{prelude::*, *};
+use valens_storage as storage;
 use valens_web_app as web_app;
 
 mod common;
@@ -20,6 +23,8 @@ mod page;
 // ------ ------
 
 fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
+    let _ = web_app::log::init(Arc::new(Mutex::new(storage::local_storage::Log)));
+
     orders
         .skip()
         .stream(streams::window_event(Ev::BeforeUnload, Msg::BeforeUnload))

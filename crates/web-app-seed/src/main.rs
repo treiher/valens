@@ -67,7 +67,7 @@ const TRAINING: &str = "training";
 const TRAINING_SESSION: &str = "training_session";
 
 struct_urls!();
-impl<'a> Urls<'a> {
+impl Urls<'_> {
     pub fn home(self) -> Url {
         self.base_url()
     }
@@ -235,22 +235,19 @@ impl Page {
                 )),
                 Some(_) => Self::NotFound,
             }
+        } else if let Some(ADMIN) = url.next_hash_path_part() {
+            Self::Admin(page::admin::init(
+                url,
+                &mut orders.proxy(Msg::Admin),
+                navbar,
+            ))
         } else {
-            match url.next_hash_path_part() {
-                Some(ADMIN) => Self::Admin(page::admin::init(
-                    url,
-                    &mut orders.proxy(Msg::Admin),
-                    navbar,
-                )),
-                None | Some(_) => {
-                    Urls::new(url.to_hash_base_url()).login().go_and_push();
-                    Self::Login(page::login::init(
-                        url,
-                        &mut orders.proxy(Msg::Login),
-                        navbar,
-                    ))
-                }
-            }
+            Urls::new(url.to_hash_base_url()).login().go_and_push();
+            Self::Login(page::login::init(
+                url,
+                &mut orders.proxy(Msg::Login),
+                navbar,
+            ))
         }
     }
 }
@@ -574,22 +571,22 @@ fn warn_about_unsaved_changes(model: &Model) -> bool {
 fn view(model: &Model) -> impl IntoNodes<Msg> {
     if model.settings_dialog_visible {
         nodes![
-            view_navbar(&model.navbar, &model.page, &model.data),
+            view_navbar(&model.navbar, model.page.as_ref(), &model.data),
             Node::NoChange,
             view_settings_dialog(&model.data),
             data::view(&model.data).map_msg(Msg::Data),
         ]
     } else {
         nodes![
-            view_navbar(&model.navbar, &model.page, &model.data),
-            view_page(&model.page, &model.data),
+            view_navbar(&model.navbar, model.page.as_ref(), &model.data),
+            view_page(model.page.as_ref(), &model.data),
             div![],
             data::view(&model.data).map_msg(Msg::Data),
         ]
     }
 }
 
-fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
+fn view_navbar(navbar: &Navbar, page: Option<&Page>, data_model: &data::Model) -> Node<Msg> {
     nav![
         C!["navbar"],
         C!["is-fixed-top"],
@@ -655,32 +652,29 @@ fn view_navbar(navbar: &Navbar, page: &Option<Page>, data_model: &data::Model) -
                     C![IF!(navbar.menu_visible => "is-active")],
                     div![
                         C!["navbar-end"],
-                        match &data_model.session {
-                            Some(s) => nodes![
-                                a![
-                                    C!["navbar-item"],
-                                    ev(Ev::Click, |_| Msg::ShowSettingsDialog),
-                                    span![C!["icon"], C!["px-5"], i![C!["fas fa-gear"]]],
-                                    "Settings"
-                                ],
-                                a![
-                                    C!["navbar-item"],
-                                    ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
-                                    span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
-                                    format!(
-                                        "Refresh data ({})",
-                                        view_duration(Utc::now() - data_model.last_refresh)
-                                    ),
-                                ],
-                                a![
-                                    C!["navbar-item"],
-                                    ev(Ev::Click, |_| Msg::LogOut),
-                                    span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
-                                    format!("Logout ({})", s.name),
-                                ]
+                        if let Some(s) = &data_model.session { nodes![
+                            a![
+                                C!["navbar-item"],
+                                ev(Ev::Click, |_| Msg::ShowSettingsDialog),
+                                span![C!["icon"], C!["px-5"], i![C!["fas fa-gear"]]],
+                                "Settings"
                             ],
-                            None => nodes![],
-                        }
+                            a![
+                                C!["navbar-item"],
+                                ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
+                                span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
+                                format!(
+                                    "Refresh data ({})",
+                                    view_duration(Utc::now() - data_model.last_refresh)
+                                ),
+                            ],
+                            a![
+                                C!["navbar-item"],
+                                ev(Ev::Click, |_| Msg::LogOut),
+                                span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
+                                format!("Logout ({})", s.name),
+                            ]
+                        ] } else { nodes![] }
                     ],
                 ]
             ]
@@ -700,7 +694,7 @@ fn view_duration(duration: Duration) -> String {
     }
 }
 
-fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
+fn view_page(page: Option<&Page>, data_model: &data::Model) -> Node<Msg> {
     div![
         C!["container"],
         C!["is-max-desktop"],

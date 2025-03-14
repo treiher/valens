@@ -246,12 +246,12 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     let form;
     let date_disabled;
     match dialog {
-        Dialog::AddBodyWeight(ref f) => {
+        Dialog::AddBodyWeight(f) => {
             title = "Add body weight";
             form = f;
             date_disabled = false;
         }
-        Dialog::EditBodyWeight(ref f) => {
+        Dialog::EditBodyWeight(f) => {
             title = "Edit body weight";
             form = f;
             date_disabled = true;
@@ -272,7 +272,7 @@ fn view_body_weight_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
         }
     }
     let today = Local::now().date_naive();
-    let date_valid = form.date.1.map_or(false, |d| d <= today);
+    let date_valid = form.date.1.is_some_and(|d| d <= today);
     let save_disabled = loading || !date_valid || form.weight.1.is_none();
     common::view_dialog(
         "primary",

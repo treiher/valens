@@ -474,7 +474,7 @@ impl Metronome {
         self.is_active
     }
 
-    fn start(&mut self, audio_context: &Option<web_sys::AudioContext>) {
+    fn start(&mut self, audio_context: Option<&web_sys::AudioContext>) {
         self.is_active = true;
         if let Some(audio_context) = audio_context {
             self.beat_number = 0;
@@ -486,7 +486,7 @@ impl Metronome {
         self.is_active = false;
     }
 
-    fn start_pause(&mut self, audio_context: &Option<web_sys::AudioContext>) {
+    fn start_pause(&mut self, audio_context: Option<&web_sys::AudioContext>) {
         if self.is_active() {
             self.pause();
         } else {
@@ -494,7 +494,7 @@ impl Metronome {
         }
     }
 
-    fn update(&mut self, audio_context: &Option<web_sys::AudioContext>) {
+    fn update(&mut self, audio_context: Option<&web_sys::AudioContext>) {
         if self.is_active() {
             if let Some(audio_context) = audio_context {
                 while self.next_beat_time < audio_context.current_time() + 0.5 {
@@ -581,7 +581,7 @@ impl Timer {
         self.set(self.reset_time);
     }
 
-    fn update(&mut self, audio_context: &Option<web_sys::AudioContext>) {
+    fn update(&mut self, audio_context: Option<&web_sys::AudioContext>) {
         if let Some(target_time) = self.target_time {
             #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
             let time = (target_time
@@ -1036,7 +1036,7 @@ pub fn update(
                     }
                     None => {}
                 }
-                guide.timer.update(&model.audio_context);
+                guide.timer.update(model.audio_context.as_ref());
             }
         }
         Msg::StartPauseGuideTimer => {
@@ -1379,8 +1379,8 @@ pub fn update(
 
         Msg::UpdateStopwatchMetronomTimer => {
             model.smt.stopwatch.update();
-            model.smt.metronome.update(&model.audio_context);
-            model.smt.timer.update(&model.audio_context);
+            model.smt.metronome.update(model.audio_context.as_ref());
+            model.smt.timer.update(model.audio_context.as_ref());
         }
 
         Msg::StartPauseStopwatch => {
@@ -1398,7 +1398,7 @@ pub fn update(
         Msg::StartMetronome(interval) => {
             model.smt.metronome.interval = interval;
             model.smt.metronome.stressed_beat = 1;
-            model.smt.metronome.start(&model.audio_context);
+            model.smt.metronome.start(model.audio_context.as_ref());
             update_streams(model, orders);
         }
         Msg::PauseMetronome => {
@@ -1406,7 +1406,10 @@ pub fn update(
             update_streams(model, orders);
         }
         Msg::StartPauseMetronome => {
-            model.smt.metronome.start_pause(&model.audio_context);
+            model
+                .smt
+                .metronome
+                .start_pause(model.audio_context.as_ref());
             update_streams(model, orders);
         }
         Msg::MetronomeIntervalChanged(interval) => {
@@ -2203,7 +2206,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                             },
                             C!["message"],
                             C!["is-info"],
-                            IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
+                            IF![model.guide.as_ref().is_some_and(|guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
                             IF![idx > 0 => C!["mt-3"]],
                             C!["mb-0"],
                             div![
@@ -2451,7 +2454,7 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                         },
                         C!["message"],
                         C!["is-success"],
-                        IF![model.guide.as_ref().map_or(false, |guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
+                        IF![model.guide.as_ref().is_some_and(|guide| guide.element_idx != element_idx) => C!["is-semitransparent"]],
                         IF![idx > 0 => C!["mt-3"]],
                         C!["mb-0"],
                         div![

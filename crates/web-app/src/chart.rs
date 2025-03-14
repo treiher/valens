@@ -419,7 +419,7 @@ fn all_zeros(data: &[PlotData]) -> bool {
             v.values_high.iter().all(|(_, v)| *v == 0.0)
                 && v.values_low
                     .as_ref()
-                    .map_or(true, |v| v.iter().all(|(_, v)| *v == 0.0))
+                    .is_none_or(|v| v.iter().all(|(_, v)| *v == 0.0))
         })
         .reduce(|l, r| l && r)
         .unwrap_or(true)

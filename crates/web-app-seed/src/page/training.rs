@@ -394,7 +394,7 @@ fn view_training_sessions_dialog(
     let form;
     let date_disabled;
     match dialog {
-        Dialog::AddTrainingSession(ref f) => {
+        Dialog::AddTrainingSession(f) => {
             title = "Add training session";
             form = f;
             date_disabled = false;
@@ -420,7 +420,7 @@ fn view_training_sessions_dialog(
         }
     }
     let today = Local::now().date_naive();
-    let date_valid = form.date.1.map_or(false, |d| d <= today);
+    let date_valid = form.date.1.is_some_and(|d| d <= today);
     let save_disabled = loading || !date_valid;
     common::view_dialog(
         "primary",

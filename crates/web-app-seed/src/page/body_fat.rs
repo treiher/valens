@@ -471,12 +471,12 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
     let form;
     let date_disabled;
     match dialog {
-        Dialog::AddBodyFat(ref f) => {
+        Dialog::AddBodyFat(f) => {
             title = "Add body fat";
             form = f;
             date_disabled = false;
         }
-        Dialog::EditBodyFat(ref f) => {
+        Dialog::EditBodyFat(f) => {
             title = "Edit body fat";
             form = f;
             date_disabled = true;
@@ -497,7 +497,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
         }
     }
     let today = Local::now().date_naive();
-    let date_valid = form.date.1.map_or(false, |d| d <= today);
+    let date_valid = form.date.1.is_some_and(|d| d <= today);
     let save_disabled = loading || !form.is_valid() || !date_valid;
     common::view_dialog(
         "primary",

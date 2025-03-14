@@ -225,12 +225,12 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[domain::Routine], loading: b
     let form;
     let mut template_selection = false;
     match dialog {
-        Dialog::AddRoutine(ref f) => {
+        Dialog::AddRoutine(f) => {
             title = "Add routine";
             form = f;
             template_selection = true;
         }
-        Dialog::EditRoutine(ref f) => {
+        Dialog::EditRoutine(f) => {
             title = "Edit routine";
             form = f;
         }

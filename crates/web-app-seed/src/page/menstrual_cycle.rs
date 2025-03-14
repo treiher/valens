@@ -236,12 +236,12 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     let form;
     let date_disabled;
     match dialog {
-        Dialog::AddPeriod(ref f) => {
+        Dialog::AddPeriod(f) => {
             title = "Add period";
             form = f;
             date_disabled = false;
         }
-        Dialog::EditPeriod(ref f) => {
+        Dialog::EditPeriod(f) => {
             title = "Edit period";
             form = f;
             date_disabled = true;
@@ -262,7 +262,7 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
         }
     }
     let today = Local::now().date_naive();
-    let date_valid = form.date.1.map_or(false, |d| d <= today);
+    let date_valid = form.date.1.is_some_and(|d| d <= today);
     let save_disabled = loading || !date_valid || form.intensity.1.is_none();
     common::view_dialog(
         "primary",

@@ -237,11 +237,11 @@ fn view_exercise_dialog(
     let title;
     let form;
     match dialog {
-        Dialog::AddExercise(ref f) => {
+        Dialog::AddExercise(f) => {
             title = "Add exercise";
             form = f;
         }
-        Dialog::EditExercise(ref f) => {
+        Dialog::EditExercise(f) => {
             title = "Edit exercise";
             form = f;
         }

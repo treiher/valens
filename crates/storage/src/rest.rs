@@ -301,7 +301,7 @@ impl super::Storage for Storage {
     }
 }
 
-async fn fetch<'a, T>(request: Request) -> Result<T, String>
+async fn fetch<T>(request: Request) -> Result<T, String>
 where
     T: 'static + for<'de> serde::Deserialize<'de>,
 {
@@ -320,7 +320,7 @@ where
     }
 }
 
-async fn fetch_no_content<'a, T>(request: Request, result: T) -> Result<T, String> {
+async fn fetch_no_content<T>(request: Request, result: T) -> Result<T, String> {
     match request.send().await {
         Ok(response) => {
             if response.ok() {

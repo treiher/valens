@@ -258,13 +258,13 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     let sex;
     let name_error;
     match dialog {
-        Dialog::AddUser(ref user_name, ref user_sex, ref error) => {
+        Dialog::AddUser(user_name, user_sex, error) => {
             title = "Add user";
             name = user_name;
             sex = *user_sex;
             name_error = error;
         }
-        Dialog::EditUser(ref user, ref error) => {
+        Dialog::EditUser(user, error) => {
             title = "Edit user";
             name = &user.name;
             sex = user.sex;

@@ -1,6 +1,7 @@
 pub mod admin;
 pub mod body_fat;
 pub mod body_weight;
+pub mod catalog;
 pub mod exercise;
 pub mod exercises;
 pub mod home;

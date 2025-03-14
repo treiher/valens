@@ -19,7 +19,7 @@ pub fn init(mut url: Url, orders: &mut impl Orders<Msg>, navbar: &mut crate::Nav
     navbar.title = String::from("Exercises");
 
     let mut exercise_list = component::exercise_list::Model::new(true, true, true, true);
-    exercise_list.search_term = url.hash_path().get(1).cloned().unwrap_or_default();
+    exercise_list.filter.name = url.hash_path().get(1).cloned().unwrap_or_default();
 
     Model {
         exercise_list,
@@ -64,6 +64,7 @@ pub enum Msg {
     NameChanged(String),
 
     GoToExercise(u32),
+    GoToCatalogExercise(&'static str),
     SaveExercise,
     DeleteExercise(u32),
     DataEvent(data::Event),
@@ -121,10 +122,13 @@ pub fn update(
                 component::exercise_list::OutMsg::DeleteClicked(exercise_id) => {
                     orders.send_msg(Msg::ShowDeleteExerciseDialog(exercise_id));
                 }
+                component::exercise_list::OutMsg::CatalogExerciseSelected(name) => {
+                    orders.send_msg(Msg::GoToCatalogExercise(name));
+                }
             };
             crate::Urls::new(&data_model.base_url)
                 .exercises()
-                .add_hash_path_part(model.exercise_list.search_term.clone())
+                .add_hash_path_part(model.exercise_list.filter.name.trim())
                 .go_and_replace();
         }
         Msg::NameChanged(name) => match model.dialog {
@@ -158,6 +162,13 @@ pub fn update(
         Msg::GoToExercise(id) => {
             let url = crate::Urls::new(&data_model.base_url)
                 .exercise()
+                .add_hash_path_part(id.to_string());
+            url.go_and_push();
+            orders.notify(subs::UrlChanged(url));
+        }
+        Msg::GoToCatalogExercise(id) => {
+            let url = crate::Urls::new(&data_model.base_url)
+                .catalog()
                 .add_hash_path_part(id.to_string());
             url.go_and_push();
             orders.notify(subs::UrlChanged(url));

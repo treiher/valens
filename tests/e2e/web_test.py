@@ -1461,7 +1461,7 @@ def test_exercises_delete(driver: webdriver.Chrome) -> None:
     page.click_delete(0)
     page.delete_dialog.click_yes()
 
-    assert page.get_table_body(2) == []
+    assert page.get_table_body(1) == [[previous_name]]
 
 
 def test_exercise_delete_workout(driver: webdriver.Chrome) -> None:

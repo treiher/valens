@@ -1,5 +1,7 @@
 #![warn(clippy::pedantic)]
 
+pub mod catalog;
+
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
     iter::zip,
@@ -490,9 +492,9 @@ fn average_weighted_sum_of_load(
         .collect::<Vec<_>>()
 }
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Muscle {
+    None = 0,
     // Neck
     Neck = 1,
     // Chest
@@ -523,8 +525,8 @@ pub enum Muscle {
     Calves = 91,
 }
 
-impl Muscle {
-    pub fn iter() -> Iter<'static, Muscle> {
+impl Property for Muscle {
+    fn iter() -> Iter<'static, Muscle> {
         static MUSCLES: [Muscle; 18] = [
             Muscle::Neck,
             Muscle::Pecs,
@@ -548,6 +550,58 @@ impl Muscle {
         MUSCLES.iter()
     }
 
+    fn iter_filter() -> Iter<'static, Muscle> {
+        static MUSCLES: [Muscle; 19] = [
+            Muscle::Neck,
+            Muscle::Pecs,
+            Muscle::Traps,
+            Muscle::Lats,
+            Muscle::FrontDelts,
+            Muscle::SideDelts,
+            Muscle::RearDelts,
+            Muscle::Biceps,
+            Muscle::Triceps,
+            Muscle::Forearms,
+            Muscle::Abs,
+            Muscle::ErectorSpinae,
+            Muscle::Glutes,
+            Muscle::Abductors,
+            Muscle::Quads,
+            Muscle::Hamstrings,
+            Muscle::Adductors,
+            Muscle::Calves,
+            Muscle::None,
+        ];
+        MUSCLES.iter()
+    }
+
+    #[must_use]
+    fn name(self) -> &'static str {
+        match self {
+            Muscle::None => "No Muscle",
+            Muscle::Neck => "Neck",
+            Muscle::Pecs => "Pecs",
+            Muscle::Traps => "Traps",
+            Muscle::Lats => "Lats",
+            Muscle::FrontDelts => "Front Delts",
+            Muscle::SideDelts => "Side Delts",
+            Muscle::RearDelts => "Rear Delts",
+            Muscle::Biceps => "Biceps",
+            Muscle::Triceps => "Triceps",
+            Muscle::Forearms => "Forearms",
+            Muscle::Abs => "Abs",
+            Muscle::ErectorSpinae => "Erector Spinae",
+            Muscle::Glutes => "Glutes",
+            Muscle::Abductors => "Abductors",
+            Muscle::Quads => "Quads",
+            Muscle::Hamstrings => "Hamstrings",
+            Muscle::Adductors => "Adductors",
+            Muscle::Calves => "Calves",
+        }
+    }
+}
+
+impl Muscle {
     #[must_use]
     pub fn id(self) -> u8 {
         self as u8
@@ -579,33 +633,10 @@ impl Muscle {
     }
 
     #[must_use]
-    pub fn name(self) -> &'static str {
-        match self {
-            Muscle::Neck => "Neck",
-            Muscle::Pecs => "Pecs",
-            Muscle::Traps => "Traps",
-            Muscle::Lats => "Lats",
-            Muscle::FrontDelts => "Front Delts",
-            Muscle::SideDelts => "Side Delts",
-            Muscle::RearDelts => "Rear Delts",
-            Muscle::Biceps => "Biceps",
-            Muscle::Triceps => "Triceps",
-            Muscle::Forearms => "Forearms",
-            Muscle::Abs => "Abs",
-            Muscle::ErectorSpinae => "Erector Spinae",
-            Muscle::Glutes => "Glutes",
-            Muscle::Abductors => "Abductors",
-            Muscle::Quads => "Quads",
-            Muscle::Hamstrings => "Hamstrings",
-            Muscle::Adductors => "Adductors",
-            Muscle::Calves => "Calves",
-        }
-    }
-
-    #[must_use]
     pub fn description(self) -> &'static str {
         #[allow(clippy::match_same_arms)]
         match self {
+            Muscle::None => "",
             Muscle::Neck => "",
             Muscle::Pecs => "Chest",
             Muscle::Traps => "Upper back",
@@ -628,16 +659,395 @@ impl Muscle {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MuscleStimulus {
+    Primary = 100,
+    Secondary = 50,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Force {
+    Push,
+    Pull,
+    Static,
+}
+
+impl Property for Force {
+    fn iter() -> Iter<'static, Force> {
+        static FORCE: [Force; 3] = [Force::Push, Force::Pull, Force::Static];
+        FORCE.iter()
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Force::Push => "Push",
+            Force::Pull => "Pull",
+            Force::Static => "Static",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Mechanic {
+    Compound,
+    Isolation,
+}
+
+impl Property for Mechanic {
+    fn iter() -> Iter<'static, Mechanic> {
+        static MECHANIC: [Mechanic; 2] = [Mechanic::Compound, Mechanic::Isolation];
+        MECHANIC.iter()
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Mechanic::Compound => "Compound",
+            Mechanic::Isolation => "Isolation",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Laterality {
+    Bilateral,
+    Unilateral,
+}
+
+impl Property for Laterality {
+    fn iter() -> Iter<'static, Laterality> {
+        static LATERALITY: [Laterality; 2] = [Laterality::Bilateral, Laterality::Unilateral];
+        LATERALITY.iter()
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Laterality::Bilateral => "Bilateral",
+            Laterality::Unilateral => "Unilateral",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Assistance {
+    Unassisted,
+    Assisted,
+}
+
+impl Property for Assistance {
+    fn iter() -> Iter<'static, Assistance> {
+        static ASSISTANCE: [Assistance; 2] = [Assistance::Unassisted, Assistance::Assisted];
+        ASSISTANCE.iter()
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Assistance::Unassisted => "Unassisted",
+            Assistance::Assisted => "Assisted",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Equipment {
+    None,
+    Barbell,
+    Box,
+    Cable,
+    Dumbbell,
+    ExerciseBall,
+    GymnasticRings,
+    Kettlebell,
+    Machine,
+    ParallelBars,
+    PullUpBar,
+    ResistanceBand,
+    Sliders,
+    TrapBar,
+}
+
+impl Property for Equipment {
+    fn iter() -> Iter<'static, Equipment> {
+        static EQUIPMENT: [Equipment; 13] = [
+            Equipment::Barbell,
+            Equipment::Box,
+            Equipment::Cable,
+            Equipment::Dumbbell,
+            Equipment::ExerciseBall,
+            Equipment::GymnasticRings,
+            Equipment::Kettlebell,
+            Equipment::Machine,
+            Equipment::ParallelBars,
+            Equipment::PullUpBar,
+            Equipment::ResistanceBand,
+            Equipment::Sliders,
+            Equipment::TrapBar,
+        ];
+        EQUIPMENT.iter()
+    }
+
+    fn iter_filter() -> Iter<'static, Equipment> {
+        static EQUIPMENT: [Equipment; 14] = [
+            Equipment::Barbell,
+            Equipment::Box,
+            Equipment::Cable,
+            Equipment::Dumbbell,
+            Equipment::ExerciseBall,
+            Equipment::GymnasticRings,
+            Equipment::Kettlebell,
+            Equipment::Machine,
+            Equipment::ParallelBars,
+            Equipment::PullUpBar,
+            Equipment::ResistanceBand,
+            Equipment::Sliders,
+            Equipment::TrapBar,
+            Equipment::None,
+        ];
+        EQUIPMENT.iter()
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Equipment::None => "No Equipment",
+            Equipment::Barbell => "Barbell",
+            Equipment::Box => "Box",
+            Equipment::Cable => "Cable",
+            Equipment::Dumbbell => "Dumbbell",
+            Equipment::ExerciseBall => "Exercise Ball",
+            Equipment::GymnasticRings => "Gymnastic Rings",
+            Equipment::Kettlebell => "Kettlebell",
+            Equipment::Machine => "Machine",
+            Equipment::ParallelBars => "Parallel Bars",
+            Equipment::PullUpBar => "Pull Up Bar",
+            Equipment::ResistanceBand => "Resistance Band",
+            Equipment::Sliders => "Sliders",
+            Equipment::TrapBar => "Trap Bar",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Category {
+    Strength,
+    Plyometrics,
+}
+
+impl Property for Category {
+    fn iter() -> Iter<'static, Category> {
+        static CATEGORY: [Category; 2] = [Category::Strength, Category::Plyometrics];
+        CATEGORY.iter()
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Category::Strength => "Strength",
+            Category::Plyometrics => "Plyometrics",
+        }
+    }
+}
+
 #[derive(Default, PartialEq)]
 pub struct ExerciseFilter {
+    pub name: String,
     pub muscles: HashSet<Muscle>,
+    pub force: HashSet<Force>,
+    pub mechanic: HashSet<Mechanic>,
+    pub laterality: HashSet<Laterality>,
+    pub assistance: HashSet<Assistance>,
+    pub equipment: HashSet<Equipment>,
+    pub category: HashSet<Category>,
 }
 
 impl ExerciseFilter {
     #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.muscles.is_empty()
+    pub fn exercises<'a>(
+        &self,
+        exercises: impl Iterator<Item = &'a Exercise>,
+    ) -> Vec<&'a Exercise> {
+        exercises
+            .filter(|e| {
+                e.name
+                    .to_lowercase()
+                    .contains(self.name.to_lowercase().trim())
+                    && (self.muscles.is_empty()
+                        || self.muscles.iter().all(|m| {
+                            if *m == Muscle::None {
+                                e.muscles.is_empty()
+                            } else {
+                                e.muscle_stimulus().contains_key(&m.id())
+                            }
+                        }))
+                    && self.force.is_empty()
+                    && self.mechanic.is_empty()
+                    && self.laterality.is_empty()
+                    && self.equipment.is_empty()
+                    && self.category.is_empty()
+            })
+            .collect()
     }
+
+    #[must_use]
+    pub fn catalog(&self) -> BTreeMap<&'static str, &'static catalog::Exercise> {
+        catalog::EXERCISES
+            .values()
+            .filter(|e| {
+                e.name
+                    .to_lowercase()
+                    .contains(self.name.to_lowercase().trim())
+                    && (self.muscles.is_empty()
+                        || self.muscles.iter().all(|muscle| {
+                            if *muscle == Muscle::None {
+                                e.muscles.is_empty()
+                            } else {
+                                e.muscles.iter().any(|(m, _)| muscle == m)
+                            }
+                        }))
+                    && (self.force.is_empty() || self.force.contains(&e.force))
+                    && (self.mechanic.is_empty() || self.mechanic.contains(&e.mechanic))
+                    && (self.laterality.is_empty() || self.laterality.contains(&e.laterality))
+                    && (self.assistance.is_empty() || self.assistance.contains(&e.assistance))
+                    && (self.equipment.is_empty()
+                        || self.equipment.iter().any(|equipment| {
+                            if *equipment == Equipment::None {
+                                e.equipment.is_empty()
+                            } else {
+                                e.equipment.iter().any(|e| equipment == e)
+                            }
+                        }))
+                    && (self.category.is_empty() || self.category.contains(&e.category))
+            })
+            .map(|e| (e.name, e))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.name.trim().is_empty()
+            && self.muscles.is_empty()
+            && self.force.is_empty()
+            && self.mechanic.is_empty()
+            && self.laterality.is_empty()
+            && self.assistance.is_empty()
+            && self.equipment.is_empty()
+            && self.category.is_empty()
+    }
+
+    #[must_use]
+    pub fn muscle_list(&self) -> Vec<(Muscle, bool)> {
+        Muscle::iter_filter()
+            .map(|m| (*m, self.muscles.contains(m)))
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn force_list(&self) -> Vec<(Force, bool)> {
+        Force::iter_filter()
+            .map(|f| (*f, self.force.contains(f)))
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn mechanic_list(&self) -> Vec<(Mechanic, bool)> {
+        Mechanic::iter_filter()
+            .map(|m| (*m, self.mechanic.contains(m)))
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn laterality_list(&self) -> Vec<(Laterality, bool)> {
+        Laterality::iter_filter()
+            .map(|l| (*l, self.laterality.contains(l)))
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn assistance_list(&self) -> Vec<(Assistance, bool)> {
+        Assistance::iter_filter()
+            .map(|l| (*l, self.assistance.contains(l)))
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn equipment_list(&self) -> Vec<(Equipment, bool)> {
+        Equipment::iter_filter()
+            .map(|e| (*e, self.equipment.contains(e)))
+            .collect::<Vec<_>>()
+    }
+
+    #[must_use]
+    pub fn category_list(&self) -> Vec<(Category, bool)> {
+        Category::iter_filter()
+            .map(|c| (*c, self.category.contains(c)))
+            .collect::<Vec<_>>()
+    }
+
+    pub fn toggle_muscle(&mut self, muscle: Muscle) {
+        if self.muscles.contains(&muscle) {
+            self.muscles.remove(&muscle);
+        } else {
+            if muscle == Muscle::None {
+                self.muscles.clear();
+            } else {
+                self.muscles.remove(&Muscle::None);
+            }
+            self.muscles.insert(muscle);
+        }
+    }
+
+    pub fn toggle_force(&mut self, force: Force) {
+        if self.force.contains(&force) {
+            self.force.remove(&force);
+        } else {
+            self.force.insert(force);
+        }
+    }
+
+    pub fn toggle_mechanic(&mut self, mechanic: Mechanic) {
+        if self.mechanic.contains(&mechanic) {
+            self.mechanic.remove(&mechanic);
+        } else {
+            self.mechanic.insert(mechanic);
+        }
+    }
+
+    pub fn toggle_laterality(&mut self, laterality: Laterality) {
+        if self.laterality.contains(&laterality) {
+            self.laterality.remove(&laterality);
+        } else {
+            self.laterality.insert(laterality);
+        }
+    }
+
+    pub fn toggle_assistance(&mut self, assistance: Assistance) {
+        if self.assistance.contains(&assistance) {
+            self.assistance.remove(&assistance);
+        } else {
+            self.assistance.insert(assistance);
+        }
+    }
+
+    pub fn toggle_equipment(&mut self, equipment: Equipment) {
+        if self.equipment.contains(&equipment) {
+            self.equipment.remove(&equipment);
+        } else {
+            self.equipment.insert(equipment);
+        }
+    }
+
+    pub fn toggle_category(&mut self, category: Category) {
+        if self.category.contains(&category) {
+            self.category.remove(&category);
+        } else {
+            self.category.insert(category);
+        }
+    }
+}
+
+pub trait Property: Clone + Copy + Sized {
+    fn iter() -> Iter<'static, Self>;
+    fn iter_filter() -> Iter<'static, Self> {
+        Self::iter()
+    }
+    fn name(self) -> &'static str;
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
@@ -1574,10 +1984,15 @@ mod tests {
     }
 
     #[test]
+    fn test_muscle_iter() {
+        assert!(!Muscle::iter().collect::<Vec<_>>().contains(&&Muscle::None));
+    }
+
+    #[test]
     fn test_muscle_name() {
         let mut names = HashSet::new();
 
-        for muscle in Muscle::iter() {
+        for muscle in Muscle::iter_filter() {
             let name = muscle.name();
 
             assert!(!name.is_empty());
@@ -1591,7 +2006,7 @@ mod tests {
     fn test_muscle_description() {
         let mut descriptions = HashSet::new();
 
-        for muscle in Muscle::iter() {
+        for muscle in Muscle::iter_filter() {
             let description = muscle.description();
 
             assert!(description.is_empty() || !descriptions.contains(description));
@@ -1601,11 +2016,338 @@ mod tests {
     }
 
     #[test]
-    fn test_exercise_filter_is_empty() {
-        assert!(ExerciseFilter {
-            muscles: HashSet::new()
+    fn test_force_name() {
+        let mut names = HashSet::new();
+
+        for force in Force::iter_filter() {
+            let name = force.name();
+
+            assert!(!name.is_empty());
+            assert!(!names.contains(name));
+
+            names.insert(name);
         }
-        .is_empty());
+    }
+
+    #[test]
+    fn test_mechanic_name() {
+        let mut names = HashSet::new();
+
+        for mechanic in Mechanic::iter_filter() {
+            let name = mechanic.name();
+
+            assert!(!name.is_empty());
+            assert!(!names.contains(name));
+
+            names.insert(name);
+        }
+    }
+
+    #[test]
+    fn test_laterality_name() {
+        let mut names = HashSet::new();
+
+        for laterality in Laterality::iter_filter() {
+            let name = laterality.name();
+
+            assert!(!name.is_empty());
+            assert!(!names.contains(name));
+
+            names.insert(name);
+        }
+    }
+
+    #[test]
+    fn test_assistance_name() {
+        let mut names = HashSet::new();
+
+        for assistance in Assistance::iter_filter() {
+            let name = assistance.name();
+
+            assert!(!name.is_empty());
+            assert!(!names.contains(name));
+
+            names.insert(name);
+        }
+    }
+
+    #[test]
+    fn test_equipment_iter() {
+        assert!(!Equipment::iter()
+            .collect::<Vec<_>>()
+            .contains(&&Equipment::None));
+    }
+
+    #[test]
+    fn test_equipment_name() {
+        let mut names = HashSet::new();
+
+        for equipment in Equipment::iter_filter() {
+            let name = equipment.name();
+
+            assert!(!name.is_empty());
+            assert!(!names.contains(name));
+
+            names.insert(name);
+        }
+    }
+
+    #[test]
+    fn test_category_name() {
+        let mut names = HashSet::new();
+
+        for category in Category::iter_filter() {
+            let name = category.name();
+
+            assert!(!name.is_empty());
+            assert!(!names.contains(name));
+
+            names.insert(name);
+        }
+    }
+
+    #[rstest]
+    #[case::name_lower_case(
+        ExerciseFilter { name: "push".into(), ..ExerciseFilter::default() },
+        &[
+            Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] },
+        ],
+        &[Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] }]
+    )]
+    #[case::name_upper_case(
+        ExerciseFilter { name: "PUSH".into(), ..ExerciseFilter::default() },
+        &[
+            Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] },
+        ],
+        &[Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] }]
+    )]
+    #[case::no_muscles(
+        ExerciseFilter { muscles: [Muscle::None].into(), ..ExerciseFilter::default() },
+        &[
+            Exercise { id: 0, name: String::new(), muscles: vec![] },
+            Exercise { id: 1, name: String::new(), muscles: vec![ExerciseMuscle { muscle_id: 11, stimulus: 100 }] },
+        ],
+        &[Exercise { id: 0, name: String::new(), muscles: vec![] }]
+    )]
+    #[case::muscles(
+        ExerciseFilter { muscles: [Muscle::Pecs, Muscle::FrontDelts].into(), ..ExerciseFilter::default() },
+        &[
+            Exercise { id: 0, name: String::new(), muscles: vec![] },
+            Exercise { id: 1, name: String::new(), muscles: vec![ExerciseMuscle { muscle_id: 11, stimulus: 100 }, ExerciseMuscle { muscle_id: 31, stimulus: 50 }] },
+        ],
+        &[Exercise { id: 1, name: String::new(), muscles: vec![ExerciseMuscle { muscle_id: 11, stimulus: 100 }, ExerciseMuscle { muscle_id: 31, stimulus: 50 }] }]
+    )]
+    fn test_exercise_filter_exercises(
+        #[case] filter: ExerciseFilter,
+        #[case] exercises: &[Exercise],
+        #[case] expected: &[Exercise],
+    ) {
+        assert_eq!(
+            filter.exercises(exercises.iter()),
+            expected.iter().collect::<Vec<_>>(),
+        );
+    }
+
+    #[rstest]
+    #[case::name_lower_case(
+        ExerciseFilter { name: "push".into(), ..ExerciseFilter::default() },
+        Some("Decline Push Up")
+    )]
+    #[case::name_upper_case(
+        ExerciseFilter { name: "PUSH".into(), ..ExerciseFilter::default() },
+        Some("Decline Push Up")
+    )]
+    #[case::no_muscles(
+        ExerciseFilter { muscles: [Muscle::None].into(), ..ExerciseFilter::default() },
+        None
+    )]
+    #[case::muscles(
+        ExerciseFilter { muscles: [Muscle::Lats, Muscle::Traps].into(), ..ExerciseFilter::default() },
+        Some("Band Pull Apart")
+    )]
+    #[case::equipment(
+        ExerciseFilter { equipment: [Equipment::Barbell].into(), ..ExerciseFilter::default() },
+        Some("Barbell Ab Rollout")
+    )]
+    #[case::no_equipment(
+        ExerciseFilter { equipment: [Equipment::None].into(), ..ExerciseFilter::default() },
+        Some("Bench Dip")
+    )]
+    #[case::equipment(
+        ExerciseFilter { equipment: [Equipment::Barbell].into(), ..ExerciseFilter::default() },
+        Some("Barbell Ab Rollout")
+    )]
+    fn test_exercise_catalog(
+        #[case] filter: ExerciseFilter,
+        #[case] expected_first_name: Option<&str>,
+    ) {
+        assert_eq!(
+            filter.catalog().first_entry().map(|e| *e.key()),
+            expected_first_name,
+        );
+    }
+
+    #[test]
+    fn test_exercise_filter_is_empty() {
+        assert!(ExerciseFilter::default().is_empty());
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_muscle() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.muscle_list().iter().map(|(_, b)| b).all(|b| !b));
+
+        filter.toggle_muscle(Muscle::None);
+
+        assert!(filter.muscle_list().contains(&(Muscle::None, true)));
+        assert!(filter
+            .muscle_list()
+            .into_iter()
+            .filter(|(m, _)| *m != Muscle::None)
+            .map(|(_, b)| b)
+            .all(|b| !b));
+
+        filter.toggle_muscle(Muscle::Abs);
+
+        assert!(filter.muscle_list().contains(&(Muscle::Abs, true)));
+        assert!(!filter.muscle_list().contains(&(Muscle::None, true)));
+
+        filter.toggle_muscle(Muscle::Abs);
+
+        assert!(filter.muscle_list().iter().map(|(_, b)| b).all(|b| !b));
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_force() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.force_list().iter().map(|(_, b)| b).all(|b| !b));
+
+        filter.toggle_force(Force::Push);
+
+        assert!(filter.force_list().contains(&(Force::Push, true)));
+        assert!(filter
+            .force_list()
+            .into_iter()
+            .filter(|(f, _)| *f != Force::Push)
+            .map(|(_, b)| b)
+            .all(|b| !b));
+
+        filter.toggle_force(Force::Push);
+
+        assert!(filter.force_list().iter().map(|(_, b)| b).all(|b| !b));
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_mechanic() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.mechanic_list().iter().map(|(_, b)| b).all(|b| !b));
+
+        filter.toggle_mechanic(Mechanic::Compound);
+
+        assert!(filter.mechanic_list().contains(&(Mechanic::Compound, true)));
+        assert!(filter
+            .mechanic_list()
+            .into_iter()
+            .filter(|(m, _)| *m != Mechanic::Compound)
+            .map(|(_, b)| b)
+            .all(|b| !b));
+
+        filter.toggle_mechanic(Mechanic::Compound);
+
+        assert!(filter.mechanic_list().iter().map(|(_, b)| b).all(|b| !b));
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_laterality() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.laterality_list().iter().map(|(_, b)| b).all(|b| !b));
+
+        filter.toggle_laterality(Laterality::Bilateral);
+
+        assert!(filter
+            .laterality_list()
+            .contains(&(Laterality::Bilateral, true)));
+        assert!(filter
+            .laterality_list()
+            .into_iter()
+            .filter(|(l, _)| *l != Laterality::Bilateral)
+            .map(|(_, b)| b)
+            .all(|b| !b));
+
+        filter.toggle_laterality(Laterality::Bilateral);
+
+        assert!(filter.laterality_list().iter().map(|(_, b)| b).all(|b| !b));
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_assistance() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.assistance_list().iter().map(|(_, b)| b).all(|b| !b));
+
+        filter.toggle_assistance(Assistance::Assisted);
+
+        assert!(filter
+            .assistance_list()
+            .contains(&(Assistance::Assisted, true)));
+        assert!(filter
+            .assistance_list()
+            .into_iter()
+            .filter(|(a, _)| *a != Assistance::Assisted)
+            .map(|(_, b)| b)
+            .all(|b| !b));
+
+        filter.toggle_assistance(Assistance::Assisted);
+
+        assert!(filter.assistance_list().iter().map(|(_, b)| b).all(|b| !b));
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_equipment() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.equipment_list().iter().map(|(_, b)| b).all(|b| !b));
+
+        filter.toggle_equipment(Equipment::Barbell);
+
+        assert!(filter
+            .equipment_list()
+            .contains(&(Equipment::Barbell, true)));
+        assert!(filter
+            .equipment_list()
+            .into_iter()
+            .filter(|(e, _)| *e != Equipment::Barbell)
+            .map(|(_, b)| b)
+            .all(|b| !b));
+
+        filter.toggle_equipment(Equipment::Barbell);
+
+        assert!(filter.equipment_list().iter().map(|(_, b)| b).all(|b| !b));
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_category() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.category_list().iter().map(|(_, b)| b).all(|b| !b));
+
+        filter.toggle_category(Category::Strength);
+
+        assert!(filter.category_list().contains(&(Category::Strength, true)));
+        assert!(filter
+            .category_list()
+            .into_iter()
+            .filter(|(c, _)| *c != Category::Strength)
+            .map(|(_, b)| b)
+            .all(|b| !b));
+
+        filter.toggle_category(Category::Strength);
+
+        assert!(filter.category_list().iter().map(|(_, b)| b).all(|b| !b));
     }
 
     #[test]

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use chrono::{prelude::*, Duration};
 use plotters::style::{Color, Palette, Palette99, RGBAColor};
 use seed::{prelude::*, *};
-use valens_domain as domain;
+use valens_domain::{self as domain, Property};
 
 pub const ENTER_KEY: u32 = 13;
 
@@ -39,7 +39,7 @@ pub fn view_title<Ms>(title: &Node<Ms>, margin: u8) -> Node<Ms> {
     div![
         C!["container"],
         C!["has-text-centered"],
-        C![format!("mb-{margin}")],
+        C![format!("my-{margin}")],
         h1![C!["title"], C!["is-5"], title],
     ]
 }

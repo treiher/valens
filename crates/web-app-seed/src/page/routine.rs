@@ -79,7 +79,7 @@ impl Model {
 
 enum Dialog {
     Hidden,
-    SelectExercise(Vec<usize>, component::exercise_list::Model),
+    SelectExercise(Vec<usize>, Box<component::exercise_list::Model>),
     DeleteTrainingSession(u32),
 }
 
@@ -322,7 +322,9 @@ pub fn update(
         Msg::ShowSelectExerciseDialog(part_id) => {
             model.dialog = Dialog::SelectExercise(
                 part_id,
-                component::exercise_list::Model::new(true, false, false, false),
+                Box::new(component::exercise_list::Model::new(
+                    true, false, false, false,
+                )),
             );
         }
         Msg::ShowDeleteTrainingSessionDialog(position) => {
@@ -621,7 +623,8 @@ pub fn update(
                 ) {
                     component::exercise_list::OutMsg::None
                     | component::exercise_list::OutMsg::EditClicked(_)
-                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    | component::exercise_list::OutMsg::DeleteClicked(_)
+                    | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
                         orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
                     }

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use chrono::prelude::*;
 use seed::{prelude::*, *};
-use valens_domain as domain;
+use valens_domain::{self as domain, Property};
 use valens_web_app as web_app;
 
 use crate::{common, data, page::training};
@@ -388,7 +388,10 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                     C!["button"],
                                     C!["is-small"],
                                     C![IF![*stimulus == 100 => "is-link"]],
-                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(m.id(), 100)),
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
+                                        m.id(),
+                                        domain::MuscleStimulus::Primary as u8
+                                    )),
                                     "primary",
                                 ]
                             ],
@@ -398,7 +401,10 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                     C!["button"],
                                     C!["is-small"],
                                     C![IF![*stimulus > 0 && *stimulus < 100 => "is-link"]],
-                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(m.id(), 50)),
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
+                                        m.id(),
+                                        domain::MuscleStimulus::Secondary as u8
+                                    )),
                                     "secondary",
                                 ]
                             ],

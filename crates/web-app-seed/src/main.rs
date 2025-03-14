@@ -59,6 +59,7 @@ const BODY_FAT: &str = "body_fat";
 const MENSTRUAL_CYCLE: &str = "menstrual_cycle";
 const EXERCISES: &str = "exercises";
 const EXERCISE: &str = "exercise";
+const CATALOG: &str = "catalog";
 const MUSCLES: &str = "muscles";
 const ROUTINES: &str = "routines";
 const ROUTINE: &str = "routine";
@@ -90,6 +91,9 @@ impl<'a> Urls<'a> {
     }
     pub fn exercise(self) -> Url {
         self.base_url().set_hash_path([EXERCISE])
+    }
+    pub fn catalog(self) -> Url {
+        self.base_url().set_hash_path([CATALOG])
     }
     pub fn muscles(self) -> Url {
         self.base_url().set_hash_path([MUSCLES])
@@ -134,6 +138,7 @@ enum Page {
     MenstrualCycle(page::menstrual_cycle::Model),
     Exercises(page::exercises::Model),
     Exercise(page::exercise::Model),
+    Catalog(page::catalog::Model),
     Muscles(page::muscles::Model),
     Routines(page::routines::Model),
     Routine(page::routine::Model),
@@ -195,6 +200,12 @@ impl Page {
                 Some(EXERCISE) => Self::Exercise(page::exercise::init(
                     url,
                     &mut orders.proxy(Msg::Exercise),
+                    data_model,
+                    navbar,
+                )),
+                Some(CATALOG) => Self::Catalog(page::catalog::init(
+                    url,
+                    &mut orders.proxy(Msg::Catalog),
                     data_model,
                     navbar,
                 )),
@@ -276,6 +287,7 @@ enum Msg {
     MenstrualCycle(page::menstrual_cycle::Msg),
     Exercises(page::exercises::Msg),
     Exercise(page::exercise::Msg),
+    Catalog(page::catalog::Msg),
     Muscles(page::muscles::Msg),
     Routines(page::routines::Msg),
     Routine(page::routine::Msg),
@@ -394,7 +406,7 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             | None => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).home());
             }
-            Some(Page::Exercise(_)) => {
+            Some(Page::Exercise(_) | Page::Catalog(_)) => {
                 orders.request_url(crate::Urls::new(&model.data.base_url).exercises());
             }
             Some(Page::Routine(_)) => {
@@ -476,6 +488,16 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     page_model,
                     &model.data,
                     &mut orders.proxy(Msg::Exercise),
+                );
+            }
+        }
+        Msg::Catalog(msg) => {
+            if let Some(Page::Catalog(page_model)) = &mut model.page {
+                page::catalog::update(
+                    msg,
+                    page_model,
+                    &model.data,
+                    &mut orders.proxy(Msg::Catalog),
                 );
             }
         }
@@ -697,6 +719,8 @@ fn view_page(page: &Option<Page>, data_model: &data::Model) -> Node<Msg> {
                 page::exercises::view(model, data_model).map_msg(Msg::Exercises),
             Some(Page::Exercise(model)) =>
                 page::exercise::view(model, data_model).map_msg(Msg::Exercise),
+            Some(Page::Catalog(model)) =>
+                page::catalog::view(model, data_model).map_msg(Msg::Catalog),
             Some(Page::Muscles(model)) =>
                 page::muscles::view(model, data_model).map_msg(Msg::Muscles),
             Some(Page::Routines(model)) =>

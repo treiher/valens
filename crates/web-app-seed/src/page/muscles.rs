@@ -1,6 +1,6 @@
 use chrono::prelude::*;
 use seed::{prelude::*, *};
-use valens_domain as domain;
+use valens_domain::{self as domain, Property};
 use valens_web_app as web_app;
 
 use crate::{common, data};

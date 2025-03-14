@@ -106,16 +106,7 @@ pub struct Model {
 
 impl Model {
     pub fn exercises(&self, filter: &domain::ExerciseFilter) -> Vec<&domain::Exercise> {
-        self.exercises
-            .values()
-            .filter(|e| {
-                filter.muscles.is_empty()
-                    || filter
-                        .muscles
-                        .iter()
-                        .all(|m| e.muscle_stimulus().contains_key(&m.id()))
-            })
-            .collect()
+        filter.exercises(self.exercises.values())
     }
 
     pub fn routines_sorted_by_last_use(

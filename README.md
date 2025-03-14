@@ -8,6 +8,7 @@
 
 - Track your training progress
     - Define training routines
+    - Choose from more than 150 exercises or create your own
     - Log repetitions, weight, time and rating of perceived exertion (RPE) for each set
     - Measure your training execution using a stopwatch, timer or metronome
     - Assess the progress for each routine and exercise

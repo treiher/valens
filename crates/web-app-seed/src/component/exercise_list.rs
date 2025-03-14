@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{Duration, Local};
 use seed::{prelude::*, *};
@@ -14,8 +14,7 @@ const CURRENT_EXERCISE_CUTOFF_DAYS: i64 = 31;
 
 #[allow(clippy::struct_excessive_bools)]
 pub struct Model {
-    pub search_term: String,
-    filter: domain::ExerciseFilter,
+    pub filter: domain::ExerciseFilter,
     view_filter_dialog: bool,
     view_create: bool,
     view_edit: bool,
@@ -32,7 +31,6 @@ impl Model {
         search_bar_padding: bool,
     ) -> Self {
         Self {
-            search_term: String::new(),
             filter: domain::ExerciseFilter::default(),
             view_filter_dialog: false,
             view_create,
@@ -42,23 +40,8 @@ impl Model {
         }
     }
 
-    #[allow(clippy::fn_params_excessive_bools)]
-    pub fn new_with_filter(
-        view_create: bool,
-        view_edit: bool,
-        view_delete: bool,
-        search_bar_padding: bool,
-        filter: domain::ExerciseFilter,
-    ) -> Self {
-        Self {
-            search_term: String::new(),
-            filter,
-            view_filter_dialog: false,
-            view_create,
-            view_edit,
-            view_delete,
-            search_bar_padding,
-        }
+    pub fn with_filter(self, filter: domain::ExerciseFilter) -> Self {
+        Self { filter, ..self }
     }
 }
 
@@ -68,7 +51,13 @@ impl Model {
 
 pub enum Msg {
     SearchTermChanged(String),
-    FilterChanged(domain::Muscle),
+    MuscleFilterChanged(domain::Muscle),
+    ForceFilterChanged(domain::Force),
+    MechanicFilterChanged(domain::Mechanic),
+    LateralityFilterChanged(domain::Laterality),
+    AssistanceFilterChanged(domain::Assistance),
+    EquipmentFilterChanged(domain::Equipment),
+    CategoryFilterChanged(domain::Category),
 
     Selected(u32),
     CreateClicked(String),
@@ -77,6 +66,9 @@ pub enum Msg {
 
     ShowFilterDialog,
     CloseFilterDialog,
+
+    AddExerciseFromCatalog(&'static domain::catalog::Exercise),
+    CatalogExerciseSelected(&'static str),
 }
 
 pub enum OutMsg {
@@ -85,20 +77,41 @@ pub enum OutMsg {
     CreateClicked(String),
     EditClicked(u32),
     DeleteClicked(u32),
+    CatalogExerciseSelected(&'static str),
 }
 
-pub fn update(msg: Msg, model: &mut Model, _orders: &mut impl Orders<Msg>) -> OutMsg {
+pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) -> OutMsg {
     match msg {
         Msg::SearchTermChanged(search_term) => {
-            model.search_term = search_term;
+            model.filter.name = search_term;
             OutMsg::None
         }
-        Msg::FilterChanged(muscle) => {
-            if model.filter.muscles.contains(&muscle) {
-                model.filter.muscles.remove(&muscle);
-            } else {
-                model.filter.muscles.insert(muscle);
-            }
+        Msg::MuscleFilterChanged(muscle) => {
+            model.filter.toggle_muscle(muscle);
+            OutMsg::None
+        }
+        Msg::ForceFilterChanged(force) => {
+            model.filter.toggle_force(force);
+            OutMsg::None
+        }
+        Msg::MechanicFilterChanged(mechanic) => {
+            model.filter.toggle_mechanic(mechanic);
+            OutMsg::None
+        }
+        Msg::LateralityFilterChanged(laterality) => {
+            model.filter.toggle_laterality(laterality);
+            OutMsg::None
+        }
+        Msg::AssistanceFilterChanged(assistance) => {
+            model.filter.toggle_assistance(assistance);
+            OutMsg::None
+        }
+        Msg::EquipmentFilterChanged(equipment) => {
+            model.filter.toggle_equipment(equipment);
+            OutMsg::None
+        }
+        Msg::CategoryFilterChanged(category) => {
+            model.filter.toggle_category(category);
             OutMsg::None
         }
 
@@ -115,6 +128,22 @@ pub fn update(msg: Msg, model: &mut Model, _orders: &mut impl Orders<Msg>) -> Ou
             model.view_filter_dialog = false;
             OutMsg::None
         }
+
+        Msg::AddExerciseFromCatalog(catalog_exercise) => {
+            let mut muscles = vec![];
+            for (m, s) in catalog_exercise.muscles {
+                muscles.push(domain::ExerciseMuscle {
+                    muscle_id: domain::Muscle::id(*m),
+                    stimulus: *s as u8,
+                });
+            }
+            orders.notify(data::Msg::CreateExercise(
+                catalog_exercise.name.to_string(),
+                muscles,
+            ));
+            OutMsg::None
+        }
+        Msg::CatalogExerciseSelected(idx) => OutMsg::CatalogExerciseSelected(idx),
     }
 }
 
@@ -124,9 +153,6 @@ pub fn update(msg: Msg, model: &mut Model, _orders: &mut impl Orders<Msg>) -> Ou
 
 pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<Msg>> {
     let cutoff = Local::now().date_naive() - Duration::days(CURRENT_EXERCISE_CUTOFF_DAYS);
-    let muscle_filter = domain::Muscle::iter()
-        .map(|m| (m, model.filter.muscles.contains(m)))
-        .collect::<Vec<_>>();
 
     let current_exercise_ids = data_model
         .training_sessions
@@ -146,34 +172,25 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
 
     let mut current_exercises = exercises
         .iter()
-        .filter(|e| {
-            e.name
-                .to_lowercase()
-                .contains(model.search_term.to_lowercase().trim())
-                && (current_exercise_ids.contains(&e.id) || !previous_exercise_ids.contains(&e.id))
-        })
+        .filter(|e| current_exercise_ids.contains(&e.id) || !previous_exercise_ids.contains(&e.id))
         .collect::<Vec<_>>();
     current_exercises.sort_by(|a, b| a.name.cmp(&b.name));
 
     let mut previous_exercises = exercises
         .iter()
-        .filter(|e| {
-            e.name
-                .to_lowercase()
-                .contains(model.search_term.to_lowercase().trim())
-                && !current_exercise_ids.contains(&e.id)
-                && previous_exercise_ids.contains(&e.id)
-        })
+        .filter(|e| !current_exercise_ids.contains(&e.id) && previous_exercise_ids.contains(&e.id))
         .collect::<Vec<_>>();
     previous_exercises.sort_by(|a, b| a.name.cmp(&b.name));
 
+    let catalog_exercises = model.filter.catalog();
+
     nodes![
-        IF![model.view_filter_dialog => view_filter_dialog(&muscle_filter, exercises.len())],
+        IF![model.view_filter_dialog => view_filter_dialog(&model.filter, exercises.len(), catalog_exercises.len())],
         div![
             C!["field"],
             C!["is-grouped"],
             C![IF![model.search_bar_padding => "px-4"]],
-            common::view_search_box(&model.search_term, Msg::SearchTermChanged),
+            common::view_search_box(&model.filter.name, Msg::SearchTermChanged),
             div![
                 C!["control"],
                 button![
@@ -185,10 +202,10 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
             ],
             if model.view_create {
                 let disabled = loading
-                    || model.search_term.is_empty()
+                    || model.filter.name.trim().is_empty()
                     || current_exercises
                         .iter()
-                        .any(|e| e.name == *model.search_term.trim());
+                        .any(|e| e.name == *model.filter.name.trim());
                 div![
                     C!["control"],
                     button![
@@ -199,7 +216,7 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
                             At::Disabled => disabled.as_at_value()
                         },
                         ev(Ev::Click, {
-                            let search_term = model.search_term.clone();
+                            let search_term = model.filter.name.trim().to_string();
                             move |_| Msg::CreateClicked(search_term)
                         }),
                         span![C!["icon"], i![C!["fas fa-plus"]]]
@@ -217,36 +234,64 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
                 C!["is-flex-wrap-nowrap"],
                 C!["is-overflow-scroll"],
                 C!["is-scrollbar-width-none"],
-                muscle_filter
-                    .iter()
-                    .filter(|(_, enabled)| *enabled)
-                    .map(|(muscle, _)| {
-                        span![
-                            C!["tag"],
-                            C!["is-hoverable"],
-                            C!["is-link"],
-                            ev(Ev::Click, {
-                                let muscle = *muscle;
-                                move |_| Msg::FilterChanged(*muscle)
-                            }),
-                            &muscle.name()
-                        ]
-                    })
+                view_filter_tags(
+                    &model.filter.muscle_list(),
+                    |_, e| Msg::MuscleFilterChanged(e),
+                    true
+                ),
+                view_filter_tags(
+                    &model.filter.force_list(),
+                    |_, e| Msg::ForceFilterChanged(e),
+                    true
+                ),
+                view_filter_tags(
+                    &model.filter.mechanic_list(),
+                    |_, e| Msg::MechanicFilterChanged(e),
+                    true
+                ),
+                view_filter_tags(
+                    &model.filter.laterality_list(),
+                    |_, e| Msg::LateralityFilterChanged(e),
+                    true
+                ),
+                view_filter_tags(
+                    &model.filter.assistance_list(),
+                    |_, e| Msg::AssistanceFilterChanged(e),
+                    true
+                ),
+                view_filter_tags(
+                    &model.filter.equipment_list(),
+                    |_, e| Msg::EquipmentFilterChanged(e),
+                    true
+                ),
+                view_filter_tags(
+                    &model.filter.category_list(),
+                    |_, e| Msg::CategoryFilterChanged(e),
+                    true
+                ),
             ],
         ],
         view_exercises(model, &current_exercises),
-        IF![!previous_exercises.is_empty() => nodes!(
+        IF![
+            !previous_exercises.is_empty() =>
+                nodes![
                     div![
                         C!["container"],
                         C!["has-text-centered"],
-                        C![format!("mb-3")],
+                        C!["my-3"],
                         common::view_element_with_description(
-                            h1![C!["title"], C!["is-5"], "Previous exercises"],
+                            common::view_title(&span!["Previous exercises"], 0),
                             &format!("Exercises not performed within the last {CURRENT_EXERCISE_CUTOFF_DAYS} days")
                         ),
-                    ],
-                view_exercises(model, &previous_exercises))
-        ]
+                    ]
+                    view_exercises(model, &previous_exercises)
+                ]
+        ],
+        IF![!catalog_exercises.is_empty() => common::view_title(&span!["Catalog"], 3)],
+        view_catalog_exercises(
+            catalog_exercises,
+            &data_model.exercises(&domain::ExerciseFilter::default())
+        ),
     ]
 }
 
@@ -308,37 +353,73 @@ fn view_exercises(model: &Model, exercises: &[&&domain::Exercise]) -> Vec<Node<M
     ]]
 }
 
+fn view_catalog_exercises(
+    catalog_exercises: BTreeMap<&'static str, &'static domain::catalog::Exercise>,
+    exercises: &[&domain::Exercise],
+) -> Node<Msg> {
+    div![
+        C!["table-container"],
+        C!["mt-2"],
+        table![
+            C!["table"],
+            C!["is-fullwidth"],
+            C!["is-hoverable"],
+            tbody![catalog_exercises.into_values().map(|e| {
+                tr![td![
+                    C!["is-flex"],
+                    C!["is-justify-content-space-between"],
+                    C!["has-text-link"],
+                    span![
+                        ev(Ev::Click, move |_| Msg::CatalogExerciseSelected(e.name)),
+                        e.name.to_string(),
+                    ],
+                    IF![
+                        !exercises.iter().any(|x| x.name == e.name) =>
+                        p![
+                            C!["is-flex is-flex-wrap-nowrap"],
+                            a![
+                                C!["icon"],
+                                ev(Ev::Click, move |_| Msg::AddExerciseFromCatalog(e)),
+                                i![C!["fas fa-plus"]]
+                            ]
+                        ]
+                    ]
+                ]]
+            })],
+        ]
+    ]
+}
+
 fn view_filter_dialog(
-    muscle_filter: &[(&domain::Muscle, bool)],
+    filter: &domain::ExerciseFilter,
     exercise_count: usize,
+    catalog_exercise_count: usize,
 ) -> Node<Msg> {
     common::view_dialog(
         "primary",
         span!["Filter exercises"],
         nodes![
-            div![
-                C!["block"],
-                label![C!["subtitle"], "Muscles"],
-                div![
-                    C!["container"],
-                    C!["py-3"],
-                    div![
-                        C!["tags"],
-                        muscle_filter.iter().map(|(muscle, enabled)| {
-                            span![
-                                C!["tag"],
-                                C!["is-hoverable"],
-                                IF![*enabled => C!["is-link"]],
-                                ev(Ev::Click, {
-                                    let muscle = **muscle;
-                                    move |_| Msg::FilterChanged(muscle)
-                                }),
-                                &muscle.name()
-                            ]
-                        })
-                    ]
-                ],
-            ],
+            view_filter_section("Muscles", &filter.muscle_list(), |_, e| {
+                Msg::MuscleFilterChanged(e)
+            }),
+            view_filter_section("Force", &filter.force_list(), |_, e| {
+                Msg::ForceFilterChanged(e)
+            }),
+            view_filter_section("Mechanic", &filter.mechanic_list(), |_, e| {
+                Msg::MechanicFilterChanged(e)
+            }),
+            view_filter_section("Laterality", &filter.laterality_list(), |_, e| {
+                Msg::LateralityFilterChanged(e)
+            }),
+            view_filter_section("Assistance", &filter.assistance_list(), |_, e| {
+                Msg::AssistanceFilterChanged(e)
+            }),
+            view_filter_section("Equipment", &filter.equipment_list(), |_, e| {
+                Msg::EquipmentFilterChanged(e)
+            }),
+            view_filter_section("Category", &filter.category_list(), |_, e| {
+                Msg::CategoryFilterChanged(e)
+            }),
             div![
                 C!["field"],
                 C!["is-grouped"],
@@ -349,11 +430,49 @@ fn view_filter_dialog(
                         C!["button"],
                         C!["is-primary"],
                         &ev(Ev::Click, |_| Msg::CloseFilterDialog),
-                        format!("Show {exercise_count} exercises")
+                        format!("Show {exercise_count} custom and {catalog_exercise_count} catalog exercises")
                     ]
                 ],
             ],
         ],
         &ev(Ev::Click, |_| Msg::CloseFilterDialog),
     )
+}
+
+fn view_filter_section<T: domain::Property + 'static>(
+    title: &str,
+    filter: &[(T, bool)],
+    filter_changed: impl FnOnce(web_sys::Event, T) -> Msg + 'static + Clone,
+) -> Node<Msg> {
+    div![
+        C!["block"],
+        label![C!["subtitle"], title],
+        div![
+            C!["container"],
+            C!["py-3"],
+            div![C!["tags"], view_filter_tags(filter, filter_changed, false)]
+        ],
+    ]
+}
+
+fn view_filter_tags<T: domain::Property + 'static>(
+    filter: &[(T, bool)],
+    filter_changed: impl FnOnce(web_sys::Event, T) -> Msg + 'static + Clone,
+    show_enabled_only: bool,
+) -> Vec<Node<Msg>> {
+    filter
+        .iter()
+        .filter(|(_, enabled)| !show_enabled_only || *enabled)
+        .map(|(element, enabled)| {
+            let e = *element;
+            let f = filter_changed.clone();
+            span![
+                C!["tag"],
+                C!["is-hoverable"],
+                IF![*enabled => C!["is-link"]],
+                ev(Ev::Click, move |x| f(x, e)),
+                &T::name(*element)
+            ]
+        })
+        .collect::<Vec<_>>()
 }

@@ -1216,12 +1216,11 @@ pub fn update(
             model.dialog = Dialog::ReplaceExercise(
                 element_idx,
                 exercise_idx,
-                component::exercise_list::Model::new_with_filter(
-                    true,
-                    false,
-                    false,
-                    false,
-                    domain::ExerciseFilter { muscles },
+                component::exercise_list::Model::new(true, false, false, false).with_filter(
+                    domain::ExerciseFilter {
+                        muscles,
+                        ..Default::default()
+                    },
                 ),
             );
         }
@@ -1326,7 +1325,8 @@ pub fn update(
                 ) {
                     component::exercise_list::OutMsg::None
                     | component::exercise_list::OutMsg::EditClicked(_)
-                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    | component::exercise_list::OutMsg::DeleteClicked(_)
+                    | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
                         orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
                     }
@@ -1347,7 +1347,8 @@ pub fn update(
                 ) {
                     component::exercise_list::OutMsg::None
                     | component::exercise_list::OutMsg::EditClicked(_)
-                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    | component::exercise_list::OutMsg::DeleteClicked(_)
+                    | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
                         orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
                     }
@@ -1364,7 +1365,8 @@ pub fn update(
                 ) {
                     component::exercise_list::OutMsg::None
                     | component::exercise_list::OutMsg::EditClicked(_)
-                    | component::exercise_list::OutMsg::DeleteClicked(_) => {}
+                    | component::exercise_list::OutMsg::DeleteClicked(_)
+                    | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
                         orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
                     }

@@ -3,7 +3,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
 };
 
-use chrono::{prelude::*, Duration};
+use chrono::{Duration, prelude::*};
 use log::error;
 use seed::{prelude::*, *};
 use valens_domain as domain;

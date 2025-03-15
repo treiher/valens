@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use chrono::{prelude::*, Duration};
+use chrono::{Duration, prelude::*};
 use seed::{prelude::*, *};
 use valens_domain as domain;
 use valens_web_app as web_app;
@@ -461,42 +461,44 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 th!["Avg. weekly change (%)"],
                 th![]
             ]],
-            tbody![data_model
-                .body_weight
-                .values()
-                .rev()
-                .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
-                .map(|bw| {
-                    let date = bw.date;
-                    let avg_bw = data_model.avg_body_weight.get(&bw.date);
-                    tr![
-                        td![common::no_wrap(&date.to_string())],
-                        td![format!("{:.1}", bw.weight)],
-                        td![common::value_or_dash(avg_bw.map(|bw| bw.weight))],
-                        td![if let Some(value) =
-                            avg_weekly_change(&data_model.avg_body_weight, avg_bw)
-                        {
-                            format!("{value:+.1}")
-                        } else {
-                            "-".into()
-                        }],
-                        td![p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
-                                C!["icon"],
-                                C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditBodyWeightDialog(date)),
-                                i![C!["fas fa-edit"]]
-                            ],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteBodyWeightDialog(date)),
-                                i![C!["fas fa-times"]]
-                            ]
-                        ]]
-                    ]
-                })],
+            tbody![
+                data_model
+                    .body_weight
+                    .values()
+                    .rev()
+                    .filter(|bw| bw.date >= model.interval.first && bw.date <= model.interval.last)
+                    .map(|bw| {
+                        let date = bw.date;
+                        let avg_bw = data_model.avg_body_weight.get(&bw.date);
+                        tr![
+                            td![common::no_wrap(&date.to_string())],
+                            td![format!("{:.1}", bw.weight)],
+                            td![common::value_or_dash(avg_bw.map(|bw| bw.weight))],
+                            td![if let Some(value) =
+                                avg_weekly_change(&data_model.avg_body_weight, avg_bw)
+                            {
+                                format!("{value:+.1}")
+                            } else {
+                                "-".into()
+                            }],
+                            td![p![
+                                C!["is-flex is-flex-wrap-nowrap"],
+                                a![
+                                    C!["icon"],
+                                    C!["mr-1"],
+                                    ev(Ev::Click, move |_| Msg::ShowEditBodyWeightDialog(date)),
+                                    i![C!["fas fa-edit"]]
+                                ],
+                                a![
+                                    C!["icon"],
+                                    C!["ml-1"],
+                                    ev(Ev::Click, move |_| Msg::ShowDeleteBodyWeightDialog(date)),
+                                    i![C!["fas fa-times"]]
+                                ]
+                            ]]
+                        ]
+                    })
+            ],
         ]
     ]
 }

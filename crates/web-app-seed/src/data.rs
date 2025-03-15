@@ -1,14 +1,14 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use chrono::{prelude::*, Duration};
+use chrono::{Duration, prelude::*};
 use log::error;
 use seed::{
-    app::{subs, Orders},
+    C, IF, Url,
+    app::{Orders, subs},
     button, div, nodes, p,
-    prelude::{ev, El, Ev, Node},
+    prelude::{El, Ev, Node, ev},
     span,
     virtual_dom::{ToClasses, UpdateEl},
-    Url, C, IF,
 };
 use valens_domain as domain;
 use valens_storage as storage;

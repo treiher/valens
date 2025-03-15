@@ -87,7 +87,7 @@ pub trait UI {
     async fn write_settings(&self, settings: Settings) -> Result<(), String>;
 
     async fn read_ongoing_training_session(&self)
-        -> Result<Option<OngoingTrainingSession>, String>;
+    -> Result<Option<OngoingTrainingSession>, String>;
     async fn write_ongoing_training_session(
         &self,
         ongoing_training_session: Option<OngoingTrainingSession>,

@@ -216,37 +216,39 @@ fn view_users(data_model: &data::Model) -> Vec<Node<Msg>> {
                 C!["is-fullwidth"],
                 C!["is-hoverable"],
                 thead![tr![th!["Name"], th!["Sex"], th![]]],
-                tbody![&data_model
-                    .users
-                    .values()
-                    .map(|user| {
-                        let id = user.id;
-                        let sex = &user.sex.to_string();
-                        let sex = match &user.sex {
-                            0 => "female",
-                            1 => "male",
-                            _ => sex,
-                        };
-                        tr![
-                            td![&user.name],
-                            td![sex],
-                            td![
-                                a![
-                                    C!["icon"],
-                                    C!["mr-2"],
-                                    ev(Ev::Click, move |_| Msg::ShowEditUserDialog(id)),
-                                    i![C!["fas fa-user-edit"]]
-                                ],
-                                a![
-                                    C!["icon"],
-                                    C!["ml-2"],
-                                    ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(id)),
-                                    i![C!["fas fa-user-times"]]
+                tbody![
+                    &data_model
+                        .users
+                        .values()
+                        .map(|user| {
+                            let id = user.id;
+                            let sex = &user.sex.to_string();
+                            let sex = match &user.sex {
+                                0 => "female",
+                                1 => "male",
+                                _ => sex,
+                            };
+                            tr![
+                                td![&user.name],
+                                td![sex],
+                                td![
+                                    a![
+                                        C!["icon"],
+                                        C!["mr-2"],
+                                        ev(Ev::Click, move |_| Msg::ShowEditUserDialog(id)),
+                                        i![C!["fas fa-user-edit"]]
+                                    ],
+                                    a![
+                                        C!["icon"],
+                                        C!["ml-2"],
+                                        ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(id)),
+                                        i![C!["fas fa-user-times"]]
+                                    ]
                                 ]
                             ]
-                        ]
-                    })
-                    .collect::<Vec<_>>(),],
+                        })
+                        .collect::<Vec<_>>(),
+                ],
             ]
         ],
     ]

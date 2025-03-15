@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use chrono::{prelude::*, Duration};
+use chrono::{Duration, prelude::*};
 use plotters::style::{Color, Palette, Palette99, RGBAColor};
 use seed::{prelude::*, *};
 use valens_domain::{self as domain, Property};

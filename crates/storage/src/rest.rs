@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use gloo_net::http::Request;
-use serde_json::{json, Map};
+use serde_json::{Map, json};
 
 use super::{
     BodyFat, BodyWeight, Exercise, ExerciseMuscle, Period, Routine, RoutinePart, TrainingSession,

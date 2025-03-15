@@ -430,7 +430,9 @@ fn view_filter_dialog(
                         C!["button"],
                         C!["is-primary"],
                         &ev(Ev::Click, |_| Msg::CloseFilterDialog),
-                        format!("Show {exercise_count} custom and {catalog_exercise_count} catalog exercises")
+                        format!(
+                            "Show {exercise_count} custom and {catalog_exercise_count} catalog exercises"
+                        )
                     ]
                 ],
             ],

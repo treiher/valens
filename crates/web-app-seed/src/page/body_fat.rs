@@ -903,56 +903,58 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 },
                 th![]
             ]],
-            tbody![&data_model
-                .body_fat
-                .values()
-                .rev()
-                .filter(|bf| bf.date >= model.interval.first && bf.date <= model.interval.last)
-                .map(|bf| {
-                    let date = bf.date;
-                    tr![
-                        td![common::no_wrap(&bf.date.to_string())],
-                        td![common::value_or_dash(bf.jp3(sex))],
-                        td![common::value_or_dash(bf.jp7(sex))],
-                        if sex == 0 {
-                            nodes![
-                                td![common::value_or_dash(bf.tricep)],
-                                td![common::value_or_dash(bf.suprailiac)],
-                                td![common::value_or_dash(bf.thigh)],
-                                td![common::value_or_dash(bf.chest)],
-                                td![common::value_or_dash(bf.abdominal)],
-                                td![common::value_or_dash(bf.subscapular)],
-                                td![common::value_or_dash(bf.midaxillary)],
-                            ]
-                        } else {
-                            nodes![
-                                td![common::value_or_dash(bf.chest)],
-                                td![common::value_or_dash(bf.abdominal)],
-                                td![common::value_or_dash(bf.thigh)],
-                                td![common::value_or_dash(bf.tricep)],
-                                td![common::value_or_dash(bf.subscapular)],
-                                td![common::value_or_dash(bf.suprailiac)],
-                                td![common::value_or_dash(bf.midaxillary)],
-                            ]
-                        },
-                        td![p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
-                                C!["icon"],
-                                C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditBodyFatDialog(date)),
-                                i![C!["fas fa-edit"]]
-                            ],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteBodyFatDialog(date)),
-                                i![C!["fas fa-times"]]
-                            ]
-                        ]]
-                    ]
-                })
-                .collect::<Vec<_>>()],
+            tbody![
+                &data_model
+                    .body_fat
+                    .values()
+                    .rev()
+                    .filter(|bf| bf.date >= model.interval.first && bf.date <= model.interval.last)
+                    .map(|bf| {
+                        let date = bf.date;
+                        tr![
+                            td![common::no_wrap(&bf.date.to_string())],
+                            td![common::value_or_dash(bf.jp3(sex))],
+                            td![common::value_or_dash(bf.jp7(sex))],
+                            if sex == 0 {
+                                nodes![
+                                    td![common::value_or_dash(bf.tricep)],
+                                    td![common::value_or_dash(bf.suprailiac)],
+                                    td![common::value_or_dash(bf.thigh)],
+                                    td![common::value_or_dash(bf.chest)],
+                                    td![common::value_or_dash(bf.abdominal)],
+                                    td![common::value_or_dash(bf.subscapular)],
+                                    td![common::value_or_dash(bf.midaxillary)],
+                                ]
+                            } else {
+                                nodes![
+                                    td![common::value_or_dash(bf.chest)],
+                                    td![common::value_or_dash(bf.abdominal)],
+                                    td![common::value_or_dash(bf.thigh)],
+                                    td![common::value_or_dash(bf.tricep)],
+                                    td![common::value_or_dash(bf.subscapular)],
+                                    td![common::value_or_dash(bf.suprailiac)],
+                                    td![common::value_or_dash(bf.midaxillary)],
+                                ]
+                            },
+                            td![p![
+                                C!["is-flex is-flex-wrap-nowrap"],
+                                a![
+                                    C!["icon"],
+                                    C!["mr-1"],
+                                    ev(Ev::Click, move |_| Msg::ShowEditBodyFatDialog(date)),
+                                    i![C!["fas fa-edit"]]
+                                ],
+                                a![
+                                    C!["icon"],
+                                    C!["ml-1"],
+                                    ev(Ev::Click, move |_| Msg::ShowDeleteBodyFatDialog(date)),
+                                    i![C!["fas fa-times"]]
+                                ]
+                            ]]
+                        ]
+                    })
+                    .collect::<Vec<_>>()
+            ],
         ]
     ]
 }

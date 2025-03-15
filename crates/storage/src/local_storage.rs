@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use async_trait::async_trait;
 use gloo_storage::Storage as GlooStorage;
-use valens_web_app::{log, OngoingTrainingSession, Settings};
+use valens_web_app::{OngoingTrainingSession, Settings, log};
 
 pub struct UI;
 

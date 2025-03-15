@@ -2073,9 +2073,11 @@ mod tests {
 
     #[test]
     fn test_equipment_iter() {
-        assert!(!Equipment::iter()
-            .collect::<Vec<_>>()
-            .contains(&&Equipment::None));
+        assert!(
+            !Equipment::iter()
+                .collect::<Vec<_>>()
+                .contains(&&Equipment::None)
+        );
     }
 
     #[test]
@@ -2201,12 +2203,14 @@ mod tests {
         filter.toggle_muscle(Muscle::None);
 
         assert!(filter.muscle_list().contains(&(Muscle::None, true)));
-        assert!(filter
-            .muscle_list()
-            .into_iter()
-            .filter(|(m, _)| *m != Muscle::None)
-            .map(|(_, b)| b)
-            .all(|b| !b));
+        assert!(
+            filter
+                .muscle_list()
+                .into_iter()
+                .filter(|(m, _)| *m != Muscle::None)
+                .map(|(_, b)| b)
+                .all(|b| !b)
+        );
 
         filter.toggle_muscle(Muscle::Abs);
 
@@ -2227,12 +2231,14 @@ mod tests {
         filter.toggle_force(Force::Push);
 
         assert!(filter.force_list().contains(&(Force::Push, true)));
-        assert!(filter
-            .force_list()
-            .into_iter()
-            .filter(|(f, _)| *f != Force::Push)
-            .map(|(_, b)| b)
-            .all(|b| !b));
+        assert!(
+            filter
+                .force_list()
+                .into_iter()
+                .filter(|(f, _)| *f != Force::Push)
+                .map(|(_, b)| b)
+                .all(|b| !b)
+        );
 
         filter.toggle_force(Force::Push);
 
@@ -2248,12 +2254,14 @@ mod tests {
         filter.toggle_mechanic(Mechanic::Compound);
 
         assert!(filter.mechanic_list().contains(&(Mechanic::Compound, true)));
-        assert!(filter
-            .mechanic_list()
-            .into_iter()
-            .filter(|(m, _)| *m != Mechanic::Compound)
-            .map(|(_, b)| b)
-            .all(|b| !b));
+        assert!(
+            filter
+                .mechanic_list()
+                .into_iter()
+                .filter(|(m, _)| *m != Mechanic::Compound)
+                .map(|(_, b)| b)
+                .all(|b| !b)
+        );
 
         filter.toggle_mechanic(Mechanic::Compound);
 
@@ -2268,15 +2276,19 @@ mod tests {
 
         filter.toggle_laterality(Laterality::Bilateral);
 
-        assert!(filter
-            .laterality_list()
-            .contains(&(Laterality::Bilateral, true)));
-        assert!(filter
-            .laterality_list()
-            .into_iter()
-            .filter(|(l, _)| *l != Laterality::Bilateral)
-            .map(|(_, b)| b)
-            .all(|b| !b));
+        assert!(
+            filter
+                .laterality_list()
+                .contains(&(Laterality::Bilateral, true))
+        );
+        assert!(
+            filter
+                .laterality_list()
+                .into_iter()
+                .filter(|(l, _)| *l != Laterality::Bilateral)
+                .map(|(_, b)| b)
+                .all(|b| !b)
+        );
 
         filter.toggle_laterality(Laterality::Bilateral);
 
@@ -2291,15 +2303,19 @@ mod tests {
 
         filter.toggle_assistance(Assistance::Assisted);
 
-        assert!(filter
-            .assistance_list()
-            .contains(&(Assistance::Assisted, true)));
-        assert!(filter
-            .assistance_list()
-            .into_iter()
-            .filter(|(a, _)| *a != Assistance::Assisted)
-            .map(|(_, b)| b)
-            .all(|b| !b));
+        assert!(
+            filter
+                .assistance_list()
+                .contains(&(Assistance::Assisted, true))
+        );
+        assert!(
+            filter
+                .assistance_list()
+                .into_iter()
+                .filter(|(a, _)| *a != Assistance::Assisted)
+                .map(|(_, b)| b)
+                .all(|b| !b)
+        );
 
         filter.toggle_assistance(Assistance::Assisted);
 
@@ -2314,15 +2330,19 @@ mod tests {
 
         filter.toggle_equipment(Equipment::Barbell);
 
-        assert!(filter
-            .equipment_list()
-            .contains(&(Equipment::Barbell, true)));
-        assert!(filter
-            .equipment_list()
-            .into_iter()
-            .filter(|(e, _)| *e != Equipment::Barbell)
-            .map(|(_, b)| b)
-            .all(|b| !b));
+        assert!(
+            filter
+                .equipment_list()
+                .contains(&(Equipment::Barbell, true))
+        );
+        assert!(
+            filter
+                .equipment_list()
+                .into_iter()
+                .filter(|(e, _)| *e != Equipment::Barbell)
+                .map(|(_, b)| b)
+                .all(|b| !b)
+        );
 
         filter.toggle_equipment(Equipment::Barbell);
 
@@ -2338,12 +2358,14 @@ mod tests {
         filter.toggle_category(Category::Strength);
 
         assert!(filter.category_list().contains(&(Category::Strength, true)));
-        assert!(filter
-            .category_list()
-            .into_iter()
-            .filter(|(c, _)| *c != Category::Strength)
-            .map(|(_, b)| b)
-            .all(|b| !b));
+        assert!(
+            filter
+                .category_list()
+                .into_iter()
+                .filter(|(c, _)| *c != Category::Strength)
+                .map(|(_, b)| b)
+                .all(|b| !b)
+        );
 
         filter.toggle_category(Category::Strength);
 

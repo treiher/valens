@@ -8,7 +8,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use chrono::{prelude::*, Duration};
+use chrono::{Duration, prelude::*};
 use seed::{prelude::*, *};
 use valens_storage as storage;
 use valens_web_app as web_app;
@@ -568,7 +568,7 @@ fn warn_about_unsaved_changes(model: &Model) -> bool {
 //     View
 // ------ ------
 
-fn view(model: &Model) -> impl IntoNodes<Msg> {
+fn view(model: &Model) -> impl IntoNodes<Msg> + use<> {
     if model.settings_dialog_visible {
         nodes![
             view_navbar(&model.navbar, model.page.as_ref(), &model.data),

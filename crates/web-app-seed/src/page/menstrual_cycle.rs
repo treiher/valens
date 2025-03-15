@@ -439,34 +439,36 @@ fn view_period_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
             C!["is-hoverable"],
             C!["has-text-centered"],
             thead![tr![th!["Date"], th!["Intensity"], th![]]],
-            tbody![&data_model
-                .period
-                .values()
-                .rev()
-                .filter(|p| p.date >= model.interval.first && p.date <= model.interval.last)
-                .map(|p| {
-                    let date = p.date;
-                    tr![
-                        td![common::no_wrap(&date.to_string())],
-                        td![format!("{:.1}", p.intensity)],
-                        td![p![
-                            C!["is-flex is-flex-wrap-nowrap"],
-                            a![
-                                C!["icon"],
-                                C!["mr-1"],
-                                ev(Ev::Click, move |_| Msg::ShowEditPeriodDialog(date)),
-                                i![C!["fas fa-edit"]]
-                            ],
-                            a![
-                                C!["icon"],
-                                C!["ml-1"],
-                                ev(Ev::Click, move |_| Msg::ShowDeletePeriodDialog(date)),
-                                i![C!["fas fa-times"]]
-                            ]
-                        ]]
-                    ]
-                })
-                .collect::<Vec<_>>()],
+            tbody![
+                &data_model
+                    .period
+                    .values()
+                    .rev()
+                    .filter(|p| p.date >= model.interval.first && p.date <= model.interval.last)
+                    .map(|p| {
+                        let date = p.date;
+                        tr![
+                            td![common::no_wrap(&date.to_string())],
+                            td![format!("{:.1}", p.intensity)],
+                            td![p![
+                                C!["is-flex is-flex-wrap-nowrap"],
+                                a![
+                                    C!["icon"],
+                                    C!["mr-1"],
+                                    ev(Ev::Click, move |_| Msg::ShowEditPeriodDialog(date)),
+                                    i![C!["fas fa-edit"]]
+                                ],
+                                a![
+                                    C!["icon"],
+                                    C!["ml-1"],
+                                    ev(Ev::Click, move |_| Msg::ShowDeletePeriodDialog(date)),
+                                    i![C!["fas fa-times"]]
+                                ]
+                            ]]
+                        ]
+                    })
+                    .collect::<Vec<_>>()
+            ],
         ]
     ]
 }

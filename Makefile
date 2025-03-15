@@ -133,7 +133,7 @@ run:
 	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_backend
 
 run_frontend:
-	PATH=~/.cargo/bin:${PATH} trunk --config $(FRONTEND_CRATE)/Trunk.toml serve --port 8000
+	PATH=~/.cargo/bin:${PATH} trunk --config $(FRONTEND_CRATE)/Trunk.toml serve --port 8000 --watch crates
 
 run_backend: $(CONFIG_FILE)
 	VALENS_CONFIG=$(CONFIG_FILE) uv run -- flask --app valens --debug run -h 0.0.0.0

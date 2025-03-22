@@ -39,13 +39,13 @@ enum Dialog {
     Hidden,
     AddRoutine(Form),
     EditRoutine(Form),
-    DeleteRoutine(u32),
+    DeleteRoutine(domain::RoutineID),
 }
 
 struct Form {
-    id: u32,
-    name: common::InputField<String>,
-    template_routine_id: u32,
+    id: domain::RoutineID,
+    name: common::InputField<domain::Name>,
+    template_routine_id: domain::RoutineID,
 }
 
 // ------ ------
@@ -54,8 +54,8 @@ struct Form {
 
 pub enum Msg {
     ShowAddRoutineDialog,
-    ShowEditRoutineDialog(u32),
-    ShowDeleteRoutineDialog(u32),
+    ShowEditRoutineDialog(domain::RoutineID),
+    ShowDeleteRoutineDialog(domain::RoutineID),
     CloseRoutineDialog,
 
     SearchTermChanged(String),
@@ -65,8 +65,8 @@ pub enum Msg {
     ShowArchive,
 
     SaveRoutine,
-    ChangeArchived(u32, bool),
-    DeleteRoutine(u32),
+    ChangeArchived(domain::RoutineID, bool),
+    DeleteRoutine(domain::RoutineID),
     DataEvent(data::Event),
 }
 
@@ -79,9 +79,9 @@ pub fn update(
     match msg {
         Msg::ShowAddRoutineDialog => {
             model.dialog = Dialog::AddRoutine(Form {
-                id: 0,
+                id: 0.into(),
                 name: common::InputField::default(),
-                template_routine_id: 0,
+                template_routine_id: 0.into(),
             });
         }
         Msg::ShowEditRoutineDialog(id) => {
@@ -90,11 +90,11 @@ pub fn update(
             model.dialog = Dialog::EditRoutine(Form {
                 id,
                 name: common::InputField {
-                    input: name.clone(),
+                    input: name.to_string(),
                     parsed: Some(name.clone()),
-                    orig: name,
+                    orig: name.to_string(),
                 },
-                template_routine_id: 0,
+                template_routine_id: 0.into(),
             });
         }
         Msg::ShowDeleteRoutineDialog(id) => {
@@ -114,34 +114,31 @@ pub fn update(
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddRoutine(ref mut form) | Dialog::EditRoutine(ref mut form) => {
-                let trimmed_name = name.trim();
-                if not(trimmed_name.is_empty())
-                    && (trimmed_name == form.name.orig
-                        || data_model.routines.values().all(|e| e.name != trimmed_name))
-                {
-                    form.name = common::InputField {
-                        input: name.clone(),
-                        parsed: Some(trimmed_name.to_string()),
-                        orig: form.name.orig.clone(),
-                    };
-                } else {
-                    form.name = common::InputField {
-                        input: name.clone(),
-                        parsed: None,
-                        orig: form.name.orig.clone(),
-                    };
-                }
+                let parsed = domain::Name::new(&name).ok().and_then(|name| {
+                    if name.as_ref() == &form.name.orig
+                        || data_model.routines.values().all(|r| r.name != name)
+                    {
+                        Some(name)
+                    } else {
+                        None
+                    }
+                });
+                form.name = common::InputField {
+                    input: name,
+                    parsed,
+                    orig: form.name.orig.clone(),
+                };
             }
             Dialog::Hidden | Dialog::DeleteRoutine(_) => {
                 panic!();
             }
         },
         Msg::TemplateRoutineChanged(routine_id) => match model.dialog {
-            Dialog::AddRoutine(ref mut form) => match routine_id.parse::<u32>() {
+            Dialog::AddRoutine(ref mut form) => match routine_id.parse::<u128>() {
                 Ok(parsed_routine_id) => {
-                    form.template_routine_id = parsed_routine_id;
+                    form.template_routine_id = parsed_routine_id.into();
                 }
-                Err(_) => form.template_routine_id = 0,
+                Err(_) => form.template_routine_id = 0.into(),
             },
             Dialog::Hidden | Dialog::EditRoutine(_) | Dialog::DeleteRoutine(_) => {
                 panic!();
@@ -239,7 +236,7 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[domain::Routine], loading: b
             let name = routines
                 .iter()
                 .find(|r| r.id == id)
-                .map(|r| r.name.clone())
+                .map(|r| r.name.to_string())
                 .unwrap_or_default();
             return common::view_delete_confirmation_dialog(
                 "routine",
@@ -299,9 +296,9 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[domain::Routine], loading: b
                             routines.iter()
                             .map(|r| {
                                 option![
-                                    &r.name,
+                                    &r.name.as_ref(),
                                     attrs![
-                                        At::Value => r.id,
+                                        At::Value => r.id.as_u128(),
                                     ]
                                 ]
                             })
@@ -345,10 +342,18 @@ fn view_routine_dialog(dialog: &Dialog, routines: &[domain::Routine], loading: b
 
 fn view_table(search_term: &str, archive_visible: bool, data_model: &data::Model) -> Node<Msg> {
     let routines = data_model.routines_sorted_by_last_use(|r: &domain::Routine| {
-        !r.archived && r.name.to_lowercase().contains(&search_term.to_lowercase())
+        !r.archived
+            && r.name
+                .as_ref()
+                .to_lowercase()
+                .contains(&search_term.to_lowercase())
     });
     let archived_routines = data_model.routines_sorted_by_last_use(|r: &domain::Routine| {
-        r.archived && r.name.to_lowercase().contains(&search_term.to_lowercase())
+        r.archived
+            && r.name
+                .as_ref()
+                .to_lowercase()
+                .contains(&search_term.to_lowercase())
     });
     div![
         C!["table-container"],
@@ -359,7 +364,7 @@ fn view_table(search_term: &str, archive_visible: bool, data_model: &data::Model
             C!["is-hoverable"],
             tbody![routines.iter().map(|r| view_table_row(
                 r.id,
-                &r.name,
+                r.name.as_ref(),
                 r.archived,
                 &data_model.base_url
             ))],
@@ -375,7 +380,7 @@ fn view_table(search_term: &str, archive_visible: bool, data_model: &data::Model
                         tbody![archived_routines
                             .iter()
                             .map(|r|
-                                view_table_row(r.id, &r.name, r.archived, &data_model.base_url)
+                                view_table_row(r.id, r.name.as_ref(), r.archived, &data_model.base_url)
                             )
                         ],
                     ]
@@ -402,7 +407,7 @@ fn view_table(search_term: &str, archive_visible: bool, data_model: &data::Model
     ]
 }
 
-fn view_table_row(id: u32, name: &str, archived: bool, base_url: &Url) -> Node<Msg> {
+fn view_table_row(id: domain::RoutineID, name: &str, archived: bool, base_url: &Url) -> Node<Msg> {
     tr![td![
         C!["is-flex"],
         C!["is-justify-content-space-between"],
@@ -411,7 +416,7 @@ fn view_table_row(id: u32, name: &str, archived: bool, base_url: &Url) -> Node<M
                 At::Href => {
                     crate::Urls::new(base_url)
                         .routine()
-                        .add_hash_path_part(id.to_string())
+                        .add_hash_path_part(id.as_u128().to_string())
                 }
             },
             name,

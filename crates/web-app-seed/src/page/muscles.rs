@@ -67,7 +67,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 &training_sessions_interval,
                 Msg::ChangeInterval
             ),
-            domain::Muscle::iter().map(|m| {
+            domain::MuscleID::iter().map(|m| {
                 #[allow(clippy::cast_precision_loss)]
                 let total_7day_set_volume = domain::centered_moving_total(
                     &data_model
@@ -75,8 +75,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         .values()
                         .filter_map(|s| {
                             s.stimulus_per_muscle(&data_model.exercises)
-                                .get(&m.id())
-                                .map(|stimulus| (s.date, *stimulus as f32 / 100.))
+                                .get(m)
+                                .map(|stimulus| (s.date, **stimulus as f32 / 100.))
                         })
                         .collect::<Vec<_>>(),
                     &model.interval,

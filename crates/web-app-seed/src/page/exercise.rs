@@ -20,8 +20,9 @@ pub fn init(
     let exercise_id = url
         .next_hash_path_part()
         .unwrap_or("")
-        .parse::<u32>()
-        .unwrap_or(0);
+        .parse::<u128>()
+        .unwrap_or_default()
+        .into();
     let editing = url.next_hash_path_part() == Some("edit");
 
     orders.subscribe(Msg::DataEvent);
@@ -49,9 +50,9 @@ pub fn init(
 
 pub struct Model {
     interval: domain::Interval,
-    exercise_id: u32,
-    name: common::InputField<String>,
-    muscle_stimulus: BTreeMap<u8, u8>,
+    exercise_id: domain::ExerciseID,
+    name: common::InputField<domain::Name>,
+    muscle_stimulus: BTreeMap<domain::MuscleID, domain::Stimulus>,
     dialog: Dialog,
     editing: bool,
     loading: bool,
@@ -63,8 +64,8 @@ impl Model {
     }
 
     pub fn mark_as_unchanged(&mut self) {
-        self.name.input = self.name.parsed.clone().unwrap();
-        self.name.orig = self.name.parsed.clone().unwrap();
+        self.name.input = self.name.parsed.clone().unwrap().to_string();
+        self.name.orig = self.name.parsed.clone().unwrap().to_string();
     }
 
     fn saving_disabled(&self) -> bool {
@@ -74,7 +75,7 @@ impl Model {
 
 enum Dialog {
     Hidden,
-    DeleteTrainingSession(u32),
+    DeleteTrainingSession(domain::TrainingSessionID),
 }
 
 // ------ ------
@@ -85,13 +86,13 @@ pub enum Msg {
     EditExercise,
     SaveExercise,
 
-    ShowDeleteTrainingSessionDialog(u32),
+    ShowDeleteTrainingSessionDialog(domain::TrainingSessionID),
     CloseDialog,
 
     NameChanged(String),
-    SetMuscleStimulus(u8, u8),
+    SetMuscleStimulus(domain::MuscleID, domain::Stimulus),
 
-    DeleteTrainingSession(u32),
+    DeleteTrainingSession(domain::TrainingSessionID),
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
@@ -109,7 +110,7 @@ pub fn update(
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .exercise()
-                    .add_hash_path_part(model.exercise_id.to_string())
+                    .add_hash_path_part(model.exercise_id.as_u128().to_string())
                     .add_hash_path_part("edit"),
             );
         }
@@ -138,40 +139,33 @@ pub fn update(
             Url::go_and_replace(
                 &crate::Urls::new(&data_model.base_url)
                     .routine()
-                    .add_hash_path_part(model.exercise_id.to_string()),
+                    .add_hash_path_part(model.exercise_id.as_u128().to_string()),
             );
         }
 
         Msg::NameChanged(name) => {
-            let trimmed_name = name.trim();
-            if not(trimmed_name.is_empty())
-                && (trimmed_name == model.name.orig
-                    || data_model
-                        .exercises
-                        .values()
-                        .all(|e| e.name != trimmed_name))
-            {
-                model.name = common::InputField {
-                    input: name.clone(),
-                    parsed: Some(trimmed_name.to_string()),
-                    orig: model.name.orig.clone(),
-                };
-            } else {
-                model.name = common::InputField {
-                    input: name,
-                    parsed: None,
-                    orig: model.name.orig.clone(),
+            let parsed = domain::Name::new(&name).ok().and_then(|name| {
+                if name.as_ref() == &model.name.orig
+                    || data_model.exercises.values().all(|e| e.name != name)
+                {
+                    Some(name)
+                } else {
+                    None
                 }
-            }
+            });
+            model.name = common::InputField {
+                input: name,
+                parsed,
+                orig: model.name.orig.clone(),
+            };
         }
         Msg::SetMuscleStimulus(muscle_id, stimulus) => match stimulus {
-            0 => {
+            domain::Stimulus::NONE => {
                 model.muscle_stimulus.remove(&muscle_id);
             }
-            1..=100 => {
+            _ => {
                 model.muscle_stimulus.insert(muscle_id, stimulus);
             }
-            _ => {}
         },
 
         Msg::DeleteTrainingSession(id) => {
@@ -190,7 +184,7 @@ pub fn update(
                     Url::go_and_push(
                         &crate::Urls::new(&data_model.base_url)
                             .exercise()
-                            .add_hash_path_part(model.exercise_id.to_string()),
+                            .add_hash_path_part(model.exercise_id.as_u128().to_string()),
                     );
                 }
                 data::Event::TrainingSessionDeletedOk => {
@@ -222,9 +216,9 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 
     if let Some(exercise) = exercise {
         model.name = common::InputField {
-            input: exercise.name.clone(),
+            input: exercise.name.to_string(),
             parsed: Some(exercise.name.clone()),
-            orig: exercise.name.clone(),
+            orig: exercise.name.to_string(),
         };
         model.muscle_stimulus = exercise.muscle_stimulus();
     };
@@ -237,7 +231,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     if data_model.exercises.is_empty() && data_model.loading_exercises {
         common::view_page_loading()
-    } else if model.exercise_id > 0 {
+    } else if data_model.exercises.contains_key(&model.exercise_id) {
         let exercise_training_sessions = exercise_training_sessions(model, data_model);
         let dates = exercise_training_sessions.iter().map(|t| t.date);
         let exercise_interval = domain::Interval {
@@ -350,13 +344,13 @@ fn view_title(model: &Model) -> Node<Msg> {
 }
 
 fn view_muscles(model: &Model) -> Node<Msg> {
-    let muscles = domain::Muscle::iter()
+    let muscles = domain::MuscleID::iter()
         .map(|m| {
             let stimulus = model
                 .muscle_stimulus
-                .get(&m.id())
+                .get(m)
                 .copied()
-                .unwrap_or_default();
+                .unwrap_or(domain::Stimulus::NONE);
             (m, stimulus)
         })
         .collect::<Vec<_>>();
@@ -387,10 +381,10 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                 a![
                                     C!["button"],
                                     C!["is-small"],
-                                    C![IF![*stimulus == 100 => "is-link"]],
+                                    C![IF![*stimulus == domain::Stimulus::PRIMARY => "is-link"]],
                                     &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
-                                        m.id(),
-                                        domain::MuscleStimulus::Primary as u8
+                                        m,
+                                        domain::Stimulus::PRIMARY
                                     )),
                                     "primary",
                                 ]
@@ -400,10 +394,10 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                 a![
                                     C!["button"],
                                     C!["is-small"],
-                                    C![IF![*stimulus > 0 && *stimulus < 100 => "is-link"]],
+                                    C![IF![**stimulus > *domain::Stimulus::NONE && **stimulus < *domain::Stimulus::PRIMARY => "is-link"]],
                                     &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(
-                                        m.id(),
-                                        domain::MuscleStimulus::Secondary as u8
+                                        m,
+                                        domain::Stimulus::SECONDARY
                                     )),
                                     "secondary",
                                 ]
@@ -413,8 +407,8 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                                 a![
                                     C!["button"],
                                     C!["is-small"],
-                                    C![IF![*stimulus == 0 => "is-link"]],
-                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(m.id(), 0)),
+                                    C![IF![*stimulus == domain::Stimulus::NONE => "is-link"]],
+                                    &ev(Ev::Click, move |_| Msg::SetMuscleStimulus(m, domain::Stimulus::NONE)),
                                     "none",
                                 ]
                             ],
@@ -426,7 +420,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
     } else {
         let mut muscles = muscles
             .iter()
-            .filter(|(_, stimulus)| *stimulus > 0)
+            .filter(|(_, stimulus)| **stimulus > *domain::Stimulus::NONE)
             .collect::<Vec<_>>();
         muscles.sort_by(|a, b| b.1.cmp(&a.1));
         if muscles.is_empty() {
@@ -442,7 +436,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
                         span![
                             C!["tag"],
                             C!["is-link"],
-                            C![IF![*stimulus < 100 => "is-light"]],
+                            C![IF![**stimulus < *domain::Stimulus::PRIMARY => "is-light"]],
                             m.name()
                         ],
                         m.description(),
@@ -463,7 +457,7 @@ pub fn view_charts<Ms>(
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut volume_load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut tut: BTreeMap<NaiveDate, f32> = BTreeMap::new();
-    let mut reps_rpe: BTreeMap<NaiveDate, (Vec<f32>, Vec<f32>)> = BTreeMap::new();
+    let mut reps_rpe: BTreeMap<NaiveDate, (Vec<f32>, Vec<domain::RPE>)> = BTreeMap::new();
     for training_session in training_sessions {
         #[allow(clippy::cast_precision_loss)]
         set_volume
@@ -477,8 +471,8 @@ pub fn view_charts<Ms>(
             .or_insert(training_session.volume_load() as f32);
         #[allow(clippy::cast_precision_loss)]
         tut.entry(training_session.date)
-            .and_modify(|e| *e += training_session.tut().unwrap_or(0) as f32)
-            .or_insert(training_session.tut().unwrap_or(0) as f32);
+            .and_modify(|e| *e += u32::from(training_session.tut().unwrap_or_default()) as f32)
+            .or_insert(u32::from(training_session.tut().unwrap_or_default()) as f32);
         if let Some(avg_reps) = training_session.avg_reps() {
             reps_rpe
                 .entry(training_session.date)
@@ -513,13 +507,8 @@ pub fn view_charts<Ms>(
             .filter_map(|(date, (avg_reps_values, avg_rpe_values))| {
                 #[allow(clippy::cast_precision_loss)]
                 let avg_reps = avg_reps_values.iter().sum::<f32>() / avg_reps_values.len() as f32;
-                #[allow(clippy::cast_precision_loss)]
-                let avg_rpe = avg_rpe_values.iter().sum::<f32>() / avg_rpe_values.len() as f32;
-                if avg_rpe_values.is_empty() {
-                    None
-                } else {
-                    Some((date, avg_reps + 10.0 - avg_rpe))
-                }
+                domain::RPE::avg(&avg_rpe_values)
+                    .map(|avg_rpe| (date, avg_reps + f32::from(domain::RIR::from(avg_rpe))))
             })
             .collect::<Vec<_>>();
         if !rir_values.is_empty() {
@@ -652,7 +641,7 @@ pub fn view_charts<Ms>(
                             .filter_map(|e| match e {
                                 #[allow(clippy::cast_precision_loss)]
                                 domain::TrainingSessionElement::Set { time, .. } =>
-                                    time.map(|v| (s.date, v as f32)),
+                                    time.map(|v| (s.date, u32::from(v) as f32)),
                                 _ => None,
                             })
                             .collect::<Vec<_>>())
@@ -713,7 +702,7 @@ fn view_calendar(
 
 fn view_sets(
     training_sessions: &[&domain::TrainingSession],
-    routines: &BTreeMap<u32, domain::Routine>,
+    routines: &BTreeMap<domain::RoutineID, domain::Routine>,
     base_url: &Url,
     show_rpe: bool,
     show_tut: bool,
@@ -730,23 +719,23 @@ fn view_sets(
                         C!["mb-2"],
                         a![
                             attrs! {
-                                At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
+                                At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.as_u128().to_string()),
                             },
                             common::no_wrap(&t.date.to_string())
                         ],
                         raw!["&emsp;"],
-                        if let Some(routine_id) = t.routine_id {
+                        if t.routine_id.is_nil() {
+                            plain!["-"]
+                        } else {
                             a![
                                 attrs! {
-                                    At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.unwrap().to_string()),
+                                    At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.as_u128().to_string()),
                                 },
-                                match &routines.get(&routine_id) {
-                                    Some(routine) => raw![&routine.name],
+                                match &routines.get(&t.routine_id) {
+                                    Some(routine) => raw![&routine.name.as_ref()],
                                     None => vec![common::view_loading()]
                                 }
                             ]
-                        } else {
-                            plain!["-"]
                         }
                     ],
                     div![

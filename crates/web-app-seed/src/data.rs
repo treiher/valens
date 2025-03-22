@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
 
 use chrono::{Duration, prelude::*};
 use log::error;
@@ -11,8 +11,10 @@ use seed::{
     virtual_dom::{ToClasses, UpdateEl},
 };
 use valens_domain as domain;
+use valens_domain::Repository as Storage;
 use valens_storage as storage;
 use valens_web_app as web_app;
+use valens_web_app::Repository as UIStorage;
 
 use crate::common;
 
@@ -26,8 +28,8 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
         .send_msg(Msg::ReadSettings)
         .send_msg(Msg::ReadOngoingTrainingSession);
     Model {
-        storage: Arc::new(storage::rest::Storage),
-        ui_storage: Arc::new(storage::local_storage::UI),
+        storage: storage::rest::Storage,
+        ui_storage: storage::local_storage::UI,
         base_url: url.to_hash_base_url(),
         errors: Vec::new(),
         app_update_available: false,
@@ -66,8 +68,8 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
 
 #[allow(clippy::struct_excessive_bools)]
 pub struct Model {
-    storage: Arc<dyn storage::Storage>,
-    ui_storage: Arc<dyn storage::UI>,
+    storage: storage::rest::Storage,
+    ui_storage: storage::local_storage::UI,
     pub base_url: Url,
     errors: Vec<String>,
     app_update_available: bool,
@@ -75,7 +77,7 @@ pub struct Model {
     // ------ Data -----
     pub session: Option<domain::User>,
     pub version: String,
-    pub users: BTreeMap<u32, domain::User>,
+    pub users: BTreeMap<domain::UserID, domain::User>,
     pub loading_users: bool,
 
     // ------ Session-dependent data ------
@@ -85,11 +87,11 @@ pub struct Model {
     pub loading_body_fat: bool,
     pub period: BTreeMap<NaiveDate, domain::Period>,
     pub loading_period: bool,
-    pub exercises: BTreeMap<u32, domain::Exercise>,
+    pub exercises: BTreeMap<domain::ExerciseID, domain::Exercise>,
     pub loading_exercises: bool,
-    pub routines: BTreeMap<u32, domain::Routine>,
+    pub routines: BTreeMap<domain::RoutineID, domain::Routine>,
     pub loading_routines: bool,
-    pub training_sessions: BTreeMap<u32, domain::TrainingSession>,
+    pub training_sessions: BTreeMap<domain::TrainingSessionID, domain::TrainingSession>,
     pub loading_training_sessions: bool,
     pub last_refresh: DateTime<Utc>,
 
@@ -153,25 +155,25 @@ impl Model {
 }
 
 fn sort_routines_by_last_use(
-    routines: &BTreeMap<u32, domain::Routine>,
-    training_sessions: &BTreeMap<u32, domain::TrainingSession>,
+    routines: &BTreeMap<domain::RoutineID, domain::Routine>,
+    training_sessions: &BTreeMap<domain::TrainingSessionID, domain::TrainingSession>,
     filter: impl Fn(&domain::Routine) -> bool,
 ) -> Vec<domain::Routine> {
-    let mut map: BTreeMap<u32, NaiveDate> = BTreeMap::new();
+    let mut map: BTreeMap<domain::RoutineID, NaiveDate> = BTreeMap::new();
     for (routine_id, _) in routines.iter().filter(|(_, r)| filter(r)) {
+        #[allow(clippy::cast_possible_truncation)]
         map.insert(
             *routine_id,
-            NaiveDate::MIN + Duration::days(i64::from(*routine_id)),
+            NaiveDate::MIN + Duration::days(routine_id.as_u128() as i64),
         );
     }
     for training_session in training_sessions.values() {
-        if let Some(routine_id) = training_session.routine_id {
-            if routines.contains_key(&routine_id)
-                && filter(&routines[&routine_id])
-                && training_session.date > map[&routine_id]
-            {
-                map.insert(routine_id, training_session.date);
-            }
+        let routine_id = training_session.routine_id;
+        if routines.contains_key(&routine_id)
+            && filter(&routines[&routine_id])
+            && training_session.date > map[&routine_id]
+        {
+            map.insert(routine_id, training_session.date);
         }
     }
     let mut list: Vec<_> = map.iter().collect();
@@ -195,7 +197,7 @@ pub enum Msg {
     Refresh,
     ClearSessionDependentData,
 
-    RequestSession(u32),
+    RequestSession(domain::UserID),
     SessionReceived(Result<domain::User, String>),
     InitializeSession,
     SessionInitialized(Result<domain::User, String>),
@@ -208,12 +210,12 @@ pub enum Msg {
 
     ReadUsers,
     UsersRead(Result<Vec<domain::User>, String>),
-    CreateUser(String, u8),
+    CreateUser(domain::Name, domain::Sex),
     UserCreated(Result<domain::User, String>),
     ReplaceUser(domain::User),
     UserReplaced(Result<domain::User, String>),
-    DeleteUser(u32),
-    UserDeleted(Result<u32, String>),
+    DeleteUser(domain::UserID),
+    UserDeleted(Result<domain::UserID, String>),
 
     ReadBodyWeight,
     BodyWeightRead(Result<Vec<domain::BodyWeight>, String>),
@@ -244,44 +246,44 @@ pub enum Msg {
 
     ReadExercises,
     ExercisesRead(Result<Vec<domain::Exercise>, String>),
-    CreateExercise(String, Vec<domain::ExerciseMuscle>),
+    CreateExercise(domain::Name, Vec<domain::ExerciseMuscle>),
     ExerciseCreated(Result<domain::Exercise, String>),
     ReplaceExercise(domain::Exercise),
     ExerciseReplaced(Result<domain::Exercise, String>),
-    DeleteExercise(u32),
-    ExerciseDeleted(Result<u32, String>),
+    DeleteExercise(domain::ExerciseID),
+    ExerciseDeleted(Result<domain::ExerciseID, String>),
 
     ReadRoutines,
     RoutinesRead(Result<Vec<domain::Routine>, String>),
-    CreateRoutine(String, u32),
+    CreateRoutine(domain::Name, domain::RoutineID),
     RoutineCreated(Result<domain::Routine, String>),
     ModifyRoutine(
-        u32,
-        Option<String>,
+        domain::RoutineID,
+        Option<domain::Name>,
         Option<bool>,
         Option<Vec<domain::RoutinePart>>,
     ),
     RoutineModified(Result<domain::Routine, String>),
-    DeleteRoutine(u32),
-    RoutineDeleted(Result<u32, String>),
+    DeleteRoutine(domain::RoutineID),
+    RoutineDeleted(Result<domain::RoutineID, String>),
 
     ReadTrainingSessions,
     TrainingSessionsRead(Result<Vec<domain::TrainingSession>, String>),
     CreateTrainingSession(
-        Option<u32>,
+        domain::RoutineID,
         NaiveDate,
         String,
         Vec<domain::TrainingSessionElement>,
     ),
     TrainingSessionCreated(Result<domain::TrainingSession, String>),
     ModifyTrainingSession(
-        u32,
+        domain::TrainingSessionID,
         Option<String>,
         Option<Vec<domain::TrainingSessionElement>>,
     ),
     TrainingSessionModified(Result<domain::TrainingSession, String>),
-    DeleteTrainingSession(u32),
-    TrainingSessionDeleted(Result<u32, String>),
+    DeleteTrainingSession(domain::TrainingSessionID),
+    TrainingSessionDeleted(Result<domain::TrainingSessionID, String>),
 
     SetBeepVolume(u8),
     SetTheme(web_app::Theme),
@@ -290,7 +292,7 @@ pub enum Msg {
     SetShowRPE(bool),
     SetShowTUT(bool),
 
-    StartTrainingSession(u32),
+    StartTrainingSession(domain::TrainingSessionID),
     UpdateTrainingSession(usize, web_app::TimerState),
     EndTrainingSession,
 
@@ -1015,8 +1017,9 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::StartTrainingSession(training_session_id) => {
-            model.ongoing_training_session =
-                Some(web_app::OngoingTrainingSession::new(training_session_id));
+            model.ongoing_training_session = Some(web_app::OngoingTrainingSession::new(
+                training_session_id.as_u128(),
+            ));
             orders.send_msg(Msg::WriteOngoingTrainingSession);
         }
         Msg::UpdateTrainingSession(section_idx, timer_state) => {
@@ -1150,23 +1153,23 @@ mod tests {
     #[test]
     fn test_sort_routines_by_last_use() {
         let routines = BTreeMap::from([
-            (1, routine(1)),
-            (2, routine(2)),
-            (3, routine(3)),
-            (4, routine(4)),
+            (1.into(), routine(1)),
+            (2.into(), routine(2)),
+            (3.into(), routine(3)),
+            (4.into(), routine(4)),
         ]);
         let training_sessions = BTreeMap::from([
             (
-                1,
-                training_session(1, Some(3), NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+                1.into(),
+                training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
             ),
             (
-                2,
-                training_session(2, Some(2), NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+                2.into(),
+                training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
             ),
             (
-                3,
-                training_session(3, Some(3), NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+                3.into(),
+                training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
             ),
         ]);
         assert_eq!(
@@ -1187,19 +1190,19 @@ mod tests {
 
     #[test]
     fn test_sort_routines_by_last_use_missing_routines() {
-        let routines = BTreeMap::from([(1, routine(1)), (2, routine(2))]);
+        let routines = BTreeMap::from([(1.into(), routine(1)), (2.into(), routine(2))]);
         let training_sessions = BTreeMap::from([
             (
-                1,
-                training_session(1, Some(3), NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+                1.into(),
+                training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
             ),
             (
-                2,
-                training_session(2, Some(2), NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+                2.into(),
+                training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
             ),
             (
-                3,
-                training_session(3, Some(3), NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+                3.into(),
+                training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
             ),
         ]);
         assert_eq!(
@@ -1211,51 +1214,47 @@ mod tests {
     #[test]
     fn test_sort_routines_by_last_use_filter() {
         let routines = BTreeMap::from([
-            (1, routine(1)),
-            (2, routine(2)),
-            (3, routine(3)),
-            (4, routine(4)),
+            (1.into(), routine(1)),
+            (2.into(), routine(2)),
+            (3.into(), routine(3)),
+            (4.into(), routine(4)),
         ]);
         let training_sessions = BTreeMap::from([
             (
-                1,
-                training_session(1, Some(3), NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+                1.into(),
+                training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
             ),
             (
-                2,
-                training_session(2, Some(2), NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+                2.into(),
+                training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
             ),
             (
-                3,
-                training_session(3, Some(3), NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+                3.into(),
+                training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
             ),
         ]);
         assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions, |r| r.id > 2),
+            sort_routines_by_last_use(&routines, &training_sessions, |r| r.id > 2.into()),
             vec![routine(3), routine(4)]
         );
     }
 
-    fn routine(id: u32) -> domain::Routine {
+    fn routine(id: u128) -> domain::Routine {
         domain::Routine {
-            id,
-            name: id.to_string(),
-            notes: None,
+            id: id.into(),
+            name: domain::Name::new(&id.to_string()).unwrap(),
+            notes: String::new(),
             archived: false,
             sections: vec![],
         }
     }
 
-    fn training_session(
-        id: u32,
-        routine_id: Option<u32>,
-        date: NaiveDate,
-    ) -> domain::TrainingSession {
+    fn training_session(id: u128, routine_id: u128, date: NaiveDate) -> domain::TrainingSession {
         domain::TrainingSession {
-            id,
-            routine_id,
+            id: id.into(),
+            routine_id: domain::RoutineID::from(routine_id),
             date,
-            notes: None,
+            notes: String::new(),
             elements: vec![],
         }
     }

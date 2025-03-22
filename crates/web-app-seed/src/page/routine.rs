@@ -20,8 +20,9 @@ pub fn init(
     let routine_id = url
         .next_hash_path_part()
         .unwrap_or("")
-        .parse::<u32>()
-        .unwrap_or(0);
+        .parse::<u128>()
+        .unwrap_or_default()
+        .into();
     let editing = url.next_hash_path_part() == Some("edit");
 
     orders.subscribe(Msg::DataEvent);
@@ -50,10 +51,10 @@ pub fn init(
 
 pub struct Model {
     interval: domain::Interval,
-    routine_id: u32,
-    name: common::InputField<String>,
+    routine_id: domain::RoutineID,
+    name: common::InputField<domain::Name>,
     sections: Vec<Form>,
-    previous_exercises: BTreeSet<u32>,
+    previous_exercises: BTreeSet<domain::ExerciseID>,
     dialog: Dialog,
     editing: bool,
     loading: bool,
@@ -65,8 +66,8 @@ impl Model {
     }
 
     pub fn mark_as_unchanged(&mut self) {
-        self.name.input = self.name.parsed.clone().unwrap();
-        self.name.orig = self.name.parsed.clone().unwrap();
+        self.name.input = self.name.parsed.clone().unwrap().to_string();
+        self.name.orig = self.name.parsed.clone().unwrap().to_string();
         for s in &mut self.sections {
             s.mark_as_unchanged();
         }
@@ -80,7 +81,7 @@ impl Model {
 enum Dialog {
     Hidden,
     SelectExercise(Vec<usize>, Box<component::exercise_list::Model>),
-    DeleteTrainingSession(u32),
+    DeleteTrainingSession(domain::TrainingSessionID),
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -90,11 +91,11 @@ enum Form {
         parts: Vec<Form>,
     },
     Activity {
-        exercise_id: Option<u32>,
-        reps: common::InputField<u32>,
-        time: common::InputField<u32>,
-        weight: common::InputField<f32>,
-        rpe: common::InputField<f32>,
+        exercise_id: domain::ExerciseID,
+        reps: common::InputField<domain::Reps>,
+        time: common::InputField<domain::Time>,
+        weight: common::InputField<domain::Weight>,
+        rpe: common::InputField<domain::RPE>,
         automatic: bool,
     },
 }
@@ -179,7 +180,7 @@ impl From<&domain::RoutinePart> for Form {
             } => Form::Activity {
                 exercise_id: *exercise_id,
                 reps: {
-                    let reps_str = if *reps == 0 {
+                    let reps_str = if *reps == domain::Reps::default() {
                         String::new()
                     } else {
                         reps.to_string()
@@ -191,7 +192,7 @@ impl From<&domain::RoutinePart> for Form {
                     }
                 },
                 time: {
-                    let time_str = if *time == 0 {
+                    let time_str = if *time == domain::Time::default() {
                         String::new()
                     } else {
                         time.to_string()
@@ -203,7 +204,7 @@ impl From<&domain::RoutinePart> for Form {
                     }
                 },
                 weight: {
-                    let weight_str = if *weight == 0.0 {
+                    let weight_str = if *weight == domain::Weight::default() {
                         String::new()
                     } else {
                         weight.to_string()
@@ -215,7 +216,7 @@ impl From<&domain::RoutinePart> for Form {
                     }
                 },
                 rpe: {
-                    let rpe_str = if *rpe == 0.0 {
+                    let rpe_str = if *rpe == domain::RPE::ZERO {
                         String::new()
                     } else {
                         rpe.to_string()
@@ -249,10 +250,10 @@ fn to_routine_parts(parts: &[Form]) -> Vec<domain::RoutinePart> {
                 automatic,
             } => domain::RoutinePart::RoutineActivity {
                 exercise_id: *exercise_id,
-                reps: reps.parsed.unwrap_or(0),
-                time: time.parsed.unwrap_or(0),
-                weight: weight.parsed.unwrap_or(0.0),
-                rpe: rpe.parsed.unwrap_or(0.0),
+                reps: reps.parsed.unwrap_or_default(),
+                time: time.parsed.unwrap_or_default(),
+                weight: weight.parsed.unwrap_or_default(),
+                rpe: rpe.parsed.unwrap_or_default(),
                 automatic: *automatic,
             },
         })
@@ -268,17 +269,17 @@ pub enum Msg {
     SaveRoutine,
 
     ShowSelectExerciseDialog(Vec<usize>),
-    ShowDeleteTrainingSessionDialog(u32),
+    ShowDeleteTrainingSessionDialog(domain::TrainingSessionID),
     CloseDialog,
 
     NameChanged(String),
     AddSection(Vec<usize>),
-    AddActivity(Vec<usize>, Option<u32>),
+    AddActivity(Vec<usize>, domain::ExerciseID),
     RemovePart(Vec<usize>),
     MovePartDown(Vec<usize>),
     MovePartUp(Vec<usize>),
     RoundsChanged(Vec<usize>, String),
-    ExerciseChanged(Vec<usize>, u32),
+    ExerciseChanged(Vec<usize>, domain::ExerciseID),
     RepsChanged(Vec<usize>, String),
     TimeChanged(Vec<usize>, String),
     WeightChanged(Vec<usize>, String),
@@ -287,7 +288,7 @@ pub enum Msg {
 
     ExerciseList(component::exercise_list::Msg),
 
-    DeleteTrainingSession(u32),
+    DeleteTrainingSession(domain::TrainingSessionID),
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
@@ -305,7 +306,7 @@ pub fn update(
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .routine()
-                    .add_hash_path_part(model.routine_id.to_string())
+                    .add_hash_path_part(model.routine_id.as_u128().to_string())
                     .add_hash_path_part("edit"),
             );
         }
@@ -327,8 +328,8 @@ pub fn update(
                 )),
             );
         }
-        Msg::ShowDeleteTrainingSessionDialog(position) => {
-            model.dialog = Dialog::DeleteTrainingSession(position);
+        Msg::ShowDeleteTrainingSessionDialog(id) => {
+            model.dialog = Dialog::DeleteTrainingSession(id);
         }
         Msg::CloseDialog => {
             model.dialog = Dialog::Hidden;
@@ -336,28 +337,25 @@ pub fn update(
             Url::go_and_replace(
                 &crate::Urls::new(&data_model.base_url)
                     .routine()
-                    .add_hash_path_part(model.routine_id.to_string()),
+                    .add_hash_path_part(model.routine_id.as_u128().to_string()),
             );
         }
 
         Msg::NameChanged(name) => {
-            let trimmed_name = name.trim();
-            if not(trimmed_name.is_empty())
-                && (trimmed_name == model.name.orig
-                    || data_model.routines.values().all(|e| e.name != trimmed_name))
-            {
-                model.name = common::InputField {
-                    input: name.clone(),
-                    parsed: Some(trimmed_name.to_string()),
-                    orig: model.name.orig.clone(),
-                };
-            } else {
-                model.name = common::InputField {
-                    input: name,
-                    parsed: None,
-                    orig: model.name.orig.clone(),
+            let parsed = domain::Name::new(&name).ok().and_then(|name| {
+                if name.as_ref() == &model.name.orig
+                    || data_model.routines.values().all(|r| r.name != name)
+                {
+                    Some(name)
+                } else {
+                    None
                 }
-            }
+            });
+            model.name = common::InputField {
+                input: name,
+                parsed,
+                orig: model.name.orig.clone(),
+            };
         }
         Msg::AddSection(id) => {
             let new_section = Form::Section {
@@ -379,33 +377,33 @@ pub fn update(
                 exercise_id,
                 reps: common::InputField {
                     input: String::new(),
-                    parsed: Some(0),
+                    parsed: Some(domain::Reps::default()),
                     orig: String::new(),
                 },
-                time: if exercise_id.is_none() {
+                time: if exercise_id.is_nil() {
                     common::InputField {
                         input: String::from("60"),
-                        parsed: Some(60),
+                        parsed: Some(domain::Time::new(60).unwrap()),
                         orig: String::from("60"),
                     }
                 } else {
                     common::InputField {
                         input: String::new(),
-                        parsed: Some(0),
+                        parsed: Some(domain::Time::default()),
                         orig: String::new(),
                     }
                 },
                 weight: common::InputField {
                     input: String::new(),
-                    parsed: Some(0.0),
+                    parsed: Some(domain::Weight::default()),
                     orig: String::new(),
                 },
                 rpe: common::InputField {
                     input: String::new(),
-                    parsed: Some(0.0),
+                    parsed: Some(domain::RPE::ZERO),
                     orig: String::new(),
                 },
-                automatic: exercise_id.is_none(),
+                automatic: exercise_id.is_nil(),
             };
             if let Some(Form::Section { parts, .. }) = get_part(&mut model.sections, &id) {
                 parts.push(new_activity);
@@ -488,123 +486,63 @@ pub fn update(
         }
         Msg::ExerciseChanged(id, input) => {
             if let Some(Form::Activity { exercise_id, .. }) = get_part(&mut model.sections, &id) {
-                *exercise_id = Some(input);
+                *exercise_id = input;
             }
             orders.send_msg(Msg::CloseDialog);
         }
         Msg::RepsChanged(id, input) => {
             if let Some(Form::Activity { reps, .. }) = get_part(&mut model.sections, &id) {
-                if input.is_empty() {
-                    *reps = common::InputField {
-                        input,
-                        parsed: Some(0),
-                        orig: reps.orig.clone(),
-                    };
+                let parsed = if input.is_empty() {
+                    Some(domain::Reps::default())
                 } else {
-                    match input.parse::<u32>() {
-                        Ok(parsed_reps) => {
-                            let valid = common::valid_reps(parsed_reps);
-                            *reps = common::InputField {
-                                input,
-                                parsed: if valid { Some(parsed_reps) } else { None },
-                                orig: reps.orig.clone(),
-                            }
-                        }
-                        Err(_) => {
-                            *reps = common::InputField {
-                                input,
-                                parsed: None,
-                                orig: reps.orig.clone(),
-                            }
-                        }
-                    }
-                }
+                    domain::Reps::try_from(input.as_ref()).ok()
+                };
+                *reps = common::InputField {
+                    input,
+                    parsed,
+                    orig: reps.orig.clone(),
+                };
             }
         }
         Msg::TimeChanged(id, input) => {
             if let Some(Form::Activity { time, .. }) = get_part(&mut model.sections, &id) {
-                if input.is_empty() {
-                    *time = common::InputField {
-                        input,
-                        parsed: Some(0),
-                        orig: time.orig.clone(),
-                    };
+                let parsed = if input.is_empty() {
+                    Some(domain::Time::default())
                 } else {
-                    match input.parse::<u32>() {
-                        Ok(parsed_time) => {
-                            let valid = common::valid_time(parsed_time);
-                            *time = common::InputField {
-                                input,
-                                parsed: if valid { Some(parsed_time) } else { None },
-                                orig: time.orig.clone(),
-                            }
-                        }
-                        Err(_) => {
-                            *time = common::InputField {
-                                input,
-                                parsed: None,
-                                orig: time.orig.clone(),
-                            }
-                        }
-                    }
-                }
+                    domain::Time::try_from(input.as_ref()).ok()
+                };
+                *time = common::InputField {
+                    input,
+                    parsed,
+                    orig: time.orig.clone(),
+                };
             }
         }
         Msg::WeightChanged(id, input) => {
             if let Some(Form::Activity { weight, .. }) = get_part(&mut model.sections, &id) {
-                if input.is_empty() {
-                    *weight = common::InputField {
-                        input,
-                        parsed: Some(0.0),
-                        orig: weight.orig.clone(),
-                    };
+                let parsed = if input.is_empty() {
+                    Some(domain::Weight::default())
                 } else {
-                    match input.parse::<f32>() {
-                        Ok(parsed_weight) => {
-                            let valid = common::valid_weight(parsed_weight);
-                            *weight = common::InputField {
-                                input,
-                                parsed: if valid { Some(parsed_weight) } else { None },
-                                orig: weight.orig.clone(),
-                            }
-                        }
-                        Err(_) => {
-                            *weight = common::InputField {
-                                input,
-                                parsed: None,
-                                orig: weight.orig.clone(),
-                            }
-                        }
-                    }
-                }
+                    domain::Weight::try_from(input.as_ref()).ok()
+                };
+                *weight = common::InputField {
+                    input,
+                    parsed,
+                    orig: weight.orig.clone(),
+                };
             }
         }
         Msg::RPEChanged(id, input) => {
             if let Some(Form::Activity { rpe, .. }) = get_part(&mut model.sections, &id) {
-                if input.is_empty() {
-                    *rpe = common::InputField {
-                        input,
-                        parsed: Some(0.0),
-                        orig: rpe.orig.clone(),
-                    };
+                let parsed = if input.is_empty() {
+                    Some(domain::RPE::default())
                 } else {
-                    match input.parse::<f32>() {
-                        Ok(parsed_rpe) => {
-                            let valid = common::valid_rpe(parsed_rpe);
-                            *rpe = common::InputField {
-                                input,
-                                parsed: if valid { Some(parsed_rpe) } else { None },
-                                orig: rpe.orig.clone(),
-                            }
-                        }
-                        Err(_) => {
-                            *rpe = common::InputField {
-                                input,
-                                parsed: None,
-                                orig: rpe.orig.clone(),
-                            }
-                        }
-                    }
+                    domain::RPE::try_from(input.as_ref()).ok()
+                };
+                *rpe = common::InputField {
+                    input,
+                    parsed,
+                    orig: rpe.orig.clone(),
                 }
             }
         }
@@ -626,7 +564,7 @@ pub fn update(
                     | component::exercise_list::OutMsg::DeleteClicked(_)
                     | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
-                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                        orders.notify(data::Msg::CreateExercise(name, vec![]));
                     }
                     component::exercise_list::OutMsg::Selected(exercise_id) => {
                         orders.send_msg(Msg::ExerciseChanged(part_id.clone(), exercise_id));
@@ -653,7 +591,7 @@ pub fn update(
                     Url::go_and_push(
                         &crate::Urls::new(&data_model.base_url)
                             .routine()
-                            .add_hash_path_part(model.routine_id.to_string()),
+                            .add_hash_path_part(model.routine_id.as_u128().to_string()),
                     );
                 }
                 data::Event::TrainingSessionDeletedOk => {
@@ -675,7 +613,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
         &data_model
             .training_sessions
             .values()
-            .filter(|t| t.routine_id == Some(model.routine_id))
+            .filter(|t| t.routine_id == model.routine_id)
             .map(|t| t.date)
             .collect::<Vec<NaiveDate>>(),
         domain::DefaultInterval::All,
@@ -685,15 +623,15 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 
     if let Some(routine) = routine {
         model.name = common::InputField {
-            input: routine.name.clone(),
+            input: routine.name.to_string(),
             parsed: Some(routine.name.clone()),
-            orig: routine.name.clone(),
+            orig: routine.name.to_string(),
         };
         model.sections = routine.sections.iter().map(Into::into).collect();
         let training_sessions = &data_model
             .training_sessions
             .values()
-            .filter(|t| t.routine_id == Some(routine.id))
+            .filter(|t| t.routine_id == routine.id)
             .collect::<Vec<_>>();
         let all_exercises = &training_sessions
             .iter()
@@ -956,10 +894,10 @@ fn view_routine_part(
                 C!["message"],
                 IF![editing || id.first() != Some(&0) => C!["mt-3"]],
                 C!["mb-0"],
-                if exercise_id.is_some() {
-                    C!["is-info"]
-                } else {
+                if exercise_id.is_nil() {
                     C!["is-success"]
+                } else {
+                    C!["is-info"]
                 },
                 div![
                     C!["message-body"],
@@ -969,7 +907,9 @@ fn view_routine_part(
                         div![
                             C!["is-flex"],
                             C!["is-justify-content-space-between"],
-                            if let Some(exercise_id) = exercise_id {
+                            if exercise_id.is_nil() {
+                                div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]]
+                            } else {
                                 div![
                                     C!["field"],
                                     button![
@@ -982,18 +922,16 @@ fn view_routine_part(
                                         if let Some(exercise) =
                                             data_model.exercises.get(exercise_id)
                                         {
-                                            exercise.name.clone()
+                                            exercise.name.to_string()
                                         } else {
-                                            format!("Exercise#{exercise_id}")
+                                            format!("Exercise#{}", exercise_id.as_u128())
                                         }
                                     ]
                                 ]
-                            } else {
-                                div![C!["field"], C!["has-text-weight-bold"], plain!["Rest"]]
                             },
                             view_position_buttons(id.clone())
                         ]
-                    } else if let Some(exercise_id) = exercise_id {
+                    } else if !exercise_id.is_nil() {
                         div![
                             C!["has-text-weight-bold"],
                             if let Some(exercise) = data_model.exercises.get(exercise_id) {
@@ -1002,13 +940,13 @@ fn view_routine_part(
                                         At::Href => {
                                             crate::Urls::new(&data_model.base_url)
                                                 .exercise()
-                                                .add_hash_path_part(exercise_id.to_string())
+                                                .add_hash_path_part(exercise_id.as_u128().to_string())
                                         }
                                     },
-                                    &exercise.name,
+                                    &exercise.name.as_ref(),
                                 ]
                             } else {
-                                plain![format!("Exercise#{exercise_id}")]
+                                plain![format!("Exercise#{}", exercise_id.as_u128())]
                             }
                         ]
                     } else {
@@ -1021,7 +959,7 @@ fn view_routine_part(
                             C!["is-flex-gap-row-gap-2"],
                             C!["is-justify-content-flex-start"],
                             IF![
-                                exercise_id.is_some() =>
+                                !exercise_id.is_nil() =>
                                 div![
                                     C!["field"],
                                     C!["mb-0"],
@@ -1059,7 +997,7 @@ fn view_routine_part(
                                 ]
                             ],
                             IF![
-                                show_tut || exercise_id.is_none() =>
+                                show_tut || exercise_id.is_nil() =>
                                 div![
                                     C!["field"],
                                     C!["mb-0"],
@@ -1097,7 +1035,7 @@ fn view_routine_part(
                                 ]
                             ],
                             IF![
-                                exercise_id.is_some() =>
+                                !exercise_id.is_nil() =>
                                 div![
                                     C!["field"],
                                     C!["mb-0"],
@@ -1132,7 +1070,7 @@ fn view_routine_part(
                                 ]
                             ],
                             IF![
-                                show_rpe && exercise_id.is_some() =>
+                                show_rpe && !exercise_id.is_nil() =>
                                 div![
                                     C!["field"],
                                     C!["mb-0"],
@@ -1174,10 +1112,10 @@ fn view_routine_part(
                                 ]
                             ]
                         ]
-                    } else if exercise_id.is_some() {
+                    } else if !exercise_id.is_nil() {
                         div![
                             IF![
-                                if let Some(reps) = reps.parsed { reps > 0 } else { false } => {
+                                if let Some(reps) = reps.parsed { reps > domain::Reps::default() } else { false } => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
@@ -1187,7 +1125,7 @@ fn view_routine_part(
                                 }
                             ],
                             IF![
-                                if let Some(time) = time.parsed { time > 0 } else { false } && show_tut => {
+                                if let Some(time) = time.parsed { time > domain::Time::default() } else { false } && show_tut => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
@@ -1197,7 +1135,7 @@ fn view_routine_part(
                                 }
                             ],
                             IF![
-                                if let Some(weight) = weight.parsed { weight > 0.0 } else { false } => {
+                                if let Some(weight) = weight.parsed { weight > domain::Weight::default() } else { false } => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
@@ -1207,7 +1145,7 @@ fn view_routine_part(
                                 }
                             ],
                             IF![
-                                if let Some(rpe) = rpe.parsed { rpe > 0.0 } else { false } && show_rpe => {
+                                if let Some(rpe) = rpe.parsed { rpe > domain::RPE::ZERO } else { false } && show_rpe => {
                                     span![
                                         C!["icon-text"],
                                         C!["mr-4"],
@@ -1249,9 +1187,9 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
                         C!["m-2"],
                         a![
                             attrs! {
-                                At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(exercise_id.to_string()),
+                                At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(exercise_id.as_u128().to_string()),
                             },
-                            &data_model.exercises.get(exercise_id).unwrap().name
+                            &data_model.exercises.get(exercise_id).unwrap().name.as_ref()
                         ]
                     ]
                 })
@@ -1261,13 +1199,7 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
 }
 
 fn view_muscles(routine: &domain::Routine, data_model: &data::Model) -> Node<Msg> {
-    let stimulus_per_muscle = routine
-        .stimulus_per_muscle(&data_model.exercises)
-        .iter()
-        .filter_map(|(id, stimulus)| {
-            domain::Muscle::from_repr(*id).map(|muscle| (muscle, *stimulus))
-        })
-        .collect::<Vec<_>>();
+    let stimulus_per_muscle = routine.stimulus_per_muscle(&data_model.exercises);
     if stimulus_per_muscle.is_empty() {
         empty![]
     } else {
@@ -1285,7 +1217,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         .training_sessions
         .values()
         .filter(|t| {
-            t.routine_id == Some(model.routine_id)
+            t.routine_id == model.routine_id
                 && t.date >= model.interval.first
                 && t.date <= model.interval.last
         })
@@ -1318,6 +1250,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         ),
     ]
 }
+
 pub fn view_charts<Ms>(
     training_sessions: &[&domain::TrainingSession],
     interval: &domain::Interval,
@@ -1457,8 +1390,8 @@ fn view_add_part_buttons(data_model: &data::Model, id: Vec<usize>) -> Node<Msg> 
             C!["mr-2"],
             ev(Ev::Click, {
                 let id = id.clone();
-                let exercise_id = exercises.first().map_or(0, |e| e.id);
-                move |_| Msg::AddActivity(id, Some(exercise_id))
+                let exercise_id = exercises.first().map(|e| e.id).unwrap_or_default();
+                move |_| Msg::AddActivity(id, exercise_id)
             }),
             span![
                 i![C!["fas fa-person-running"]],
@@ -1472,7 +1405,7 @@ fn view_add_part_buttons(data_model: &data::Model, id: Vec<usize>) -> Node<Msg> 
             C!["mr-2"],
             ev(Ev::Click, {
                 let id = id.clone();
-                move |_| Msg::AddActivity(id, None)
+                move |_| Msg::AddActivity(id, domain::ExerciseID::nil())
             }),
             span![
                 i![C!["fas fa-person"]],
@@ -1523,22 +1456,22 @@ mod tests {
             Form::Section {
                 rounds: form_value(1),
                 parts: vec![Form::Activity {
-                    exercise_id: None,
-                    reps: form_value(1),
-                    time: form_value(2),
-                    weight: form_value(4.0),
-                    rpe: form_value(5.0),
+                    exercise_id: domain::ExerciseID::nil(),
+                    reps: form_value(domain::Reps::new(1).unwrap()),
+                    time: form_value(domain::Time::new(2).unwrap()),
+                    weight: form_value(domain::Weight::new(4.0).unwrap()),
+                    rpe: form_value(domain::RPE::FIVE),
                     automatic: false,
                 }],
             },
             Form::Section {
                 rounds: form_value(2),
                 parts: vec![Form::Activity {
-                    exercise_id: None,
-                    reps: form_value(2),
-                    time: form_value(3),
-                    weight: form_value(5.0),
-                    rpe: form_value(6.0),
+                    exercise_id: domain::ExerciseID::nil(),
+                    reps: form_value(domain::Reps::new(2).unwrap()),
+                    time: form_value(domain::Time::new(3).unwrap()),
+                    weight: form_value(domain::Weight::new(5.0).unwrap()),
+                    rpe: form_value(domain::RPE::SIX),
                     automatic: false,
                 }],
             },
@@ -1548,11 +1481,11 @@ mod tests {
             Form::Section {
                 rounds: form_value(1),
                 parts: vec![Form::Activity {
-                    exercise_id: None,
-                    reps: form_value(1),
-                    time: form_value(2),
-                    weight: form_value(4.0),
-                    rpe: form_value(5.0),
+                    exercise_id: domain::ExerciseID::nil(),
+                    reps: form_value(domain::Reps::new(1).unwrap()),
+                    time: form_value(domain::Time::new(2).unwrap()),
+                    weight: form_value(domain::Weight::new(4.0).unwrap()),
+                    rpe: form_value(domain::RPE::FIVE),
                     automatic: false,
                 }],
             }
@@ -1562,11 +1495,11 @@ mod tests {
             Form::Section {
                 rounds: form_value(2),
                 parts: vec![Form::Activity {
-                    exercise_id: None,
-                    reps: form_value(2),
-                    time: form_value(3),
-                    weight: form_value(5.0),
-                    rpe: form_value(6.0),
+                    exercise_id: domain::ExerciseID::nil(),
+                    reps: form_value(domain::Reps::new(2).unwrap()),
+                    time: form_value(domain::Time::new(3).unwrap()),
+                    weight: form_value(domain::Weight::new(5.0).unwrap()),
+                    rpe: form_value(domain::RPE::SIX),
                     automatic: false,
                 }],
             }
@@ -1575,11 +1508,11 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[0, 0]).unwrap(),
             Form::Activity {
-                exercise_id: None,
-                reps: form_value(1),
-                time: form_value(2),
-                weight: form_value(4.0),
-                rpe: form_value(5.0),
+                exercise_id: domain::ExerciseID::nil(),
+                reps: form_value(domain::Reps::new(1).unwrap()),
+                time: form_value(domain::Time::new(2).unwrap()),
+                weight: form_value(domain::Weight::new(4.0).unwrap()),
+                rpe: form_value(domain::RPE::FIVE),
                 automatic: false,
             },
         );
@@ -1587,11 +1520,11 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[0, 1]).unwrap(),
             Form::Activity {
-                exercise_id: None,
-                reps: form_value(2),
-                time: form_value(3),
-                weight: form_value(5.0),
-                rpe: form_value(6.0),
+                exercise_id: domain::ExerciseID::nil(),
+                reps: form_value(domain::Reps::new(2).unwrap()),
+                time: form_value(domain::Time::new(3).unwrap()),
+                weight: form_value(domain::Weight::new(5.0).unwrap()),
+                rpe: form_value(domain::RPE::SIX),
                 automatic: false,
             },
         );
@@ -1604,21 +1537,21 @@ mod tests {
             rounds: form_value(1),
             parts: vec![
                 Form::Activity {
-                    exercise_id: None,
-                    reps: form_value(1),
-                    time: form_value(2),
-                    weight: form_value(4.0),
-                    rpe: form_value(5.0),
+                    exercise_id: domain::ExerciseID::nil(),
+                    reps: form_value(domain::Reps::new(1).unwrap()),
+                    time: form_value(domain::Time::new(2).unwrap()),
+                    weight: form_value(domain::Weight::new(4.0).unwrap()),
+                    rpe: form_value(domain::RPE::FIVE),
                     automatic: false,
                 },
                 Form::Section {
                     rounds: form_value(2),
                     parts: vec![Form::Activity {
-                        exercise_id: None,
-                        reps: form_value(2),
-                        time: form_value(3),
-                        weight: form_value(5.0),
-                        rpe: form_value(6.0),
+                        exercise_id: domain::ExerciseID::nil(),
+                        reps: form_value(domain::Reps::new(2).unwrap()),
+                        time: form_value(domain::Time::new(3).unwrap()),
+                        weight: form_value(domain::Weight::new(5.0).unwrap()),
+                        rpe: form_value(domain::RPE::SIX),
                         automatic: false,
                     }],
                 },
@@ -1630,21 +1563,21 @@ mod tests {
                 rounds: form_value(1),
                 parts: vec![
                     Form::Activity {
-                        exercise_id: None,
-                        reps: form_value(1),
-                        time: form_value(2),
-                        weight: form_value(4.0),
-                        rpe: form_value(5.0),
+                        exercise_id: domain::ExerciseID::nil(),
+                        reps: form_value(domain::Reps::new(1).unwrap()),
+                        time: form_value(domain::Time::new(2).unwrap()),
+                        weight: form_value(domain::Weight::new(4.0).unwrap()),
+                        rpe: form_value(domain::RPE::FIVE),
                         automatic: false,
                     },
                     Form::Section {
                         rounds: form_value(2),
                         parts: vec![Form::Activity {
-                            exercise_id: None,
-                            reps: form_value(2),
-                            time: form_value(3),
-                            weight: form_value(5.0),
-                            rpe: form_value(6.0),
+                            exercise_id: domain::ExerciseID::nil(),
+                            reps: form_value(domain::Reps::new(2).unwrap()),
+                            time: form_value(domain::Time::new(3).unwrap()),
+                            weight: form_value(domain::Weight::new(5.0).unwrap()),
+                            rpe: form_value(domain::RPE::SIX),
                             automatic: false,
                         }],
                     },
@@ -1655,11 +1588,11 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[0, 0]).unwrap(),
             Form::Activity {
-                exercise_id: None,
-                reps: form_value(1),
-                time: form_value(2),
-                weight: form_value(4.0),
-                rpe: form_value(5.0),
+                exercise_id: domain::ExerciseID::nil(),
+                reps: form_value(domain::Reps::new(1).unwrap()),
+                time: form_value(domain::Time::new(2).unwrap()),
+                weight: form_value(domain::Weight::new(4.0).unwrap()),
+                rpe: form_value(domain::RPE::FIVE),
                 automatic: false,
             },
         );
@@ -1668,11 +1601,11 @@ mod tests {
             Form::Section {
                 rounds: form_value(2),
                 parts: vec![Form::Activity {
-                    exercise_id: None,
-                    reps: form_value(2),
-                    time: form_value(3),
-                    weight: form_value(5.0),
-                    rpe: form_value(6.0),
+                    exercise_id: domain::ExerciseID::nil(),
+                    reps: form_value(domain::Reps::new(2).unwrap()),
+                    time: form_value(domain::Time::new(3).unwrap()),
+                    weight: form_value(domain::Weight::new(5.0).unwrap()),
+                    rpe: form_value(domain::RPE::SIX),
                     automatic: false,
                 }],
             },
@@ -1682,11 +1615,11 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[0, 1, 0]).unwrap(),
             Form::Activity {
-                exercise_id: None,
-                reps: form_value(2),
-                time: form_value(3),
-                weight: form_value(5.0),
-                rpe: form_value(6.0),
+                exercise_id: domain::ExerciseID::nil(),
+                reps: form_value(domain::Reps::new(2).unwrap()),
+                time: form_value(domain::Time::new(3).unwrap()),
+                weight: form_value(domain::Weight::new(5.0).unwrap()),
+                rpe: form_value(domain::RPE::SIX),
                 automatic: false,
             },
         );

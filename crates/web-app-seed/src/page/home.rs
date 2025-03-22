@@ -17,7 +17,7 @@ pub fn init(
 ) -> Model {
     navbar
         .title
-        .clone_from(&data_model.session.as_ref().unwrap().name);
+        .clone_from(&data_model.session.as_ref().unwrap().name.to_string());
 
     Model {}
 }
@@ -152,7 +152,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
             crate::Urls::new(&data_model.base_url).body_fat()
         ),
         IF![
-            data_model.session.as_ref().unwrap().sex == 0 => {
+            data_model.session.as_ref().unwrap().sex == domain::Sex::FEMALE => {
                 view_tile(
                     "Menstrual cycle",
                     &menstrual_cycle_subtitle,

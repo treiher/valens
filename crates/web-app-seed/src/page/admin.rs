@@ -36,9 +36,9 @@ pub struct Model {
 
 enum Dialog {
     Hidden,
-    AddUser(String, u8, String),
-    EditUser(domain::User, String),
-    DeleteUser(u32),
+    AddUser(String, domain::Sex, String),
+    EditUser(domain::UserID, String, domain::Sex, String),
+    DeleteUser(domain::UserID),
 }
 
 // ------ ------
@@ -47,21 +47,20 @@ enum Dialog {
 
 pub enum Msg {
     ShowAddUserDialog,
-    ShowEditUserDialog(u32),
-    ShowDeleteUserDialog(u32),
+    ShowEditUserDialog(domain::UserID),
+    ShowDeleteUserDialog(domain::UserID),
     CloseUserDialog,
 
     NameChanged(String),
     SexChanged(String),
 
     SaveUser,
-    DeleteUser(u32),
+    DeleteUser(domain::UserID),
     DataEvent(data::Event),
 
     UpdateApp,
 }
 
-const ERROR_EMPTY_NAME: &str = "The name must not be empty";
 const ERROR_NAME_CONFLICT: &str = "A user with this name already exists";
 
 pub fn update(
@@ -72,10 +71,14 @@ pub fn update(
 ) {
     match msg {
         Msg::ShowAddUserDialog => {
-            model.dialog = Dialog::AddUser(String::new(), 0, String::new());
+            model.dialog = Dialog::AddUser(String::new(), domain::Sex::FEMALE, String::new());
         }
         Msg::ShowEditUserDialog(id) => {
-            model.dialog = Dialog::EditUser(data_model.users[&id].clone(), String::new());
+            let user = &data_model.users[&id];
+            let id = user.id;
+            let name = user.name.to_string();
+            let sex = user.sex;
+            model.dialog = Dialog::EditUser(id, name, sex, String::new());
         }
         Msg::ShowDeleteUserDialog(id) => {
             model.dialog = Dialog::DeleteUser(id);
@@ -84,45 +87,52 @@ pub fn update(
             model.dialog = Dialog::Hidden;
         }
 
-        Msg::NameChanged(name) => match model.dialog {
-            Dialog::AddUser(ref mut user_name, _, ref mut error) => {
-                if name.trim().is_empty() {
-                    *error = ERROR_EMPTY_NAME.into();
-                } else if data_model
-                    .users
-                    .values()
-                    .any(|u| u.name.trim() == name.trim())
-                {
-                    *error = ERROR_NAME_CONFLICT.into();
-                } else {
-                    *error = String::new();
+        Msg::NameChanged(name) => {
+            let validated_name = domain::Name::new(&name);
+            match model.dialog {
+                Dialog::AddUser(ref mut user_name, _, ref mut error) => {
+                    match validated_name {
+                        Ok(name) => {
+                            if data_model.users.values().any(|u| u.name == name) {
+                                *error = ERROR_NAME_CONFLICT.into();
+                            } else {
+                                *error = String::new();
+                            }
+                        }
+                        Err(err) => {
+                            *error = err.to_string();
+                        }
+                    }
+                    *user_name = name;
                 }
-                *user_name = name;
-            }
-            Dialog::EditUser(ref mut user, ref mut error) => {
-                if name.trim().is_empty() {
-                    *error = ERROR_EMPTY_NAME.into();
-                } else if data_model
-                    .users
-                    .values()
-                    .any(|u| u.name.trim() == name.trim() && u.id != user.id)
-                {
-                    *error = ERROR_NAME_CONFLICT.into();
-                } else {
-                    *error = String::new();
+                Dialog::EditUser(ref mut id, ref mut user_name, _, ref mut error) => {
+                    match validated_name {
+                        Ok(name) => {
+                            if data_model
+                                .users
+                                .values()
+                                .any(|u| u.name == name && u.id != *id)
+                            {
+                                *error = ERROR_NAME_CONFLICT.into();
+                            } else {
+                                *error = String::new();
+                            }
+                        }
+                        Err(err) => {
+                            *error = err.to_string();
+                        }
+                    }
+                    *user_name = name;
                 }
-                user.name = name;
+                Dialog::Hidden | Dialog::DeleteUser(_) => {
+                    panic!();
+                }
             }
-            Dialog::Hidden | Dialog::DeleteUser(_) => {
-                panic!();
-            }
-        },
+        }
         Msg::SexChanged(sex) => match model.dialog {
-            Dialog::AddUser(_, ref mut user_sex, _) => {
-                *user_sex = sex.parse::<u8>().unwrap();
-            }
-            Dialog::EditUser(ref mut user, _) => {
-                user.sex = sex.parse::<u8>().unwrap();
+            Dialog::AddUser(_, ref mut user_sex, _)
+            | Dialog::EditUser(_, _, ref mut user_sex, _) => {
+                *user_sex = sex.parse::<u8>().unwrap().into();
             }
             Dialog::Hidden | Dialog::DeleteUser(_) => {
                 panic!();
@@ -132,13 +142,13 @@ pub fn update(
         Msg::SaveUser => {
             model.loading = true;
             match model.dialog {
-                Dialog::AddUser(ref mut user_name, ref mut user_sex, _) => {
-                    *user_name = user_name.trim().into();
-                    orders.notify(data::Msg::CreateUser(user_name.clone(), *user_sex));
+                Dialog::AddUser(ref name, sex, _) => {
+                    let name = domain::Name::new(name).expect("invalid name");
+                    orders.notify(data::Msg::CreateUser(name, sex));
                 }
-                Dialog::EditUser(ref mut user, _) => {
-                    user.name = user.name.trim().into();
-                    orders.notify(data::Msg::ReplaceUser(user.clone()));
+                Dialog::EditUser(id, ref name, sex, _) => {
+                    let name = domain::Name::new(name).expect("invalid name");
+                    orders.notify(data::Msg::ReplaceUser(domain::User { id, name, sex }));
                 }
                 Dialog::Hidden | Dialog::DeleteUser(_) => {
                     panic!();
@@ -174,7 +184,7 @@ pub fn update(
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     div![
         IF![
-            matches!(model.dialog, Dialog::EditUser(_, _) | Dialog::AddUser(_, _, _)) => {
+            matches!(model.dialog, Dialog::EditUser(_, _, _, _) | Dialog::AddUser(_, _, _)) => {
                 view_user_dialog(&model.dialog, model.loading)
             }
         ],
@@ -182,7 +192,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             let user_name = data_model
                 .users
                 .get(&id)
-                .map(|u| u.name.clone())
+                .map(|u| u.name.clone().to_string())
                 .unwrap_or_default();
             common::view_delete_confirmation_dialog(
                 "user",
@@ -216,39 +226,28 @@ fn view_users(data_model: &data::Model) -> Vec<Node<Msg>> {
                 C!["is-fullwidth"],
                 C!["is-hoverable"],
                 thead![tr![th!["Name"], th!["Sex"], th![]]],
-                tbody![
-                    &data_model
-                        .users
-                        .values()
-                        .map(|user| {
-                            let id = user.id;
-                            let sex = &user.sex.to_string();
-                            let sex = match &user.sex {
-                                0 => "female",
-                                1 => "male",
-                                _ => sex,
-                            };
-                            tr![
-                                td![&user.name],
-                                td![sex],
-                                td![
-                                    a![
-                                        C!["icon"],
-                                        C!["mr-2"],
-                                        ev(Ev::Click, move |_| Msg::ShowEditUserDialog(id)),
-                                        i![C!["fas fa-user-edit"]]
-                                    ],
-                                    a![
-                                        C!["icon"],
-                                        C!["ml-2"],
-                                        ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(id)),
-                                        i![C!["fas fa-user-times"]]
-                                    ]
-                                ]
+                tbody![data_model.users.values().map(|user| {
+                    let id = user.id;
+                    let sex = &user.sex.to_string();
+                    tr![
+                        td![&user.name.as_ref()],
+                        td![sex],
+                        td![
+                            a![
+                                C!["icon"],
+                                C!["mr-2"],
+                                ev(Ev::Click, move |_| Msg::ShowEditUserDialog(id)),
+                                i![C!["fas fa-user-edit"]]
+                            ],
+                            a![
+                                C!["icon"],
+                                C!["ml-2"],
+                                ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(id)),
+                                i![C!["fas fa-user-times"]]
                             ]
-                        })
-                        .collect::<Vec<_>>(),
-                ],
+                        ]
+                    ]
+                })],
             ]
         ],
     ]
@@ -262,14 +261,14 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     match dialog {
         Dialog::AddUser(user_name, user_sex, error) => {
             title = "Add user";
-            name = user_name;
+            name = user_name.clone();
             sex = *user_sex;
             name_error = error;
         }
-        Dialog::EditUser(user, error) => {
+        Dialog::EditUser(_, user_name, user_sex, error) => {
             title = "Edit user";
-            name = &user.name;
-            sex = user.sex;
+            name = user_name.clone();
+            sex = *user_sex;
             name_error = error;
         }
         Dialog::Hidden | Dialog::DeleteUser(_) => {
@@ -318,14 +317,14 @@ fn view_user_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                                 "female",
                                 attrs![
                                     At::Value => 0,
-                                    At::Selected => (sex == 0).as_at_value(),
+                                    At::Selected => (sex == domain::Sex::FEMALE).as_at_value(),
                                 ]
                             ],
                             option![
                                 "male",
                                 attrs![
                                     At::Value => 1,
-                                    At::Selected => (sex == 1).as_at_value(),
+                                    At::Selected => (sex == domain::Sex::MALE).as_at_value(),
                                 ]
                             ],
                         ],

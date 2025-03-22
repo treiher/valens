@@ -56,7 +56,7 @@ enum Dialog {
 
 struct Form {
     date: (String, Option<NaiveDate>),
-    intensity: (String, Option<u8>),
+    intensity: Option<domain::Intensity>,
 }
 
 // ------ ------
@@ -70,7 +70,7 @@ pub enum Msg {
     ClosePeriodDialog,
 
     DateChanged(String),
-    IntensityChanged(String),
+    IntensityChanged(domain::Intensity),
 
     SavePeriod,
     DeletePeriod(NaiveDate),
@@ -97,7 +97,7 @@ pub fn update(
                         None
                     },
                 ),
-                intensity: (String::new(), None),
+                intensity: None,
             });
         }
         Msg::ShowEditPeriodDialog(date) => {
@@ -105,7 +105,7 @@ pub fn update(
             let intensity = data_model.period[&date].intensity;
             model.dialog = Dialog::EditPeriod(Form {
                 date: (date.to_string(), Some(date)),
-                intensity: (intensity.to_string(), Some(intensity)),
+                intensity: Some(intensity),
             });
         }
         Msg::ShowDeletePeriodDialog(date) => {
@@ -133,19 +133,7 @@ pub fn update(
         },
         Msg::IntensityChanged(intensity) => match model.dialog {
             Dialog::AddPeriod(ref mut form) | Dialog::EditPeriod(ref mut form) => {
-                match intensity.parse::<u8>() {
-                    Ok(parsed_intensity) => {
-                        form.intensity = (
-                            intensity,
-                            if parsed_intensity > 0 {
-                                Some(parsed_intensity)
-                            } else {
-                                None
-                            },
-                        );
-                    }
-                    Err(_) => form.intensity = (intensity, None),
-                }
+                form.intensity = Some(intensity);
             }
             Dialog::Hidden | Dialog::DeletePeriod(_) => {
                 panic!();
@@ -158,13 +146,13 @@ pub fn update(
                 Dialog::AddPeriod(ref mut form) => {
                     orders.notify(data::Msg::CreatePeriod(domain::Period {
                         date: form.date.1.unwrap(),
-                        intensity: form.intensity.1.unwrap(),
+                        intensity: form.intensity.unwrap(),
                     }));
                 }
                 Dialog::EditPeriod(ref mut form) => {
                     orders.notify(data::Msg::ReplacePeriod(domain::Period {
                         date: form.date.1.unwrap(),
-                        intensity: form.intensity.1.unwrap(),
+                        intensity: form.intensity.unwrap(),
                     }));
                 }
                 Dialog::Hidden | Dialog::DeletePeriod(_) => {
@@ -263,7 +251,7 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
     }
     let today = Local::now().date_naive();
     let date_valid = form.date.1.is_some_and(|d| d <= today);
-    let save_disabled = loading || !date_valid || form.intensity.1.is_none();
+    let save_disabled = loading || !date_valid || form.intensity.is_none();
     common::view_dialog(
         "primary",
         span![title],
@@ -291,15 +279,14 @@ fn view_period_dialog(dialog: &Dialog, loading: bool) -> Node<Msg> {
                 label![C!["label"], "Intensity"],
                 div![
                     C!["control"],
-                    ["1", "2", "3", "4"]
-                        .iter()
+                    domain::Intensity::iter()
                         .map(|i| {
                             button![
                                 C!["button"],
                                 C!["mr-2"],
-                                C![IF![&form.intensity.0 == i => "is-link"]],
-                                ev(Ev::Click, |_| Msg::IntensityChanged((*i).to_string())),
-                                i,
+                                C![IF![form.intensity == Some(*i) => "is-link"]],
+                                ev(Ev::Click, |_| Msg::IntensityChanged(*i)),
+                                i.to_string(),
                             ]
                         })
                         .collect::<Vec<_>>(),
@@ -357,7 +344,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
             &[web_app::chart::PlotData {
                 values_high: period
                     .iter()
-                    .map(|p| (p.date, f32::from(p.intensity)))
+                    .map(|p| (p.date, f32::from(p.intensity as u8)))
                     .collect::<Vec<_>>(),
                 values_low: None,
                 plots: vec![web_app::chart::PlotType::Histogram(
@@ -421,7 +408,7 @@ fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<
                 (
                     p.date,
                     web_app::chart::COLOR_PERIOD_INTENSITY,
-                    f64::from(p.intensity) * 0.25,
+                    f64::from(p.intensity as u8) * 0.25,
                 )
             })
             .collect(),
@@ -449,7 +436,7 @@ fn view_period_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         let date = p.date;
                         tr![
                             td![common::no_wrap(&date.to_string())],
-                            td![format!("{:.1}", p.intensity)],
+                            td![format!("{}", p.intensity)],
                             td![p![
                                 C!["is-flex is-flex-wrap-nowrap"],
                                 a![

@@ -51,7 +51,7 @@ impl Model {
 
 pub enum Msg {
     SearchTermChanged(String),
-    MuscleFilterChanged(domain::Muscle),
+    MuscleFilterChanged(domain::MuscleID),
     ForceFilterChanged(domain::Force),
     MechanicFilterChanged(domain::Mechanic),
     LateralityFilterChanged(domain::Laterality),
@@ -59,25 +59,25 @@ pub enum Msg {
     EquipmentFilterChanged(domain::Equipment),
     CategoryFilterChanged(domain::Category),
 
-    Selected(u32),
-    CreateClicked(String),
-    EditClicked(u32),
-    DeleteClicked(u32),
+    Selected(domain::ExerciseID),
+    CreateClicked(domain::Name),
+    EditClicked(domain::ExerciseID),
+    DeleteClicked(domain::ExerciseID),
 
     ShowFilterDialog,
     CloseFilterDialog,
 
     AddExerciseFromCatalog(&'static domain::catalog::Exercise),
-    CatalogExerciseSelected(&'static str),
+    CatalogExerciseSelected(&'static domain::Name),
 }
 
 pub enum OutMsg {
     None,
-    Selected(u32),
-    CreateClicked(String),
-    EditClicked(u32),
-    DeleteClicked(u32),
-    CatalogExerciseSelected(&'static str),
+    Selected(domain::ExerciseID),
+    CreateClicked(domain::Name),
+    EditClicked(domain::ExerciseID),
+    DeleteClicked(domain::ExerciseID),
+    CatalogExerciseSelected(&'static domain::Name),
 }
 
 pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) -> OutMsg {
@@ -116,7 +116,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) -> Out
         }
 
         Msg::Selected(exercise_id) => OutMsg::Selected(exercise_id),
-        Msg::CreateClicked(exercise_id) => OutMsg::CreateClicked(exercise_id),
+        Msg::CreateClicked(exercise_name) => OutMsg::CreateClicked(exercise_name),
         Msg::EditClicked(exercise_id) => OutMsg::EditClicked(exercise_id),
         Msg::DeleteClicked(exercise_id) => OutMsg::DeleteClicked(exercise_id),
 
@@ -133,12 +133,12 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) -> Out
             let mut muscles = vec![];
             for (m, s) in catalog_exercise.muscles {
                 muscles.push(domain::ExerciseMuscle {
-                    muscle_id: domain::Muscle::id(*m),
-                    stimulus: *s as u8,
+                    muscle_id: *m,
+                    stimulus: *s,
                 });
             }
             orders.notify(data::Msg::CreateExercise(
-                catalog_exercise.name.to_string(),
+                catalog_exercise.name.clone(),
                 muscles,
             ));
             OutMsg::None
@@ -201,11 +201,13 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
                 ]
             ],
             if model.view_create {
-                let disabled = loading
-                    || model.filter.name.trim().is_empty()
-                    || current_exercises
-                        .iter()
-                        .any(|e| e.name == *model.filter.name.trim());
+                let validated_name = domain::Name::new(&model.filter.name).ok().and_then(|name| {
+                    if current_exercises.iter().all(|e| e.name != name) {
+                        Some(name)
+                    } else {
+                        None
+                    }
+                });
                 div![
                     C!["control"],
                     button![
@@ -213,11 +215,10 @@ pub fn view(model: &Model, loading: bool, data_model: &data::Model) -> Vec<Node<
                         C!["is-link"],
                         C![IF![loading => "is-loading"]],
                         attrs! {
-                            At::Disabled => disabled.as_at_value()
+                            At::Disabled => validated_name.is_none().as_at_value()
                         },
                         ev(Ev::Click, {
-                            let search_term = model.filter.name.trim().to_string();
-                            move |_| Msg::CreateClicked(search_term)
+                            move |_| Msg::CreateClicked(validated_name.unwrap())
                         }),
                         span![C!["icon"], i![C!["fas fa-plus"]]]
                     ]
@@ -354,7 +355,7 @@ fn view_exercises(model: &Model, exercises: &[&&domain::Exercise]) -> Vec<Node<M
 }
 
 fn view_catalog_exercises(
-    catalog_exercises: BTreeMap<&'static str, &'static domain::catalog::Exercise>,
+    catalog_exercises: BTreeMap<&'static domain::Name, &'static domain::catalog::Exercise>,
     exercises: &[&domain::Exercise],
 ) -> Node<Msg> {
     div![
@@ -370,7 +371,7 @@ fn view_catalog_exercises(
                     C!["is-justify-content-space-between"],
                     C!["has-text-link"],
                     span![
-                        ev(Ev::Click, move |_| Msg::CatalogExerciseSelected(e.name)),
+                        ev(Ev::Click, move |_| Msg::CatalogExerciseSelected(&e.name)),
                         e.name.to_string(),
                     ],
                     IF![

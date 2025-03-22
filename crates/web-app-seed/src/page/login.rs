@@ -1,5 +1,7 @@
 use seed::{prelude::*, *};
 
+use valens_domain as domain;
+
 use crate::{common, data};
 
 // ------ ------
@@ -33,7 +35,7 @@ pub struct Model {}
 // ------ ------
 
 pub enum Msg {
-    LogIn(u32),
+    LogIn(domain::UserID),
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -67,7 +69,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
                             C!["button"],
                             C!["is-link"],
                             ev(Ev::Click, move |_| Msg::LogIn(user_id)),
-                            &user.name,
+                            &user.name.to_string(),
                         ]
                     ]
                 })

@@ -13,11 +13,11 @@ pub fn init(
     _data_model: &data::Model,
     navbar: &mut crate::Navbar,
 ) -> Model {
-    let id = url.next_hash_path_part().unwrap_or_default().to_string();
+    let name = url.next_hash_path_part().unwrap_or_default().to_string();
 
     navbar.title = String::from("Catalog Exercise");
 
-    Model { name: id }
+    Model { name }
 }
 
 // ------ ------
@@ -49,23 +49,27 @@ pub fn update(
 
 pub fn view(model: &Model, _data_model: &data::Model) -> Node<Msg> {
     let exercises = domain::ExerciseFilter::default().catalog();
-    if let Some(exercise) = exercises.get(&*model.name) {
-        div![
+    if let Ok(name) = domain::Name::new(&model.name) {
+        if let Some(exercise) = exercises.get(&name) {
             div![
-                C!["mx-2"],
-                C!["mb-5"],
-                common::view_title(&span![&exercise.name], 0),
-            ],
-            view_exercise_tags(
-                exercise.force,
-                exercise.mechanic,
-                exercise.laterality,
-                exercise.assistance,
-                exercise.equipment,
-                exercise.muscles,
-                exercise.category
-            )
-        ]
+                div![
+                    C!["mx-2"],
+                    C!["mb-5"],
+                    common::view_title(&span![&exercise.name.as_ref()], 0),
+                ],
+                view_exercise_tags(
+                    exercise.force,
+                    exercise.mechanic,
+                    exercise.laterality,
+                    exercise.assistance,
+                    exercise.equipment,
+                    exercise.muscles,
+                    exercise.category
+                )
+            ]
+        } else {
+            common::view_error_not_found("Exercise")
+        }
     } else {
         common::view_error_not_found("Exercise")
     }
@@ -77,7 +81,7 @@ fn view_exercise_tags(
     laterality: domain::Laterality,
     assistance: domain::Assistance,
     equipment: &[domain::Equipment],
-    muscles: &[(domain::Muscle, domain::MuscleStimulus)],
+    muscles: &[(domain::MuscleID, domain::Stimulus)],
     category: domain::Category,
 ) -> Vec<Node<Msg>> {
     nodes![
@@ -100,7 +104,7 @@ fn view_exercise_tags(
                     span![
                         C!["tag"],
                         C!["is-link"],
-                        C![IF![*stimulus == domain::MuscleStimulus::Secondary => "is-light"]],
+                        C![IF![*stimulus == domain::Stimulus::SECONDARY => "is-light"]],
                         m.name()
                     ],
                     m.description(),

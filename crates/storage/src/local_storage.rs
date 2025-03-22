@@ -1,16 +1,15 @@
 use std::collections::VecDeque;
 
-use async_trait::async_trait;
 use gloo_storage::Storage as GlooStorage;
-use valens_web_app::{OngoingTrainingSession, Settings, log};
+use valens_web_app::{OngoingTrainingSession, Repository, Settings, log};
 
+#[derive(Clone)]
 pub struct UI;
 
 const KEY_SETTINGS: &str = "settings";
 const KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
 
-#[async_trait(?Send)]
-impl super::UI for UI {
+impl Repository for UI {
     async fn read_settings(&self) -> Result<Settings, String> {
         match gloo_storage::LocalStorage::get(KEY_SETTINGS) {
             Ok(entries) => Ok(entries),

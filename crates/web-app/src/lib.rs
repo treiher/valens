@@ -7,6 +7,19 @@ pub mod chart;
 pub mod log;
 pub mod service_worker;
 
+#[allow(async_fn_in_trait)]
+pub trait Repository {
+    async fn read_settings(&self) -> Result<Settings, String>;
+    async fn write_settings(&self, settings: Settings) -> Result<(), String>;
+
+    async fn read_ongoing_training_session(&self)
+    -> Result<Option<OngoingTrainingSession>, String>;
+    async fn write_ongoing_training_session(
+        &self,
+        ongoing_training_session: Option<OngoingTrainingSession>,
+    ) -> Result<(), String>;
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
@@ -40,7 +53,7 @@ pub enum Theme {
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct OngoingTrainingSession {
-    pub training_session_id: u32,
+    pub training_session_id: u128,
     pub start_time: DateTime<Utc>,
     pub element_idx: usize,
     pub element_start_time: DateTime<Utc>,
@@ -49,7 +62,7 @@ pub struct OngoingTrainingSession {
 
 impl OngoingTrainingSession {
     #[must_use]
-    pub fn new(training_session_id: u32) -> Self {
+    pub fn new(training_session_id: u128) -> Self {
         Self {
             training_session_id,
             start_time: Utc::now(),

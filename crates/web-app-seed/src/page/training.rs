@@ -52,12 +52,12 @@ pub struct Model {
 enum Dialog {
     Hidden,
     AddTrainingSession(Form),
-    DeleteTrainingSession(u32),
+    DeleteTrainingSession(domain::TrainingSessionID),
 }
 
 struct Form {
     date: (String, Option<NaiveDate>),
-    routine_id: (String, Option<u32>),
+    routine_id: (String, Option<domain::RoutineID>),
 }
 
 // ------ ------
@@ -66,14 +66,14 @@ struct Form {
 
 pub enum Msg {
     ShowAddTrainingSessionDialog,
-    ShowDeleteTrainingSessionDialog(u32),
+    ShowDeleteTrainingSessionDialog(domain::TrainingSessionID),
     CloseTrainingSessionDialog,
 
     DateChanged(String),
     RoutineChanged(String),
 
     SaveTrainingSession,
-    DeleteTrainingSession(u32),
+    DeleteTrainingSession(domain::TrainingSessionID),
     DataEvent(data::Event),
 
     ChangeInterval(NaiveDate, NaiveDate),
@@ -115,12 +115,12 @@ pub fn update(
             }
         },
         Msg::RoutineChanged(routine_id) => match model.dialog {
-            Dialog::AddTrainingSession(ref mut form) => match routine_id.parse::<u32>() {
+            Dialog::AddTrainingSession(ref mut form) => match routine_id.parse::<u128>() {
                 Ok(parsed_routine_id) => {
                     form.routine_id = (
                         routine_id,
                         if parsed_routine_id > 0 {
-                            Some(parsed_routine_id)
+                            Some(parsed_routine_id.into())
                         } else {
                             None
                         },
@@ -150,14 +150,14 @@ pub fn update(
                             .flat_map(to_training_session_elements)
                             .collect::<Vec<domain::TrainingSessionElement>>();
                         orders.notify(data::Msg::CreateTrainingSession(
-                            Some(routine_id),
+                            routine_id,
                             date,
                             String::new(),
                             sets,
                         ));
                     } else {
                         orders.notify(data::Msg::CreateTrainingSession(
-                            None,
+                            domain::RoutineID::nil(),
                             date,
                             String::new(),
                             vec![],
@@ -193,7 +193,7 @@ pub fn update(
                         orders.request_url(
                             crate::Urls::new(&data_model.base_url)
                                 .training_session()
-                                .add_hash_path_part(training_session_id.to_string())
+                                .add_hash_path_part(training_session_id.as_u128().to_string())
                                 .add_hash_path_part("edit"),
                         );
                     }
@@ -464,9 +464,9 @@ fn view_training_sessions_dialog(
                                 .iter()
                                 .map(|r| {
                                     option![
-                                        &r.name,
+                                        &r.name.as_ref(),
                                         attrs![
-                                            At::Value => r.id,
+                                            At::Value => r.id.as_u128(),
                                         ]
                                     ]
                                 })
@@ -604,9 +604,9 @@ pub fn view_charts<Ms>(
 
 pub fn view_table<Ms: 'static>(
     training_sessions: &[&domain::TrainingSession],
-    routines: &BTreeMap<u32, domain::Routine>,
+    routines: &BTreeMap<domain::RoutineID, domain::Routine>,
     base_url: &Url,
-    delete_training_session_message: fn(u32) -> Ms,
+    delete_training_session_message: fn(domain::TrainingSessionID) -> Ms,
     show_rpe: bool,
     show_tut: bool,
 ) -> Node<Ms> {
@@ -654,23 +654,23 @@ pub fn view_table<Ms: 'static>(
                     tr![
                         td![a![
                             attrs! {
-                                At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.to_string()),
+                                At::Href => crate::Urls::new(base_url).training_session().add_hash_path_part(t.id.as_u128().to_string()),
                             },
                             common::no_wrap(&t.date.to_string())
                         ]],
                         td![
-                            if let Some(routine_id) = t.routine_id {
+                            if t.routine_id.is_nil() {
+                                plain!["-"]
+                            } else {
                                 a![
                                     attrs! {
-                                        At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.unwrap().to_string()),
+                                        At::Href => crate::Urls::new(base_url).routine().add_hash_path_part(t.routine_id.as_u128().to_string()),
                                     },
-                                    match &routines.get(&routine_id) {
-                                        Some(routine) => raw![&routine.name],
+                                    match &routines.get(&t.routine_id) {
+                                        Some(routine) => raw![&routine.name.as_ref()],
                                         None => vec![common::view_loading()]
                                     }
                                 ]
-                            } else {
-                                plain!["-"]
                             }
                         ],
                         td![&t.load()],
@@ -681,7 +681,7 @@ pub fn view_table<Ms: 'static>(
                         IF![has_avg_reps_data => td![common::value_or_dash(t.avg_reps())]],
                         IF![show_rpe && has_avg_reps_data && has_avg_rpe_data =>
                             td![if let (Some(avg_reps), Some(avg_rpe)) = (t.avg_reps(), t.avg_rpe()) {
-                                format!("{:.1}", avg_reps + 10.0 - avg_rpe)
+                                format!("{:.1}", avg_reps + f32::from(domain::RIR::from(avg_rpe)))
                             } else {
                                 "-".into()
                             }]],
@@ -723,22 +723,42 @@ fn to_training_session_elements(part: &domain::RoutinePart) -> Vec<domain::Train
             rpe,
             automatic,
         } => {
-            result.push(if let Some(exercise_id) = exercise_id {
+            result.push(if exercise_id.is_nil() {
+                domain::TrainingSessionElement::Rest {
+                    target_time: if *time > domain::Time::default() {
+                        Some(*time)
+                    } else {
+                        None
+                    },
+                    automatic: *automatic,
+                }
+            } else {
                 domain::TrainingSessionElement::Set {
                     exercise_id: *exercise_id,
                     reps: None,
                     time: None,
                     weight: None,
                     rpe: None,
-                    target_reps: if *reps > 0 { Some(*reps) } else { None },
-                    target_time: if *time > 0 { Some(*time) } else { None },
-                    target_weight: if *weight > 0.0 { Some(*weight) } else { None },
-                    target_rpe: if *rpe > 0.0 { Some(*rpe) } else { None },
-                    automatic: *automatic,
-                }
-            } else {
-                domain::TrainingSessionElement::Rest {
-                    target_time: if *time > 0 { Some(*time) } else { None },
+                    target_reps: if *reps > domain::Reps::default() {
+                        Some(*reps)
+                    } else {
+                        None
+                    },
+                    target_time: if *time > domain::Time::default() {
+                        Some(*time)
+                    } else {
+                        None
+                    },
+                    target_weight: if *weight > domain::Weight::default() {
+                        Some(*weight)
+                    } else {
+                        None
+                    },
+                    target_rpe: if *rpe > domain::RPE::ZERO {
+                        Some(*rpe)
+                    } else {
+                        None
+                    },
                     automatic: *automatic,
                 }
             });

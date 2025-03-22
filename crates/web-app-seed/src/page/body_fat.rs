@@ -466,7 +466,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
     }
 }
 
-fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
+fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: domain::Sex) -> Node<Msg> {
     let title;
     let form;
     let date_disabled;
@@ -534,8 +534,8 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                     C!["fieldset"],
                     C!["mb-4"],
                     legend![C!["has-text-centered"], "Jackson-Pollock 3"],
-                    if sex == 0 {
-                        nodes![
+                    match sex {
+                        domain::Sex::FEMALE => nodes![
                             view_body_fat_form_field(
                                 "Tricep",
                                 "Vertical fold midway between shoulder and elbow",
@@ -557,9 +557,8 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                                 Msg::ThighChanged,
                                 save_disabled
                             ),
-                        ]
-                    } else {
-                        nodes![
+                        ],
+                        domain::Sex::MALE => nodes![
                             view_body_fat_form_field(
                                 "Chest",
                                 "Diagonal fold midway between upper armpit and nipple",
@@ -581,7 +580,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                                 Msg::ThighChanged,
                                 save_disabled
                             ),
-                        ]
+                        ],
                     }
                 ],
                 fieldset![
@@ -591,8 +590,8 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                         C!["has-text-centered"],
                         "Additionally for Jackson-Pollock 7"
                     ],
-                    if sex == 0 {
-                        nodes![
+                    match sex {
+                        domain::Sex::FEMALE => nodes![
                             view_body_fat_form_field(
                                 "Chest",
                                 "Diagonal fold one third between armpit and nipple",
@@ -621,9 +620,8 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                                 Msg::MidaxillaryChanged,
                                 save_disabled
                             ),
-                        ]
-                    } else {
-                        nodes![
+                        ],
+                        domain::Sex::MALE => nodes![
                             view_body_fat_form_field(
                                 "Tricep",
                                 "Vertical fold midway between shoulder and elbow",
@@ -652,7 +650,7 @@ fn view_body_fat_dialog(dialog: &Dialog, loading: bool, sex: u8) -> Node<Msg> {
                                 Msg::MidaxillaryChanged,
                                 save_disabled
                             ),
-                        ]
+                        ],
                     }
                 ],
                 div![
@@ -880,8 +878,8 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 th!["Date"],
                 th!["JP3 (%)"],
                 th!["JP7 (%)"],
-                if sex == 0 {
-                    nodes![
+                match sex {
+                    domain::Sex::FEMALE => nodes![
                         th!["Tricep (mm)"],
                         th!["Suprailiac (mm)"],
                         th!["Thigh (mm)"],
@@ -889,9 +887,8 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         th!["Abdominal (mm)"],
                         th!["Subscapular (mm)"],
                         th!["Midaxillary (mm)"],
-                    ]
-                } else {
-                    nodes![
+                    ],
+                    domain::Sex::MALE => nodes![
                         th!["Chest (mm)"],
                         th!["Abdominal (mm)"],
                         th!["Thigh (mm)"],
@@ -899,12 +896,12 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                         th!["Subscapular (mm)"],
                         th!["Suprailiac (mm)"],
                         th!["Midaxillary (mm)"],
-                    ]
+                    ],
                 },
                 th![]
             ]],
             tbody![
-                &data_model
+                data_model
                     .body_fat
                     .values()
                     .rev()
@@ -915,8 +912,8 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             td![common::no_wrap(&bf.date.to_string())],
                             td![common::value_or_dash(bf.jp3(sex))],
                             td![common::value_or_dash(bf.jp7(sex))],
-                            if sex == 0 {
-                                nodes![
+                            match sex {
+                                domain::Sex::FEMALE => nodes![
                                     td![common::value_or_dash(bf.tricep)],
                                     td![common::value_or_dash(bf.suprailiac)],
                                     td![common::value_or_dash(bf.thigh)],
@@ -924,9 +921,8 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                     td![common::value_or_dash(bf.abdominal)],
                                     td![common::value_or_dash(bf.subscapular)],
                                     td![common::value_or_dash(bf.midaxillary)],
-                                ]
-                            } else {
-                                nodes![
+                                ],
+                                domain::Sex::MALE => nodes![
                                     td![common::value_or_dash(bf.chest)],
                                     td![common::value_or_dash(bf.abdominal)],
                                     td![common::value_or_dash(bf.thigh)],
@@ -934,7 +930,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                     td![common::value_or_dash(bf.subscapular)],
                                     td![common::value_or_dash(bf.suprailiac)],
                                     td![common::value_or_dash(bf.midaxillary)],
-                                ]
+                                ],
                             },
                             td![p![
                                 C!["is-flex is-flex-wrap-nowrap"],
@@ -953,7 +949,6 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             ]]
                         ]
                     })
-                    .collect::<Vec<_>>()
             ],
         ]
     ]

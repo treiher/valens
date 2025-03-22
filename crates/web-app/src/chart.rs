@@ -353,8 +353,8 @@ pub fn plot(
 }
 
 #[allow(clippy::missing_errors_doc)]
-pub fn plot_min_avg_max(
-    data: &Vec<(NaiveDate, f32)>,
+pub fn plot_min_avg_max<T: Into<f32> + Copy>(
+    data: &Vec<(NaiveDate, T)>,
     interval: &domain::Interval,
     params: PlotParams,
     color: usize,
@@ -363,7 +363,10 @@ pub fn plot_min_avg_max(
     let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
 
     for (date, value) in data {
-        date_map.entry(date).or_default().push(*value);
+        date_map
+            .entry(date)
+            .or_default()
+            .push(Into::<f32>::into(*value));
     }
 
     let mut values_min: Vec<(NaiveDate, f32)> = vec![];

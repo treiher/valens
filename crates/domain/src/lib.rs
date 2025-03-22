@@ -1,32 +1,188 @@
 #![warn(clippy::pedantic)]
+#![allow(clippy::missing_errors_doc)]
 
 pub mod catalog;
 
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
+    fmt::{self, Display},
     iter::zip,
+    ops::{Add, AddAssign, Mul},
     slice::Iter,
 };
 
 use chrono::{Days, Duration, Local, NaiveDate};
+use derive_more::{AsRef, Deref, Display, Into};
+use thiserror::Error;
+use uuid::Uuid;
 
-#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct User {
-    pub id: u32,
-    pub name: String,
-    pub sex: u8,
+#[allow(async_fn_in_trait)]
+pub trait Repository {
+    async fn request_session(&self, user_id: UserID) -> Result<User, String>;
+    async fn initialize_session(&self) -> Result<User, String>;
+    async fn delete_session(&self) -> Result<(), String>;
+
+    async fn read_version(&self) -> Result<String, String>;
+
+    async fn read_users(&self) -> Result<Vec<User>, String>;
+    async fn create_user(&self, name: Name, sex: Sex) -> Result<User, String>;
+    async fn replace_user(&self, user: User) -> Result<User, String>;
+    async fn delete_user(&self, id: UserID) -> Result<UserID, String>;
+
+    async fn read_body_weight(&self) -> Result<Vec<BodyWeight>, String>;
+    async fn create_body_weight(&self, body_weight: BodyWeight) -> Result<BodyWeight, String>;
+    async fn replace_body_weight(&self, body_weight: BodyWeight) -> Result<BodyWeight, String>;
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, String>;
+
+    async fn read_body_fat(&self) -> Result<Vec<BodyFat>, String>;
+    async fn create_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, String>;
+    async fn replace_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, String>;
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, String>;
+
+    async fn read_period(&self) -> Result<Vec<Period>, String>;
+    async fn create_period(&self, period: Period) -> Result<Period, String>;
+    async fn replace_period(&self, period: Period) -> Result<Period, String>;
+    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, String>;
+
+    async fn read_exercises(&self) -> Result<Vec<Exercise>, String>;
+    async fn create_exercise(
+        &self,
+        name: Name,
+        muscles: Vec<ExerciseMuscle>,
+    ) -> Result<Exercise, String>;
+    async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, String>;
+    async fn delete_exercise(&self, id: ExerciseID) -> Result<ExerciseID, String>;
+
+    async fn read_routines(&self) -> Result<Vec<Routine>, String>;
+    async fn create_routine(
+        &self,
+        name: Name,
+        sections: Vec<RoutinePart>,
+    ) -> Result<Routine, String>;
+    async fn modify_routine(
+        &self,
+        id: RoutineID,
+        name: Option<Name>,
+        archived: Option<bool>,
+        sections: Option<Vec<RoutinePart>>,
+    ) -> Result<Routine, String>;
+    async fn delete_routine(&self, id: RoutineID) -> Result<RoutineID, String>;
+
+    async fn read_training_sessions(&self) -> Result<Vec<TrainingSession>, String>;
+    async fn create_training_session(
+        &self,
+        routine_id: RoutineID,
+        date: NaiveDate,
+        notes: String,
+        elements: Vec<TrainingSessionElement>,
+    ) -> Result<TrainingSession, String>;
+    async fn modify_training_session(
+        &self,
+        id: TrainingSessionID,
+        notes: Option<String>,
+        elements: Option<Vec<TrainingSessionElement>>,
+    ) -> Result<TrainingSession, String>;
+    async fn delete_training_session(
+        &self,
+        id: TrainingSessionID,
+    ) -> Result<TrainingSessionID, String>;
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct User {
+    pub id: UserID,
+    pub name: Name,
+    pub sex: Sex,
+}
+
+#[derive(Deref, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UserID(Uuid);
+
+impl UserID {
+    #[must_use]
+    pub fn nil() -> Self {
+        Self(Uuid::nil())
+    }
+
+    #[must_use]
+    pub fn is_nil(&self) -> bool {
+        self.0.is_nil()
+    }
+}
+
+impl From<u128> for UserID {
+    fn from(value: u128) -> Self {
+        Self(Uuid::from_bytes(value.to_be_bytes()))
+    }
+}
+
+#[derive(AsRef, Debug, Display, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Name(String);
+
+impl Name {
+    pub fn new(name: &str) -> Result<Self, NameError> {
+        let trimmed_name = name.trim();
+
+        if trimmed_name.is_empty() {
+            return Err(NameError::Empty);
+        }
+
+        let len = trimmed_name.len();
+
+        if len > 64 {
+            return Err(NameError::TooLong(len));
+        }
+
+        Ok(Name(trimmed_name.to_string()))
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum NameError {
+    #[error("Name must not be empty")]
+    Empty,
+    #[error("Name must be 64 characters or fewer ({0} > 64)")]
+    TooLong(usize),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sex {
+    FEMALE,
+    MALE,
+}
+
+impl From<u8> for Sex {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Sex::FEMALE,
+            _ => Sex::MALE,
+        }
+    }
+}
+
+impl fmt::Display for Sex {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Sex::FEMALE => "female",
+                Sex::MALE => "male",
+            }
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Exercise {
-    pub id: u32,
-    pub name: String,
+    pub id: ExerciseID,
+    pub name: Name,
     pub muscles: Vec<ExerciseMuscle>,
 }
 
 impl Exercise {
     #[must_use]
-    pub fn muscle_stimulus(&self) -> BTreeMap<u8, u8> {
+    pub fn muscle_stimulus(&self) -> BTreeMap<MuscleID, Stimulus> {
         self.muscles
             .iter()
             .map(|m| (m.muscle_id, m.stimulus))
@@ -34,17 +190,82 @@ impl Exercise {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
-pub struct ExerciseMuscle {
-    pub muscle_id: u8,
-    pub stimulus: u8,
+#[derive(Deref, Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ExerciseID(Uuid);
+
+impl ExerciseID {
+    #[must_use]
+    pub fn nil() -> Self {
+        Self(Uuid::nil())
+    }
+
+    #[must_use]
+    pub fn is_nil(&self) -> bool {
+        self.0.is_nil()
+    }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+impl From<u128> for ExerciseID {
+    fn from(value: u128) -> Self {
+        Self(Uuid::from_bytes(value.to_be_bytes()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExerciseMuscle {
+    pub muscle_id: MuscleID,
+    pub stimulus: Stimulus,
+}
+
+#[derive(Deref, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stimulus(u32);
+
+impl Stimulus {
+    pub const PRIMARY: Stimulus = Stimulus(100);
+    pub const SECONDARY: Stimulus = Stimulus(50);
+    pub const NONE: Stimulus = Stimulus(0);
+
+    pub fn new(value: u32) -> Result<Self, StimulusError> {
+        if value > 100 {
+            return Err(StimulusError::OutOfRange(value));
+        }
+        Ok(Self(value))
+    }
+}
+
+impl Add for Stimulus {
+    type Output = Stimulus;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+impl AddAssign for Stimulus {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self(self.0 + rhs.0);
+    }
+}
+
+impl Mul<u32> for Stimulus {
+    type Output = Stimulus;
+
+    fn mul(self, rhs: u32) -> Self::Output {
+        Self(self.0 * rhs)
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum StimulusError {
+    #[error("Stimulus must be 100 or less ({0} > 100)")]
+    OutOfRange(u32),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Routine {
-    pub id: u32,
-    pub name: String,
-    pub notes: Option<String>,
+    pub id: RoutineID,
+    pub name: Name,
+    pub notes: String,
     pub archived: bool,
     pub sections: Vec<RoutinePart>,
 }
@@ -59,19 +280,23 @@ impl Routine {
     }
 
     #[must_use]
-    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
-        let mut result: BTreeMap<u8, u32> = Muscle::iter().map(|m| (m.id(), 0)).collect();
+    pub fn stimulus_per_muscle(
+        &self,
+        exercises: &BTreeMap<ExerciseID, Exercise>,
+    ) -> BTreeMap<MuscleID, Stimulus> {
+        let mut result: BTreeMap<MuscleID, Stimulus> =
+            MuscleID::iter().map(|m| (*m, Stimulus::NONE)).collect();
         for section in &self.sections {
-            for (id, stimulus) in section.stimulus_per_muscle(exercises) {
-                if result.contains_key(&id) {
-                    *result.entry(id).or_insert(0) += stimulus;
+            for (muscle_id, stimulus) in section.stimulus_per_muscle(exercises) {
+                if result.contains_key(&muscle_id) {
+                    *result.entry(muscle_id).or_insert(Stimulus::NONE) += stimulus;
                 }
             }
         }
         result
     }
 
-    pub fn exercises(&self) -> BTreeSet<u32> {
+    pub fn exercises(&self) -> BTreeSet<ExerciseID> {
         self.sections
             .iter()
             .flat_map(RoutinePart::exercises)
@@ -79,19 +304,39 @@ impl Routine {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-#[serde(untagged)]
+#[derive(Deref, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RoutineID(Uuid);
+
+impl RoutineID {
+    #[must_use]
+    pub fn nil() -> Self {
+        Self(Uuid::nil())
+    }
+
+    #[must_use]
+    pub fn is_nil(&self) -> bool {
+        self.0.is_nil()
+    }
+}
+
+impl From<u128> for RoutineID {
+    fn from(value: u128) -> Self {
+        Self(Uuid::from_bytes(value.to_be_bytes()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum RoutinePart {
     RoutineSection {
         rounds: u32,
         parts: Vec<RoutinePart>,
     },
     RoutineActivity {
-        exercise_id: Option<u32>,
-        reps: u32,
-        time: u32,
-        weight: f32,
-        rpe: f32,
+        exercise_id: ExerciseID,
+        reps: Reps,
+        time: Time,
+        weight: Weight,
+        rpe: RPE,
         automatic: bool,
     },
 }
@@ -104,8 +349,8 @@ impl RoutinePart {
                     * (*rounds).try_into().unwrap_or(1)
             }
             RoutinePart::RoutineActivity { reps, time, .. } => {
-                let r = if *reps > 0 { *reps } else { 1 };
-                let t = if *time > 0 { *time } else { 4 };
+                let r = if *reps > Reps(0) { *reps } else { Reps(1) };
+                let t = if *time > Time(0) { *time } else { Time(4) };
                 Duration::seconds(i64::from(r * t))
             }
         }
@@ -116,36 +361,39 @@ impl RoutinePart {
             RoutinePart::RoutineSection { rounds, parts } => {
                 parts.iter().map(RoutinePart::num_sets).sum::<u32>() * *rounds
             }
-            RoutinePart::RoutineActivity { exercise_id, .. } => exercise_id.is_some().into(),
+            RoutinePart::RoutineActivity { exercise_id, .. } => (!exercise_id.is_nil()).into(),
         }
     }
 
     #[must_use]
-    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
+    pub fn stimulus_per_muscle(
+        &self,
+        exercises: &BTreeMap<ExerciseID, Exercise>,
+    ) -> BTreeMap<MuscleID, Stimulus> {
         match self {
             RoutinePart::RoutineSection { rounds, parts } => {
-                let mut result: BTreeMap<u8, u32> = BTreeMap::new();
+                let mut result: BTreeMap<MuscleID, Stimulus> = BTreeMap::new();
                 for part in parts {
-                    for (id, stimulus) in part.stimulus_per_muscle(exercises) {
-                        *result.entry(id).or_insert(0) += stimulus * rounds;
+                    for (muscle_id, stimulus) in part.stimulus_per_muscle(exercises) {
+                        *result.entry(muscle_id).or_insert(Stimulus::NONE) += stimulus * *rounds;
                     }
                 }
                 result
             }
             RoutinePart::RoutineActivity { exercise_id, .. } => exercises
-                .get(&exercise_id.unwrap_or_default())
+                .get(exercise_id)
                 .map(|e| {
                     e.muscle_stimulus()
                         .iter()
-                        .map(|(id, stimulus)| (*id, u32::from(*stimulus)))
+                        .map(|(muscle_id, stimulus)| (*muscle_id, *stimulus))
                         .collect()
                 })
                 .unwrap_or_default(),
         }
     }
 
-    fn exercises(&self) -> BTreeSet<u32> {
-        let mut result: BTreeSet<u32> = BTreeSet::new();
+    fn exercises(&self) -> BTreeSet<ExerciseID> {
+        let mut result: BTreeSet<ExerciseID> = BTreeSet::new();
         match self {
             RoutinePart::RoutineSection { parts, .. } => {
                 for p in parts {
@@ -153,8 +401,8 @@ impl RoutinePart {
                 }
             }
             RoutinePart::RoutineActivity { exercise_id, .. } => {
-                if let Some(id) = exercise_id {
-                    result.insert(*id);
+                if !exercise_id.is_nil() {
+                    result.insert(*exercise_id);
                 }
             }
         }
@@ -162,18 +410,18 @@ impl RoutinePart {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TrainingSession {
-    pub id: u32,
-    pub routine_id: Option<u32>,
+    pub id: TrainingSessionID,
+    pub routine_id: RoutineID,
     pub date: NaiveDate,
-    pub notes: Option<String>,
+    pub notes: String,
     pub elements: Vec<TrainingSessionElement>,
 }
 
 impl TrainingSession {
     #[must_use]
-    pub fn exercises(&self) -> BTreeSet<u32> {
+    pub fn exercises(&self) -> BTreeSet<ExerciseID> {
         self.elements
             .iter()
             .filter_map(|e| match e {
@@ -197,7 +445,7 @@ impl TrainingSession {
             None
         } else {
             #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
+            Some(sets.iter().map(|r| u32::from(*r)).sum::<u32>() as f32 / sets.len() as f32)
         }
     }
 
@@ -215,7 +463,7 @@ impl TrainingSession {
             None
         } else {
             #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<u32>() as f32 / sets.len() as f32)
+            Some(sets.iter().map(|t| u32::from(*t)).sum::<u32>() as f32 / sets.len() as f32)
         }
     }
 
@@ -233,12 +481,12 @@ impl TrainingSession {
             None
         } else {
             #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<f32>() / sets.len() as f32)
+            Some(sets.iter().map(|w| f32::from(*w)).sum::<f32>() / sets.len() as f32)
         }
     }
 
     #[must_use]
-    pub fn avg_rpe(&self) -> Option<f32> {
+    pub fn avg_rpe(&self) -> Option<RPE> {
         let sets = &self
             .elements
             .iter()
@@ -247,12 +495,7 @@ impl TrainingSession {
                 TrainingSessionElement::Rest { .. } => None,
             })
             .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<f32>() / sets.len() as f32)
-        }
+        RPE::avg(sets)
     }
 
     #[must_use]
@@ -265,8 +508,8 @@ impl TrainingSession {
                     reps, time, rpe, ..
                 } => Some(if let Some(rpe) = *rpe {
                     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    if rpe > 5.0 {
-                        (2.0_f32).powf(rpe - 5.0).round() as u32
+                    if rpe > RPE::FIVE {
+                        (2.0_f32).powf(f32::from(rpe) - 5.0).round() as u32
                     } else {
                         1
                     }
@@ -288,7 +531,7 @@ impl TrainingSession {
                 TrainingSessionElement::Set {
                     reps, time, rpe, ..
                 } => {
-                    if rpe.unwrap_or(10.0) >= 7.0 {
+                    if rpe.unwrap_or(RPE::TEN) >= RPE::SEVEN {
                         Some(u32::from(reps.is_some() || time.is_some()))
                     } else {
                         None
@@ -314,9 +557,9 @@ impl TrainingSession {
                             clippy::cast_sign_loss
                         )]
                         if let Some(weight) = weight {
-                            Some((*reps as f32 * weight).round() as u32)
+                            Some((u32::from(*reps) as f32 * f32::from(*weight)).round() as u32)
                         } else {
-                            Some(*reps)
+                            Some(u32::from(*reps))
                         }
                     } else {
                         None
@@ -328,13 +571,13 @@ impl TrainingSession {
         sets.iter().sum::<u32>()
     }
 
-    pub fn tut(&self) -> Option<u32> {
+    pub fn tut(&self) -> Option<Time> {
         let sets = &self
             .elements
             .iter()
             .map(|e| match e {
                 TrainingSessionElement::Set { reps, time, .. } => {
-                    time.as_ref().map(|v| reps.unwrap_or(1) * v)
+                    time.as_ref().map(|v| reps.unwrap_or(Reps(1)) * *v)
                 }
                 TrainingSessionElement::Rest { .. } => None,
             })
@@ -342,12 +585,19 @@ impl TrainingSession {
         if sets.iter().all(Option::is_none) {
             return None;
         }
-        Some(sets.iter().filter_map(|e| *e).sum::<u32>())
+        Some(Time(
+            sets.iter()
+                .map(|t| u32::from(t.unwrap_or_default()))
+                .sum::<u32>(),
+        ))
     }
 
     #[must_use]
-    pub fn stimulus_per_muscle(&self, exercises: &BTreeMap<u32, Exercise>) -> BTreeMap<u8, u32> {
-        let mut result: BTreeMap<u8, u32> = BTreeMap::new();
+    pub fn stimulus_per_muscle(
+        &self,
+        exercises: &BTreeMap<ExerciseID, Exercise>,
+    ) -> BTreeMap<MuscleID, Stimulus> {
+        let mut result: BTreeMap<MuscleID, Stimulus> = BTreeMap::new();
         for element in &self.elements {
             if let TrainingSessionElement::Set {
                 exercise_id,
@@ -361,13 +611,13 @@ impl TrainingSession {
                     continue;
                 }
                 if let Some(rpe) = rpe {
-                    if *rpe < 7.0 {
+                    if *rpe < RPE::SEVEN {
                         continue;
                     }
                 }
                 if let Some(exercise) = exercises.get(exercise_id) {
-                    for (id, stimulus) in &exercise.muscle_stimulus() {
-                        *result.entry(*id).or_insert(0) += u32::from(*stimulus);
+                    for (muscle_id, stimulus) in &exercise.muscle_stimulus() {
+                        *result.entry(*muscle_id).or_insert(Stimulus::NONE) += *stimulus;
                     }
                 }
             }
@@ -376,25 +626,267 @@ impl TrainingSession {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-#[serde(untagged)]
+#[derive(Deref, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TrainingSessionID(Uuid);
+
+impl TrainingSessionID {
+    #[must_use]
+    pub fn nil() -> Self {
+        Self(Uuid::nil())
+    }
+
+    #[must_use]
+    pub fn is_nil(&self) -> bool {
+        self.0.is_nil()
+    }
+}
+
+impl From<u128> for TrainingSessionID {
+    fn from(value: u128) -> Self {
+        Self(Uuid::from_bytes(value.to_be_bytes()))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum TrainingSessionElement {
     Set {
-        exercise_id: u32,
-        reps: Option<u32>,
-        time: Option<u32>,
-        weight: Option<f32>,
-        rpe: Option<f32>,
-        target_reps: Option<u32>,
-        target_time: Option<u32>,
-        target_weight: Option<f32>,
-        target_rpe: Option<f32>,
+        exercise_id: ExerciseID,
+        reps: Option<Reps>,
+        time: Option<Time>,
+        weight: Option<Weight>,
+        rpe: Option<RPE>,
+        target_reps: Option<Reps>,
+        target_time: Option<Time>,
+        target_weight: Option<Weight>,
+        target_rpe: Option<RPE>,
         automatic: bool,
     },
     Rest {
-        target_time: Option<u32>,
+        target_time: Option<Time>,
         automatic: bool,
     },
+}
+
+#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, PartialOrd)]
+pub struct Reps(u32);
+
+impl Reps {
+    pub fn new(value: u32) -> Result<Self, RepsError> {
+        if !(0..1000).contains(&value) {
+            return Err(RepsError::OutOfRange);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl TryFrom<&str> for Reps {
+    type Error = RepsError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.parse::<u32>() {
+            Ok(parsed_value) => Reps::new(parsed_value),
+            Err(_) => Err(RepsError::ParseError),
+        }
+    }
+}
+
+impl Mul<Time> for Reps {
+    type Output = Time;
+
+    fn mul(self, rhs: Time) -> Self::Output {
+        Time(self.0 * rhs.0)
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum RepsError {
+    #[error("Reps must be in the range 0 to 999")]
+    OutOfRange,
+    #[error("Reps must be an integer")]
+    ParseError,
+}
+
+#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, PartialOrd)]
+pub struct Time(u32);
+
+impl Time {
+    pub fn new(value: u32) -> Result<Self, TimeError> {
+        if !(0..1000).contains(&value) {
+            return Err(TimeError::OutOfRange);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl From<Time> for i64 {
+    fn from(value: Time) -> Self {
+        i64::from(value.0)
+    }
+}
+
+impl TryFrom<&str> for Time {
+    type Error = TimeError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.parse::<u32>() {
+            Ok(parsed_value) => Time::new(parsed_value),
+            Err(_) => Err(TimeError::ParseError),
+        }
+    }
+}
+
+impl Mul<Reps> for Time {
+    type Output = Time;
+
+    fn mul(self, rhs: Reps) -> Self::Output {
+        Time(self.0 * rhs.0)
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum TimeError {
+    #[error("Time must be in the range 0 to 999 s")]
+    OutOfRange,
+    #[error("Time must be an integer")]
+    ParseError,
+}
+
+#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, PartialOrd)]
+pub struct Weight(f32);
+
+impl Weight {
+    pub fn new(value: f32) -> Result<Self, WeightError> {
+        if !(0.0..1000.0).contains(&value) {
+            return Err(WeightError::OutOfRange);
+        }
+
+        if (value * 10.0 % 1.0).abs() > f32::EPSILON {
+            return Err(WeightError::InvalidResolution);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl TryFrom<&str> for Weight {
+    type Error = WeightError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.parse::<f32>() {
+            Ok(parsed_value) => Weight::new(parsed_value),
+            Err(_) => Err(WeightError::ParseError),
+        }
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum WeightError {
+    #[error("Weight must be in the range 0.0 to 999.9 kg")]
+    InvalidResolution,
+    #[error("Weight must be a multiple of 0.1 kg")]
+    OutOfRange,
+    #[error("Weight must be a decimal")]
+    ParseError,
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+pub struct RPE(u8);
+
+impl RPE {
+    pub const ZERO: RPE = RPE(0);
+    pub const ONE: RPE = RPE(10);
+    pub const TWO: RPE = RPE(20);
+    pub const THREE: RPE = RPE(30);
+    pub const FOUR: RPE = RPE(40);
+    pub const FIVE: RPE = RPE(50);
+    pub const SIX: RPE = RPE(60);
+    pub const SEVEN: RPE = RPE(70);
+    pub const EIGHT: RPE = RPE(80);
+    pub const NINE: RPE = RPE(90);
+    pub const TEN: RPE = RPE(100);
+
+    pub fn new(value: f32) -> Result<Self, RPEError> {
+        if !(0.0..=10.0).contains(&value) {
+            return Err(RPEError::OutOfRange);
+        }
+
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let v = (value * 10.0) as u8;
+
+        if v % 5 != 0 {
+            return Err(RPEError::InvalidResolution);
+        }
+
+        Ok(Self(v))
+    }
+
+    #[must_use]
+    pub fn avg(values: &[RPE]) -> Option<RPE> {
+        if values.is_empty() {
+            None
+        } else {
+            #[allow(clippy::cast_possible_truncation)]
+            Some(RPE(
+                (values.iter().map(|rpe| rpe.0 as usize).sum::<usize>() / values.len()) as u8,
+            ))
+        }
+    }
+}
+
+impl From<RPE> for f32 {
+    fn from(value: RPE) -> Self {
+        f32::from(value.0) / 10.0
+    }
+}
+
+impl TryFrom<&str> for RPE {
+    type Error = RPEError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.parse::<f32>() {
+            Ok(parsed_value) => RPE::new(parsed_value),
+            Err(_) => Err(RPEError::ParseError),
+        }
+    }
+}
+
+impl Display for RPE {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", f32::from(*self))
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum RPEError {
+    #[error("RPE must be in the range 0.0 to 10.0")]
+    OutOfRange,
+    #[error("RPE must be a multiple of 0.5")]
+    InvalidResolution,
+    #[error("RPE must be a decimal")]
+    ParseError,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct RIR(u8);
+
+impl From<RPE> for RIR {
+    fn from(value: RPE) -> Self {
+        Self(100 - value.0)
+    }
+}
+
+impl From<RIR> for f32 {
+    fn from(value: RIR) -> Self {
+        f32::from(value.0) / 10.0
+    }
+}
+
+impl Display for RIR {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", f32::from(*self))
+    }
 }
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
@@ -492,8 +984,9 @@ fn average_weighted_sum_of_load(
         .collect::<Vec<_>>()
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum Muscle {
+#[derive(Clone, Copy, Default, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+pub enum MuscleID {
+    #[default]
     None = 0,
     // Neck
     Neck = 1,
@@ -525,52 +1018,52 @@ pub enum Muscle {
     Calves = 91,
 }
 
-impl Property for Muscle {
-    fn iter() -> Iter<'static, Muscle> {
-        static MUSCLES: [Muscle; 18] = [
-            Muscle::Neck,
-            Muscle::Pecs,
-            Muscle::Traps,
-            Muscle::Lats,
-            Muscle::FrontDelts,
-            Muscle::SideDelts,
-            Muscle::RearDelts,
-            Muscle::Biceps,
-            Muscle::Triceps,
-            Muscle::Forearms,
-            Muscle::Abs,
-            Muscle::ErectorSpinae,
-            Muscle::Glutes,
-            Muscle::Abductors,
-            Muscle::Quads,
-            Muscle::Hamstrings,
-            Muscle::Adductors,
-            Muscle::Calves,
+impl Property for MuscleID {
+    fn iter() -> Iter<'static, MuscleID> {
+        static MUSCLES: [MuscleID; 18] = [
+            MuscleID::Neck,
+            MuscleID::Pecs,
+            MuscleID::Traps,
+            MuscleID::Lats,
+            MuscleID::FrontDelts,
+            MuscleID::SideDelts,
+            MuscleID::RearDelts,
+            MuscleID::Biceps,
+            MuscleID::Triceps,
+            MuscleID::Forearms,
+            MuscleID::Abs,
+            MuscleID::ErectorSpinae,
+            MuscleID::Glutes,
+            MuscleID::Abductors,
+            MuscleID::Quads,
+            MuscleID::Hamstrings,
+            MuscleID::Adductors,
+            MuscleID::Calves,
         ];
         MUSCLES.iter()
     }
 
-    fn iter_filter() -> Iter<'static, Muscle> {
-        static MUSCLES: [Muscle; 19] = [
-            Muscle::Neck,
-            Muscle::Pecs,
-            Muscle::Traps,
-            Muscle::Lats,
-            Muscle::FrontDelts,
-            Muscle::SideDelts,
-            Muscle::RearDelts,
-            Muscle::Biceps,
-            Muscle::Triceps,
-            Muscle::Forearms,
-            Muscle::Abs,
-            Muscle::ErectorSpinae,
-            Muscle::Glutes,
-            Muscle::Abductors,
-            Muscle::Quads,
-            Muscle::Hamstrings,
-            Muscle::Adductors,
-            Muscle::Calves,
-            Muscle::None,
+    fn iter_filter() -> Iter<'static, MuscleID> {
+        static MUSCLES: [MuscleID; 19] = [
+            MuscleID::Neck,
+            MuscleID::Pecs,
+            MuscleID::Traps,
+            MuscleID::Lats,
+            MuscleID::FrontDelts,
+            MuscleID::SideDelts,
+            MuscleID::RearDelts,
+            MuscleID::Biceps,
+            MuscleID::Triceps,
+            MuscleID::Forearms,
+            MuscleID::Abs,
+            MuscleID::ErectorSpinae,
+            MuscleID::Glutes,
+            MuscleID::Abductors,
+            MuscleID::Quads,
+            MuscleID::Hamstrings,
+            MuscleID::Adductors,
+            MuscleID::Calves,
+            MuscleID::None,
         ];
         MUSCLES.iter()
     }
@@ -578,91 +1071,89 @@ impl Property for Muscle {
     #[must_use]
     fn name(self) -> &'static str {
         match self {
-            Muscle::None => "No Muscle",
-            Muscle::Neck => "Neck",
-            Muscle::Pecs => "Pecs",
-            Muscle::Traps => "Traps",
-            Muscle::Lats => "Lats",
-            Muscle::FrontDelts => "Front Delts",
-            Muscle::SideDelts => "Side Delts",
-            Muscle::RearDelts => "Rear Delts",
-            Muscle::Biceps => "Biceps",
-            Muscle::Triceps => "Triceps",
-            Muscle::Forearms => "Forearms",
-            Muscle::Abs => "Abs",
-            Muscle::ErectorSpinae => "Erector Spinae",
-            Muscle::Glutes => "Glutes",
-            Muscle::Abductors => "Abductors",
-            Muscle::Quads => "Quads",
-            Muscle::Hamstrings => "Hamstrings",
-            Muscle::Adductors => "Adductors",
-            Muscle::Calves => "Calves",
+            MuscleID::None => "No Muscle",
+            MuscleID::Neck => "Neck",
+            MuscleID::Pecs => "Pecs",
+            MuscleID::Traps => "Traps",
+            MuscleID::Lats => "Lats",
+            MuscleID::FrontDelts => "Front Delts",
+            MuscleID::SideDelts => "Side Delts",
+            MuscleID::RearDelts => "Rear Delts",
+            MuscleID::Biceps => "Biceps",
+            MuscleID::Triceps => "Triceps",
+            MuscleID::Forearms => "Forearms",
+            MuscleID::Abs => "Abs",
+            MuscleID::ErectorSpinae => "Erector Spinae",
+            MuscleID::Glutes => "Glutes",
+            MuscleID::Abductors => "Abductors",
+            MuscleID::Quads => "Quads",
+            MuscleID::Hamstrings => "Hamstrings",
+            MuscleID::Adductors => "Adductors",
+            MuscleID::Calves => "Calves",
         }
     }
 }
 
-impl Muscle {
-    #[must_use]
-    pub fn id(self) -> u8 {
-        self as u8
-    }
-
-    #[must_use]
-    pub fn from_repr(repr: u8) -> Option<Muscle> {
-        match repr {
-            x if x == Muscle::Neck as u8 => Some(Muscle::Neck),
-            x if x == Muscle::Pecs as u8 => Some(Muscle::Pecs),
-            x if x == Muscle::Traps as u8 => Some(Muscle::Traps),
-            x if x == Muscle::Lats as u8 => Some(Muscle::Lats),
-            x if x == Muscle::FrontDelts as u8 => Some(Muscle::FrontDelts),
-            x if x == Muscle::SideDelts as u8 => Some(Muscle::SideDelts),
-            x if x == Muscle::RearDelts as u8 => Some(Muscle::RearDelts),
-            x if x == Muscle::Biceps as u8 => Some(Muscle::Biceps),
-            x if x == Muscle::Triceps as u8 => Some(Muscle::Triceps),
-            x if x == Muscle::Forearms as u8 => Some(Muscle::Forearms),
-            x if x == Muscle::Abs as u8 => Some(Muscle::Abs),
-            x if x == Muscle::ErectorSpinae as u8 => Some(Muscle::ErectorSpinae),
-            x if x == Muscle::Glutes as u8 => Some(Muscle::Glutes),
-            x if x == Muscle::Abductors as u8 => Some(Muscle::Abductors),
-            x if x == Muscle::Quads as u8 => Some(Muscle::Quads),
-            x if x == Muscle::Hamstrings as u8 => Some(Muscle::Hamstrings),
-            x if x == Muscle::Adductors as u8 => Some(Muscle::Adductors),
-            x if x == Muscle::Calves as u8 => Some(Muscle::Calves),
-            _ => None,
-        }
-    }
-
+impl MuscleID {
     #[must_use]
     pub fn description(self) -> &'static str {
         #[allow(clippy::match_same_arms)]
         match self {
-            Muscle::None => "",
-            Muscle::Neck => "",
-            Muscle::Pecs => "Chest",
-            Muscle::Traps => "Upper back",
-            Muscle::Lats => "Sides of back",
-            Muscle::FrontDelts => "Anterior shoulders",
-            Muscle::SideDelts => "Mid shoulders",
-            Muscle::RearDelts => "Posterior shoulders",
-            Muscle::Biceps => "Front of upper arms",
-            Muscle::Triceps => "Back of upper arms",
-            Muscle::Forearms => "",
-            Muscle::Abs => "Belly",
-            Muscle::ErectorSpinae => "Lower back and spine",
-            Muscle::Glutes => "Buttocks",
-            Muscle::Abductors => "Outside of hips",
-            Muscle::Quads => "Front of thighs",
-            Muscle::Hamstrings => "Back of thighs",
-            Muscle::Adductors => "Inner thighs",
-            Muscle::Calves => "Back of lower legs",
+            MuscleID::None => "",
+            MuscleID::Neck => "",
+            MuscleID::Pecs => "Chest",
+            MuscleID::Traps => "Upper back",
+            MuscleID::Lats => "Sides of back",
+            MuscleID::FrontDelts => "Anterior shoulders",
+            MuscleID::SideDelts => "Mid shoulders",
+            MuscleID::RearDelts => "Posterior shoulders",
+            MuscleID::Biceps => "Front of upper arms",
+            MuscleID::Triceps => "Back of upper arms",
+            MuscleID::Forearms => "",
+            MuscleID::Abs => "Belly",
+            MuscleID::ErectorSpinae => "Lower back and spine",
+            MuscleID::Glutes => "Buttocks",
+            MuscleID::Abductors => "Outside of hips",
+            MuscleID::Quads => "Front of thighs",
+            MuscleID::Hamstrings => "Back of thighs",
+            MuscleID::Adductors => "Inner thighs",
+            MuscleID::Calves => "Back of lower legs",
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum MuscleStimulus {
-    Primary = 100,
-    Secondary = 50,
+impl TryFrom<u8> for MuscleID {
+    type Error = MuscleIDError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            x if x == MuscleID::Neck as u8 => Ok(MuscleID::Neck),
+            x if x == MuscleID::Pecs as u8 => Ok(MuscleID::Pecs),
+            x if x == MuscleID::Traps as u8 => Ok(MuscleID::Traps),
+            x if x == MuscleID::Lats as u8 => Ok(MuscleID::Lats),
+            x if x == MuscleID::FrontDelts as u8 => Ok(MuscleID::FrontDelts),
+            x if x == MuscleID::SideDelts as u8 => Ok(MuscleID::SideDelts),
+            x if x == MuscleID::RearDelts as u8 => Ok(MuscleID::RearDelts),
+            x if x == MuscleID::Biceps as u8 => Ok(MuscleID::Biceps),
+            x if x == MuscleID::Triceps as u8 => Ok(MuscleID::Triceps),
+            x if x == MuscleID::Forearms as u8 => Ok(MuscleID::Forearms),
+            x if x == MuscleID::Abs as u8 => Ok(MuscleID::Abs),
+            x if x == MuscleID::ErectorSpinae as u8 => Ok(MuscleID::ErectorSpinae),
+            x if x == MuscleID::Glutes as u8 => Ok(MuscleID::Glutes),
+            x if x == MuscleID::Abductors as u8 => Ok(MuscleID::Abductors),
+            x if x == MuscleID::Quads as u8 => Ok(MuscleID::Quads),
+            x if x == MuscleID::Hamstrings as u8 => Ok(MuscleID::Hamstrings),
+            x if x == MuscleID::Adductors as u8 => Ok(MuscleID::Adductors),
+            x if x == MuscleID::Calves as u8 => Ok(MuscleID::Calves),
+            _ => Err(MuscleIDError::Invalid),
+        }
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum MuscleIDError {
+    #[error("Invalid muscle ID")]
+    Invalid,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -848,7 +1339,7 @@ impl Property for Category {
 #[derive(Default, PartialEq)]
 pub struct ExerciseFilter {
     pub name: String,
-    pub muscles: HashSet<Muscle>,
+    pub muscles: HashSet<MuscleID>,
     pub force: HashSet<Force>,
     pub mechanic: HashSet<Mechanic>,
     pub laterality: HashSet<Laterality>,
@@ -866,14 +1357,15 @@ impl ExerciseFilter {
         exercises
             .filter(|e| {
                 e.name
+                    .as_ref()
                     .to_lowercase()
                     .contains(self.name.to_lowercase().trim())
                     && (self.muscles.is_empty()
                         || self.muscles.iter().all(|m| {
-                            if *m == Muscle::None {
+                            if *m == MuscleID::None {
                                 e.muscles.is_empty()
                             } else {
-                                e.muscle_stimulus().contains_key(&m.id())
+                                e.muscle_stimulus().contains_key(m)
                             }
                         }))
                     && self.force.is_empty()
@@ -886,16 +1378,17 @@ impl ExerciseFilter {
     }
 
     #[must_use]
-    pub fn catalog(&self) -> BTreeMap<&'static str, &'static catalog::Exercise> {
+    pub fn catalog(&self) -> BTreeMap<&'static Name, &'static catalog::Exercise> {
         catalog::EXERCISES
             .values()
             .filter(|e| {
                 e.name
+                    .as_ref()
                     .to_lowercase()
                     .contains(self.name.to_lowercase().trim())
                     && (self.muscles.is_empty()
                         || self.muscles.iter().all(|muscle| {
-                            if *muscle == Muscle::None {
+                            if *muscle == MuscleID::None {
                                 e.muscles.is_empty()
                             } else {
                                 e.muscles.iter().any(|(m, _)| muscle == m)
@@ -915,7 +1408,7 @@ impl ExerciseFilter {
                         }))
                     && (self.category.is_empty() || self.category.contains(&e.category))
             })
-            .map(|e| (e.name, e))
+            .map(|e| (&e.name, e))
             .collect()
     }
 
@@ -932,8 +1425,8 @@ impl ExerciseFilter {
     }
 
     #[must_use]
-    pub fn muscle_list(&self) -> Vec<(Muscle, bool)> {
-        Muscle::iter_filter()
+    pub fn muscle_list(&self) -> Vec<(MuscleID, bool)> {
+        MuscleID::iter_filter()
             .map(|m| (*m, self.muscles.contains(m)))
             .collect::<Vec<_>>()
     }
@@ -980,14 +1473,14 @@ impl ExerciseFilter {
             .collect::<Vec<_>>()
     }
 
-    pub fn toggle_muscle(&mut self, muscle: Muscle) {
+    pub fn toggle_muscle(&mut self, muscle: MuscleID) {
         if self.muscles.contains(&muscle) {
             self.muscles.remove(&muscle);
         } else {
-            if muscle == Muscle::None {
+            if muscle == MuscleID::None {
                 self.muscles.clear();
             } else {
-                self.muscles.remove(&Muscle::None);
+                self.muscles.remove(&MuscleID::None);
             }
             self.muscles.insert(muscle);
         }
@@ -1050,7 +1543,7 @@ pub trait Property: Clone + Copy + Sized {
     fn name(self) -> &'static str;
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BodyWeight {
     pub date: NaiveDate,
     pub weight: f32,
@@ -1070,7 +1563,7 @@ pub fn avg_body_weight(
         .collect()
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BodyFat {
     pub date: NaiveDate,
     pub chest: Option<u8>,
@@ -1084,32 +1577,29 @@ pub struct BodyFat {
 
 impl BodyFat {
     #[must_use]
-    pub fn jp3(&self, sex: u8) -> Option<f32> {
-        if sex == 0 {
-            Some(Self::jackson_pollock(
+    pub fn jp3(&self, sex: Sex) -> Option<f32> {
+        match sex {
+            Sex::FEMALE => Some(Self::jackson_pollock(
                 f32::from(self.tricep?) + f32::from(self.suprailiac?) + f32::from(self.thigh?),
                 1.099_492_1,
                 0.000_992_9,
                 0.000_002_3,
                 0.000_139_2,
-            ))
-        } else if sex == 1 {
-            Some(Self::jackson_pollock(
+            )),
+            Sex::MALE => Some(Self::jackson_pollock(
                 f32::from(self.chest?) + f32::from(self.abdominal?) + f32::from(self.thigh?),
                 1.109_38,
                 0.000_826_7,
                 0.000_001_6,
                 0.000_257_4,
-            ))
-        } else {
-            None
+            )),
         }
     }
 
     #[must_use]
-    pub fn jp7(&self, sex: u8) -> Option<f32> {
-        if sex == 0 {
-            Some(Self::jackson_pollock(
+    pub fn jp7(&self, sex: Sex) -> Option<f32> {
+        match sex {
+            Sex::FEMALE => Some(Self::jackson_pollock(
                 f32::from(self.chest?)
                     + f32::from(self.abdominal?)
                     + f32::from(self.thigh?)
@@ -1121,9 +1611,8 @@ impl BodyFat {
                 0.000_469_71,
                 0.000_000_56,
                 0.000_128_28,
-            ))
-        } else if sex == 1 {
-            Some(Self::jackson_pollock(
+            )),
+            Sex::MALE => Some(Self::jackson_pollock(
                 f32::from(self.chest?)
                     + f32::from(self.abdominal?)
                     + f32::from(self.thigh?)
@@ -1135,9 +1624,7 @@ impl BodyFat {
                 0.000_434_99,
                 0.000_000_55,
                 0.000_288_26,
-            ))
-        } else {
-            None
+            )),
         }
     }
 
@@ -1147,10 +1634,54 @@ impl BodyFat {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Period {
     pub date: NaiveDate,
-    pub intensity: u8,
+    pub intensity: Intensity,
+}
+
+#[derive(Debug, Clone, Copy, Display, PartialEq, Eq)]
+pub enum Intensity {
+    #[display("1")]
+    Spotting = 1,
+    #[display("2")]
+    Light = 2,
+    #[display("3")]
+    Medium = 3,
+    #[display("4")]
+    Heavy = 4,
+}
+
+impl Intensity {
+    pub fn iter() -> Iter<'static, Intensity> {
+        static INTENSITY: [Intensity; 4] = [
+            Intensity::Spotting,
+            Intensity::Light,
+            Intensity::Medium,
+            Intensity::Heavy,
+        ];
+        INTENSITY.iter()
+    }
+}
+
+impl TryFrom<u8> for Intensity {
+    type Error = IntensityError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            x if x == Intensity::Spotting as u8 => Ok(Intensity::Spotting),
+            x if x == Intensity::Light as u8 => Ok(Intensity::Light),
+            x if x == Intensity::Medium as u8 => Ok(Intensity::Medium),
+            x if x == Intensity::Heavy as u8 => Ok(Intensity::Heavy),
+            _ => Err(IntensityError::OutOfRange),
+        }
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum IntensityError {
+    #[error("Intensity must be in the range 1 to 4")]
+    OutOfRange,
 }
 
 #[must_use]
@@ -1325,8 +1856,8 @@ pub fn init_interval(dates: &[NaiveDate], default_interval: DefaultInterval) -> 
 ///
 /// Return `None` in those functions to indicate the absence of a value.
 ///
-pub fn centered_moving_grouping(
-    data: &Vec<(NaiveDate, f32)>,
+pub fn centered_moving_grouping<T: Into<f32> + Copy>(
+    data: &Vec<(NaiveDate, T)>,
     interval: &Interval,
     radius: u64,
     group_day: impl Fn(Vec<f32>) -> Option<f32>,
@@ -1335,7 +1866,10 @@ pub fn centered_moving_grouping(
     let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
 
     for (date, value) in data {
-        date_map.entry(date).or_default().push(*value);
+        date_map
+            .entry(date)
+            .or_default()
+            .push(Into::<f32>::into(*value));
     }
 
     let mut grouped: BTreeMap<&NaiveDate, f32> = BTreeMap::new();
@@ -1422,8 +1956,8 @@ pub fn centered_moving_total(
 /// Multiple result vectors may be returned in cases where there are gaps of more than
 /// 2*radius+1 days in the input data within the interval.
 #[must_use]
-pub fn centered_moving_average(
-    data: &Vec<(NaiveDate, f32)>,
+pub fn centered_moving_average<T: Into<f32> + Copy>(
+    data: &Vec<(NaiveDate, T)>,
     interval: &Interval,
     radius: u64,
 ) -> Vec<Vec<(NaiveDate, f32)>> {
@@ -1476,28 +2010,27 @@ pub fn value_based_centered_moving_average(
 mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
-    use serde_json::json;
 
     use super::*;
 
     static TODAY: std::sync::LazyLock<NaiveDate> =
         std::sync::LazyLock::new(|| Local::now().date_naive());
 
-    static EXERCISES: std::sync::LazyLock<BTreeMap<u32, Exercise>> =
+    static EXERCISES: std::sync::LazyLock<BTreeMap<ExerciseID, Exercise>> =
         std::sync::LazyLock::new(|| {
             BTreeMap::from([(
-                1,
+                1.into(),
                 Exercise {
-                    id: 1,
-                    name: String::from("A"),
+                    id: 1.into(),
+                    name: Name::new("A").unwrap(),
                     muscles: vec![
                         ExerciseMuscle {
-                            muscle_id: 11,
-                            stimulus: 100,
+                            muscle_id: MuscleID::Pecs,
+                            stimulus: Stimulus::PRIMARY,
                         },
                         ExerciseMuscle {
-                            muscle_id: 31,
-                            stimulus: 50,
+                            muscle_id: MuscleID::FrontDelts,
+                            stimulus: Stimulus::SECONDARY,
                         },
                     ],
                 },
@@ -1505,28 +2038,28 @@ mod tests {
         });
 
     static ROUTINE: std::sync::LazyLock<Routine> = std::sync::LazyLock::new(|| Routine {
-        id: 1,
-        name: String::from("A"),
-        notes: Some(String::from("B")),
+        id: 1.into(),
+        name: Name::new("A").unwrap(),
+        notes: String::from("B"),
         archived: false,
         sections: vec![
             RoutinePart::RoutineSection {
                 rounds: 2,
                 parts: vec![
                     RoutinePart::RoutineActivity {
-                        exercise_id: Some(1),
-                        reps: 10,
-                        time: 2,
-                        weight: 30.0,
-                        rpe: 10.0,
+                        exercise_id: 1.into(),
+                        reps: Reps(10),
+                        time: Time(2),
+                        weight: Weight(30.0),
+                        rpe: RPE::TEN,
                         automatic: false,
                     },
                     RoutinePart::RoutineActivity {
-                        exercise_id: None,
-                        reps: 0,
-                        time: 60,
-                        weight: 0.0,
-                        rpe: 0.0,
+                        exercise_id: ExerciseID::nil(),
+                        reps: Reps(0),
+                        time: Time(60),
+                        weight: Weight(0.0),
+                        rpe: RPE::ZERO,
                         automatic: true,
                     },
                 ],
@@ -1535,19 +2068,19 @@ mod tests {
                 rounds: 2,
                 parts: vec![
                     RoutinePart::RoutineActivity {
-                        exercise_id: Some(2),
-                        reps: 10,
-                        time: 0,
-                        weight: 0.0,
-                        rpe: 0.0,
+                        exercise_id: 2.into(),
+                        reps: Reps(10),
+                        time: Time(0),
+                        weight: Weight(0.0),
+                        rpe: RPE::ZERO,
                         automatic: false,
                     },
                     RoutinePart::RoutineActivity {
-                        exercise_id: None,
-                        reps: 0,
-                        time: 30,
-                        weight: 0.0,
-                        rpe: 0.0,
+                        exercise_id: ExerciseID::nil(),
+                        reps: Reps(0),
+                        time: Time(30),
+                        weight: Weight(0.0),
+                        rpe: RPE::ZERO,
                         automatic: true,
                     },
                 ],
@@ -1557,33 +2090,33 @@ mod tests {
 
     static TRAINING_SESSION: std::sync::LazyLock<TrainingSession> =
         std::sync::LazyLock::new(|| TrainingSession {
-            id: 1,
-            routine_id: Some(2),
+            id: 1.into(),
+            routine_id: 2.into(),
             date: *TODAY - Duration::days(10),
-            notes: Some(String::from("A")),
+            notes: String::from("A"),
             elements: vec![
                 TrainingSessionElement::Set {
-                    exercise_id: 1,
-                    reps: Some(10),
-                    time: Some(3),
-                    weight: Some(30.0),
-                    rpe: Some(8.0),
-                    target_reps: Some(8),
-                    target_time: Some(4),
-                    target_weight: Some(40.0),
-                    target_rpe: Some(9.0),
+                    exercise_id: 1.into(),
+                    reps: Some(Reps(10)),
+                    time: Some(Time(3)),
+                    weight: Some(Weight(30.0)),
+                    rpe: Some(RPE::EIGHT),
+                    target_reps: Some(Reps(8)),
+                    target_time: Some(Time(4)),
+                    target_weight: Some(Weight(40.0)),
+                    target_rpe: Some(RPE::NINE),
                     automatic: false,
                 },
                 TrainingSessionElement::Rest {
-                    target_time: Some(60),
+                    target_time: Some(Time(60)),
                     automatic: true,
                 },
                 TrainingSessionElement::Set {
-                    exercise_id: 2,
-                    reps: Some(5),
-                    time: Some(4),
+                    exercise_id: 2.into(),
+                    reps: Some(Reps(5)),
+                    time: Some(Time(4)),
                     weight: None,
-                    rpe: Some(4.0),
+                    rpe: Some(RPE::FOUR),
                     target_reps: None,
                     target_time: None,
                     target_weight: None,
@@ -1591,13 +2124,13 @@ mod tests {
                     automatic: false,
                 },
                 TrainingSessionElement::Rest {
-                    target_time: Some(60),
+                    target_time: Some(Time(60)),
                     automatic: true,
                 },
                 TrainingSessionElement::Set {
-                    exercise_id: 2,
+                    exercise_id: 2.into(),
                     reps: None,
-                    time: Some(60),
+                    time: Some(Time(60)),
                     weight: None,
                     rpe: None,
                     target_reps: None,
@@ -1607,7 +2140,7 @@ mod tests {
                     automatic: false,
                 },
                 TrainingSessionElement::Rest {
-                    target_time: Some(60),
+                    target_time: Some(Time(60)),
                     automatic: true,
                 },
             ],
@@ -1647,64 +2180,78 @@ mod tests {
         });
 
     #[test]
-    fn test_user_serde() {
-        let obj = User {
-            id: 1,
-            name: String::from("A"),
-            sex: 0,
-        };
-        let serialized = json!({
-            "id": 1,
-            "name": "A",
-            "sex": 0
-        });
-        let deserialized: User = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized, obj);
+    fn test_user_id_nil() {
+        assert!(UserID::nil().is_nil());
+        assert_eq!(UserID::nil(), UserID::default());
     }
 
-    #[test]
-    fn test_exercise_serde() {
-        let obj = Exercise {
-            id: 1,
-            name: String::from("A"),
-            muscles: vec![ExerciseMuscle {
-                muscle_id: 2,
-                stimulus: 100,
-            }],
-        };
-        let serialized = json!(obj);
-        let deserialized: Exercise = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized, obj);
+    #[rstest]
+    #[case("Alice", Ok(Name("Alice".to_string())))]
+    #[case("  Bob  ", Ok(Name("Bob".to_string())))]
+    #[case("", Err(NameError::Empty))]
+    #[case(
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        Err(NameError::TooLong(65))
+    )]
+    fn test_name_new(#[case] name: &str, #[case] expected: Result<Name, NameError>) {
+        assert_eq!(Name::new(name), expected);
+    }
+
+    #[rstest]
+    #[case(0, Sex::FEMALE)]
+    #[case(1, Sex::MALE)]
+    #[case(2, Sex::MALE)]
+    fn test_sex_from_u8(#[case] value: u8, #[case] expected: Sex) {
+        assert_eq!(Sex::from(value), expected);
+    }
+
+    #[rstest]
+    #[case(Sex::FEMALE, "female")]
+    #[case(Sex::MALE, "male")]
+    fn test_sex_display(#[case] sex: Sex, #[case] string: &str) {
+        assert_eq!(sex.to_string(), string);
     }
 
     #[test]
     fn test_exercise_muscle_stimulus() {
         assert_eq!(
             Exercise {
-                id: 1,
-                name: String::from("A"),
+                id: 1.into(),
+                name: Name::new("A").unwrap(),
                 muscles: vec![
                     ExerciseMuscle {
-                        muscle_id: 2,
-                        stimulus: 100,
+                        muscle_id: MuscleID::Lats,
+                        stimulus: Stimulus::PRIMARY,
                     },
                     ExerciseMuscle {
-                        muscle_id: 8,
-                        stimulus: 50,
+                        muscle_id: MuscleID::Traps,
+                        stimulus: Stimulus::SECONDARY,
                     }
                 ],
             }
             .muscle_stimulus(),
-            BTreeMap::from([(2, 100), (8, 50)])
+            BTreeMap::from([
+                (MuscleID::Lats, Stimulus::PRIMARY),
+                (MuscleID::Traps, Stimulus::SECONDARY)
+            ])
         );
     }
 
+    #[rstest]
+    #[case(0, Ok(Stimulus::NONE))]
+    #[case(50, Ok(Stimulus::SECONDARY))]
+    #[case(100, Ok(Stimulus::PRIMARY))]
+    #[case(101, Err(StimulusError::OutOfRange(101)))]
+    fn test_stimulus_new(#[case] value: u32, #[case] expected: Result<Stimulus, StimulusError>) {
+        assert_eq!(Stimulus::new(value), expected);
+    }
+
     #[test]
-    fn test_routine_serde() {
-        let obj = &*ROUTINE;
-        let serialized = json!(obj);
-        let deserialized: Routine = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized, *obj);
+    fn test_stimulus_add() {
+        assert_eq!(
+            Stimulus::NONE + Stimulus::SECONDARY + Stimulus::PRIMARY,
+            Stimulus(150)
+        );
     }
 
     #[test]
@@ -1722,44 +2269,45 @@ mod tests {
         assert_eq!(
             ROUTINE.stimulus_per_muscle(&EXERCISES),
             BTreeMap::from([
-                (1, 0),
-                (11, 200),
-                (21, 0),
-                (22, 0),
-                (31, 100),
-                (32, 0),
-                (33, 0),
-                (41, 0),
-                (42, 0),
-                (51, 0),
-                (61, 0),
-                (62, 0),
-                (71, 0),
-                (72, 0),
-                (81, 0),
-                (82, 0),
-                (83, 0),
-                (91, 0),
+                (MuscleID::Neck, Stimulus::NONE),
+                (MuscleID::Pecs, Stimulus::PRIMARY * 2),
+                (MuscleID::Traps, Stimulus::NONE),
+                (MuscleID::Lats, Stimulus::NONE),
+                (MuscleID::FrontDelts, Stimulus::PRIMARY),
+                (MuscleID::SideDelts, Stimulus::NONE),
+                (MuscleID::RearDelts, Stimulus::NONE),
+                (MuscleID::Biceps, Stimulus::NONE),
+                (MuscleID::Triceps, Stimulus::NONE),
+                (MuscleID::Forearms, Stimulus::NONE),
+                (MuscleID::Abs, Stimulus::NONE),
+                (MuscleID::ErectorSpinae, Stimulus::NONE),
+                (MuscleID::Glutes, Stimulus::NONE),
+                (MuscleID::Abductors, Stimulus::NONE),
+                (MuscleID::Quads, Stimulus::NONE),
+                (MuscleID::Hamstrings, Stimulus::NONE),
+                (MuscleID::Adductors, Stimulus::NONE),
+                (MuscleID::Calves, Stimulus::NONE),
             ])
         );
     }
 
     #[test]
     fn test_routine_exercises() {
-        assert_eq!(ROUTINE.exercises(), BTreeSet::from([1, 2]));
+        assert_eq!(ROUTINE.exercises(), BTreeSet::from([1.into(), 2.into()]));
     }
 
     #[test]
-    fn test_training_session_serde() {
-        let obj = &*TRAINING_SESSION;
-        let serialized = json!(obj);
-        let deserialized: TrainingSession = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized, *obj);
+    fn test_routine_id_nil() {
+        assert!(RoutineID::nil().is_nil());
+        assert_eq!(RoutineID::nil(), RoutineID::default());
     }
 
     #[test]
     fn test_training_session_exercises() {
-        assert_eq!(TRAINING_SESSION.exercises(), BTreeSet::from([1, 2]));
+        assert_eq!(
+            TRAINING_SESSION.exercises(),
+            BTreeSet::from([1.into(), 2.into()])
+        );
     }
 
     #[rstest]
@@ -1793,11 +2341,11 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&*TRAINING_SESSION, Some(6.0))]
+    #[case(&*TRAINING_SESSION, Some(RPE::SIX))]
     #[case(&*EMPTY_TRAINING_SESSION, None)]
     fn test_training_session_avg_rpe(
         #[case] training_session: &TrainingSession,
-        #[case] expected: Option<f32>,
+        #[case] expected: Option<RPE>,
     ) {
         assert_eq!(training_session.avg_rpe(), expected);
     }
@@ -1833,40 +2381,173 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&*TRAINING_SESSION, Some(110))]
+    #[case(&*TRAINING_SESSION, Some(Time(110)))]
     #[case(&*EMPTY_TRAINING_SESSION, None)]
     fn test_training_session_tut(
         #[case] training_session: &TrainingSession,
-        #[case] expected: Option<u32>,
+        #[case] expected: Option<Time>,
     ) {
         assert_eq!(training_session.tut(), expected);
     }
 
     #[rstest]
-    #[case(&*TRAINING_SESSION, BTreeMap::from([(11, 100), (31, 50)]))]
+    #[case(&*TRAINING_SESSION, BTreeMap::from([(MuscleID::Pecs, Stimulus::PRIMARY), (MuscleID::FrontDelts, Stimulus::SECONDARY)]))]
     #[case(&*EMPTY_TRAINING_SESSION, BTreeMap::new())]
     fn test_training_session_stimulus_per_muscle(
         #[case] training_session: &TrainingSession,
-        #[case] expected: BTreeMap<u8, u32>,
+        #[case] expected: BTreeMap<MuscleID, Stimulus>,
     ) {
         let exercises = BTreeMap::from([(
-            1,
+            1.into(),
             Exercise {
-                id: 1,
-                name: String::from("A"),
+                id: 1.into(),
+                name: Name::new("A").unwrap(),
                 muscles: vec![
                     ExerciseMuscle {
-                        muscle_id: 11,
-                        stimulus: 100,
+                        muscle_id: MuscleID::Pecs,
+                        stimulus: Stimulus::PRIMARY,
                     },
                     ExerciseMuscle {
-                        muscle_id: 31,
-                        stimulus: 50,
+                        muscle_id: MuscleID::FrontDelts,
+                        stimulus: Stimulus::SECONDARY,
                     },
                 ],
             },
         )]);
         assert_eq!(training_session.stimulus_per_muscle(&exercises), expected);
+    }
+
+    #[test]
+    fn test_training_session_id_nil() {
+        assert!(TrainingSessionID::nil().is_nil());
+        assert_eq!(TrainingSessionID::nil(), TrainingSessionID::default());
+    }
+
+    #[rstest]
+    #[case(0, Ok(Reps(0)))]
+    #[case(999, Ok(Reps(999)))]
+    #[case(1000, Err(RepsError::OutOfRange))]
+    fn test_reps_new(#[case] input: u32, #[case] expected: Result<Reps, RepsError>) {
+        assert_eq!(Reps::new(input), expected);
+    }
+
+    #[rstest]
+    #[case("0", Ok(Reps(0)))]
+    #[case("999", Ok(Reps(999)))]
+    #[case("1000", Err(RepsError::OutOfRange))]
+    #[case("4.", Err(RepsError::ParseError))]
+    #[case("", Err(RepsError::ParseError))]
+    fn test_reps_from_str(#[case] input: &str, #[case] expected: Result<Reps, RepsError>) {
+        assert_eq!(Reps::try_from(input), expected);
+    }
+
+    #[rstest]
+    fn test_reps_mul_time() {
+        assert_eq!(Reps(2) * Time(4), Time(8));
+    }
+
+    #[rstest]
+    #[case(Reps(8), "8")]
+    fn test_reps_display(#[case] input: Reps, #[case] expected: &str) {
+        assert_eq!(input.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case(0, Ok(Time(0)))]
+    #[case(999, Ok(Time(999)))]
+    #[case(1000, Err(TimeError::OutOfRange))]
+    fn test_time_new(#[case] input: u32, #[case] expected: Result<Time, TimeError>) {
+        assert_eq!(Time::new(input), expected);
+    }
+
+    #[rstest]
+    #[case("0", Ok(Time(0)))]
+    #[case("999", Ok(Time(999)))]
+    #[case("1000", Err(TimeError::OutOfRange))]
+    #[case("4.", Err(TimeError::ParseError))]
+    #[case("", Err(TimeError::ParseError))]
+    fn test_time_from_str(#[case] input: &str, #[case] expected: Result<Time, TimeError>) {
+        assert_eq!(Time::try_from(input), expected);
+    }
+
+    #[rstest]
+    fn test_time_mul_reps() {
+        assert_eq!(Time(2) * Reps(4), Time(8));
+    }
+
+    #[rstest]
+    #[case(Time(8), "8")]
+    fn test_time_display(#[case] input: Time, #[case] expected: &str) {
+        assert_eq!(input.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case(0.0, Ok(Weight(0.0)))]
+    #[case(999.9, Ok(Weight(999.9)))]
+    #[case(1000.0, Err(WeightError::OutOfRange))]
+    #[case(1.23, Err(WeightError::InvalidResolution))]
+    fn test_weight_new(#[case] input: f32, #[case] expected: Result<Weight, WeightError>) {
+        assert_eq!(Weight::new(input), expected);
+    }
+
+    #[rstest]
+    #[case("2.0", Ok(Weight(2.0)))]
+    #[case("4.", Ok(Weight(4.0)))]
+    #[case("8", Ok(Weight(8.0)))]
+    #[case("1000", Err(WeightError::OutOfRange))]
+    #[case("", Err(WeightError::ParseError))]
+    fn test_weight_from_str(#[case] input: &str, #[case] expected: Result<Weight, WeightError>) {
+        assert_eq!(Weight::try_from(input), expected);
+    }
+
+    #[rstest]
+    #[case(Weight(2.0), "2")]
+    #[case(Weight(8.4), "8.4")]
+    fn test_weight_display(#[case] input: Weight, #[case] expected: &str) {
+        assert_eq!(input.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case(0.0, Ok(RPE::ZERO))]
+    #[case(8.0, Ok(RPE::EIGHT))]
+    #[case(9.5, Ok(RPE(95)))]
+    #[case(10.0, Ok(RPE::TEN))]
+    fn test_rpe_new(#[case] input: f32, #[case] expected: Result<RPE, RPEError>) {
+        assert_eq!(RPE::new(input), expected);
+    }
+
+    #[rstest]
+    #[case("2.0", Ok(RPE::TWO))]
+    #[case("4.", Ok(RPE::FOUR))]
+    #[case("8", Ok(RPE::EIGHT))]
+    #[case("11", Err(RPEError::OutOfRange))]
+    #[case("9.2", Err(RPEError::InvalidResolution))]
+    #[case("", Err(RPEError::ParseError))]
+    fn test_rpe_from_str(#[case] input: &str, #[case] expected: Result<RPE, RPEError>) {
+        assert_eq!(RPE::try_from(input), expected);
+    }
+
+    #[rstest]
+    #[case(RPE::EIGHT, "8")]
+    #[case(RPE(95), "9.5")]
+    fn test_rpe_display(#[case] input: RPE, #[case] expected: &str) {
+        assert_eq!(input.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case(RPE(0), RIR(100))]
+    #[case(RPE(50), RIR(50))]
+    #[case(RPE(80), RIR(20))]
+    #[case(RPE(100), RIR(0))]
+    fn test_rir_from_rpe(#[case] rpe: RPE, #[case] expected: RIR) {
+        assert_eq!(RIR::from(rpe), expected);
+    }
+
+    #[rstest]
+    #[case(RIR(20), "2")]
+    #[case(RIR(25), "2.5")]
+    fn test_rir_display(#[case] input: RIR, #[case] expected: &str) {
+        assert_eq!(input.to_string(), expected);
     }
 
     #[rstest]
@@ -1975,24 +2656,19 @@ mod tests {
     }
 
     #[test]
-    fn test_muscle_id() {
-        for muscle in Muscle::iter() {
-            assert_eq!(Muscle::from_repr(muscle.id()).unwrap(), *muscle);
-        }
-
-        assert_eq!(Muscle::from_repr(u8::MAX), None);
+    fn test_muscle_id_iter() {
+        assert!(
+            !MuscleID::iter()
+                .collect::<Vec<_>>()
+                .contains(&&MuscleID::None)
+        );
     }
 
     #[test]
-    fn test_muscle_iter() {
-        assert!(!Muscle::iter().collect::<Vec<_>>().contains(&&Muscle::None));
-    }
-
-    #[test]
-    fn test_muscle_name() {
+    fn test_muscle_id_name() {
         let mut names = HashSet::new();
 
-        for muscle in Muscle::iter_filter() {
+        for muscle in MuscleID::iter_filter() {
             let name = muscle.name();
 
             assert!(!name.is_empty());
@@ -2003,16 +2679,25 @@ mod tests {
     }
 
     #[test]
-    fn test_muscle_description() {
+    fn test_muscle_id_description() {
         let mut descriptions = HashSet::new();
 
-        for muscle in Muscle::iter_filter() {
+        for muscle in MuscleID::iter_filter() {
             let description = muscle.description();
 
             assert!(description.is_empty() || !descriptions.contains(description));
 
             descriptions.insert(description);
         }
+    }
+
+    #[test]
+    fn test_muscle_id_try_from_u8() {
+        for muscle_id in MuscleID::iter() {
+            assert_eq!(MuscleID::try_from(*muscle_id as u8), Ok(*muscle_id));
+        }
+
+        assert_eq!(MuscleID::try_from(0), Err(MuscleIDError::Invalid));
     }
 
     #[test]
@@ -2112,32 +2797,32 @@ mod tests {
     #[case::name_lower_case(
         ExerciseFilter { name: "push".into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] },
+            Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] },
         ],
-        &[Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] }]
+        &[Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] }]
     )]
     #[case::name_upper_case(
         ExerciseFilter { name: "PUSH".into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] },
+            Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] },
         ],
-        &[Exercise { id: 0, name: "Handstand Push Up".to_string(), muscles: vec![] }]
+        &[Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] }]
     )]
     #[case::no_muscles(
-        ExerciseFilter { muscles: [Muscle::None].into(), ..ExerciseFilter::default() },
+        ExerciseFilter { muscles: [MuscleID::None].into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0, name: String::new(), muscles: vec![] },
-            Exercise { id: 1, name: String::new(), muscles: vec![ExerciseMuscle { muscle_id: 11, stimulus: 100 }] },
+            Exercise { id: 0.into(), name: Name::new("Squat").unwrap(), muscles: vec![] },
+            Exercise { id: 1.into(), name: Name::new("Squat").unwrap(), muscles: vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }] },
         ],
-        &[Exercise { id: 0, name: String::new(), muscles: vec![] }]
+        &[Exercise { id: 0.into(), name: Name::new("Squat").unwrap(), muscles: vec![] }]
     )]
     #[case::muscles(
-        ExerciseFilter { muscles: [Muscle::Pecs, Muscle::FrontDelts].into(), ..ExerciseFilter::default() },
+        ExerciseFilter { muscles: [MuscleID::Pecs, MuscleID::FrontDelts].into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0, name: String::new(), muscles: vec![] },
-            Exercise { id: 1, name: String::new(), muscles: vec![ExerciseMuscle { muscle_id: 11, stimulus: 100 }, ExerciseMuscle { muscle_id: 31, stimulus: 50 }] },
+            Exercise { id: 0.into(), name: Name::new("Squat").unwrap(), muscles: vec![] },
+            Exercise { id: 1.into(), name: Name::new("Squat").unwrap(), muscles: vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }] },
         ],
-        &[Exercise { id: 1, name: String::new(), muscles: vec![ExerciseMuscle { muscle_id: 11, stimulus: 100 }, ExerciseMuscle { muscle_id: 31, stimulus: 50 }] }]
+        &[Exercise { id: 1.into(), name: Name::new("Squat").unwrap(), muscles: vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }] }]
     )]
     fn test_exercise_filter_exercises(
         #[case] filter: ExerciseFilter,
@@ -2160,11 +2845,11 @@ mod tests {
         Some("Decline Push Up")
     )]
     #[case::no_muscles(
-        ExerciseFilter { muscles: [Muscle::None].into(), ..ExerciseFilter::default() },
+        ExerciseFilter { muscles: [MuscleID::None].into(), ..ExerciseFilter::default() },
         None
     )]
     #[case::muscles(
-        ExerciseFilter { muscles: [Muscle::Lats, Muscle::Traps].into(), ..ExerciseFilter::default() },
+        ExerciseFilter { muscles: [MuscleID::Lats, MuscleID::Traps].into(), ..ExerciseFilter::default() },
         Some("Band Pull Apart")
     )]
     #[case::equipment(
@@ -2184,8 +2869,8 @@ mod tests {
         #[case] expected_first_name: Option<&str>,
     ) {
         assert_eq!(
-            filter.catalog().first_entry().map(|e| *e.key()),
-            expected_first_name,
+            filter.catalog().first_entry().map(|e| (*e.key()).clone()),
+            expected_first_name.map(|name| Name::new(name).unwrap()),
         );
     }
 
@@ -2200,24 +2885,24 @@ mod tests {
 
         assert!(filter.muscle_list().iter().map(|(_, b)| b).all(|b| !b));
 
-        filter.toggle_muscle(Muscle::None);
+        filter.toggle_muscle(MuscleID::None);
 
-        assert!(filter.muscle_list().contains(&(Muscle::None, true)));
+        assert!(filter.muscle_list().contains(&(MuscleID::None, true)));
         assert!(
             filter
                 .muscle_list()
                 .into_iter()
-                .filter(|(m, _)| *m != Muscle::None)
+                .filter(|(m, _)| *m != MuscleID::None)
                 .map(|(_, b)| b)
                 .all(|b| !b)
         );
 
-        filter.toggle_muscle(Muscle::Abs);
+        filter.toggle_muscle(MuscleID::Abs);
 
-        assert!(filter.muscle_list().contains(&(Muscle::Abs, true)));
-        assert!(!filter.muscle_list().contains(&(Muscle::None, true)));
+        assert!(filter.muscle_list().contains(&(MuscleID::Abs, true)));
+        assert!(!filter.muscle_list().contains(&(MuscleID::None, true)));
 
-        filter.toggle_muscle(Muscle::Abs);
+        filter.toggle_muscle(MuscleID::Abs);
 
         assert!(filter.muscle_list().iter().map(|(_, b)| b).all(|b| !b));
     }
@@ -2372,17 +3057,6 @@ mod tests {
         assert!(filter.category_list().iter().map(|(_, b)| b).all(|b| !b));
     }
 
-    #[test]
-    fn test_body_weight_serde() {
-        let obj = BodyWeight {
-            date: NaiveDate::from_ymd_opt(2020, 2, 2).unwrap(),
-            weight: 80.0,
-        };
-        let serialized = json!(obj);
-        let deserialized: BodyWeight = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized, obj);
-    }
-
     #[rstest]
     #[case::no_value(vec![], vec![])]
     #[case::one_value(
@@ -2437,23 +3111,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_body_fat_serde() {
-        let obj = BodyFat {
-            date: NaiveDate::from_ymd_opt(2020, 2, 2).unwrap(),
-            chest: Some(1),
-            abdominal: Some(2),
-            thigh: Some(3),
-            tricep: Some(4),
-            subscapular: Some(5),
-            suprailiac: Some(6),
-            midaxillary: Some(7),
-        };
-        let serialized = json!(obj);
-        let deserialized: BodyFat = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized, obj);
-    }
-
     #[rstest]
     #[case::female_none(
         BodyFat {
@@ -2466,7 +3123,7 @@ mod tests {
             suprailiac: None,
             midaxillary: None,
         },
-        0,
+        Sex::FEMALE,
         None,
         None
     )]
@@ -2481,7 +3138,7 @@ mod tests {
             suprailiac: Some(5),
             midaxillary: None,
         },
-        0,
+        Sex::FEMALE,
         Some(17.298_523),
         None
     )]
@@ -2496,7 +3153,7 @@ mod tests {
             suprailiac: Some(5),
             midaxillary: Some(5),
         },
-        0,
+        Sex::FEMALE,
         Some(17.298_523),
         Some(14.794_678)
     )]
@@ -2511,7 +3168,7 @@ mod tests {
             suprailiac: None,
             midaxillary: None,
         },
-        1,
+        Sex::MALE,
         None,
         None
     )]
@@ -2526,7 +3183,7 @@ mod tests {
             suprailiac: None,
             midaxillary: None,
         },
-        1,
+        Sex::MALE,
         Some(10.600_708),
         None
     )]
@@ -2541,28 +3198,13 @@ mod tests {
             suprailiac: Some(10),
             midaxillary: Some(10),
         },
-        1,
+        Sex::MALE,
         Some(10.600_708),
         Some(11.722_29)
     )]
-    #[case::invalid(
-        BodyFat {
-            date: NaiveDate::from_ymd_opt(2020, 2, 2).unwrap(),
-            chest: Some(5),
-            abdominal: Some(15),
-            thigh: Some(15),
-            tricep: Some(15),
-            subscapular: Some(10),
-            suprailiac: Some(10),
-            midaxillary: Some(10),
-        },
-        2,
-        None,
-        None
-    )]
     fn test_body_fat_jp(
         #[case] body_fat: BodyFat,
-        #[case] sex: u8,
+        #[case] sex: Sex,
         #[case] expected_jp3: Option<f32>,
         #[case] expected_jp7: Option<f32>,
     ) {
@@ -2571,14 +3213,12 @@ mod tests {
     }
 
     #[test]
-    fn test_period_serde() {
-        let obj = Period {
-            date: NaiveDate::from_ymd_opt(2020, 2, 2).unwrap(),
-            intensity: 2,
-        };
-        let serialized = json!(obj);
-        let deserialized: Period = serde_json::from_value(serialized).unwrap();
-        assert_eq!(deserialized, obj);
+    fn test_intensity_try_from_u8() {
+        for intensity in Intensity::iter() {
+            assert_eq!(Intensity::try_from(*intensity as u8), Ok(*intensity));
+        }
+
+        assert_eq!(Intensity::try_from(0), Err(IntensityError::OutOfRange));
     }
 
     #[test]
@@ -2589,19 +3229,19 @@ mod tests {
                 [
                     Period {
                         date: from_num_days(1),
-                        intensity: 3,
+                        intensity: Intensity::Medium,
                     },
                     Period {
                         date: from_num_days(5),
-                        intensity: 4,
+                        intensity: Intensity::Heavy,
                     },
                     Period {
                         date: from_num_days(8),
-                        intensity: 2,
+                        intensity: Intensity::Light,
                     },
                     Period {
                         date: from_num_days(33),
-                        intensity: 1,
+                        intensity: Intensity::Spotting,
                     }
                 ]
                 .map(|p| (p.date, p))

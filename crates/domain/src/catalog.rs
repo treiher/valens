@@ -1,11 +1,13 @@
 use std::collections::BTreeMap;
 
-use crate::{Assistance, Category, Equipment, Force, Laterality, Mechanic, Muscle, MuscleStimulus};
+use crate::{
+    Assistance, Category, Equipment, Force, Laterality, Mechanic, MuscleID, Name, Stimulus,
+};
 
 #[derive(Clone)]
 pub struct Exercise {
-    pub name: &'static str,
-    pub muscles: &'static [(Muscle, MuscleStimulus)],
+    pub name: Name,
+    pub muscles: &'static [(MuscleID, Stimulus)],
     pub force: Force,
     pub mechanic: Mechanic,
     pub laterality: Laterality,
@@ -17,7 +19,7 @@ pub struct Exercise {
 impl From<BaseExercise> for Exercise {
     fn from(value: BaseExercise) -> Self {
         Exercise {
-            name: value.name,
+            name: Name::new(value.name).unwrap(),
             muscles: value.muscles,
             force: value.force,
             mechanic: value.mechanic,
@@ -32,7 +34,7 @@ impl From<BaseExercise> for Exercise {
 #[derive(Clone)]
 struct BaseExercise {
     pub name: &'static str,
-    pub muscles: &'static [(Muscle, MuscleStimulus)],
+    pub muscles: &'static [(MuscleID, Stimulus)],
     pub force: Force,
     pub mechanic: Mechanic,
     pub laterality: Laterality,
@@ -45,7 +47,7 @@ struct BaseExercise {
 #[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct ExerciseVariant {
     pub name: &'static str,
-    pub muscles: Option<&'static [(Muscle, MuscleStimulus)]>,
+    pub muscles: Option<&'static [(MuscleID, Stimulus)]>,
     pub force: Option<Force>,
     pub mechanic: Option<Mechanic>,
     pub laterality: Option<Laterality>,
@@ -69,14 +71,14 @@ impl ExerciseVariant {
     }
 }
 
-pub(crate) static EXERCISES: std::sync::LazyLock<BTreeMap<&'static str, Exercise>> =
+pub(crate) static EXERCISES: std::sync::LazyLock<BTreeMap<Name, Exercise>> =
     std::sync::LazyLock::new(|| {
         let mut exercises = EXERCISE_VARIANTS
             .into_iter()
             .map(std::convert::Into::into)
             .chain(EXERCISE_VARIANTS.iter().flat_map(|e| {
                 e.variants.iter().map(|v| Exercise {
-                    name: v.name,
+                    name: Name::new(v.name).unwrap(),
                     force: v.force.unwrap_or(e.force),
                     mechanic: v.mechanic.unwrap_or(e.mechanic),
                     laterality: v.laterality.unwrap_or(e.laterality),
@@ -87,10 +89,10 @@ pub(crate) static EXERCISES: std::sync::LazyLock<BTreeMap<&'static str, Exercise
                 })
             }))
             .collect::<Vec<Exercise>>();
-        exercises.sort_by(|a, b| a.name.cmp(b.name));
+        exercises.sort_by(|a, b| a.name.cmp(&b.name));
         exercises
             .into_iter()
-            .map(|e| (e.name, e))
+            .map(|e| (e.name.clone(), e))
             .collect::<BTreeMap<_, _>>()
     });
 
@@ -103,9 +105,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[
-            (Muscle::ErectorSpinae, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Secondary),
-            (Muscle::Hamstrings, MuscleStimulus::Secondary),
+            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -118,9 +120,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::ResistanceBand],
         muscles: &[
-            (Muscle::RearDelts, MuscleStimulus::Primary),
-            (Muscle::Lats, MuscleStimulus::Secondary),
-            (Muscle::Traps, MuscleStimulus::Secondary),
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::Lats, Stimulus::SECONDARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -132,7 +134,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
-        muscles: &[(Muscle::Abs, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Kneeling Barbell Ab Rollout",
@@ -147,9 +149,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::Pecs, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Primary),
-            (Muscle::Triceps, MuscleStimulus::Secondary),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -200,7 +202,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
-        muscles: &[(Muscle::Biceps, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Biceps, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -266,13 +268,13 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::ErectorSpinae, MuscleStimulus::Primary),
-            (Muscle::Quads, MuscleStimulus::Secondary),
-            (Muscle::Hamstrings, MuscleStimulus::Secondary),
-            (Muscle::Adductors, MuscleStimulus::Secondary),
-            (Muscle::Traps, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::Quads, Stimulus::SECONDARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -342,9 +344,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::Pecs, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Primary),
-            (Muscle::Triceps, MuscleStimulus::Secondary),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
@@ -361,10 +363,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::ErectorSpinae, MuscleStimulus::Primary),
-            (Muscle::Hamstrings, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Secondary),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -388,9 +390,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Quads, MuscleStimulus::Secondary),
-            (Muscle::Adductors, MuscleStimulus::Secondary),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Quads, Stimulus::SECONDARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
@@ -406,7 +408,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
-        muscles: &[(Muscle::Triceps, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Triceps, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -439,8 +441,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::Lats, MuscleStimulus::Primary),
-            (Muscle::Pecs, MuscleStimulus::Primary),
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
         ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
@@ -457,11 +459,11 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::RearDelts, MuscleStimulus::Primary),
-            (Muscle::Traps, MuscleStimulus::Primary),
-            (Muscle::Biceps, MuscleStimulus::Secondary),
-            (Muscle::Lats, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::PRIMARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+            (MuscleID::Lats, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -485,9 +487,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::FrontDelts, MuscleStimulus::Primary),
-            (Muscle::SideDelts, MuscleStimulus::Secondary),
-            (Muscle::Triceps, MuscleStimulus::Secondary),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::SideDelts, Stimulus::SECONDARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -521,8 +523,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[
-            (Muscle::Traps, MuscleStimulus::Primary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Traps, Stimulus::PRIMARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -545,7 +547,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
-        muscles: &[(Muscle::Triceps, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Triceps, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -568,10 +570,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Box],
         muscles: &[
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Primary),
-            (Muscle::Calves, MuscleStimulus::Secondary),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Calves, Stimulus::SECONDARY),
         ],
         category: Category::Plyometrics,
         variants: &[
@@ -600,8 +602,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Cable],
         muscles: &[
-            (Muscle::Pecs, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Secondary),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -614,9 +616,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Cable],
         muscles: &[
-            (Muscle::RearDelts, MuscleStimulus::Primary),
-            (Muscle::SideDelts, MuscleStimulus::Secondary),
-            (Muscle::Traps, MuscleStimulus::Secondary),
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::SideDelts, Stimulus::SECONDARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -629,22 +631,22 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Cable],
         muscles: &[
-            (Muscle::Lats, MuscleStimulus::Primary),
-            (Muscle::Traps, MuscleStimulus::Primary),
-            (Muscle::RearDelts, MuscleStimulus::Primary),
-            (Muscle::Biceps, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::PRIMARY),
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Cable Flexion Row",
             muscles: Some(&[
-                (Muscle::ErectorSpinae, MuscleStimulus::Primary),
-                (Muscle::Lats, MuscleStimulus::Primary),
-                (Muscle::Traps, MuscleStimulus::Primary),
-                (Muscle::RearDelts, MuscleStimulus::Primary),
-                (Muscle::Biceps, MuscleStimulus::Secondary),
-                (Muscle::Forearms, MuscleStimulus::Secondary),
+                (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+                (MuscleID::Lats, Stimulus::PRIMARY),
+                (MuscleID::Traps, Stimulus::PRIMARY),
+                (MuscleID::RearDelts, Stimulus::PRIMARY),
+                (MuscleID::Biceps, Stimulus::SECONDARY),
+                (MuscleID::Forearms, Stimulus::SECONDARY),
             ]),
             ..ExerciseVariant::default()
         }],
@@ -657,10 +659,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Secondary),
-            (Muscle::Hamstrings, MuscleStimulus::Secondary),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -672,7 +674,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[],
-        muscles: &[(Muscle::Abs, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -694,7 +696,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[],
-        muscles: &[(Muscle::Abs, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[],
     },
@@ -706,9 +708,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::ParallelBars],
         muscles: &[
-            (Muscle::Pecs, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Primary),
-            (Muscle::Triceps, MuscleStimulus::Primary),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Triceps, Stimulus::PRIMARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -716,9 +718,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
                 name: "Bench Dip",
                 equipment: Some(&[]),
                 muscles: Some(&[
-                    (Muscle::Triceps, MuscleStimulus::Primary),
-                    (Muscle::Pecs, MuscleStimulus::Secondary),
-                    (Muscle::FrontDelts, MuscleStimulus::Secondary),
+                    (MuscleID::Triceps, Stimulus::PRIMARY),
+                    (MuscleID::Pecs, Stimulus::SECONDARY),
+                    (MuscleID::FrontDelts, Stimulus::SECONDARY),
                 ]),
                 ..ExerciseVariant::default()
             },
@@ -726,9 +728,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
                 name: "Machine Dip",
                 equipment: Some(&[Equipment::Machine]),
                 muscles: Some(&[
-                    (Muscle::Triceps, MuscleStimulus::Primary),
-                    (Muscle::Pecs, MuscleStimulus::Secondary),
-                    (Muscle::FrontDelts, MuscleStimulus::Secondary),
+                    (MuscleID::Triceps, Stimulus::PRIMARY),
+                    (MuscleID::Pecs, Stimulus::SECONDARY),
+                    (MuscleID::FrontDelts, Stimulus::SECONDARY),
                 ]),
                 ..ExerciseVariant::default()
             },
@@ -747,8 +749,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
         muscles: &[
-            (Muscle::Pecs, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Secondary),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -772,11 +774,11 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
         muscles: &[
-            (Muscle::Traps, MuscleStimulus::Primary),
-            (Muscle::Lats, MuscleStimulus::Primary),
-            (Muscle::RearDelts, MuscleStimulus::Primary),
-            (Muscle::Biceps, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Traps, Stimulus::PRIMARY),
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -789,8 +791,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
         muscles: &[
-            (Muscle::SideDelts, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Secondary),
+            (MuscleID::SideDelts, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -814,8 +816,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
         muscles: &[
-            (Muscle::RearDelts, MuscleStimulus::Primary),
-            (Muscle::Traps, MuscleStimulus::Secondary),
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -838,7 +840,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
-        muscles: &[(Muscle::Forearms, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Forearms, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Cable Reverse Wrist Curl",
@@ -853,7 +855,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
-        muscles: &[(Muscle::Forearms, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Forearms, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Cable Wrist Curl",
@@ -869,8 +871,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Hamstrings, MuscleStimulus::Secondary),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
@@ -887,9 +889,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::FrontDelts, MuscleStimulus::Primary),
-            (Muscle::SideDelts, MuscleStimulus::Secondary),
-            (Muscle::Triceps, MuscleStimulus::Secondary),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::SideDelts, Stimulus::SECONDARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -901,7 +903,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[],
-        muscles: &[(Muscle::Abs, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -922,11 +924,11 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Lats, MuscleStimulus::Primary),
-            (Muscle::Traps, MuscleStimulus::Primary),
-            (Muscle::RearDelts, MuscleStimulus::Primary),
-            (Muscle::Biceps, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::PRIMARY),
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
@@ -943,12 +945,12 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Kettlebell],
         muscles: &[
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::ErectorSpinae, MuscleStimulus::Primary),
-            (Muscle::Hamstrings, MuscleStimulus::Secondary),
-            (Muscle::Adductors, MuscleStimulus::Secondary),
-            (Muscle::Traps, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -961,10 +963,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[
-            (Muscle::Lats, MuscleStimulus::Primary),
-            (Muscle::Biceps, MuscleStimulus::Secondary),
-            (Muscle::RearDelts, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+            (MuscleID::RearDelts, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -976,7 +978,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
-        muscles: &[(Muscle::Quads, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Quads, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[],
     },
@@ -988,10 +990,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Primary),
-            (Muscle::Hamstrings, MuscleStimulus::Secondary),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[],
@@ -1004,9 +1006,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Primary),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::PRIMARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1055,22 +1057,22 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Secondary),
-            (Muscle::Adductors, MuscleStimulus::Secondary),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Barbell Hack Squat",
             equipment: Some(&[Equipment::Barbell]),
             muscles: Some(&[
-                (Muscle::Quads, MuscleStimulus::Primary),
-                (Muscle::Glutes, MuscleStimulus::Secondary),
-                (Muscle::Adductors, MuscleStimulus::Secondary),
-                (Muscle::ErectorSpinae, MuscleStimulus::Secondary),
-                (Muscle::Traps, MuscleStimulus::Secondary),
-                (Muscle::Forearms, MuscleStimulus::Secondary),
-                (Muscle::Calves, MuscleStimulus::Secondary),
+                (MuscleID::Quads, Stimulus::PRIMARY),
+                (MuscleID::Glutes, Stimulus::SECONDARY),
+                (MuscleID::Adductors, Stimulus::SECONDARY),
+                (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+                (MuscleID::Traps, Stimulus::SECONDARY),
+                (MuscleID::Forearms, Stimulus::SECONDARY),
+                (MuscleID::Calves, Stimulus::SECONDARY),
             ]),
             ..ExerciseVariant::default()
         }],
@@ -1083,8 +1085,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[
-            (Muscle::Abductors, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Secondary),
+            (MuscleID::Abductors, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1109,7 +1111,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
-        muscles: &[(Muscle::Adductors, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Adductors, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1133,7 +1135,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
-        muscles: &[(Muscle::Calves, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Calves, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1160,9 +1162,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Assisted,
         equipment: &[Equipment::Machine],
         muscles: &[
-            (Muscle::Pecs, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Primary),
-            (Muscle::Triceps, MuscleStimulus::Primary),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Triceps, Stimulus::PRIMARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1186,11 +1188,11 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Assisted,
         equipment: &[Equipment::Machine],
         muscles: &[
-            (Muscle::Lats, MuscleStimulus::Primary),
-            (Muscle::Traps, MuscleStimulus::Secondary),
-            (Muscle::RearDelts, MuscleStimulus::Secondary),
-            (Muscle::Biceps, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
+            (MuscleID::RearDelts, Stimulus::SECONDARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1213,7 +1215,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[],
-        muscles: &[(Muscle::Hamstrings, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[],
     },
@@ -1224,7 +1226,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[],
-        muscles: &[(Muscle::Abs, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1246,11 +1248,11 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::PullUpBar],
         muscles: &[
-            (Muscle::Lats, MuscleStimulus::Primary),
-            (Muscle::Traps, MuscleStimulus::Secondary),
-            (Muscle::RearDelts, MuscleStimulus::Secondary),
-            (Muscle::Biceps, MuscleStimulus::Secondary),
-            (Muscle::Forearms, MuscleStimulus::Secondary),
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
+            (MuscleID::RearDelts, Stimulus::SECONDARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+            (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1274,10 +1276,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Pecs, MuscleStimulus::Primary),
-            (Muscle::FrontDelts, MuscleStimulus::Primary),
-            (Muscle::Triceps, MuscleStimulus::Secondary),
-            (Muscle::Abs, MuscleStimulus::Secondary),
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
+            (MuscleID::Abs, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1312,7 +1314,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[],
-        muscles: &[(Muscle::Quads, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Quads, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[],
     },
@@ -1323,7 +1325,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
-        muscles: &[(Muscle::Hamstrings, MuscleStimulus::Primary)],
+        muscles: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Lying Leg Curl",
@@ -1338,8 +1340,8 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Sliders],
         muscles: &[
-            (Muscle::Hamstrings, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Secondary),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1363,9 +1365,9 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Primary),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::PRIMARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1413,11 +1415,11 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Primary),
-            (Muscle::ErectorSpinae, MuscleStimulus::Primary),
-            (Muscle::Calves, MuscleStimulus::Secondary),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::Calves, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1451,10 +1453,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[
-            (Muscle::Quads, MuscleStimulus::Primary),
-            (Muscle::Glutes, MuscleStimulus::Primary),
-            (Muscle::Adductors, MuscleStimulus::Primary),
-            (Muscle::Hamstrings, MuscleStimulus::Secondary),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
         category: Category::Strength,
         variants: &[
@@ -1505,7 +1507,7 @@ mod tests {
                     exercise
                         .muscles
                         .iter()
-                        .filter(|(_, s)| *s == MuscleStimulus::Primary)
+                        .filter(|(_, s)| *s == Stimulus::PRIMARY)
                         .collect::<Vec<_>>()
                         .len()
                         == 1,
@@ -1513,48 +1515,48 @@ mod tests {
                     !exercise
                         .muscles
                         .iter()
-                        .filter(|(_, s)| *s == MuscleStimulus::Primary)
+                        .filter(|(_, s)| *s == Stimulus::PRIMARY)
                         .collect::<Vec<_>>()
                         .is_empty()
                         && exercise.muscles.len() > 1,
             });
 
-            if name.contains("One-") {
+            if name.as_ref().contains("One-") {
                 assert!(exercise.laterality == Laterality::Unilateral);
             }
 
             assert!(match exercise.assistance {
-                Assistance::Assisted => name.contains("Assisted"),
-                Assistance::Unassisted => !name.contains("Assisted"),
+                Assistance::Assisted => name.as_ref().contains("Assisted"),
+                Assistance::Unassisted => !name.as_ref().contains("Assisted"),
             });
-            if name.contains("Barbell") {
+            if name.as_ref().contains("Barbell") {
                 assert!(exercise.equipment.contains(&Equipment::Barbell));
             }
-            if name.contains("Box") {
+            if name.as_ref().contains("Box") {
                 assert!(exercise.equipment.contains(&Equipment::Box));
             }
-            if name.contains("Cable") {
+            if name.as_ref().contains("Cable") {
                 assert!(exercise.equipment.contains(&Equipment::Cable));
             }
-            if name.contains("Dumbbell") {
+            if name.as_ref().contains("Dumbbell") {
                 assert!(exercise.equipment.contains(&Equipment::Dumbbell));
             }
-            if name.contains("Ball") {
+            if name.as_ref().contains("Ball") {
                 assert!(exercise.equipment.contains(&Equipment::ExerciseBall));
             }
-            if name.contains("Ring") {
+            if name.as_ref().contains("Ring") {
                 assert!(exercise.equipment.contains(&Equipment::GymnasticRings));
             }
-            if name.contains("Kettlebell") {
+            if name.as_ref().contains("Kettlebell") {
                 assert!(exercise.equipment.contains(&Equipment::Kettlebell));
             }
-            if name.contains("Machine") {
+            if name.as_ref().contains("Machine") {
                 assert!(exercise.equipment.contains(&Equipment::Machine));
             }
-            if name.contains("Band") {
+            if name.as_ref().contains("Band") {
                 assert!(exercise.equipment.contains(&Equipment::ResistanceBand));
             }
-            if name.contains("Slider") {
+            if name.as_ref().contains("Slider") {
                 assert!(exercise.equipment.contains(&Equipment::Sliders));
             }
         }
@@ -1595,7 +1597,7 @@ mod tests {
     #[test]
     fn test_exercise_variants_duplicate_muscles() {
         for exercise in EXERCISE_VARIANTS {
-            let muscles: HashSet<Muscle> =
+            let muscles: HashSet<MuscleID> =
                 exercise.muscles.iter().map(|(m, _)| m).copied().collect();
             assert_eq!(
                 exercise.muscles.len(),
@@ -1605,7 +1607,7 @@ mod tests {
             );
 
             for variant in exercise.variants {
-                let muscles: HashSet<Muscle> = variant
+                let muscles: HashSet<MuscleID> = variant
                     .muscles
                     .unwrap_or_default()
                     .iter()
@@ -1630,7 +1632,7 @@ mod tests {
                 .iter()
                 .chain(exercise.variants.iter().filter_map(|v| v.muscles).flatten())
             {
-                assert_ne!(*muscle, Muscle::None);
+                assert_ne!(*muscle, MuscleID::None);
             }
         }
     }

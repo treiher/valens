@@ -15,11 +15,11 @@ pub struct InputField<T> {
     pub orig: String,
 }
 
-impl<T: Default> Default for InputField<T> {
+impl<T> Default for InputField<T> {
     fn default() -> Self {
         InputField {
             input: String::new(),
-            parsed: Some(T::default()),
+            parsed: None,
             orig: String::new(),
         }
     }
@@ -400,7 +400,7 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     }
 }
 
-pub fn view_rest<Ms>(target_time: u32, automatic: bool) -> Node<Ms> {
+pub fn view_rest<Ms>(target_time: domain::Time, automatic: bool) -> Node<Ms> {
     div![
         span![
             C!["icon-text"],
@@ -409,12 +409,12 @@ pub fn view_rest<Ms>(target_time: u32, automatic: bool) -> Node<Ms> {
             "Rest"
         ],
         IF![
-            target_time > 0 =>
+            target_time > domain::Time::default() =>
             span![
                 C!["icon-text"],
                 C!["mr-4"],
                 span![C!["mr-2"], i![C!["fas fa-clock-rotate-left"]]],
-                span![target_time, " s"]
+                span![target_time.to_string(), " s"]
             ]
         ],
         IF![
@@ -605,17 +605,22 @@ pub fn view_no_data<Ms>() -> Node<Ms> {
     ]
 }
 
-pub fn view_sets_per_muscle<Ms>(stimulus_per_muscle: &[(domain::Muscle, u32)]) -> Vec<Node<Ms>>
+pub fn view_sets_per_muscle<Ms>(
+    stimulus_per_muscle: &BTreeMap<domain::MuscleID, domain::Stimulus>,
+) -> Vec<Node<Ms>>
 where
     Ms: 'static,
 {
-    let mut stimulus_per_muscle = stimulus_per_muscle.to_vec();
+    let mut stimulus_per_muscle = stimulus_per_muscle
+        .iter()
+        .map(|(muscle_id, stimulus)| (*muscle_id, *stimulus))
+        .collect::<Vec<_>>();
     stimulus_per_muscle.sort_by(|a, b| b.1.cmp(&a.1));
     let mut groups = [vec![], vec![], vec![], vec![]];
     for (muscle, stimulus) in stimulus_per_muscle {
         let name = muscle.name();
         let description = muscle.description();
-        let sets = f64::from(stimulus) / 100.0;
+        let sets = f64::from(*stimulus) / 100.0;
         let sets_str = format!("{:.1$}", sets, usize::from(sets.fract() != 0.0));
         if sets > 10.0 {
             groups[0].push((name, description, sets_str, vec!["is-dark"]));
@@ -685,29 +690,29 @@ pub fn no_wrap<Ms>(string: &str) -> Node<Ms> {
 }
 
 pub fn format_set(
-    reps: Option<u32>,
-    time: Option<u32>,
+    reps: Option<domain::Reps>,
+    time: Option<domain::Time>,
     show_tut: bool,
-    weight: Option<f32>,
-    rpe: Option<f32>,
+    weight: Option<domain::Weight>,
+    rpe: Option<domain::RPE>,
     show_rpe: bool,
 ) -> String {
     let mut parts = vec![];
 
     if let Some(reps) = reps {
-        if reps > 0 {
+        if reps > domain::Reps::default() {
             parts.push(reps.to_string());
         }
     }
 
     if let Some(time) = time {
-        if show_tut && time > 0 {
+        if show_tut && time > domain::Time::default() {
             parts.push(format!("{time} s"));
         }
     }
 
     if let Some(weight) = weight {
-        if weight > 0.0 {
+        if weight > domain::Weight::default() {
             parts.push(format!("{weight} kg"));
         }
     }
@@ -715,26 +720,10 @@ pub fn format_set(
     let mut result = parts.join(" × ");
 
     if let Some(rpe) = rpe {
-        if show_rpe && rpe > 0.0 {
+        if show_rpe && rpe > domain::RPE::ZERO {
             result.push_str(&format!(" @ {rpe}"));
         }
     }
 
     result
-}
-
-pub fn valid_reps(reps: u32) -> bool {
-    reps > 0 && reps < 1000
-}
-
-pub fn valid_time(duration: u32) -> bool {
-    duration > 0 && duration < 1000
-}
-
-pub fn valid_weight(weight: f32) -> bool {
-    weight > 0.0 && weight < 1000.0 && (weight * 10.0 % 1.0).abs() < f32::EPSILON
-}
-
-pub fn valid_rpe(rpe: f32) -> bool {
-    (0.0..=10.0).contains(&rpe) && (rpe % 0.5).abs() < f32::EPSILON
 }

@@ -24,8 +24,9 @@ pub fn init(
     let training_session_id = url
         .next_hash_path_part()
         .unwrap_or("")
-        .parse::<u32>()
-        .unwrap_or(0);
+        .parse::<u128>()
+        .unwrap_or_default()
+        .into();
     let action = url.next_hash_path_part();
     let editing = action == Some("edit");
     let guide = if action == Some("guide") {
@@ -54,7 +55,7 @@ pub fn init(
     };
 
     if let Some(ongoing_training_session) = &data_model.ongoing_training_session {
-        if ongoing_training_session.training_session_id == training_session_id {
+        if ongoing_training_session.training_session_id == training_session_id.as_u128() {
             orders.send_msg(Msg::ContinueGuidedTrainingSession(
                 ongoing_training_session.clone(),
             ));
@@ -99,7 +100,7 @@ fn init_form(training_session: Option<&domain::TrainingSession>, data_model: &da
     if let Some(training_session) = training_session {
         let mut elements = vec![];
         let mut exercises = vec![];
-        let mut prev_set_positions: HashMap<u32, usize> = HashMap::new();
+        let mut prev_set_positions: HashMap<domain::ExerciseID, usize> = HashMap::new();
 
         for e in &training_session.elements {
             match e {
@@ -155,10 +156,19 @@ fn init_form(training_session: Option<&domain::TrainingSession>, data_model: &da
                             .last()
                         {
                             (
-                                prev_set.reps.parsed.filter(|v| *v > 0),
-                                prev_set.time.parsed.filter(|v| *v > 0),
-                                prev_set.weight.parsed.filter(|v| *v > 0.),
-                                prev_set.rpe.parsed.filter(|v| *v > 0.),
+                                prev_set
+                                    .reps
+                                    .parsed
+                                    .filter(|v| *v > domain::Reps::default()),
+                                prev_set
+                                    .time
+                                    .parsed
+                                    .filter(|v| *v > domain::Time::default()),
+                                prev_set
+                                    .weight
+                                    .parsed
+                                    .filter(|v| *v > domain::Weight::default()),
+                                prev_set.rpe.parsed.filter(|v| *v > domain::RPE::ZERO),
                             )
                         } else {
                             (None, None, None, None)
@@ -166,10 +176,13 @@ fn init_form(training_session: Option<&domain::TrainingSession>, data_model: &da
 
                     exercises.push(ExerciseForm {
                         exercise_id: *exercise_id,
-                        exercise_name: data_model
-                            .exercises
-                            .get(exercise_id)
-                            .map_or_else(|| format!("Exercise#{exercise_id}"), |e| e.name.clone()),
+                        exercise_name: data_model.exercises.get(exercise_id).map_or_else(
+                            || {
+                                domain::Name::new(&format!("Exercise#{}", exercise_id.as_u128()))
+                                    .unwrap()
+                            },
+                            |e| e.name.clone(),
+                        ),
                         reps: common::InputField {
                             input: reps.map(|v| v.to_string()).unwrap_or_default(),
                             parsed: some_or_default(*reps),
@@ -226,7 +239,7 @@ fn init_form(training_session: Option<&domain::TrainingSession>, data_model: &da
                     }
                     exercises = vec![];
                     elements.push(FormElement::Rest {
-                        target_time: target_time.unwrap_or(0),
+                        target_time: target_time.unwrap_or_default(),
                         automatic: *automatic,
                     });
                 }
@@ -238,7 +251,7 @@ fn init_form(training_session: Option<&domain::TrainingSession>, data_model: &da
         }
 
         Form {
-            notes: training_session.notes.clone().unwrap_or_default(),
+            notes: training_session.notes.clone(),
             notes_changed: false,
             elements,
         }
@@ -254,8 +267,8 @@ fn init_form(training_session: Option<&domain::TrainingSession>, data_model: &da
 fn previous_sets(
     training_session: Option<&domain::TrainingSession>,
     data_model: &data::Model,
-) -> HashMap<u32, Vec<domain::TrainingSessionElement>> {
-    let mut sets: HashMap<u32, Vec<domain::TrainingSessionElement>> = HashMap::new();
+) -> HashMap<domain::ExerciseID, Vec<domain::TrainingSessionElement>> {
+    let mut sets: HashMap<domain::ExerciseID, Vec<domain::TrainingSessionElement>> = HashMap::new();
     if let Some(training_session) = training_session {
         if let Some(previous_training_session) = &data_model
             .training_sessions
@@ -263,7 +276,7 @@ fn previous_sets(
             .filter(|t| {
                 t.id != training_session.id
                     && t.date <= training_session.date
-                    && (not(training_session.routine_id.is_some())
+                    && (training_session.routine_id.is_nil()
                         || t.routine_id == training_session.routine_id)
             })
             .last()
@@ -283,7 +296,7 @@ fn previous_sets(
 // ------ ------
 
 pub struct Model {
-    training_session_id: u32,
+    training_session_id: domain::TrainingSessionID,
     form: Form,
     guide: Option<Guide>,
     dialog: Dialog,
@@ -342,19 +355,24 @@ impl Form {
 
 #[cfg_attr(test, derive(Debug, PartialEq))]
 enum FormElement {
-    Set { exercises: Vec<ExerciseForm> },
-    Rest { target_time: u32, automatic: bool },
+    Set {
+        exercises: Vec<ExerciseForm>,
+    },
+    Rest {
+        target_time: domain::Time,
+        automatic: bool,
+    },
 }
 
 #[derive(Clone)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 struct ExerciseForm {
-    exercise_id: u32,
-    exercise_name: String,
-    reps: common::InputField<u32>,
-    time: common::InputField<u32>,
-    weight: common::InputField<f32>,
-    rpe: common::InputField<f32>,
+    exercise_id: domain::ExerciseID,
+    exercise_name: domain::Name,
+    reps: common::InputField<domain::Reps>,
+    time: common::InputField<domain::Time>,
+    weight: common::InputField<domain::Weight>,
+    rpe: common::InputField<domain::RPE>,
     target: Set,
     prev: Set,
     prev_set: Set,
@@ -364,10 +382,10 @@ struct ExerciseForm {
 #[derive(Clone, Copy, Default)]
 #[cfg_attr(test, derive(Debug, PartialEq))]
 struct Set {
-    reps: Option<u32>,
-    time: Option<u32>,
-    weight: Option<f32>,
-    rpe: Option<f32>,
+    reps: Option<domain::Reps>,
+    time: Option<domain::Time>,
+    weight: Option<domain::Weight>,
+    rpe: Option<domain::RPE>,
 }
 
 struct Guide {
@@ -719,15 +737,15 @@ pub enum Msg {
     ShowReplaceExerciseDialog(usize, usize),
     ShowAddExerciseDialog(usize, usize),
     ShowAppendExerciseDialog,
-    ReplaceExercise(usize, usize, u32),
+    ReplaceExercise(usize, usize, domain::ExerciseID),
     PreferExercise(usize),
     DeferExercise(usize),
     AddSet(usize),
     AddSameExercise(usize, usize),
-    AddExercise(usize, usize, u32),
+    AddExercise(usize, usize, domain::ExerciseID),
     RemoveSet(usize),
     RemoveExercise(usize, usize),
-    AppendExercise(u32),
+    AppendExercise(domain::ExerciseID),
     CloseDialog,
 
     ExerciseList(component::exercise_list::Msg),
@@ -759,92 +777,60 @@ pub fn update(
         Msg::RepsChanged(element_idx, exercise_idx, input) => {
             if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { reps, .. } = &mut exercises[exercise_idx];
-                match input.parse::<u32>() {
-                    Ok(parsed_reps) => {
-                        let valid = common::valid_reps(parsed_reps);
-                        let parsed = if valid { Some(parsed_reps) } else { None };
-                        *reps = common::InputField {
-                            input,
-                            parsed,
-                            orig: reps.orig.clone(),
-                        }
-                    }
-                    Err(_) => {
-                        *reps = common::InputField {
-                            input: input.clone(),
-                            parsed: if input.is_empty() { Some(0) } else { None },
-                            orig: reps.orig.clone(),
-                        }
-                    }
+                let parsed = if input.is_empty() {
+                    Some(domain::Reps::default())
+                } else {
+                    domain::Reps::try_from(input.as_ref()).ok()
+                };
+                *reps = common::InputField {
+                    input,
+                    parsed,
+                    orig: reps.orig.clone(),
                 }
             }
         }
         Msg::TimeChanged(element_idx, exercise_idx, input) => {
             if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { time, .. } = &mut exercises[exercise_idx];
-                match input.parse::<u32>() {
-                    Ok(parsed_time) => {
-                        let valid = common::valid_time(parsed_time);
-                        let parsed = if valid { Some(parsed_time) } else { None };
-                        *time = common::InputField {
-                            input,
-                            parsed,
-                            orig: time.orig.clone(),
-                        }
-                    }
-                    Err(_) => {
-                        *time = common::InputField {
-                            input: input.clone(),
-                            parsed: if input.is_empty() { Some(0) } else { None },
-                            orig: time.orig.clone(),
-                        }
-                    }
+                let parsed = if input.is_empty() {
+                    Some(domain::Time::default())
+                } else {
+                    domain::Time::try_from(input.as_ref()).ok()
+                };
+                *time = common::InputField {
+                    input,
+                    parsed,
+                    orig: time.orig.clone(),
                 }
             }
         }
         Msg::WeightChanged(element_idx, exercise_idx, input) => {
             if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { weight, .. } = &mut exercises[exercise_idx];
-                match input.parse::<f32>() {
-                    Ok(parsed_weight) => {
-                        let valid = common::valid_weight(parsed_weight);
-                        let parsed = if valid { Some(parsed_weight) } else { None };
-                        *weight = common::InputField {
-                            input,
-                            parsed,
-                            orig: weight.orig.clone(),
-                        }
-                    }
-                    Err(_) => {
-                        *weight = common::InputField {
-                            input: input.clone(),
-                            parsed: if input.is_empty() { Some(0.0) } else { None },
-                            orig: weight.orig.clone(),
-                        }
-                    }
+                let parsed = if input.is_empty() {
+                    Some(domain::Weight::default())
+                } else {
+                    domain::Weight::try_from(input.as_ref()).ok()
+                };
+                *weight = common::InputField {
+                    input,
+                    parsed,
+                    orig: weight.orig.clone(),
                 }
             }
         }
         Msg::RPEChanged(element_idx, exercise_idx, input) => {
             if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let ExerciseForm { rpe, .. } = &mut exercises[exercise_idx];
-                match input.parse::<f32>() {
-                    Ok(parsed_rpe) => {
-                        let valid = common::valid_rpe(parsed_rpe);
-                        let parsed = if valid { Some(parsed_rpe) } else { None };
-                        *rpe = common::InputField {
-                            input,
-                            parsed,
-                            orig: rpe.orig.clone(),
-                        }
-                    }
-                    Err(_) => {
-                        *rpe = common::InputField {
-                            input: input.clone(),
-                            parsed: if input.is_empty() { Some(0.0) } else { None },
-                            orig: rpe.orig.clone(),
-                        }
-                    }
+                let parsed = if input.is_empty() {
+                    Some(domain::RPE::default())
+                } else {
+                    domain::RPE::try_from(input.as_ref()).ok()
+                };
+                *rpe = common::InputField {
+                    input,
+                    parsed,
+                    orig: rpe.orig.clone(),
                 }
             }
         }
@@ -966,7 +952,7 @@ pub fn update(
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
-                    .add_hash_path_part(model.training_session_id.to_string())
+                    .add_hash_path_part(model.training_session_id.as_u128().to_string())
                     .add_hash_path_part("guide"),
             );
         }
@@ -994,7 +980,7 @@ pub fn update(
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
-                    .add_hash_path_part(model.training_session_id.to_string())
+                    .add_hash_path_part(model.training_session_id.as_u128().to_string())
                     .add_hash_path_part("guide"),
             );
         }
@@ -1057,7 +1043,7 @@ pub fn update(
                     automatic,
                 }) = model.form.elements.get(element_idx)
                 {
-                    element_idx > 0 && *target_time == 0 && *automatic
+                    element_idx > 0 && *target_time == domain::Time::default() && *automatic
                 } else {
                     false
                 } {
@@ -1121,7 +1107,7 @@ pub fn update(
             Url::go_and_push(
                 &crate::Urls::new(&data_model.base_url)
                     .training_session()
-                    .add_hash_path_part(model.training_session_id.to_string())
+                    .add_hash_path_part(model.training_session_id.as_u128().to_string())
                     .add_hash_path_part("edit"),
             );
         }
@@ -1140,10 +1126,19 @@ pub fn update(
                                 .iter()
                                 .map(|e| domain::TrainingSessionElement::Set {
                                     exercise_id: e.exercise_id,
-                                    reps: e.reps.parsed.filter(|reps| *reps > 0),
-                                    time: e.time.parsed.filter(|time| *time > 0),
-                                    weight: e.weight.parsed.filter(|weight| *weight > 0.0),
-                                    rpe: e.rpe.parsed.filter(|rpe| *rpe > 0.0),
+                                    reps: e
+                                        .reps
+                                        .parsed
+                                        .filter(|reps| *reps > domain::Reps::default()),
+                                    time: e
+                                        .time
+                                        .parsed
+                                        .filter(|time| *time > domain::Time::default()),
+                                    weight: e
+                                        .weight
+                                        .parsed
+                                        .filter(|weight| *weight > domain::Weight::default()),
+                                    rpe: e.rpe.parsed.filter(|rpe| *rpe > domain::RPE::ZERO),
                                     target_reps: e.target.reps,
                                     target_time: e.target.time,
                                     target_weight: e.target.weight,
@@ -1155,7 +1150,7 @@ pub fn update(
                                 target_time,
                                 automatic,
                             } => vec![domain::TrainingSessionElement::Rest {
-                                target_time: if *target_time > 0 {
+                                target_time: if *target_time > domain::Time::default() {
                                     Some(*target_time)
                                 } else {
                                     None
@@ -1208,9 +1203,7 @@ pub fn update(
             if let FormElement::Set { exercises } = &mut model.form.elements[element_idx] {
                 let exercise_id = exercises[exercise_idx].exercise_id;
                 for m in &data_model.exercises[&exercise_id].muscles {
-                    if let Some(muscle) = domain::Muscle::from_repr(m.muscle_id) {
-                        muscles.insert(muscle);
-                    }
+                    muscles.insert(m.muscle_id);
                 }
             }
             model.dialog = Dialog::ReplaceExercise(
@@ -1328,7 +1321,7 @@ pub fn update(
                     | component::exercise_list::OutMsg::DeleteClicked(_)
                     | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
-                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                        orders.notify(data::Msg::CreateExercise(name, vec![]));
                     }
                     component::exercise_list::OutMsg::Selected(exercise_id) => {
                         orders.send_msg(Msg::ReplaceExercise(
@@ -1350,7 +1343,7 @@ pub fn update(
                     | component::exercise_list::OutMsg::DeleteClicked(_)
                     | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
-                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                        orders.notify(data::Msg::CreateExercise(name, vec![]));
                     }
                     component::exercise_list::OutMsg::Selected(exercise_id) => {
                         orders.send_msg(Msg::AddExercise(*element_idx, *exercise_idx, exercise_id));
@@ -1368,7 +1361,7 @@ pub fn update(
                     | component::exercise_list::OutMsg::DeleteClicked(_)
                     | component::exercise_list::OutMsg::CatalogExerciseSelected(_) => {}
                     component::exercise_list::OutMsg::CreateClicked(name) => {
-                        orders.notify(data::Msg::CreateExercise(name.trim().to_string(), vec![]));
+                        orders.notify(data::Msg::CreateExercise(name, vec![]));
                     }
                     component::exercise_list::OutMsg::Selected(exercise_id) => {
                         orders.send_msg(Msg::AppendExercise(exercise_id));
@@ -1486,7 +1479,7 @@ fn update_guide(model: &mut Model) {
                 }
             }
             Some(FormElement::Rest { target_time, .. }) => {
-                if *target_time > 0 {
+                if *target_time > domain::Time::default() {
                     guide.timer.set(i64::from(*target_time) - elapsed_time);
                     guide.timer.start();
                 }
@@ -1521,7 +1514,7 @@ fn update_metronome(model: &Model, orders: &mut impl Orders<Msg>, automatic_metr
                 let exercise = &exercises[0];
                 if exercise.target.reps.is_some() {
                     if let Some(target_time) = exercise.target.time {
-                        orders.send_msg(Msg::StartMetronome(target_time));
+                        orders.send_msg(Msg::StartMetronome(target_time.into()));
                     }
                 }
             }
@@ -1574,7 +1567,7 @@ fn show_element_notification(
             match &model.form.elements[guide.element_idx] {
                 FormElement::Set { exercises } => {
                     let exercise = &exercises[0];
-                    title = exercise.exercise_name.clone();
+                    title = exercise.exercise_name.to_string();
                     let mut previously = common::format_set(
                         exercise.prev.reps,
                         exercise.prev.time,
@@ -1601,7 +1594,7 @@ fn show_element_notification(
                 }
                 FormElement::Rest { target_time, .. } => {
                     title = String::from("Rest");
-                    body = if *target_time > 0 {
+                    body = if *target_time > domain::Time::default() {
                         Some(format!("{target_time} s"))
                     } else {
                         None
@@ -1618,8 +1611,8 @@ fn replace_exercise(
     elements: &mut [FormElement],
     element_idx: usize,
     exercise_idx: usize,
-    new_exercise_id: u32,
-    data_exercises: &BTreeMap<u32, domain::Exercise>,
+    new_exercise_id: domain::ExerciseID,
+    data_exercises: &BTreeMap<domain::ExerciseID, domain::Exercise>,
 ) {
     let mut current_exercise_id = None;
     let mut current_exercise_ids = vec![];
@@ -1671,7 +1664,7 @@ fn prefer_exercise(elements: &mut Vec<FormElement>, element_idx: usize) {
     if preferred_section.1 + 1 == elements.len() {
         if let Some(FormElement::Set { .. }) = elements.last() {
             elements.push(FormElement::Rest {
-                target_time: 0,
+                target_time: domain::Time::default(),
                 automatic: true,
             });
             trailing_rest += 1;
@@ -1706,7 +1699,7 @@ fn defer_exercise(elements: &mut Vec<FormElement>, element_idx: usize) {
     if element_idx + deferred_elements + preferred_elements == elements.len() {
         if let Some(FormElement::Set { .. }) = elements.last() {
             elements.push(FormElement::Rest {
-                target_time: 0,
+                target_time: domain::Time::default(),
                 automatic: true,
             });
             preferred_elements += 1;
@@ -1733,7 +1726,7 @@ fn add_set(elements: &mut Vec<FormElement>, element_idx: usize) {
         }
     } else {
         FormElement::Rest {
-            target_time: 0,
+            target_time: domain::Time::default(),
             automatic: true,
         }
     };
@@ -1748,7 +1741,7 @@ fn add_set(elements: &mut Vec<FormElement>, element_idx: usize) {
                     .iter()
                     .map(|e| ExerciseForm {
                         exercise_id: e.exercise_id,
-                        exercise_name: e.exercise_name.to_string(),
+                        exercise_name: e.exercise_name.clone(),
                         reps: common::InputField::default(),
                         time: common::InputField::default(),
                         weight: common::InputField::default(),
@@ -1768,7 +1761,7 @@ fn add_same_exercise(
     elements: &mut [FormElement],
     element_idx: usize,
     exercise_idx: usize,
-    data_exercises: &BTreeMap<u32, domain::Exercise>,
+    data_exercises: &BTreeMap<domain::ExerciseID, domain::Exercise>,
 ) {
     if let Some(FormElement::Set { exercises }) = elements.get(element_idx) {
         if let Some(exercise) = exercises.get(exercise_idx) {
@@ -1789,10 +1782,10 @@ fn add_exercise(
     elements: &mut [FormElement],
     element_idx: usize,
     exercise_idx: usize,
-    new_exercise_id: u32,
+    new_exercise_id: domain::ExerciseID,
     target: Set,
     automatic: bool,
-    data_exercises: &BTreeMap<u32, domain::Exercise>,
+    data_exercises: &BTreeMap<domain::ExerciseID, domain::Exercise>,
 ) {
     let mut current_exercise_ids = vec![];
     for mut element in elements.iter_mut().skip(element_idx) {
@@ -1865,12 +1858,12 @@ fn remove_exercise(elements: &mut Vec<FormElement>, element_idx: usize, exercise
 
 fn append_exercise(
     elements: &mut Vec<FormElement>,
-    exercise_id: u32,
-    data_exercises: &BTreeMap<u32, domain::Exercise>,
+    exercise_id: domain::ExerciseID,
+    data_exercises: &BTreeMap<domain::ExerciseID, domain::Exercise>,
 ) {
     if let Some(FormElement::Set { exercises: _ }) = elements.last() {
         elements.push(FormElement::Rest {
-            target_time: 0,
+            target_time: domain::Time::default(),
             automatic: true,
         });
     }
@@ -1901,7 +1894,7 @@ fn is_set(elements: &mut [FormElement], element_idx: usize) -> bool {
     }
 }
 
-fn determine_exercise_ids(elements: &[FormElement], element_idx: usize) -> Vec<u32> {
+fn determine_exercise_ids(elements: &[FormElement], element_idx: usize) -> Vec<domain::ExerciseID> {
     if let Some(FormElement::Set { exercises }) = &elements.get(element_idx) {
         exercises.iter().map(|e| e.exercise_id).collect::<Vec<_>>()
     } else {
@@ -2039,16 +2032,13 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 fn view_title(training_session: &domain::TrainingSession, data_model: &data::Model) -> Node<Msg> {
     div![
         common::view_title(&span![training_session.date.to_string()], 3),
-        if let Some(routine) = data_model
-            .routines
-            .get(&training_session.routine_id.unwrap_or(0))
-        {
+        if let Some(routine) = data_model.routines.get(&training_session.routine_id) {
             common::view_title(
                 &a![
                     attrs! {
-                        At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.to_string()),
+                        At::Href => crate::Urls::new(&data_model.base_url).routine().add_hash_path_part(routine.id.as_u128().to_string()),
                     },
-                    &routine.name
+                    &routine.name.as_ref()
                 ],
                 3,
             )
@@ -2080,9 +2070,9 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                                     C!["has-text-weight-bold"],
                                     a![
                                         attrs! {
-                                            At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.to_string()),
+                                            At::Href => crate::Urls::new(&data_model.base_url).exercise().add_hash_path_part(e.exercise_id.as_u128().to_string()),
                                         },
-                                        common::no_wrap(&e.exercise_name)
+                                        common::no_wrap(e.exercise_name.as_ref())
                                     ]
                                 ]
                             })
@@ -2127,31 +2117,21 @@ fn view_list(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
 }
 
 fn view_notes(training_session: &domain::TrainingSession) -> Node<Msg> {
-    if let Some(notes) = &training_session.notes {
-        if notes.is_empty() {
-            empty![]
-        } else {
-            div![
-                C!["has-text-centered"],
-                C!["m-3"],
-                C!["mt-6"],
-                common::view_title(&span!["Notes"], 3),
-                p![notes]
-            ]
-        }
-    } else {
+    if training_session.notes.is_empty() {
         empty![]
+    } else {
+        div![
+            C!["has-text-centered"],
+            C!["m-3"],
+            C!["mt-6"],
+            common::view_title(&span!["Notes"], 3),
+            p![&training_session.notes]
+        ]
     }
 }
 
 fn view_muscles(training_session: &domain::TrainingSession, data_model: &data::Model) -> Node<Msg> {
-    let stimulus_per_muscle = training_session
-        .stimulus_per_muscle(&data_model.exercises)
-        .iter()
-        .filter_map(|(id, stimulus)| {
-            domain::Muscle::from_repr(*id).map(|muscle| (muscle, *stimulus))
-        })
-        .collect::<Vec<_>>();
+    let stimulus_per_muscle = training_session.stimulus_per_muscle(&data_model.exercises);
     if stimulus_per_muscle.is_empty() {
         empty![]
     } else {
@@ -2345,11 +2325,11 @@ fn view_training_session_form(model: &Model, data_model: &data::Model) -> Vec<No
                                                         At::Href => {
                                                             crate::Urls::new(&data_model.base_url)
                                                                 .exercise()
-                                                                .add_hash_path_part(s.exercise_id.to_string())
+                                                                .add_hash_path_part(s.exercise_id.as_u128().to_string())
                                                         },
                                                         At::from("tabindex") => -1
                                                     },
-                                                    &s.exercise_name
+                                                    &s.exercise_name.as_ref()
                                                 ],
                                                 div![a![
                                                     ev(Ev::Click, move |_| Msg::ShowOptionsDialog(element_idx, position)),
@@ -2957,7 +2937,7 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut elements, 0, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 0, 0, 2.into(), &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -2993,7 +2973,7 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut elements, 2, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 2, 0, 2.into(), &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -3029,7 +3009,7 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut elements, 8, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 8, 0, 2.into(), &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -3065,7 +3045,7 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        replace_exercise(&mut elements, 10, 0, 2, &exercises(2));
+        replace_exercise(&mut elements, 10, 0, 2.into(), &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -3101,7 +3081,7 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        replace_exercise(&mut elements, 0, 0, 3, &exercises(3));
+        replace_exercise(&mut elements, 0, 0, 3.into(), &exercises(3));
         assert_eq!(
             elements,
             vec![
@@ -3133,7 +3113,7 @@ mod tests {
             set(vec![exercise(6, 0), exercise(7, 2)]),
             rest(3),
         ];
-        replace_exercise(&mut elements, 0, 0, 3, &exercises(3));
+        replace_exercise(&mut elements, 0, 0, 3.into(), &exercises(3));
         assert_eq!(
             elements,
             vec![
@@ -3165,7 +3145,7 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        replace_exercise(&mut elements, 4, 1, 3, &exercises(3));
+        replace_exercise(&mut elements, 4, 1, 3.into(), &exercises(3));
         assert_eq!(
             elements,
             vec![
@@ -4083,7 +4063,15 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 0, 0, 2, Set::default(), false, &exercises(2));
+        add_exercise(
+            &mut elements,
+            0,
+            0,
+            2.into(),
+            Set::default(),
+            false,
+            &exercises(2),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4119,7 +4107,15 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 2, 0, 2, Set::default(), false, &exercises(2));
+        add_exercise(
+            &mut elements,
+            2,
+            0,
+            2.into(),
+            Set::default(),
+            false,
+            &exercises(2),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4155,7 +4151,15 @@ mod tests {
             set(vec![exercise(5, 0)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 8, 0, 2, Set::default(), false, &exercises(2));
+        add_exercise(
+            &mut elements,
+            8,
+            0,
+            2.into(),
+            Set::default(),
+            false,
+            &exercises(2),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4195,7 +4199,7 @@ mod tests {
             &mut elements,
             10,
             0,
-            2,
+            2.into(),
             Set::default(),
             false,
             &exercises(2),
@@ -4235,7 +4239,15 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 0, 0, 3, Set::default(), false, &exercises(3));
+        add_exercise(
+            &mut elements,
+            0,
+            0,
+            3.into(),
+            Set::default(),
+            false,
+            &exercises(3),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4267,7 +4279,15 @@ mod tests {
             set(vec![exercise(6, 0), exercise(7, 2)]),
             rest(3),
         ];
-        add_exercise(&mut elements, 0, 0, 3, Set::default(), false, &exercises(3));
+        add_exercise(
+            &mut elements,
+            0,
+            0,
+            3.into(),
+            Set::default(),
+            false,
+            &exercises(3),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4299,7 +4319,15 @@ mod tests {
             set(vec![exercise(10, 1), exercise(11, 2)]),
             rest(5),
         ];
-        add_exercise(&mut elements, 4, 1, 3, Set::default(), false, &exercises(3));
+        add_exercise(
+            &mut elements,
+            4,
+            1,
+            3.into(),
+            Set::default(),
+            false,
+            &exercises(3),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4327,7 +4355,15 @@ mod tests {
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_exercise(&mut elements, 1, 0, 2, Set::default(), false, &exercises(2));
+        add_exercise(
+            &mut elements,
+            1,
+            0,
+            2.into(),
+            Set::default(),
+            false,
+            &exercises(2),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4347,7 +4383,15 @@ mod tests {
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_exercise(&mut elements, 4, 0, 2, Set::default(), false, &exercises(2));
+        add_exercise(
+            &mut elements,
+            4,
+            0,
+            2.into(),
+            Set::default(),
+            false,
+            &exercises(2),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4367,7 +4411,15 @@ mod tests {
             set(vec![exercise(1, 0)]),
             rest(1),
         ];
-        add_exercise(&mut elements, 0, 1, 2, Set::default(), false, &exercises(2));
+        add_exercise(
+            &mut elements,
+            0,
+            1,
+            2.into(),
+            Set::default(),
+            false,
+            &exercises(2),
+        );
         assert_eq!(
             elements,
             vec![
@@ -4951,14 +5003,14 @@ mod tests {
     #[test]
     fn test_append_exercise_empty() {
         let mut elements = vec![];
-        append_exercise(&mut elements, 1, &exercises(1));
+        append_exercise(&mut elements, 1.into(), &exercises(1));
         assert_eq!(elements, vec![set(vec![exercise(0, 1)])]);
     }
 
     #[test]
     fn test_append_exercise_same() {
         let mut elements = vec![set(vec![exercise(0, 1)])];
-        append_exercise(&mut elements, 1, &exercises(1));
+        append_exercise(&mut elements, 1.into(), &exercises(1));
         assert_eq!(
             elements,
             vec![
@@ -4972,7 +5024,7 @@ mod tests {
     #[test]
     fn test_append_exercise_different() {
         let mut elements = vec![set(vec![exercise(0, 1)])];
-        append_exercise(&mut elements, 2, &exercises(2));
+        append_exercise(&mut elements, 2.into(), &exercises(2));
         assert_eq!(
             elements,
             vec![
@@ -5015,27 +5067,31 @@ mod tests {
         );
     }
 
-    fn exercises(id: u32) -> BTreeMap<u32, domain::Exercise> {
+    fn exercises(id: u128) -> BTreeMap<domain::ExerciseID, domain::Exercise> {
         BTreeMap::from([(
-            id,
+            id.into(),
             domain::Exercise {
-                id,
-                name: id.to_string(),
+                id: id.into(),
+                name: domain::Name::new(&id.to_string()).unwrap(),
                 muscles: Vec::new(),
             },
         )])
     }
 
-    fn exercise(entry_id: u32, exercise_id: u32) -> ExerciseForm {
+    fn exercise(entry_id: u32, exercise_id: u128) -> ExerciseForm {
         ExerciseForm {
-            exercise_id,
-            exercise_name: exercise_id.to_string(),
+            exercise_id: exercise_id.into(),
+            exercise_name: domain::Name::new(&exercise_id.to_string()).unwrap(),
             reps: InputField::default(),
             time: InputField::default(),
             weight: InputField::default(),
             rpe: InputField::default(),
             target: Set {
-                reps: if entry_id > 0 { Some(entry_id) } else { None },
+                reps: if entry_id > 0 {
+                    Some(domain::Reps::new(entry_id).unwrap())
+                } else {
+                    None
+                },
                 time: None,
                 weight: None,
                 rpe: None,
@@ -5052,7 +5108,7 @@ mod tests {
 
     fn rest(entry_id: u32) -> FormElement {
         FormElement::Rest {
-            target_time: entry_id,
+            target_time: domain::Time::new(entry_id).unwrap(),
             automatic: true,
         }
     }

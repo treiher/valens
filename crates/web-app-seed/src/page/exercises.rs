@@ -42,12 +42,12 @@ enum Dialog {
     Hidden,
     AddExercise(Form),
     EditExercise(Form),
-    DeleteExercise(u32),
+    DeleteExercise(domain::ExerciseID),
 }
 
 struct Form {
-    id: u32,
-    name: common::InputField<String>,
+    id: domain::ExerciseID,
+    name: common::InputField<domain::Name>,
 }
 
 // ------ ------
@@ -56,17 +56,17 @@ struct Form {
 
 pub enum Msg {
     ShowAddExerciseDialog,
-    ShowEditExerciseDialog(u32),
-    ShowDeleteExerciseDialog(u32),
+    ShowEditExerciseDialog(domain::ExerciseID),
+    ShowDeleteExerciseDialog(domain::ExerciseID),
     CloseExerciseDialog,
 
     ExerciseList(component::exercise_list::Msg),
     NameChanged(String),
 
-    GoToExercise(u32),
-    GoToCatalogExercise(&'static str),
+    GoToExercise(domain::ExerciseID),
+    GoToCatalogExercise(&'static domain::Name),
     SaveExercise,
-    DeleteExercise(u32),
+    DeleteExercise(domain::ExerciseID),
     DataEvent(data::Event),
 }
 
@@ -79,7 +79,7 @@ pub fn update(
     match msg {
         Msg::ShowAddExerciseDialog => {
             model.dialog = Dialog::AddExercise(Form {
-                id: 0,
+                id: 0.into(),
                 name: common::InputField::default(),
             });
         }
@@ -89,9 +89,9 @@ pub fn update(
             model.dialog = Dialog::EditExercise(Form {
                 id,
                 name: common::InputField {
-                    input: name.clone(),
+                    input: name.to_string(),
                     parsed: Some(name.clone()),
-                    orig: name,
+                    orig: name.to_string(),
                 },
             });
         }
@@ -133,26 +133,20 @@ pub fn update(
         }
         Msg::NameChanged(name) => match model.dialog {
             Dialog::AddExercise(ref mut form) | Dialog::EditExercise(ref mut form) => {
-                let trimmed_name = name.trim();
-                if not(trimmed_name.is_empty())
-                    && (trimmed_name == form.name.orig
-                        || data_model
-                            .exercises
-                            .values()
-                            .all(|e| e.name != trimmed_name))
-                {
-                    form.name = common::InputField {
-                        input: name.clone(),
-                        parsed: Some(trimmed_name.to_string()),
-                        orig: form.name.orig.clone(),
-                    };
-                } else {
-                    form.name = common::InputField {
-                        input: name.clone(),
-                        parsed: None,
-                        orig: form.name.orig.clone(),
-                    };
-                }
+                let parsed = domain::Name::new(&name).ok().and_then(|name| {
+                    if name.as_ref() == &form.name.orig
+                        || data_model.exercises.values().all(|e| e.name != name)
+                    {
+                        Some(name)
+                    } else {
+                        None
+                    }
+                });
+                form.name = common::InputField {
+                    input: name,
+                    parsed,
+                    orig: form.name.orig.clone(),
+                };
             }
             Dialog::Hidden | Dialog::DeleteExercise(_) => {
                 panic!();
@@ -162,7 +156,7 @@ pub fn update(
         Msg::GoToExercise(id) => {
             let url = crate::Urls::new(&data_model.base_url)
                 .exercise()
-                .add_hash_path_part(id.to_string());
+                .add_hash_path_part(id.as_u128().to_string());
             url.go_and_push();
             orders.notify(subs::UrlChanged(url));
         }
@@ -231,7 +225,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 
 fn view_exercise_dialog(
     dialog: &Dialog,
-    exercises: &BTreeMap<u32, domain::Exercise>,
+    exercises: &BTreeMap<domain::ExerciseID, domain::Exercise>,
     loading: bool,
 ) -> Node<Msg> {
     let title;
@@ -250,7 +244,7 @@ fn view_exercise_dialog(
             let id = exercise.id;
             return common::view_delete_confirmation_dialog(
                 "exercise",
-                &span![&exercise.name],
+                &span![&exercise.name.as_ref()],
                 &ev(Ev::Click, move |_| Msg::DeleteExercise(id)),
                 &ev(Ev::Click, |_| Msg::CloseExerciseDialog),
                 loading,

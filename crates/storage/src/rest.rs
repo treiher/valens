@@ -5,9 +5,9 @@ use thiserror::Error;
 use valens_domain as domain;
 
 #[derive(Clone)]
-pub struct Storage;
+pub struct REST;
 
-impl domain::Repository for Storage {
+impl domain::SessionRepository for REST {
     async fn request_session(&self, user_id: domain::UserID) -> Result<domain::User, String> {
         let r: User = fetch(
             Request::post("api/session")
@@ -28,11 +28,15 @@ impl domain::Repository for Storage {
     async fn delete_session(&self) -> Result<(), String> {
         fetch_no_content(Request::delete("api/session").build().unwrap(), ()).await
     }
+}
 
+impl domain::VersionRepository for REST {
     async fn read_version(&self) -> Result<String, String> {
         fetch(Request::get("api/version").build().unwrap()).await
     }
+}
 
+impl domain::UserRepository for REST {
     async fn read_users(&self) -> Result<Vec<domain::User>, String> {
         let r: Vec<User> = fetch(Request::get("api/users").build().unwrap()).await?;
         r.into_iter()
@@ -41,6 +45,7 @@ impl domain::Repository for Storage {
             })
             .collect::<Result<Vec<domain::User>, String>>()
     }
+
     async fn create_user(
         &self,
         name: domain::Name,
@@ -58,6 +63,7 @@ impl domain::Repository for Storage {
         r.try_into()
             .map_err(|err: domain::NameError| err.to_string())
     }
+
     async fn replace_user(&self, user: domain::User) -> Result<domain::User, String> {
         let r: User = fetch(
             Request::put(&format!("api/users/{}", user.id.as_u128()))
@@ -68,6 +74,7 @@ impl domain::Repository for Storage {
         r.try_into()
             .map_err(|err: domain::NameError| err.to_string())
     }
+
     async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, String> {
         fetch_no_content(
             Request::delete(&format!("api/users/{}", id.as_u128()))
@@ -77,11 +84,14 @@ impl domain::Repository for Storage {
         )
         .await
     }
+}
 
+impl domain::BodyWeightRepository for REST {
     async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, String> {
         let r: Vec<BodyWeight> = fetch(Request::get("api/body_weight").build().unwrap()).await?;
         Ok(r.into_iter().map(domain::BodyWeight::from).collect())
     }
+
     async fn create_body_weight(
         &self,
         body_weight: domain::BodyWeight,
@@ -94,6 +104,7 @@ impl domain::Repository for Storage {
         .await?;
         Ok(r.into())
     }
+
     async fn replace_body_weight(
         &self,
         body_weight: domain::BodyWeight,
@@ -106,6 +117,7 @@ impl domain::Repository for Storage {
         .await?;
         Ok(r.into())
     }
+
     async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, String> {
         fetch_no_content(
             Request::delete(&format!("api/body_weight/{date}"))
@@ -115,11 +127,14 @@ impl domain::Repository for Storage {
         )
         .await
     }
+}
 
+impl domain::BodyFatRepository for REST {
     async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, String> {
         let r: Vec<BodyFat> = fetch(Request::get("api/body_fat").build().unwrap()).await?;
         Ok(r.into_iter().map(domain::BodyFat::from).collect())
     }
+
     async fn create_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
         let r: BodyFat = fetch(
             Request::post("api/body_fat")
@@ -129,6 +144,7 @@ impl domain::Repository for Storage {
         .await?;
         Ok(r.into())
     }
+
     async fn replace_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
         let r: BodyFat = fetch(
             Request::put(&format!("api/body_fat/{}", body_fat.date))
@@ -138,6 +154,7 @@ impl domain::Repository for Storage {
         .await?;
         Ok(r.into())
     }
+
     async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, String> {
         fetch_no_content(
             Request::delete(&format!("api/body_fat/{date}"))
@@ -147,7 +164,9 @@ impl domain::Repository for Storage {
         )
         .await
     }
+}
 
+impl domain::PeriodRepository for REST {
     async fn read_period(&self) -> Result<Vec<domain::Period>, String> {
         let r: Vec<Period> = fetch(Request::get("api/period").build().unwrap()).await?;
         r.into_iter()
@@ -156,6 +175,7 @@ impl domain::Repository for Storage {
             })
             .collect::<Result<Vec<domain::Period>, String>>()
     }
+
     async fn create_period(&self, period: domain::Period) -> Result<domain::Period, String> {
         let r: Period = fetch(
             Request::post("api/period")
@@ -166,6 +186,7 @@ impl domain::Repository for Storage {
         r.try_into()
             .map_err(|err: domain::IntensityError| err.to_string())
     }
+
     async fn replace_period(&self, period: domain::Period) -> Result<domain::Period, String> {
         let r: Period = fetch(
             Request::put(&format!("api/period/{}", period.date))
@@ -176,6 +197,7 @@ impl domain::Repository for Storage {
         r.try_into()
             .map_err(|err: domain::IntensityError| err.to_string())
     }
+
     async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, String> {
         fetch_no_content(
             Request::delete(&format!("api/period/{date}"))
@@ -185,7 +207,9 @@ impl domain::Repository for Storage {
         )
         .await
     }
+}
 
+impl domain::ExerciseRepository for REST {
     async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, String> {
         let r: Vec<Exercise> = fetch(Request::get("api/exercises").build().unwrap()).await?;
         r.into_iter()
@@ -194,6 +218,7 @@ impl domain::Repository for Storage {
             })
             .collect::<Result<Vec<domain::Exercise>, String>>()
     }
+
     async fn create_exercise(
         &self,
         name: domain::Name,
@@ -210,6 +235,7 @@ impl domain::Repository for Storage {
         .await?;
         r.try_into().map_err(|err: ExerciseError| err.to_string())
     }
+
     async fn replace_exercise(
         &self,
         exercise: domain::Exercise,
@@ -222,6 +248,7 @@ impl domain::Repository for Storage {
         .await?;
         r.try_into().map_err(|err: ExerciseError| err.to_string())
     }
+
     async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<domain::ExerciseID, String> {
         fetch_no_content(
             Request::delete(&format!("api/exercises/{}", id.as_u128()))
@@ -231,7 +258,9 @@ impl domain::Repository for Storage {
         )
         .await
     }
+}
 
+impl domain::RoutineRepository for REST {
     async fn read_routines(&self) -> Result<Vec<domain::Routine>, String> {
         let r: Vec<Routine> = fetch(Request::get("api/routines").build().unwrap()).await?;
         r.into_iter()
@@ -240,6 +269,7 @@ impl domain::Repository for Storage {
             })
             .collect::<Result<Vec<domain::Routine>, String>>()
     }
+
     async fn create_routine(
         &self,
         name: domain::Name,
@@ -259,6 +289,7 @@ impl domain::Repository for Storage {
         r.try_into()
             .map_err(|err: domain::NameError| err.to_string())
     }
+
     async fn modify_routine(
         &self,
         id: domain::RoutineID,
@@ -293,6 +324,7 @@ impl domain::Repository for Storage {
         r.try_into()
             .map_err(|err: domain::NameError| err.to_string())
     }
+
     async fn delete_routine(&self, id: domain::RoutineID) -> Result<domain::RoutineID, String> {
         fetch_no_content(
             Request::delete(&format!("api/routines/{}", id.as_u128()))
@@ -302,11 +334,14 @@ impl domain::Repository for Storage {
         )
         .await
     }
+}
 
+impl domain::TrainingSessionRepository for REST {
     async fn read_training_sessions(&self) -> Result<Vec<domain::TrainingSession>, String> {
         let r: Vec<TrainingSession> = fetch(Request::get("api/workouts").build().unwrap()).await?;
         Ok(r.into_iter().map(domain::TrainingSession::from).collect())
     }
+
     async fn create_training_session(
         &self,
         routine_id: domain::RoutineID,
@@ -334,6 +369,7 @@ impl domain::Repository for Storage {
         .await?;
         Ok(r.into())
     }
+
     async fn modify_training_session(
         &self,
         id: domain::TrainingSessionID,
@@ -363,6 +399,7 @@ impl domain::Repository for Storage {
         .await?;
         Ok(r.into())
     }
+
     async fn delete_training_session(
         &self,
         id: domain::TrainingSessionID,

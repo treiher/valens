@@ -8,10 +8,13 @@ pub mod log;
 pub mod service_worker;
 
 #[allow(async_fn_in_trait)]
-pub trait Repository {
+pub trait SettingsRepository {
     async fn read_settings(&self) -> Result<Settings, String>;
     async fn write_settings(&self, settings: Settings) -> Result<(), String>;
+}
 
+#[allow(async_fn_in_trait)]
+pub trait OngoingTrainingSessionRepository {
     async fn read_ongoing_training_session(&self)
     -> Result<Option<OngoingTrainingSession>, String>;
     async fn write_ongoing_training_session(

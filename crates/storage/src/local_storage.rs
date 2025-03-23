@@ -1,15 +1,17 @@
 use std::collections::VecDeque;
 
 use gloo_storage::Storage as GlooStorage;
-use valens_web_app::{OngoingTrainingSession, Repository, Settings, log};
+use valens_web_app::{
+    OngoingTrainingSession, OngoingTrainingSessionRepository, Settings, SettingsRepository, log,
+};
 
 #[derive(Clone)]
-pub struct UI;
+pub struct LocalStorage;
 
 const KEY_SETTINGS: &str = "settings";
 const KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
 
-impl Repository for UI {
+impl SettingsRepository for LocalStorage {
     async fn read_settings(&self) -> Result<Settings, String> {
         match gloo_storage::LocalStorage::get(KEY_SETTINGS) {
             Ok(entries) => Ok(entries),
@@ -24,7 +26,9 @@ impl Repository for UI {
     async fn write_settings(&self, settings: Settings) -> Result<(), String> {
         gloo_storage::LocalStorage::set(KEY_SETTINGS, settings).map_err(|err| err.to_string())
     }
+}
 
+impl OngoingTrainingSessionRepository for LocalStorage {
     async fn read_ongoing_training_session(
         &self,
     ) -> Result<Option<OngoingTrainingSession>, String> {

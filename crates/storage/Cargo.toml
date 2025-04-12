@@ -9,14 +9,19 @@ publish = false
 valens-domain = { path = "../domain" }
 valens-web-app = { path = "../web-app" }
 
+anyhow = "1.0.97"
 chrono = { workspace = true, default-features = false, features = ["serde"] }
 gloo-net = { version = "0.6.0", default-features = false, features = ["http", "json"] }
 gloo-storage = "0.3.0"
+indexed_db_futures = { version = "0.6.1", features = ["serde"] }
+log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+strum = { version = "0.27", features = ["derive"] }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
+wasm-bindgen-test = "0.3.50"

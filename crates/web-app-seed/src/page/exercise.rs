@@ -229,7 +229,7 @@ fn update_model(model: &mut Model, data_model: &data::Model) {
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.exercises.is_empty() && data_model.loading_exercises {
+    if data_model.exercises.is_empty() && data_model.loading_exercises > 0 {
         common::view_page_loading()
     } else if data_model.exercises.contains_key(&model.exercise_id) {
         let exercise_training_sessions = exercise_training_sessions(model, data_model);
@@ -261,7 +261,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             } else {
                 nodes![
                     if training_sessions.is_empty() {
-                        nodes![if data_model.loading_training_sessions {
+                        nodes![if data_model.loading_training_sessions > 0 {
                             common::view_loading()
                         } else {
                             common::view_no_data()

@@ -218,38 +218,42 @@ fn view_users(data_model: &data::Model) -> Vec<Node<Msg>> {
             C!["has-text-centered"],
             common::view_title(&span!["Users"], 3),
         ],
-        div![
-            C!["table-container"],
-            C!["mt-4"],
-            table![
-                C!["table"],
-                C!["is-fullwidth"],
-                C!["is-hoverable"],
-                thead![tr![th!["Name"], th!["Sex"], th![]]],
-                tbody![data_model.users.values().map(|user| {
-                    let id = user.id;
-                    let sex = &user.sex.to_string();
-                    tr![
-                        td![&user.name.as_ref()],
-                        td![sex],
-                        td![
-                            a![
-                                C!["icon"],
-                                C!["mr-2"],
-                                ev(Ev::Click, move |_| Msg::ShowEditUserDialog(id)),
-                                i![C!["fas fa-user-edit"]]
-                            ],
-                            a![
-                                C!["icon"],
-                                C!["ml-2"],
-                                ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(id)),
-                                i![C!["fas fa-user-times"]]
+        if data_model.no_connection {
+            common::view_no_connection()
+        } else {
+            div![
+                C!["table-container"],
+                C!["mt-4"],
+                table![
+                    C!["table"],
+                    C!["is-fullwidth"],
+                    C!["is-hoverable"],
+                    thead![tr![th!["Name"], th!["Sex"], th![]]],
+                    tbody![data_model.users.values().map(|user| {
+                        let id = user.id;
+                        let sex = &user.sex.to_string();
+                        tr![
+                            td![&user.name.as_ref()],
+                            td![sex],
+                            td![
+                                a![
+                                    C!["icon"],
+                                    C!["mr-2"],
+                                    ev(Ev::Click, move |_| Msg::ShowEditUserDialog(id)),
+                                    i![C!["fas fa-user-edit"]]
+                                ],
+                                a![
+                                    C!["icon"],
+                                    C!["ml-2"],
+                                    ev(Ev::Click, move |_| Msg::ShowDeleteUserDialog(id)),
+                                    i![C!["fas fa-user-times"]]
+                                ]
                             ]
                         ]
-                    ]
-                })],
+                    })],
+                ]
             ]
-        ],
+        }
     ]
 }
 
@@ -374,7 +378,9 @@ fn view_versions(data_model: &data::Model) -> Node<Msg> {
         C!["px-3"],
         common::view_title(&span!["Version"], 3),
         common::view_versions(&data_model.version),
-        IF![&data_model.version != env!("VALENS_VERSION") =>
+        IF![!data_model.no_connection
+            && !data_model.version.is_empty()
+            && &data_model.version != env!("VALENS_VERSION") =>
             button![
             C!["button"],
             C!["is-link"],

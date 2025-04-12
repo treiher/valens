@@ -33,8 +33,7 @@ check_kacl:
 
 check_frontend:
 	cargo fmt -- --check
-	cargo check
-	cargo clippy -- --warn clippy::pedantic --deny warnings
+	cargo clippy --all-targets -- --warn clippy::pedantic --deny warnings
 
 check_backend: check_lockfile check_black check_ruff check_mypy
 
@@ -60,6 +59,7 @@ test: test_frontend test_backend test_installation test_e2e
 
 test_frontend:
 	cargo llvm-cov nextest --no-fail-fast
+	wasm-pack test --headless --chrome --firefox crates/storage
 
 test_backend:
 	mkdir -p valens/frontend

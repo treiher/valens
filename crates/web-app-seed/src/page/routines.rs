@@ -198,7 +198,7 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.routines.is_empty() && data_model.loading_routines {
+    if data_model.routines.is_empty() && data_model.loading_routines > 0 {
         common::view_page_loading()
     } else {
         div![

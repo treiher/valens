@@ -52,28 +52,38 @@ pub fn update(msg: Msg, _model: &mut Model, orders: &mut impl Orders<Msg>) {
 // ------ ------
 
 pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.users.is_empty() && data_model.loading_users {
+    if data_model.users.is_empty() && data_model.loading_users > 0 {
         common::view_page_loading()
     } else {
         div![
             C!["container"],
             C!["has-text-centered"],
-            &data_model
-                .users
-                .values()
-                .map(|user| {
-                    let user_id = user.id;
-                    div![
-                        C!["column"],
-                        button![
-                            C!["button"],
-                            C!["is-link"],
-                            ev(Ev::Click, move |_| Msg::LogIn(user_id)),
-                            &user.name.to_string(),
-                        ]
-                    ]
-                })
-                .collect::<Vec<_>>(),
+            if data_model.no_connection {
+                nodes![section![
+                    C!["hero"],
+                    div![C!["hero-body"], common::view_no_connection()]
+                ]]
+            } else {
+                nodes![
+                    data_model
+                        .users
+                        .values()
+                        .cloned()
+                        .map(|user| {
+                            let user_id = user.id;
+                            div![
+                                C!["column"],
+                                button![
+                                    C!["button"],
+                                    C!["is-link"],
+                                    ev(Ev::Click, move |_| Msg::LogIn(user_id)),
+                                    &user.name.to_string(),
+                                ]
+                            ]
+                        })
+                        .collect::<Vec<_>>()
+                ]
+            }
         ]
     }
 }

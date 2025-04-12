@@ -38,6 +38,7 @@ pub trait UserRepository {
 
 #[allow(async_fn_in_trait)]
 pub trait BodyWeightRepository {
+    async fn sync_body_weight(&self) -> Result<Vec<BodyWeight>, String>;
     async fn read_body_weight(&self) -> Result<Vec<BodyWeight>, String>;
     async fn create_body_weight(&self, body_weight: BodyWeight) -> Result<BodyWeight, String>;
     async fn replace_body_weight(&self, body_weight: BodyWeight) -> Result<BodyWeight, String>;
@@ -46,6 +47,7 @@ pub trait BodyWeightRepository {
 
 #[allow(async_fn_in_trait)]
 pub trait BodyFatRepository {
+    async fn sync_body_fat(&self) -> Result<Vec<BodyFat>, String>;
     async fn read_body_fat(&self) -> Result<Vec<BodyFat>, String>;
     async fn create_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, String>;
     async fn replace_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, String>;
@@ -54,6 +56,7 @@ pub trait BodyFatRepository {
 
 #[allow(async_fn_in_trait)]
 pub trait PeriodRepository {
+    async fn sync_period(&self) -> Result<Vec<Period>, String>;
     async fn read_period(&self) -> Result<Vec<Period>, String>;
     async fn create_period(&self, period: Period) -> Result<Period, String>;
     async fn replace_period(&self, period: Period) -> Result<Period, String>;
@@ -62,6 +65,7 @@ pub trait PeriodRepository {
 
 #[allow(async_fn_in_trait)]
 pub trait ExerciseRepository {
+    async fn sync_exercises(&self) -> Result<Vec<Exercise>, String>;
     async fn read_exercises(&self) -> Result<Vec<Exercise>, String>;
     async fn create_exercise(
         &self,
@@ -74,6 +78,7 @@ pub trait ExerciseRepository {
 
 #[allow(async_fn_in_trait)]
 pub trait RoutineRepository {
+    async fn sync_routines(&self) -> Result<Vec<Routine>, String>;
     async fn read_routines(&self) -> Result<Vec<Routine>, String>;
     async fn create_routine(
         &self,
@@ -92,6 +97,7 @@ pub trait RoutineRepository {
 
 #[allow(async_fn_in_trait)]
 pub trait TrainingSessionRepository {
+    async fn sync_training_sessions(&self) -> Result<Vec<TrainingSession>, String>;
     async fn read_training_sessions(&self) -> Result<Vec<TrainingSession>, String>;
     async fn create_training_session(
         &self,
@@ -131,6 +137,12 @@ impl UserID {
     #[must_use]
     pub fn is_nil(&self) -> bool {
         self.0.is_nil()
+    }
+}
+
+impl From<Uuid> for UserID {
+    fn from(value: Uuid) -> Self {
+        Self(value)
     }
 }
 
@@ -226,6 +238,12 @@ impl ExerciseID {
     #[must_use]
     pub fn is_nil(&self) -> bool {
         self.0.is_nil()
+    }
+}
+
+impl From<Uuid> for ExerciseID {
+    fn from(value: Uuid) -> Self {
+        Self(value)
     }
 }
 
@@ -340,6 +358,12 @@ impl RoutineID {
     #[must_use]
     pub fn is_nil(&self) -> bool {
         self.0.is_nil()
+    }
+}
+
+impl From<Uuid> for RoutineID {
+    fn from(value: Uuid) -> Self {
+        Self(value)
     }
 }
 
@@ -662,6 +686,12 @@ impl TrainingSessionID {
     #[must_use]
     pub fn is_nil(&self) -> bool {
         self.0.is_nil()
+    }
+}
+
+impl From<Uuid> for TrainingSessionID {
+    fn from(value: Uuid) -> Self {
+        Self(value)
     }
 }
 

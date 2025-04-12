@@ -611,6 +611,17 @@ fn view_navbar(navbar: &Navbar, page: Option<&Page>, data_model: &data::Model) -
                 ],
                 div![C!["navbar-item"], C!["is-size-5"], &navbar.title],
                 div![C!["mx-auto"]],
+                IF![data_model.no_connection =>
+                    a![
+                        C!["navbar-item"],
+                        C!["is-size-5"],
+                        C!["mx-1"],
+                        common::view_element_with_description_right_aligned(
+                            span![C!["icon"], i![C!["fas fa-plug-circle-xmark"]]],
+                            "No connection to server"
+                        )
+                    ]
+                ],
                 &navbar
                     .items
                     .iter()
@@ -624,59 +635,74 @@ fn view_navbar(navbar: &Navbar, page: Option<&Page>, data_model: &data::Model) -
                         ]
                     })
                     .collect::<Vec<_>>(),
-                IF![data_model.session.is_some() =>
-                    a![
-                        C!["navbar-burger"],
-                        C!["ml-0"],
-                        C![IF!(navbar.menu_visible => "is-active")],
-                        attrs! {
-                            At::from("role") => "button",
-                            At::AriaLabel => "menu",
-                            At::AriaExpanded => navbar.menu_visible,
-                        },
-                        ev(Ev::Click, |event| {
-                            event.stop_propagation();
-                            Msg::ToggleMenu
-                        }),
-                        span![attrs! {At::AriaHidden => "true"}],
-                        span![attrs! {At::AriaHidden => "true"}],
-                        span![attrs! {At::AriaHidden => "true"}],
-                        span![attrs! {At::AriaHidden => "true"}],
-                    ]
-                ],
-            ],
-            IF![data_model.session.is_some() =>
-                div![
-                    C!["navbar-menu"],
-                    C!["is-flex-grow-0"],
+                a![
+                    C!["navbar-burger"],
+                    C!["ml-0"],
                     C![IF!(navbar.menu_visible => "is-active")],
-                    div![
-                        C!["navbar-end"],
-                        if let Some(s) = &data_model.session { nodes![
-                            a![
-                                C!["navbar-item"],
-                                ev(Ev::Click, |_| Msg::ShowSettingsDialog),
-                                span![C!["icon"], C!["px-5"], i![C!["fas fa-gear"]]],
-                                "Settings"
-                            ],
-                            a![
-                                C!["navbar-item"],
-                                ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
-                                span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
-                                format!(
-                                    "Refresh data ({})",
-                                    view_duration(Utc::now() - data_model.last_refresh)
-                                ),
-                            ],
-                            a![
-                                C!["navbar-item"],
-                                ev(Ev::Click, |_| Msg::LogOut),
-                                span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
-                                format!("Logout ({})", s.name),
-                            ]
-                        ] } else { nodes![] }
-                    ],
+                    attrs! {
+                        At::from("role") => "button",
+                        At::AriaLabel => "menu",
+                        At::AriaExpanded => navbar.menu_visible,
+                    },
+                    ev(Ev::Click, |event| {
+                        event.stop_propagation();
+                        Msg::ToggleMenu
+                    }),
+                    span![attrs! {At::AriaHidden => "true"}],
+                    span![attrs! {At::AriaHidden => "true"}],
+                    span![attrs! {At::AriaHidden => "true"}],
+                    span![attrs! {At::AriaHidden => "true"}],
                 ]
+            ],
+            div![
+                C!["navbar-menu"],
+                C!["is-flex-grow-0"],
+                C![IF!(navbar.menu_visible => "is-active")],
+                div![
+                    C!["navbar-end"],
+                    a![
+                        C!["navbar-item"],
+                        ev(Ev::Click, |_| Msg::ShowSettingsDialog),
+                        span![C!["icon"], C!["px-5"], i![C!["fas fa-gear"]]],
+                        "Settings"
+                    ],
+                    if data_model.session.is_some() {
+                        a![
+                            C!["navbar-item"],
+                            ev(Ev::Click, |_| Msg::Data(data::Msg::Refresh)),
+                            span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
+                            format!(
+                                "Refresh data {}",
+                                data_model
+                                    .last_refresh
+                                    .values()
+                                    .max()
+                                    .map(|last_refresh| format!(
+                                        "({})",
+                                        view_duration(Utc::now() - last_refresh)
+                                    ))
+                                    .unwrap_or_default()
+                            ),
+                        ]
+                    } else {
+                        a![
+                            C!["navbar-item"],
+                            ev(Ev::Click, |_| Msg::Data(data::Msg::ReadUsers)),
+                            span![C!["icon"], C!["px-5"], i![C!["fas fa-rotate"]]],
+                            "Refresh user data"
+                        ]
+                    },
+                    if let Some(user) = &data_model.session {
+                        a![
+                            C!["navbar-item"],
+                            ev(Ev::Click, |_| Msg::LogOut),
+                            span![C!["icon"], C!["px-5"], i![C!["fas fa-sign-out-alt"]]],
+                            format!("Log out ({})", user.name),
+                        ]
+                    } else {
+                        empty![]
+                    }
+                ],
             ]
         ]
     ]

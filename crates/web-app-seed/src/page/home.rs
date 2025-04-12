@@ -57,7 +57,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
     let body_fat_content;
 
     let training_subtitle =
-        if data_model.training_sessions.is_empty() && data_model.loading_training_sessions {
+        if data_model.training_sessions.is_empty() && data_model.loading_training_sessions > 0 {
             common::view_loading::<Msg>().to_string()
         } else if let Some(load_ratio) = &data_model.training_stats.load_ratio() {
             String::from(if *load_ratio > domain::TrainingStats::LOAD_RATIO_HIGH {
@@ -81,7 +81,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         String::new()
     };
 
-    if data_model.body_weight.is_empty() && data_model.loading_body_weight {
+    if data_model.body_weight.is_empty() && data_model.loading_body_weight > 0 {
         body_weight_subtitle = common::view_loading::<Msg>().to_string();
         body_weight_content = String::new();
     } else if let Some(body_weight) = data_model
@@ -96,7 +96,7 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         body_weight_content = String::new();
     }
 
-    if data_model.body_fat.is_empty() && data_model.loading_body_fat {
+    if data_model.body_fat.is_empty() && data_model.loading_body_fat > 0 {
         body_fat_subtitle = common::view_loading::<Msg>().to_string();
         body_fat_content = String::new();
     } else if let Some(body_fat) = data_model
@@ -115,7 +115,8 @@ pub fn view(_model: &Model, data_model: &data::Model) -> Node<Msg> {
         body_fat_content = String::new();
     }
 
-    let menstrual_cycle_subtitle = if data_model.period.is_empty() && data_model.loading_period {
+    let menstrual_cycle_subtitle = if data_model.period.is_empty() && data_model.loading_period > 0
+    {
         common::view_loading::<Msg>().to_string()
     } else if let Some(current_cycle) = &data_model.current_cycle {
         format!(

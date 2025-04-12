@@ -1998,7 +1998,7 @@ fn determine_last_element_of_section(elements: &[FormElement], element_idx: usiz
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.training_sessions.is_empty() && data_model.loading_training_sessions {
+    if data_model.training_sessions.is_empty() && data_model.loading_training_sessions > 0 {
         common::view_page_loading()
     } else if let Some(training_session) =
         data_model.training_sessions.get(&model.training_session_id)

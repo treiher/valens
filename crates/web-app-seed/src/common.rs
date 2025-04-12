@@ -384,11 +384,13 @@ pub fn view_versions<Ms>(backend_version: &str) -> Vec<Node<Ms>> {
             span![C!["icon"], i![C!["fas fa-mobile-screen"]]],
             span![env!("VALENS_VERSION")],
         ]],
-        p![span![
-            C!["icon-text"],
-            span![C!["icon"], i![C!["fas fa-server"]]],
-            span![backend_version],
-        ]],
+        IF![!backend_version.is_empty() =>
+            p![span![
+                C!["icon-text"],
+                span![C!["icon"], i![C!["fas fa-server"]]],
+                span![backend_version]
+            ]]
+        ],
     ]
 }
 
@@ -605,6 +607,20 @@ pub fn view_no_data<Ms>() -> Node<Ms> {
     ]
 }
 
+pub fn view_no_connection<Ms>() -> Node<Ms> {
+    div![
+        C!["block"],
+        C!["has-text-centered"],
+        C!["has-text-grey-light"],
+        C!["mb-6"],
+        span![
+            C!["icon-text"],
+            span![C!["icon"], i![C!["fas fa-plug-circle-xmark"]]],
+            span!["No connection to server"]
+        ]
+    ]
+}
+
 pub fn view_sets_per_muscle<Ms>(
     stimulus_per_muscle: &BTreeMap<domain::MuscleID, domain::Stimulus>,
 ) -> Vec<Node<Ms>>
@@ -666,6 +682,32 @@ where
 pub fn view_element_with_description<Ms>(element: Node<Ms>, description: &str) -> Node<Ms> {
     div![
         C!["dropdown"],
+        C!["is-hoverable"],
+        div![
+            C!["dropdown-trigger"],
+            div![C!["control"], C!["is-clickable"], element]
+        ],
+        IF![
+            not(description.is_empty()) =>
+            div![
+                C!["dropdown-menu"],
+                C!["has-no-min-width"],
+                div![
+                    C!["dropdown-content"],
+                    div![C!["dropdown-item"], description]
+                ]
+            ]
+        ]
+    ]
+}
+
+pub fn view_element_with_description_right_aligned<Ms>(
+    element: Node<Ms>,
+    description: &str,
+) -> Node<Ms> {
+    div![
+        C!["dropdown"],
+        C!["is-right"],
         C!["is-hoverable"],
         div![
             C!["dropdown-trigger"],

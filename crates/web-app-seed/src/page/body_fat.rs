@@ -443,7 +443,7 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.body_fat.is_empty() && data_model.loading_body_fat {
+    if data_model.body_fat.is_empty() && data_model.loading_body_fat > 0 {
         common::view_page_loading()
     } else {
         let dates = data_model.body_fat.values().map(|bf| bf.date);

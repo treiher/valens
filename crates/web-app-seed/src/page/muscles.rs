@@ -54,8 +54,8 @@ pub fn update(msg: &Msg, model: &mut Model) {
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if (data_model.exercises.is_empty() && data_model.loading_exercises)
-        || (data_model.training_sessions.is_empty() && data_model.loading_training_sessions)
+    if (data_model.exercises.is_empty() && data_model.loading_exercises > 0)
+        || (data_model.training_sessions.is_empty() && data_model.loading_training_sessions > 0)
     {
         common::view_page_loading()
     } else {

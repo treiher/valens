@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use chrono::{Duration, prelude::*};
-use log::error;
+use log::{error, warn};
 use seed::{
     C, IF, Url,
     app::{Orders, subs},
@@ -32,28 +32,29 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
         .send_msg(Msg::ReadSettings)
         .send_msg(Msg::ReadOngoingTrainingSession);
     Model {
-        rest: storage::rest::REST,
+        cached_rest: storage::cached_rest::CachedREST::new(),
         local_storage: storage::local_storage::LocalStorage,
         base_url: url.to_hash_base_url(),
         errors: Vec::new(),
         app_update_available: false,
+        no_connection: false,
         session: None,
         version: String::new(),
         users: BTreeMap::new(),
-        loading_users: false,
+        loading_users: 0,
         body_weight: BTreeMap::new(),
-        loading_body_weight: false,
+        loading_body_weight: 0,
         body_fat: BTreeMap::new(),
-        loading_body_fat: false,
+        loading_body_fat: 0,
         period: BTreeMap::new(),
-        loading_period: false,
+        loading_period: 0,
         exercises: BTreeMap::new(),
-        loading_exercises: false,
+        loading_exercises: 0,
         routines: BTreeMap::new(),
-        loading_routines: false,
+        loading_routines: 0,
         training_sessions: BTreeMap::new(),
-        loading_training_sessions: false,
-        last_refresh: DateTime::default(),
+        loading_training_sessions: 0,
+        last_refresh: HashMap::new(),
         avg_body_weight: BTreeMap::new(),
         cycles: Vec::new(),
         current_cycle: None,
@@ -70,34 +71,34 @@ pub fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
 //     Model
 // ------ ------
 
-#[allow(clippy::struct_excessive_bools)]
 pub struct Model {
-    rest: storage::rest::REST,
+    cached_rest: storage::cached_rest::CachedREST<storage::rest::GlooNetSendRequest>,
     local_storage: storage::local_storage::LocalStorage,
     pub base_url: Url,
     errors: Vec<String>,
     app_update_available: bool,
+    pub no_connection: bool,
 
     // ------ Data -----
     pub session: Option<domain::User>,
     pub version: String,
     pub users: BTreeMap<domain::UserID, domain::User>,
-    pub loading_users: bool,
+    pub loading_users: u8,
 
     // ------ Session-dependent data ------
     pub body_weight: BTreeMap<NaiveDate, domain::BodyWeight>,
-    pub loading_body_weight: bool,
+    pub loading_body_weight: u8,
     pub body_fat: BTreeMap<NaiveDate, domain::BodyFat>,
-    pub loading_body_fat: bool,
+    pub loading_body_fat: u8,
     pub period: BTreeMap<NaiveDate, domain::Period>,
-    pub loading_period: bool,
+    pub loading_period: u8,
     pub exercises: BTreeMap<domain::ExerciseID, domain::Exercise>,
-    pub loading_exercises: bool,
+    pub loading_exercises: u8,
     pub routines: BTreeMap<domain::RoutineID, domain::Routine>,
-    pub loading_routines: bool,
+    pub loading_routines: u8,
     pub training_sessions: BTreeMap<domain::TrainingSessionID, domain::TrainingSession>,
-    pub loading_training_sessions: bool,
-    pub last_refresh: DateTime<Utc>,
+    pub loading_training_sessions: u8,
+    pub last_refresh: HashMap<DataSet, DateTime<Utc>>,
 
     // ------ Derived data ------
     pub avg_body_weight: BTreeMap<NaiveDate, domain::BodyWeight>,
@@ -158,6 +159,16 @@ impl Model {
     }
 }
 
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
+pub enum DataSet {
+    BodyWeight,
+    BodyFat,
+    Period,
+    Exercises,
+    Routines,
+    TrainingSessions,
+}
+
 fn sort_routines_by_last_use(
     routines: &BTreeMap<domain::RoutineID, domain::Routine>,
     training_sessions: &BTreeMap<domain::TrainingSessionID, domain::TrainingSession>,
@@ -198,6 +209,7 @@ pub enum Msg {
     UpdateApp,
     CancelAppUpdate,
 
+    Initialize,
     Refresh,
     ClearSessionDependentData,
 
@@ -221,6 +233,8 @@ pub enum Msg {
     DeleteUser(domain::UserID),
     UserDeleted(Result<domain::UserID, String>),
 
+    SyncBodyWeight,
+    BodyWeightSynced(Result<Vec<domain::BodyWeight>, String>),
     ReadBodyWeight,
     BodyWeightRead(Result<Vec<domain::BodyWeight>, String>),
     CreateBodyWeight(domain::BodyWeight),
@@ -230,6 +244,8 @@ pub enum Msg {
     DeleteBodyWeight(NaiveDate),
     BodyWeightDeleted(Result<NaiveDate, String>),
 
+    SyncBodyFat,
+    BodyFatSynced(Result<Vec<domain::BodyFat>, String>),
     ReadBodyFat,
     BodyFatRead(Result<Vec<domain::BodyFat>, String>),
     CreateBodyFat(domain::BodyFat),
@@ -239,6 +255,8 @@ pub enum Msg {
     DeleteBodyFat(NaiveDate),
     BodyFatDeleted(Result<NaiveDate, String>),
 
+    SyncPeriod,
+    PeriodSynced(Result<Vec<domain::Period>, String>),
     ReadPeriod,
     PeriodRead(Result<Vec<domain::Period>, String>),
     CreatePeriod(domain::Period),
@@ -248,6 +266,8 @@ pub enum Msg {
     DeletePeriod(NaiveDate),
     PeriodDeleted(Result<NaiveDate, String>),
 
+    SyncExercises,
+    ExercisesSynced(Result<Vec<domain::Exercise>, String>),
     ReadExercises,
     ExercisesRead(Result<Vec<domain::Exercise>, String>),
     CreateExercise(domain::Name, Vec<domain::ExerciseMuscle>),
@@ -257,6 +277,8 @@ pub enum Msg {
     DeleteExercise(domain::ExerciseID),
     ExerciseDeleted(Result<domain::ExerciseID, String>),
 
+    SyncRoutines,
+    RoutinesSynced(Result<Vec<domain::Routine>, String>),
     ReadRoutines,
     RoutinesRead(Result<Vec<domain::Routine>, String>),
     CreateRoutine(domain::Name, domain::RoutineID),
@@ -271,6 +293,8 @@ pub enum Msg {
     DeleteRoutine(domain::RoutineID),
     RoutineDeleted(Result<domain::RoutineID, String>),
 
+    SyncTrainingSessions,
+    TrainingSessionsSynced(Result<Vec<domain::TrainingSession>, String>),
     ReadTrainingSessions,
     TrainingSessionsRead(Result<Vec<domain::TrainingSession>, String>),
     CreateTrainingSession(
@@ -377,17 +401,25 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.app_update_available = false;
         }
 
-        Msg::Refresh => {
+        Msg::Initialize => {
             orders
-                .send_msg(Msg::ReadVersion)
-                .send_msg(Msg::ReadUsers)
                 .send_msg(Msg::ReadBodyWeight)
                 .send_msg(Msg::ReadBodyFat)
                 .send_msg(Msg::ReadPeriod)
                 .send_msg(Msg::ReadExercises)
                 .send_msg(Msg::ReadRoutines)
                 .send_msg(Msg::ReadTrainingSessions);
-            model.last_refresh = Utc::now();
+        }
+        Msg::Refresh => {
+            orders
+                .send_msg(Msg::ReadVersion)
+                .send_msg(Msg::ReadUsers)
+                .send_msg(Msg::SyncBodyWeight)
+                .send_msg(Msg::SyncBodyFat)
+                .send_msg(Msg::SyncPeriod)
+                .send_msg(Msg::SyncExercises)
+                .send_msg(Msg::SyncRoutines)
+                .send_msg(Msg::SyncTrainingSessions);
         }
         Msg::ClearSessionDependentData => {
             model.body_weight.clear();
@@ -403,16 +435,19 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::RequestSession(user_id) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.skip().perform_cmd(async move {
                 Msg::SessionReceived(storage.request_session(user_id).await)
             });
         }
         Msg::SessionReceived(Ok(new_session)) => {
             model.session = Some(new_session);
-            orders.send_msg(Msg::Refresh).request_url(
-                crate::Urls::new(model.base_url.clone().set_hash_path([""; 0])).home(),
-            );
+            orders
+                .send_msg(Msg::Initialize)
+                .send_msg(Msg::Refresh)
+                .request_url(
+                    crate::Urls::new(model.base_url.clone().set_hash_path([""; 0])).home(),
+                );
         }
         Msg::SessionReceived(Err(message)) => {
             model.session = None;
@@ -421,7 +456,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to request session: ".to_owned() + &message);
         }
         Msg::InitializeSession => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::SessionInitialized(storage.initialize_session().await)
             });
@@ -430,6 +465,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             model.session = Some(session);
             orders
                 .notify(subs::UrlChanged(Url::current()))
+                .send_msg(Msg::Initialize)
                 .send_msg(Msg::Refresh);
         }
         Msg::SessionInitialized(Err(_)) => {
@@ -437,15 +473,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             orders.notify(subs::UrlChanged(Url::current()));
         }
         Msg::DeleteSession => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders
                 .skip()
-                .send_msg(Msg::ClearSessionDependentData)
                 .perform_cmd(async move { Msg::SessionDeleted(storage.delete_session().await) });
         }
         Msg::SessionDeleted(Ok(())) => {
             model.session = None;
-            orders.request_url(crate::Urls::new(&model.base_url).login());
+            orders
+                .send_msg(Msg::ClearSessionDependentData)
+                .request_url(crate::Urls::new(&model.base_url).login());
         }
         Msg::SessionDeleted(Err(message)) => {
             model
@@ -454,7 +491,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
 
         Msg::ReadVersion => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move { Msg::VersionRead(storage.read_version().await) });
         }
         Msg::VersionRead(Ok(version)) => {
@@ -467,16 +504,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             {
                 model.app_update_available = true;
             }
+            model.no_connection = false;
         }
         Msg::VersionRead(Err(message)) => {
-            model
-                .errors
-                .push("Failed to read version: ".to_owned() + &message);
+            model.no_connection = true;
+            warn!("failed to read version: {message}");
         }
 
         Msg::ReadUsers => {
-            model.loading_users = true;
-            let storage = model.rest.clone();
+            model.loading_users += 1;
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move { Msg::UsersRead(storage.read_users().await) });
         }
         Msg::UsersRead(Ok(users)) => {
@@ -485,16 +522,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.users = users;
                 orders.notify(Event::DataChanged);
             }
-            model.loading_users = false;
+            model.loading_users -= 1;
+            model.no_connection = false;
         }
         Msg::UsersRead(Err(message)) => {
-            model
-                .errors
-                .push("Failed to read users: ".to_owned() + &message);
-            model.loading_users = false;
+            model.loading_users -= 1;
+            model.no_connection = true;
+            warn!("failed to read users: {message}");
         }
         Msg::CreateUser(name, sex) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders
                 .perform_cmd(async move { Msg::UserCreated(storage.create_user(name, sex).await) });
         }
@@ -509,7 +546,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create user: ".to_owned() + &message);
         }
         Msg::ReplaceUser(user) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move { Msg::UserReplaced(storage.replace_user(user).await) });
         }
         Msg::UserReplaced(Ok(user)) => {
@@ -523,7 +560,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace user: ".to_owned() + &message);
         }
         Msg::DeleteUser(id) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move { Msg::UserDeleted(storage.delete_user(id).await) });
         }
         Msg::UserDeleted(Ok(id)) => {
@@ -537,9 +574,30 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to delete user: ".to_owned() + &message);
         }
 
+        Msg::SyncBodyWeight => {
+            model.loading_body_weight += 1;
+            let storage = model.cached_rest.clone();
+            orders.skip().perform_cmd(async move {
+                Msg::BodyWeightSynced(storage.sync_body_weight().await)
+            });
+        }
+        Msg::BodyWeightSynced(Ok(body_weight)) => {
+            let body_weight = body_weight.into_iter().map(|e| (e.date, e)).collect();
+            if model.body_weight != body_weight {
+                model.body_weight = body_weight;
+                model.avg_body_weight = domain::avg_body_weight(&model.body_weight);
+                orders.notify(Event::DataChanged);
+            }
+            model.loading_body_weight -= 1;
+            model.last_refresh.insert(DataSet::BodyWeight, Utc::now());
+        }
+        Msg::BodyWeightSynced(Err(message)) => {
+            model.loading_body_weight -= 1;
+            warn!("failed to sync body weight: {message}");
+        }
         Msg::ReadBodyWeight => {
-            model.loading_body_weight = true;
-            let storage = model.rest.clone();
+            model.loading_body_weight += 1;
+            let storage = model.cached_rest.clone();
             orders
                 .skip()
                 .perform_cmd(async move { Msg::BodyWeightRead(storage.read_body_weight().await) });
@@ -551,16 +609,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.avg_body_weight = domain::avg_body_weight(&model.body_weight);
                 orders.notify(Event::DataChanged);
             }
-            model.loading_body_weight = false;
+            model.loading_body_weight -= 1;
         }
         Msg::BodyWeightRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read body weight: ".to_owned() + &message);
-            model.loading_body_weight = false;
+            model.loading_body_weight -= 1;
         }
         Msg::CreateBodyWeight(body_weight) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::BodyWeightCreated(storage.create_body_weight(body_weight).await)
             });
@@ -577,7 +635,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create body weight: ".to_owned() + &message);
         }
         Msg::ReplaceBodyWeight(body_weight) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::BodyWeightReplaced(storage.replace_body_weight(body_weight).await)
             });
@@ -594,7 +652,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace body weight: ".to_owned() + &message);
         }
         Msg::DeleteBodyWeight(date) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::BodyWeightDeleted(storage.delete_body_weight(date).await)
             });
@@ -611,9 +669,29 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to delete body weight: ".to_owned() + &message);
         }
 
+        Msg::SyncBodyFat => {
+            model.loading_body_fat += 1;
+            let storage = model.cached_rest.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::BodyFatSynced(storage.sync_body_fat().await) });
+        }
+        Msg::BodyFatSynced(Ok(body_fat)) => {
+            let body_fat = body_fat.into_iter().map(|e| (e.date, e)).collect();
+            if model.body_fat != body_fat {
+                model.body_fat = body_fat;
+                orders.notify(Event::DataChanged);
+            }
+            model.loading_body_fat -= 1;
+            model.last_refresh.insert(DataSet::BodyFat, Utc::now());
+        }
+        Msg::BodyFatSynced(Err(message)) => {
+            model.loading_body_fat -= 1;
+            warn!("failed to sync body fat: {message}");
+        }
         Msg::ReadBodyFat => {
-            model.loading_body_fat = true;
-            let storage = model.rest.clone();
+            model.loading_body_fat += 1;
+            let storage = model.cached_rest.clone();
             orders
                 .skip()
                 .perform_cmd(async move { Msg::BodyFatRead(storage.read_body_fat().await) });
@@ -624,16 +702,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.body_fat = body_fat;
                 orders.notify(Event::DataChanged);
             }
-            model.loading_body_fat = false;
+            model.loading_body_fat -= 1;
         }
         Msg::BodyFatRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read body fat: ".to_owned() + &message);
-            model.loading_body_fat = false;
+            model.loading_body_fat -= 1;
         }
         Msg::CreateBodyFat(body_fat) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::BodyFatCreated(storage.create_body_fat(body_fat).await)
             });
@@ -649,7 +727,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create body fat: ".to_owned() + &message);
         }
         Msg::ReplaceBodyFat(body_fat) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::BodyFatReplaced(storage.replace_body_fat(body_fat).await)
             });
@@ -665,7 +743,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace body fat: ".to_owned() + &message);
         }
         Msg::DeleteBodyFat(date) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(
                 async move { Msg::BodyFatDeleted(storage.delete_body_fat(date).await) },
             );
@@ -681,9 +759,31 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to delete body fat: ".to_owned() + &message);
         }
 
+        Msg::SyncPeriod => {
+            model.loading_period += 1;
+            let storage = model.cached_rest.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::PeriodSynced(storage.sync_period().await) });
+        }
+        Msg::PeriodSynced(Ok(period)) => {
+            let period = period.into_iter().map(|e| (e.date, e)).collect();
+            if model.period != period {
+                model.period = period;
+                model.cycles = domain::cycles(&model.period);
+                model.current_cycle = domain::current_cycle(&model.cycles);
+                orders.notify(Event::DataChanged);
+            }
+            model.loading_period -= 1;
+            model.last_refresh.insert(DataSet::Period, Utc::now());
+        }
+        Msg::PeriodSynced(Err(message)) => {
+            model.loading_period -= 1;
+            warn!("failed to sync period: {message}");
+        }
         Msg::ReadPeriod => {
-            model.loading_period = true;
-            let storage = model.rest.clone();
+            model.loading_period += 1;
+            let storage = model.cached_rest.clone();
             orders
                 .skip()
                 .perform_cmd(async move { Msg::PeriodRead(storage.read_period().await) });
@@ -696,16 +796,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.current_cycle = domain::current_cycle(&model.cycles);
                 orders.notify(Event::DataChanged);
             }
-            model.loading_period = false;
+            model.loading_period -= 1;
         }
         Msg::PeriodRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read period: ".to_owned() + &message);
-            model.loading_period = false;
+            model.loading_period -= 1;
         }
         Msg::CreatePeriod(period) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(
                 async move { Msg::PeriodCreated(storage.create_period(period).await) },
             );
@@ -723,7 +823,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create period: ".to_owned() + &message);
         }
         Msg::ReplacePeriod(period) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(
                 async move { Msg::PeriodReplaced(storage.replace_period(period).await) },
             );
@@ -741,7 +841,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace period: ".to_owned() + &message);
         }
         Msg::DeletePeriod(date) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders
                 .perform_cmd(async move { Msg::PeriodDeleted(storage.delete_period(date).await) });
         }
@@ -758,9 +858,29 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to delete period: ".to_owned() + &message);
         }
 
+        Msg::SyncExercises => {
+            model.loading_exercises += 1;
+            let storage = model.cached_rest.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::ExercisesSynced(storage.sync_exercises().await) });
+        }
+        Msg::ExercisesSynced(Ok(exercises)) => {
+            let exercises = exercises.into_iter().map(|e| (e.id, e)).collect();
+            if model.exercises != exercises {
+                model.exercises = exercises;
+                orders.notify(Event::DataChanged);
+            }
+            model.loading_exercises -= 1;
+            model.last_refresh.insert(DataSet::Exercises, Utc::now());
+        }
+        Msg::ExercisesSynced(Err(message)) => {
+            model.loading_exercises -= 1;
+            warn!("failed to sync exercises: {message}");
+        }
         Msg::ReadExercises => {
-            model.loading_exercises = true;
-            let storage = model.rest.clone();
+            model.loading_exercises += 1;
+            let storage = model.cached_rest.clone();
             orders
                 .skip()
                 .perform_cmd(async move { Msg::ExercisesRead(storage.read_exercises().await) });
@@ -771,16 +891,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.exercises = exercises;
                 orders.notify(Event::DataChanged);
             }
-            model.loading_exercises = false;
+            model.loading_exercises -= 1;
         }
         Msg::ExercisesRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read exercises: ".to_owned() + &message);
-            model.loading_exercises = false;
+            model.loading_exercises -= 1;
         }
         Msg::CreateExercise(name, muscles) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::ExerciseCreated(storage.create_exercise(name, muscles).await)
             });
@@ -796,7 +916,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create exercise: ".to_owned() + &message);
         }
         Msg::ReplaceExercise(exercise) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::ExerciseReplaced(storage.replace_exercise(exercise).await)
             });
@@ -814,7 +934,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to replace exercise: ".to_owned() + &message);
         }
         Msg::DeleteExercise(id) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(
                 async move { Msg::ExerciseDeleted(storage.delete_exercise(id).await) },
             );
@@ -830,9 +950,29 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to delete exercise: ".to_owned() + &message);
         }
 
+        Msg::SyncRoutines => {
+            model.loading_routines += 1;
+            let storage = model.cached_rest.clone();
+            orders
+                .skip()
+                .perform_cmd(async move { Msg::RoutinesSynced(storage.sync_routines().await) });
+        }
+        Msg::RoutinesSynced(Ok(routines)) => {
+            let routines = routines.into_iter().map(|r| (r.id, r)).collect();
+            if model.routines != routines {
+                model.routines = routines;
+                orders.notify(Event::DataChanged);
+            }
+            model.loading_routines -= 1;
+            model.last_refresh.insert(DataSet::Routines, Utc::now());
+        }
+        Msg::RoutinesSynced(Err(message)) => {
+            model.loading_routines -= 1;
+            warn!("failed to sync routines: {message}");
+        }
         Msg::ReadRoutines => {
-            model.loading_routines = true;
-            let storage = model.rest.clone();
+            model.loading_routines += 1;
+            let storage = model.cached_rest.clone();
             orders
                 .skip()
                 .perform_cmd(async move { Msg::RoutinesRead(storage.read_routines().await) });
@@ -843,13 +983,13 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 model.routines = routines;
                 orders.notify(Event::DataChanged);
             }
-            model.loading_routines = false;
+            model.loading_routines -= 1;
         }
         Msg::RoutinesRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read routines: ".to_owned() + &message);
-            model.loading_routines = false;
+            model.loading_routines -= 1;
         }
         Msg::CreateRoutine(name, template_routine_id) => {
             let sections = if model.routines.contains_key(&template_routine_id) {
@@ -857,7 +997,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             } else {
                 vec![]
             };
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::RoutineCreated(storage.create_routine(name, sections).await)
             });
@@ -873,7 +1013,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create routine: ".to_owned() + &message);
         }
         Msg::ModifyRoutine(id, name, archived, sections) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::RoutineModified(storage.modify_routine(id, name, archived, sections).await)
             });
@@ -889,7 +1029,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to modify routine: ".to_owned() + &message);
         }
         Msg::DeleteRoutine(id) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders
                 .perform_cmd(async move { Msg::RoutineDeleted(storage.delete_routine(id).await) });
         }
@@ -904,9 +1044,33 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to delete routine: ".to_owned() + &message);
         }
 
+        Msg::SyncTrainingSessions => {
+            model.loading_training_sessions += 1;
+            let storage = model.cached_rest.clone();
+            orders.skip().perform_cmd(async move {
+                Msg::TrainingSessionsSynced(storage.sync_training_sessions().await)
+            });
+        }
+        Msg::TrainingSessionsSynced(Ok(training_sessions)) => {
+            let training_sessions = training_sessions.into_iter().map(|t| (t.id, t)).collect();
+            if model.training_sessions != training_sessions {
+                model.training_sessions = training_sessions;
+                model.training_stats =
+                    domain::training_stats(&model.training_sessions.values().collect::<Vec<_>>());
+                orders.notify(Event::DataChanged);
+            }
+            model.loading_training_sessions -= 1;
+            model
+                .last_refresh
+                .insert(DataSet::TrainingSessions, Utc::now());
+        }
+        Msg::TrainingSessionsSynced(Err(message)) => {
+            model.loading_training_sessions -= 1;
+            warn!("failed to sync training sessions: {message}");
+        }
         Msg::ReadTrainingSessions => {
-            model.loading_training_sessions = true;
-            let storage = model.rest.clone();
+            model.loading_training_sessions += 1;
+            let storage = model.cached_rest.clone();
             orders.skip().perform_cmd(async move {
                 Msg::TrainingSessionsRead(storage.read_training_sessions().await)
             });
@@ -919,16 +1083,16 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                     domain::training_stats(&model.training_sessions.values().collect::<Vec<_>>());
                 orders.notify(Event::DataChanged);
             }
-            model.loading_training_sessions = false;
+            model.loading_training_sessions -= 1;
         }
         Msg::TrainingSessionsRead(Err(message)) => {
             model
                 .errors
                 .push("Failed to read training sessions: ".to_owned() + &message);
-            model.loading_training_sessions = false;
+            model.loading_training_sessions -= 1;
         }
         Msg::CreateTrainingSession(routine_id, date, notes, elements) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::TrainingSessionCreated(
                     storage
@@ -952,7 +1116,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to create training session: ".to_owned() + &message);
         }
         Msg::ModifyTrainingSession(id, notes, elements) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::TrainingSessionModified(
                     storage.modify_training_session(id, notes, elements).await,
@@ -974,7 +1138,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .push("Failed to modify training session: ".to_owned() + &message);
         }
         Msg::DeleteTrainingSession(id) => {
-            let storage = model.rest.clone();
+            let storage = model.cached_rest.clone();
             orders.perform_cmd(async move {
                 Msg::TrainingSessionDeleted(storage.delete_training_session(id).await)
             });

@@ -211,7 +211,7 @@ pub fn update(
 // ------ ------
 
 pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
-    if data_model.exercises.is_empty() && data_model.loading_exercises {
+    if data_model.exercises.is_empty() && data_model.loading_exercises > 0 {
         common::view_page_loading()
     } else {
         div![

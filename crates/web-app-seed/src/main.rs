@@ -271,7 +271,6 @@ enum Msg {
     ToggleNotifications,
     ToggleShowRPE,
     ToggleShowTUT,
-    UpdateApp,
     GoUp,
     LogOut,
 
@@ -385,16 +384,11 @@ fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .settings
                 .show_tut))));
         }
-        Msg::UpdateApp => {
-            orders.skip().send_msg(Msg::Data(data::Msg::UpdateApp));
-        }
         Msg::GoUp => match &model.page {
             Some(Page::Home(_) | Page::Login(_)) => {}
-            Some(Page::Admin(_)) => {
-                orders.request_url(crate::Urls::new(&model.data.base_url).login());
-            }
             Some(
-                Page::BodyWeight(_)
+                Page::Admin(_)
+                | Page::BodyWeight(_)
                 | Page::BodyFat(_)
                 | Page::MenstrualCycle(_)
                 | Page::Training(_)
@@ -701,7 +695,20 @@ fn view_navbar(navbar: &Navbar, page: Option<&Page>, data_model: &data::Model) -
                         ]
                     } else {
                         empty![]
-                    }
+                    },
+                    a![
+                        C!["navbar-item"],
+                        ev(Ev::Click, {
+                            let url = data_model.base_url.clone();
+                            move |_| {
+                                crate::Urls::new(url.to_hash_base_url())
+                                    .admin()
+                                    .go_and_load();
+                            }
+                        }),
+                        span![C!["icon"], C!["px-5"], i![C!["fas fa-gears"]]],
+                        "Administration",
+                    ],
                 ],
             ]
         ]
@@ -929,19 +936,6 @@ fn view_settings_dialog(data_model: &data::Model) -> Node<Msg> {
                     }
                 ]
             },
-            p![
-                h1![C!["subtitle"], "Version"],
-                common::view_versions(&data_model.version),
-                IF![&data_model.version != env!("VALENS_VERSION") =>
-                    button![
-                    C!["button"],
-                    C!["is-link"],
-                    C!["mt-5"],
-                    ev(Ev::Click, |_| Msg::UpdateApp),
-                    "Update"
-                    ]
-                ],
-            ],
         ],
         &ev(Ev::Click, |_| Msg::CloseSettingsDialog),
     )

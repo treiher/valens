@@ -19,7 +19,7 @@ impl IndexedDB {
         Database::open("valens")
             .with_version(1u8)
             .with_on_blocked(|event| {
-                debug!("upgrade of database blocked: {:?}", event);
+                debug!("upgrade of database blocked: {event:?}");
                 Ok(())
             })
             .with_on_upgrade_needed(|event, db| {

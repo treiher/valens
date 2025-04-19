@@ -227,6 +227,8 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }},nextest@${{ env.NEXTEST_VERSION }}
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install dependencies
         run: |
           sudo apt-get update

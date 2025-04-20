@@ -78,3 +78,24 @@ Upgrade the database schema to the latest revision.
 ```console
 $ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
 ```
+
+## Release checklist
+
+- [ ] Update screenshots if necessary
+- [ ] Update revision used for PyPI README in `pyproject.toml` if necessary
+- [ ] Add release to `CHANGELOG`
+- [ ] Merge changes into `main` branch
+- [ ] Add tag
+    - Note: Commit IDs change when a PR is merged on GitHub, so it must be ensured that the `main` branch is checked out.
+    - `git tag -a vX.Y.Z -m ""`
+- [ ] Push tag
+    - `git push --follow-tags`
+- [ ] Approve publishing to PyPI
+- [ ] Check project on PyPI
+- [ ] Test installation from PyPI
+    - `pip3 install valens`
+- [ ] Publish release notes on GitHub
+    - Draft new release
+    - Select tag
+    - Add corresponding part of `CHANGELOG` as description
+    - Publish release

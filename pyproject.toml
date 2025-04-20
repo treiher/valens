@@ -5,7 +5,6 @@ license = {text = "AGPL-3.0"}
 authors = [
     {name = "Tobias Reiher", email = "valens@ardeidae.de"},
 ]
-readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
@@ -20,7 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Other/Nonlisted Topic",
 ]
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 requires-python = ">=3.9, <4"
 dependencies = [
     "alembic >=1.6, <2",
@@ -38,7 +37,7 @@ Issues = "https://github.com/treiher/valens/issues"
 Repository = "https://github.com/treiher/valens"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
@@ -54,6 +53,20 @@ include = [
 artifacts = [
     "/valens/frontend",
 ]
+
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '[\1](https://github.com/treiher/valens/blob/ae5dd645f54dfa4ffcd212953a6aeab550166e5d/\g<2>)'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[(.+?)\]\(((?!https?://)\S+?.\.(png|gif))'
+replacement = '[\1](https://raw.githubusercontent.com/treiher/valens/ae5dd645f54dfa4ffcd212953a6aeab550166e5d/\g<2>'
 
 [tool.uv]
 dev-dependencies = [

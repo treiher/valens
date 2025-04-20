@@ -2,7 +2,7 @@
 
 [/ˈva.lens/ [ˈväːlɛns] *lat.* strong, vigorous, healthy](https://en.wiktionary.org/wiki/valens#Latin)
 
-![App screenshots](https://raw.githubusercontent.com/treiher/valens/main/doc/screenshots.png "App screenshots")
+![App screenshots](doc/screenshots.png "App screenshots")
 
 ## Features
 
@@ -119,9 +119,9 @@ With compression enabled, the amount of data transferred can be significantly re
 
 ## Documentation
 
-- [Development](https://github.com/treiher/valens/blob/main/doc/DEVELOPMENT.md)
-- [Architecture](https://github.com/treiher/valens/blob/main/doc/ARCHITECTURE.md)
+- [Development](doc/DEVELOPMENT.md)
+- [Architecture](doc/ARCHITECTURE.md)
 
 ## License
 
-This project is licensed under the terms of the [AGPL-3.0](https://github.com/treiher/valens/blob/main/LICENSE) license and includes [third-party software](https://github.com/treiher/valens/blob/main/THIRD-PARTY-LICENSES).
+This project is licensed under the terms of the [AGPL-3.0](LICENSE) license and includes [third-party software](THIRD-PARTY-LICENSES).

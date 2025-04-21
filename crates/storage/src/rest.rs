@@ -26,7 +26,7 @@ impl Default for REST<GlooNetSendRequest> {
 }
 
 impl<S: SendRequest> REST<S> {
-    async fn fetch<T>(&self, request: gloo_net::http::Request) -> Result<T, String>
+    async fn fetch<T>(&self, request: gloo_net::http::Request) -> Result<T, FetchError>
     where
         T: 'static + for<'de> serde::Deserialize<'de>,
     {
@@ -35,13 +35,22 @@ impl<S: SendRequest> REST<S> {
                 if response.ok() {
                     match response.json::<T>().await {
                         Ok(data) => Ok(data),
-                        Err(error) => Err(format!("deserialization failed: {error:?}")),
+                        Err(err) => Err(anyhow::anyhow!(err)
+                            .context("deserialization failed")
+                            .into()),
                     }
                 } else {
-                    Err(format!("{} {}", response.status(), response.status_text()))
+                    Err(FetchError::Response {
+                        status: response.status(),
+                        status_text: response.status_text(),
+                        body: response.text().await.ok(),
+                    })
                 }
             }
-            Err(_) => Err("no connection".into()),
+            Err(gloo_net::Error::JsError(_) | gloo_net::Error::GlooError(_)) => {
+                Err(FetchError::NoConnection)
+            }
+            Err(err) => Err(anyhow::anyhow!(err).into()),
         }
     }
 
@@ -49,22 +58,86 @@ impl<S: SendRequest> REST<S> {
         &self,
         request: gloo_net::http::Request,
         result: T,
-    ) -> Result<T, String> {
+    ) -> Result<T, FetchError> {
         match self.sender.send_request(request).await {
             Ok(response) => {
                 if response.ok() {
                     Ok(result)
                 } else {
-                    Err(format!("{} {}", response.status(), response.status_text()))
+                    Err(FetchError::Response {
+                        status: response.status(),
+                        status_text: response.status_text(),
+                        body: response.text().await.ok(),
+                    })
                 }
             }
-            Err(_) => Err("no connection".into()),
+            Err(gloo_net::Error::JsError(_) | gloo_net::Error::GlooError(_)) => {
+                Err(FetchError::NoConnection)
+            }
+            Err(err) => Err(anyhow::anyhow!(err).into()),
         }
     }
 }
 
+#[derive(Error, Debug)]
+enum FetchError {
+    #[error("no connection")]
+    NoConnection,
+    #[error("{status} {status_text}{}", body.as_ref().map(|body| format!(": {body}")).unwrap_or_default())]
+    Response {
+        status: u16,
+        status_text: String,
+        body: Option<String>,
+    },
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+impl From<FetchError> for domain::StorageError {
+    fn from(value: FetchError) -> Self {
+        match value {
+            FetchError::NoConnection => domain::StorageError::NoConnection,
+            FetchError::Response { .. } => domain::StorageError::Other(value.into()),
+            FetchError::Other(err) => domain::StorageError::Other(err.into()),
+        }
+    }
+}
+
+impl From<FetchError> for domain::ReadError {
+    fn from(value: FetchError) -> Self {
+        domain::ReadError::Storage(value.into())
+    }
+}
+
+impl From<FetchError> for domain::CreateError {
+    fn from(value: FetchError) -> Self {
+        match value {
+            FetchError::Response { status: 409, .. } => domain::CreateError::Conflict,
+            _ => domain::CreateError::Storage(value.into()),
+        }
+    }
+}
+
+impl From<FetchError> for domain::UpdateError {
+    fn from(value: FetchError) -> Self {
+        match value {
+            FetchError::Response { status: 409, .. } => domain::UpdateError::Conflict,
+            _ => domain::UpdateError::Storage(value.into()),
+        }
+    }
+}
+
+impl From<FetchError> for domain::DeleteError {
+    fn from(value: FetchError) -> Self {
+        domain::DeleteError::Storage(value.into())
+    }
+}
+
 impl<S: SendRequest> domain::SessionRepository for REST<S> {
-    async fn request_session(&self, user_id: domain::UserID) -> Result<domain::User, String> {
+    async fn request_session(
+        &self,
+        user_id: domain::UserID,
+    ) -> Result<domain::User, domain::ReadError> {
         let r: User = self
             .fetch(
                 gloo_net::http::Request::post("api/session")
@@ -72,53 +145,51 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into()
-            .map_err(|err: domain::NameError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn initialize_session(&self) -> Result<domain::User, String> {
+    async fn initialize_session(&self) -> Result<domain::User, domain::ReadError> {
         let r: User = self
             .fetch(gloo_net::http::Request::get("api/session").build().unwrap())
             .await?;
-        r.try_into()
-            .map_err(|err: domain::NameError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_session(&self) -> Result<(), String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete("api/session")
-                .build()
-                .unwrap(),
-            (),
-        )
-        .await
+    async fn delete_session(&self) -> Result<(), domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete("api/session")
+                    .build()
+                    .unwrap(),
+                (),
+            )
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::VersionRepository for REST<S> {
-    async fn read_version(&self) -> Result<String, String> {
-        self.fetch(gloo_net::http::Request::get("api/version").build().unwrap())
-            .await
+    async fn read_version(&self) -> Result<String, domain::ReadError> {
+        Ok(self
+            .fetch(gloo_net::http::Request::get("api/version").build().unwrap())
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::UserRepository for REST<S> {
-    async fn read_users(&self) -> Result<Vec<domain::User>, String> {
+    async fn read_users(&self) -> Result<Vec<domain::User>, domain::ReadError> {
         let r: Vec<User> = self
             .fetch(gloo_net::http::Request::get("api/users").build().unwrap())
             .await?;
-        r.into_iter()
-            .map(|user| {
-                domain::User::try_from(user).map_err(|err: domain::NameError| err.to_string())
-            })
-            .collect::<Result<Vec<domain::User>, String>>()
+        Ok(r.into_iter()
+            .map(|user| domain::User::try_from(user).map_err(Box::from))
+            .collect::<Result<Vec<domain::User>, _>>()?)
     }
 
     async fn create_user(
         &self,
         name: domain::Name,
         sex: domain::Sex,
-    ) -> Result<domain::User, String> {
+    ) -> Result<domain::User, domain::CreateError> {
         let r: User = self
             .fetch(
                 gloo_net::http::Request::post("api/users")
@@ -129,11 +200,10 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into()
-            .map_err(|err: domain::NameError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn replace_user(&self, user: domain::User) -> Result<domain::User, String> {
+    async fn replace_user(&self, user: domain::User) -> Result<domain::User, domain::UpdateError> {
         let r: User = self
             .fetch(
                 gloo_net::http::Request::put(&format!("api/users/{}", user.id.as_u128()))
@@ -141,27 +211,27 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into()
-            .map_err(|err: domain::NameError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete(&format!("api/users/{}", id.as_u128()))
-                .build()
-                .unwrap(),
-            id,
-        )
-        .await
+    async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete(&format!("api/users/{}", id.as_u128()))
+                    .build()
+                    .unwrap(),
+                id,
+            )
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
-    async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, String> {
-        self.read_body_weight().await
+    async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::SyncError> {
+        Ok(self.read_body_weight().await?)
     }
 
-    async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, String> {
+    async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::ReadError> {
         let r: Vec<BodyWeight> = self
             .fetch(
                 gloo_net::http::Request::get("api/body_weight")
@@ -175,7 +245,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     async fn create_body_weight(
         &self,
         body_weight: domain::BodyWeight,
-    ) -> Result<domain::BodyWeight, String> {
+    ) -> Result<domain::BodyWeight, domain::CreateError> {
         let r: BodyWeight = self
             .fetch(
                 gloo_net::http::Request::post("api/body_weight")
@@ -189,7 +259,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     async fn replace_body_weight(
         &self,
         body_weight: domain::BodyWeight,
-    ) -> Result<domain::BodyWeight, String> {
+    ) -> Result<domain::BodyWeight, domain::UpdateError> {
         let r: BodyWeight = self
             .fetch(
                 gloo_net::http::Request::put(&format!("api/body_weight/{}", body_weight.date))
@@ -200,23 +270,24 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
         Ok(r.into())
     }
 
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete(&format!("api/body_weight/{date}"))
-                .build()
-                .unwrap(),
-            date,
-        )
-        .await
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete(&format!("api/body_weight/{date}"))
+                    .build()
+                    .unwrap(),
+                date,
+            )
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
-    async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, String> {
-        self.read_body_fat().await
+    async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::SyncError> {
+        Ok(self.read_body_fat().await?)
     }
 
-    async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, String> {
+    async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::ReadError> {
         let r: Vec<BodyFat> = self
             .fetch(
                 gloo_net::http::Request::get("api/body_fat")
@@ -227,7 +298,10 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
         Ok(r.into_iter().map(domain::BodyFat::from).collect())
     }
 
-    async fn create_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
+    async fn create_body_fat(
+        &self,
+        body_fat: domain::BodyFat,
+    ) -> Result<domain::BodyFat, domain::CreateError> {
         let r: BodyFat = self
             .fetch(
                 gloo_net::http::Request::post("api/body_fat")
@@ -238,7 +312,10 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
         Ok(r.into())
     }
 
-    async fn replace_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
+    async fn replace_body_fat(
+        &self,
+        body_fat: domain::BodyFat,
+    ) -> Result<domain::BodyFat, domain::UpdateError> {
         let r: BodyFat = self
             .fetch(
                 gloo_net::http::Request::put(&format!("api/body_fat/{}", body_fat.date))
@@ -249,34 +326,36 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
         Ok(r.into())
     }
 
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete(&format!("api/body_fat/{date}"))
-                .build()
-                .unwrap(),
-            date,
-        )
-        .await
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete(&format!("api/body_fat/{date}"))
+                    .build()
+                    .unwrap(),
+                date,
+            )
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::PeriodRepository for REST<S> {
-    async fn sync_period(&self) -> Result<Vec<domain::Period>, String> {
-        self.read_period().await
+    async fn sync_period(&self) -> Result<Vec<domain::Period>, domain::SyncError> {
+        Ok(self.read_period().await?)
     }
 
-    async fn read_period(&self) -> Result<Vec<domain::Period>, String> {
+    async fn read_period(&self) -> Result<Vec<domain::Period>, domain::ReadError> {
         let r: Vec<Period> = self
             .fetch(gloo_net::http::Request::get("api/period").build().unwrap())
             .await?;
-        r.into_iter()
-            .map(|p| {
-                domain::Period::try_from(p).map_err(|err: domain::IntensityError| err.to_string())
-            })
-            .collect::<Result<Vec<domain::Period>, String>>()
+        Ok(r.into_iter()
+            .map(|p| domain::Period::try_from(p).map_err(Box::from))
+            .collect::<Result<Vec<domain::Period>, _>>()?)
     }
 
-    async fn create_period(&self, period: domain::Period) -> Result<domain::Period, String> {
+    async fn create_period(
+        &self,
+        period: domain::Period,
+    ) -> Result<domain::Period, domain::CreateError> {
         let r: Period = self
             .fetch(
                 gloo_net::http::Request::post("api/period")
@@ -284,11 +363,13 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into()
-            .map_err(|err: domain::IntensityError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn replace_period(&self, period: domain::Period) -> Result<domain::Period, String> {
+    async fn replace_period(
+        &self,
+        period: domain::Period,
+    ) -> Result<domain::Period, domain::UpdateError> {
         let r: Period = self
             .fetch(
                 gloo_net::http::Request::put(&format!("api/period/{}", period.date))
@@ -296,27 +377,27 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into()
-            .map_err(|err: domain::IntensityError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete(&format!("api/period/{date}"))
-                .build()
-                .unwrap(),
-            date,
-        )
-        .await
+    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete(&format!("api/period/{date}"))
+                    .build()
+                    .unwrap(),
+                date,
+            )
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
-    async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, String> {
-        self.read_exercises().await
+    async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, domain::SyncError> {
+        Ok(self.read_exercises().await?)
     }
 
-    async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, String> {
+    async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, domain::ReadError> {
         let r: Vec<Exercise> = self
             .fetch(
                 gloo_net::http::Request::get("api/exercises")
@@ -324,18 +405,16 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
                     .unwrap(),
             )
             .await?;
-        r.into_iter()
-            .map(|exercise| {
-                domain::Exercise::try_from(exercise).map_err(|err: ExerciseError| err.to_string())
-            })
-            .collect::<Result<Vec<domain::Exercise>, String>>()
+        Ok(r.into_iter()
+            .map(|exercise| domain::Exercise::try_from(exercise).map_err(Box::from))
+            .collect::<Result<Vec<domain::Exercise>, _>>()?)
     }
 
     async fn create_exercise(
         &self,
         name: domain::Name,
         muscles: Vec<domain::ExerciseMuscle>,
-    ) -> Result<domain::Exercise, String> {
+    ) -> Result<domain::Exercise, domain::CreateError> {
         let r: Exercise = self
             .fetch(
                 gloo_net::http::Request::post("api/exercises")
@@ -346,13 +425,13 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into().map_err(|err: ExerciseError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
     async fn replace_exercise(
         &self,
         exercise: domain::Exercise,
-    ) -> Result<domain::Exercise, String> {
+    ) -> Result<domain::Exercise, domain::UpdateError> {
         let r: Exercise = self
             .fetch(
                 gloo_net::http::Request::put(&format!("api/exercises/{}", exercise.id.as_u128()))
@@ -360,26 +439,30 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into().map_err(|err: ExerciseError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<domain::ExerciseID, String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete(&format!("api/exercises/{}", id.as_u128()))
-                .build()
-                .unwrap(),
-            id,
-        )
-        .await
+    async fn delete_exercise(
+        &self,
+        id: domain::ExerciseID,
+    ) -> Result<domain::ExerciseID, domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete(&format!("api/exercises/{}", id.as_u128()))
+                    .build()
+                    .unwrap(),
+                id,
+            )
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::RoutineRepository for REST<S> {
-    async fn sync_routines(&self) -> Result<Vec<domain::Routine>, String> {
-        self.read_routines().await
+    async fn sync_routines(&self) -> Result<Vec<domain::Routine>, domain::SyncError> {
+        Ok(self.read_routines().await?)
     }
 
-    async fn read_routines(&self) -> Result<Vec<domain::Routine>, String> {
+    async fn read_routines(&self) -> Result<Vec<domain::Routine>, domain::ReadError> {
         let r: Vec<Routine> = self
             .fetch(
                 gloo_net::http::Request::get("api/routines")
@@ -387,18 +470,16 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
                     .unwrap(),
             )
             .await?;
-        r.into_iter()
-            .map(|routine| {
-                domain::Routine::try_from(routine).map_err(|err: domain::NameError| err.to_string())
-            })
-            .collect::<Result<Vec<domain::Routine>, String>>()
+        Ok(r.into_iter()
+            .map(|routine| domain::Routine::try_from(routine).map_err(Box::from))
+            .collect::<Result<Vec<domain::Routine>, _>>()?)
     }
 
     async fn create_routine(
         &self,
         name: domain::Name,
         sections: Vec<domain::RoutinePart>,
-    ) -> Result<domain::Routine, String> {
+    ) -> Result<domain::Routine, domain::CreateError> {
         let r: Routine = self
             .fetch(
                 gloo_net::http::Request::post("api/routines")
@@ -411,8 +492,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into()
-            .map_err(|err: domain::NameError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
     async fn modify_routine(
@@ -421,7 +501,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
         name: Option<domain::Name>,
         archived: Option<bool>,
         sections: Option<Vec<domain::RoutinePart>>,
-    ) -> Result<domain::Routine, String> {
+    ) -> Result<domain::Routine, domain::UpdateError> {
         let mut content = Map::new();
         if let Some(name) = name {
             content.insert("name".into(), json!(name.to_string()));
@@ -447,27 +527,34 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
                     .expect("serialization failed"),
             )
             .await?;
-        r.try_into()
-            .map_err(|err: domain::NameError| err.to_string())
+        Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_routine(&self, id: domain::RoutineID) -> Result<domain::RoutineID, String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete(&format!("api/routines/{}", id.as_u128()))
-                .build()
-                .unwrap(),
-            id,
-        )
-        .await
+    async fn delete_routine(
+        &self,
+        id: domain::RoutineID,
+    ) -> Result<domain::RoutineID, domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete(&format!("api/routines/{}", id.as_u128()))
+                    .build()
+                    .unwrap(),
+                id,
+            )
+            .await?)
     }
 }
 
 impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
-    async fn sync_training_sessions(&self) -> Result<Vec<domain::TrainingSession>, String> {
-        self.read_training_sessions().await
+    async fn sync_training_sessions(
+        &self,
+    ) -> Result<Vec<domain::TrainingSession>, domain::SyncError> {
+        Ok(self.read_training_sessions().await?)
     }
 
-    async fn read_training_sessions(&self) -> Result<Vec<domain::TrainingSession>, String> {
+    async fn read_training_sessions(
+        &self,
+    ) -> Result<Vec<domain::TrainingSession>, domain::ReadError> {
         let r: Vec<TrainingSession> = self
             .fetch(
                 gloo_net::http::Request::get("api/workouts")
@@ -484,7 +571,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         date: NaiveDate,
         notes: String,
         elements: Vec<domain::TrainingSessionElement>,
-    ) -> Result<domain::TrainingSession, String> {
+    ) -> Result<domain::TrainingSession, domain::CreateError> {
         let r: TrainingSession = self
             .fetch(
                 gloo_net::http::Request::post("api/workouts")
@@ -512,7 +599,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         id: domain::TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
-    ) -> Result<domain::TrainingSession, String> {
+    ) -> Result<domain::TrainingSession, domain::UpdateError> {
         let mut content = Map::new();
         if let Some(notes) = notes {
             content.insert("notes".into(), json!(notes));
@@ -541,14 +628,15 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
     async fn delete_training_session(
         &self,
         id: domain::TrainingSessionID,
-    ) -> Result<domain::TrainingSessionID, String> {
-        self.fetch_no_content(
-            gloo_net::http::Request::delete(&format!("api/workouts/{}", id.as_u128()))
-                .build()
-                .unwrap(),
-            id,
-        )
-        .await
+    ) -> Result<domain::TrainingSessionID, domain::DeleteError> {
+        Ok(self
+            .fetch_no_content(
+                gloo_net::http::Request::delete(&format!("api/workouts/{}", id.as_u128()))
+                    .build()
+                    .unwrap(),
+                id,
+            )
+            .await?)
     }
 }
 
@@ -1333,7 +1421,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.request_session(USER.id).await, Ok(USER.clone()));
+            assert_eq!(rest.request_session(USER.id).await.unwrap(), USER.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1347,7 +1435,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.initialize_session().await, Ok(USER.clone()));
+            assert_eq!(rest.initialize_session().await.unwrap(), USER.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1361,7 +1449,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.delete_session().await, Ok(()));
+            assert_eq!(rest.delete_session().await.unwrap(), ());
         }
 
         #[wasm_bindgen_test]
@@ -1375,7 +1463,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.read_version().await, Ok("0.1.2".to_string()));
+            assert_eq!(rest.read_version().await.unwrap(), "0.1.2".to_string());
         }
 
         #[wasm_bindgen_test]
@@ -1389,7 +1477,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.read_users().await, Ok(USERS.clone()));
+            assert_eq!(rest.read_users().await.unwrap(), USERS.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1404,8 +1492,8 @@ mod tests {
             };
             let rest = REST { sender };
             assert_eq!(
-                rest.create_user(USER.name.clone(), USER.sex).await,
-                Ok(USER.clone())
+                rest.create_user(USER.name.clone(), USER.sex).await.unwrap(),
+                USER.clone()
             );
         }
 
@@ -1420,7 +1508,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.replace_user(USER.clone()).await, Ok(USER.clone()));
+            assert_eq!(rest.replace_user(USER.clone()).await.unwrap(), USER.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1434,7 +1522,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.delete_user(USER.id).await, Ok(USER.id));
+            assert_eq!(rest.delete_user(USER.id).await.unwrap(), USER.id);
         }
 
         #[wasm_bindgen_test]
@@ -1449,7 +1537,10 @@ mod tests {
                 ))),
             };
             let rest = REST { sender };
-            assert_eq!(rest.read_body_weight().await, Ok(BODY_WEIGHTS.to_vec()));
+            assert_eq!(
+                rest.read_body_weight().await.unwrap(),
+                BODY_WEIGHTS.to_vec()
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1463,7 +1554,10 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.create_body_weight(BODY_WEIGHT).await, Ok(BODY_WEIGHT));
+            assert_eq!(
+                rest.create_body_weight(BODY_WEIGHT).await.unwrap(),
+                BODY_WEIGHT
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1477,7 +1571,10 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.replace_body_weight(BODY_WEIGHT).await, Ok(BODY_WEIGHT));
+            assert_eq!(
+                rest.replace_body_weight(BODY_WEIGHT).await.unwrap(),
+                BODY_WEIGHT
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1492,7 +1589,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.delete_body_weight(date).await, Ok(date));
+            assert_eq!(rest.delete_body_weight(date).await.unwrap(), date);
         }
 
         #[wasm_bindgen_test]
@@ -1506,7 +1603,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.read_body_fat().await, Ok(BODY_FATS.to_vec()));
+            assert_eq!(rest.read_body_fat().await.unwrap(), BODY_FATS.to_vec());
         }
 
         #[wasm_bindgen_test]
@@ -1520,7 +1617,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.create_body_fat(BODY_FAT).await, Ok(BODY_FAT));
+            assert_eq!(rest.create_body_fat(BODY_FAT).await.unwrap(), BODY_FAT);
         }
 
         #[wasm_bindgen_test]
@@ -1534,7 +1631,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.replace_body_fat(BODY_FAT).await, Ok(BODY_FAT));
+            assert_eq!(rest.replace_body_fat(BODY_FAT).await.unwrap(), BODY_FAT);
         }
 
         #[wasm_bindgen_test]
@@ -1549,7 +1646,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.delete_body_fat(date).await, Ok(date));
+            assert_eq!(rest.delete_body_fat(date).await.unwrap(), date);
         }
 
         #[wasm_bindgen_test]
@@ -1563,7 +1660,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.read_period().await, Ok(PERIODS.to_vec()));
+            assert_eq!(rest.read_period().await.unwrap(), PERIODS.to_vec());
         }
 
         #[wasm_bindgen_test]
@@ -1577,7 +1674,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.create_period(PERIOD).await, Ok(PERIOD));
+            assert_eq!(rest.create_period(PERIOD).await.unwrap(), PERIOD);
         }
 
         #[wasm_bindgen_test]
@@ -1591,7 +1688,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.replace_period(PERIOD).await, Ok(PERIOD));
+            assert_eq!(rest.replace_period(PERIOD).await.unwrap(), PERIOD);
         }
 
         #[wasm_bindgen_test]
@@ -1606,7 +1703,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.delete_period(date).await, Ok(date));
+            assert_eq!(rest.delete_period(date).await.unwrap(), date);
         }
 
         #[wasm_bindgen_test]
@@ -1621,7 +1718,7 @@ mod tests {
                 ))),
             };
             let rest = REST { sender };
-            assert_eq!(rest.read_exercises().await, Ok(EXERCISES.to_vec()));
+            assert_eq!(rest.read_exercises().await.unwrap(), EXERCISES.to_vec());
         }
 
         #[wasm_bindgen_test]
@@ -1637,8 +1734,9 @@ mod tests {
             let rest = REST { sender };
             assert_eq!(
                 rest.create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
-                    .await,
-                Ok(EXERCISE.clone())
+                    .await
+                    .unwrap(),
+                EXERCISE.clone()
             );
         }
 
@@ -1654,8 +1752,8 @@ mod tests {
             };
             let rest = REST { sender };
             assert_eq!(
-                rest.replace_exercise(EXERCISE.clone()).await,
-                Ok(EXERCISE.clone())
+                rest.replace_exercise(EXERCISE.clone()).await.unwrap(),
+                EXERCISE.clone()
             );
         }
 
@@ -1671,7 +1769,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.delete_exercise(id).await, Ok(id));
+            assert_eq!(rest.delete_exercise(id).await.unwrap(), id);
         }
 
         #[wasm_bindgen_test]
@@ -1686,7 +1784,7 @@ mod tests {
                 ))),
             };
             let rest = REST { sender };
-            assert_eq!(rest.read_routines().await, Ok(ROUTINES.clone()));
+            assert_eq!(rest.read_routines().await.unwrap(), ROUTINES.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1702,8 +1800,9 @@ mod tests {
             let rest = REST { sender };
             assert_eq!(
                 rest.create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
-                    .await,
-                Ok(ROUTINE.clone())
+                    .await
+                    .unwrap(),
+                ROUTINE.clone()
             );
         }
 
@@ -1725,8 +1824,9 @@ mod tests {
                     Some(ROUTINE.archived),
                     Some(ROUTINE.sections.clone())
                 )
-                .await,
-                Ok(ROUTINE.clone())
+                .await
+                .unwrap(),
+                ROUTINE.clone()
             );
         }
 
@@ -1741,7 +1841,7 @@ mod tests {
                 )),
             };
             let rest = REST { sender };
-            assert_eq!(rest.delete_routine(ROUTINE.id).await, Ok(ROUTINE.id));
+            assert_eq!(rest.delete_routine(ROUTINE.id).await.unwrap(), ROUTINE.id);
         }
 
         #[wasm_bindgen_test]
@@ -1757,8 +1857,8 @@ mod tests {
             };
             let rest = REST { sender };
             assert_eq!(
-                rest.read_training_sessions().await,
-                Ok(TRAINING_SESSIONS.clone())
+                rest.read_training_sessions().await.unwrap(),
+                TRAINING_SESSIONS.clone()
             );
         }
 
@@ -1780,8 +1880,9 @@ mod tests {
                     TRAINING_SESSION.notes.clone(),
                     TRAINING_SESSION.elements.clone()
                 )
-                .await,
-                Ok(TRAINING_SESSION.clone())
+                .await
+                .unwrap(),
+                TRAINING_SESSION.clone()
             );
         }
 
@@ -1802,8 +1903,9 @@ mod tests {
                     Some(TRAINING_SESSION.notes.clone()),
                     Some(TRAINING_SESSION.elements.clone())
                 )
-                .await,
-                Ok(TRAINING_SESSION.clone())
+                .await
+                .unwrap(),
+                TRAINING_SESSION.clone()
             );
         }
 
@@ -1819,8 +1921,10 @@ mod tests {
             };
             let rest = REST { sender };
             assert_eq!(
-                rest.delete_training_session(TRAINING_SESSION.id).await,
-                Ok(TRAINING_SESSION.id)
+                rest.delete_training_session(TRAINING_SESSION.id)
+                    .await
+                    .unwrap(),
+                TRAINING_SESSION.id
             );
         }
 

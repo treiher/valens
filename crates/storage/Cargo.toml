@@ -9,7 +9,7 @@ publish = false
 valens-domain = { path = "../domain" }
 valens-web-app = { path = "../web-app" }
 
-anyhow = "1.0.97"
+anyhow = { workspace = true }
 chrono = { workspace = true, default-features = false, features = ["serde"] }
 gloo-net = { version = "0.6.0", default-features = false, features = ["http", "json"] }
 gloo-storage = "0.3.0"

@@ -79,11 +79,14 @@ impl IndexedDB {
         .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
-    pub async fn get_all<R, V>(&self, object_store: Store) -> Result<Vec<R>, String>
+    pub async fn get_all<R, V>(
+        &self,
+        object_store: Store,
+    ) -> Result<Vec<R>, Box<dyn std::error::Error>>
     where
         R: TryFrom<V>,
         V: DeserialiseFromJs,
-        <R as TryFrom<V>>::Error: std::error::Error,
+        <R as TryFrom<V>>::Error: std::error::Error + 'static,
     {
         async {
             let db = IndexedDB.open().await?;
@@ -99,7 +102,6 @@ impl IndexedDB {
             Ok(r)
         }
         .await
-        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
     pub async fn add<V: serde::Serialize, R>(
@@ -107,7 +109,7 @@ impl IndexedDB {
         object_store: Store,
         value: V,
         result: R,
-    ) -> Result<R, String> {
+    ) -> Result<R, Box<dyn std::error::Error>> {
         async {
             let db = self.open().await?;
             let transaction = db
@@ -120,7 +122,6 @@ impl IndexedDB {
             Ok(result)
         }
         .await
-        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
     pub async fn put<V: serde::Serialize, R>(
@@ -128,7 +129,7 @@ impl IndexedDB {
         object_store: Store,
         value: V,
         result: R,
-    ) -> Result<R, String> {
+    ) -> Result<R, Box<dyn std::error::Error>> {
         async {
             let db = self.open().await?;
             let transaction = db
@@ -141,7 +142,6 @@ impl IndexedDB {
             Ok(result)
         }
         .await
-        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
     pub async fn replace_all<'a, V: 'a, T: From<&'a V> + serde::Serialize, R>(
@@ -173,7 +173,7 @@ impl IndexedDB {
         object_store: Store,
         key: K,
         result: R,
-    ) -> Result<R, String> {
+    ) -> Result<R, Box<dyn std::error::Error>> {
         async {
             let db = self.open().await?;
             let transaction = db
@@ -186,7 +186,6 @@ impl IndexedDB {
             Ok(result)
         }
         .await
-        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
     pub async fn clear_app_data(&self) -> Result<(), String> {
@@ -207,7 +206,7 @@ impl IndexedDB {
         .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
-    pub async fn clear_session_dependent_data(&self) -> Result<(), String> {
+    pub async fn clear_session_dependent_data(&self) -> Result<(), Box<dyn std::error::Error>> {
         async {
             let db = IndexedDB.open().await?;
             for os in [
@@ -229,7 +228,6 @@ impl IndexedDB {
             Ok(())
         }
         .await
-        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
     pub async fn write_session(&self, user: &domain::User) -> Result<(), String> {
@@ -296,11 +294,11 @@ impl IndexedDB {
 }
 
 impl domain::SessionRepository for IndexedDB {
-    async fn request_session(&self, _: domain::UserID) -> Result<domain::User, String> {
+    async fn request_session(&self, _: domain::UserID) -> Result<domain::User, domain::ReadError> {
         panic!("unsupported")
     }
 
-    async fn initialize_session(&self) -> Result<domain::User, String> {
+    async fn initialize_session(&self) -> Result<domain::User, domain::ReadError> {
         let user = async {
             let db = IndexedDB.open().await?;
             let transaction = db
@@ -308,21 +306,18 @@ impl domain::SessionRepository for IndexedDB {
                 .with_mode(TransactionMode::Readwrite)
                 .build()?;
             let store = transaction.object_store(Store::App.as_ref())?;
-            let user: User = store
-                .get("session")
-                .serde()?
-                .await?
-                .ok_or(IndexedDBError::NoSession)?;
-            Ok::<User, IndexedDBError>(user)
+            let user: Option<User> = store.get("session").serde()?.await?;
+            Ok::<Option<User>, Box<dyn std::error::Error>>(user)
         }
-        .await
-        .map_err(|err| err.to_string())?;
+        .await?;
 
-        user.try_into()
-            .map_err(|err: domain::NameError| err.to_string())
+        Ok(user
+            .ok_or(domain::ReadError::Storage(domain::StorageError::NoSession))?
+            .try_into()
+            .map_err(Box::from)?)
     }
 
-    async fn delete_session(&self) -> Result<(), String> {
+    async fn delete_session(&self) -> Result<(), domain::DeleteError> {
         async {
             let db = IndexedDB.open().await?;
             let transaction = db
@@ -335,12 +330,12 @@ impl domain::SessionRepository for IndexedDB {
             Ok(())
         }
         .await
-        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
+        .map_err(domain::DeleteError::Other)
     }
 }
 
 impl domain::UserRepository for IndexedDB {
-    async fn read_users(&self) -> Result<Vec<domain::User>, String> {
+    async fn read_users(&self) -> Result<Vec<domain::User>, domain::ReadError> {
         panic!("unsupported")
     }
 
@@ -348,172 +343,189 @@ impl domain::UserRepository for IndexedDB {
         &self,
         _name: domain::Name,
         _sex: domain::Sex,
-    ) -> Result<domain::User, String> {
+    ) -> Result<domain::User, domain::CreateError> {
         panic!("unsupported")
     }
 
-    async fn replace_user(&self, _: domain::User) -> Result<domain::User, String> {
+    async fn replace_user(&self, _: domain::User) -> Result<domain::User, domain::UpdateError> {
         panic!("unsupported")
     }
 
-    async fn delete_user(&self, _: domain::UserID) -> Result<domain::UserID, String> {
+    async fn delete_user(&self, _: domain::UserID) -> Result<domain::UserID, domain::DeleteError> {
         panic!("unsupported")
     }
 }
 
 impl domain::BodyWeightRepository for IndexedDB {
-    async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, String> {
+    async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::SyncError> {
         panic!("unsupported")
     }
 
-    async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, String> {
-        IndexedDB
+    async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::ReadError> {
+        Ok(IndexedDB
             .get_all::<domain::BodyWeight, BodyWeight>(Store::BodyWeight)
-            .await
+            .await?)
     }
 
     async fn create_body_weight(
         &self,
         body_weight: domain::BodyWeight,
-    ) -> Result<domain::BodyWeight, String> {
-        IndexedDB
+    ) -> Result<domain::BodyWeight, domain::CreateError> {
+        Ok(IndexedDB
             .add(
                 Store::BodyWeight,
                 BodyWeight::from(&body_weight),
                 body_weight,
             )
-            .await
+            .await?)
     }
 
     async fn replace_body_weight(
         &self,
         body_weight: domain::BodyWeight,
-    ) -> Result<domain::BodyWeight, String> {
-        IndexedDB
+    ) -> Result<domain::BodyWeight, domain::UpdateError> {
+        Ok(IndexedDB
             .put(
                 Store::BodyWeight,
                 BodyWeight::from(&body_weight),
                 body_weight,
             )
-            .await
+            .await?)
     }
 
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, String> {
-        IndexedDB
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+        Ok(IndexedDB
             .delete(Store::BodyWeight, date.to_string(), date)
-            .await
+            .await?)
     }
 }
 
 impl domain::BodyFatRepository for IndexedDB {
-    async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, String> {
+    async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::SyncError> {
         panic!("unsupported")
     }
 
-    async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, String> {
-        IndexedDB
+    async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::ReadError> {
+        Ok(IndexedDB
             .get_all::<domain::BodyFat, BodyFat>(Store::BodyFat)
-            .await
+            .await?)
     }
 
-    async fn create_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
-        IndexedDB
+    async fn create_body_fat(
+        &self,
+        body_fat: domain::BodyFat,
+    ) -> Result<domain::BodyFat, domain::CreateError> {
+        Ok(IndexedDB
             .add(Store::BodyFat, BodyFat::from(&body_fat), body_fat)
-            .await
+            .await?)
     }
 
-    async fn replace_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
-        IndexedDB
+    async fn replace_body_fat(
+        &self,
+        body_fat: domain::BodyFat,
+    ) -> Result<domain::BodyFat, domain::UpdateError> {
+        Ok(IndexedDB
             .put(Store::BodyFat, BodyFat::from(&body_fat), body_fat)
-            .await
+            .await?)
     }
 
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, String> {
-        IndexedDB
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+        Ok(IndexedDB
             .delete(Store::BodyFat, date.to_string(), date)
-            .await
+            .await?)
     }
 }
 
 impl domain::PeriodRepository for IndexedDB {
-    async fn sync_period(&self) -> Result<Vec<domain::Period>, String> {
+    async fn sync_period(&self) -> Result<Vec<domain::Period>, domain::SyncError> {
         panic!("unsupported")
     }
 
-    async fn read_period(&self) -> Result<Vec<domain::Period>, String> {
-        IndexedDB
+    async fn read_period(&self) -> Result<Vec<domain::Period>, domain::ReadError> {
+        Ok(IndexedDB
             .get_all::<domain::Period, Period>(Store::Period)
-            .await
+            .await?)
     }
 
-    async fn create_period(&self, period: domain::Period) -> Result<domain::Period, String> {
-        IndexedDB
+    async fn create_period(
+        &self,
+        period: domain::Period,
+    ) -> Result<domain::Period, domain::CreateError> {
+        Ok(IndexedDB
             .add(Store::Period, Period::from(&period), period)
-            .await
+            .await?)
     }
 
-    async fn replace_period(&self, period: domain::Period) -> Result<domain::Period, String> {
-        IndexedDB
+    async fn replace_period(
+        &self,
+        period: domain::Period,
+    ) -> Result<domain::Period, domain::UpdateError> {
+        Ok(IndexedDB
             .put(Store::Period, Period::from(&period), period)
-            .await
+            .await?)
     }
 
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, String> {
-        IndexedDB
+    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+        Ok(IndexedDB
             .delete(Store::Period, date.to_string(), date)
-            .await
+            .await?)
     }
 }
 
 impl domain::ExerciseRepository for IndexedDB {
-    async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, String> {
+    async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, domain::SyncError> {
         panic!("unsupported")
     }
 
-    async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, String> {
-        IndexedDB
+    async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, domain::ReadError> {
+        Ok(IndexedDB
             .get_all::<domain::Exercise, Exercise>(Store::Exercises)
-            .await
+            .await?)
     }
 
     async fn create_exercise(
         &self,
         _name: domain::Name,
         _muscles: Vec<domain::ExerciseMuscle>,
-    ) -> Result<domain::Exercise, String> {
+    ) -> Result<domain::Exercise, domain::CreateError> {
         panic!("unsupported")
     }
 
     async fn replace_exercise(
         &self,
         exercise: domain::Exercise,
-    ) -> Result<domain::Exercise, String> {
-        IndexedDB
+    ) -> Result<domain::Exercise, domain::UpdateError> {
+        Ok(IndexedDB
             .put(Store::Exercises, Exercise::from(&exercise), exercise)
-            .await
+            .await?)
     }
 
-    async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<domain::ExerciseID, String> {
-        IndexedDB.delete(Store::Exercises, id.to_string(), id).await
+    async fn delete_exercise(
+        &self,
+        id: domain::ExerciseID,
+    ) -> Result<domain::ExerciseID, domain::DeleteError> {
+        Ok(IndexedDB
+            .delete(Store::Exercises, id.to_string(), id)
+            .await?)
     }
 }
 
 impl domain::RoutineRepository for IndexedDB {
-    async fn sync_routines(&self) -> Result<Vec<domain::Routine>, String> {
+    async fn sync_routines(&self) -> Result<Vec<domain::Routine>, domain::SyncError> {
         panic!("unsupported")
     }
 
-    async fn read_routines(&self) -> Result<Vec<domain::Routine>, String> {
-        IndexedDB
+    async fn read_routines(&self) -> Result<Vec<domain::Routine>, domain::ReadError> {
+        Ok(IndexedDB
             .get_all::<domain::Routine, Routine>(Store::Routines)
-            .await
+            .await?)
     }
 
     async fn create_routine(
         &self,
         _name: domain::Name,
         _sections: Vec<domain::RoutinePart>,
-    ) -> Result<domain::Routine, String> {
+    ) -> Result<domain::Routine, domain::CreateError> {
         panic!("unsupported")
     }
 
@@ -523,10 +535,11 @@ impl domain::RoutineRepository for IndexedDB {
         name: Option<domain::Name>,
         archived: Option<bool>,
         sections: Option<Vec<domain::RoutinePart>>,
-    ) -> Result<domain::Routine, String> {
+    ) -> Result<domain::Routine, domain::UpdateError> {
         let mut routine = IndexedDB
             .get::<String, domain::Routine, Routine>(Store::Routines, &id.to_string())
-            .await?;
+            .await
+            .map_err(Box::from)?;
 
         if let Some(name) = name {
             routine.name = name;
@@ -538,25 +551,34 @@ impl domain::RoutineRepository for IndexedDB {
             routine.sections = sections;
         }
 
-        IndexedDB
+        Ok(IndexedDB
             .put(Store::Routines, Routine::from(&routine), routine)
-            .await
+            .await?)
     }
 
-    async fn delete_routine(&self, id: domain::RoutineID) -> Result<domain::RoutineID, String> {
-        IndexedDB.delete(Store::Routines, id.to_string(), id).await
+    async fn delete_routine(
+        &self,
+        id: domain::RoutineID,
+    ) -> Result<domain::RoutineID, domain::DeleteError> {
+        Ok(IndexedDB
+            .delete(Store::Routines, id.to_string(), id)
+            .await?)
     }
 }
 
 impl domain::TrainingSessionRepository for IndexedDB {
-    async fn sync_training_sessions(&self) -> Result<Vec<domain::TrainingSession>, String> {
+    async fn sync_training_sessions(
+        &self,
+    ) -> Result<Vec<domain::TrainingSession>, domain::SyncError> {
         panic!("unsupported")
     }
 
-    async fn read_training_sessions(&self) -> Result<Vec<domain::TrainingSession>, String> {
-        IndexedDB
+    async fn read_training_sessions(
+        &self,
+    ) -> Result<Vec<domain::TrainingSession>, domain::ReadError> {
+        Ok(IndexedDB
             .get_all::<domain::TrainingSession, TrainingSession>(Store::TrainingSessions)
-            .await
+            .await?)
     }
 
     async fn create_training_session(
@@ -565,7 +587,7 @@ impl domain::TrainingSessionRepository for IndexedDB {
         _date: NaiveDate,
         _notes: String,
         _elements: Vec<domain::TrainingSessionElement>,
-    ) -> Result<domain::TrainingSession, String> {
+    ) -> Result<domain::TrainingSession, domain::CreateError> {
         panic!("unsupported")
     }
 
@@ -574,13 +596,14 @@ impl domain::TrainingSessionRepository for IndexedDB {
         id: domain::TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
-    ) -> Result<domain::TrainingSession, String> {
+    ) -> Result<domain::TrainingSession, domain::UpdateError> {
         let mut training_session = IndexedDB
             .get::<String, domain::TrainingSession, TrainingSession>(
                 Store::TrainingSessions,
                 &id.to_string(),
             )
-            .await?;
+            .await
+            .map_err(Box::from)?;
 
         if let Some(notes) = notes {
             training_session.notes = notes;
@@ -589,29 +612,27 @@ impl domain::TrainingSessionRepository for IndexedDB {
             training_session.elements = elements;
         }
 
-        IndexedDB
+        Ok(IndexedDB
             .put(
                 Store::TrainingSessions,
                 TrainingSession::from(&training_session),
                 training_session,
             )
-            .await
+            .await?)
     }
 
     async fn delete_training_session(
         &self,
         id: domain::TrainingSessionID,
-    ) -> Result<domain::TrainingSessionID, String> {
-        IndexedDB
+    ) -> Result<domain::TrainingSessionID, domain::DeleteError> {
+        Ok(IndexedDB
             .delete(Store::TrainingSessions, id.to_string(), id)
-            .await
+            .await?)
     }
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum IndexedDBError {
-    #[error("no session")]
-    NoSession,
     #[error("object not found")]
     ObjectNotFound,
     #[error(transparent)]
@@ -1348,14 +1369,14 @@ mod tests {
         async fn test_initialize_session() {
             reset().await;
 
-            assert_eq!(
+            assert!(matches!(
                 IndexedDB.initialize_session().await,
-                Err(IndexedDBError::NoSession.to_string())
-            );
+                Err(domain::ReadError::Storage(domain::StorageError::NoSession))
+            ));
 
             IndexedDB.write_session(&USER).await.unwrap();
 
-            assert_eq!(IndexedDB.initialize_session().await, Ok(USER.clone()));
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1364,19 +1385,19 @@ mod tests {
 
             IndexedDB.write_session(&USER).await.unwrap();
 
-            assert_eq!(IndexedDB.delete_session().await, Ok(()));
+            assert_eq!(IndexedDB.delete_session().await.unwrap(), ());
 
-            assert_eq!(
+            assert!(matches!(
                 IndexedDB.initialize_session().await,
-                Err(IndexedDBError::NoSession.to_string())
-            );
+                Err(domain::ReadError::Storage(domain::StorageError::NoSession))
+            ));
         }
 
         #[wasm_bindgen_test]
         async fn test_delete_session_non_existing() {
             reset().await;
 
-            assert_eq!(IndexedDB.delete_session().await, Ok(()));
+            assert_eq!(IndexedDB.delete_session().await.unwrap(), ());
         }
 
         #[wasm_bindgen_test]
@@ -1408,13 +1429,13 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_body_weight().await.unwrap(), vec![]);
 
             IndexedDB.write_body_weight(BODY_WEIGHTS).await.unwrap();
 
             assert_eq!(
-                IndexedDB.read_body_weight().await,
-                Ok(BODY_WEIGHTS.to_vec())
+                IndexedDB.read_body_weight().await.unwrap(),
+                BODY_WEIGHTS.to_vec()
             );
         }
 
@@ -1423,14 +1444,17 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_body_weight().await.unwrap(), vec![]);
 
             assert_eq!(
-                IndexedDB.create_body_weight(BODY_WEIGHT).await,
-                Ok(BODY_WEIGHT)
+                IndexedDB.create_body_weight(BODY_WEIGHT).await.unwrap(),
+                BODY_WEIGHT
             );
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![BODY_WEIGHT]));
+            assert_eq!(
+                IndexedDB.read_body_weight().await.unwrap(),
+                vec![BODY_WEIGHT]
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1440,7 +1464,10 @@ mod tests {
 
             IndexedDB.write_body_weight(&[BODY_WEIGHT]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![BODY_WEIGHT]));
+            assert_eq!(
+                IndexedDB.read_body_weight().await.unwrap(),
+                vec![BODY_WEIGHT]
+            );
 
             let mut body_weight = BODY_WEIGHT;
             body_weight.weight += 1.0;
@@ -1450,10 +1477,14 @@ mod tests {
                     .create_body_weight(body_weight.clone())
                     .await
                     .unwrap_err()
+                    .to_string()
                     .starts_with("ConstraintError: ")
             );
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![BODY_WEIGHT]));
+            assert_eq!(
+                IndexedDB.read_body_weight().await.unwrap(),
+                vec![BODY_WEIGHT]
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1463,17 +1494,26 @@ mod tests {
 
             IndexedDB.write_body_weight(&[BODY_WEIGHT]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![BODY_WEIGHT]));
+            assert_eq!(
+                IndexedDB.read_body_weight().await.unwrap(),
+                vec![BODY_WEIGHT]
+            );
 
             let mut body_weight = BODY_WEIGHT;
             body_weight.weight += 1.0;
 
             assert_eq!(
-                IndexedDB.replace_body_weight(body_weight.clone()).await,
-                Ok(body_weight.clone())
+                IndexedDB
+                    .replace_body_weight(body_weight.clone())
+                    .await
+                    .unwrap(),
+                body_weight.clone()
             );
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![body_weight]));
+            assert_eq!(
+                IndexedDB.read_body_weight().await.unwrap(),
+                vec![body_weight]
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1483,14 +1523,20 @@ mod tests {
 
             IndexedDB.write_body_weight(&[BODY_WEIGHT]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![BODY_WEIGHT]));
-
             assert_eq!(
-                IndexedDB.delete_body_weight(BODY_WEIGHT.date).await,
-                Ok(BODY_WEIGHT.date)
+                IndexedDB.read_body_weight().await.unwrap(),
+                vec![BODY_WEIGHT]
             );
 
-            assert_eq!(IndexedDB.read_body_weight().await, Ok(vec![]));
+            assert_eq!(
+                IndexedDB
+                    .delete_body_weight(BODY_WEIGHT.date)
+                    .await
+                    .unwrap(),
+                BODY_WEIGHT.date
+            );
+
+            assert_eq!(IndexedDB.read_body_weight().await.unwrap(), vec![]);
         }
 
         #[wasm_bindgen_test]
@@ -1499,8 +1545,11 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                IndexedDB.delete_body_weight(BODY_WEIGHT.date).await,
-                Ok(BODY_WEIGHT.date)
+                IndexedDB
+                    .delete_body_weight(BODY_WEIGHT.date)
+                    .await
+                    .unwrap(),
+                BODY_WEIGHT.date
             );
         }
 
@@ -1509,11 +1558,11 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![]);
 
             IndexedDB.write_body_fat(BODY_FATS).await.unwrap();
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(BODY_FATS.to_vec()));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), BODY_FATS.to_vec());
         }
 
         #[wasm_bindgen_test]
@@ -1521,11 +1570,11 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![]);
 
-            assert_eq!(IndexedDB.create_body_fat(BODY_FAT).await, Ok(BODY_FAT));
+            assert_eq!(IndexedDB.create_body_fat(BODY_FAT).await.unwrap(), BODY_FAT);
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![BODY_FAT]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![BODY_FAT]);
         }
 
         #[wasm_bindgen_test]
@@ -1535,7 +1584,7 @@ mod tests {
 
             IndexedDB.write_body_fat(&[BODY_FAT]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![BODY_FAT]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![BODY_FAT]);
 
             let mut body_fat = BODY_FAT;
             body_fat.chest = body_fat.chest.map(|v| v + 1);
@@ -1545,10 +1594,11 @@ mod tests {
                     .create_body_fat(body_fat.clone())
                     .await
                     .unwrap_err()
+                    .to_string()
                     .starts_with("ConstraintError: ")
             );
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![BODY_FAT]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![BODY_FAT]);
         }
 
         #[wasm_bindgen_test]
@@ -1558,17 +1608,17 @@ mod tests {
 
             IndexedDB.write_body_fat(&[BODY_FAT]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![BODY_FAT]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![BODY_FAT]);
 
             let mut body_fat = BODY_FAT;
             body_fat.chest = body_fat.chest.map(|v| v + 1);
 
             assert_eq!(
-                IndexedDB.replace_body_fat(body_fat.clone()).await,
-                Ok(body_fat.clone())
+                IndexedDB.replace_body_fat(body_fat.clone()).await.unwrap(),
+                body_fat.clone()
             );
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![body_fat]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![body_fat]);
         }
 
         #[wasm_bindgen_test]
@@ -1578,14 +1628,14 @@ mod tests {
 
             IndexedDB.write_body_fat(&[BODY_FAT]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![BODY_FAT]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![BODY_FAT]);
 
             assert_eq!(
-                IndexedDB.delete_body_fat(BODY_FAT.date).await,
-                Ok(BODY_FAT.date)
+                IndexedDB.delete_body_fat(BODY_FAT.date).await.unwrap(),
+                BODY_FAT.date
             );
 
-            assert_eq!(IndexedDB.read_body_fat().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![]);
         }
 
         #[wasm_bindgen_test]
@@ -1594,8 +1644,8 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                IndexedDB.delete_body_fat(BODY_FAT.date).await,
-                Ok(BODY_FAT.date)
+                IndexedDB.delete_body_fat(BODY_FAT.date).await.unwrap(),
+                BODY_FAT.date
             );
         }
 
@@ -1604,11 +1654,11 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![]);
 
             IndexedDB.write_period(PERIODS).await.unwrap();
 
-            assert_eq!(IndexedDB.read_period().await, Ok(PERIODS.to_vec()));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), PERIODS.to_vec());
         }
 
         #[wasm_bindgen_test]
@@ -1616,11 +1666,11 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![]);
 
-            assert_eq!(IndexedDB.create_period(PERIOD).await, Ok(PERIOD));
+            assert_eq!(IndexedDB.create_period(PERIOD).await.unwrap(), PERIOD);
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![PERIOD]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![PERIOD]);
         }
 
         #[wasm_bindgen_test]
@@ -1630,7 +1680,7 @@ mod tests {
 
             IndexedDB.write_period(&[PERIOD]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![PERIOD]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![PERIOD]);
 
             let mut period = PERIOD;
             period.intensity = domain::Intensity::Heavy;
@@ -1640,10 +1690,11 @@ mod tests {
                     .create_period(period.clone())
                     .await
                     .unwrap_err()
+                    .to_string()
                     .starts_with("ConstraintError: ")
             );
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![PERIOD]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![PERIOD]);
         }
 
         #[wasm_bindgen_test]
@@ -1653,17 +1704,17 @@ mod tests {
 
             IndexedDB.write_period(&[PERIOD]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![PERIOD]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![PERIOD]);
 
             let mut period = PERIOD;
             period.intensity = domain::Intensity::Heavy;
 
             assert_eq!(
-                IndexedDB.replace_period(period.clone()).await,
-                Ok(period.clone())
+                IndexedDB.replace_period(period.clone()).await.unwrap(),
+                period.clone()
             );
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![period]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![period]);
         }
 
         #[wasm_bindgen_test]
@@ -1673,11 +1724,14 @@ mod tests {
 
             IndexedDB.write_period(&[PERIOD]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![PERIOD]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![PERIOD]);
 
-            assert_eq!(IndexedDB.delete_period(PERIOD.date).await, Ok(PERIOD.date));
+            assert_eq!(
+                IndexedDB.delete_period(PERIOD.date).await.unwrap(),
+                PERIOD.date
+            );
 
-            assert_eq!(IndexedDB.read_period().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_period().await.unwrap(), vec![]);
         }
 
         #[wasm_bindgen_test]
@@ -1685,7 +1739,10 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.delete_period(PERIOD.date).await, Ok(PERIOD.date));
+            assert_eq!(
+                IndexedDB.delete_period(PERIOD.date).await.unwrap(),
+                PERIOD.date
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1693,11 +1750,11 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_exercises().await.unwrap(), vec![]);
 
             IndexedDB.write_exercises(&EXERCISES.clone()).await.unwrap();
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(EXERCISES.clone()));
+            assert_eq!(IndexedDB.read_exercises().await.unwrap(), EXERCISES.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1706,16 +1763,20 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_exercises().await.unwrap(), vec![]);
 
             assert_eq!(
                 IndexedDB
                     .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
-                    .await,
-                Ok(EXERCISE.clone())
+                    .await
+                    .unwrap(),
+                EXERCISE.clone()
             );
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(vec![EXERCISE.clone()]));
+            assert_eq!(
+                IndexedDB.read_exercises().await.unwrap(),
+                vec![EXERCISE.clone()]
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1728,17 +1789,20 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(vec![EXERCISE.clone()]));
+            assert_eq!(
+                IndexedDB.read_exercises().await.unwrap(),
+                vec![EXERCISE.clone()]
+            );
 
             let mut exercise = EXERCISE.clone();
             exercise.name = domain::Name::new("C").unwrap();
 
             assert_eq!(
-                IndexedDB.replace_exercise(exercise.clone()).await,
-                Ok(exercise.clone())
+                IndexedDB.replace_exercise(exercise.clone()).await.unwrap(),
+                exercise.clone()
             );
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(vec![exercise]));
+            assert_eq!(IndexedDB.read_exercises().await.unwrap(), vec![exercise]);
         }
 
         #[wasm_bindgen_test]
@@ -1751,14 +1815,17 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(vec![EXERCISE.clone()]));
-
             assert_eq!(
-                IndexedDB.delete_exercise(EXERCISE.id).await,
-                Ok(EXERCISE.id)
+                IndexedDB.read_exercises().await.unwrap(),
+                vec![EXERCISE.clone()]
             );
 
-            assert_eq!(IndexedDB.read_exercises().await, Ok(vec![]));
+            assert_eq!(
+                IndexedDB.delete_exercise(EXERCISE.id).await.unwrap(),
+                EXERCISE.id
+            );
+
+            assert_eq!(IndexedDB.read_exercises().await.unwrap(), vec![]);
         }
 
         #[wasm_bindgen_test]
@@ -1767,8 +1834,8 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                IndexedDB.delete_exercise(EXERCISE.id).await,
-                Ok(EXERCISE.id)
+                IndexedDB.delete_exercise(EXERCISE.id).await.unwrap(),
+                EXERCISE.id
             );
         }
 
@@ -1777,11 +1844,11 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_routines().await.unwrap(), vec![]);
 
             IndexedDB.write_routines(&ROUTINES.clone()).await.unwrap();
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(ROUTINES.clone()));
+            assert_eq!(IndexedDB.read_routines().await.unwrap(), ROUTINES.clone());
         }
 
         #[wasm_bindgen_test]
@@ -1790,16 +1857,20 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_routines().await.unwrap(), vec![]);
 
             assert_eq!(
                 IndexedDB
                     .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
-                    .await,
-                Ok(ROUTINE.clone())
+                    .await
+                    .unwrap(),
+                ROUTINE.clone()
             );
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(vec![ROUTINE.clone()]));
+            assert_eq!(
+                IndexedDB.read_routines().await.unwrap(),
+                vec![ROUTINE.clone()]
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1809,7 +1880,10 @@ mod tests {
 
             IndexedDB.write_routines(&[ROUTINE.clone()]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(vec![ROUTINE.clone()]));
+            assert_eq!(
+                IndexedDB.read_routines().await.unwrap(),
+                vec![ROUTINE.clone()]
+            );
 
             let mut routine = ROUTINE.clone();
             routine.name = domain::Name::new("C").unwrap();
@@ -1824,11 +1898,12 @@ mod tests {
                         Some(routine.archived),
                         Some(routine.sections.clone())
                     )
-                    .await,
-                Ok(routine.clone())
+                    .await
+                    .unwrap(),
+                routine.clone()
             );
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(vec![routine]));
+            assert_eq!(IndexedDB.read_routines().await.unwrap(), vec![routine]);
         }
 
         #[wasm_bindgen_test]
@@ -1838,11 +1913,17 @@ mod tests {
 
             IndexedDB.write_routines(&[ROUTINE.clone()]).await.unwrap();
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(vec![ROUTINE.clone()]));
+            assert_eq!(
+                IndexedDB.read_routines().await.unwrap(),
+                vec![ROUTINE.clone()]
+            );
 
-            assert_eq!(IndexedDB.delete_routine(ROUTINE.id).await, Ok(ROUTINE.id));
+            assert_eq!(
+                IndexedDB.delete_routine(ROUTINE.id).await.unwrap(),
+                ROUTINE.id
+            );
 
-            assert_eq!(IndexedDB.read_routines().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_routines().await.unwrap(), vec![]);
         }
 
         #[wasm_bindgen_test]
@@ -1850,7 +1931,10 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.delete_routine(ROUTINE.id).await, Ok(ROUTINE.id));
+            assert_eq!(
+                IndexedDB.delete_routine(ROUTINE.id).await.unwrap(),
+                ROUTINE.id
+            );
         }
 
         #[wasm_bindgen_test]
@@ -1858,7 +1942,7 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_training_sessions().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_training_sessions().await.unwrap(), vec![]);
 
             IndexedDB
                 .write_training_sessions(&TRAINING_SESSIONS.clone())
@@ -1866,8 +1950,8 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                IndexedDB.read_training_sessions().await,
-                Ok(TRAINING_SESSIONS.clone())
+                IndexedDB.read_training_sessions().await.unwrap(),
+                TRAINING_SESSIONS.clone()
             );
         }
 
@@ -1877,7 +1961,7 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(IndexedDB.read_training_sessions().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_training_sessions().await.unwrap(), vec![]);
 
             assert_eq!(
                 IndexedDB
@@ -1887,13 +1971,14 @@ mod tests {
                         TRAINING_SESSION.notes.clone(),
                         TRAINING_SESSION.elements.clone()
                     )
-                    .await,
-                Ok(TRAINING_SESSION.clone())
+                    .await
+                    .unwrap(),
+                TRAINING_SESSION.clone()
             );
 
             assert_eq!(
-                IndexedDB.read_training_sessions().await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                IndexedDB.read_training_sessions().await.unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
         }
 
@@ -1908,8 +1993,8 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                IndexedDB.read_training_sessions().await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                IndexedDB.read_training_sessions().await.unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
 
             let mut training_session = TRAINING_SESSION.clone();
@@ -1923,13 +2008,14 @@ mod tests {
                         Some(training_session.notes.clone()),
                         Some(training_session.elements.clone())
                     )
-                    .await,
-                Ok(training_session.clone())
+                    .await
+                    .unwrap(),
+                training_session.clone()
             );
 
             assert_eq!(
-                IndexedDB.read_training_sessions().await,
-                Ok(vec![training_session])
+                IndexedDB.read_training_sessions().await.unwrap(),
+                vec![training_session]
             );
         }
 
@@ -1944,16 +2030,19 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                IndexedDB.read_training_sessions().await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                IndexedDB.read_training_sessions().await.unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
 
             assert_eq!(
-                IndexedDB.delete_training_session(TRAINING_SESSION.id).await,
-                Ok(TRAINING_SESSION.id)
+                IndexedDB
+                    .delete_training_session(TRAINING_SESSION.id)
+                    .await
+                    .unwrap(),
+                TRAINING_SESSION.id
             );
 
-            assert_eq!(IndexedDB.read_training_sessions().await, Ok(vec![]));
+            assert_eq!(IndexedDB.read_training_sessions().await.unwrap(), vec![]);
         }
 
         #[wasm_bindgen_test]
@@ -1962,8 +2051,11 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                IndexedDB.delete_training_session(TRAINING_SESSION.id).await,
-                Ok(TRAINING_SESSION.id)
+                IndexedDB
+                    .delete_training_session(TRAINING_SESSION.id)
+                    .await
+                    .unwrap(),
+                TRAINING_SESSION.id
             );
         }
 

@@ -16,6 +16,7 @@ authors = ["Tobias Reiher <valens@ardeidae.de>"]
 edition = "2024"
 
 [workspace.dependencies]
+anyhow = "1.0.97"
 assert_approx_eq = "1.1.0"
 chrono = { version = "0.4.20", default-features = false }
 log = { version = "0.4.26" }

@@ -20,14 +20,14 @@ macro_rules! sync {
             }
         }
 
-        rest_result
+        Ok(rest_result?)
     }};
 }
 
 macro_rules! create {
     ($self: ident, $create: ident, $replace: ident, $($arg:expr),*) => {{
         let result = $self.rest.$create($($arg),*).await?;
-        IndexedDB.$replace(result).await
+        Ok(IndexedDB.$replace(result).await?)
     }};
 }
 
@@ -58,7 +58,10 @@ impl Default for CachedREST<GlooNetSendRequest> {
 }
 
 impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
-    async fn request_session(&self, user_id: domain::UserID) -> Result<domain::User, String> {
+    async fn request_session(
+        &self,
+        user_id: domain::UserID,
+    ) -> Result<domain::User, domain::ReadError> {
         let rest_result = self.rest.request_session(user_id).await;
         if let Ok(ref user) = rest_result {
             if let Err(err) = IndexedDB.write_session(user).await {
@@ -69,24 +72,24 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
         rest_result
     }
 
-    async fn initialize_session(&self) -> Result<domain::User, String> {
+    async fn initialize_session(&self) -> Result<domain::User, domain::ReadError> {
         IndexedDB.initialize_session().await
     }
 
-    async fn delete_session(&self) -> Result<(), String> {
+    async fn delete_session(&self) -> Result<(), domain::DeleteError> {
         execute!(self, delete_session,)?;
-        IndexedDB.clear_session_dependent_data().await
+        Ok(IndexedDB.clear_session_dependent_data().await?)
     }
 }
 
 impl<S: SendRequest> domain::VersionRepository for CachedREST<S> {
-    async fn read_version(&self) -> Result<String, String> {
+    async fn read_version(&self) -> Result<String, domain::ReadError> {
         self.rest.read_version().await
     }
 }
 
 impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
-    async fn read_users(&self) -> Result<Vec<domain::User>, String> {
+    async fn read_users(&self) -> Result<Vec<domain::User>, domain::ReadError> {
         self.rest.read_users().await
     }
 
@@ -94,97 +97,109 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
         &self,
         name: domain::Name,
         sex: domain::Sex,
-    ) -> Result<domain::User, String> {
+    ) -> Result<domain::User, domain::CreateError> {
         self.rest.create_user(name, sex).await
     }
 
-    async fn replace_user(&self, user: domain::User) -> Result<domain::User, String> {
+    async fn replace_user(&self, user: domain::User) -> Result<domain::User, domain::UpdateError> {
         self.rest.replace_user(user).await
     }
 
-    async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, String> {
+    async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, domain::DeleteError> {
         self.rest.delete_user(id).await
     }
 }
 
 impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
-    async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, String> {
+    async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::SyncError> {
         sync!(self, read_body_weight, write_body_weight, "body weight")
     }
 
-    async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, String> {
+    async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::ReadError> {
         IndexedDB.read_body_weight().await
     }
 
     async fn create_body_weight(
         &self,
         body_weight: domain::BodyWeight,
-    ) -> Result<domain::BodyWeight, String> {
+    ) -> Result<domain::BodyWeight, domain::CreateError> {
         execute!(self, create_body_weight, body_weight)
     }
 
     async fn replace_body_weight(
         &self,
         body_weight: domain::BodyWeight,
-    ) -> Result<domain::BodyWeight, String> {
+    ) -> Result<domain::BodyWeight, domain::UpdateError> {
         execute!(self, replace_body_weight, body_weight)
     }
 
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, String> {
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
         execute!(self, delete_body_weight, date)
     }
 }
 
 impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
-    async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, String> {
+    async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::SyncError> {
         sync!(self, read_body_fat, write_body_fat, "body fat")
     }
 
-    async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, String> {
+    async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::ReadError> {
         IndexedDB.read_body_fat().await
     }
 
-    async fn create_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
+    async fn create_body_fat(
+        &self,
+        body_fat: domain::BodyFat,
+    ) -> Result<domain::BodyFat, domain::CreateError> {
         execute!(self, create_body_fat, body_fat)
     }
 
-    async fn replace_body_fat(&self, body_fat: domain::BodyFat) -> Result<domain::BodyFat, String> {
+    async fn replace_body_fat(
+        &self,
+        body_fat: domain::BodyFat,
+    ) -> Result<domain::BodyFat, domain::UpdateError> {
         execute!(self, replace_body_fat, body_fat)
     }
 
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, String> {
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
         execute!(self, delete_body_fat, date)
     }
 }
 
 impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
-    async fn sync_period(&self) -> Result<Vec<domain::Period>, String> {
+    async fn sync_period(&self) -> Result<Vec<domain::Period>, domain::SyncError> {
         sync!(self, read_period, write_period, "period")
     }
 
-    async fn read_period(&self) -> Result<Vec<domain::Period>, String> {
+    async fn read_period(&self) -> Result<Vec<domain::Period>, domain::ReadError> {
         IndexedDB.read_period().await
     }
 
-    async fn create_period(&self, period: domain::Period) -> Result<domain::Period, String> {
+    async fn create_period(
+        &self,
+        period: domain::Period,
+    ) -> Result<domain::Period, domain::CreateError> {
         execute!(self, create_period, period)
     }
 
-    async fn replace_period(&self, period: domain::Period) -> Result<domain::Period, String> {
+    async fn replace_period(
+        &self,
+        period: domain::Period,
+    ) -> Result<domain::Period, domain::UpdateError> {
         execute!(self, replace_period, period)
     }
 
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, String> {
+    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
         execute!(self, delete_period, date)
     }
 }
 
 impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
-    async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, String> {
+    async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, domain::SyncError> {
         sync!(self, read_exercises, write_exercises, "exercises")
     }
 
-    async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, String> {
+    async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, domain::ReadError> {
         IndexedDB.read_exercises().await
     }
 
@@ -192,28 +207,31 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
         &self,
         name: domain::Name,
         muscles: Vec<domain::ExerciseMuscle>,
-    ) -> Result<domain::Exercise, String> {
+    ) -> Result<domain::Exercise, domain::CreateError> {
         create!(self, create_exercise, replace_exercise, name, muscles)
     }
 
     async fn replace_exercise(
         &self,
         exercise: domain::Exercise,
-    ) -> Result<domain::Exercise, String> {
+    ) -> Result<domain::Exercise, domain::UpdateError> {
         execute!(self, replace_exercise, exercise)
     }
 
-    async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<domain::ExerciseID, String> {
+    async fn delete_exercise(
+        &self,
+        id: domain::ExerciseID,
+    ) -> Result<domain::ExerciseID, domain::DeleteError> {
         execute!(self, delete_exercise, id)
     }
 }
 
 impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
-    async fn sync_routines(&self) -> Result<Vec<domain::Routine>, String> {
+    async fn sync_routines(&self) -> Result<Vec<domain::Routine>, domain::SyncError> {
         sync!(self, read_routines, write_routines, "routines")
     }
 
-    async fn read_routines(&self) -> Result<Vec<domain::Routine>, String> {
+    async fn read_routines(&self) -> Result<Vec<domain::Routine>, domain::ReadError> {
         IndexedDB.read_routines().await
     }
 
@@ -221,15 +239,15 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
         &self,
         name: domain::Name,
         sections: Vec<domain::RoutinePart>,
-    ) -> Result<domain::Routine, String> {
+    ) -> Result<domain::Routine, domain::CreateError> {
         let routine = self.rest.create_routine(name, sections).await?;
-        IndexedDB
+        Ok(IndexedDB
             .put(
                 Store::Routines,
                 super::indexed_db::Routine::from(&routine),
                 routine,
             )
-            .await
+            .await?)
     }
 
     async fn modify_routine(
@@ -238,17 +256,22 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
         name: Option<domain::Name>,
         archived: Option<bool>,
         sections: Option<Vec<domain::RoutinePart>>,
-    ) -> Result<domain::Routine, String> {
+    ) -> Result<domain::Routine, domain::UpdateError> {
         execute!(self, modify_routine, id, name, archived, sections)
     }
 
-    async fn delete_routine(&self, id: domain::RoutineID) -> Result<domain::RoutineID, String> {
+    async fn delete_routine(
+        &self,
+        id: domain::RoutineID,
+    ) -> Result<domain::RoutineID, domain::DeleteError> {
         execute!(self, delete_routine, id)
     }
 }
 
 impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
-    async fn sync_training_sessions(&self) -> Result<Vec<domain::TrainingSession>, String> {
+    async fn sync_training_sessions(
+        &self,
+    ) -> Result<Vec<domain::TrainingSession>, domain::SyncError> {
         sync!(
             self,
             read_training_sessions,
@@ -257,7 +280,9 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
         )
     }
 
-    async fn read_training_sessions(&self) -> Result<Vec<domain::TrainingSession>, String> {
+    async fn read_training_sessions(
+        &self,
+    ) -> Result<Vec<domain::TrainingSession>, domain::ReadError> {
         IndexedDB.read_training_sessions().await
     }
 
@@ -267,18 +292,18 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
         date: NaiveDate,
         notes: String,
         elements: Vec<domain::TrainingSessionElement>,
-    ) -> Result<domain::TrainingSession, String> {
+    ) -> Result<domain::TrainingSession, domain::CreateError> {
         let training_session = self
             .rest
             .create_training_session(routine_id, date, notes, elements)
             .await?;
-        IndexedDB
+        Ok(IndexedDB
             .put(
                 Store::TrainingSessions,
                 super::indexed_db::TrainingSession::from(&training_session),
                 training_session,
             )
-            .await
+            .await?)
     }
 
     async fn modify_training_session(
@@ -286,14 +311,14 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
         id: domain::TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
-    ) -> Result<domain::TrainingSession, String> {
+    ) -> Result<domain::TrainingSession, domain::UpdateError> {
         execute!(self, modify_training_session, id, notes, elements)
     }
 
     async fn delete_training_session(
         &self,
         id: domain::TrainingSessionID,
-    ) -> Result<domain::TrainingSessionID, String> {
+    ) -> Result<domain::TrainingSessionID, domain::DeleteError> {
         execute!(self, delete_training_session, id)
     }
 }
@@ -315,7 +340,6 @@ mod tests {
         };
         use wasm_bindgen_test::wasm_bindgen_test;
 
-        use crate::indexed_db::IndexedDBError;
         use crate::rest;
         use crate::tests::data::{
             BODY_FAT, BODY_FATS, BODY_WEIGHT, BODY_WEIGHTS, EXERCISE, EXERCISES, PERIOD, PERIODS,
@@ -328,17 +352,19 @@ mod tests {
         async fn test_request_session() {
             reset_cache().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .request_session(USER.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::ReadError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
-            assert_eq!(
+            assert!(matches!(
                 IndexedDB.initialize_session().await,
-                Err(IndexedDBError::NoSession.to_string())
-            );
+                Err(domain::ReadError::Storage(domain::StorageError::NoSession))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -347,18 +373,21 @@ mod tests {
                         .json(&rest::User::from(USER.clone())),
                 ))
                 .request_session(USER.id)
-                .await,
-                Ok(USER.clone())
+                .await
+                .unwrap(),
+                USER.clone()
             );
 
             assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .request_session(USER_2.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::ReadError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
         }
@@ -367,16 +396,19 @@ mod tests {
         async fn test_initialize_session() {
             reset_cache().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).initialize_session().await,
-                Err("no session".into())
-            );
+                Err(domain::ReadError::Storage(domain::StorageError::NoSession))
+            ));
 
             IndexedDB.write_session(&USER).await.unwrap();
 
             assert_eq!(
-                cached_rest_with_response(None).initialize_session().await,
-                Ok(USER.clone())
+                cached_rest_with_response(None)
+                    .initialize_session()
+                    .await
+                    .unwrap(),
+                USER.clone()
             );
         }
 
@@ -386,10 +418,12 @@ mod tests {
 
             IndexedDB.write_session(&USER).await.unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).delete_session().await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
 
@@ -400,24 +434,27 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_session()
-                .await,
-                Ok(())
+                .await
+                .unwrap(),
+                ()
             );
 
-            assert_eq!(
+            assert!(matches!(
                 IndexedDB.initialize_session().await,
-                Err(IndexedDBError::NoSession.to_string())
-            );
+                Err(domain::ReadError::Storage(domain::StorageError::NoSession))
+            ));
         }
 
         #[wasm_bindgen_test]
         async fn test_delete_session_non_existing() {
             reset_cache().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).delete_session().await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -426,17 +463,20 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_session()
-                .await,
-                Ok(())
+                .await
+                .unwrap(),
+                ()
             );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_version() {
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).read_version().await,
-                Err("no connection".into())
-            );
+                Err(domain::ReadError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -445,8 +485,9 @@ mod tests {
                         .json(&json!("0.1.2")),
                 ))
                 .read_version()
-                .await,
-                Ok("0.1.2".to_string())
+                .await
+                .unwrap(),
+                "0.1.2".to_string()
             );
         }
 
@@ -454,10 +495,12 @@ mod tests {
         async fn test_read_users() {
             reset_cache().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).read_users().await,
-                Err("no connection".into())
-            );
+                Err(domain::ReadError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -470,8 +513,9 @@ mod tests {
                     )
                 ))
                 .read_users()
-                .await,
-                Ok(USERS.to_vec())
+                .await
+                .unwrap(),
+                USERS.to_vec()
             );
         }
 
@@ -479,12 +523,14 @@ mod tests {
         async fn test_create_user() {
             reset_cache().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_user(USER.name.clone(), USER.sex)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -493,8 +539,9 @@ mod tests {
                         .json(&rest::User::from(USER.clone()))
                 ))
                 .create_user(USER.name.clone(), USER.sex)
-                .await,
-                Ok(USER.clone())
+                .await
+                .unwrap(),
+                USER.clone()
             );
         }
 
@@ -505,12 +552,14 @@ mod tests {
             let mut user = USER.clone();
             user.name = domain::Name::new("C").unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .replace_user(user.clone())
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -519,8 +568,9 @@ mod tests {
                         .json(&rest::User::from(user.clone()))
                 ))
                 .replace_user(user.clone())
-                .await,
-                Ok(user.clone())
+                .await
+                .unwrap(),
+                user.clone()
             );
         }
 
@@ -528,10 +578,12 @@ mod tests {
         async fn test_delete_user() {
             reset_cache().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).delete_user(USER.id).await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -540,8 +592,9 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_user(USER.id)
-                .await,
-                Ok(USER.id)
+                .await
+                .unwrap(),
+                USER.id
             );
         }
 
@@ -550,10 +603,12 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).sync_body_weight().await,
-                Err("no connection".into())
-            );
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -566,13 +621,17 @@ mod tests {
                     )
                 ))
                 .sync_body_weight()
-                .await,
-                Ok(BODY_WEIGHTS.to_vec())
+                .await
+                .unwrap(),
+                BODY_WEIGHTS.to_vec()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(BODY_WEIGHTS.to_vec())
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                BODY_WEIGHTS.to_vec()
             );
 
             assert_eq!(
@@ -582,13 +641,17 @@ mod tests {
                         .json(&[rest::BodyWeight::from(BODY_WEIGHT)])
                 ))
                 .sync_body_weight()
-                .await,
-                Ok(vec![BODY_WEIGHT])
+                .await
+                .unwrap(),
+                vec![BODY_WEIGHT]
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![BODY_WEIGHT])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![BODY_WEIGHT]
             );
         }
 
@@ -598,15 +661,21 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![]
             );
 
             IndexedDB.write_body_weight(BODY_WEIGHTS).await.unwrap();
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(BODY_WEIGHTS.to_vec())
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                BODY_WEIGHTS.to_vec()
             );
         }
 
@@ -615,12 +684,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_body_weight(BODY_WEIGHT)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -629,13 +700,17 @@ mod tests {
                         .json(&rest::BodyWeight::from(BODY_WEIGHT)),
                 ))
                 .create_body_weight(BODY_WEIGHT)
-                .await,
-                Ok(BODY_WEIGHT)
+                .await
+                .unwrap(),
+                BODY_WEIGHT
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![BODY_WEIGHT])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![BODY_WEIGHT]
             );
         }
 
@@ -644,12 +719,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_body_weight(BODY_WEIGHT)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             IndexedDB.write_body_weight(&[BODY_WEIGHT]).await.unwrap();
 
@@ -665,12 +742,16 @@ mod tests {
                 .create_body_weight(body_weight.clone())
                 .await
                 .unwrap_err()
+                .to_string()
                 .starts_with("ConstraintError: ")
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![BODY_WEIGHT])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![BODY_WEIGHT]
             );
         }
 
@@ -684,16 +765,21 @@ mod tests {
             let mut body_weight = BODY_WEIGHT;
             body_weight.weight += 1.0;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .replace_body_weight(body_weight.clone())
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![BODY_WEIGHT])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![BODY_WEIGHT]
             );
 
             assert_eq!(
@@ -703,13 +789,17 @@ mod tests {
                         .json(&rest::BodyWeight::from(body_weight.clone())),
                 ))
                 .replace_body_weight(body_weight.clone())
-                .await,
-                Ok(body_weight.clone())
+                .await
+                .unwrap(),
+                body_weight.clone()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![body_weight])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![body_weight]
             );
         }
 
@@ -720,16 +810,21 @@ mod tests {
 
             IndexedDB.write_body_weight(&[BODY_WEIGHT]).await.unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_body_weight(BODY_WEIGHT.date)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![BODY_WEIGHT])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![BODY_WEIGHT]
             );
 
             assert_eq!(
@@ -739,13 +834,17 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_body_weight(BODY_WEIGHT.date)
-                .await,
-                Ok(BODY_WEIGHT.date)
+                .await
+                .unwrap(),
+                BODY_WEIGHT.date
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_weight().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_body_weight()
+                    .await
+                    .unwrap(),
+                vec![]
             );
         }
 
@@ -754,12 +853,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_body_weight(BODY_WEIGHT.date)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -768,8 +869,9 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_body_weight(BODY_WEIGHT.date)
-                .await,
-                Ok(BODY_WEIGHT.date)
+                .await
+                .unwrap(),
+                BODY_WEIGHT.date
             );
         }
 
@@ -778,10 +880,12 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).sync_body_fat().await,
-                Err("no connection".into())
-            );
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -794,13 +898,17 @@ mod tests {
                     )
                 ))
                 .sync_body_fat()
-                .await,
-                Ok(BODY_FATS.to_vec())
+                .await
+                .unwrap(),
+                BODY_FATS.to_vec()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(BODY_FATS.to_vec())
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                BODY_FATS.to_vec()
             );
 
             assert_eq!(
@@ -810,13 +918,17 @@ mod tests {
                         .json(&[rest::BodyFat::from(BODY_FAT)])
                 ))
                 .sync_body_fat()
-                .await,
-                Ok(vec![BODY_FAT])
+                .await
+                .unwrap(),
+                vec![BODY_FAT]
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![BODY_FAT])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![BODY_FAT]
             );
         }
 
@@ -826,15 +938,21 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![]
             );
 
             IndexedDB.write_body_fat(BODY_FATS).await.unwrap();
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(BODY_FATS.to_vec())
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                BODY_FATS.to_vec()
             );
         }
 
@@ -843,12 +961,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_body_fat(BODY_FAT)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -857,13 +977,17 @@ mod tests {
                         .json(&rest::BodyFat::from(BODY_FAT)),
                 ))
                 .create_body_fat(BODY_FAT)
-                .await,
-                Ok(BODY_FAT)
+                .await
+                .unwrap(),
+                BODY_FAT
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![BODY_FAT])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![BODY_FAT]
             );
         }
 
@@ -872,12 +996,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_body_fat(BODY_FAT)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             IndexedDB.write_body_fat(&[BODY_FAT]).await.unwrap();
 
@@ -893,12 +1019,16 @@ mod tests {
                 .create_body_fat(body_fat.clone())
                 .await
                 .unwrap_err()
+                .to_string()
                 .starts_with("ConstraintError: ")
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![BODY_FAT])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![BODY_FAT]
             );
         }
 
@@ -912,16 +1042,21 @@ mod tests {
             let mut body_fat = BODY_FAT;
             body_fat.chest = body_fat.chest.map(|v| v + 1);
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .replace_body_fat(body_fat.clone())
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![BODY_FAT])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![BODY_FAT]
             );
 
             assert_eq!(
@@ -931,13 +1066,17 @@ mod tests {
                         .json(&rest::BodyFat::from(body_fat.clone())),
                 ))
                 .replace_body_fat(body_fat.clone())
-                .await,
-                Ok(body_fat.clone())
+                .await
+                .unwrap(),
+                body_fat.clone()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![body_fat])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![body_fat]
             );
         }
 
@@ -948,16 +1087,21 @@ mod tests {
 
             IndexedDB.write_body_fat(&[BODY_FAT]).await.unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_body_fat(BODY_FAT.date)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![BODY_FAT])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![BODY_FAT]
             );
 
             assert_eq!(
@@ -967,13 +1111,17 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_body_fat(BODY_FAT.date)
-                .await,
-                Ok(BODY_FAT.date)
+                .await
+                .unwrap(),
+                BODY_FAT.date
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_body_fat().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_body_fat()
+                    .await
+                    .unwrap(),
+                vec![]
             );
         }
 
@@ -982,12 +1130,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_body_fat(BODY_FAT.date)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -996,8 +1146,9 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_body_fat(BODY_FAT.date)
-                .await,
-                Ok(BODY_FAT.date)
+                .await
+                .unwrap(),
+                BODY_FAT.date
             );
         }
 
@@ -1006,10 +1157,12 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).sync_period().await,
-                Err("no connection".into())
-            );
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1022,13 +1175,14 @@ mod tests {
                     )
                 ))
                 .sync_period()
-                .await,
-                Ok(PERIODS.to_vec())
+                .await
+                .unwrap(),
+                PERIODS.to_vec()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(PERIODS.to_vec())
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                PERIODS.to_vec()
             );
 
             assert_eq!(
@@ -1038,13 +1192,14 @@ mod tests {
                         .json(&[rest::Period::from(PERIOD)])
                 ))
                 .sync_period()
-                .await,
-                Ok(vec![PERIOD])
+                .await
+                .unwrap(),
+                vec![PERIOD]
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![PERIOD])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![PERIOD]
             );
         }
 
@@ -1054,15 +1209,15 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![]
             );
 
             IndexedDB.write_period(PERIODS).await.unwrap();
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(PERIODS.to_vec())
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                PERIODS.to_vec()
             );
         }
 
@@ -1071,10 +1226,12 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).create_period(PERIOD).await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1083,13 +1240,14 @@ mod tests {
                         .json(&rest::Period::from(PERIOD)),
                 ))
                 .create_period(PERIOD)
-                .await,
-                Ok(PERIOD)
+                .await
+                .unwrap(),
+                PERIOD
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![PERIOD])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![PERIOD]
             );
         }
 
@@ -1098,10 +1256,12 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).create_period(PERIOD).await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             IndexedDB.write_period(&[PERIOD]).await.unwrap();
 
@@ -1117,12 +1277,13 @@ mod tests {
                 .create_period(period.clone())
                 .await
                 .unwrap_err()
+                .to_string()
                 .starts_with("ConstraintError: ")
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![PERIOD])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![PERIOD]
             );
         }
 
@@ -1136,16 +1297,18 @@ mod tests {
             let mut period = PERIOD;
             period.intensity = domain::Intensity::Heavy;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .replace_period(period.clone())
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![PERIOD])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![PERIOD]
             );
 
             assert_eq!(
@@ -1155,13 +1318,14 @@ mod tests {
                         .json(&rest::Period::from(period.clone())),
                 ))
                 .replace_period(period.clone())
-                .await,
-                Ok(period.clone())
+                .await
+                .unwrap(),
+                period.clone()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![period])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![period]
             );
         }
 
@@ -1172,16 +1336,18 @@ mod tests {
 
             IndexedDB.write_period(&[PERIOD]).await.unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_period(PERIOD.date)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![PERIOD])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![PERIOD]
             );
 
             assert_eq!(
@@ -1191,13 +1357,14 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_period(PERIOD.date)
-                .await,
-                Ok(PERIOD.date)
+                .await
+                .unwrap(),
+                PERIOD.date
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_period().await,
-                Ok(vec![])
+                cached_rest_with_response(None).read_period().await.unwrap(),
+                vec![]
             );
         }
 
@@ -1206,12 +1373,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_period(PERIOD.date)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1220,8 +1389,9 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_period(PERIOD.date)
-                .await,
-                Ok(PERIOD.date)
+                .await
+                .unwrap(),
+                PERIOD.date
             );
         }
 
@@ -1230,10 +1400,12 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).sync_exercises().await,
-                Err("no connection".into())
-            );
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1246,13 +1418,17 @@ mod tests {
                     )
                 ))
                 .sync_exercises()
-                .await,
-                Ok(EXERCISES.to_vec())
+                .await
+                .unwrap(),
+                EXERCISES.to_vec()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(EXERCISES.to_vec())
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                EXERCISES.to_vec()
             );
 
             assert_eq!(
@@ -1262,13 +1438,17 @@ mod tests {
                         .json(&[rest::Exercise::from(EXERCISE.clone())])
                 ))
                 .sync_exercises()
-                .await,
-                Ok(vec![EXERCISE.clone()])
+                .await
+                .unwrap(),
+                vec![EXERCISE.clone()]
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(vec![EXERCISE.clone()])
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                vec![EXERCISE.clone()]
             );
         }
 
@@ -1278,15 +1458,21 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                vec![]
             );
 
             IndexedDB.write_exercises(&EXERCISES).await.unwrap();
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(EXERCISES.to_vec())
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                EXERCISES.to_vec()
             );
         }
 
@@ -1295,12 +1481,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1309,13 +1497,17 @@ mod tests {
                         .json(&rest::Exercise::from(EXERCISE.clone())),
                 ))
                 .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
-                .await,
-                Ok(EXERCISE.clone())
+                .await
+                .unwrap(),
+                EXERCISE.clone()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(vec![EXERCISE.clone()])
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                vec![EXERCISE.clone()]
             );
         }
 
@@ -1332,16 +1524,21 @@ mod tests {
             let mut exercise = EXERCISE.clone();
             exercise.name = domain::Name::new("C").unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .replace_exercise(exercise.clone())
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(vec![EXERCISE.clone()])
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                vec![EXERCISE.clone()]
             );
 
             assert_eq!(
@@ -1351,13 +1548,17 @@ mod tests {
                         .json(&rest::Exercise::from(exercise.clone())),
                 ))
                 .replace_exercise(exercise.clone())
-                .await,
-                Ok(exercise.clone())
+                .await
+                .unwrap(),
+                exercise.clone()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(vec![exercise])
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                vec![exercise]
             );
         }
 
@@ -1371,16 +1572,21 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_exercise(EXERCISE.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(vec![EXERCISE.clone()])
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                vec![EXERCISE.clone()]
             );
 
             assert_eq!(
@@ -1390,13 +1596,17 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_exercise(EXERCISE.id)
-                .await,
-                Ok(EXERCISE.id)
+                .await
+                .unwrap(),
+                EXERCISE.id
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_exercises().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_exercises()
+                    .await
+                    .unwrap(),
+                vec![]
             );
         }
 
@@ -1405,12 +1615,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_exercise(EXERCISE.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1419,8 +1631,9 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_exercise(EXERCISE.id)
-                .await,
-                Ok(EXERCISE.id)
+                .await
+                .unwrap(),
+                EXERCISE.id
             );
         }
 
@@ -1429,10 +1642,12 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None).sync_routines().await,
-                Err("no connection".into())
-            );
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1445,13 +1660,17 @@ mod tests {
                     )
                 ))
                 .sync_routines()
-                .await,
-                Ok(ROUTINES.to_vec())
+                .await
+                .unwrap(),
+                ROUTINES.to_vec()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(ROUTINES.to_vec())
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                ROUTINES.to_vec()
             );
 
             assert_eq!(
@@ -1461,13 +1680,17 @@ mod tests {
                         .json(&[rest::Routine::from(ROUTINE.clone())])
                 ))
                 .sync_routines()
-                .await,
-                Ok(vec![ROUTINE.clone()])
+                .await
+                .unwrap(),
+                vec![ROUTINE.clone()]
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(vec![ROUTINE.clone()])
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                vec![ROUTINE.clone()]
             );
         }
 
@@ -1477,15 +1700,21 @@ mod tests {
             init_session().await;
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                vec![]
             );
 
             IndexedDB.write_routines(&ROUTINES).await.unwrap();
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(ROUTINES.to_vec())
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                ROUTINES.to_vec()
             );
         }
 
@@ -1494,12 +1723,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1508,13 +1739,17 @@ mod tests {
                         .json(&rest::Routine::from(ROUTINE.clone())),
                 ))
                 .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
-                .await,
-                Ok(ROUTINE.clone())
+                .await
+                .unwrap(),
+                ROUTINE.clone()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(vec![ROUTINE.clone()])
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                vec![ROUTINE.clone()]
             );
         }
 
@@ -1530,7 +1765,7 @@ mod tests {
             routine.archived = true;
             routine.sections = vec![];
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .modify_routine(
                         routine.id,
@@ -1539,12 +1774,17 @@ mod tests {
                         Some(routine.sections.clone())
                     )
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(vec![ROUTINE.clone()])
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                vec![ROUTINE.clone()]
             );
 
             assert_eq!(
@@ -1559,13 +1799,17 @@ mod tests {
                     Some(routine.archived),
                     Some(routine.sections.clone())
                 )
-                .await,
-                Ok(routine.clone())
+                .await
+                .unwrap(),
+                routine.clone()
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(vec![routine])
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                vec![routine]
             );
         }
 
@@ -1576,16 +1820,21 @@ mod tests {
 
             IndexedDB.write_routines(&[ROUTINE.clone()]).await.unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_routine(ROUTINE.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(vec![ROUTINE.clone()])
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                vec![ROUTINE.clone()]
             );
 
             assert_eq!(
@@ -1595,13 +1844,17 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_routine(ROUTINE.id)
-                .await,
-                Ok(ROUTINE.id)
+                .await
+                .unwrap(),
+                ROUTINE.id
             );
 
             assert_eq!(
-                cached_rest_with_response(None).read_routines().await,
-                Ok(vec![])
+                cached_rest_with_response(None)
+                    .read_routines()
+                    .await
+                    .unwrap(),
+                vec![]
             );
         }
 
@@ -1610,12 +1863,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_routine(ROUTINE.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1624,8 +1879,9 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_routine(ROUTINE.id)
-                .await,
-                Ok(ROUTINE.id)
+                .await
+                .unwrap(),
+                ROUTINE.id
             );
         }
 
@@ -1634,12 +1890,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .sync_training_sessions()
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1652,15 +1910,17 @@ mod tests {
                     )
                 ))
                 .sync_training_sessions()
-                .await,
-                Ok(TRAINING_SESSIONS.to_vec())
+                .await
+                .unwrap(),
+                TRAINING_SESSIONS.to_vec()
             );
 
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(TRAINING_SESSIONS.to_vec())
+                    .await
+                    .unwrap(),
+                TRAINING_SESSIONS.to_vec()
             );
 
             assert_eq!(
@@ -1670,15 +1930,17 @@ mod tests {
                         .json(&[rest::TrainingSession::from(TRAINING_SESSION.clone())])
                 ))
                 .sync_training_sessions()
-                .await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                .await
+                .unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
 
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                    .await
+                    .unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
         }
 
@@ -1690,8 +1952,9 @@ mod tests {
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(vec![])
+                    .await
+                    .unwrap(),
+                vec![]
             );
 
             IndexedDB
@@ -1702,8 +1965,9 @@ mod tests {
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(TRAINING_SESSIONS.to_vec())
+                    .await
+                    .unwrap(),
+                TRAINING_SESSIONS.to_vec()
             );
         }
 
@@ -1712,7 +1976,7 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .create_training_session(
                         TRAINING_SESSION.routine_id,
@@ -1721,8 +1985,10 @@ mod tests {
                         TRAINING_SESSION.elements.clone()
                     )
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::CreateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1736,15 +2002,17 @@ mod tests {
                     TRAINING_SESSION.notes.clone(),
                     TRAINING_SESSION.elements.clone()
                 )
-                .await,
-                Ok(TRAINING_SESSION.clone())
+                .await
+                .unwrap(),
+                TRAINING_SESSION.clone()
             );
 
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                    .await
+                    .unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
         }
 
@@ -1762,7 +2030,7 @@ mod tests {
             training_session.notes = "C".to_string();
             training_session.elements = vec![];
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .modify_training_session(
                         training_session.id,
@@ -1770,14 +2038,17 @@ mod tests {
                         Some(training_session.elements.clone())
                     )
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                    .await
+                    .unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
 
             assert_eq!(
@@ -1791,15 +2062,17 @@ mod tests {
                     Some(training_session.notes.clone()),
                     Some(training_session.elements.clone())
                 )
-                .await,
-                Ok(training_session.clone())
+                .await
+                .unwrap(),
+                training_session.clone()
             );
 
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(vec![training_session])
+                    .await
+                    .unwrap(),
+                vec![training_session]
             );
         }
 
@@ -1813,18 +2086,21 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_training_session(TRAINING_SESSION.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(vec![TRAINING_SESSION.clone()])
+                    .await
+                    .unwrap(),
+                vec![TRAINING_SESSION.clone()]
             );
 
             assert_eq!(
@@ -1834,15 +2110,17 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_training_session(TRAINING_SESSION.id)
-                .await,
-                Ok(TRAINING_SESSION.id)
+                .await
+                .unwrap(),
+                TRAINING_SESSION.id
             );
 
             assert_eq!(
                 cached_rest_with_response(None)
                     .read_training_sessions()
-                    .await,
-                Ok(vec![])
+                    .await
+                    .unwrap(),
+                vec![]
             );
         }
 
@@ -1851,12 +2129,14 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            assert_eq!(
+            assert!(matches!(
                 cached_rest_with_response(None)
                     .delete_training_session(TRAINING_SESSION.id)
                     .await,
-                Err("no connection".into())
-            );
+                Err(domain::DeleteError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -1865,8 +2145,9 @@ mod tests {
                         .body::<Option<&str>>(None),
                 ))
                 .delete_training_session(TRAINING_SESSION.id)
-                .await,
-                Ok(TRAINING_SESSION.id)
+                .await
+                .unwrap(),
+                TRAINING_SESSION.id
             );
         }
 

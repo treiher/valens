@@ -471,8 +471,8 @@ pub fn view_charts<Ms>(
             .or_insert(training_session.volume_load() as f32);
         #[allow(clippy::cast_precision_loss)]
         tut.entry(training_session.date)
-            .and_modify(|e| *e += u32::from(training_session.tut().unwrap_or_default()) as f32)
-            .or_insert(u32::from(training_session.tut().unwrap_or_default()) as f32);
+            .and_modify(|e| *e += training_session.tut().unwrap_or_default() as f32)
+            .or_insert(training_session.tut().unwrap_or_default() as f32);
         if let Some(avg_reps) = training_session.avg_reps() {
             reps_rpe
                 .entry(training_session.date)

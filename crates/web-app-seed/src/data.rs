@@ -817,7 +817,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let period = period.into_iter().map(|e| (e.date, e)).collect();
             if model.period != period {
                 model.period = period;
-                model.cycles = domain::cycles(&model.period);
+                model.cycles = domain::cycles(&model.period.values().cloned().collect::<Vec<_>>());
                 model.current_cycle = domain::current_cycle(&model.cycles);
                 orders.notify(Event::DataChanged);
             }
@@ -839,7 +839,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
             let period = period.into_iter().map(|e| (e.date, e)).collect();
             if model.period != period {
                 model.period = period;
-                model.cycles = domain::cycles(&model.period);
+                model.cycles = domain::cycles(&model.period.values().cloned().collect::<Vec<_>>());
                 model.current_cycle = domain::current_cycle(&model.cycles);
                 orders.notify(Event::DataChanged);
             }
@@ -864,7 +864,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodCreated(Ok(period)) => {
             model.period.insert(period.date, period);
-            model.cycles = domain::cycles(&model.period);
+            model.cycles = domain::cycles(&model.period.values().cloned().collect::<Vec<_>>());
             model.current_cycle = domain::current_cycle(&model.cycles);
             orders.notify(Event::PeriodCreatedOk);
         }
@@ -887,7 +887,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodReplaced(Ok(period)) => {
             model.period.insert(period.date, period);
-            model.cycles = domain::cycles(&model.period);
+            model.cycles = domain::cycles(&model.period.values().cloned().collect::<Vec<_>>());
             model.current_cycle = domain::current_cycle(&model.cycles);
             orders.notify(Event::PeriodReplacedOk);
         }
@@ -910,7 +910,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
         }
         Msg::PeriodDeleted(Ok(date)) => {
             model.period.remove(&date);
-            model.cycles = domain::cycles(&model.period);
+            model.cycles = domain::cycles(&model.period.values().cloned().collect::<Vec<_>>());
             model.current_cycle = domain::current_cycle(&model.cycles);
             orders.notify(Event::PeriodDeletedOk);
         }

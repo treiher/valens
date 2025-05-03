@@ -2,10 +2,34 @@ use derive_more::Deref;
 use std::fmt;
 use uuid::Uuid;
 
-use crate::{CreateError, DeleteError, Name, ReadError, UpdateError};
+use crate::{CreateError, DeleteError, Name, ReadError, UpdateError, ValidationError};
 
 #[allow(async_fn_in_trait)]
-pub trait UserRepository {
+pub trait UserService: Send + Sync + 'static {
+    async fn get_users(&self) -> Result<Vec<User>, ReadError>;
+    async fn create_user(&self, name: Name, sex: Sex) -> Result<User, CreateError>;
+    async fn replace_user(&self, user: User) -> Result<User, UpdateError>;
+    async fn delete_user(&self, id: UserID) -> Result<UserID, DeleteError>;
+
+    async fn validate_user_name(&self, name: &str, id: UserID) -> Result<Name, ValidationError> {
+        match Name::new(name) {
+            Ok(name) => match self.get_users().await {
+                Ok(users) => {
+                    if users.iter().all(|u| u.id == id || u.name != name) {
+                        Ok(name)
+                    } else {
+                        Err(ValidationError::Conflict("name".to_string()))
+                    }
+                }
+                Err(err) => Err(ValidationError::Other(err.into())),
+            },
+            Err(err) => Err(ValidationError::Other(err.into())),
+        }
+    }
+}
+
+#[allow(async_fn_in_trait)]
+pub trait UserRepository: Send + Sync + 'static {
     async fn read_users(&self) -> Result<Vec<User>, ReadError>;
     async fn create_user(&self, name: Name, sex: Sex) -> Result<User, CreateError>;
     async fn replace_user(&self, user: User) -> Result<User, UpdateError>;

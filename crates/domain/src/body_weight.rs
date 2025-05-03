@@ -1,11 +1,85 @@
 use std::collections::BTreeMap;
 
-use chrono::{Duration, NaiveDate};
+use chrono::{Duration, Local, NaiveDate};
 
 use crate::{
-    CreateError, DeleteError, ReadError, SyncError, UpdateError,
+    CreateError, DeleteError, ReadError, SyncError, UpdateError, ValidationError,
     value_based_centered_moving_average,
 };
+
+#[allow(async_fn_in_trait)]
+pub trait BodyWeightService {
+    async fn get_body_weight(&self) -> Result<Vec<BodyWeight>, ReadError>;
+    async fn get_body_weight_on(&self, date: NaiveDate) -> Result<BodyWeight, ReadError>;
+    async fn create_body_weight(&self, body_weight: BodyWeight) -> Result<BodyWeight, CreateError>;
+    async fn replace_body_weight(&self, body_weight: BodyWeight)
+    -> Result<BodyWeight, UpdateError>;
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+
+    async fn validate_body_weight_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
+        match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+            Ok(parsed_date) => {
+                if parsed_date <= Local::now().date_naive() {
+                    match self.get_body_weight().await {
+                        Ok(body_weights) => {
+                            if body_weights.iter().all(|u| u.date != parsed_date) {
+                                Ok(parsed_date)
+                            } else {
+                                Err(ValidationError::Conflict("date".to_string()))
+                            }
+                        }
+                        Err(err) => Err(ValidationError::Other(err.into())),
+                    }
+                } else {
+                    Err(ValidationError::Other(
+                        "Date must not be in the future".into(),
+                    ))
+                }
+            }
+            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+        }
+    }
+
+    fn validate_body_weight_weight(&self, weight: &str) -> Result<f32, ValidationError> {
+        match weight.replace(',', ".").trim().parse::<f32>() {
+            Ok(parsed_weight) => {
+                if parsed_weight > 0.0 {
+                    Ok(parsed_weight)
+                } else {
+                    Err(ValidationError::Other(
+                        "Weight must be a positive decimal number".into(),
+                    ))
+                }
+            }
+            Err(_) => Err(ValidationError::Other(
+                "Weight must be a decimal number".into(),
+            )),
+        }
+    }
+
+    #[must_use]
+    fn avg_body_weight(&self, body_weight: &[BodyWeight]) -> Vec<BodyWeight> {
+        avg_body_weight(&body_weight.iter().map(|bw| (bw.date, bw.clone())).collect())
+            .values()
+            .cloned()
+            .collect()
+    }
+
+    #[must_use]
+    fn avg_weekly_change(
+        &self,
+        avg_body_weight: &[BodyWeight],
+        current: Option<&BodyWeight>,
+    ) -> Option<f32> {
+        avg_weekly_change(
+            &avg_body_weight
+                .iter()
+                .map(|bw| (bw.date, bw.clone()))
+                .collect::<BTreeMap<NaiveDate, BodyWeight>>(),
+            current,
+        )
+    }
+}
 
 #[allow(async_fn_in_trait)]
 pub trait BodyWeightRepository {

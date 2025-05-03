@@ -7,7 +7,45 @@ use std::{
 use derive_more::Deref;
 use uuid::Uuid;
 
-use crate::{CreateError, DeleteError, Name, ReadError, SyncError, UpdateError, catalog};
+use crate::{
+    CreateError, DeleteError, Name, ReadError, SyncError, UpdateError, ValidationError, catalog,
+};
+
+#[allow(async_fn_in_trait)]
+pub trait ExerciseService {
+    async fn get_exercises(&self) -> Result<Vec<Exercise>, ReadError>;
+    async fn create_exercise(
+        &self,
+        name: Name,
+        muscles: Vec<ExerciseMuscle>,
+    ) -> Result<Exercise, CreateError>;
+    async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, UpdateError>;
+    async fn delete_exercise(&self, id: ExerciseID) -> Result<ExerciseID, DeleteError>;
+
+    async fn validate_exercise_name(
+        &self,
+        name: &str,
+        id: ExerciseID,
+    ) -> Result<Name, ValidationError> {
+        match Name::new(name) {
+            Ok(name) => match self.get_exercises().await {
+                Ok(exercises) => {
+                    if exercises.iter().all(|e| e.id == id || e.name != name) {
+                        Ok(name)
+                    } else {
+                        Err(ValidationError::Conflict("name".to_string()))
+                    }
+                }
+                Err(err) => Err(ValidationError::Other(err.into())),
+            },
+            Err(err) => Err(ValidationError::Other(err.into())),
+        }
+    }
+
+    async fn get_exercise(&self, id: ExerciseID) -> Result<Option<Exercise>, ReadError> {
+        Ok(self.get_exercises().await?.into_iter().find(|e| e.id == id))
+    }
+}
 
 #[allow(async_fn_in_trait)]
 pub trait ExerciseRepository {

@@ -1,13 +1,105 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    str::FromStr,
+};
 
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use derive_more::Deref;
 use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, MuscleID, RPE, ReadError, Reps, RoutineID,
-    Stimulus, SyncError, Time, UpdateError, Weight,
+    Stimulus, SyncError, Time, TrainingStats, UpdateError, ValidationError, Weight, training_stats,
 };
+
+#[allow(async_fn_in_trait)]
+pub trait TrainingSessionService {
+    async fn get_training_sessions(&self) -> Result<Vec<TrainingSession>, ReadError>;
+    async fn create_training_session(
+        &self,
+        routine_id: RoutineID,
+        date: NaiveDate,
+        notes: String,
+        elements: Vec<TrainingSessionElement>,
+    ) -> Result<TrainingSession, CreateError>;
+    async fn modify_training_session(
+        &self,
+        id: TrainingSessionID,
+        notes: Option<String>,
+        elements: Option<Vec<TrainingSessionElement>>,
+    ) -> Result<TrainingSession, UpdateError>;
+    async fn delete_training_session(
+        &self,
+        id: TrainingSessionID,
+    ) -> Result<TrainingSessionID, DeleteError>;
+
+    fn validate_training_session_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
+        match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+            Ok(parsed_date) => {
+                if parsed_date <= Local::now().date_naive() {
+                    Ok(parsed_date)
+                } else {
+                    Err(ValidationError::Other(
+                        "Date must not be in the future".into(),
+                    ))
+                }
+            }
+            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+        }
+    }
+
+    fn get_training_stats(&self, training_sessions: &[TrainingSession]) -> TrainingStats {
+        training_stats(&training_sessions.iter().collect::<Vec<_>>())
+    }
+
+    /// Returns all non-empty sets from the training session, grouped by exercise.
+    fn get_sets_by_exercise<'a>(
+        &self,
+        training_session: &'a TrainingSession,
+    ) -> HashMap<ExerciseID, Vec<&'a TrainingSessionElement>> {
+        let mut result: HashMap<ExerciseID, Vec<&'a TrainingSessionElement>> = HashMap::new();
+        for element in &training_session.elements {
+            if let TrainingSessionElement::Set {
+                exercise_id,
+                reps,
+                time,
+                weight,
+                rpe,
+                ..
+            } = element
+            {
+                if reps.is_some() || time.is_some() || weight.is_some() || rpe.is_some() {
+                    result.entry(*exercise_id).or_default().push(element);
+                }
+            }
+        }
+        result
+    }
+
+    /// Returns all non-empty sets from the previous training session, grouped by exercise.
+    ///
+    /// The previous session is the most recent training session for the same routine that occurred
+    /// before the current one. If no such session exists, this returns an empty map.
+    fn get_previous_session_sets_by_exercise<'a>(
+        &self,
+        training_session: &TrainingSession,
+        training_sessions: &'a [TrainingSession],
+    ) -> HashMap<ExerciseID, Vec<&'a TrainingSessionElement>> {
+        if let Some(previous_training_session) = training_sessions
+            .iter()
+            .filter(|t| {
+                t.id != training_session.id
+                    && t.date < training_session.date
+                    && t.routine_id == training_session.routine_id
+            })
+            .max_by_key(|t| (t.date, t.id))
+        {
+            self.get_sets_by_exercise(previous_training_session)
+        } else {
+            HashMap::new()
+        }
+    }
+}
 
 #[allow(async_fn_in_trait)]
 pub trait TrainingSessionRepository {

@@ -9,6 +9,7 @@ pub enum SyncError {
 impl From<ReadError> for SyncError {
     fn from(value: ReadError) -> Self {
         match value {
+            ReadError::NotFound => SyncError::Other("not found".into()),
             ReadError::Storage(storage) => SyncError::Storage(storage),
             ReadError::Other(other) => SyncError::Other(other),
         }
@@ -17,6 +18,8 @@ impl From<ReadError> for SyncError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ReadError {
+    #[error("not found")]
+    NotFound,
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
@@ -67,6 +70,14 @@ pub enum StorageError {
     NoConnection,
     #[error("no session")]
     NoSession,
+    #[error(transparent)]
+    Other(#[from] Box<dyn std::error::Error>),
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ValidationError {
+    #[error("Entry with this {0} already exists")]
+    Conflict(String),
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error>),
 }

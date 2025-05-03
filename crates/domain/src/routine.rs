@@ -6,8 +6,51 @@ use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, MuscleID, Name, Property, RPE, ReadError, Reps,
-    Stimulus, SyncError, Time, TrainingSession, TrainingSessionElement, UpdateError, Weight,
+    Stimulus, SyncError, Time, TrainingSession, TrainingSessionElement, UpdateError,
+    ValidationError, Weight,
 };
+
+#[allow(async_fn_in_trait)]
+pub trait RoutineService {
+    async fn get_routines(&self) -> Result<Vec<Routine>, ReadError>;
+    async fn create_routine(
+        &self,
+        name: Name,
+        sections: Vec<RoutinePart>,
+    ) -> Result<Routine, CreateError>;
+    async fn modify_routine(
+        &self,
+        id: RoutineID,
+        name: Option<Name>,
+        archived: Option<bool>,
+        sections: Option<Vec<RoutinePart>>,
+    ) -> Result<Routine, UpdateError>;
+    async fn delete_routine(&self, id: RoutineID) -> Result<RoutineID, DeleteError>;
+
+    async fn validate_routine_name(
+        &self,
+        name: &str,
+        id: RoutineID,
+    ) -> Result<Name, ValidationError> {
+        match Name::new(name) {
+            Ok(name) => match self.get_routines().await {
+                Ok(routines) => {
+                    if routines.iter().all(|r| r.id == id || r.name != name) {
+                        Ok(name)
+                    } else {
+                        Err(ValidationError::Conflict("name".to_string()))
+                    }
+                }
+                Err(err) => Err(ValidationError::Other(err.into())),
+            },
+            Err(err) => Err(ValidationError::Other(err.into())),
+        }
+    }
+
+    async fn get_routine(&self, id: RoutineID) -> Result<Option<Routine>, ReadError> {
+        Ok(self.get_routines().await?.into_iter().find(|e| e.id == id))
+    }
+}
 
 #[allow(async_fn_in_trait)]
 pub trait RoutineRepository {

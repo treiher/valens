@@ -329,7 +329,7 @@ mod tests {
 
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     mod wasm {
-        use std::cell::RefCell;
+        use std::sync::{Arc, Mutex};
 
         use pretty_assertions::assert_eq;
         use serde_json::json;
@@ -2164,8 +2164,10 @@ mod tests {
             response: Option<Result<gloo_net::http::Response, gloo_net::Error>>,
         ) -> CachedREST<MockSendRequest> {
             let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(response),
+                #[allow(clippy::arc_with_non_send_sync)]
+                request: Arc::new(Mutex::new(None)),
+                #[allow(clippy::arc_with_non_send_sync)]
+                response: Arc::new(Mutex::new(response)),
             };
             CachedREST {
                 rest: REST { sender },
@@ -2173,17 +2175,20 @@ mod tests {
         }
 
         struct MockSendRequest {
-            request: RefCell<Option<gloo_net::http::Request>>,
-            response: RefCell<Option<Result<gloo_net::http::Response, gloo_net::Error>>>,
+            request: Arc<Mutex<Option<gloo_net::http::Request>>>,
+            response: Arc<Mutex<Option<Result<gloo_net::http::Response, gloo_net::Error>>>>,
         }
+
+        unsafe impl Send for MockSendRequest {}
+        unsafe impl Sync for MockSendRequest {}
 
         impl SendRequest for MockSendRequest {
             async fn send_request(
                 &self,
                 request: gloo_net::http::Request,
             ) -> Result<gloo_net::http::Response, gloo_net::Error> {
-                *self.request.borrow_mut() = Some(request);
-                (*self.response.borrow_mut())
+                *self.request.lock().unwrap() = Some(request);
+                (*self.response.lock().unwrap())
                     .take()
                     .unwrap_or(Err(gloo_net::Error::GlooError("no response".to_string())))
             }

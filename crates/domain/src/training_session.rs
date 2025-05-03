@@ -1,13 +1,69 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use derive_more::Deref;
 use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, MuscleID, RPE, ReadError, Reps, RoutineID,
-    Stimulus, SyncError, Time, UpdateError, Weight,
+    Stimulus, SyncError, Time, TrainingStats, UpdateError, ValidationError, Weight, training_stats,
 };
+
+#[allow(async_fn_in_trait)]
+pub trait TrainingSessionService {
+    async fn get_training_sessions(&self) -> Result<Vec<TrainingSession>, ReadError>;
+    async fn create_training_session(
+        &self,
+        routine_id: RoutineID,
+        date: NaiveDate,
+        notes: String,
+        elements: Vec<TrainingSessionElement>,
+    ) -> Result<TrainingSession, CreateError>;
+    async fn modify_training_session(
+        &self,
+        id: TrainingSessionID,
+        notes: Option<String>,
+        elements: Option<Vec<TrainingSessionElement>>,
+    ) -> Result<TrainingSession, UpdateError>;
+    async fn delete_training_session(
+        &self,
+        id: TrainingSessionID,
+    ) -> Result<TrainingSessionID, DeleteError>;
+
+    async fn validate_training_session_date(
+        &self,
+        date: &str,
+    ) -> Result<NaiveDate, ValidationError> {
+        match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+            Ok(parsed_date) => {
+                if parsed_date <= Local::now().date_naive() {
+                    match self.get_training_sessions().await {
+                        Ok(training_sessions) => {
+                            if training_sessions.iter().all(|u| u.date != parsed_date) {
+                                Ok(parsed_date)
+                            } else {
+                                Err(ValidationError::Conflict("date".to_string()))
+                            }
+                        }
+                        Err(err) => Err(ValidationError::Other(err.into())),
+                    }
+                } else {
+                    Err(ValidationError::Other(
+                        "Date must not be in the future".into(),
+                    ))
+                }
+            }
+            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+        }
+    }
+
+    fn get_training_stats(&self, training_sessions: &[TrainingSession]) -> TrainingStats {
+        training_stats(&training_sessions.iter().collect::<Vec<_>>())
+    }
+}
 
 #[allow(async_fn_in_trait)]
 pub trait TrainingSessionRepository {

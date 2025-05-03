@@ -1,6 +1,52 @@
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 
-use crate::{CreateError, DeleteError, ReadError, Sex, SyncError, UpdateError};
+use crate::{CreateError, DeleteError, ReadError, Sex, SyncError, UpdateError, ValidationError};
+
+#[allow(async_fn_in_trait)]
+pub trait BodyFatService {
+    async fn get_body_fat(&self) -> Result<Vec<BodyFat>, ReadError>;
+    async fn get_body_fat_on(&self, date: NaiveDate) -> Result<BodyFat, ReadError>;
+    async fn create_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, CreateError>;
+    async fn replace_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, UpdateError>;
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+
+    async fn validate_body_fat_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
+        match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+            Ok(parsed_date) => {
+                if parsed_date <= Local::now().date_naive() {
+                    match self.get_body_fat().await {
+                        Ok(body_fats) => {
+                            if body_fats.iter().all(|u| u.date != parsed_date) {
+                                Ok(parsed_date)
+                            } else {
+                                Err(ValidationError::Conflict("date".to_string()))
+                            }
+                        }
+                        Err(err) => Err(ValidationError::Other(err.into())),
+                    }
+                } else {
+                    Err(ValidationError::Other(
+                        "Date must not be in the future".into(),
+                    ))
+                }
+            }
+            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+        }
+    }
+
+    fn validate_body_fat_skinfold(&self, value: &str) -> Result<Option<u8>, ValidationError> {
+        if value.is_empty() {
+            Ok(None)
+        } else {
+            match value.trim().parse::<u8>() {
+                Ok(parsed_value) => Ok(Some(parsed_value)),
+                Err(_) => Err(ValidationError::Other(
+                    "Measurement must be a positive whole number".into(),
+                )),
+            }
+        }
+    }
+}
 
 #[allow(async_fn_in_trait)]
 pub trait BodyFatRepository {

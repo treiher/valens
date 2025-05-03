@@ -1221,7 +1221,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
     }
 }
 
-pub trait SendRequest {
+pub trait SendRequest: Send + Sync + 'static {
     #[allow(async_fn_in_trait)]
     async fn send_request(
         &self,
@@ -1398,7 +1398,7 @@ mod tests {
 
     #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     mod wasm {
-        use std::cell::RefCell;
+        use std::sync::{Arc, Mutex};
 
         use pretty_assertions::assert_eq;
         use valens_domain::{
@@ -1412,167 +1412,166 @@ mod tests {
 
         #[wasm_bindgen_test]
         async fn test_request_session() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&User::from(USER.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.request_session(USER.id).await.unwrap(), USER.clone());
+                ))
+                .request_session(USER.id)
+                .await
+                .unwrap(),
+                USER.clone()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_initialize_session() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&User::from(USER.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.initialize_session().await.unwrap(), USER.clone());
+                ))
+                .initialize_session()
+                .await
+                .unwrap(),
+                USER.clone()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_delete_session() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.delete_session().await.unwrap(), ());
+                ))
+                .delete_session()
+                .await
+                .unwrap(),
+                ()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_version() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&json!("0.1.2")),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.read_version().await.unwrap(), "0.1.2".to_string());
+                ))
+                .read_version()
+                .await
+                .unwrap(),
+                "0.1.2".to_string()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_users() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&[User::from(USER.clone()), User::from(USER_2.clone())]),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.read_users().await.unwrap(), USERS.clone());
+                ))
+                .read_users()
+                .await
+                .unwrap(),
+                USERS.clone()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_create_user() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&User::from(USER.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.create_user(USER.name.clone(), USER.sex).await.unwrap(),
+                ))
+                .create_user(USER.name.clone(), USER.sex)
+                .await
+                .unwrap(),
                 USER.clone()
             );
         }
 
         #[wasm_bindgen_test]
         async fn test_replace_user() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&User::from(USER.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.replace_user(USER.clone()).await.unwrap(), USER.clone());
+                ))
+                .replace_user(USER.clone())
+                .await
+                .unwrap(),
+                USER.clone()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_delete_user() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.delete_user(USER.id).await.unwrap(), USER.id);
+                ))
+                .delete_user(USER.id)
+                .await
+                .unwrap(),
+                USER.id
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_body_weight() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(gloo_net::http::Response::builder().status(200).json(
+            assert_eq!(
+                rest_with_response(Some(gloo_net::http::Response::builder().status(200).json(
                     &[
                         BodyWeight::from(BODY_WEIGHT),
                         BodyWeight::from(BODY_WEIGHT_2),
-                    ],
-                ))),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.read_body_weight().await.unwrap(),
+                    ]
+                )))
+                .read_body_weight()
+                .await
+                .unwrap(),
                 BODY_WEIGHTS.to_vec()
             );
         }
 
         #[wasm_bindgen_test]
         async fn test_create_body_weight() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&BodyWeight::from(BODY_WEIGHT)),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.create_body_weight(BODY_WEIGHT).await.unwrap(),
+                ))
+                .create_body_weight(BODY_WEIGHT)
+                .await
+                .unwrap(),
                 BODY_WEIGHT
             );
         }
 
         #[wasm_bindgen_test]
         async fn test_replace_body_weight() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&BodyWeight::from(BODY_WEIGHT)),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.replace_body_weight(BODY_WEIGHT).await.unwrap(),
+                ))
+                .replace_body_weight(BODY_WEIGHT)
+                .await
+                .unwrap(),
                 BODY_WEIGHT
             );
         }
@@ -1580,179 +1579,183 @@ mod tests {
         #[wasm_bindgen_test]
         async fn test_delete_body_weight() {
             let date = NaiveDate::from_ymd_opt(2020, 2, 2).unwrap();
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.delete_body_weight(date).await.unwrap(), date);
+                ))
+                .delete_body_weight(date)
+                .await
+                .unwrap(),
+                date
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_body_fat() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&[BodyFat::from(BODY_FAT), BodyFat::from(BODY_FAT_2)]),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.read_body_fat().await.unwrap(), BODY_FATS.to_vec());
+                ))
+                .read_body_fat()
+                .await
+                .unwrap(),
+                BODY_FATS.to_vec()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_create_body_fat() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&BodyFat::from(BODY_FAT)),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.create_body_fat(BODY_FAT).await.unwrap(), BODY_FAT);
+                ))
+                .create_body_fat(BODY_FAT)
+                .await
+                .unwrap(),
+                BODY_FAT
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_replace_body_fat() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&BodyFat::from(BODY_FAT)),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.replace_body_fat(BODY_FAT).await.unwrap(), BODY_FAT);
+                ))
+                .replace_body_fat(BODY_FAT)
+                .await
+                .unwrap(),
+                BODY_FAT
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_delete_body_fat() {
             let date = NaiveDate::from_ymd_opt(2020, 2, 2).unwrap();
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.delete_body_fat(date).await.unwrap(), date);
+                ))
+                .delete_body_fat(date)
+                .await
+                .unwrap(),
+                date
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_period() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&[Period::from(PERIOD), Period::from(PERIOD_2)]),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.read_period().await.unwrap(), PERIODS.to_vec());
+                ))
+                .read_period()
+                .await
+                .unwrap(),
+                PERIODS.to_vec()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_create_period() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&Period::from(PERIOD)),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.create_period(PERIOD).await.unwrap(), PERIOD);
+                ))
+                .create_period(PERIOD)
+                .await
+                .unwrap(),
+                PERIOD
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_replace_period() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&Period::from(PERIOD)),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.replace_period(PERIOD).await.unwrap(), PERIOD);
+                ))
+                .replace_period(PERIOD)
+                .await
+                .unwrap(),
+                PERIOD
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_delete_period() {
             let date = NaiveDate::from_ymd_opt(2020, 2, 2).unwrap();
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.delete_period(date).await.unwrap(), date);
+                ))
+                .delete_period(date)
+                .await
+                .unwrap(),
+                date
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_exercises() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(gloo_net::http::Response::builder().status(200).json(
+            assert_eq!(
+                rest_with_response(Some(gloo_net::http::Response::builder().status(200).json(
                     &[
                         Exercise::from(EXERCISE.clone()),
                         Exercise::from(EXERCISE_2.clone()),
-                    ],
-                ))),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.read_exercises().await.unwrap(), EXERCISES.to_vec());
+                    ]
+                )))
+                .read_exercises()
+                .await
+                .unwrap(),
+                EXERCISES.to_vec()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_create_exercise() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&Exercise::from(EXERCISE.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
-                    .await
-                    .unwrap(),
+                ))
+                .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
+                .await
+                .unwrap(),
                 EXERCISE.clone()
             );
         }
 
         #[wasm_bindgen_test]
         async fn test_replace_exercise() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&Exercise::from(EXERCISE.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.replace_exercise(EXERCISE.clone()).await.unwrap(),
+                ))
+                .replace_exercise(EXERCISE.clone())
+                .await
+                .unwrap(),
                 EXERCISE.clone()
             );
         }
@@ -1760,65 +1763,59 @@ mod tests {
         #[wasm_bindgen_test]
         async fn test_delete_exercise() {
             let id = 1.into();
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.delete_exercise(id).await.unwrap(), id);
+                ))
+                .delete_exercise(id)
+                .await
+                .unwrap(),
+                id
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_routines() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(gloo_net::http::Response::builder().status(200).json(
+            assert_eq!(
+                rest_with_response(Some(gloo_net::http::Response::builder().status(200).json(
                     &[
                         Routine::from(ROUTINE.clone()),
                         Routine::from(ROUTINE_2.clone()),
-                    ],
-                ))),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.read_routines().await.unwrap(), ROUTINES.clone());
+                    ]
+                )))
+                .read_routines()
+                .await
+                .unwrap(),
+                ROUTINES.clone()
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_create_routine() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&Routine::from(ROUTINE.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
-                    .await
-                    .unwrap(),
+                ))
+                .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
+                .await
+                .unwrap(),
                 ROUTINE.clone()
             );
         }
 
         #[wasm_bindgen_test]
         async fn test_modify_routine() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&Routine::from(ROUTINE.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.modify_routine(
+                ))
+                .modify_routine(
                     ROUTINE.id,
                     Some(ROUTINE.name.clone()),
                     Some(ROUTINE.archived),
@@ -1832,49 +1829,44 @@ mod tests {
 
         #[wasm_bindgen_test]
         async fn test_delete_routine() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(rest.delete_routine(ROUTINE.id).await.unwrap(), ROUTINE.id);
+                ))
+                .delete_routine(ROUTINE.id)
+                .await
+                .unwrap(),
+                ROUTINE.id
+            );
         }
 
         #[wasm_bindgen_test]
         async fn test_read_training_sessions() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(gloo_net::http::Response::builder().status(200).json(
+            assert_eq!(
+                rest_with_response(Some(gloo_net::http::Response::builder().status(200).json(
                     &[
                         TrainingSession::from(TRAINING_SESSION.clone()),
                         TrainingSession::from(TRAINING_SESSION_2.clone()),
-                    ],
-                ))),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.read_training_sessions().await.unwrap(),
+                    ]
+                )))
+                .read_training_sessions()
+                .await
+                .unwrap(),
                 TRAINING_SESSIONS.clone()
             );
         }
 
         #[wasm_bindgen_test]
         async fn test_create_training_session() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&TrainingSession::from(TRAINING_SESSION.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.create_training_session(
+                ))
+                .create_training_session(
                     TRAINING_SESSION.routine_id,
                     TRAINING_SESSION.date,
                     TRAINING_SESSION.notes.clone(),
@@ -1888,17 +1880,13 @@ mod tests {
 
         #[wasm_bindgen_test]
         async fn test_modify_training_session() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .json(&TrainingSession::from(TRAINING_SESSION.clone())),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.modify_training_session(
+                ))
+                .modify_training_session(
                     TRAINING_SESSION.id,
                     Some(TRAINING_SESSION.notes.clone()),
                     Some(TRAINING_SESSION.elements.clone())
@@ -1911,35 +1899,46 @@ mod tests {
 
         #[wasm_bindgen_test]
         async fn test_delete_training_session() {
-            let sender = MockSendRequest {
-                request: RefCell::new(None),
-                response: RefCell::new(Some(
+            assert_eq!(
+                rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
                         .body::<Option<&str>>(None),
-                )),
-            };
-            let rest = REST { sender };
-            assert_eq!(
-                rest.delete_training_session(TRAINING_SESSION.id)
-                    .await
-                    .unwrap(),
+                ))
+                .delete_training_session(TRAINING_SESSION.id)
+                .await
+                .unwrap(),
                 TRAINING_SESSION.id
             );
         }
 
-        struct MockSendRequest {
-            request: RefCell<Option<gloo_net::http::Request>>,
-            response: RefCell<Option<Result<gloo_net::http::Response, gloo_net::Error>>>,
+        fn rest_with_response(
+            response: Option<Result<gloo_net::http::Response, gloo_net::Error>>,
+        ) -> REST<MockSendRequest> {
+            let sender = MockSendRequest {
+                #[allow(clippy::arc_with_non_send_sync)]
+                request: Arc::new(Mutex::new(None)),
+                #[allow(clippy::arc_with_non_send_sync)]
+                response: Arc::new(Mutex::new(response)),
+            };
+            REST { sender }
         }
+
+        struct MockSendRequest {
+            request: Arc<Mutex<Option<gloo_net::http::Request>>>,
+            response: Arc<Mutex<Option<Result<gloo_net::http::Response, gloo_net::Error>>>>,
+        }
+
+        unsafe impl Send for MockSendRequest {}
+        unsafe impl Sync for MockSendRequest {}
 
         impl SendRequest for MockSendRequest {
             async fn send_request(
                 &self,
                 request: gloo_net::http::Request,
             ) -> Result<gloo_net::http::Response, gloo_net::Error> {
-                *self.request.borrow_mut() = Some(request);
-                (*self.response.borrow_mut())
+                *self.request.lock().unwrap() = Some(request);
+                (*self.response.lock().unwrap())
                     .take()
                     .expect("no response set")
             }

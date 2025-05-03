@@ -1,9 +1,54 @@
-use std::{collections::BTreeMap, slice::Iter};
+use std::slice::Iter;
 
 use chrono::{Duration, Local, NaiveDate};
 use derive_more::Display;
 
-use crate::{CreateError, DeleteError, ReadError, SyncError, UpdateError};
+use crate::{CreateError, DeleteError, ReadError, SyncError, UpdateError, ValidationError};
+
+#[allow(async_fn_in_trait)]
+pub trait PeriodService {
+    async fn get_cycles(&self) -> Result<Vec<Cycle>, ReadError>;
+    async fn get_current_cycle(&self) -> Result<CurrentCycle, ReadError>;
+    async fn get_period(&self) -> Result<Vec<Period>, ReadError>;
+    async fn create_period(&self, period: Period) -> Result<Period, CreateError>;
+    async fn replace_period(&self, period: Period) -> Result<Period, UpdateError>;
+    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+
+    async fn validate_period_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
+        match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
+            Ok(parsed_date) => {
+                if parsed_date <= Local::now().date_naive() {
+                    match self.get_period().await {
+                        Ok(periods) => {
+                            if periods.iter().all(|u| u.date != parsed_date) {
+                                Ok(parsed_date)
+                            } else {
+                                Err(ValidationError::Conflict("date".to_string()))
+                            }
+                        }
+                        Err(err) => Err(ValidationError::Other(err.into())),
+                    }
+                } else {
+                    Err(ValidationError::Other(
+                        "Date must not be in the future".into(),
+                    ))
+                }
+            }
+            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+        }
+    }
+
+    fn validate_period_intensity(&self, value: &str) -> Result<Intensity, ValidationError> {
+        match value.trim().parse::<u8>() {
+            Ok(parsed_value) => {
+                Intensity::try_from(parsed_value).map_err(|err| ValidationError::Other(err.into()))
+            }
+            Err(_) => Err(ValidationError::Other(
+                "Intensity must be a positive whole number".into(),
+            )),
+        }
+    }
+}
 
 #[allow(async_fn_in_trait)]
 pub trait PeriodRepository {
@@ -65,16 +110,19 @@ pub enum IntensityError {
 }
 
 #[must_use]
-pub fn cycles(period: &BTreeMap<NaiveDate, Period>) -> Vec<Cycle> {
+pub fn cycles(period: &[Period]) -> Vec<Cycle> {
     if period.is_empty() {
         return vec![];
     }
 
     let mut result = vec![];
-    let mut begin = period.keys().min().copied().unwrap_or_default();
+    let mut begin = period
+        .iter()
+        .cloned()
+        .map(|p| p.date)
+        .min()
+        .unwrap_or_default();
     let mut last = begin;
-
-    let period = period.values().collect::<Vec<_>>();
 
     for p in &period[1..] {
         if p.date - last > Duration::days(3) {
@@ -199,29 +247,26 @@ mod tests {
 
     #[test]
     fn test_cycles() {
-        assert_eq!(cycles(&BTreeMap::new()), vec![]);
+        assert_eq!(cycles(&[]), vec![]);
         assert_eq!(
-            cycles(&BTreeMap::from(
-                [
-                    Period {
-                        date: from_num_days(1),
-                        intensity: Intensity::Medium,
-                    },
-                    Period {
-                        date: from_num_days(5),
-                        intensity: Intensity::Heavy,
-                    },
-                    Period {
-                        date: from_num_days(8),
-                        intensity: Intensity::Light,
-                    },
-                    Period {
-                        date: from_num_days(33),
-                        intensity: Intensity::Spotting,
-                    }
-                ]
-                .map(|p| (p.date, p))
-            )),
+            cycles(&[
+                Period {
+                    date: from_num_days(1),
+                    intensity: Intensity::Medium,
+                },
+                Period {
+                    date: from_num_days(5),
+                    intensity: Intensity::Heavy,
+                },
+                Period {
+                    date: from_num_days(8),
+                    intensity: Intensity::Light,
+                },
+                Period {
+                    date: from_num_days(33),
+                    intensity: Intensity::Spotting,
+                }
+            ]),
             vec![
                 Cycle {
                     begin: from_num_days(1),

@@ -1099,6 +1099,7 @@ dependencies = [
  "assert_approx_eq",
  "chrono",
  "derive_more",
+ "log",
  "pretty_assertions",
  "rstest",
  "thiserror",

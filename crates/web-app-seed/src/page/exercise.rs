@@ -450,7 +450,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
 pub fn view_charts<Ms>(
     training_sessions: &[&domain::TrainingSession],
     interval: &domain::Interval,
-    theme: &web_app::Theme,
+    theme: web_app::Theme,
     show_rpe: bool,
     show_tut: bool,
 ) -> Vec<Node<Ms>> {

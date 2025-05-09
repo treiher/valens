@@ -13,6 +13,12 @@ use thiserror;
 pub static LOG: Mutex<Option<Arc<Mutex<dyn Repository>>>> = Mutex::new(None);
 
 #[allow(clippy::missing_errors_doc)]
+pub trait Service: Send + Sync + 'static {
+    fn get_log_entries(&self) -> Result<VecDeque<Entry>, Error>;
+    fn add_log_entry(&self, entry: Entry) -> Result<(), Error>;
+}
+
+#[allow(clippy::missing_errors_doc)]
 pub trait Repository: Send + Sync + 'static {
     fn read_entries(&self) -> Result<VecDeque<Entry>, Error>;
     fn write_entry(&self, entry: Entry) -> Result<(), Error>;

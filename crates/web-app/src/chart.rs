@@ -169,7 +169,7 @@ impl Bounds {
 pub fn plot(
     data: &[PlotData],
     interval: &domain::Interval,
-    theme: &Theme,
+    theme: Theme,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if all_zeros(data) {
         return Ok(None);
@@ -358,7 +358,7 @@ pub fn plot_min_avg_max<T: Into<f32> + Copy>(
     interval: &domain::Interval,
     params: PlotParams,
     color: usize,
-    theme: &Theme,
+    theme: Theme,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
 
@@ -428,7 +428,7 @@ fn all_zeros(data: &[PlotData]) -> bool {
         .unwrap_or(true)
 }
 
-fn colors(theme: &Theme) -> (RGBColor, RGBColor) {
+fn colors(theme: Theme) -> (RGBColor, RGBColor) {
     let dark = RGBColor(20, 22, 26);
     match theme {
         Theme::System | Theme::Light => (dark, WHITE),

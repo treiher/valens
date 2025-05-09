@@ -8,7 +8,9 @@ pub mod service_worker;
 pub use ongoing_training_session::{
     OngoingTrainingSession, OngoingTrainingSessionRepository, TimerState,
 };
-pub use settings::{Settings, SettingsRepository, Theme};
+pub use service::Service;
+pub use settings::{Settings, SettingsRepository, SettingsService, Theme};
 
 mod ongoing_training_session;
+mod service;
 mod settings;

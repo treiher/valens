@@ -1,10 +1,16 @@
 #[allow(async_fn_in_trait)]
+pub trait SettingsService {
+    async fn get_settings(&self) -> Result<Settings, String>;
+    async fn set_settings(&self, settings: Settings) -> Result<(), String>;
+}
+
+#[allow(async_fn_in_trait)]
 pub trait SettingsRepository {
     async fn read_settings(&self) -> Result<Settings, String>;
     async fn write_settings(&self, settings: Settings) -> Result<(), String>;
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
     pub beep_volume: u8,
@@ -28,7 +34,7 @@ impl Default for Settings {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq)]
 pub enum Theme {
     System,
     Light,

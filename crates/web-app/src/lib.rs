@@ -6,9 +6,12 @@ pub mod log;
 pub mod service_worker;
 
 pub use ongoing_training_session::{
-    OngoingTrainingSession, OngoingTrainingSessionRepository, TimerState,
+    OngoingTrainingSession, OngoingTrainingSessionRepository, OngoingTrainingSessionService,
+    TimerState,
 };
-pub use settings::{Settings, SettingsRepository, Theme};
+pub use service::Service;
+pub use settings::{Settings, SettingsRepository, SettingsService, Theme};
 
 mod ongoing_training_session;
+mod service;
 mod settings;

@@ -1,6 +1,15 @@
 use chrono::{DateTime, Utc};
 
 #[allow(async_fn_in_trait)]
+pub trait OngoingTrainingSessionService {
+    async fn get_ongoing_training_session(&self) -> Result<Option<OngoingTrainingSession>, String>;
+    async fn set_ongoing_training_session(
+        &self,
+        ongoing_training_session: Option<OngoingTrainingSession>,
+    ) -> Result<(), String>;
+}
+
+#[allow(async_fn_in_trait)]
 pub trait OngoingTrainingSessionRepository {
     async fn read_ongoing_training_session(&self)
     -> Result<Option<OngoingTrainingSession>, String>;

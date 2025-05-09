@@ -1254,7 +1254,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
 pub fn view_charts<Ms>(
     training_sessions: &[&domain::TrainingSession],
     interval: &domain::Interval,
-    theme: &web_app::Theme,
+    theme: web_app::Theme,
     show_rpe: bool,
 ) -> Vec<Node<Ms>> {
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();

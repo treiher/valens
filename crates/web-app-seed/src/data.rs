@@ -130,7 +130,7 @@ impl Model {
         dates.clone().min().unwrap_or_default()..=dates.max().unwrap_or_default()
     }
 
-    pub fn theme(&self) -> &web_app::Theme {
+    pub fn theme(&self) -> web_app::Theme {
         match self.settings.theme {
             web_app::Theme::System => {
                 if let Some(window) = web_sys::window() {
@@ -139,24 +139,24 @@ impl Model {
                     {
                         if let Some(media_query_list) = prefers_dark_scheme {
                             if media_query_list.matches() {
-                                &web_app::Theme::Dark
+                                web_app::Theme::Dark
                             } else {
-                                &web_app::Theme::Light
+                                web_app::Theme::Light
                             }
                         } else {
                             error!("failed to determine preferred color scheme");
-                            &web_app::Theme::Light
+                            web_app::Theme::Light
                         }
                     } else {
                         error!("failed to match media to determine preferred color scheme");
-                        &web_app::Theme::Light
+                        web_app::Theme::Light
                     }
                 } else {
                     error!("failed to access window to determine preferred color scheme");
-                    &web_app::Theme::Light
+                    web_app::Theme::Light
                 }
             }
-            web_app::Theme::Light | web_app::Theme::Dark => &self.settings.theme,
+            web_app::Theme::Light | web_app::Theme::Dark => self.settings.theme,
         }
     }
 }
@@ -1286,7 +1286,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .notify(Event::BeepVolumeChanged);
         }
         Msg::SetTheme(theme) => {
-            apply_theme(&theme);
+            apply_theme(theme);
             model.settings.theme = theme;
             orders.send_msg(Msg::WriteSettings);
         }
@@ -1333,14 +1333,14 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
                 .perform_cmd(async move { Msg::SettingsRead(storage.read_settings().await) });
         }
         Msg::SettingsRead(Ok(settings)) => {
-            apply_theme(&settings.theme);
+            apply_theme(settings.theme);
             model.settings = settings;
         }
         Msg::SettingsRead(Err(message)) => {
             error!("failed to read settings: {message}");
         }
         Msg::WriteSettings => {
-            let settings = model.settings.clone();
+            let settings = model.settings;
             let storage = model.local_storage.clone();
             orders.skip().perform_cmd(async move {
                 Msg::SettingsWritten(storage.write_settings(settings).await)
@@ -1383,7 +1383,7 @@ pub fn update(msg: Msg, model: &mut Model, orders: &mut impl Orders<Msg>) {
     }
 }
 
-fn apply_theme(theme: &web_app::Theme) {
+fn apply_theme(theme: web_app::Theme) {
     if let Some(window) = web_sys::window() {
         if let Some(document) = window.document() {
             if let Some(html_element) = document.document_element() {

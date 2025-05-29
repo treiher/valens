@@ -21,7 +21,8 @@ pub use period::{
     current_cycle, cycle_stats, cycles,
 };
 pub use routine::{
-    Routine, RoutineID, RoutinePart, RoutineRepository, RoutineService, routines_sorted_by_last_use,
+    Rounds, Routine, RoutineID, RoutinePart, RoutinePartPath, RoutineRepository, RoutineService,
+    routines_sorted_by_last_use,
 };
 pub use service::Service;
 pub use session::{SessionRepository, SessionService};
@@ -31,8 +32,8 @@ pub use statistics::{
 };
 pub use training::{RIR, RPE, Reps, Time, TrainingStats, Weight, training_stats};
 pub use training_session::{
-    TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,
-    TrainingSessionService,
+    Set, TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,
+    TrainingSessionSection, TrainingSessionService,
 };
 pub use user::{Sex, User, UserID, UserRepository, UserService};
 pub use version::{VersionRepository, VersionService};

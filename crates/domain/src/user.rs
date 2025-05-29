@@ -85,6 +85,15 @@ impl From<u8> for Sex {
     }
 }
 
+impl From<&str> for Sex {
+    fn from(value: &str) -> Self {
+        match value {
+            "female" => Sex::FEMALE,
+            _ => Sex::MALE,
+        }
+    }
+}
+
 impl fmt::Display for Sex {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(

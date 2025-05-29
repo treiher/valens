@@ -970,7 +970,7 @@ impl From<domain::RoutinePart> for RoutinePart {
     fn from(value: domain::RoutinePart) -> Self {
         match value {
             domain::RoutinePart::RoutineSection { rounds, parts } => RoutinePart::RoutineSection {
-                rounds,
+                rounds: u32::from(rounds),
                 parts: parts.into_iter().map(RoutinePart::from).collect(),
             },
             domain::RoutinePart::RoutineActivity {
@@ -1001,7 +1001,7 @@ impl From<RoutinePart> for domain::RoutinePart {
     fn from(value: RoutinePart) -> Self {
         match value {
             RoutinePart::RoutineSection { rounds, parts } => domain::RoutinePart::RoutineSection {
-                rounds,
+                rounds: domain::Rounds::new(rounds).unwrap_or_default(),
                 parts: parts.into_iter().map(domain::RoutinePart::from).collect(),
             },
             RoutinePart::RoutineActivity {

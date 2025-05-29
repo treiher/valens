@@ -1,7 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
 use chrono::{Duration, NaiveDate};
-use derive_more::Deref;
+use derive_more::{Deref, Display, From, Into};
 use uuid::Uuid;
 
 use crate::{
@@ -90,10 +93,7 @@ impl Routine {
     }
 
     #[must_use]
-    pub fn stimulus_per_muscle(
-        &self,
-        exercises: &BTreeMap<ExerciseID, Exercise>,
-    ) -> BTreeMap<MuscleID, Stimulus> {
+    pub fn stimulus_per_muscle(&self, exercises: &[Exercise]) -> BTreeMap<MuscleID, Stimulus> {
         let mut result: BTreeMap<MuscleID, Stimulus> =
             MuscleID::iter().map(|m| (*m, Stimulus::NONE)).collect();
         for section in &self.sections {
@@ -111,6 +111,183 @@ impl Routine {
             .iter()
             .flat_map(RoutinePart::exercises)
             .collect::<BTreeSet<_>>()
+    }
+
+    pub fn add_section(&mut self, path: &RoutinePartPath) {
+        let new_section = RoutinePart::RoutineSection {
+            rounds: Rounds::new(1).unwrap(),
+            parts: vec![],
+        };
+        if path.is_empty() {
+            self.sections.push(new_section);
+        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
+            Self::get_mut_part(&mut self.sections, path)
+        {
+            parts.push(new_section);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_section(&mut self, rounds: Option<Rounds>, path: &RoutinePartPath) {
+        let new_rounds = rounds;
+        if let Some(RoutinePart::RoutineSection { rounds, .. }) =
+            Self::get_mut_part(&mut self.sections, path)
+        {
+            if let Some(new_rounds) = new_rounds {
+                *rounds = new_rounds;
+            }
+        }
+    }
+
+    pub fn add_activity(&mut self, exercise_id: ExerciseID, path: &RoutinePartPath) {
+        let new_activity = RoutinePart::RoutineActivity {
+            exercise_id,
+            reps: Reps::default(),
+            time: if exercise_id.is_nil() {
+                Time::new(60).unwrap()
+            } else {
+                Time::default()
+            },
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: exercise_id.is_nil(),
+        };
+        if let Some(RoutinePart::RoutineSection { parts, .. }) =
+            Self::get_mut_part(&mut self.sections, path)
+        {
+            parts.push(new_activity);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_activity(
+        &mut self,
+        exercise_id: Option<ExerciseID>,
+        reps: Option<Reps>,
+        time: Option<Time>,
+        weight: Option<Weight>,
+        rpe: Option<RPE>,
+        automatic: Option<bool>,
+        path: &RoutinePartPath,
+    ) {
+        let new_exercise_id = exercise_id;
+        let new_reps = reps;
+        let new_time = time;
+        let new_weight = weight;
+        let new_rpe = rpe;
+        let new_automatic = automatic;
+        if let Some(RoutinePart::RoutineActivity {
+            exercise_id,
+            reps,
+            time,
+            weight,
+            rpe,
+            automatic,
+        }) = Self::get_mut_part(&mut self.sections, path)
+        {
+            if let Some(new_exercise_id) = new_exercise_id {
+                *exercise_id = new_exercise_id;
+            }
+            if let Some(new_reps) = new_reps {
+                *reps = new_reps;
+            }
+            if let Some(new_time) = new_time {
+                *time = new_time;
+            }
+            if let Some(new_weight) = new_weight {
+                *weight = new_weight;
+            }
+            if let Some(new_rpe) = new_rpe {
+                *rpe = new_rpe;
+            }
+            if let Some(new_automatic) = new_automatic {
+                *automatic = new_automatic;
+            }
+        }
+    }
+
+    pub fn remove_part(&mut self, path: &RoutinePartPath) {
+        if path.len() == 1 {
+            self.sections.remove(path[0]);
+        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
+            Self::get_mut_part(&mut self.sections, &path[1..])
+        {
+            parts.remove(path[0]);
+        }
+    }
+
+    pub fn move_part_down(&mut self, path: &RoutinePartPath) {
+        if path.len() == 1 {
+            if path[0] == self.sections.len() - 1 {
+                self.sections.rotate_right(1);
+            } else {
+                self.sections.swap(path[0], path[0] + 1);
+            }
+        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
+            Self::get_mut_part(&mut self.sections, &path[1..])
+        {
+            if path[0] == parts.len() - 1 {
+                parts.rotate_right(1);
+            } else {
+                parts.swap(path[0], path[0] + 1);
+            }
+        }
+    }
+
+    pub fn move_part_up(&mut self, path: &RoutinePartPath) {
+        if path.len() == 1 {
+            if path[0] == 0 {
+                self.sections.rotate_left(1);
+            } else {
+                self.sections.swap(path[0], path[0] - 1);
+            }
+        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
+            Self::get_mut_part(&mut self.sections, &path[1..])
+        {
+            if path[0] == 0 {
+                parts.rotate_left(1);
+            } else {
+                parts.swap(path[0], path[0] - 1);
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn part(&self, path: &RoutinePartPath) -> Option<&RoutinePart> {
+        Self::get_part(&self.sections, path)
+    }
+
+    fn get_part<'a>(sections: &'a [RoutinePart], path: &[usize]) -> Option<&'a RoutinePart> {
+        if let Some(i) = path.last() {
+            if i < &sections.len() {
+                let p = &sections[*i];
+                if path.len() == 1 {
+                    return Some(p);
+                }
+                if let RoutinePart::RoutineSection { rounds: _, parts } = p {
+                    return Self::get_part(parts, &path[..path.len() - 1]);
+                }
+            }
+        };
+        None
+    }
+
+    fn get_mut_part<'a>(
+        sections: &'a mut [RoutinePart],
+        path: &[usize],
+    ) -> Option<&'a mut RoutinePart> {
+        if let Some(i) = path.last() {
+            if i < &sections.len() {
+                let p = &mut sections[*i];
+                if path.len() == 1 {
+                    return Some(p);
+                }
+                if let RoutinePart::RoutineSection { rounds: _, parts } = p {
+                    return Self::get_mut_part(parts, &path[..path.len() - 1]);
+                }
+            }
+        };
+        None
     }
 }
 
@@ -141,10 +318,18 @@ impl From<u128> for RoutineID {
     }
 }
 
+impl FromStr for RoutineID {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Uuid::from_str(s).map(Self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RoutinePart {
     RoutineSection {
-        rounds: u32,
+        rounds: Rounds,
         parts: Vec<RoutinePart>,
     },
     RoutineActivity {
@@ -161,8 +346,9 @@ impl RoutinePart {
     pub fn duration(&self) -> Duration {
         match self {
             RoutinePart::RoutineSection { rounds, parts } => {
+                let r: u32 = (*rounds).into();
                 parts.iter().map(RoutinePart::duration).sum::<Duration>()
-                    * (*rounds).try_into().unwrap_or(1)
+                    * r.try_into().unwrap_or_default()
             }
             RoutinePart::RoutineActivity { reps, time, .. } => {
                 let r = if *reps > Reps::default() {
@@ -183,29 +369,29 @@ impl RoutinePart {
     pub fn num_sets(&self) -> u32 {
         match self {
             RoutinePart::RoutineSection { rounds, parts } => {
-                parts.iter().map(RoutinePart::num_sets).sum::<u32>() * *rounds
+                let r: u32 = (*rounds).into();
+                parts.iter().map(RoutinePart::num_sets).sum::<u32>() * r
             }
             RoutinePart::RoutineActivity { exercise_id, .. } => (!exercise_id.is_nil()).into(),
         }
     }
 
     #[must_use]
-    pub fn stimulus_per_muscle(
-        &self,
-        exercises: &BTreeMap<ExerciseID, Exercise>,
-    ) -> BTreeMap<MuscleID, Stimulus> {
+    pub fn stimulus_per_muscle(&self, exercises: &[Exercise]) -> BTreeMap<MuscleID, Stimulus> {
         match self {
             RoutinePart::RoutineSection { rounds, parts } => {
                 let mut result: BTreeMap<MuscleID, Stimulus> = BTreeMap::new();
                 for part in parts {
                     for (muscle_id, stimulus) in part.stimulus_per_muscle(exercises) {
-                        *result.entry(muscle_id).or_insert(Stimulus::NONE) += stimulus * *rounds;
+                        let r: u32 = (*rounds).into();
+                        *result.entry(muscle_id).or_insert(Stimulus::NONE) += stimulus * r;
                     }
                 }
                 result
             }
             RoutinePart::RoutineActivity { exercise_id, .. } => exercises
-                .get(exercise_id)
+                .iter()
+                .find(|e| e.id == *exercise_id)
                 .map(|e| {
                     e.muscle_stimulus()
                         .iter()
@@ -238,7 +424,7 @@ impl RoutinePart {
         let mut result = vec![];
         match self {
             RoutinePart::RoutineSection { rounds, parts, .. } => {
-                for _ in 0..*rounds {
+                for _ in 0..(*rounds).into() {
                     for p in parts {
                         for s in p.to_training_session_elements() {
                             result.push(s);
@@ -295,6 +481,47 @@ impl RoutinePart {
     }
 }
 
+#[derive(Deref, Debug, Default, Clone, From, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RoutinePartPath(Vec<usize>);
+
+#[derive(Debug, Display, Clone, Copy, Into, PartialEq, PartialOrd)]
+pub struct Rounds(u32);
+
+impl Rounds {
+    pub fn new(value: u32) -> Result<Self, RoundsError> {
+        if !(1..1000).contains(&value) {
+            return Err(RoundsError::OutOfRange);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl Default for Rounds {
+    fn default() -> Self {
+        Rounds(1)
+    }
+}
+
+impl TryFrom<&str> for Rounds {
+    type Error = RoundsError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.parse::<u32>() {
+            Ok(parsed_value) => Rounds::new(parsed_value),
+            Err(_) => Err(RoundsError::ParseError),
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum RoundsError {
+    #[error("Rounds must be in the range 1 to 999")]
+    OutOfRange,
+    #[error("Rounds must be an integer")]
+    ParseError,
+}
+
 pub fn routines_sorted_by_last_use(
     routines: &[Routine],
     training_sessions: &[TrainingSession],
@@ -340,7 +567,7 @@ mod tests {
         archived: false,
         sections: vec![
             RoutinePart::RoutineSection {
-                rounds: 2,
+                rounds: Rounds::new(2).unwrap(),
                 parts: vec![
                     RoutinePart::RoutineActivity {
                         exercise_id: 1.into(),
@@ -361,7 +588,7 @@ mod tests {
                 ],
             },
             RoutinePart::RoutineSection {
-                rounds: 2,
+                rounds: Rounds::new(2).unwrap(),
                 parts: vec![
                     RoutinePart::RoutineActivity {
                         exercise_id: 2.into(),
@@ -384,26 +611,22 @@ mod tests {
         ],
     });
 
-    static EXERCISES: std::sync::LazyLock<BTreeMap<ExerciseID, Exercise>> =
-        std::sync::LazyLock::new(|| {
-            BTreeMap::from([(
-                1.into(),
-                Exercise {
-                    id: 1.into(),
-                    name: Name::new("A").unwrap(),
-                    muscles: vec![
-                        ExerciseMuscle {
-                            muscle_id: MuscleID::Pecs,
-                            stimulus: Stimulus::PRIMARY,
-                        },
-                        ExerciseMuscle {
-                            muscle_id: MuscleID::FrontDelts,
-                            stimulus: Stimulus::SECONDARY,
-                        },
-                    ],
+    static EXERCISES: std::sync::LazyLock<Vec<Exercise>> = std::sync::LazyLock::new(|| {
+        vec![Exercise {
+            id: 1.into(),
+            name: Name::new("A").unwrap(),
+            muscles: vec![
+                ExerciseMuscle {
+                    muscle_id: MuscleID::Pecs,
+                    stimulus: Stimulus::PRIMARY,
                 },
-            )])
-        });
+                ExerciseMuscle {
+                    muscle_id: MuscleID::FrontDelts,
+                    stimulus: Stimulus::SECONDARY,
+                },
+            ],
+        }]
+    });
 
     #[test]
     fn test_routine_duration() {
@@ -445,6 +668,183 @@ mod tests {
     #[test]
     fn test_routine_exercises() {
         assert_eq!(ROUTINE.exercises(), BTreeSet::from([1.into(), 2.into()]));
+    }
+
+    #[test]
+    fn test_routine_get_part_in_sections() {
+        let mut sections = vec![
+            RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::new(1).unwrap(),
+                    time: Time::new(2).unwrap(),
+                    weight: Weight::new(4.0).unwrap(),
+                    rpe: RPE::FIVE,
+                    automatic: false,
+                }],
+            },
+            RoutinePart::RoutineSection {
+                rounds: Rounds::new(2).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::new(2).unwrap(),
+                    time: Time::new(3).unwrap(),
+                    weight: Weight::new(5.0).unwrap(),
+                    rpe: RPE::SIX,
+                    automatic: false,
+                }],
+            },
+        ];
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[0]).unwrap(),
+            RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::new(1).unwrap(),
+                    time: Time::new(2).unwrap(),
+                    weight: Weight::new(4.0).unwrap(),
+                    rpe: RPE::FIVE,
+                    automatic: false,
+                }],
+            }
+        );
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[1]).unwrap(),
+            RoutinePart::RoutineSection {
+                rounds: Rounds::new(2).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::new(2).unwrap(),
+                    time: Time::new(3).unwrap(),
+                    weight: Weight::new(5.0).unwrap(),
+                    rpe: RPE::SIX,
+                    automatic: false,
+                }],
+            }
+        );
+        assert!(Routine::get_mut_part(&mut sections, &[2]).is_none());
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[0, 0]).unwrap(),
+            RoutinePart::RoutineActivity {
+                exercise_id: ExerciseID::nil(),
+                reps: Reps::new(1).unwrap(),
+                time: Time::new(2).unwrap(),
+                weight: Weight::new(4.0).unwrap(),
+                rpe: RPE::FIVE,
+                automatic: false,
+            },
+        );
+        assert!(Routine::get_mut_part(&mut sections, &[1, 0]).is_none());
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[0, 1]).unwrap(),
+            RoutinePart::RoutineActivity {
+                exercise_id: ExerciseID::nil(),
+                reps: Reps::new(2).unwrap(),
+                time: Time::new(3).unwrap(),
+                weight: Weight::new(5.0).unwrap(),
+                rpe: RPE::SIX,
+                automatic: false,
+            },
+        );
+        assert!(Routine::get_mut_part(&mut sections, &[1, 1]).is_none());
+    }
+
+    #[test]
+    fn test_routine_get_part_in_nested_sections() {
+        let mut sections = vec![RoutinePart::RoutineSection {
+            rounds: Rounds::new(1).unwrap(),
+            parts: vec![
+                RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::new(1).unwrap(),
+                    time: Time::new(2).unwrap(),
+                    weight: Weight::new(4.0).unwrap(),
+                    rpe: RPE::FIVE,
+                    automatic: false,
+                },
+                RoutinePart::RoutineSection {
+                    rounds: Rounds::new(2).unwrap(),
+                    parts: vec![RoutinePart::RoutineActivity {
+                        exercise_id: ExerciseID::nil(),
+                        reps: Reps::new(2).unwrap(),
+                        time: Time::new(3).unwrap(),
+                        weight: Weight::new(5.0).unwrap(),
+                        rpe: RPE::SIX,
+                        automatic: false,
+                    }],
+                },
+            ],
+        }];
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[0]).unwrap(),
+            RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![
+                    RoutinePart::RoutineActivity {
+                        exercise_id: ExerciseID::nil(),
+                        reps: Reps::new(1).unwrap(),
+                        time: Time::new(2).unwrap(),
+                        weight: Weight::new(4.0).unwrap(),
+                        rpe: RPE::FIVE,
+                        automatic: false,
+                    },
+                    RoutinePart::RoutineSection {
+                        rounds: Rounds::new(2).unwrap(),
+                        parts: vec![RoutinePart::RoutineActivity {
+                            exercise_id: ExerciseID::nil(),
+                            reps: Reps::new(2).unwrap(),
+                            time: Time::new(3).unwrap(),
+                            weight: Weight::new(5.0).unwrap(),
+                            rpe: RPE::SIX,
+                            automatic: false,
+                        }],
+                    },
+                ],
+            }
+        );
+        assert!(Routine::get_mut_part(&mut sections, &[1]).is_none());
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[0, 0]).unwrap(),
+            RoutinePart::RoutineActivity {
+                exercise_id: ExerciseID::nil(),
+                reps: Reps::new(1).unwrap(),
+                time: Time::new(2).unwrap(),
+                weight: Weight::new(4.0).unwrap(),
+                rpe: RPE::FIVE,
+                automatic: false,
+            },
+        );
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[1, 0]).unwrap(),
+            RoutinePart::RoutineSection {
+                rounds: Rounds::new(2).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::new(2).unwrap(),
+                    time: Time::new(3).unwrap(),
+                    weight: Weight::new(5.0).unwrap(),
+                    rpe: RPE::SIX,
+                    automatic: false,
+                }],
+            },
+        );
+        assert!(Routine::get_mut_part(&mut sections, &[2, 0]).is_none());
+        assert!(Routine::get_mut_part(&mut sections, &[0, 0, 0]).is_none());
+        assert_eq!(
+            *Routine::get_mut_part(&mut sections, &[0, 1, 0]).unwrap(),
+            RoutinePart::RoutineActivity {
+                exercise_id: ExerciseID::nil(),
+                reps: Reps::new(2).unwrap(),
+                time: Time::new(3).unwrap(),
+                weight: Weight::new(5.0).unwrap(),
+                rpe: RPE::SIX,
+                automatic: false,
+            },
+        );
+        assert!(Routine::get_mut_part(&mut sections, &[1, 1, 0]).is_none());
+        assert!(Routine::get_mut_part(&mut sections, &[0, 0, 1, 0]).is_none());
     }
 
     #[test]

@@ -209,8 +209,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             view_period_dialog(&model.dialog, model.loading),
             view_current_cycle(data_model),
-            common::view_interval_buttons(&model.interval, &period_interval, Msg::ChangeInterval),
-            view_calendar(data_model, &model.interval),
+            common::view_interval_buttons(model.interval, period_interval, Msg::ChangeInterval),
+            view_calendar(data_model, model.interval),
             view_chart(model, data_model),
             view_cycle_stats(model, data_model),
             view_period_table(model, data_model),
@@ -353,7 +353,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 )],
                 params: web_app::chart::PlotParams::primary_range(0., 4.),
             }],
-            &model.interval,
+            model.interval,
             data_model.theme(),
         ),
         true,
@@ -398,7 +398,7 @@ fn view_cycle_stats(model: &Model, data_model: &data::Model) -> Node<Msg> {
     )
 }
 
-fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<Msg> {
+fn view_calendar(data_model: &data::Model, interval: domain::Interval) -> Node<Msg> {
     common::view_calendar(
         data_model
             .period

@@ -1232,14 +1232,14 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         C!["has-text-centered"],
         C!["mt-6"],
         common::view_title(&span!["Training sessions"], 5),
-        common::view_interval_buttons(&model.interval, &routine_interval, Msg::ChangeInterval),
+        common::view_interval_buttons(model.interval, routine_interval, Msg::ChangeInterval),
         view_charts(
             &training_sessions,
-            &model.interval,
+            model.interval,
             data_model.theme(),
             data_model.settings.show_rpe,
         ),
-        training::view_calendar(&training_sessions, &model.interval),
+        training::view_calendar(&training_sessions, model.interval),
         training::view_table(
             &training_sessions,
             &data_model.routines,
@@ -1253,7 +1253,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
 
 pub fn view_charts<Ms>(
     training_sessions: &[&domain::TrainingSession],
-    interval: &domain::Interval,
+    interval: domain::Interval,
     theme: web_app::Theme,
     show_rpe: bool,
 ) -> Vec<Node<Ms>> {

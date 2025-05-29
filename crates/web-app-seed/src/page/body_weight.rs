@@ -227,12 +227,12 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
         div![
             view_body_weight_dialog(&model.dialog, model.loading),
             common::view_interval_buttons(
-                &model.interval,
-                &body_weight_interval,
+                model.interval,
+                body_weight_interval,
                 Msg::ChangeInterval
             ),
             view_chart(model, data_model),
-            view_calendar(data_model, &model.interval),
+            view_calendar(data_model, model.interval),
             view_table(model, data_model),
             common::view_fab("plus", |_| Msg::ShowAddBodyWeightDialog),
         ]
@@ -397,14 +397,14 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     params: web_app::chart::PlotParams::default(),
                 },
             ],
-            &model.interval,
+            model.interval,
             data_model.theme(),
         ),
         true,
     )
 }
 
-fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<Msg> {
+fn view_calendar(data_model: &data::Model, interval: domain::Interval) -> Node<Msg> {
     let body_weight_values = data_model
         .body_weight
         .values()

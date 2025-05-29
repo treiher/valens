@@ -457,9 +457,9 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 model.loading,
                 data_model.session.as_ref().unwrap().sex
             ),
-            common::view_interval_buttons(&model.interval, &body_fat_interval, Msg::ChangeInterval),
+            common::view_interval_buttons(model.interval, body_fat_interval, Msg::ChangeInterval),
             view_chart(model, data_model),
-            view_calendar(data_model, &model.interval),
+            view_calendar(data_model, model.interval),
             view_table(model, data_model),
             common::view_fab("plus", |_| Msg::ShowAddBodyFatDialog),
         ]
@@ -788,7 +788,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                             params: web_app::chart::PlotParams::default(),
                         },
                     ],
-                    &model.interval,
+                    model.interval,
                     data_model.theme(),
                 ),
                 true,
@@ -813,7 +813,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
                             params: web_app::chart::PlotParams::default(),
                         },
                     ],
-                    &model.interval,
+                    model.interval,
                     data_model.theme(),
                 ),
                 true,
@@ -822,7 +822,7 @@ fn view_chart(model: &Model, data_model: &data::Model) -> Vec<Node<Msg>> {
     ]
 }
 
-fn view_calendar(data_model: &data::Model, interval: &domain::Interval) -> Node<Msg> {
+fn view_calendar(data_model: &data::Model, interval: domain::Interval) -> Node<Msg> {
     let sex = data_model.session.as_ref().unwrap().sex;
     let body_fat_values = data_model
         .body_fat

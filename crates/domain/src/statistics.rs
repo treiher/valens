@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use chrono::{Days, Duration, Local, NaiveDate};
 
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[derive(Clone, Copy, PartialEq)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Interval {
     pub first: NaiveDate,
     pub last: NaiveDate,
@@ -62,7 +63,7 @@ pub fn init_interval(dates: &[NaiveDate], default_interval: DefaultInterval) -> 
 ///
 pub fn centered_moving_grouping<T: Into<f32> + Copy>(
     data: &Vec<(NaiveDate, T)>,
-    interval: &Interval,
+    interval: Interval,
     radius: u64,
     group_day: impl Fn(Vec<f32>) -> Option<f32>,
     group_range: impl Fn(Vec<f32>) -> Option<f32>,
@@ -136,7 +137,7 @@ pub fn centered_moving_grouping<T: Into<f32> + Copy>(
 #[must_use]
 pub fn centered_moving_total(
     data: &Vec<(NaiveDate, f32)>,
-    interval: &Interval,
+    interval: Interval,
     radius: u64,
 ) -> Vec<(NaiveDate, f32)> {
     centered_moving_grouping(
@@ -162,7 +163,7 @@ pub fn centered_moving_total(
 #[must_use]
 pub fn centered_moving_average<T: Into<f32> + Copy>(
     data: &Vec<(NaiveDate, T)>,
-    interval: &Interval,
+    interval: Interval,
     radius: u64,
 ) -> Vec<Vec<(NaiveDate, f32)>> {
     #[allow(clippy::cast_precision_loss)]
@@ -341,7 +342,7 @@ mod tests {
                     .iter()
                     .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
                     .collect::<Vec<_>>(),
-                &Interval {
+                Interval {
                     first: NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap(),
                     last: NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap(),
                 },
@@ -434,7 +435,7 @@ mod tests {
                     .iter()
                     .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
                     .collect::<Vec<_>>(),
-                &Interval {
+                Interval {
                     first: NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap(),
                     last: NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap(),
                 },

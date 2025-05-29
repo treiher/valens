@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
 use chrono::{Local, NaiveDate};
 use derive_more::Deref;
@@ -325,6 +328,14 @@ impl From<Uuid> for TrainingSessionID {
 impl From<u128> for TrainingSessionID {
     fn from(value: u128) -> Self {
         Self(Uuid::from_bytes(value.to_be_bytes()))
+    }
+}
+
+impl FromStr for TrainingSessionID {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Uuid::from_str(s).map(Self)
     }
 }
 

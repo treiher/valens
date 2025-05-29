@@ -168,7 +168,7 @@ impl Bounds {
 #[allow(clippy::missing_errors_doc)]
 pub fn plot(
     data: &[PlotData],
-    interval: &domain::Interval,
+    interval: domain::Interval,
     theme: Theme,
 ) -> Result<Option<String>, Box<dyn std::error::Error>> {
     if all_zeros(data) {
@@ -355,7 +355,7 @@ pub fn plot(
 #[allow(clippy::missing_errors_doc)]
 pub fn plot_min_avg_max<T: Into<f32> + Copy>(
     data: &Vec<(NaiveDate, T)>,
-    interval: &domain::Interval,
+    interval: domain::Interval,
     params: PlotParams,
     color: usize,
     theme: Theme,

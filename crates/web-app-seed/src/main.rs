@@ -23,7 +23,7 @@ mod page;
 // ------ ------
 
 fn init(url: Url, orders: &mut impl Orders<Msg>) -> Model {
-    let _ = web_app::log::init(Arc::new(Mutex::new(storage::local_storage::Log)));
+    let _ = web_app::log::init(Arc::new(Mutex::new(storage::local_storage::LocalStorage)));
 
     orders
         .skip()

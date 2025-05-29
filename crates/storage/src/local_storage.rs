@@ -10,6 +10,7 @@ pub struct LocalStorage;
 
 const KEY_SETTINGS: &str = "settings";
 const KEY_ONGOING_TRAINING_SESSION: &str = "ongoing training session";
+const KEY_LOG: &str = "log";
 
 impl SettingsRepository for LocalStorage {
     async fn read_settings(&self) -> Result<Settings, String> {
@@ -51,11 +52,7 @@ impl OngoingTrainingSessionRepository for LocalStorage {
     }
 }
 
-pub struct Log;
-
-const KEY_LOG: &str = "log";
-
-impl log::Repository for Log {
+impl log::Repository for LocalStorage {
     fn read_entries(&self) -> Result<VecDeque<log::Entry>, log::Error> {
         match gloo_storage::LocalStorage::get(KEY_LOG) {
             Ok(entries) => Ok(entries),

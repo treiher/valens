@@ -241,7 +241,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .values()
                 .map(|s| (s.date, s.set_volume() as f32))
                 .collect::<Vec<_>>(),
-            &model.interval,
+            model.interval,
             3,
         );
 
@@ -251,7 +251,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 .values()
                 .filter_map(|s| s.avg_rpe().map(|v| (s.date, v)))
                 .collect::<Vec<_>>(),
-            &model.interval,
+            model.interval,
             3,
         );
         let mut training_sessions = data_model
@@ -317,8 +317,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 ]
             ],
             common::view_interval_buttons(
-                &model.interval,
-                &training_sessions_interval,
+                model.interval,
+                training_sessions_interval,
                 Msg::ChangeInterval
             ),
             view_charts(
@@ -326,11 +326,11 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                 &long_term_load,
                 total_7day_set_volume,
                 &average_7day_rpe,
-                &model.interval,
+                model.interval,
                 data_model.theme(),
                 data_model.settings.show_rpe,
             ),
-            view_calendar(&training_sessions, &model.interval),
+            view_calendar(&training_sessions, model.interval),
             view_table(
                 &training_sessions,
                 &data_model.routines,
@@ -346,7 +346,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
 
 pub fn view_calendar<Ms>(
     training_sessions: &[&domain::TrainingSession],
-    interval: &domain::Interval,
+    interval: domain::Interval,
 ) -> Node<Ms> {
     let mut load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
     for training_session in training_sessions {
@@ -514,7 +514,7 @@ pub fn view_charts<Ms>(
     long_term_load: &[(NaiveDate, f32)],
     total_7day_set_volume: Vec<(NaiveDate, f32)>,
     average_7day_rpe: &[Vec<(NaiveDate, f32)>],
-    interval: &domain::Interval,
+    interval: domain::Interval,
     theme: web_app::Theme,
     show_rpe: bool,
 ) -> Vec<Node<Ms>> {

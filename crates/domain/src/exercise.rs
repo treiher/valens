@@ -2,6 +2,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     ops::{Add, AddAssign, Mul},
     slice::Iter,
+    str::FromStr,
 };
 
 use derive_more::Deref;
@@ -101,6 +102,14 @@ impl From<Uuid> for ExerciseID {
 impl From<u128> for ExerciseID {
     fn from(value: u128) -> Self {
         Self(Uuid::from_bytes(value.to_be_bytes()))
+    }
+}
+
+impl FromStr for ExerciseID {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Uuid::from_str(s).map(Self)
     }
 }
 
@@ -506,7 +515,7 @@ impl Property for Category {
     }
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct ExerciseFilter {
     pub name: String,
     pub muscles: HashSet<MuscleID>,

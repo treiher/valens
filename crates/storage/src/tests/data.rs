@@ -98,7 +98,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
         archived: false,
         sections: vec![
             domain::RoutinePart::RoutineSection {
-                rounds: 2,
+                rounds: domain::Rounds::new(2).unwrap(),
                 parts: vec![
                     domain::RoutinePart::RoutineActivity {
                         exercise_id: 1.into(),
@@ -119,7 +119,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                 ],
             },
             domain::RoutinePart::RoutineSection {
-                rounds: 2,
+                rounds: domain::Rounds::new(2).unwrap(),
                 parts: vec![
                     domain::RoutinePart::RoutineActivity {
                         exercise_id: 2.into(),
@@ -149,7 +149,7 @@ pub static ROUTINE_2: std::sync::LazyLock<domain::Routine> =
         notes: String::from("C"),
         archived: false,
         sections: vec![domain::RoutinePart::RoutineSection {
-            rounds: 1,
+            rounds: domain::Rounds::new(1).unwrap(),
             parts: vec![
                 domain::RoutinePart::RoutineActivity {
                     exercise_id: 1.into(),

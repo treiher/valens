@@ -63,8 +63,8 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
             data_model.training_sessions_date_range().into();
         div![
             common::view_interval_buttons(
-                &model.interval,
-                &training_sessions_interval,
+                model.interval,
+                training_sessions_interval,
                 Msg::ChangeInterval
             ),
             domain::MuscleID::iter().map(|m| {
@@ -79,7 +79,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                 .map(|stimulus| (s.date, **stimulus as f32 / 100.))
                         })
                         .collect::<Vec<_>>(),
-                    &model.interval,
+                    model.interval,
                     3,
                 );
 
@@ -107,7 +107,7 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                                 ),
                                 params: web_app::chart::PlotParams::primary_range(0., 10.),
                             }],
-                            &model.interval,
+                            model.interval,
                             data_model.theme()
                         ),
                         true,

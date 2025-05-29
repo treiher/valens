@@ -21,7 +21,8 @@ pub use period::{
     current_cycle, cycle_stats, cycles,
 };
 pub use routine::{
-    Routine, RoutineID, RoutinePart, RoutineRepository, RoutineService, routines_sorted_by_last_use,
+    Rounds, Routine, RoutineID, RoutinePart, RoutinePartPath, RoutineRepository, RoutineService,
+    routines_sorted_by_last_use,
 };
 pub use service::Service;
 pub use session::{SessionRepository, SessionService};

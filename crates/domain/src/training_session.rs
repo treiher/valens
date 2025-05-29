@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
 use chrono::{Local, NaiveDate};
 use derive_more::Deref;
@@ -349,6 +352,61 @@ impl TrainingSession {
         }
         result
     }
+
+    #[must_use]
+    pub fn compute_sections(&self) -> Vec<TrainingSessionSection> {
+        let mut sections = vec![];
+        let mut idx = 0;
+
+        while idx < self.elements.len() {
+            let last = Self::find_last_of_section(self, idx);
+            sections.push(TrainingSessionSection(self.elements[idx..=last].to_vec()));
+            idx = last + 1;
+        }
+
+        sections
+    }
+
+    fn find_last_of_section(&self, element_idx: usize) -> usize {
+        let mut last = Self::find_last_set_with_same_exercises(self, element_idx);
+
+        assert!(element_idx <= last);
+
+        if last + 1 < self.elements.len() {
+            if let TrainingSessionElement::Rest { .. } = &self.elements[last + 1] {
+                last += 1;
+            }
+        }
+
+        last
+    }
+
+    fn find_last_set_with_same_exercises(&self, element_idx: usize) -> usize {
+        let ids = next_consecutive_exercise_ids(&self.elements[element_idx..]);
+        let mut last_idx = element_idx;
+
+        if ids.is_empty() {
+            return last_idx;
+        }
+
+        let mut ids_idx = 0;
+
+        for (i, element) in self.elements.iter().enumerate().skip(last_idx) {
+            if let TrainingSessionElement::Set { exercise_id, .. } = &element {
+                if *exercise_id == ids[ids_idx] {
+                    // Only consider sets that contain all exercises
+                    if ids_idx == ids.len() - 1 {
+                        last_idx = i;
+                    }
+                } else {
+                    break;
+                }
+                ids_idx = (ids_idx + 1) % ids.len();
+            }
+        }
+
+        last_idx
+    }
 }
 
 #[derive(Deref, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -378,6 +436,14 @@ impl From<u128> for TrainingSessionID {
     }
 }
 
+impl FromStr for TrainingSessionID {
+    type Err = uuid::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Uuid::from_str(s).map(Self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrainingSessionElement {
     Set {
@@ -396,6 +462,79 @@ pub enum TrainingSessionElement {
         target_time: Option<Time>,
         automatic: bool,
     },
+}
+
+impl TrainingSessionElement {
+    #[must_use]
+    pub fn to_string(&self, show_tut: bool, show_rpe: bool) -> String {
+        match self {
+            TrainingSessionElement::Set {
+                reps,
+                time,
+                weight,
+                rpe,
+                ..
+            } => {
+                let mut parts = vec![];
+
+                if let Some(reps) = reps {
+                    if *reps > Reps::default() {
+                        parts.push(reps.to_string());
+                    }
+                }
+
+                if let Some(time) = time {
+                    if show_tut && *time > Time::default() {
+                        parts.push(format!("{time} s"));
+                    }
+                }
+
+                if let Some(weight) = weight {
+                    if *weight > Weight::default() {
+                        parts.push(format!("{weight} kg"));
+                    }
+                }
+
+                let mut result = parts.join(" × ");
+
+                if let Some(rpe) = rpe {
+                    if show_rpe && *rpe > RPE::ZERO {
+                        result.push_str(&format!(" @ {rpe}"));
+                    }
+                }
+
+                result
+            }
+            TrainingSessionElement::Rest { .. } => String::new(),
+        }
+    }
+}
+
+// TODO: replace Vec by mitsein::Vec1? https://github.com/olson-sean-k/mitsein
+#[derive(Clone, Debug, PartialEq)]
+pub struct TrainingSessionSection(Vec<TrainingSessionElement>);
+
+impl TrainingSessionSection {
+    pub fn elements(&self) -> &[TrainingSessionElement] {
+        &self.0
+    }
+
+    pub fn exercise_ids(&self) -> Vec<ExerciseID> {
+        next_consecutive_exercise_ids(&self.0)
+    }
+}
+
+fn next_consecutive_exercise_ids(elements: &[TrainingSessionElement]) -> Vec<ExerciseID> {
+    let mut exercise_ids = vec![];
+
+    for element in elements {
+        match element {
+            TrainingSessionElement::Set { exercise_id, .. } => exercise_ids.push(*exercise_id),
+            TrainingSessionElement::Rest { .. } => return exercise_ids,
+        }
+    }
+
+    exercise_ids
 }
 
 #[cfg(test)]
@@ -621,5 +760,129 @@ mod tests {
     fn test_training_session_id_nil() {
         assert!(TrainingSessionID::nil().is_nil());
         assert_eq!(TrainingSessionID::nil(), TrainingSessionID::default());
+    }
+
+    #[test]
+    fn test_training_session_compute_sections_empty() {
+        assert_eq!(training_session(&[]).compute_sections(), vec![]);
+    }
+
+    #[test]
+    fn test_training_session_compute_sections_simple() {
+        assert_eq!(
+            training_session(&[exercise(0, 0)]).compute_sections(),
+            vec![section(&[exercise(0, 0)])]
+        );
+        assert_eq!(
+            training_session(&[exercise(0, 0), exercise(1, 1)]).compute_sections(),
+            vec![section(&[exercise(0, 0), exercise(1, 1)])]
+        );
+        assert_eq!(
+            training_session(&[rest(0)]).compute_sections(),
+            vec![section(&[rest(0)])]
+        );
+        assert_eq!(
+            training_session(&[rest(0), rest(1)]).compute_sections(),
+            vec![section(&[rest(0), rest(1)])]
+        );
+        assert_eq!(
+            training_session(&[exercise(0, 0), rest(1)]).compute_sections(),
+            vec![section(&[exercise(0, 0), rest(1)])]
+        );
+        assert_eq!(
+            training_session(&[rest(0), exercise(1, 1)]).compute_sections(),
+            vec![section(&[rest(0)]), section(&[exercise(1, 1)])]
+        );
+    }
+
+    #[test]
+    fn test_training_session_compute_sections_complex() {
+        assert_eq!(
+            training_session(&[
+                exercise(0, 0),
+                rest(0),
+                exercise(1, 0),
+                rest(1),
+                exercise(2, 1),
+                rest(2),
+                exercise(4, 0),
+                exercise(5, 2),
+                rest(4),
+                exercise(6, 0),
+                exercise(7, 2),
+                rest(5),
+                exercise(8, 0),
+                exercise(9, 2),
+                rest(6),
+                exercise(10, 0),
+                exercise(11, 0),
+                rest(7),
+                exercise(12, 0),
+                exercise(13, 0),
+            ])
+            .compute_sections(),
+            vec![
+                section(&[exercise(0, 0), rest(0), exercise(1, 0), rest(1)]),
+                section(&[exercise(2, 1), rest(2)]),
+                section(&[
+                    exercise(4, 0),
+                    exercise(5, 2),
+                    rest(4),
+                    exercise(6, 0),
+                    exercise(7, 2),
+                    rest(5),
+                    exercise(8, 0),
+                    exercise(9, 2),
+                    rest(6),
+                ]),
+                section(&[
+                    exercise(10, 0),
+                    exercise(11, 0),
+                    rest(7),
+                    exercise(12, 0),
+                    exercise(13, 0),
+                ]),
+            ]
+        );
+    }
+
+    fn training_session(elements: &[TrainingSessionElement]) -> TrainingSession {
+        TrainingSession {
+            id: 1.into(),
+            routine_id: 0.into(),
+            date: *TODAY - Duration::days(10),
+            notes: String::new(),
+            elements: elements.to_vec(),
+        }
+    }
+
+    fn exercise(entry_id: u32, exercise_id: u128) -> TrainingSessionElement {
+        TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            reps: None,
+            time: None,
+            weight: None,
+            rpe: None,
+            target_reps: if entry_id > 0 {
+                Some(Reps::new(entry_id).unwrap())
+            } else {
+                None
+            },
+            target_time: None,
+            target_weight: None,
+            target_rpe: None,
+            automatic: false,
+        }
+    }
+
+    fn rest(entry_id: u32) -> TrainingSessionElement {
+        TrainingSessionElement::Rest {
+            target_time: Some(Time::new(entry_id).unwrap()),
+            automatic: true,
+        }
+    }
+
+    fn section(elements: &[TrainingSessionElement]) -> TrainingSessionSection {
+        TrainingSessionSection(elements.to_vec())
     }
 }

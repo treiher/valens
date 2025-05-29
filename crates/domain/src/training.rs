@@ -111,7 +111,7 @@ impl TryFrom<&str> for Weight {
     type Error = WeightError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.parse::<f32>() {
+        match value.replace(',', ".").parse::<f32>() {
             Ok(parsed_value) => Weight::new(parsed_value),
             Err(_) => Err(WeightError::ParseError),
         }
@@ -120,9 +120,9 @@ impl TryFrom<&str> for Weight {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum WeightError {
-    #[error("Weight must be in the range 0.0 to 999.9 kg")]
-    InvalidResolution,
     #[error("Weight must be a multiple of 0.1 kg")]
+    InvalidResolution,
+    #[error("Weight must be in the range 0.0 to 999.9 kg")]
     OutOfRange,
     #[error("Weight must be a decimal")]
     ParseError,
@@ -182,7 +182,7 @@ impl TryFrom<&str> for RPE {
     type Error = RPEError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.parse::<f32>() {
+        match value.replace(',', ".").parse::<f32>() {
             Ok(parsed_value) => RPE::new(parsed_value),
             Err(_) => Err(RPEError::ParseError),
         }

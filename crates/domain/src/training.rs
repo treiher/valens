@@ -1,10 +1,16 @@
 use chrono::{Duration, Local, NaiveDate};
 use derive_more::{Display, Into};
-use std::{collections::BTreeMap, fmt, iter::zip, ops::Mul};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    hash::{Hash, Hasher},
+    iter::zip,
+    ops::Mul,
+};
 
 use crate::TrainingSession;
 
-#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, Eq, PartialOrd, Hash)]
 pub struct Reps(u32);
 
 impl Reps {
@@ -44,7 +50,7 @@ pub enum RepsError {
     ParseError,
 }
 
-#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, Eq, PartialOrd, Hash)]
 pub struct Time(u32);
 
 impl Time {
@@ -90,7 +96,7 @@ pub enum TimeError {
     ParseError,
 }
 
-#[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Display, Clone, Copy, Into, PartialOrd)]
 pub struct Weight(f32);
 
 impl Weight {
@@ -107,11 +113,25 @@ impl Weight {
     }
 }
 
+impl PartialEq for Weight {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_bits() == other.0.to_bits()
+    }
+}
+
+impl Eq for Weight {}
+
+impl Hash for Weight {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
+    }
+}
+
 impl TryFrom<&str> for Weight {
     type Error = WeightError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.parse::<f32>() {
+        match value.replace(',', ".").parse::<f32>() {
             Ok(parsed_value) => Weight::new(parsed_value),
             Err(_) => Err(WeightError::ParseError),
         }
@@ -120,15 +140,15 @@ impl TryFrom<&str> for Weight {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum WeightError {
-    #[error("Weight must be in the range 0.0 to 999.9 kg")]
-    InvalidResolution,
     #[error("Weight must be a multiple of 0.1 kg")]
+    InvalidResolution,
+    #[error("Weight must be in the range 0.0 to 999.9 kg")]
     OutOfRange,
     #[error("Weight must be a decimal")]
     ParseError,
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub struct RPE(u8);
 
 impl RPE {
@@ -182,7 +202,7 @@ impl TryFrom<&str> for RPE {
     type Error = RPEError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.parse::<f32>() {
+        match value.replace(',', ".").parse::<f32>() {
             Ok(parsed_value) => RPE::new(parsed_value),
             Err(_) => Err(RPEError::ParseError),
         }

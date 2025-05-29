@@ -269,18 +269,18 @@ pub fn view(model: &Model, data_model: &data::Model) -> Node<Msg> {
                     } else {
                         nodes![
                             common::view_interval_buttons(
-                                &model.interval,
-                                &exercise_interval,
+                                model.interval,
+                                exercise_interval,
                                 Msg::ChangeInterval
                             ),
                             view_charts(
                                 &training_sessions,
-                                &model.interval,
+                                model.interval,
                                 data_model.theme(),
                                 data_model.settings.show_rpe,
                                 data_model.settings.show_tut,
                             ),
-                            view_calendar(&training_sessions, &model.interval),
+                            view_calendar(&training_sessions, model.interval),
                             training::view_table(
                                 &training_sessions,
                                 &data_model.routines,
@@ -449,7 +449,7 @@ fn view_muscles(model: &Model) -> Node<Msg> {
 
 pub fn view_charts<Ms>(
     training_sessions: &[&domain::TrainingSession],
-    interval: &domain::Interval,
+    interval: domain::Interval,
     theme: web_app::Theme,
     show_rpe: bool,
     show_tut: bool,
@@ -659,7 +659,7 @@ pub fn view_charts<Ms>(
 
 fn view_calendar(
     training_sessions: &[&domain::TrainingSession],
-    interval: &domain::Interval,
+    interval: domain::Interval,
 ) -> Node<Msg> {
     let mut volume_load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
     for training_session in training_sessions {

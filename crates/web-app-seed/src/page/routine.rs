@@ -87,7 +87,7 @@ enum Dialog {
 #[cfg_attr(test, derive(Debug, PartialEq))]
 enum Form {
     Section {
-        rounds: common::InputField<u32>,
+        rounds: common::InputField<domain::Rounds>,
         parts: Vec<Form>,
     },
     Activity {
@@ -155,7 +155,7 @@ impl From<&domain::RoutinePart> for Form {
     fn from(part: &domain::RoutinePart) -> Self {
         match part {
             domain::RoutinePart::RoutineSection { rounds, parts, .. } => {
-                let rounds_str = if *rounds == 1 {
+                let rounds_str = if *rounds == domain::Rounds::default() {
                     String::new()
                 } else {
                     rounds.to_string()
@@ -361,7 +361,7 @@ pub fn update(
             let new_section = Form::Section {
                 rounds: common::InputField {
                     input: String::new(),
-                    parsed: Some(1),
+                    parsed: Some(domain::Rounds::default()),
                     orig: String::new(),
                 },
                 parts: vec![],
@@ -457,30 +457,20 @@ pub fn update(
                 if input.is_empty() {
                     *rounds = common::InputField {
                         input,
-                        parsed: Some(1),
+                        parsed: Some(domain::Rounds::default()),
                         orig: rounds.orig.clone(),
                     };
                 } else {
-                    match input.parse::<u32>() {
-                        Ok(parsed_rounds) => {
-                            *rounds = common::InputField {
-                                input,
-                                parsed: if parsed_rounds > 0 {
-                                    Some(parsed_rounds)
-                                } else {
-                                    None
-                                },
-                                orig: rounds.orig.clone(),
-                            }
-                        }
-                        Err(_) => {
-                            *rounds = common::InputField {
-                                input,
-                                parsed: None,
-                                orig: rounds.orig.clone(),
-                            }
-                        }
-                    }
+                    let parsed = if input.is_empty() {
+                        Some(domain::Rounds::default())
+                    } else {
+                        domain::Rounds::try_from(input.as_ref()).ok()
+                    };
+                    *rounds = common::InputField {
+                        input,
+                        parsed,
+                        orig: rounds.orig.clone(),
+                    };
                 }
             }
         }
@@ -853,6 +843,7 @@ fn view_routine_part(
                             view_position_buttons(id.clone())
                         ]
                     } else if let Some(rounds) = rounds.parsed {
+                        let rounds: u32 = rounds.into();
                         if rounds > 1 {
                             span![
                                 C!["icon-text"],
@@ -1199,7 +1190,8 @@ fn view_previous_exercises(model: &Model, data_model: &data::Model) -> Node<Msg>
 }
 
 fn view_muscles(routine: &domain::Routine, data_model: &data::Model) -> Node<Msg> {
-    let stimulus_per_muscle = routine.stimulus_per_muscle(&data_model.exercises);
+    let stimulus_per_muscle =
+        routine.stimulus_per_muscle(&data_model.exercises.values().cloned().collect::<Vec<_>>());
     if stimulus_per_muscle.is_empty() {
         empty![]
     } else {
@@ -1232,14 +1224,14 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
         C!["has-text-centered"],
         C!["mt-6"],
         common::view_title(&span!["Training sessions"], 5),
-        common::view_interval_buttons(&model.interval, &routine_interval, Msg::ChangeInterval),
+        common::view_interval_buttons(model.interval, routine_interval, Msg::ChangeInterval),
         view_charts(
             &training_sessions,
-            &model.interval,
+            model.interval,
             data_model.theme(),
             data_model.settings.show_rpe,
         ),
-        training::view_calendar(&training_sessions, &model.interval),
+        training::view_calendar(&training_sessions, model.interval),
         training::view_table(
             &training_sessions,
             &data_model.routines,
@@ -1253,7 +1245,7 @@ fn view_training_sessions(model: &Model, data_model: &data::Model) -> Node<Msg> 
 
 pub fn view_charts<Ms>(
     training_sessions: &[&domain::TrainingSession],
-    interval: &domain::Interval,
+    interval: domain::Interval,
     theme: web_app::Theme,
     show_rpe: bool,
 ) -> Vec<Node<Ms>> {
@@ -1454,7 +1446,7 @@ mod tests {
     fn get_part_in_sections() {
         let mut sections = vec![
             Form::Section {
-                rounds: form_value(1),
+                rounds: form_value(domain::Rounds::new(1).unwrap()),
                 parts: vec![Form::Activity {
                     exercise_id: domain::ExerciseID::nil(),
                     reps: form_value(domain::Reps::new(1).unwrap()),
@@ -1465,7 +1457,7 @@ mod tests {
                 }],
             },
             Form::Section {
-                rounds: form_value(2),
+                rounds: form_value(domain::Rounds::new(2).unwrap()),
                 parts: vec![Form::Activity {
                     exercise_id: domain::ExerciseID::nil(),
                     reps: form_value(domain::Reps::new(2).unwrap()),
@@ -1479,7 +1471,7 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[0]).unwrap(),
             Form::Section {
-                rounds: form_value(1),
+                rounds: form_value(domain::Rounds::new(1).unwrap()),
                 parts: vec![Form::Activity {
                     exercise_id: domain::ExerciseID::nil(),
                     reps: form_value(domain::Reps::new(1).unwrap()),
@@ -1493,7 +1485,7 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[1]).unwrap(),
             Form::Section {
-                rounds: form_value(2),
+                rounds: form_value(domain::Rounds::new(2).unwrap()),
                 parts: vec![Form::Activity {
                     exercise_id: domain::ExerciseID::nil(),
                     reps: form_value(domain::Reps::new(2).unwrap()),
@@ -1534,7 +1526,7 @@ mod tests {
     #[test]
     fn get_part_in_nested_sections() {
         let mut sections = vec![Form::Section {
-            rounds: form_value(1),
+            rounds: form_value(domain::Rounds::new(1).unwrap()),
             parts: vec![
                 Form::Activity {
                     exercise_id: domain::ExerciseID::nil(),
@@ -1545,7 +1537,7 @@ mod tests {
                     automatic: false,
                 },
                 Form::Section {
-                    rounds: form_value(2),
+                    rounds: form_value(domain::Rounds::new(2).unwrap()),
                     parts: vec![Form::Activity {
                         exercise_id: domain::ExerciseID::nil(),
                         reps: form_value(domain::Reps::new(2).unwrap()),
@@ -1560,7 +1552,7 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[0]).unwrap(),
             Form::Section {
-                rounds: form_value(1),
+                rounds: form_value(domain::Rounds::new(1).unwrap()),
                 parts: vec![
                     Form::Activity {
                         exercise_id: domain::ExerciseID::nil(),
@@ -1571,7 +1563,7 @@ mod tests {
                         automatic: false,
                     },
                     Form::Section {
-                        rounds: form_value(2),
+                        rounds: form_value(domain::Rounds::new(2).unwrap()),
                         parts: vec![Form::Activity {
                             exercise_id: domain::ExerciseID::nil(),
                             reps: form_value(domain::Reps::new(2).unwrap()),
@@ -1599,7 +1591,7 @@ mod tests {
         assert_eq!(
             *get_part(&mut sections, &[1, 0]).unwrap(),
             Form::Section {
-                rounds: form_value(2),
+                rounds: form_value(domain::Rounds::new(2).unwrap()),
                 parts: vec![Form::Activity {
                     exercise_id: domain::ExerciseID::nil(),
                     reps: form_value(domain::Reps::new(2).unwrap()),

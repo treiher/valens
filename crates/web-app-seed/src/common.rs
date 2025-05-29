@@ -205,8 +205,8 @@ where
 }
 
 pub fn view_interval_buttons<Ms>(
-    current: &domain::Interval,
-    all: &domain::Interval,
+    current: domain::Interval,
+    all: domain::Interval,
     message: fn(NaiveDate, NaiveDate) -> Ms,
 ) -> Node<Ms>
 where
@@ -448,7 +448,7 @@ pub fn automatic_icon<Ms>() -> Node<Ms> {
 
 pub fn view_calendar<Ms>(
     entries: Vec<(NaiveDate, usize, f64)>,
-    interval: &domain::Interval,
+    interval: domain::Interval,
 ) -> Node<Ms> {
     let mut calendar: BTreeMap<NaiveDate, (usize, f64)> = BTreeMap::new();
 

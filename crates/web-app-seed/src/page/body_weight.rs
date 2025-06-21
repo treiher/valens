@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use chrono::{Duration, prelude::*};
+use chrono::{Local, NaiveDate};
 use seed::{prelude::*, *};
 use valens_domain as domain;
 use valens_web_app as web_app;
@@ -475,7 +473,7 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
                             td![format!("{:.1}", bw.weight)],
                             td![common::value_or_dash(avg_bw.map(|bw| bw.weight))],
                             td![if let Some(value) =
-                                avg_weekly_change(&data_model.avg_body_weight, avg_bw)
+                                domain::avg_weekly_change(&data_model.avg_body_weight, avg_bw)
                             {
                                 format!("{value:+.1}")
                             } else {
@@ -501,137 +499,4 @@ fn view_table(model: &Model, data_model: &data::Model) -> Node<Msg> {
             ],
         ]
     ]
-}
-
-fn avg_weekly_change(
-    avg_body_weight: &BTreeMap<NaiveDate, domain::BodyWeight>,
-    current: Option<&domain::BodyWeight>,
-) -> Option<f32> {
-    let prev_date = current?.date - Duration::days(7);
-    let prev_avg_bw = if let Some(avg_bw) = avg_body_weight.get(&prev_date) {
-        avg_bw.clone()
-    } else {
-        let n = neighbors(avg_body_weight, prev_date);
-        interpolate_avg_body_weight(n?.0, n?.1, prev_date)
-    };
-    Some((current?.weight - prev_avg_bw.weight) / prev_avg_bw.weight * 100.)
-}
-
-fn neighbors(
-    body_weight: &BTreeMap<NaiveDate, domain::BodyWeight>,
-    date: NaiveDate,
-) -> Option<(&domain::BodyWeight, &domain::BodyWeight)> {
-    use std::ops::Bound::{Excluded, Unbounded};
-
-    let mut before = body_weight.range((Unbounded, Excluded(date)));
-    let mut after = body_weight.range((Excluded(date), Unbounded));
-
-    Some((
-        before.next_back().map(|(_, v)| v)?,
-        after.next().map(|(_, v)| v)?,
-    ))
-}
-
-fn interpolate_avg_body_weight(
-    a: &domain::BodyWeight,
-    b: &domain::BodyWeight,
-    date: NaiveDate,
-) -> domain::BodyWeight {
-    #[allow(clippy::cast_precision_loss)]
-    domain::BodyWeight {
-        date,
-        weight: a.weight
-            + (b.weight - a.weight)
-                * ((date - a.date).num_days() as f32 / (b.date - a.date).num_days() as f32),
-    }
-}
-
-// ------ ------
-//     Tests
-// ------ ------
-
-#[cfg(test)]
-mod tests {
-    use assert_approx_eq::assert_approx_eq;
-
-    use super::*;
-
-    fn from_num_days(days: i32) -> NaiveDate {
-        NaiveDate::from_num_days_from_ce_opt(days).unwrap()
-    }
-
-    #[test]
-    fn test_avg_weekly_change() {
-        assert_eq!(
-            avg_weekly_change(
-                &BTreeMap::new(),
-                Some(&domain::BodyWeight {
-                    date: from_num_days(1),
-                    weight: 70.0
-                })
-            ),
-            None
-        );
-        assert_eq!(
-            avg_weekly_change(
-                &BTreeMap::from([(
-                    from_num_days(0),
-                    domain::BodyWeight {
-                        date: from_num_days(0),
-                        weight: 70.0
-                    }
-                )]),
-                Some(&domain::BodyWeight {
-                    date: from_num_days(7),
-                    weight: 70.0
-                })
-            ),
-            Some(0.0)
-        );
-        assert_approx_eq!(
-            avg_weekly_change(
-                &BTreeMap::from([(
-                    from_num_days(0),
-                    domain::BodyWeight {
-                        date: from_num_days(0),
-                        weight: 70.0
-                    }
-                )]),
-                Some(&domain::BodyWeight {
-                    date: from_num_days(7),
-                    weight: 70.7
-                })
-            )
-            .unwrap(),
-            1.0,
-            0.001
-        );
-        assert_approx_eq!(
-            avg_weekly_change(
-                &BTreeMap::from([
-                    (
-                        from_num_days(0),
-                        domain::BodyWeight {
-                            date: from_num_days(0),
-                            weight: 69.0
-                        }
-                    ),
-                    (
-                        from_num_days(2),
-                        domain::BodyWeight {
-                            date: from_num_days(2),
-                            weight: 71.0
-                        }
-                    )
-                ]),
-                Some(&domain::BodyWeight {
-                    date: from_num_days(8),
-                    weight: 69.44
-                })
-            )
-            .unwrap(),
-            -0.8,
-            0.001
-        );
-    }
 }

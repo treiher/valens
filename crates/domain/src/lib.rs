@@ -4,7 +4,7 @@
 pub mod catalog;
 
 pub use body_fat::{BodyFat, BodyFatRepository};
-pub use body_weight::{BodyWeight, BodyWeightRepository, avg_body_weight};
+pub use body_weight::{BodyWeight, BodyWeightRepository, avg_body_weight, avg_weekly_change};
 pub use error::{CreateError, DeleteError, ReadError, StorageError, SyncError, UpdateError};
 pub use exercise::{
     Assistance, Category, Equipment, Exercise, ExerciseFilter, ExerciseID, ExerciseMuscle,

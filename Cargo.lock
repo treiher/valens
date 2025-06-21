@@ -1100,6 +1100,7 @@ name = "valens-domain"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "assert_approx_eq",
  "chrono",
  "derive_more",
  "pretty_assertions",

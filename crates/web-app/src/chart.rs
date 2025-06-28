@@ -416,6 +416,22 @@ pub fn plot_min_avg_max<T: Into<f32> + Copy>(
     )
 }
 
+#[must_use]
+pub fn hex_color(color: usize, opacity: f64) -> String {
+    let plotters::style::RGBAColor(r, g, b, a) =
+        plotters::style::Palette99::pick(color).mix(opacity);
+    #[allow(clippy::cast_possible_truncation)]
+    #[allow(clippy::cast_sign_loss)]
+    let a = (a * 255.0) as u8;
+    format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+}
+
+#[must_use]
+pub fn rgba_color(color: usize, opacity: f64) -> String {
+    let (r, g, b) = Palette99::pick(color).rgb();
+    format!("rgba({r}, {g}, {b}, {opacity})")
+}
+
 fn all_zeros(data: &[PlotData]) -> bool {
     data.iter()
         .map(|v| {

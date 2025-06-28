@@ -1,3 +1,5 @@
+use log::warn;
+
 #[allow(async_fn_in_trait)]
 pub trait SettingsService {
     async fn get_settings(&self) -> Result<Settings, String>;
@@ -21,6 +23,39 @@ pub struct Settings {
     pub show_tut: bool,
 }
 
+impl Settings {
+    #[must_use]
+    pub fn current_theme(&self) -> Theme {
+        match self.theme {
+            Theme::System => {
+                if let Some(window) = web_sys::window() {
+                    if let Ok(prefers_dark_scheme) =
+                        window.match_media("(prefers-color-scheme: dark)")
+                    {
+                        if let Some(media_query_list) = prefers_dark_scheme {
+                            if media_query_list.matches() {
+                                Theme::Dark
+                            } else {
+                                Theme::Light
+                            }
+                        } else {
+                            warn!("failed to determine preferred color scheme");
+                            Theme::Light
+                        }
+                    } else {
+                        warn!("failed to match media to determine preferred color scheme");
+                        Theme::Light
+                    }
+                } else {
+                    warn!("failed to access window to determine preferred color scheme");
+                    Theme::Light
+                }
+            }
+            Theme::Light | Theme::Dark => self.theme,
+        }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -39,4 +74,21 @@ pub enum Theme {
     System,
     Light,
     Dark,
+}
+
+impl Theme {
+    pub fn apply(self) {
+        if let Some(html) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.document_element())
+        {
+            if let Err(err) = match self {
+                Theme::System => html.remove_attribute("data-theme"),
+                Theme::Light => html.set_attribute("data-theme", "light"),
+                Theme::Dark => html.set_attribute("data-theme", "dark"),
+            } {
+                warn!("failed to apply theme: {err:?}");
+            }
+        }
+    }
 }

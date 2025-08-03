@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use chrono::Duration;
+use chrono::{Duration, NaiveDate};
 use derive_more::Deref;
 use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, MuscleID, Name, Property, RPE, ReadError, Reps,
-    Stimulus, SyncError, Time, UpdateError, Weight,
+    Stimulus, SyncError, Time, TrainingSession, TrainingSessionElement, UpdateError, Weight,
 };
 
 #[allow(async_fn_in_trait)]
@@ -189,6 +189,97 @@ impl RoutinePart {
         }
         result
     }
+
+    #[must_use]
+    pub fn to_training_session_elements(&self) -> Vec<TrainingSessionElement> {
+        let mut result = vec![];
+        match self {
+            RoutinePart::RoutineSection { rounds, parts, .. } => {
+                for _ in 0..*rounds {
+                    for p in parts {
+                        for s in p.to_training_session_elements() {
+                            result.push(s);
+                        }
+                    }
+                }
+            }
+            RoutinePart::RoutineActivity {
+                exercise_id,
+                reps,
+                time,
+                weight,
+                rpe,
+                automatic,
+            } => {
+                result.push(if exercise_id.is_nil() {
+                    TrainingSessionElement::Rest {
+                        target_time: if *time > Time::default() {
+                            Some(*time)
+                        } else {
+                            None
+                        },
+                        automatic: *automatic,
+                    }
+                } else {
+                    TrainingSessionElement::Set {
+                        exercise_id: *exercise_id,
+                        reps: None,
+                        time: None,
+                        weight: None,
+                        rpe: None,
+                        target_reps: if *reps > Reps::default() {
+                            Some(*reps)
+                        } else {
+                            None
+                        },
+                        target_time: if *time > Time::default() {
+                            Some(*time)
+                        } else {
+                            None
+                        },
+                        target_weight: if *weight > Weight::default() {
+                            Some(*weight)
+                        } else {
+                            None
+                        },
+                        target_rpe: if *rpe > RPE::ZERO { Some(*rpe) } else { None },
+                        automatic: *automatic,
+                    }
+                });
+            }
+        }
+        result
+    }
+}
+
+pub fn routines_sorted_by_last_use(
+    routines: &[Routine],
+    training_sessions: &[TrainingSession],
+    filter: impl Fn(&Routine) -> bool,
+) -> Vec<Routine> {
+    let mut map: BTreeMap<RoutineID, NaiveDate> = BTreeMap::new();
+    for routine_id in routines.iter().filter(|r| filter(r)).map(|r| r.id) {
+        #[allow(clippy::cast_possible_truncation)]
+        map.insert(
+            routine_id,
+            NaiveDate::MIN + Duration::days(routine_id.as_u128() as i64),
+        );
+    }
+    for training_session in training_sessions {
+        let routine_id = training_session.routine_id;
+        if routines.iter().any(|r| r.id == routine_id)
+            && map.contains_key(&routine_id)
+            && training_session.date > map[&routine_id]
+        {
+            map.insert(routine_id, training_session.date);
+        }
+    }
+    let mut list: Vec<_> = map.iter().collect();
+    list.sort_by(|a, b| a.1.cmp(b.1).reverse());
+    list.iter()
+        .filter_map(|(routine_id, _)| routines.iter().find(|r| r.id == **routine_id))
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -317,5 +408,77 @@ mod tests {
     fn test_routine_id_nil() {
         assert!(RoutineID::nil().is_nil());
         assert_eq!(RoutineID::nil(), RoutineID::default());
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use() {
+        let routines = [routine(1), routine(2), routine(3), routine(4)];
+        let training_sessions = [
+            training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+            training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+            training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+        ];
+        assert_eq!(
+            routines_sorted_by_last_use(&routines, &training_sessions, |_| true),
+            vec![routine(2), routine(3), routine(4), routine(1)]
+        );
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use_empty() {
+        let routines = [];
+        let training_sessions = [];
+        assert_eq!(
+            routines_sorted_by_last_use(&routines, &training_sessions, |_| true),
+            vec![]
+        );
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use_missing_routines() {
+        let routines = [routine(1), routine(2)];
+        let training_sessions = [
+            training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+            training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+            training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+        ];
+        assert_eq!(
+            routines_sorted_by_last_use(&routines, &training_sessions, |_| true),
+            vec![routine(2), routine(1)]
+        );
+    }
+
+    #[test]
+    fn test_sort_routines_by_last_use_filter() {
+        let routines = [routine(1), routine(2), routine(3), routine(4)];
+        let training_sessions = [
+            training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
+            training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
+            training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
+        ];
+        assert_eq!(
+            routines_sorted_by_last_use(&routines, &training_sessions, |r| r.id > 2.into()),
+            vec![routine(3), routine(4)]
+        );
+    }
+
+    fn routine(id: u128) -> Routine {
+        Routine {
+            id: id.into(),
+            name: Name::new(&id.to_string()).unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![],
+        }
+    }
+
+    fn training_session(id: u128, routine_id: u128, date: NaiveDate) -> TrainingSession {
+        TrainingSession {
+            id: id.into(),
+            routine_id: RoutineID::from(routine_id),
+            date,
+            notes: String::new(),
+            elements: vec![],
+        }
     }
 }

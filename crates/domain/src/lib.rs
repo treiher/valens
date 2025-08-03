@@ -16,7 +16,9 @@ pub use period::{
     CurrentCycle, Cycle, Intensity, IntensityError, Period, PeriodRepository, current_cycle,
     cycle_stats, cycles,
 };
-pub use routine::{Routine, RoutineID, RoutinePart, RoutineRepository};
+pub use routine::{
+    Routine, RoutineID, RoutinePart, RoutineRepository, routines_sorted_by_last_use,
+};
 pub use session::SessionRepository;
 pub use statistics::{
     DefaultInterval, Interval, centered_moving_average, centered_moving_total, init_interval,

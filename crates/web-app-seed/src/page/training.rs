@@ -147,7 +147,7 @@ pub fn update(
                         let sets = routine
                             .sections
                             .iter()
-                            .flat_map(to_training_session_elements)
+                            .flat_map(domain::RoutinePart::to_training_session_elements)
                             .collect::<Vec<domain::TrainingSessionElement>>();
                         orders.notify(data::Msg::CreateTrainingSession(
                             routine_id,
@@ -701,68 +701,4 @@ pub fn view_table<Ms: 'static>(
                 .collect::<Vec<_>>()],
         ]
     ]
-}
-
-fn to_training_session_elements(part: &domain::RoutinePart) -> Vec<domain::TrainingSessionElement> {
-    let mut result = vec![];
-    match part {
-        domain::RoutinePart::RoutineSection { rounds, parts, .. } => {
-            for _ in 0..*rounds {
-                for p in parts {
-                    for s in to_training_session_elements(p) {
-                        result.push(s);
-                    }
-                }
-            }
-        }
-        domain::RoutinePart::RoutineActivity {
-            exercise_id,
-            reps,
-            time,
-            weight,
-            rpe,
-            automatic,
-        } => {
-            result.push(if exercise_id.is_nil() {
-                domain::TrainingSessionElement::Rest {
-                    target_time: if *time > domain::Time::default() {
-                        Some(*time)
-                    } else {
-                        None
-                    },
-                    automatic: *automatic,
-                }
-            } else {
-                domain::TrainingSessionElement::Set {
-                    exercise_id: *exercise_id,
-                    reps: None,
-                    time: None,
-                    weight: None,
-                    rpe: None,
-                    target_reps: if *reps > domain::Reps::default() {
-                        Some(*reps)
-                    } else {
-                        None
-                    },
-                    target_time: if *time > domain::Time::default() {
-                        Some(*time)
-                    } else {
-                        None
-                    },
-                    target_weight: if *weight > domain::Weight::default() {
-                        Some(*weight)
-                    } else {
-                        None
-                    },
-                    target_rpe: if *rpe > domain::RPE::ZERO {
-                        Some(*rpe)
-                    } else {
-                        None
-                    },
-                    automatic: *automatic,
-                }
-            });
-        }
-    }
-    result
 }

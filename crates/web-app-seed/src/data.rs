@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use chrono::{Duration, prelude::*};
+use chrono::prelude::*;
 use log::{error, warn};
 use seed::{
     C, IF, Url,
@@ -120,7 +120,9 @@ impl Model {
         &self,
         filter: impl Fn(&domain::Routine) -> bool,
     ) -> Vec<domain::Routine> {
-        sort_routines_by_last_use(&self.routines, &self.training_sessions, filter)
+        let routines = self.routines.values().cloned().collect::<Vec<_>>();
+        let training_sessions = self.training_sessions.values().cloned().collect::<Vec<_>>();
+        domain::routines_sorted_by_last_use(&routines, &training_sessions, filter)
     }
 
     pub fn training_sessions_date_range(&self) -> std::ops::RangeInclusive<NaiveDate> {
@@ -167,35 +169,6 @@ pub enum DataSet {
     Exercises,
     Routines,
     TrainingSessions,
-}
-
-fn sort_routines_by_last_use(
-    routines: &BTreeMap<domain::RoutineID, domain::Routine>,
-    training_sessions: &BTreeMap<domain::TrainingSessionID, domain::TrainingSession>,
-    filter: impl Fn(&domain::Routine) -> bool,
-) -> Vec<domain::Routine> {
-    let mut map: BTreeMap<domain::RoutineID, NaiveDate> = BTreeMap::new();
-    for (routine_id, _) in routines.iter().filter(|(_, r)| filter(r)) {
-        #[allow(clippy::cast_possible_truncation)]
-        map.insert(
-            *routine_id,
-            NaiveDate::MIN + Duration::days(routine_id.as_u128() as i64),
-        );
-    }
-    for training_session in training_sessions.values() {
-        let routine_id = training_session.routine_id;
-        if routines.contains_key(&routine_id)
-            && filter(&routines[&routine_id])
-            && training_session.date > map[&routine_id]
-        {
-            map.insert(routine_id, training_session.date);
-        }
-    }
-    let mut list: Vec<_> = map.iter().collect();
-    list.sort_by(|a, b| a.1.cmp(b.1).reverse());
-    list.iter()
-        .map(|(routine_id, _)| routines[routine_id].clone())
-        .collect()
 }
 
 // ------ ------
@@ -1458,122 +1431,4 @@ fn view_app_update_dialog(model: &Model) -> Option<Node<Msg>> {
         ],
         &ev(Ev::Click, |_| Msg::CancelAppUpdate),
     )]
-}
-
-// ------ ------
-//     Tests
-// ------ ------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_sort_routines_by_last_use() {
-        let routines = BTreeMap::from([
-            (1.into(), routine(1)),
-            (2.into(), routine(2)),
-            (3.into(), routine(3)),
-            (4.into(), routine(4)),
-        ]);
-        let training_sessions = BTreeMap::from([
-            (
-                1.into(),
-                training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
-            ),
-            (
-                2.into(),
-                training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
-            ),
-            (
-                3.into(),
-                training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
-            ),
-        ]);
-        assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions, |_| true),
-            vec![routine(2), routine(3), routine(4), routine(1)]
-        );
-    }
-
-    #[test]
-    fn test_sort_routines_by_last_use_empty() {
-        let routines = BTreeMap::new();
-        let training_sessions = BTreeMap::new();
-        assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions, |_| true),
-            vec![]
-        );
-    }
-
-    #[test]
-    fn test_sort_routines_by_last_use_missing_routines() {
-        let routines = BTreeMap::from([(1.into(), routine(1)), (2.into(), routine(2))]);
-        let training_sessions = BTreeMap::from([
-            (
-                1.into(),
-                training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
-            ),
-            (
-                2.into(),
-                training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
-            ),
-            (
-                3.into(),
-                training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
-            ),
-        ]);
-        assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions, |_| true),
-            vec![routine(2), routine(1)]
-        );
-    }
-
-    #[test]
-    fn test_sort_routines_by_last_use_filter() {
-        let routines = BTreeMap::from([
-            (1.into(), routine(1)),
-            (2.into(), routine(2)),
-            (3.into(), routine(3)),
-            (4.into(), routine(4)),
-        ]);
-        let training_sessions = BTreeMap::from([
-            (
-                1.into(),
-                training_session(1, 3, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()),
-            ),
-            (
-                2.into(),
-                training_session(2, 2, NaiveDate::from_ymd_opt(2020, 3, 3).unwrap()),
-            ),
-            (
-                3.into(),
-                training_session(3, 3, NaiveDate::from_ymd_opt(2020, 2, 2).unwrap()),
-            ),
-        ]);
-        assert_eq!(
-            sort_routines_by_last_use(&routines, &training_sessions, |r| r.id > 2.into()),
-            vec![routine(3), routine(4)]
-        );
-    }
-
-    fn routine(id: u128) -> domain::Routine {
-        domain::Routine {
-            id: id.into(),
-            name: domain::Name::new(&id.to_string()).unwrap(),
-            notes: String::new(),
-            archived: false,
-            sections: vec![],
-        }
-    }
-
-    fn training_session(id: u128, routine_id: u128, date: NaiveDate) -> domain::TrainingSession {
-        domain::TrainingSession {
-            id: id.into(),
-            routine_id: domain::RoutineID::from(routine_id),
-            date,
-            notes: String::new(),
-            elements: vec![],
-        }
-    }
 }

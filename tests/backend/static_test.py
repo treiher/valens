@@ -18,25 +18,25 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
         yield client
 
 
-def test_root(client: Client) -> None:
-    resp = client.get("/")
+@pytest.mark.parametrize("route", ["/", "/home"])
+def test_html_routes(client: Client, route: str) -> None:
+    resp = client.get(route)
 
-    assert resp.status_code == HTTPStatus.MOVED_PERMANENTLY
-    assert resp.location == "app"
+    assert resp.status_code == HTTPStatus.OK
+    assert "</html>" in resp.get_data().decode("utf-8"), resp.content_encoding
 
 
 @pytest.mark.parametrize(
     "route",
     [
-        "/app",
+        "/main.css",
         "/manifest.json",
-        "/index.css",
-        "/valens-web-app-seed.js",
-        "/valens-web-app-seed_bg.wasm",
-        "/service-worker.js",
+        "/sw.js",
+        "/valens-web-app-dioxus.js",
     ],
 )
 def test_static_files(client: Client, route: str) -> None:
     resp = client.get(route)
 
     assert resp.status_code == HTTPStatus.OK
+    assert "</html>" not in resp.get_data().decode("utf-8"), resp.content_encoding

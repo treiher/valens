@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Valens</title>
+        <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="stylesheet" href="/main.css" />
+        <link rel="preload" href="/valens-web-app-dioxus_bg.wasm" as="fetch" type="application/wasm" crossorigin="" />
+        <link rel="modulepreload" href="/valens-web-app-dioxus.js" />
+        <meta charset="utf-8" />
+        <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#48C774" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script>
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.register("/sw.js");
+            }
+        </script>
+    </head>
+    <body class="has-navbar-fixed-top has-navbar-fixed-bottom">
+        <div id="loading">
+            <section class="hero is-fullheight">
+                <div class="hero-body">
+                    <div class="container has-text-centered">
+                        <div class="block">
+                            <progress class="progress is-primary" max="100">
+                                Loading app...
+                            </progress>
+                        </div>
+                        <div class="block is-visible-with-delay has-text-grey py-5">
+                            If the application does not start, WebAssembly may be disabled or not supported by your browser.
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div id="main">
+            <script type="module" async src="/valens-web-app-dioxus.js"></script>
+        </div>
+    </body>
+</html>

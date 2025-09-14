@@ -16,7 +16,7 @@
     }
   ],
   "id": "/valens",
-  "start_url": "{{ public_url }}/app",
+  "start_url": "/",
   "theme_color": "#48C774",
   "background_color": "#48C774",
   "display": "standalone"

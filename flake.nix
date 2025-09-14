@@ -15,10 +15,12 @@
       devShells.${system}.default = with pkgs; mkShell {
         packages = [
           (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+          binaryen
           cargo-llvm-cov
           cargo-nextest
           chromedriver
           dart-sass
+          dioxus-cli
           python314
           python314Packages.uv
           ungoogled-chromium

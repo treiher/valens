@@ -1,0 +1,16 @@
+pub mod admin;
+pub mod body_fat;
+pub mod body_weight;
+pub mod catalog;
+pub mod exercise;
+pub mod exercises;
+pub mod home;
+pub mod login;
+pub mod menstrual_cycle;
+pub mod muscles;
+pub mod not_found;
+pub mod root;
+pub mod routine;
+pub mod routines;
+pub mod training;
+pub mod training_session;

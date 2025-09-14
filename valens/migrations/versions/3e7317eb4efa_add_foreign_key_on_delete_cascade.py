@@ -18,7 +18,7 @@ branch_labels = None
 depends_on = None
 
 
-FOREIGN_KEY_CONSTRAINTS: list[tuple[str, str, str, str, tuple[Any, ...]]] = [  # type: ignore[misc]
+FOREIGN_KEY_CONSTRAINTS: list[tuple[str, str, str, str, tuple[Any, ...]]] = [  # type: ignore[explicit-any]
     (
         "fk_body_weight_user_id_user",
         "body_weight",

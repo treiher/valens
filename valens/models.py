@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import enum
-from typing import Optional
 
 from sqlalchemy import (
     CheckConstraint,
@@ -130,13 +129,13 @@ class BodyFat(Base):
         ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
     )
     date: Mapped[datetime.date] = mapped_column(Date, primary_key=True)
-    chest: Mapped[Optional[int]] = mapped_column(Integer)
-    abdominal: Mapped[Optional[int]] = mapped_column(Integer)
-    thigh: Mapped[Optional[int]] = mapped_column(Integer)
-    tricep: Mapped[Optional[int]] = mapped_column(Integer)
-    subscapular: Mapped[Optional[int]] = mapped_column(Integer)
-    suprailiac: Mapped[Optional[int]] = mapped_column(Integer)
-    midaxillary: Mapped[Optional[int]] = mapped_column(Integer)
+    chest: Mapped[int | None] = mapped_column(Integer)
+    abdominal: Mapped[int | None] = mapped_column(Integer)
+    thigh: Mapped[int | None] = mapped_column(Integer)
+    tricep: Mapped[int | None] = mapped_column(Integer)
+    subscapular: Mapped[int | None] = mapped_column(Integer)
+    suprailiac: Mapped[int | None] = mapped_column(Integer)
+    midaxillary: Mapped[int | None] = mapped_column(Integer)
 
 
 class Period(Base):
@@ -200,7 +199,7 @@ class Routine(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    notes: Mapped[Optional[str]] = mapped_column(String)
+    notes: Mapped[str | None] = mapped_column(String)
     archived: Mapped[bool] = mapped_column(default=False)
 
     sections: Mapped[list[RoutineSection]] = relationship(
@@ -219,7 +218,7 @@ class RoutinePart(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     type: Mapped[str] = mapped_column(String, nullable=False)
-    routine_section_id: Mapped[Optional[int]] = mapped_column(
+    routine_section_id: Mapped[int | None] = mapped_column(
         ForeignKey("routine_section.id", ondelete="CASCADE")
     )
     position: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -244,7 +243,7 @@ class RoutineSection(RoutinePart):
     )
 
     id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
-    routine_id: Mapped[Optional[int]] = mapped_column(ForeignKey("routine.id", ondelete="CASCADE"))
+    routine_id: Mapped[int | None] = mapped_column(ForeignKey("routine.id", ondelete="CASCADE"))
     rounds: Mapped[int] = mapped_column(Integer, nullable=False)
 
     parts: Mapped[list[RoutinePart]] = relationship(
@@ -276,9 +275,7 @@ class RoutineActivity(RoutinePart):
     )
 
     id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
-    exercise_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("exercise.id", ondelete="CASCADE")
-    )
+    exercise_id: Mapped[int | None] = mapped_column(ForeignKey("exercise.id", ondelete="CASCADE"))
     reps: Mapped[int]
     time: Mapped[int]
     weight: Mapped[float]
@@ -299,9 +296,9 @@ class Workout(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
-    routine_id: Mapped[Optional[int]] = mapped_column(ForeignKey("routine.id", ondelete="CASCADE"))
+    routine_id: Mapped[int | None] = mapped_column(ForeignKey("routine.id", ondelete="CASCADE"))
     date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    notes: Mapped[Optional[str]] = mapped_column(String)
+    notes: Mapped[str | None] = mapped_column(String)
 
     routine: Mapped[Routine] = relationship("Routine", back_populates="workouts")
     elements: Mapped[list[WorkoutElement]] = relationship(
@@ -403,14 +400,14 @@ class WorkoutSet(WorkoutElement):
     exercise_id: Mapped[int] = mapped_column(
         ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False
     )
-    reps: Mapped[Optional[int]]
-    time: Mapped[Optional[int]]
-    weight: Mapped[Optional[float]]
-    rpe: Mapped[Optional[float]]
-    target_reps: Mapped[Optional[int]]
-    target_time: Mapped[Optional[int]]
-    target_weight: Mapped[Optional[float]]
-    target_rpe: Mapped[Optional[float]]
+    reps: Mapped[int | None]
+    time: Mapped[int | None]
+    weight: Mapped[float | None]
+    rpe: Mapped[float | None]
+    target_reps: Mapped[int | None]
+    target_time: Mapped[int | None]
+    target_weight: Mapped[float | None]
+    target_rpe: Mapped[float | None]
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="sets")
 
@@ -442,7 +439,7 @@ class WorkoutRest(WorkoutElement):
 
     workout_id: Mapped[int] = mapped_column(primary_key=True)
     position: Mapped[int] = mapped_column(primary_key=True)
-    target_time: Mapped[Optional[int]]
+    target_time: Mapped[int | None]
 
     __mapper_args__ = {  # noqa: RUF012
         "polymorphic_identity": "rest",

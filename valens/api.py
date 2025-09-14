@@ -4,7 +4,7 @@ from datetime import date
 from functools import singledispatch, wraps
 from http import HTTPStatus
 from itertools import chain
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from flask import Blueprint, jsonify, request, session
 from flask.typing import ResponseReturnValue
@@ -40,7 +40,7 @@ class DeserializationError(Exception):
 
 @singledispatch
 def to_dict(
-    model: object, exclude: Optional[list[str]] = None, include: Optional[list[str]] = None
+    model: object, exclude: list[str] | None = None, include: list[str] | None = None
 ) -> dict[str, object]:
     return model_to_dict(model, exclude, include)
 
@@ -95,7 +95,7 @@ def _(model: WorkoutElement) -> dict[str, object]:
 
 
 def model_to_dict(
-    model: object, exclude: Optional[list[str]] = None, include: Optional[list[str]] = None
+    model: object, exclude: list[str] | None = None, include: list[str] | None = None
 ) -> dict[str, object]:
     assert hasattr(model, "__table__")
     exclude = ["user_id"] if exclude is None else exclude
@@ -108,7 +108,7 @@ def model_to_dict(
     }
 
 
-def to_routine_parts(json: list[dict[str, Any]]) -> list[RoutinePart]:  # type: ignore[misc]
+def to_routine_parts(json: list[dict[str, Any]]) -> list[RoutinePart]:  # type: ignore[explicit-any]
     return [
         (
             to_routine_section(part, position)
@@ -119,11 +119,11 @@ def to_routine_parts(json: list[dict[str, Any]]) -> list[RoutinePart]:  # type: 
     ]
 
 
-def to_routine_sections(json: list[dict[str, Any]]) -> list[RoutineSection]:  # type: ignore[misc]
+def to_routine_sections(json: list[dict[str, Any]]) -> list[RoutineSection]:  # type: ignore[explicit-any]
     return [to_routine_section(section, position) for position, section in enumerate(json, start=1)]
 
 
-def to_routine_section(json: dict[str, Any], position: int) -> RoutineSection:  # type: ignore[misc]
+def to_routine_section(json: dict[str, Any], position: int) -> RoutineSection:  # type: ignore[explicit-any]
     return RoutineSection(
         position=position,
         rounds=json["rounds"],
@@ -131,7 +131,7 @@ def to_routine_section(json: dict[str, Any], position: int) -> RoutineSection:  
     )
 
 
-def to_routine_activity(  # type: ignore[misc]
+def to_routine_activity(  # type: ignore[explicit-any]
     json: dict[str, Any], position: int
 ) -> RoutineActivity:
     return RoutineActivity(
@@ -145,7 +145,7 @@ def to_routine_activity(  # type: ignore[misc]
     )
 
 
-def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # type: ignore[misc]
+def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # type: ignore[explicit-any]
     return [
         (
             WorkoutSet(

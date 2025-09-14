@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from functools import singledispatch, wraps
 from http import HTTPStatus
 from itertools import chain
-from typing import Any, Callable
+from typing import Any
 
 from flask import Blueprint, jsonify, request, session
 from flask.typing import ResponseReturnValue

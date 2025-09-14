@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pprint
 from abc import abstractmethod
+from collections.abc import Callable
 from time import sleep
-from typing import Callable
 
 import pytest
 from selenium import webdriver
@@ -93,7 +93,7 @@ class BodyFatDialog(Dialog):
     def set_jp7(self, values: tuple[str, str, str, str, str, str, str]) -> None:
         jp7_inputs = self._driver.find_elements(by=By.XPATH, value="//input[@inputmode='numeric']")
         assert len(jp7_inputs) == 7
-        for i, v in zip(jp7_inputs, values):
+        for i, v in zip(jp7_inputs, values, strict=False):
             clear(i)
             i.send_keys(v)
 
@@ -547,7 +547,7 @@ class TrainingSessionEditPage(Page):
             if i == index:
                 input_fields = field.find_elements(By.TAG_NAME, "input")
                 assert len(input_fields) == len(values)
-                for inp, val in zip(input_fields, values):
+                for inp, val in zip(input_fields, values, strict=False):
                     clear(inp)
                     inp.send_keys(val)
                 return

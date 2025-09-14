@@ -13,7 +13,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -21,7 +20,7 @@ classifiers = [
     "Topic :: Other/Nonlisted Topic",
 ]
 dynamic = ["version", "readme"]
-requires-python = ">=3.9, <4"
+requires-python = ">=3.10, <4"
 dependencies = [
     "alembic >=1.6, <2",
     "flask >=3, <4",
@@ -90,7 +89,7 @@ dev-dependencies = [
 
 [tool.black]
 line-length = 100
-target-version = ["py39", "py310", "py311", "py312", "py313"]
+target-version = ["py310", "py311", "py312", "py313"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -108,7 +107,7 @@ exclude = '''
 '''
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 100
 
 [tool.ruff.lint]

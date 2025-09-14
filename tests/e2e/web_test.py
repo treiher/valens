@@ -309,7 +309,7 @@ def test_body_fat_add(driver: webdriver.Chrome) -> None:
     page.body_fat_dialog.click_save()
 
     page.wait_for_table_value(1, 1, 1, TODAY.isoformat())
-    for item, value in zip(items, values):
+    for item, value in zip(items, values, strict=False):
         page.wait_for_table_value(1, 1, headers[item], value)
 
 

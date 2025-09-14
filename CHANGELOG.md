@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Omit calendar and tables that contain no data on exercise page
 
+### Removed
+
+- Support for Python 3.9
+
 ### Fixed
 
 - Caching of app

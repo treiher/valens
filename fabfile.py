@@ -1,15 +1,12 @@
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 from fabric import Connection, task  # type: ignore[import-untyped]
 
 
 @task
-def deploy(
-    c: object, package: Optional[str] = None, target_directory: Optional[str] = None
-) -> None:
+def deploy(c: object, package: str | None = None, target_directory: str | None = None) -> None:
     if not isinstance(c, Connection):
         sys.exit("usage: fab -H user@host deploy [--package=FILE] [--target-directory=DIRECTORY]")
 

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{app_title}</title>
+        <script>
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.register("/{base_path}/assets/sw.js");
+            }
+        </script>
+        <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png" />
+        <link rel="manifest" href="/assets/manifest.json" />
+        <meta charset="UTF-8" />
+        <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#48C774" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+    </head>
+    <body class="has-navbar-fixed-top has-navbar-fixed-bottom">
+        <div id="main"></div>
+    </body>
+</html>

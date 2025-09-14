@@ -1,0 +1,23 @@
+{
+  "short_name": "Valens",
+  "name": "Valens",
+  "icons": [
+    {
+      "src": "images/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "images/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "id": "/valens",
+  "start_url": "/app",
+  "theme_color": "#48C774",
+  "background_color": "#48C774",
+  "display": "standalone"
+}

@@ -34,6 +34,7 @@ check_kacl:
 check_frontend:
 	cargo fmt -- --check
 	cargo clippy --all-targets -- --warn clippy::pedantic --deny warnings
+	dx check -p valens-web-app-dioxus
 
 check_backend: check_lockfile check_black check_ruff check_mypy
 
@@ -129,8 +130,14 @@ $(addprefix $(FRONTEND_CRATE)/dist/,$(FRONTEND_FILES)): third-party/bulma third-
 .PHONY: run run_frontend run_backend
 
 run:
+	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_dioxus
 	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_frontend
 	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_backend
+
+run_dioxus:
+	# TODO: Automate update of CSS file when creating distribution package
+	sass crates/web-app-dioxus/assets/main.scss crates/web-app-dioxus/assets/main.css
+	dx serve --package valens-web-app-dioxus
 
 run_frontend:
 	PATH=~/.cargo/bin:${PATH} trunk --config $(FRONTEND_CRATE)/Trunk.toml serve --port 8000 --watch crates

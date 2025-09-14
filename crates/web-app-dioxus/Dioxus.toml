@@ -1,0 +1,21 @@
+[application]
+
+name = "valens"
+
+default_platform = "web"
+
+asset_dir = "assets"
+
+[web.app]
+
+title = "Valens"
+
+[web.watcher]
+
+reload_html = true
+
+watch_path = ["assets", "src"]
+
+[[web.proxy]]
+
+backend = "http://localhost:5000/api/"

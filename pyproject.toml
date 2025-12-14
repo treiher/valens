@@ -68,8 +68,8 @@ replacement = '[\1](https://github.com/treiher/valens/blob/80c57687d540a9663bf24
 pattern = '\[(.+?)\]\(((?!https?://)\S+?.\.(png|gif))'
 replacement = '[\1](https://raw.githubusercontent.com/treiher/valens/80c57687d540a9663bf249441856345b6ec19866/\g<2>'
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "black >=23.1",
     "fabric >=3, <4",
     "hatch >=1",

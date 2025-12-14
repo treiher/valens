@@ -9,8 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Home page: Direct access to routines, exercises and muscles
+- Training session page: Numbering of exercises within compound sets
+- Routines page:
+    - Option to copy routine
+    - Keeping of filter settings in browser history
+    - Name pre-filled from search term when adding
+- Routine page:
+    - Option to archive routine
+    - Option to copy routine
+    - Option to delete routine
+- Exercises page:
+    - Option to copy exercise
+    - Option to change exercise properties
+    - Keeping of filter settings in browser history
+    - Name pre-filled from search term when adding
+- Exercise page:
+    - Option to copy exercise
+    - Option to delete exercise
+- Interval controls: NOW button to show the interval from the first entry to today
+- Error messages on input fields
+- Error page for unexpected errors
+- CLI argument for database path when creating config
 - Support for Python 3.14
-- CLI argument to define path to database when creating config
+
+### Changed
+
+- Home page: Separate sections for training and health
+- Training page: Renamed to training sessions page
+- Training session page:
+    - View mode:
+        - Horizontal alignment of reps, time, weight and RPE
+    - Edit mode:
+        - Compact layout
+        - Possibility to select any exercise set as the next one
+- Routines page: Always display archive
+- Routine page: Editing via action buttons and clickable properties instead of edit mode
+- Exercise page: Colors of property tags
+- Charts on training-related pages: Unified labels
+- Interval controls: Reordered predefined interval buttons and moved navigation buttons next to the interval bounds
+- Action buttons in lists: Use menu for multiple actions
+- Metronome, timer and stopwatch available on all pages
+
+### Fixed
+
+- Exercises page: Loss of muscle associations when renaming exercise
+- Exercise page: Missing interval controls when selecting interval with no data
+
+### Removed
+
+- **BREAKING**: Possibility to serve app from subdirectory
+- Training session page: Links to routines, exercises and muscles pages
 
 ## [0.6.0] - 2025-09-14
 

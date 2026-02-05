@@ -107,7 +107,7 @@ FOREIGN_KEY_CONSTRAINTS: list[tuple[str, str, str, str, tuple[Any, ...]]] = [  #
 
 
 def upgrade() -> None:
-    for (
+    for (  # pragma: no cover
         constraint_name,
         source_table,
         referent_table,
@@ -122,7 +122,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for (
+    for (  # pragma: no cover
         constraint_name,
         source_table,
         referent_table,

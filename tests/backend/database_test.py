@@ -11,6 +11,11 @@ from alembic import command
 from valens import app, database as db
 
 
+def wait_and_remove_lock(wait: int, lock_path: Path) -> None:
+    sleep(wait)
+    lock_path.unlink()
+
+
 @pytest.fixture(name="test_db")
 def fixture_test_db(tmp_path: Path) -> Generator[Path, None, None]:
     db_file = tmp_path / "db"
@@ -62,12 +67,8 @@ def test_upgrade_in_progress(test_db: Path, capsys: pytest.CaptureFixture[str]) 
     db.upgrade_lock_file().touch()
     wait = 3
 
-    def wait_and_remove_lock() -> None:
-        sleep(wait)
-        db.upgrade_lock_file().unlink()
-
     expected_lock_release = datetime.now() + timedelta(seconds=wait)
-    Process(target=wait_and_remove_lock).start()
+    Process(target=wait_and_remove_lock, args=(wait, db.upgrade_lock_file())).start()
     db.upgrade()
 
     assert capsys.readouterr().out == "Waiting for completion of database upgrade\n"

@@ -6,6 +6,8 @@ import _pytest
 import pytest
 import selenium
 import selenium.webdriver
+import selenium.webdriver.chrome.options
+import selenium.webdriver.firefox.options
 
 from valens import app, database as db
 

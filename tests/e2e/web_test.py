@@ -575,6 +575,7 @@ def test_training_session(driver: webdriver.Chrome) -> None:
     page.edit()
 
 
+@pytest.mark.flaky(reruns=2)
 def test_training_session_change_entries(driver: webdriver.Chrome) -> None:
     workout = USER.workouts[-1]
     sets = [

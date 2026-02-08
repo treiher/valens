@@ -18,7 +18,9 @@ def test_main_version(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_main_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(sys, "argv", ["valens", "config", "-d", str(tmp_path)])
+    monkeypatch.setattr(
+        sys, "argv", ["valens", "config", "-d", str(tmp_path), "--database", str(tmp_path / "db")]
+    )
     config_file = tmp_path / "config.py"
     assert cli.main() == 0
     assert "SECRET_KEY" in config_file.read_text()

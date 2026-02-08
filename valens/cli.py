@@ -24,6 +24,12 @@ def main() -> int:
         default=Path(),
         help="target directory for the to be created config file",
     )
+    parser_config.add_argument(
+        "--database",
+        type=Path,
+        default=Path.home() / ".local/share/valens/valens.db",
+        help="path to the database file",
+    )
 
     parser_upgrade = subparsers.add_parser("upgrade", help="upgrade database")
     parser_upgrade.set_defaults(func=upgrade)
@@ -75,9 +81,7 @@ def main() -> int:
 
 
 def create_config(args: argparse.Namespace) -> int:
-    config_file = config.create_config_file(
-        args.directory, Path.home() / ".local/share/valens/valens.db"
-    )
+    config_file = config.create_config_file(args.directory, args.database)
     print(f"Created {config_file}")
     return 0
 

@@ -10,8 +10,9 @@ FRONTEND_FILES := index.css manifest.json service-worker.js valens-web-app-seed.
 PACKAGE_FRONTEND_FILES := valens/frontend $(addprefix valens/frontend/,$(FRONTEND_FILES))
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
-VERSION ?= $(shell uv run -- hatch version)
-WHEEL ?= dist/valens-$(VERSION)-py3-none-any.whl
+VERSION := $(shell uv run -- hatch version 2>/dev/null)
+VERSION_PUBLIC := $(firstword $(subst +, ,$(VERSION)))
+WHEEL := dist/valens-$(VERSION)-py3-none-any.whl
 
 export SQLALCHEMY_WARN_20=1
 
@@ -126,6 +127,20 @@ valens/frontend/%: $(FRONTEND_CRATE)/dist/%
 $(addprefix $(FRONTEND_CRATE)/dist/,$(FRONTEND_FILES)): third-party/bulma third-party/fontawesome $(shell find $(FRONTEND_CRATE)/{assets,src}/ -type f)
 	cd $(FRONTEND_CRATE) && trunk build --release --filehash false
 
+.PHONY: container
+
+container: NAME ?= valens
+container: TOOL ?= podman
+container: $(WHEEL)
+	$(TOOL) build \
+		--build-arg WHEEL=$(WHEEL) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg REVISION=$(REVISION) \
+		--build-arg SOURCE=$(SOURCE) \
+		-t $(NAME):$(VERSION_PUBLIC) \
+		$(ARGS) \
+		.
+
 .PHONY: run run_frontend run_backend
 
 run:
@@ -152,3 +167,11 @@ clean:
 	rm -rf valens/frontend
 	cargo clean
 	cd $(FRONTEND_CRATE) && trunk clean
+
+.PHONY: version version-public
+
+version:
+	@echo $(VERSION)
+
+version-public:
+	@echo $(VERSION_PUBLIC)

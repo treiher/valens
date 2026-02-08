@@ -80,7 +80,7 @@ master = true
 plugins = python
 socket = /run/uwsgi/%n.sock
 manage-script-name = true
-mount = /valens=valens.web:app
+mount = /valens=valens:app
 uid = http
 gid = http
 env = VALENS_CONFIG=/opt/valens/config.py

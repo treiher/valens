@@ -42,8 +42,9 @@ jobs:
           cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Build distribution
         run: |
-          # Build distribution without local version identifier
-          SETUPTOOLS_SCM_PRETEND_VERSION=$(uv run -- hatch version | sed 's/+.*//') make dist
+          # Use public version without local version label
+          export SETUPTOOLS_SCM_PRETEND_VERSION=$(make version-public)
+          make dist
       - name: Store distribution packages
         uses: actions/upload-artifact@v4
         with:
@@ -97,3 +98,61 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+
+  publish-to-ghcr:
+    name: Publish container image to GitHub Container Registry
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+    needs:
+      - build
+    runs-on: ubuntu-22.04
+
+    permissions:
+      packages: write
+
+    env:
+      NAME: ghcr.io/${{ github.repository }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dependencies
+        run: |
+          uv sync
+      - name: Download distribution packages
+        uses: actions/download-artifact@v7
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Build image
+        run: |
+          # Use public version without local version label
+          export SETUPTOOLS_SCM_PRETEND_VERSION=$(make version-public)
+          make -o dist/*.whl container TOOL=docker NAME=${NAME} REVISION=${GITHUB_SHA} SOURCE=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
+      - name: Tag image
+        run: |
+          VERSION="$(make version-public)"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            docker tag "$NAME:$VERSION" "$NAME:latest"
+          else
+            docker tag "$NAME:$VERSION" "$NAME:dev"
+          fi
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push image
+        run: |
+          docker push --all-tags $NAME

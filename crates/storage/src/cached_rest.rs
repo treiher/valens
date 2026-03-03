@@ -8,8 +8,10 @@ use chrono::NaiveDate;
 use log::error;
 use valens_domain as domain;
 
-use super::indexed_db::{IndexedDB, Store};
-use super::rest::{GlooNetSendRequest, REST, SendRequest};
+use super::{
+    indexed_db::{IndexedDB, Store},
+    rest::{GlooNetSendRequest, REST, SendRequest},
+};
 
 macro_rules! sync {
     ($self: ident, $read: ident, $write: ident, $name: literal) => {{
@@ -38,7 +40,7 @@ macro_rules! execute {
     }};
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct CachedREST<S: SendRequest> {
     pub rest: REST<S>,
 }
@@ -340,10 +342,13 @@ mod tests {
         };
         use wasm_bindgen_test::wasm_bindgen_test;
 
-        use crate::rest;
-        use crate::tests::data::{
-            BODY_FAT, BODY_FATS, BODY_WEIGHT, BODY_WEIGHTS, EXERCISE, EXERCISES, PERIOD, PERIODS,
-            ROUTINE, ROUTINES, TRAINING_SESSION, TRAINING_SESSIONS, USER, USER_2, USERS,
+        use crate::{
+            rest,
+            tests::data::{
+                BODY_FAT, BODY_FATS, BODY_WEIGHT, BODY_WEIGHTS, EXERCISE, EXERCISES, PERIOD,
+                PERIODS, ROUTINE, ROUTINES, TRAINING_SESSION, TRAINING_SESSIONS, USER, USER_2,
+                USERS,
+            },
         };
 
         use super::*;

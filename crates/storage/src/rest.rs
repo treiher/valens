@@ -4,7 +4,7 @@ use serde_json::{Map, json};
 use thiserror::Error;
 use valens_domain as domain;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct REST<S: SendRequest> {
     pub sender: S,
 }
@@ -140,7 +140,7 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
     ) -> Result<domain::User, domain::ReadError> {
         let r: User = self
             .fetch(
-                gloo_net::http::Request::post("api/session")
+                gloo_net::http::Request::post("/api/session")
                     .json(&json!({ "id": user_id.as_u128() }))
                     .expect("serialization failed"),
             )
@@ -150,7 +150,11 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
 
     async fn initialize_session(&self) -> Result<domain::User, domain::ReadError> {
         let r: User = self
-            .fetch(gloo_net::http::Request::get("api/session").build().unwrap())
+            .fetch(
+                gloo_net::http::Request::get("/api/session")
+                    .build()
+                    .unwrap(),
+            )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
     }
@@ -158,7 +162,7 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
     async fn delete_session(&self) -> Result<(), domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete("api/session")
+                gloo_net::http::Request::delete("/api/session")
                     .build()
                     .unwrap(),
                 (),
@@ -170,7 +174,11 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
 impl<S: SendRequest> domain::VersionRepository for REST<S> {
     async fn read_version(&self) -> Result<String, domain::ReadError> {
         Ok(self
-            .fetch(gloo_net::http::Request::get("api/version").build().unwrap())
+            .fetch(
+                gloo_net::http::Request::get("/api/version")
+                    .build()
+                    .unwrap(),
+            )
             .await?)
     }
 }
@@ -178,7 +186,7 @@ impl<S: SendRequest> domain::VersionRepository for REST<S> {
 impl<S: SendRequest> domain::UserRepository for REST<S> {
     async fn read_users(&self) -> Result<Vec<domain::User>, domain::ReadError> {
         let r: Vec<User> = self
-            .fetch(gloo_net::http::Request::get("api/users").build().unwrap())
+            .fetch(gloo_net::http::Request::get("/api/users").build().unwrap())
             .await?;
         Ok(r.into_iter()
             .map(|user| domain::User::try_from(user).map_err(Box::from))
@@ -192,7 +200,7 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
     ) -> Result<domain::User, domain::CreateError> {
         let r: User = self
             .fetch(
-                gloo_net::http::Request::post("api/users")
+                gloo_net::http::Request::post("/api/users")
                     .json(&UserData {
                         name: name.to_string(),
                         sex: sex as u8,
@@ -206,7 +214,7 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
     async fn replace_user(&self, user: domain::User) -> Result<domain::User, domain::UpdateError> {
         let r: User = self
             .fetch(
-                gloo_net::http::Request::put(&format!("api/users/{}", user.id.as_u128()))
+                gloo_net::http::Request::put(&format!("/api/users/{}", user.id.as_u128()))
                     .json(&UserData::from(user))
                     .expect("serialization failed"),
             )
@@ -217,7 +225,7 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
     async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("api/users/{}", id.as_u128()))
+                gloo_net::http::Request::delete(&format!("/api/users/{}", id.as_u128()))
                     .build()
                     .unwrap(),
                 id,
@@ -234,7 +242,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::ReadError> {
         let r: Vec<BodyWeight> = self
             .fetch(
-                gloo_net::http::Request::get("api/body_weight")
+                gloo_net::http::Request::get("/api/body_weight")
                     .build()
                     .unwrap(),
             )
@@ -248,7 +256,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     ) -> Result<domain::BodyWeight, domain::CreateError> {
         let r: BodyWeight = self
             .fetch(
-                gloo_net::http::Request::post("api/body_weight")
+                gloo_net::http::Request::post("/api/body_weight")
                     .json(&BodyWeight::from(body_weight))
                     .expect("serialization failed"),
             )
@@ -262,7 +270,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     ) -> Result<domain::BodyWeight, domain::UpdateError> {
         let r: BodyWeight = self
             .fetch(
-                gloo_net::http::Request::put(&format!("api/body_weight/{}", body_weight.date))
+                gloo_net::http::Request::put(&format!("/api/body_weight/{}", body_weight.date))
                     .json(&json!(&BodyWeightData::from(body_weight)))
                     .expect("serialization failed"),
             )
@@ -273,7 +281,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("api/body_weight/{date}"))
+                gloo_net::http::Request::delete(&format!("/api/body_weight/{date}"))
                     .build()
                     .unwrap(),
                 date,
@@ -290,7 +298,7 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
     async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::ReadError> {
         let r: Vec<BodyFat> = self
             .fetch(
-                gloo_net::http::Request::get("api/body_fat")
+                gloo_net::http::Request::get("/api/body_fat")
                     .build()
                     .unwrap(),
             )
@@ -304,7 +312,7 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
     ) -> Result<domain::BodyFat, domain::CreateError> {
         let r: BodyFat = self
             .fetch(
-                gloo_net::http::Request::post("api/body_fat")
+                gloo_net::http::Request::post("/api/body_fat")
                     .json(&BodyFat::from(body_fat))
                     .expect("serialization failed"),
             )
@@ -318,7 +326,7 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
     ) -> Result<domain::BodyFat, domain::UpdateError> {
         let r: BodyFat = self
             .fetch(
-                gloo_net::http::Request::put(&format!("api/body_fat/{}", body_fat.date))
+                gloo_net::http::Request::put(&format!("/api/body_fat/{}", body_fat.date))
                     .json(&BodyFatData::from(body_fat))
                     .expect("serialization failed"),
             )
@@ -329,7 +337,7 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
     async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("api/body_fat/{date}"))
+                gloo_net::http::Request::delete(&format!("/api/body_fat/{date}"))
                     .build()
                     .unwrap(),
                 date,
@@ -345,7 +353,7 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
 
     async fn read_period(&self) -> Result<Vec<domain::Period>, domain::ReadError> {
         let r: Vec<Period> = self
-            .fetch(gloo_net::http::Request::get("api/period").build().unwrap())
+            .fetch(gloo_net::http::Request::get("/api/period").build().unwrap())
             .await?;
         Ok(r.into_iter()
             .map(|p| domain::Period::try_from(p).map_err(Box::from))
@@ -358,7 +366,7 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
     ) -> Result<domain::Period, domain::CreateError> {
         let r: Period = self
             .fetch(
-                gloo_net::http::Request::post("api/period")
+                gloo_net::http::Request::post("/api/period")
                     .json(&Period::from(period))
                     .expect("serialization failed"),
             )
@@ -372,7 +380,7 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
     ) -> Result<domain::Period, domain::UpdateError> {
         let r: Period = self
             .fetch(
-                gloo_net::http::Request::put(&format!("api/period/{}", period.date))
+                gloo_net::http::Request::put(&format!("/api/period/{}", period.date))
                     .json(&json!(&PeriodData::from(period)))
                     .expect("serialization failed"),
             )
@@ -383,7 +391,7 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
     async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("api/period/{date}"))
+                gloo_net::http::Request::delete(&format!("/api/period/{date}"))
                     .build()
                     .unwrap(),
                 date,
@@ -400,7 +408,7 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
     async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, domain::ReadError> {
         let r: Vec<Exercise> = self
             .fetch(
-                gloo_net::http::Request::get("api/exercises")
+                gloo_net::http::Request::get("/api/exercises")
                     .build()
                     .unwrap(),
             )
@@ -417,7 +425,7 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
     ) -> Result<domain::Exercise, domain::CreateError> {
         let r: Exercise = self
             .fetch(
-                gloo_net::http::Request::post("api/exercises")
+                gloo_net::http::Request::post("/api/exercises")
                     .json(&json!(&ExerciseData {
                         name: name.to_string(),
                         muscles: muscles.into_iter().map(ExerciseMuscle::from).collect()
@@ -434,7 +442,7 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
     ) -> Result<domain::Exercise, domain::UpdateError> {
         let r: Exercise = self
             .fetch(
-                gloo_net::http::Request::put(&format!("api/exercises/{}", exercise.id.as_u128()))
+                gloo_net::http::Request::put(&format!("/api/exercises/{}", exercise.id.as_u128()))
                     .json(&Exercise::from(exercise))
                     .expect("serialization failed"),
             )
@@ -448,7 +456,7 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
     ) -> Result<domain::ExerciseID, domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("api/exercises/{}", id.as_u128()))
+                gloo_net::http::Request::delete(&format!("/api/exercises/{}", id.as_u128()))
                     .build()
                     .unwrap(),
                 id,
@@ -465,7 +473,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
     async fn read_routines(&self) -> Result<Vec<domain::Routine>, domain::ReadError> {
         let r: Vec<Routine> = self
             .fetch(
-                gloo_net::http::Request::get("api/routines")
+                gloo_net::http::Request::get("/api/routines")
                     .build()
                     .unwrap(),
             )
@@ -482,7 +490,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
     ) -> Result<domain::Routine, domain::CreateError> {
         let r: Routine = self
             .fetch(
-                gloo_net::http::Request::post("api/routines")
+                gloo_net::http::Request::post("/api/routines")
                     .json(&RoutineData {
                         name: name.to_string(),
                         notes: None,
@@ -522,7 +530,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
         }
         let r: Routine = self
             .fetch(
-                gloo_net::http::Request::patch(&format!("api/routines/{}", id.as_u128()))
+                gloo_net::http::Request::patch(&format!("/api/routines/{}", id.as_u128()))
                     .json(&content)
                     .expect("serialization failed"),
             )
@@ -536,7 +544,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
     ) -> Result<domain::RoutineID, domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("api/routines/{}", id.as_u128()))
+                gloo_net::http::Request::delete(&format!("/api/routines/{}", id.as_u128()))
                     .build()
                     .unwrap(),
                 id,
@@ -557,7 +565,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
     ) -> Result<Vec<domain::TrainingSession>, domain::ReadError> {
         let r: Vec<TrainingSession> = self
             .fetch(
-                gloo_net::http::Request::get("api/workouts")
+                gloo_net::http::Request::get("/api/workouts")
                     .build()
                     .unwrap(),
             )
@@ -574,7 +582,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
     ) -> Result<domain::TrainingSession, domain::CreateError> {
         let r: TrainingSession = self
             .fetch(
-                gloo_net::http::Request::post("api/workouts")
+                gloo_net::http::Request::post("/api/workouts")
                     .json(&TrainingSessionData {
                         routine_id: if routine_id.is_nil() {
                             None
@@ -617,7 +625,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         }
         let r: TrainingSession = self
             .fetch(
-                gloo_net::http::Request::patch(&format!("api/workouts/{}", id.as_u128()))
+                gloo_net::http::Request::patch(&format!("/api/workouts/{}", id.as_u128()))
                     .json(&content)
                     .expect("serialization failed"),
             )
@@ -631,7 +639,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
     ) -> Result<domain::TrainingSessionID, domain::DeleteError> {
         Ok(self
             .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("api/workouts/{}", id.as_u128()))
+                gloo_net::http::Request::delete(&format!("/api/workouts/{}", id.as_u128()))
                     .build()
                     .unwrap(),
                 id,
@@ -1229,7 +1237,7 @@ pub trait SendRequest: Send + Sync + 'static {
     ) -> Result<gloo_net::http::Response, gloo_net::Error>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct GlooNetSendRequest;
 
 impl SendRequest for GlooNetSendRequest {

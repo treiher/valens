@@ -1,8 +1,16 @@
 use chrono::NaiveDate;
+use futures_util::{
+    future::{Either, select},
+    pin_mut,
+};
 use gloo_net;
+use gloo_timers::future::TimeoutFuture;
 use serde_json::{Map, json};
 use thiserror::Error;
+
 use valens_domain as domain;
+
+const TIMEOUT_MILLISECONDS: u32 = 10000;
 
 #[derive(Clone, Copy)]
 pub struct REST<S: SendRequest> {
@@ -26,55 +34,76 @@ impl Default for REST<GlooNetSendRequest> {
 }
 
 impl<S: SendRequest> REST<S> {
-    async fn fetch<T>(&self, request: gloo_net::http::Request) -> Result<T, FetchError>
+    async fn fetch<T, J>(
+        &self,
+        request: gloo_net::http::RequestBuilder,
+        json: Option<&J>,
+    ) -> Result<T, FetchError>
     where
         T: 'static + for<'de> serde::Deserialize<'de>,
+        J: serde::Serialize + ?Sized,
     {
-        match self.sender.send_request(request).await {
-            Ok(response) => {
-                if response.ok() {
-                    match response.json::<T>().await {
-                        Ok(data) => Ok(data),
-                        Err(err) => Err(anyhow::anyhow!(err)
-                            .context("deserialization failed")
-                            .into()),
-                    }
-                } else {
-                    Err(FetchError::Response {
-                        status: response.status(),
-                        status_text: response.status_text(),
-                        body: response.text().await.ok(),
-                    })
-                }
-            }
-            Err(gloo_net::Error::JsError(_) | gloo_net::Error::GlooError(_)) => {
-                Err(FetchError::NoConnection)
-            }
-            Err(err) => Err(anyhow::anyhow!(err).into()),
+        // Create an abort controller to cancel the request if timeout fires
+        let controller = web_sys::AbortController::new().map_err(|err| {
+            FetchError::Other(anyhow::anyhow!(
+                "failed to create abort controller: {err:?}"
+            ))
+        })?;
+        let signal = controller.signal();
+        let builder = request.abort_signal(Some(&signal));
+        let request = if let Some(json) = json {
+            builder.json(&json)
+        } else {
+            builder.build()
         }
-    }
+        .expect("failed to serialize request");
 
-    async fn fetch_no_content<T>(
-        &self,
-        request: gloo_net::http::Request,
-        result: T,
-    ) -> Result<T, FetchError> {
-        match self.sender.send_request(request).await {
-            Ok(response) => {
-                if response.ok() {
-                    Ok(result)
-                } else {
-                    Err(FetchError::Response {
-                        status: response.status(),
-                        status_text: response.status_text(),
-                        body: response.text().await.ok(),
-                    })
+        // Send the request future
+        let request_future = async {
+            match self.sender.send_request(request).await {
+                Ok(response) => {
+                    if response.ok() {
+                        match response.text().await {
+                            Ok(text) => {
+                                let text = if text.is_empty() { "null" } else { &text };
+                                match serde_json::from_str::<T>(text) {
+                                    Ok(data) => Ok(data),
+                                    Err(err) => Err(anyhow::anyhow!(err)
+                                        .context("failed to deserialize response")
+                                        .into()),
+                                }
+                            }
+                            Err(err) => Err(anyhow::anyhow!(err)
+                                .context("failed to read response")
+                                .into()),
+                        }
+                    } else {
+                        Err(FetchError::Response {
+                            status: response.status(),
+                            status_text: response.status_text(),
+                            body: response.text().await.ok(),
+                        })
+                    }
                 }
+                Err(gloo_net::Error::JsError(_) | gloo_net::Error::GlooError(_)) => {
+                    Err(FetchError::NoConnection)
+                }
+                Err(err) => Err(anyhow::anyhow!(err).into()),
             }
-            Err(gloo_net::Error::JsError(_) | gloo_net::Error::GlooError(_)) => {
-                Err(FetchError::NoConnection)
+        };
+
+        // Timeout future
+        let timeout_future = TimeoutFuture::new(TIMEOUT_MILLISECONDS);
+
+        pin_mut!(request_future, timeout_future);
+
+        // Race the request against the timeout
+        match select(request_future, timeout_future).await {
+            Either::Left((resp, _)) => resp,
+            Either::Right(((), _)) => {
+                controller.abort();
+                Err(FetchError::Timeout)
             }
-            Err(err) => Err(anyhow::anyhow!(err).into()),
         }
     }
 }
@@ -89,6 +118,8 @@ enum FetchError {
         status_text: String,
         body: Option<String>,
     },
+    #[error("timeout")]
+    Timeout,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -97,7 +128,9 @@ impl From<FetchError> for domain::StorageError {
     fn from(value: FetchError) -> Self {
         match value {
             FetchError::NoConnection => domain::StorageError::NoConnection,
-            FetchError::Response { .. } => domain::StorageError::Other(value.into()),
+            FetchError::Response { .. } | FetchError::Timeout => {
+                domain::StorageError::Other(value.into())
+            }
             FetchError::Other(err) => domain::StorageError::Other(err.into()),
         }
     }
@@ -140,9 +173,8 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
     ) -> Result<domain::User, domain::ReadError> {
         let r: User = self
             .fetch(
-                gloo_net::http::Request::post("/api/session")
-                    .json(&json!({ "id": user_id.as_u128() }))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/session"),
+                Some(&json!({ "id": user_id.as_u128() })),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
@@ -150,23 +182,14 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
 
     async fn initialize_session(&self) -> Result<domain::User, domain::ReadError> {
         let r: User = self
-            .fetch(
-                gloo_net::http::Request::get("/api/session")
-                    .build()
-                    .unwrap(),
-            )
+            .fetch(gloo_net::http::Request::get("/api/session"), None::<&()>)
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
     }
 
     async fn delete_session(&self) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete("/api/session")
-                    .build()
-                    .unwrap(),
-                (),
-            )
+            .fetch(gloo_net::http::Request::delete("/api/session"), None::<&()>)
             .await?)
     }
 }
@@ -174,11 +197,7 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
 impl<S: SendRequest> domain::VersionRepository for REST<S> {
     async fn read_version(&self) -> Result<String, domain::ReadError> {
         Ok(self
-            .fetch(
-                gloo_net::http::Request::get("/api/version")
-                    .build()
-                    .unwrap(),
-            )
+            .fetch(gloo_net::http::Request::get("/api/version"), None::<&()>)
             .await?)
     }
 }
@@ -186,7 +205,7 @@ impl<S: SendRequest> domain::VersionRepository for REST<S> {
 impl<S: SendRequest> domain::UserRepository for REST<S> {
     async fn read_users(&self) -> Result<Vec<domain::User>, domain::ReadError> {
         let r: Vec<User> = self
-            .fetch(gloo_net::http::Request::get("/api/users").build().unwrap())
+            .fetch(gloo_net::http::Request::get("/api/users"), None::<&()>)
             .await?;
         Ok(r.into_iter()
             .map(|user| domain::User::try_from(user).map_err(Box::from))
@@ -200,12 +219,11 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
     ) -> Result<domain::User, domain::CreateError> {
         let r: User = self
             .fetch(
-                gloo_net::http::Request::post("/api/users")
-                    .json(&UserData {
-                        name: name.to_string(),
-                        sex: sex as u8,
-                    })
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/users"),
+                Some(&UserData {
+                    name: name.to_string(),
+                    sex: sex as u8,
+                }),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
@@ -214,21 +232,18 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
     async fn replace_user(&self, user: domain::User) -> Result<domain::User, domain::UpdateError> {
         let r: User = self
             .fetch(
-                gloo_net::http::Request::put(&format!("/api/users/{}", user.id.as_u128()))
-                    .json(&UserData::from(user))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::put(&format!("/api/users/{}", user.id.as_u128())),
+                Some(&UserData::from(user)),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, domain::DeleteError> {
+    async fn delete_user(&self, id: domain::UserID) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("/api/users/{}", id.as_u128()))
-                    .build()
-                    .unwrap(),
-                id,
+            .fetch(
+                gloo_net::http::Request::delete(&format!("/api/users/{}", id.as_u128())),
+                None::<&()>,
             )
             .await?)
     }
@@ -242,9 +257,8 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::ReadError> {
         let r: Vec<BodyWeight> = self
             .fetch(
-                gloo_net::http::Request::get("/api/body_weight")
-                    .build()
-                    .unwrap(),
+                gloo_net::http::Request::get("/api/body_weight"),
+                None::<&()>,
             )
             .await?;
         Ok(r.into_iter().map(domain::BodyWeight::from).collect())
@@ -256,9 +270,8 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     ) -> Result<domain::BodyWeight, domain::CreateError> {
         let r: BodyWeight = self
             .fetch(
-                gloo_net::http::Request::post("/api/body_weight")
-                    .json(&BodyWeight::from(body_weight))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/body_weight"),
+                Some(&BodyWeight::from(body_weight)),
             )
             .await?;
         Ok(r.into())
@@ -270,21 +283,18 @@ impl<S: SendRequest> domain::BodyWeightRepository for REST<S> {
     ) -> Result<domain::BodyWeight, domain::UpdateError> {
         let r: BodyWeight = self
             .fetch(
-                gloo_net::http::Request::put(&format!("/api/body_weight/{}", body_weight.date))
-                    .json(&json!(&BodyWeightData::from(body_weight)))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::put(&format!("/api/body_weight/{}", body_weight.date)),
+                Some(&json!(&BodyWeightData::from(body_weight))),
             )
             .await?;
         Ok(r.into())
     }
 
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("/api/body_weight/{date}"))
-                    .build()
-                    .unwrap(),
-                date,
+            .fetch(
+                gloo_net::http::Request::delete(&format!("/api/body_weight/{date}")),
+                None::<&()>,
             )
             .await?)
     }
@@ -297,11 +307,7 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
 
     async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::ReadError> {
         let r: Vec<BodyFat> = self
-            .fetch(
-                gloo_net::http::Request::get("/api/body_fat")
-                    .build()
-                    .unwrap(),
-            )
+            .fetch(gloo_net::http::Request::get("/api/body_fat"), None::<&()>)
             .await?;
         Ok(r.into_iter().map(domain::BodyFat::from).collect())
     }
@@ -312,9 +318,8 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
     ) -> Result<domain::BodyFat, domain::CreateError> {
         let r: BodyFat = self
             .fetch(
-                gloo_net::http::Request::post("/api/body_fat")
-                    .json(&BodyFat::from(body_fat))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/body_fat"),
+                Some(&BodyFat::from(body_fat)),
             )
             .await?;
         Ok(r.into())
@@ -326,21 +331,18 @@ impl<S: SendRequest> domain::BodyFatRepository for REST<S> {
     ) -> Result<domain::BodyFat, domain::UpdateError> {
         let r: BodyFat = self
             .fetch(
-                gloo_net::http::Request::put(&format!("/api/body_fat/{}", body_fat.date))
-                    .json(&BodyFatData::from(body_fat))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::put(&format!("/api/body_fat/{}", body_fat.date)),
+                Some(&BodyFatData::from(body_fat)),
             )
             .await?;
         Ok(r.into())
     }
 
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("/api/body_fat/{date}"))
-                    .build()
-                    .unwrap(),
-                date,
+            .fetch(
+                gloo_net::http::Request::delete(&format!("/api/body_fat/{date}")),
+                None::<&()>,
             )
             .await?)
     }
@@ -353,7 +355,7 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
 
     async fn read_period(&self) -> Result<Vec<domain::Period>, domain::ReadError> {
         let r: Vec<Period> = self
-            .fetch(gloo_net::http::Request::get("/api/period").build().unwrap())
+            .fetch(gloo_net::http::Request::get("/api/period"), None::<&()>)
             .await?;
         Ok(r.into_iter()
             .map(|p| domain::Period::try_from(p).map_err(Box::from))
@@ -366,9 +368,8 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
     ) -> Result<domain::Period, domain::CreateError> {
         let r: Period = self
             .fetch(
-                gloo_net::http::Request::post("/api/period")
-                    .json(&Period::from(period))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/period"),
+                Some(&Period::from(period)),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
@@ -380,21 +381,18 @@ impl<S: SendRequest> domain::PeriodRepository for REST<S> {
     ) -> Result<domain::Period, domain::UpdateError> {
         let r: Period = self
             .fetch(
-                gloo_net::http::Request::put(&format!("/api/period/{}", period.date))
-                    .json(&json!(&PeriodData::from(period)))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::put(&format!("/api/period/{}", period.date)),
+                Some(&json!(&PeriodData::from(period))),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+    async fn delete_period(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("/api/period/{date}"))
-                    .build()
-                    .unwrap(),
-                date,
+            .fetch(
+                gloo_net::http::Request::delete(&format!("/api/period/{date}")),
+                None::<&()>,
             )
             .await?)
     }
@@ -407,11 +405,7 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
 
     async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, domain::ReadError> {
         let r: Vec<Exercise> = self
-            .fetch(
-                gloo_net::http::Request::get("/api/exercises")
-                    .build()
-                    .unwrap(),
-            )
+            .fetch(gloo_net::http::Request::get("/api/exercises"), None::<&()>)
             .await?;
         Ok(r.into_iter()
             .map(|exercise| domain::Exercise::try_from(exercise).map_err(Box::from))
@@ -425,12 +419,11 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
     ) -> Result<domain::Exercise, domain::CreateError> {
         let r: Exercise = self
             .fetch(
-                gloo_net::http::Request::post("/api/exercises")
-                    .json(&json!(&ExerciseData {
-                        name: name.to_string(),
-                        muscles: muscles.into_iter().map(ExerciseMuscle::from).collect()
-                    }))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/exercises"),
+                Some(&json!(&ExerciseData {
+                    name: name.to_string(),
+                    muscles: muscles.into_iter().map(ExerciseMuscle::from).collect()
+                })),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
@@ -442,24 +435,18 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
     ) -> Result<domain::Exercise, domain::UpdateError> {
         let r: Exercise = self
             .fetch(
-                gloo_net::http::Request::put(&format!("/api/exercises/{}", exercise.id.as_u128()))
-                    .json(&Exercise::from(exercise))
-                    .expect("serialization failed"),
+                gloo_net::http::Request::put(&format!("/api/exercises/{}", exercise.id.as_u128())),
+                Some(&Exercise::from(exercise)),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_exercise(
-        &self,
-        id: domain::ExerciseID,
-    ) -> Result<domain::ExerciseID, domain::DeleteError> {
+    async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("/api/exercises/{}", id.as_u128()))
-                    .build()
-                    .unwrap(),
-                id,
+            .fetch(
+                gloo_net::http::Request::delete(&format!("/api/exercises/{}", id.as_u128())),
+                None::<&()>,
             )
             .await?)
     }
@@ -472,11 +459,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
 
     async fn read_routines(&self) -> Result<Vec<domain::Routine>, domain::ReadError> {
         let r: Vec<Routine> = self
-            .fetch(
-                gloo_net::http::Request::get("/api/routines")
-                    .build()
-                    .unwrap(),
-            )
+            .fetch(gloo_net::http::Request::get("/api/routines"), None::<&()>)
             .await?;
         Ok(r.into_iter()
             .map(|routine| domain::Routine::try_from(routine).map_err(Box::from))
@@ -490,14 +473,13 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
     ) -> Result<domain::Routine, domain::CreateError> {
         let r: Routine = self
             .fetch(
-                gloo_net::http::Request::post("/api/routines")
-                    .json(&RoutineData {
-                        name: name.to_string(),
-                        notes: None,
-                        archived: false,
-                        sections: sections.into_iter().map(RoutinePart::from).collect(),
-                    })
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/routines"),
+                Some(&RoutineData {
+                    name: name.to_string(),
+                    notes: None,
+                    archived: false,
+                    sections: sections.into_iter().map(RoutinePart::from).collect(),
+                }),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
@@ -530,24 +512,18 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
         }
         let r: Routine = self
             .fetch(
-                gloo_net::http::Request::patch(&format!("/api/routines/{}", id.as_u128()))
-                    .json(&content)
-                    .expect("serialization failed"),
+                gloo_net::http::Request::patch(&format!("/api/routines/{}", id.as_u128())),
+                Some(&content),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
     }
 
-    async fn delete_routine(
-        &self,
-        id: domain::RoutineID,
-    ) -> Result<domain::RoutineID, domain::DeleteError> {
+    async fn delete_routine(&self, id: domain::RoutineID) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("/api/routines/{}", id.as_u128()))
-                    .build()
-                    .unwrap(),
-                id,
+            .fetch(
+                gloo_net::http::Request::delete(&format!("/api/routines/{}", id.as_u128())),
+                None::<&()>,
             )
             .await?)
     }
@@ -564,11 +540,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         &self,
     ) -> Result<Vec<domain::TrainingSession>, domain::ReadError> {
         let r: Vec<TrainingSession> = self
-            .fetch(
-                gloo_net::http::Request::get("/api/workouts")
-                    .build()
-                    .unwrap(),
-            )
+            .fetch(gloo_net::http::Request::get("/api/workouts"), None::<&()>)
             .await?;
         Ok(r.into_iter().map(domain::TrainingSession::from).collect())
     }
@@ -582,21 +554,20 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
     ) -> Result<domain::TrainingSession, domain::CreateError> {
         let r: TrainingSession = self
             .fetch(
-                gloo_net::http::Request::post("/api/workouts")
-                    .json(&TrainingSessionData {
-                        routine_id: if routine_id.is_nil() {
-                            None
-                        } else {
-                            Some(routine_id.as_u128())
-                        },
-                        date,
-                        notes: Some(notes),
-                        elements: elements
-                            .into_iter()
-                            .map(TrainingSessionElement::from)
-                            .collect(),
-                    })
-                    .expect("serialization failed"),
+                gloo_net::http::Request::post("/api/workouts"),
+                Some(&TrainingSessionData {
+                    routine_id: if routine_id.is_nil() {
+                        None
+                    } else {
+                        Some(routine_id.as_u128())
+                    },
+                    date,
+                    notes: Some(notes),
+                    elements: elements
+                        .into_iter()
+                        .map(TrainingSessionElement::from)
+                        .collect(),
+                }),
             )
             .await?;
         Ok(r.into())
@@ -625,9 +596,8 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         }
         let r: TrainingSession = self
             .fetch(
-                gloo_net::http::Request::patch(&format!("/api/workouts/{}", id.as_u128()))
-                    .json(&content)
-                    .expect("serialization failed"),
+                gloo_net::http::Request::patch(&format!("/api/workouts/{}", id.as_u128())),
+                Some(&content),
             )
             .await?;
         Ok(r.into())
@@ -636,13 +606,11 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
     async fn delete_training_session(
         &self,
         id: domain::TrainingSessionID,
-    ) -> Result<domain::TrainingSessionID, domain::DeleteError> {
+    ) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch_no_content(
-                gloo_net::http::Request::delete(&format!("/api/workouts/{}", id.as_u128()))
-                    .build()
-                    .unwrap(),
-                id,
+            .fetch(
+                gloo_net::http::Request::delete(&format!("/api/workouts/{}", id.as_u128())),
+                None::<&()>,
             )
             .await?)
     }
@@ -1534,7 +1502,7 @@ mod tests {
                 .delete_user(USER.id)
                 .await
                 .unwrap(),
-                USER.id
+                ()
             );
         }
 
@@ -1596,7 +1564,7 @@ mod tests {
                 .delete_body_weight(date)
                 .await
                 .unwrap(),
-                date
+                ()
             );
         }
 
@@ -1657,7 +1625,7 @@ mod tests {
                 .delete_body_fat(date)
                 .await
                 .unwrap(),
-                date
+                ()
             );
         }
 
@@ -1718,7 +1686,7 @@ mod tests {
                 .delete_period(date)
                 .await
                 .unwrap(),
-                date
+                ()
             );
         }
 
@@ -1780,7 +1748,7 @@ mod tests {
                 .delete_exercise(id)
                 .await
                 .unwrap(),
-                id
+                ()
             );
         }
 
@@ -1846,7 +1814,7 @@ mod tests {
                 .delete_routine(ROUTINE.id)
                 .await
                 .unwrap(),
-                ROUTINE.id
+                ()
             );
         }
 
@@ -1916,7 +1884,7 @@ mod tests {
                 .delete_training_session(TRAINING_SESSION.id)
                 .await
                 .unwrap(),
-                TRAINING_SESSION.id
+                ()
             );
         }
 

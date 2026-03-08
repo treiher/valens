@@ -107,7 +107,7 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
         self.rest.replace_user(user).await
     }
 
-    async fn delete_user(&self, id: domain::UserID) -> Result<domain::UserID, domain::DeleteError> {
+    async fn delete_user(&self, id: domain::UserID) -> Result<(), domain::DeleteError> {
         self.rest.delete_user(id).await
     }
 }
@@ -135,7 +135,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
         execute!(self, replace_body_weight, body_weight)
     }
 
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
         execute!(self, delete_body_weight, date)
     }
 }
@@ -163,7 +163,7 @@ impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
         execute!(self, replace_body_fat, body_fat)
     }
 
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
         execute!(self, delete_body_fat, date)
     }
 }
@@ -191,7 +191,7 @@ impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
         execute!(self, replace_period, period)
     }
 
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+    async fn delete_period(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
         execute!(self, delete_period, date)
     }
 }
@@ -220,10 +220,7 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
         execute!(self, replace_exercise, exercise)
     }
 
-    async fn delete_exercise(
-        &self,
-        id: domain::ExerciseID,
-    ) -> Result<domain::ExerciseID, domain::DeleteError> {
+    async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<(), domain::DeleteError> {
         execute!(self, delete_exercise, id)
     }
 }
@@ -262,10 +259,7 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
         execute!(self, modify_routine, id, name, archived, sections)
     }
 
-    async fn delete_routine(
-        &self,
-        id: domain::RoutineID,
-    ) -> Result<domain::RoutineID, domain::DeleteError> {
+    async fn delete_routine(&self, id: domain::RoutineID) -> Result<(), domain::DeleteError> {
         execute!(self, delete_routine, id)
     }
 }
@@ -320,7 +314,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
     async fn delete_training_session(
         &self,
         id: domain::TrainingSessionID,
-    ) -> Result<domain::TrainingSessionID, domain::DeleteError> {
+    ) -> Result<(), domain::DeleteError> {
         execute!(self, delete_training_session, id)
     }
 }
@@ -599,7 +593,7 @@ mod tests {
                 .delete_user(USER.id)
                 .await
                 .unwrap(),
-                USER.id
+                ()
             );
         }
 
@@ -841,7 +835,7 @@ mod tests {
                 .delete_body_weight(BODY_WEIGHT.date)
                 .await
                 .unwrap(),
-                BODY_WEIGHT.date
+                ()
             );
 
             assert_eq!(
@@ -876,7 +870,7 @@ mod tests {
                 .delete_body_weight(BODY_WEIGHT.date)
                 .await
                 .unwrap(),
-                BODY_WEIGHT.date
+                ()
             );
         }
 
@@ -1118,7 +1112,7 @@ mod tests {
                 .delete_body_fat(BODY_FAT.date)
                 .await
                 .unwrap(),
-                BODY_FAT.date
+                ()
             );
 
             assert_eq!(
@@ -1153,7 +1147,7 @@ mod tests {
                 .delete_body_fat(BODY_FAT.date)
                 .await
                 .unwrap(),
-                BODY_FAT.date
+                ()
             );
         }
 
@@ -1364,7 +1358,7 @@ mod tests {
                 .delete_period(PERIOD.date)
                 .await
                 .unwrap(),
-                PERIOD.date
+                ()
             );
 
             assert_eq!(
@@ -1396,7 +1390,7 @@ mod tests {
                 .delete_period(PERIOD.date)
                 .await
                 .unwrap(),
-                PERIOD.date
+                ()
             );
         }
 
@@ -1603,7 +1597,7 @@ mod tests {
                 .delete_exercise(EXERCISE.id)
                 .await
                 .unwrap(),
-                EXERCISE.id
+                ()
             );
 
             assert_eq!(
@@ -1638,7 +1632,7 @@ mod tests {
                 .delete_exercise(EXERCISE.id)
                 .await
                 .unwrap(),
-                EXERCISE.id
+                ()
             );
         }
 
@@ -1851,7 +1845,7 @@ mod tests {
                 .delete_routine(ROUTINE.id)
                 .await
                 .unwrap(),
-                ROUTINE.id
+                ()
             );
 
             assert_eq!(
@@ -1886,7 +1880,7 @@ mod tests {
                 .delete_routine(ROUTINE.id)
                 .await
                 .unwrap(),
-                ROUTINE.id
+                ()
             );
         }
 
@@ -2117,7 +2111,7 @@ mod tests {
                 .delete_training_session(TRAINING_SESSION.id)
                 .await
                 .unwrap(),
-                TRAINING_SESSION.id
+                ()
             );
 
             assert_eq!(
@@ -2152,7 +2146,7 @@ mod tests {
                 .delete_training_session(TRAINING_SESSION.id)
                 .await
                 .unwrap(),
-                TRAINING_SESSION.id
+                ()
             );
         }
 

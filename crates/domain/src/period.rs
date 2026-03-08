@@ -12,7 +12,7 @@ pub trait PeriodService {
     async fn get_period(&self) -> Result<Vec<Period>, ReadError>;
     async fn create_period(&self, period: Period) -> Result<Period, CreateError>;
     async fn replace_period(&self, period: Period) -> Result<Period, UpdateError>;
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+    async fn delete_period(&self, date: NaiveDate) -> Result<(), DeleteError>;
 
     async fn validate_period_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
         match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
@@ -56,7 +56,7 @@ pub trait PeriodRepository {
     async fn read_period(&self) -> Result<Vec<Period>, ReadError>;
     async fn create_period(&self, period: Period) -> Result<Period, CreateError>;
     async fn replace_period(&self, period: Period) -> Result<Period, UpdateError>;
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+    async fn delete_period(&self, date: NaiveDate) -> Result<(), DeleteError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

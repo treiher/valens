@@ -3483,8 +3483,10 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "futures-util",
  "gloo-net 0.7.0",
  "gloo-storage",
+ "gloo-timers",
  "indexed_db_futures",
  "log",
  "pretty_assertions",
@@ -3497,6 +3499,7 @@ dependencies = [
  "valens-domain",
  "valens-web-app",
  "wasm-bindgen-test",
+ "web-sys",
 ]
 
 [[package]]

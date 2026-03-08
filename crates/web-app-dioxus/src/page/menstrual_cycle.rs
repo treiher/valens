@@ -286,7 +286,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
         is_loading! {
             if let PeriodDialog::Delete(period) = &*dialog.read() {
                 match DOMAIN_SERVICE().delete_period(period.date).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         deleted = true;
                         consume_context::<Cache>().refresh_period();
                     },

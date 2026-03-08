@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Exercises page: Loss of muscle associations when renaming exercise
 - Exercise page: Missing interval controls when selecting interval with no data
+- Indefinite waiting when server request receives no response
 
 ### Removed
 

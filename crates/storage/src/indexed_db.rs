@@ -168,12 +168,11 @@ impl IndexedDB {
         .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
-    pub async fn delete<K: serde::Serialize + SerialiseToJs + TryToJs, R>(
+    pub async fn delete<K: serde::Serialize + SerialiseToJs + TryToJs>(
         &self,
         object_store: Store,
         key: K,
-        result: R,
-    ) -> Result<R, Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error>> {
         async {
             let db = self.open().await?;
             let transaction = db
@@ -183,7 +182,7 @@ impl IndexedDB {
             let store = transaction.object_store(object_store.as_ref())?;
             store.delete(key).serde()?.await?;
             transaction.commit().await?;
-            Ok(result)
+            Ok(())
         }
         .await
     }
@@ -351,7 +350,7 @@ impl domain::UserRepository for IndexedDB {
         panic!("unsupported")
     }
 
-    async fn delete_user(&self, _: domain::UserID) -> Result<domain::UserID, domain::DeleteError> {
+    async fn delete_user(&self, _: domain::UserID) -> Result<(), domain::DeleteError> {
         panic!("unsupported")
     }
 }
@@ -393,9 +392,9 @@ impl domain::BodyWeightRepository for IndexedDB {
             .await?)
     }
 
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
         Ok(IndexedDB
-            .delete(Store::BodyWeight, date.to_string(), date)
+            .delete(Store::BodyWeight, date.to_string())
             .await?)
     }
 }
@@ -429,10 +428,8 @@ impl domain::BodyFatRepository for IndexedDB {
             .await?)
     }
 
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
-        Ok(IndexedDB
-            .delete(Store::BodyFat, date.to_string(), date)
-            .await?)
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
+        Ok(IndexedDB.delete(Store::BodyFat, date.to_string()).await?)
     }
 }
 
@@ -465,10 +462,8 @@ impl domain::PeriodRepository for IndexedDB {
             .await?)
     }
 
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, domain::DeleteError> {
-        Ok(IndexedDB
-            .delete(Store::Period, date.to_string(), date)
-            .await?)
+    async fn delete_period(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
+        Ok(IndexedDB.delete(Store::Period, date.to_string()).await?)
     }
 }
 
@@ -500,13 +495,8 @@ impl domain::ExerciseRepository for IndexedDB {
             .await?)
     }
 
-    async fn delete_exercise(
-        &self,
-        id: domain::ExerciseID,
-    ) -> Result<domain::ExerciseID, domain::DeleteError> {
-        Ok(IndexedDB
-            .delete(Store::Exercises, id.to_string(), id)
-            .await?)
+    async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<(), domain::DeleteError> {
+        Ok(IndexedDB.delete(Store::Exercises, id.to_string()).await?)
     }
 }
 
@@ -556,13 +546,8 @@ impl domain::RoutineRepository for IndexedDB {
             .await?)
     }
 
-    async fn delete_routine(
-        &self,
-        id: domain::RoutineID,
-    ) -> Result<domain::RoutineID, domain::DeleteError> {
-        Ok(IndexedDB
-            .delete(Store::Routines, id.to_string(), id)
-            .await?)
+    async fn delete_routine(&self, id: domain::RoutineID) -> Result<(), domain::DeleteError> {
+        Ok(IndexedDB.delete(Store::Routines, id.to_string()).await?)
     }
 }
 
@@ -624,9 +609,9 @@ impl domain::TrainingSessionRepository for IndexedDB {
     async fn delete_training_session(
         &self,
         id: domain::TrainingSessionID,
-    ) -> Result<domain::TrainingSessionID, domain::DeleteError> {
+    ) -> Result<(), domain::DeleteError> {
         Ok(IndexedDB
-            .delete(Store::TrainingSessions, id.to_string(), id)
+            .delete(Store::TrainingSessions, id.to_string())
             .await?)
     }
 }
@@ -1533,7 +1518,7 @@ mod tests {
                     .delete_body_weight(BODY_WEIGHT.date)
                     .await
                     .unwrap(),
-                BODY_WEIGHT.date
+                ()
             );
 
             assert_eq!(IndexedDB.read_body_weight().await.unwrap(), vec![]);
@@ -1549,7 +1534,7 @@ mod tests {
                     .delete_body_weight(BODY_WEIGHT.date)
                     .await
                     .unwrap(),
-                BODY_WEIGHT.date
+                ()
             );
         }
 
@@ -1630,10 +1615,7 @@ mod tests {
 
             assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![BODY_FAT]);
 
-            assert_eq!(
-                IndexedDB.delete_body_fat(BODY_FAT.date).await.unwrap(),
-                BODY_FAT.date
-            );
+            assert_eq!(IndexedDB.delete_body_fat(BODY_FAT.date).await.unwrap(), ());
 
             assert_eq!(IndexedDB.read_body_fat().await.unwrap(), vec![]);
         }
@@ -1643,10 +1625,7 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(
-                IndexedDB.delete_body_fat(BODY_FAT.date).await.unwrap(),
-                BODY_FAT.date
-            );
+            assert_eq!(IndexedDB.delete_body_fat(BODY_FAT.date).await.unwrap(), ());
         }
 
         #[wasm_bindgen_test]
@@ -1726,10 +1705,7 @@ mod tests {
 
             assert_eq!(IndexedDB.read_period().await.unwrap(), vec![PERIOD]);
 
-            assert_eq!(
-                IndexedDB.delete_period(PERIOD.date).await.unwrap(),
-                PERIOD.date
-            );
+            assert_eq!(IndexedDB.delete_period(PERIOD.date).await.unwrap(), ());
 
             assert_eq!(IndexedDB.read_period().await.unwrap(), vec![]);
         }
@@ -1739,10 +1715,7 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(
-                IndexedDB.delete_period(PERIOD.date).await.unwrap(),
-                PERIOD.date
-            );
+            assert_eq!(IndexedDB.delete_period(PERIOD.date).await.unwrap(), ());
         }
 
         #[wasm_bindgen_test]
@@ -1820,10 +1793,7 @@ mod tests {
                 vec![EXERCISE.clone()]
             );
 
-            assert_eq!(
-                IndexedDB.delete_exercise(EXERCISE.id).await.unwrap(),
-                EXERCISE.id
-            );
+            assert_eq!(IndexedDB.delete_exercise(EXERCISE.id).await.unwrap(), ());
 
             assert_eq!(IndexedDB.read_exercises().await.unwrap(), vec![]);
         }
@@ -1833,10 +1803,7 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(
-                IndexedDB.delete_exercise(EXERCISE.id).await.unwrap(),
-                EXERCISE.id
-            );
+            assert_eq!(IndexedDB.delete_exercise(EXERCISE.id).await.unwrap(), ());
         }
 
         #[wasm_bindgen_test]
@@ -1918,10 +1885,7 @@ mod tests {
                 vec![ROUTINE.clone()]
             );
 
-            assert_eq!(
-                IndexedDB.delete_routine(ROUTINE.id).await.unwrap(),
-                ROUTINE.id
-            );
+            assert_eq!(IndexedDB.delete_routine(ROUTINE.id).await.unwrap(), ());
 
             assert_eq!(IndexedDB.read_routines().await.unwrap(), vec![]);
         }
@@ -1931,10 +1895,7 @@ mod tests {
             reset().await;
             init_session().await;
 
-            assert_eq!(
-                IndexedDB.delete_routine(ROUTINE.id).await.unwrap(),
-                ROUTINE.id
-            );
+            assert_eq!(IndexedDB.delete_routine(ROUTINE.id).await.unwrap(), ());
         }
 
         #[wasm_bindgen_test]
@@ -2039,7 +2000,7 @@ mod tests {
                     .delete_training_session(TRAINING_SESSION.id)
                     .await
                     .unwrap(),
-                TRAINING_SESSION.id
+                ()
             );
 
             assert_eq!(IndexedDB.read_training_sessions().await.unwrap(), vec![]);
@@ -2055,7 +2016,7 @@ mod tests {
                     .delete_training_session(TRAINING_SESSION.id)
                     .await
                     .unwrap(),
-                TRAINING_SESSION.id
+                ()
             );
         }
 

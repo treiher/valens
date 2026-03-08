@@ -28,7 +28,7 @@ pub trait RoutineService {
         archived: Option<bool>,
         sections: Option<Vec<RoutinePart>>,
     ) -> Result<Routine, UpdateError>;
-    async fn delete_routine(&self, id: RoutineID) -> Result<RoutineID, DeleteError>;
+    async fn delete_routine(&self, id: RoutineID) -> Result<(), DeleteError>;
 
     async fn validate_routine_name(
         &self,
@@ -71,7 +71,7 @@ pub trait RoutineRepository {
         archived: Option<bool>,
         sections: Option<Vec<RoutinePart>>,
     ) -> Result<Routine, UpdateError>;
-    async fn delete_routine(&self, id: RoutineID) -> Result<RoutineID, DeleteError>;
+    async fn delete_routine(&self, id: RoutineID) -> Result<(), DeleteError>;
 }
 
 #[derive(Debug, Clone, PartialEq)]

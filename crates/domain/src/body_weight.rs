@@ -13,7 +13,7 @@ pub trait BodyWeightService {
     async fn create_body_weight(&self, body_weight: BodyWeight) -> Result<BodyWeight, CreateError>;
     async fn replace_body_weight(&self, body_weight: BodyWeight)
     -> Result<BodyWeight, UpdateError>;
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<(), DeleteError>;
 
     async fn validate_body_weight_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
         match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
@@ -87,7 +87,7 @@ pub trait BodyWeightRepository {
     async fn create_body_weight(&self, body_weight: BodyWeight) -> Result<BodyWeight, CreateError>;
     async fn replace_body_weight(&self, body_weight: BodyWeight)
     -> Result<BodyWeight, UpdateError>;
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<(), DeleteError>;
 }
 
 #[derive(Debug, Clone, PartialEq)]

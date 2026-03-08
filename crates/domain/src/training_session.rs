@@ -30,10 +30,7 @@ pub trait TrainingSessionService {
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
     ) -> Result<TrainingSession, UpdateError>;
-    async fn delete_training_session(
-        &self,
-        id: TrainingSessionID,
-    ) -> Result<TrainingSessionID, DeleteError>;
+    async fn delete_training_session(&self, id: TrainingSessionID) -> Result<(), DeleteError>;
 
     fn validate_training_session_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
         match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
@@ -120,10 +117,7 @@ pub trait TrainingSessionRepository {
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
     ) -> Result<TrainingSession, UpdateError>;
-    async fn delete_training_session(
-        &self,
-        id: TrainingSessionID,
-    ) -> Result<TrainingSessionID, DeleteError>;
+    async fn delete_training_session(&self, id: TrainingSessionID) -> Result<(), DeleteError>;
 }
 
 #[derive(Debug, Clone, PartialEq)]

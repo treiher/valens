@@ -4,10 +4,6 @@ members = [
     "crates/storage",
     "crates/web-app",
     "crates/web-app-dioxus",
-    "crates/web-app-seed",
-]
-exclude = [
-    "third-party/seed"
 ]
 resolver = "2"
 

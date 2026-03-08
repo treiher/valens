@@ -550,7 +550,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
         is_loading! {
             if let BodyFatDialog::Delete(body_fat) = &*dialog.read() {
                 match DOMAIN_SERVICE().delete_body_fat(body_fat.date).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         deleted = true;
                         consume_context::<Cache>().refresh_body_fat();
                     }

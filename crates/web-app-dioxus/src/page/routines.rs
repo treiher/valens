@@ -285,7 +285,7 @@ pub fn view_dialog(
             is_loading! {
                 if let RoutineDialog::Delete(routine) = &*dialog.read() {
                     match DOMAIN_SERVICE().delete_routine(routine.id).await {
-                        Ok(_) => {
+                        Ok(()) => {
                             deleted = true;
                             consume_context::<Cache>().refresh_routines();
                         },

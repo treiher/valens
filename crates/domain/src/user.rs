@@ -9,7 +9,7 @@ pub trait UserService: Send + Sync + 'static {
     async fn get_users(&self) -> Result<Vec<User>, ReadError>;
     async fn create_user(&self, name: Name, sex: Sex) -> Result<User, CreateError>;
     async fn replace_user(&self, user: User) -> Result<User, UpdateError>;
-    async fn delete_user(&self, id: UserID) -> Result<UserID, DeleteError>;
+    async fn delete_user(&self, id: UserID) -> Result<(), DeleteError>;
 
     async fn validate_user_name(&self, name: &str, id: UserID) -> Result<Name, ValidationError> {
         match Name::new(name) {
@@ -33,7 +33,7 @@ pub trait UserRepository: Send + Sync + 'static {
     async fn read_users(&self) -> Result<Vec<User>, ReadError>;
     async fn create_user(&self, name: Name, sex: Sex) -> Result<User, CreateError>;
     async fn replace_user(&self, user: User) -> Result<User, UpdateError>;
-    async fn delete_user(&self, id: UserID) -> Result<UserID, DeleteError>;
+    async fn delete_user(&self, id: UserID) -> Result<(), DeleteError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

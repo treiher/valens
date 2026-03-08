@@ -494,7 +494,7 @@ pub fn view_dialog(
                 is_loading! {
                     if let ExerciseDialog::Delete(exercise) = &*dialog.read() {
                         match DOMAIN_SERVICE().delete_exercise(exercise.id).await {
-                            Ok(_) => {
+                            Ok(()) => {
                                 deleted = true;
                                 consume_context::<Cache>().refresh_exercises();
                             },

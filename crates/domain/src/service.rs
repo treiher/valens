@@ -143,7 +143,7 @@ impl<R: UserRepository> UserService for Service<R> {
         )
     }
 
-    async fn delete_user(&self, id: UserID) -> Result<UserID, DeleteError> {
+    async fn delete_user(&self, id: UserID) -> Result<(), DeleteError> {
         log_on_error!(
             self.repository.delete_user(id),
             DeleteError,
@@ -185,7 +185,7 @@ impl<R: ExerciseRepository> ExerciseService for Service<R> {
         )
     }
 
-    async fn delete_exercise(&self, id: ExerciseID) -> Result<ExerciseID, DeleteError> {
+    async fn delete_exercise(&self, id: ExerciseID) -> Result<(), DeleteError> {
         log_on_error!(
             self.repository.delete_exercise(id),
             DeleteError,
@@ -233,7 +233,7 @@ impl<R: RoutineRepository> RoutineService for Service<R> {
         )
     }
 
-    async fn delete_routine(&self, id: RoutineID) -> Result<RoutineID, DeleteError> {
+    async fn delete_routine(&self, id: RoutineID) -> Result<(), DeleteError> {
         log_on_error!(
             self.repository.delete_routine(id),
             DeleteError,
@@ -283,10 +283,7 @@ impl<R: TrainingSessionRepository> TrainingSessionService for Service<R> {
         )
     }
 
-    async fn delete_training_session(
-        &self,
-        id: TrainingSessionID,
-    ) -> Result<TrainingSessionID, DeleteError> {
+    async fn delete_training_session(&self, id: TrainingSessionID) -> Result<(), DeleteError> {
         log_on_error!(
             self.repository.delete_training_session(id),
             DeleteError,
@@ -327,7 +324,7 @@ impl<R: BodyWeightRepository> BodyWeightService for Service<R> {
         )
     }
 
-    async fn delete_body_weight(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError> {
+    async fn delete_body_weight(&self, date: NaiveDate) -> Result<(), DeleteError> {
         log_on_error!(
             self.repository.delete_body_weight(date),
             DeleteError,
@@ -365,7 +362,7 @@ impl<R: BodyFatRepository> BodyFatService for Service<R> {
         )
     }
 
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError> {
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<(), DeleteError> {
         log_on_error!(
             self.repository.delete_body_fat(date),
             DeleteError,
@@ -406,7 +403,7 @@ impl<R: PeriodRepository> PeriodService for Service<R> {
         )
     }
 
-    async fn delete_period(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError> {
+    async fn delete_period(&self, date: NaiveDate) -> Result<(), DeleteError> {
         log_on_error!(
             self.repository.delete_period(date),
             DeleteError,

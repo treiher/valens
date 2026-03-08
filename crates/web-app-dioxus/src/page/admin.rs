@@ -89,7 +89,7 @@ pub fn Users() -> Element {
         if let UserDialog::Delete(user) = &*dialog.read() {
             is_loading! {
                 match DOMAIN_SERVICE().delete_user(user.id).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         deleted = true;
                         signal_changed_data();
                     },

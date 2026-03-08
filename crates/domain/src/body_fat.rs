@@ -7,7 +7,7 @@ pub trait BodyFatService {
     async fn get_body_fat(&self) -> Result<Vec<BodyFat>, ReadError>;
     async fn create_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, CreateError>;
     async fn replace_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, UpdateError>;
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<(), DeleteError>;
 
     async fn validate_body_fat_date(&self, date: &str) -> Result<NaiveDate, ValidationError> {
         match NaiveDate::parse_from_str(date, "%Y-%m-%d") {
@@ -53,7 +53,7 @@ pub trait BodyFatRepository {
     async fn read_body_fat(&self) -> Result<Vec<BodyFat>, ReadError>;
     async fn create_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, CreateError>;
     async fn replace_body_fat(&self, body_fat: BodyFat) -> Result<BodyFat, UpdateError>;
-    async fn delete_body_fat(&self, date: NaiveDate) -> Result<NaiveDate, DeleteError>;
+    async fn delete_body_fat(&self, date: NaiveDate) -> Result<(), DeleteError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

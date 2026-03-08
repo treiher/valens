@@ -21,7 +21,7 @@ pub trait ExerciseService {
         muscles: Vec<ExerciseMuscle>,
     ) -> Result<Exercise, CreateError>;
     async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, UpdateError>;
-    async fn delete_exercise(&self, id: ExerciseID) -> Result<ExerciseID, DeleteError>;
+    async fn delete_exercise(&self, id: ExerciseID) -> Result<(), DeleteError>;
 
     async fn validate_exercise_name(
         &self,
@@ -58,7 +58,7 @@ pub trait ExerciseRepository {
         muscles: Vec<ExerciseMuscle>,
     ) -> Result<Exercise, CreateError>;
     async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, UpdateError>;
-    async fn delete_exercise(&self, id: ExerciseID) -> Result<ExerciseID, DeleteError>;
+    async fn delete_exercise(&self, id: ExerciseID) -> Result<(), DeleteError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

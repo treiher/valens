@@ -296,7 +296,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
         is_loading! {
             if let BodyWeightDialog::Delete(body_weight) = &*dialog.read() {
                 match DOMAIN_SERVICE().delete_body_weight(body_weight.date).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         deleted = true;
                         consume_context::<Cache>().refresh_body_weight();
                     },

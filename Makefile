@@ -155,9 +155,6 @@ run_frontend:
 	sass crates/web-app-dioxus/assets/main.scss target/dx/valens-web-app-dioxus/debug/web/public/main.css
 	dx serve --package valens-web-app-dioxus
 
-run_seed:
-	PATH=~/.cargo/bin:${PATH} trunk --config crates/web-app-seed/Trunk.toml serve --port 8000 --watch crates
-
 run_backend: $(CONFIG_FILE)
 	VALENS_CONFIG=$(CONFIG_FILE) uv run -- flask --app valens --debug run -h 0.0.0.0
 

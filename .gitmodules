@@ -1,3 +1,0 @@
-[submodule "third-party/seed"]
-	path = third-party/seed
-	url = https://github.com/treiher/seed.git

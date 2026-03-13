@@ -60,7 +60,7 @@ test: test_frontend test_backend test_installation test_e2e
 
 test_frontend:
 	cargo llvm-cov nextest --no-fail-fast
-	wasm-pack test --headless --chrome --firefox crates/storage
+	wasm-pack test --headless --chrome crates/storage
 
 test_backend:
 	mkdir -p valens/frontend

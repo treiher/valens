@@ -159,14 +159,16 @@ run:
 	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_frontend
 	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_backend
 
+DETECT_HOST := if [ -f /run/.containerenv ] || [ -f /.dockerenv ]; then echo "0.0.0.0"; else echo "127.0.0.1"; fi
+
 run_frontend:
 	mkdir -p target/dx/valens-web-app-dioxus/debug/web/public/
 	cp -r valens/static/assets/{fonts,images,favicon.ico,manifest.json,sw.js} target/dx/valens-web-app-dioxus/debug/web/public/
 	sass crates/web-app-dioxus/assets/main.scss target/dx/valens-web-app-dioxus/debug/web/public/main.css
-	dx serve --package valens-web-app-dioxus
+	dx serve --package valens-web-app-dioxus --addr $$($(DETECT_HOST))
 
 run_backend: $(CONFIG_FILE)
-	VALENS_CONFIG=$(CONFIG_FILE) uv run -- flask --app valens --debug run -h 0.0.0.0
+	VALENS_CONFIG=$(CONFIG_FILE) uv run -- flask --app valens --debug run -h $$($(DETECT_HOST))
 
 $(CONFIG_FILE): $(BUILD_DIR)
 	uv run -- valens config -d build

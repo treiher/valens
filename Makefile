@@ -129,19 +129,29 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/fontawesome $(shell fi
 	sed -e 's#/./assets/#/#' -e 's#-dx\w*##' $(DX_RELEASE_DIR)/assets/valens-web-app-dioxus-dx*.js > $(GENERATED_DIR)/valens-web-app-dioxus.js
 	cp $(DX_RELEASE_DIR)/assets/valens-web-app-dioxus_bg-dx*.wasm $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm
 
-.PHONY: container
+.PHONY: container container-script
+
+BUILD_CONTAINER_CMD = $(TOOL) build \
+	--build-arg WHEEL=$(WHEEL) \
+	--build-arg VERSION=$(VERSION) \
+	--build-arg REVISION=$(REVISION) \
+	--build-arg SOURCE=$(SOURCE) \
+	-t $(NAME):$(VERSION_PUBLIC) \
+	$(ARGS) \
+	.
 
 container: NAME ?= valens
 container: TOOL ?= podman
 container: $(WHEEL)
-	$(TOOL) build \
-		--build-arg WHEEL=$(WHEEL) \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg REVISION=$(REVISION) \
-		--build-arg SOURCE=$(SOURCE) \
-		-t $(NAME):$(VERSION_PUBLIC) \
-		$(ARGS) \
-		.
+	$(BUILD_CONTAINER_CMD)
+
+container-script: NAME ?= valens
+container-script: TOOL ?= podman
+container-script: BUILD_CONTAINER_SCRIPT := $(BUILD_DIR)/container.sh
+container-script:
+	echo "#!/bin/sh" > $(BUILD_CONTAINER_SCRIPT)
+	echo $(BUILD_CONTAINER_CMD) >> $(BUILD_CONTAINER_SCRIPT)
+	chmod +x $(BUILD_CONTAINER_SCRIPT)
 
 .PHONY: run run_frontend run_backend
 

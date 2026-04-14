@@ -2,6 +2,16 @@
 
 Valens is a web application built using the __Hexagonal Architecture__ pattern with a __Rust-based frontend__ compiled to WebAssembly and a __Python-based backend__.
 
+```mermaid
+ graph LR
+     FE["Frontend (Rust/WASM)"]
+     BE["Backend (Python)"]
+     DB[(SQLite Database)]
+     FE <--> |"REST API"| BE
+     BE <--> |"SQL"| DB
+     BE -- "static assets" --> FE
+```
+
 ## Frontend ([`crates/`](../crates))
 
 Rust-based progressive web application (PWA) compiled to WebAssembly.
@@ -31,9 +41,9 @@ Framework-agnostic UI logic.
 - Provides logic reusable across different frontend frameworks
 - Uses business logic provided by `domain`
 
-### [`web-app-seed`](../crates/web-app-seed)
+### [`web-app-dioxus`](../crates/web-app-dioxus)
 
-Framework-specific UI logic using Seed.
+Framework-specific UI logic using Dioxus.
 
 - Defines the entry point of the web application
 - Implements rendering, event handling and routing
@@ -43,11 +53,11 @@ Framework-specific UI logic using Seed.
 
 ```mermaid
 graph RL
-    WAS[web-app-seed]
+    WAD[web-app-dioxus]
     WA[web-app]
     S[storage]
     D[domain]
-    WAS --> D & S & WA
+    WAD --> D & S & WA
     WA --> D
     S --> D & WA
 ```

@@ -18,6 +18,8 @@
 
 ## Installation
 
+### PyPI
+
 The latest release can be installed from [PyPI](https://pypi.org/p/valens).
 
 ```
@@ -30,7 +32,25 @@ The latest development version can be installed from [TestPyPI](https://test.pyp
 pip install --pre --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ valens
 ```
 
-## Demo Mode
+### Container Image
+
+The latest release is available as a container image on the [GitHub Container Registry](https://ghcr.io/treiher/valens).
+
+```
+ghcr.io/treiher/valens:latest
+```
+
+The latest development version is available under the `dev` tag.
+
+```
+ghcr.io/treiher/valens:dev
+```
+
+## Running
+
+### PyPI
+
+#### Demo Mode
 
 To get a first impression of Valens, the app can be run in demo mode.
 
@@ -40,7 +60,7 @@ valens demo
 
 The app can be accessed on `http://127.0.0.1:5000/`. A temporary database with random example data is used. All changes are non-persistent. Adding `--public` to the command line makes the app available to other devices on your network.
 
-## Configuration and Running
+#### Local Network
 
 A configuration file must be created before running the app for the first time.
 
@@ -49,8 +69,6 @@ valens config
 ```
 
 The environment variable `VALENS_CONFIG` must be set to the *absolute* path of the created config file.
-
-### Local Network
 
 The development server can be used to provide the app for your local computer or local network.
 
@@ -64,13 +82,9 @@ By default, the app is only accessible on your local computer at `http://127.0.0
 VALENS_CONFIG=$PWD/config.py valens run --public
 ```
 
-### Public Network
+#### Public Network
 
-The development server is not intended for production use. Please consider the [deployment options](https://flask.palletsprojects.com/en/2.3.x/deploying/) for providing the app in a public network.
-
-#### Example Configuration: NGINX and uWSGI
-
-The following configuration binds the app to `/valens`.
+The development server is not intended for production use. Please consider the [deployment options](https://flask.palletsprojects.com/en/stable/deploying/) for providing the app in a public network. One option is using NGINX and uWSGI.
 
 `/etc/uwsgi/valens.ini`
 
@@ -80,7 +94,7 @@ master = true
 plugins = python
 socket = /run/uwsgi/%n.sock
 manage-script-name = true
-mount = /valens=valens:app
+mount = /=valens:app
 uid = http
 gid = http
 env = VALENS_CONFIG=/opt/valens/config.py
@@ -100,13 +114,12 @@ http {
         [...]
 
         gzip on;
-        gzip_types text/plain test/css text/javascript application/json application/wasm;
+        gzip_types text/plain text/css text/javascript application/json application/wasm;
 
-        location = /valens { return 301 /valens/; }
-        location /valens/ { try_files $uri @valens; }
+        location / { try_files $uri @valens; }
         location @valens {
-                include uwsgi_params;
-                uwsgi_pass unix:/run/uwsgi/valens.sock;
+            include uwsgi_params;
+            uwsgi_pass unix:/run/uwsgi/valens.sock;
         }
 
     }
@@ -116,6 +129,79 @@ http {
 
 NGINX compression is disabled by default.
 With compression enabled, the amount of data transferred can be significantly reduced, resulting in a reduction in transfer time, especially on slow networks.
+[Brotli](https://github.com/google/ngx_brotli) offers better compression ratios than gzip and is supported as an optional NGINX module.
+
+### Container
+
+The container image uses [Gunicorn](https://gunicorn.org/) and listens on port 8000. A volume mounted at `/app` provides persistent storage for the database and configuration.
+
+#### Docker / Podman
+
+```
+podman run -d -p 8000:8000 -v valens:/app:Z ghcr.io/treiher/valens:latest
+```
+
+The app can be accessed on `http://127.0.0.1:8000/`. Replace `podman` with `docker` and omit the `:Z` SELinux label flag when using Docker.
+
+#### Systemd (Quadlet)
+
+The container can be managed as a systemd service using [Podman Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html).
+
+`~/.config/containers/systemd/valens.container`
+
+```ini
+[Unit]
+Description=Valens
+
+[Container]
+Image=ghcr.io/treiher/valens:latest
+PublishPort=8000:8000
+Volume=%h/valens:/app:Z
+
+[Service]
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+```
+systemctl --user daemon-reload
+systemctl --user enable --now valens
+```
+
+#### Public Network
+
+A reverse proxy such as NGINX can be used to expose the container in a public network.
+
+`/etc/nginx/nginx.conf`
+
+```nginx
+[...]
+
+http {
+
+    [...]
+
+    server {
+
+        [...]
+
+        gzip on;
+        gzip_types text/plain text/css text/javascript application/json application/wasm;
+
+        location / {
+            proxy_pass http://127.0.0.1:8000;
+        }
+
+    }
+
+}
+```
+
+NGINX compression is disabled by default.
+With compression enabled, the amount of data transferred can be significantly reduced, resulting in a reduction in transfer time, especially on slow networks.
+[Brotli](https://github.com/google/ngx_brotli) offers better compression ratios than gzip and is supported as an optional NGINX module.
 
 ## Documentation
 

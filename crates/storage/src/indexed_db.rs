@@ -5,7 +5,7 @@ use indexed_db_futures::{
     DeserialiseFromJs, KeyPath, SerialiseToJs, database::Database, error::OpenDbError, prelude::*,
     primitive::TryToJs, transaction::TransactionMode,
 };
-use log::debug;
+use log::{debug, warn};
 use strum::AsRefStr;
 use thiserror;
 use uuid::Uuid;
@@ -873,7 +873,10 @@ impl TryFrom<ExerciseMuscle> for domain::ExerciseMuscle {
         let muscle_id = domain::MuscleID::try_from(value.muscle_id)?;
         Ok(Self {
             muscle_id,
-            stimulus: domain::Stimulus::new(value.stimulus).unwrap_or(domain::Stimulus::PRIMARY),
+            stimulus: domain::Stimulus::new(value.stimulus).unwrap_or_else(|e| {
+                warn!("invalid stimulus value in stored muscle: {e}");
+                domain::Stimulus::PRIMARY
+            }),
         })
     }
 }
@@ -986,7 +989,10 @@ impl From<RoutinePart> for domain::RoutinePart {
     fn from(value: RoutinePart) -> Self {
         match value {
             RoutinePart::RoutineSection { rounds, parts } => domain::RoutinePart::RoutineSection {
-                rounds: domain::Rounds::new(rounds).unwrap_or_default(),
+                rounds: unwrap_or_default_warn(
+                    domain::Rounds::new(rounds),
+                    "invalid rounds in stored routine",
+                ),
                 parts: parts.into_iter().map(domain::RoutinePart::from).collect(),
             },
             RoutinePart::RoutineActivity {
@@ -1000,10 +1006,19 @@ impl From<RoutinePart> for domain::RoutinePart {
                 exercise_id: exercise_id
                     .map(domain::ExerciseID::from)
                     .unwrap_or_default(),
-                reps: domain::Reps::new(reps).unwrap_or_default(),
-                time: domain::Time::new(time).unwrap_or_default(),
-                weight: domain::Weight::new(weight).unwrap_or_default(),
-                rpe: domain::RPE::new(rpe).unwrap_or_default(),
+                reps: unwrap_or_default_warn(
+                    domain::Reps::new(reps),
+                    "invalid reps in stored routine",
+                ),
+                time: unwrap_or_default_warn(
+                    domain::Time::new(time),
+                    "invalid time in stored routine",
+                ),
+                weight: unwrap_or_default_warn(
+                    domain::Weight::new(weight),
+                    "invalid weight in stored routine",
+                ),
+                rpe: unwrap_or_default_warn(domain::RPE::new(rpe), "invalid RPE in stored routine"),
                 automatic,
             },
         }
@@ -1146,23 +1161,76 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 automatic,
             } => domain::TrainingSessionElement::Set {
                 exercise_id: exercise_id.into(),
-                reps: reps.map(|r| domain::Reps::new(r).unwrap_or_default()),
-                time: time.map(|t| domain::Time::new(t).unwrap_or_default()),
-                weight: weight.map(|t| domain::Weight::new(t).unwrap_or_default()),
-                rpe: rpe.and_then(|rpe| domain::RPE::new(rpe).ok()),
-                target_reps: target_reps.map(|r| domain::Reps::new(r).unwrap_or_default()),
-                target_time: target_time.map(|t| domain::Time::new(t).unwrap_or_default()),
-                target_weight: target_weight.map(|t| domain::Weight::new(t).unwrap_or_default()),
-                target_rpe: target_rpe.and_then(|rpe| domain::RPE::new(rpe).ok()),
+                reps: reps.map(|r| {
+                    unwrap_or_default_warn(domain::Reps::new(r), "invalid reps in stored set")
+                }),
+                time: time.map(|t| {
+                    unwrap_or_default_warn(domain::Time::new(t), "invalid time in stored set")
+                }),
+                weight: weight.map(|t| {
+                    unwrap_or_default_warn(domain::Weight::new(t), "invalid weight in stored set")
+                }),
+                rpe: rpe
+                    .and_then(|rpe| ok_warn(domain::RPE::new(rpe), "invalid RPE in stored set")),
+                target_reps: target_reps.map(|r| {
+                    unwrap_or_default_warn(
+                        domain::Reps::new(r),
+                        "invalid target reps in stored set",
+                    )
+                }),
+                target_time: target_time.map(|t| {
+                    unwrap_or_default_warn(
+                        domain::Time::new(t),
+                        "invalid target time in stored set",
+                    )
+                }),
+                target_weight: target_weight.map(|t| {
+                    unwrap_or_default_warn(
+                        domain::Weight::new(t),
+                        "invalid target weight in stored set",
+                    )
+                }),
+                target_rpe: target_rpe.and_then(|rpe| {
+                    ok_warn(domain::RPE::new(rpe), "invalid target RPE in stored set")
+                }),
                 automatic,
             },
             TrainingSessionElement::Rest {
                 target_time,
                 automatic,
             } => domain::TrainingSessionElement::Rest {
-                target_time: target_time.map(|t| domain::Time::new(t).unwrap_or_default()),
+                target_time: target_time.map(|t| {
+                    unwrap_or_default_warn(
+                        domain::Time::new(t),
+                        "invalid target time in stored rest element",
+                    )
+                }),
                 automatic,
             },
+        }
+    }
+}
+
+fn unwrap_or_default_warn<T, E>(result: Result<T, E>, context: &str) -> T
+where
+    T: Default,
+    E: std::fmt::Display,
+{
+    result.unwrap_or_else(|e| {
+        warn!("{context}: {e}");
+        T::default()
+    })
+}
+
+fn ok_warn<T, E>(result: Result<T, E>, context: &str) -> Option<T>
+where
+    E: std::fmt::Display,
+{
+    match result {
+        Ok(v) => Some(v),
+        Err(e) => {
+            warn!("{context}: {e}");
+            None
         }
     }
 }

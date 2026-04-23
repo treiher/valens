@@ -19,12 +19,6 @@ Alternatively, you can enter the development shell manually:
 $ nix develop
 ```
 
-Install the Python project and development dependencies inside the shell.
-
-```console
-$ uv sync
-```
-
 ### 2. Installing the dependencies manually
 
 Install the following tools (with your system package manager):

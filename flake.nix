@@ -26,6 +26,10 @@
           ungoogled-chromium
           wasm-pack
         ];
+        shellHook = ''
+          uv sync
+          source .venv/bin/activate
+        '';
       };
     };
 }

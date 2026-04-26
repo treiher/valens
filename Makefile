@@ -75,7 +75,7 @@ test_installation: $(BUILD_DIR)/venv/bin/valens
 	$(BUILD_DIR)/venv/bin/valens --version
 
 test_e2e: $(BUILD_DIR)/venv/bin/valens
-	uv run -- pytest -n$(shell nproc) -vv --driver chrome --headless tests/e2e
+	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
 
 $(BUILD_DIR)/venv:
 	python3 -m venv $(BUILD_DIR)/venv
@@ -186,6 +186,7 @@ clean:
 	rm -rf valens.egg-info
 	rm -rf valens/static/generated
 	rm -rf target
+	rm -rf test-results
 
 .PHONY: version version-public
 

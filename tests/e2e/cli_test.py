@@ -3,15 +3,12 @@ import re
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen, run
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from playwright.sync_api import Page, expect
 
 from valens.config import create_config_file
 
-from .const import HOST, PORT, VALENS
+from .const import BASE_URL, PORT, VALENS
 from .io import wait_for_output
-from .page import wait
 
 
 def test_version() -> None:
@@ -40,7 +37,7 @@ def test_upgrade(tmp_path: Path) -> None:
     assert p.returncode == 0
 
 
-def test_run(tmp_path: Path, driver: webdriver.Chrome) -> None:
+def test_run(tmp_path: Path, page: Page) -> None:
     config = create_config_file(tmp_path, tmp_path / "test.db")
     with Popen(
         f"{VALENS} run --port {PORT}".split(),
@@ -50,16 +47,12 @@ def test_run(tmp_path: Path, driver: webdriver.Chrome) -> None:
     ) as p:
         assert p.stdout
         wait_for_output(p.stdout, "Running on")
-        driver.get(f"http://{HOST}:{PORT}/")
-        wait(driver).until(
-            EC.text_to_be_present_in_element(
-                (By.XPATH, "//div[contains(@class, 'navbar-item')]"), "Valens"
-            )
-        )
+        page.goto(BASE_URL)
+        expect(page.get_by_text("Valens")).to_be_visible()
         p.terminate()
 
 
-def test_demo(tmp_path: Path, driver: webdriver.Chrome) -> None:
+def test_demo(tmp_path: Path, page: Page) -> None:
     config = create_config_file(tmp_path, tmp_path / "test.db")
     with Popen(
         f"{VALENS} demo --port {PORT}".split(),
@@ -69,10 +62,6 @@ def test_demo(tmp_path: Path, driver: webdriver.Chrome) -> None:
     ) as p:
         assert p.stdout
         wait_for_output(p.stdout, "Running on")
-        driver.get(f"http://{HOST}:{PORT}/")
-        wait(driver).until(
-            EC.text_to_be_present_in_element(
-                (By.XPATH, "//div[contains(@class, 'navbar-item')]"), "Valens"
-            )
-        )
+        page.goto(BASE_URL)
+        expect(page.get_by_text("Valens")).to_be_visible()
         p.terminate()

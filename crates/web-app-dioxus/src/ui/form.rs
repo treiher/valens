@@ -148,6 +148,7 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
     rsx! {
         div {
             class: "field",
+            ..attributes,
             label { class: "label", "{label}" }
             div {
                 class: "field has-addons",

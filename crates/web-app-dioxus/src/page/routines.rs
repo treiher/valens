@@ -305,6 +305,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: (if routine.archived { "box-open" } else { "box-archive" }).to_string(),
                                 text: (if routine.archived { "Unarchive routine" } else { "Archive routine" }).to_string(),
+                                "data-testid": "options-archive",
                                 on_click: eh!(close_dialog; {
                                     async move {
                                         match DOMAIN_SERVICE()
@@ -327,6 +328,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "copy".to_string(),
                                 text: "Copy routine".to_string(),
+                                "data-testid": "options-copy",
                                 on_click: move |_| {
                                     let routine_name = routine_name_copy.clone();
                                     async move {
@@ -345,6 +347,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Rename routine".to_string(),
+                                "data-testid": "options-rename",
                                 on_click: move |_| {
                                     let routine_name = routine_name_edit.clone();
                                     *dialog.write() = RoutineDialog::Rename {
@@ -356,6 +359,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete routine".to_string(),
+                                "data-testid": "options-delete",
                                 on_click: move |_| { *dialog.write() = RoutineDialog::Delete(routine.clone()); }
                             },
                         },

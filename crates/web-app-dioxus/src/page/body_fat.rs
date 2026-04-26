@@ -576,6 +576,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Edit body fat".to_string(),
+                                "data-testid": "options-edit",
                                 on_click: move |_| {
                                     *dialog.write() = BodyFatDialog::Edit {
                                         date: FieldValue::new(body_fat_edit.date),
@@ -587,11 +588,12 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                         suprailiac: FieldValue::from_option(body_fat_edit.suprailiac),
                                         midaxillary: FieldValue::from_option(body_fat_edit.midaxillary),
                                     };
-                                }
+                                },
                             },
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete body fat".to_string(),
+                                "data-testid": "options-delete",
                                 on_click: move |_| { *dialog.write() = BodyFatDialog::Delete(body_fat_delete.clone()); },
                             },
                         },

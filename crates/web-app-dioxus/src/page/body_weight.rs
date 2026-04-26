@@ -317,6 +317,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Edit body weight".to_string(),
+                                "data-testid": "options-edit",
                                 on_click: move |_| {
                                     *dialog.write() = BodyWeightDialog::Edit {
                                         date: FieldValue {
@@ -335,6 +336,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete body weight".to_string(),
+                                "data-testid": "options-delete",
                                 on_click: move |_| { *dialog.write() = BodyWeightDialog::Delete(body_weight_delete.clone()); }
                             },
                         },

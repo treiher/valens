@@ -372,6 +372,7 @@ pub fn view_table(
             data.push(rsx! {
                 a {
                     class: "mx-2",
+                    "data-testid": "item-delete",
                     onclick: move |_| { *dialog.write() = TrainingDialog::Delete(t.clone()); },
                     Icon { name: "xmark"}
                 }

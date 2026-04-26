@@ -190,12 +190,14 @@ fn view_search_box(
                 button {
                     class: "button",
                     class: if !exercise_filter.read().is_empty() { "is-link" },
+                    "data-testid": "filter-exercises",
                     onclick: move |_| *filter_dialog_shown.write() = true,
                     Icon { name: "filter" }
                 }
                 if !exercises_page {
                     button {
                         class: "button is-link",
+                        "data-testid": "create-exercise",
                         onclick: move |_| {
                             show_add_dialog!(filter_dialog, name, filter_string, exercises_page)
                         },
@@ -520,6 +522,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "copy".to_string(),
                                 text: "Copy exercise".to_string(),
+                                "data-testid": "options-copy",
                                 on_click: eh!(exercise_name; {
                                     async move {
                                         let validated_name = DOMAIN_SERVICE().validate_exercise_name(&exercise_name.to_string(), domain::ExerciseID::nil()).await.map_err(|err| err.to_string());
@@ -537,6 +540,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Rename exercise".to_string(),
+                                "data-testid": "options-rename",
                                 on_click: eh!(exercise; {
                                     *dialog.write() = ExerciseDialog::Rename {
                                         name: FieldValue::new(exercise.name.clone()),
@@ -547,6 +551,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "tags".to_string(),
                                 text: "Change properties".to_string(),
+                                "data-testid": "options-properties",
                                 on_click: eh!(exercise; {
                                     *dialog.write() = ExerciseDialog::ChangeProperties {
                                         exercise,
@@ -556,6 +561,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete exercise".to_string(),
+                                "data-testid": "options-delete",
                                 on_click: move |_| { *dialog.write() = ExerciseDialog::Delete(exercise.clone()); }
                             },
                         },

@@ -181,6 +181,7 @@ fn view_routine(
                 button {
                     class: "button is-white-soft",
                     class: if IS_LOADING() && matches!(edit_dialog(), EditDialog::None) { "is-loading" },
+                    "data-testid": "add-section",
                     onclick: eh!(mut routine; {
                         routine.add_section(&domain::RoutinePartPath::default());
                         modify_routine_sections(routine, cache, || {})
@@ -217,11 +218,13 @@ fn view_routine_part(
                     div {
                         class: "message-body p-3 mb-3",
                         class: if path.first() != Some(&0) { "mt-3" },
+                        "data-testid": "routine-section",
                         div {
                             class: "is-flex is-justify-content-space-between mb-3",
                             IconText {
                                 icon: "repeat",
                                 text: "{rounds}",
+                                "data-testid": "section-rounds",
                                 on_click: eh!(mut edit_dialog; routine, path; {
                                     if let Some(domain::RoutinePart::RoutineSection {
                                         rounds, ..
@@ -229,9 +232,9 @@ fn view_routine_part(
                                         let rounds = FieldValue::new_with_empty_default(*rounds);
                                         *edit_dialog.write() = EditDialog::EditSection { routine, path, rounds };
                                     }
-                                }),
+                                })
                             }
-                            Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }) }
+                            Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "section-options" }
                         }
                         for (i, part) in parts.iter().enumerate() {
                             {view_routine_part(routine, part, &[&[i], &path[..]].concat().into(), exercises, edit_dialog)}
@@ -262,6 +265,7 @@ fn view_routine_part(
                         if !exercise_id.is_nil() {
                             div {
                                 class: "is-flex is-justify-content-space-between has-text-weight-bold",
+                                "data-testid": "set-exercise",
                                 if let Some(exercise) = exercises.iter().find(|e| e.id == *exercise_id) {
                                     Link {
                                         to: Route::Exercise { id: exercise.id },
@@ -270,7 +274,7 @@ fn view_routine_part(
                                 } else {
                                     "Exercise#{exercise_id.as_u128()}"
                                 }
-                                Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }) }
+                                Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "activity-options" }
                             }
                         } else {
                             div {
@@ -296,11 +300,13 @@ fn view_routine_part(
                                     }),
                                     span {
                                         class: "icon-text has-text-weight-bold mr-5",
+                                        "data-testid": "rest-label",
                                         "Rest"
                                     }
                                     if *time != domain::Time::default() {
                                         span {
                                             class: "icon-text mr-4",
+                                            "data-testid": "rest-time",
                                             span {
                                                 class: "mr-2",
                                                 Icon { name: "clock-rotate-left" }
@@ -315,7 +321,7 @@ fn view_routine_part(
                                         }
                                     }
                                 }
-                                Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }) }
+                                Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "activity-options" }
                             }
                         }
                         if !exercise_id.is_nil() {
@@ -341,6 +347,7 @@ fn view_routine_part(
                                 if *reps != domain::Reps::default() {
                                     span {
                                         class: "icon-text mr-4",
+                                        "data-testid": "set-reps",
                                         span {
                                             class: "mr-2",
                                             Icon { name: "rotate-left" }
@@ -351,6 +358,7 @@ fn view_routine_part(
                                 if *time != domain::Time::default() {
                                     span {
                                         class: "icon-text mr-4",
+                                        "data-testid": "set-time",
                                         span {
                                             class: "mr-2",
                                             Icon { name: "clock-rotate-left" }
@@ -361,6 +369,7 @@ fn view_routine_part(
                                 if *weight != domain::Weight::default() {
                                     span {
                                         class: "icon-text mr-4",
+                                        "data-testid": "set-weight",
                                         span {
                                             class: "mr-2",
                                             Icon { name: "weight-hanging" }
@@ -371,6 +380,7 @@ fn view_routine_part(
                                 if *rpe != domain::RPE::ZERO {
                                     span {
                                         class: "icon-text mr-4",
+                                        "data-testid": "set-rpe",
                                         span {
                                             class: "mr-2",
                                             "@ {rpe}"
@@ -605,6 +615,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                     MenuOption {
                                         icon: "person-running",
                                         text: "Add exercise",
+                                        "data-testid": "options-add-exercise",
                                         on_click: eh!(mut edit_dialog; routine, path; {
                                             *edit_dialog.write() = EditDialog::AddExercise { routine, path };
                                         })
@@ -612,6 +623,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                     MenuOption {
                                         icon: "person",
                                         text: "Add rest",
+                                        "data-testid": "options-add-rest",
                                         on_click: eh!(mut routine; path, close_dialog; {
                                             routine.add_activity(domain::ExerciseID::nil(), &path);
                                             modify_routine_sections(routine, cache, close_dialog)
@@ -620,6 +632,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                     MenuOption {
                                         icon: "repeat",
                                         text: "Add section",
+                                        "data-testid": "options-add-section",
                                         on_click: eh!(mut routine; path, close_dialog; {
                                             routine.add_section(&path);
                                             modify_routine_sections(routine, cache, close_dialog)
@@ -629,6 +642,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                 MenuOption {
                                     icon: "arrow-up",
                                     text: "Move up",
+                                    "data-testid": "options-move-up",
                                     on_click: eh!(mut routine; path, close_dialog; {
                                         routine.move_part_up(&path);
                                         modify_routine_sections(routine, cache, close_dialog)
@@ -637,6 +651,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                 MenuOption {
                                     icon: "arrow-down",
                                     text: "Move down",
+                                    "data-testid": "options-move-down",
                                     on_click: eh!(mut routine; path, close_dialog; {
                                         routine.move_part_down(&path);
                                         modify_routine_sections(routine, cache, close_dialog)
@@ -646,6 +661,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                     MenuOption {
                                         icon: "arrow-right-arrow-left",
                                         text: "Replace exercise",
+                                        "data-testid": "options-replace-exercise",
                                         on_click: eh!(mut edit_dialog; routine, path; {
                                             *edit_dialog.write() = EditDialog::ReplaceExercise { routine, path };
                                         })
@@ -666,6 +682,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                             "Edit"
                                         }
                                     },
+                                    "data-testid": "options-edit",
                                     on_click: eh!(mut edit_dialog; routine, path; {
                                         match routine.part(&path) {
                                             Some(domain::RoutinePart::RoutineSection {
@@ -697,6 +714,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                 MenuOption {
                                     icon: "times",
                                     text: "Remove",
+                                    "data-testid": "options-remove",
                                     on_click: eh!(mut routine; path, close_dialog; {
                                         routine.remove_part(&path);
                                         modify_routine_sections(routine, cache, close_dialog)
@@ -881,6 +899,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                             }
                                         }
                                     },
+                                    "data-testid": "input-reps",
                                 }
                             }
                             InputField {
@@ -903,6 +922,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                         }
                                     }
                                 },
+                                "data-testid": "input-time",
                             }
                             if !exercise_id.is_nil() {
                                 InputField {
@@ -925,6 +945,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                             }
                                         }
                                     },
+                                    "data-testid": "input-weight",
                                 }
                             }
                             if !exercise_id.is_nil() {
@@ -948,6 +969,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                             }
                                         }
                                     },
+                                    "data-testid": "input-rpe",
                                 }
                             }
                             ButtonSelectField {
@@ -975,6 +997,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                         }
                                     }
                                 },
+                                "data-testid": "button-select-automatic",
                             }
                         }
                     }

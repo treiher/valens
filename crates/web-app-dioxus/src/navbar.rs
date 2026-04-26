@@ -108,6 +108,7 @@ pub fn Navbar() -> Element {
                     div {
                         class: "navbar-item is-clickable is-size-5",
                         class: if go_up_target.is_none() { "has-text-primary" },
+                        "data-testid": "navbar-back",
                         onclick: {
                             let go_up_target = go_up_target.clone();
                             move |_| {
@@ -120,11 +121,12 @@ pub fn Navbar() -> Element {
                             name: "chevron-left",
                         }
                     }
-                    div { class: "navbar-item is-size-5", "{page_title}" }
+                    div { class: "navbar-item is-size-5", "data-testid": "page-title", "{page_title}" }
                     div { class: "mx-auto" }
                     if synchronization.in_progress() {
                         a {
                             class: "navbar-item is-size-5 mx-1",
+                            "data-testid": "navbar-sync-indicator",
                             ElementWithDescription {
                                 description: "Synchronization in progress",
                                 right_aligned: true,
@@ -202,6 +204,7 @@ pub fn Navbar() -> Element {
                         if let Some(user) = user {
                             a {
                                 class: "navbar-item",
+                                "data-testid": "navbar-logout",
                                 onclick: move |_| async move {
                                     let result = DOMAIN_SERVICE().delete_session().await;
                                     match result {

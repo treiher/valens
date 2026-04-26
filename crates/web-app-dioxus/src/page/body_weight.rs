@@ -216,6 +216,7 @@ fn table(
                 rsx! {
                     a {
                         class: "mx-2",
+                        "data-testid": "item-options",
                         onclick: move |_| { *dialog.write() = BodyWeightDialog::Options(bw.clone()); },
                         Icon { name: "ellipsis-vertical"}
                     }
@@ -322,6 +323,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Edit body weight".to_string(),
+                                "data-testid": "options-edit",
                                 onclick: move |_| {
                                     *dialog.write() = BodyWeightDialog::Edit {
                                         date: FieldValue {
@@ -340,6 +342,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete body weight".to_string(),
+                                "data-testid": "options-delete",
                                 onclick: move |_| { *dialog.write() = BodyWeightDialog::Delete(body_weight_delete.clone()); }
                             },
                         },
@@ -408,7 +411,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                         div {
                             class: "control",
                             onclick: close,
-                            button { class: "button is-light is-soft", "Cancel" }
+                            button { class: "button is-light is-soft", "data-testid": "dialog-cancel", "Cancel" }
                         }
                         div {
                             class: "control",
@@ -416,6 +419,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                             button {
                                 class: "button is-primary",
                                 class: if is_loading() { "is-loading" },
+                                "data-testid": "dialog-save",
                                 disabled: !FieldValue::has_valid_changes(&[date as &dyn FieldValueState, weight]),
                                 "Save"
                             }

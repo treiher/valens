@@ -382,6 +382,7 @@ pub fn view_table(
             data.push(rsx! {
                 a {
                     class: "mx-2",
+                    "data-testid": "item-delete",
                     onclick: move |_| { *dialog.write() = TrainingDialog::Delete(t.clone()); },
                     Icon { name: "xmark"}
                 }
@@ -538,7 +539,7 @@ pub fn view_dialog(
                         div {
                             class: "control",
                             onclick: cancel,
-                            button { class: "button is-light is-soft", "Cancel" }
+                            button { class: "button is-light is-soft", "data-testid": "dialog-cancel", "Cancel" }
                         }
                         div {
                             class: "control",
@@ -546,6 +547,7 @@ pub fn view_dialog(
                             button {
                                 class: "button is-primary",
                                 class: if is_loading() { "is-loading" },
+                                "data-testid": "dialog-save",
                                 disabled: !date.valid() || !routine_id.valid(),
                                 "Save"
                             }

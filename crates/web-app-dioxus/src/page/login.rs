@@ -29,6 +29,7 @@ pub fn Login() -> Element {
                             class: "column",
                             button {
                                 class: "button is-link",
+                                "data-testid": "login-{user.name}",
                                 onclick: {
                                     let user_id = user.id;
                                     move |_| {

@@ -34,6 +34,7 @@ pub fn InputField(
     has_text_right: Option<bool>,
     is_disabled: Option<bool>,
     oninput: EventHandler<FormEvent>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     let error = error.and_then(|error| if error.is_empty() { None } else { Some(error) });
     let has_error = error.is_some();
@@ -59,6 +60,7 @@ pub fn InputField(
                     step: if let Some(step) = step { step },
                     value: "{value}",
                     oninput: move |evt| oninput.call(evt),
+                    ..attributes,
                 }
                 if let Some(ref left_icon) = left_icon {
                     span {
@@ -139,12 +141,14 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
     error: Option<String>,
     has_changed: bool,
     onclick: EventHandler<(MouseEvent, T)>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     let error = error.and_then(|error| if error.is_empty() { None } else { Some(error) });
     let has_error = error.is_some();
     rsx! {
         div {
             class: "field",
+            ..attributes,
             label { class: "label", "{label}" }
             div {
                 class: "field has-addons",

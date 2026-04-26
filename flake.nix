@@ -21,11 +21,18 @@
           chromedriver
           dart-sass
           dioxus-cli
+          imagemagick
+          playwright-driver.browsers
           python314
           python314Packages.uv
           ungoogled-chromium
           wasm-pack
         ];
+        env = {
+          LD_LIBRARY_PATH = lib.makeLibraryPath [ stdenv.cc.cc ];
+          PLAYWRIGHT_BROWSERS_PATH = "${playwright-driver.browsers}";
+          PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+        };
         shellHook = ''
           uv sync
           source .venv/bin/activate

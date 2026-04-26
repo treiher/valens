@@ -121,24 +121,28 @@ pub fn Home() -> Element {
                     Title { "Training" },
                     Tile {
                         title: "Training sessions",
+                        testid: "home-training",
                         target: Route::Training { add: false },
                         target_add: Some(Route::Training { add: true }),
                         subtitle: training_subtitle,
                     }
                     Tile {
                         title: "Routines",
+                        testid: "home-routines",
                         target: Route::Routines { add: false, search: String::new() },
                         target_add: Some(Route::Routines { add: true, search: String::new() }),
                         subtitle: routines_subtitle,
                     }
                     Tile {
                         title: "Exercises",
+                        testid: "home-exercises",
                         target: Route::Exercises { add: false, filter: String::new() },
                         target_add: Some(Route::Exercises { add: true, filter: String::new() }),
                         subtitle: exercises_subtitle,
                     }
                     Tile {
                         title: "Muscles",
+                        testid: "home-muscles",
                         target: Route::Muscles { },
                         target_add: None,
                         subtitle: None,
@@ -148,12 +152,14 @@ pub fn Home() -> Element {
                     Title { "Health" },
                     Tile {
                         title: "Body weight",
+                        testid: "home-body-weight",
                         target: Route::BodyWeight { add: false },
                         target_add: Some(Route::BodyWeight { add: true }),
                         subtitle: body_weight_subtitle,
                     }
                     Tile {
                         title: "Body fat",
+                        testid: "home-body-fat",
                         target: Route::BodyFat { add: false },
                         target_add: Some(Route::BodyFat { add: true }),
                         subtitle: body_fat_subtitle,
@@ -161,6 +167,7 @@ pub fn Home() -> Element {
                     if user.sex == domain::Sex::FEMALE {
                         Tile {
                             title: "Menstrual cycle",
+                            testid: "home-menstrual-cycle",
                             target: Route::MenstrualCycle { add: false },
                             target_add: Some(Route::MenstrualCycle { add: true }),
                             subtitle: menstrual_cycle_subtitle,
@@ -181,6 +188,7 @@ pub fn Home() -> Element {
 #[component]
 fn Tile(
     title: String,
+    testid: String,
     target: Route,
     #[props(!optional)] target_add: Option<Route>,
     #[props(!optional)] subtitle: Option<Element>,
@@ -194,6 +202,7 @@ fn Tile(
                 class: "cell",
                 a {
                     class: "box px-4 py-3",
+                    "data-testid": "{testid}",
                     onclick: move |_| { navigator.push(target.clone()); },
                     div {
                         class: "is-flex is-justify-content-space-between",
@@ -204,6 +213,7 @@ fn Tile(
                             div {
                                 a {
                                     class: "title is-size-5 has-text-link",
+                                    "data-testid": "{testid}-add",
                                     onclick: move |event| { navigator.push(target_add.clone()); event.stop_propagation(); },
                                     span { class: "icon",
                                         i { class: "fas fa-plus-circle" }

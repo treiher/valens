@@ -26,7 +26,7 @@ Install the following tools (with your system package manager):
 - [Rust](https://rust-lang.org/tools/install/) (providing the `rustup` command)
 - [Python](https://www.python.org/downloads/) and [uv](https://github.com/astral-sh/uv)
 - [Dart Sass](https://sass-lang.com/dart-sass) (providing the `sass` command)
-- [Chromium](https://www.chromium.org/Home/) and [ChromeDriver](https://sites.google.com/chromium.org/driver/) for browser-based tests
+- [Chromium](https://www.chromium.org/Home/), [ChromeDriver](https://sites.google.com/chromium.org/driver/) and [Playwright](https://playwright.dev/python/) for browser-based tests
 
 Install the Rust toolchain.
 

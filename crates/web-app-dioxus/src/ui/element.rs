@@ -74,6 +74,7 @@ pub fn DataBox(children: Element, title: String) -> Element {
 pub fn Loading() -> Element {
     rsx! {
         div {
+            "data-testid": "loading",
             class: "is-size-4 has-text-centered",
             i { class: "fas fa-spinner fa-pulse" }
         }
@@ -178,6 +179,7 @@ pub fn Icon(
     is_small: Option<bool>,
     px: Option<u8>,
     onclick: Option<EventHandler<MouseEvent>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     rsx! {
         span {
@@ -189,6 +191,7 @@ pub fn Icon(
                     event_handler.call(evt);
                 }
             },
+            ..attributes,
             i { class: "fas fa-{name}" }
         }
     }
@@ -200,6 +203,7 @@ pub fn IconText(
     text: String,
     color: Option<Color>,
     onclick: Option<EventHandler<MouseEvent>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     rsx! {
         span {
@@ -210,6 +214,7 @@ pub fn IconText(
                     event_handler.call(evt);
                 }
             },
+            ..attributes,
             Icon { name: icon }
             span { {text} }
         }
@@ -259,6 +264,7 @@ pub fn FloatingActionButton(
         button {
             class: "button is-fab is-medium is-link",
             class: if is_loading.unwrap_or_default() { "is-loading" },
+            "data-testid": "fab",
             onclick,
             Icon { name: icon }
         }
@@ -283,6 +289,7 @@ pub fn Dialog(
             }
             div {
                 class: "modal-content",
+                "data-testid": "dialog",
                 div {
                     class: "message is-{color} mx-2",
                     div {
@@ -337,6 +344,7 @@ pub fn DeleteConfirmationDialog(
                     onclick: move |evt| cancel_event.call(evt),
                     button {
                         class: "button is-light is-soft",
+                        "data-testid": "dialog-no",
                         "No"
                     }
                 }
@@ -346,6 +354,7 @@ pub fn DeleteConfirmationDialog(
                     button {
                         class: "button is-danger",
                         class: if is_loading { "is-loading" },
+                        "data-testid": "dialog-delete",
                         "Yes, delete {element_type}"
                     }
                 }
@@ -388,6 +397,7 @@ pub fn Table(head: Option<Vec<Element>>, body: Vec<Vec<Element>>) -> Element {
             class: "table-container mt-4",
             table {
                 class: "table is-fullwidth is-hoverable",
+                "data-testid": "table",
                 if let Some(head) = head {
                     thead {
                         tr {
@@ -428,6 +438,7 @@ pub fn OptionsMenu(options: Vec<Element>, close_event: EventHandler<MouseEvent>)
                 class: "modal-content",
                 div {
                     class: "box mx-2 py-3",
+                    "data-testid": "options-menu",
                     for option in options {
                         {option}
                     }
@@ -443,13 +454,19 @@ pub fn OptionsMenu(options: Vec<Element>, close_event: EventHandler<MouseEvent>)
 }
 
 #[component]
-pub fn MenuOption(icon: String, text: String, onclick: EventHandler<MouseEvent>) -> Element {
+pub fn MenuOption(
+    icon: String,
+    text: String,
+    onclick: EventHandler<MouseEvent>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
     rsx! {
         p {
             class: "py-2",
             a {
                 class: "has-text-weight-bold",
                 onclick: move |evt| onclick.call(evt),
+                ..attributes,
                 IconText { icon, text }
             }
         }
@@ -467,6 +484,7 @@ pub fn SearchBox(search_term: String, oninput: EventHandler<FormEvent>) -> Eleme
             input {
                 class: "input",
                 r#type: "text",
+                "data-testid": "search",
                 value: search_term,
                 oninput: move |evt| oninput.call(evt),
             }

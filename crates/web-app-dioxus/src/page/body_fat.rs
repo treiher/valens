@@ -320,6 +320,7 @@ fn table(
             row.push(rsx! {
                 a {
                     class: "mx-2",
+                    "data-testid": "item-options",
                     onclick: move |_| { *dialog.write() = BodyFatDialog::Options(bf.clone()); },
                     Icon { name: "ellipsis-vertical"}
                 }
@@ -578,6 +579,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Edit body fat".to_string(),
+                                "data-testid": "options-edit",
                                 onclick: move |_| {
                                     *dialog.write() = BodyFatDialog::Edit {
                                         date: FieldValue::new(body_fat_edit.date),
@@ -589,12 +591,13 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                         suprailiac: FieldValue::from_option(body_fat_edit.suprailiac),
                                         midaxillary: FieldValue::from_option(body_fat_edit.midaxillary),
                                     };
-                                }
+                                },
                             },
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete body fat".to_string(),
-                                onclick: move |_| { *dialog.write() = BodyFatDialog::Delete(body_fat_delete.clone()); }
+                                "data-testid": "options-delete",
+                                onclick: move |_| { *dialog.write() = BodyFatDialog::Delete(body_fat_delete.clone()); },
                             },
                         },
                     ],
@@ -688,7 +691,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                     div {
                         class: "control",
                         onclick: close,
-                        button { class: "button is-light is-soft", "Cancel" }
+                        button { class: "button is-light is-soft", "data-testid": "dialog-cancel", "Cancel" }
                     }
                     div {
                         class: "control",
@@ -696,6 +699,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                         button {
                             class: "button is-primary",
                             class: if is_loading() { "is-loading" },
+                            "data-testid": "dialog-save",
                             disabled: !date.valid()
                                 || !FieldValue::has_valid_changes(&[chest, abdominal, thigh, tricep, subscapular, suprailiac, midaxillary])
                                 || [chest, abdominal, thigh, tricep, subscapular, suprailiac, midaxillary].iter().all(|i| i.input.is_empty()),

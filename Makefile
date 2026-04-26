@@ -73,7 +73,7 @@ test_installation: $(BUILD_DIR)/venv/bin/valens
 	$(BUILD_DIR)/venv/bin/valens --version
 
 test_e2e: $(BUILD_DIR)/venv/bin/valens
-	uv run -- pytest -n$(shell nproc) -vv --driver chrome --headless tests/e2e
+	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 tests/e2e
 
 $(BUILD_DIR)/venv:
 	python3 -m venv $(BUILD_DIR)/venv

@@ -132,6 +132,7 @@ fn view_list(
                         class: "has-text-right",
                         a {
                             class: "mx-2",
+                            "data-testid": "item-options",
                             onclick: move |_| { *dialog.write() = RoutineDialog::Options(r.clone()); },
                             Icon { name: "ellipsis-vertical"}
                         }
@@ -156,6 +157,7 @@ fn view_list(
                         class: "has-text-right",
                         a {
                             class: "mx-2",
+                            "data-testid": "item-options",
                             onclick: move |_| { *dialog.write() = RoutineDialog::Options(r.clone()); },
                             Icon { name: "ellipsis-vertical"}
                         }
@@ -312,6 +314,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: (if routine.archived { "box-open" } else { "box-archive" }).to_string(),
                                 text: (if routine.archived { "Unarchive routine" } else { "Archive routine" }).to_string(),
+                                "data-testid": "options-archive",
                                 onclick: eh!(close_dialog; {
                                     async move {
                                         match DOMAIN_SERVICE()
@@ -334,6 +337,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "copy".to_string(),
                                 text: "Copy routine".to_string(),
+                                "data-testid": "options-copy",
                                 onclick: move |_| {
                                     let routine_name = routine_name_copy.clone();
                                     async move {
@@ -352,6 +356,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Rename routine".to_string(),
+                                "data-testid": "options-rename",
                                 onclick: move |_| {
                                     let routine_name = routine_name_edit.clone();
                                     *dialog.write() = RoutineDialog::Rename {
@@ -363,6 +368,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete routine".to_string(),
+                                "data-testid": "options-delete",
                                 onclick: move |_| { *dialog.write() = RoutineDialog::Delete(routine.clone()); }
                             },
                         },
@@ -433,7 +439,7 @@ pub fn view_dialog(
                     div {
                         class: "control",
                         onclick: eh!(close_dialog; { close_dialog(); }),
-                        button { class: "button is-light is-soft", "Cancel" }
+                        button { class: "button is-light is-soft", "data-testid": "dialog-cancel", "Cancel" }
                     }
                     div {
                         class: "control",
@@ -441,6 +447,7 @@ pub fn view_dialog(
                         button {
                             class: "button is-primary",
                             class: if is_loading() { "is-loading" },
+                            "data-testid": "dialog-save",
                             disabled: !name.valid(),
                             "Save"
                         }

@@ -35,17 +35,17 @@ dev = [
     "hatch >=1",
     "mypy >=1",
     "pip", # required by hatch
+    "playwright ==1.56.0", # must be compatible with Playwright provided by Nix
     "pytest >=5",
     "pytest-alembic >=0.3.1",
     "pytest-cov >=2.10.0",
     "pytest-flakefinder >=1, <2",
+    "pytest-playwright >=0.5.1",
     "pytest-rerunfailures >=16.1",
-    "pytest-selenium >=4.0.2",
     "pytest-xdist >=1.32.0",
     "python-kacl >=0.4.6",
     "ruff >=0.0.260",
     "sqlalchemy[mypy] >=2, <3",
-    "types-selenium >=3",
 ]
 
 [project.scripts]

@@ -186,11 +186,13 @@ fn view_search_box(
             button {
                 class: "button",
                 class: if !exercise_filter.read().is_empty() { "is-link" },
+                "data-testid": "filter-exercises",
                 onclick: move |_| *filter_dialog_shown.write() = true,
                 Icon { name: "filter" }
             }
             button {
                 class: "button is-link",
+                "data-testid": "create-exercise",
                 onclick: move |_| {
                     show_add_dialog!(filter_dialog, name, filter_string, change_route)
                 },
@@ -269,6 +271,7 @@ fn view_list(
                         class: "has-text-link has-text-right",
                         a {
                             class: "mx-2",
+                            "data-testid": "item-options",
                             onclick: move |_| { *dialog.write() = ExerciseDialog::Options(e.clone()); },
                             Icon { name: "ellipsis-vertical"}
                         }
@@ -294,6 +297,7 @@ fn view_list(
                         class: "has-text-link has-text-right",
                         a {
                             class: "mx-2",
+                            "data-testid": "item-options",
                             onclick: move |_| { *dialog.write() = ExerciseDialog::Options(e.clone()); },
                             Icon { name: "ellipsis-vertical"}
                         }
@@ -521,6 +525,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "copy".to_string(),
                                 text: "Copy exercise".to_string(),
+                                "data-testid": "options-copy",
                                 onclick: eh!(exercise_name; {
                                     async move {
                                         let validated_name = DOMAIN_SERVICE().validate_exercise_name(&exercise_name.to_string(), domain::ExerciseID::nil()).await.map_err(|err| err.to_string());
@@ -538,6 +543,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "edit".to_string(),
                                 text: "Rename exercise".to_string(),
+                                "data-testid": "options-rename",
                                 onclick: eh!(exercise; {
                                     *dialog.write() = ExerciseDialog::Rename {
                                         name: FieldValue::new(exercise.name.clone()),
@@ -548,6 +554,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "tags".to_string(),
                                 text: "Change properties".to_string(),
+                                "data-testid": "options-properties",
                                 onclick: eh!(exercise; {
                                     *dialog.write() = ExerciseDialog::ChangeProperties {
                                         exercise,
@@ -557,6 +564,7 @@ pub fn view_dialog(
                             MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete exercise".to_string(),
+                                "data-testid": "options-delete",
                                 onclick: move |_| { *dialog.write() = ExerciseDialog::Delete(exercise.clone()); }
                             },
                         },
@@ -627,7 +635,7 @@ pub fn view_dialog(
                     div {
                         class: "control",
                         onclick: eh!(close_dialog; { close_dialog(); }),
-                        button { class: "button is-light is-soft", "Cancel" }
+                        button { class: "button is-light is-soft", "data-testid": "dialog-cancel", "Cancel" }
                     }
                     div {
                         class: "control",
@@ -635,6 +643,7 @@ pub fn view_dialog(
                         button {
                             class: "button is-primary",
                             class: if is_loading() { "is-loading" },
+                            "data-testid": "dialog-save",
                             disabled: !name.valid(),
                             "Save"
                         }
@@ -796,7 +805,7 @@ fn ExerciseProperties(
             div {
                 class: "control",
                 onclick: move |_| close_dialog(()),
-                button { class: "button is-light is-soft", "Cancel" }
+                button { class: "button is-light is-soft", "data-testid": "dialog-cancel", "Cancel" }
             }
             div {
                 class: "control",
@@ -804,6 +813,7 @@ fn ExerciseProperties(
                 button {
                     class: "button is-primary",
                     class: if is_loading() { "is-loading" },
+                    "data-testid": "dialog-save",
                     "Save"
                 }
             }

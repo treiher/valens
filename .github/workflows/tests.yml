@@ -201,7 +201,7 @@ jobs:
       - name: Install dependencies
         run: uv sync
       - name: Install Playwright browsers
-        run: uv run -- playwright install --with-deps chromium
+        run: uv run -- playwright install --with-deps --no-shell chromium
       - name: Install Sass
         run: npm install -g sass
       - name: Test
@@ -252,7 +252,7 @@ jobs:
       - name: Install Sass
         run: npm install -g sass
       - name: Install Playwright browsers
-        run: uv run -- playwright install --with-deps chromium
+        run: uv run -- playwright install --with-deps --no-shell chromium
       - name: Test
         run: |
           make test

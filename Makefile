@@ -73,6 +73,7 @@ test_installation: $(BUILD_DIR)/venv/bin/valens
 	$(BUILD_DIR)/venv/bin/valens --version
 
 test_e2e: $(BUILD_DIR)/venv/bin/valens
+	uv run -- pytest -vv --browser-channel chromium --tracing retain-on-failure tests/e2e/web_test.py::test_login
 	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 --tracing retain-on-failure tests/e2e
 
 $(BUILD_DIR)/venv:

@@ -65,7 +65,6 @@ function addResourcesToCache() {
             "fonts/Roboto-BoldItalic.woff",
             "fonts/Roboto-Italic.woff",
             "fonts/Roboto-Regular.woff",
-            "fonts/fa-solid-900.ttf",
             "fonts/fa-solid-900.woff2",
             "images/android-chrome-192x192.png",
             "images/android-chrome-512x512.png",

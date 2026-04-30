@@ -13,12 +13,11 @@ $blue: #3B8ED0;
     $message-border-l-delta: 0%,
 );
 @use "../../../third-party/bulma-slider/src/sass";
-@use "../../../third-party/fontawesome/scss/fontawesome" with (
-    $fa-font-path: $font-path
+@use "../../../third-party/fontawesome/scss/variables" with (
+  $font-path: $font-path
 );
-@use "../../../third-party/fontawesome/scss/solid" with (
-    $fa-font-path: $font-path
-);
+@use "../../../third-party/fontawesome/scss/fontawesome";
+@use "../../../third-party/fontawesome/scss/solid" as fas;
 
 :root {
   --bulma-primary-invert-l: 100%;

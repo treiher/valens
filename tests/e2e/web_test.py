@@ -1193,7 +1193,6 @@ def test_cache(page: Page) -> None:
         "Roboto-BoldItalic.woff",
         "Roboto-Italic.woff",
         "Roboto-Regular.woff",
-        "fa-solid-900.ttf",
         "fa-solid-900.woff2",
         "android-chrome-192x192.png",
         "android-chrome-512x512.png",

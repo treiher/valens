@@ -1,9 +1,9 @@
 // Scheme Hue and Saturation
 
-$scheme-h: 221;
-$scheme-s: 14%;
-$dark-l: 20%;
-$light-l: 90%;
+$scheme-h: 221 !default;
+$scheme-s: 14% !default;
+$dark-l: 20% !default;
+$light-l: 90% !default;
 
 // Colors
 
@@ -134,6 +134,7 @@ $breakpoints: (
 
 // Miscellaneous
 
+$duration: 294ms !default;
 $easing: ease-out !default;
 $radius-small: 0.25rem !default;
 $radius: 0.375rem !default;
@@ -153,3 +154,4 @@ $class-prefix: "" !default;
 $cssvars-prefix: "bulma-" !default;
 $helpers-prefix: "is-" !default;
 $helpers-has-prefix: "has-" !default;
+$variables-host: ":root" !default;

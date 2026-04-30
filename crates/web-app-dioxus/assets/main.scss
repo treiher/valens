@@ -1,4 +1,5 @@
 $font-path: "fonts";
+$white: #FFFFFF;
 $green: #48C774;
 $blue: #3B8ED0;
 
@@ -8,6 +9,7 @@ $blue: #3B8ED0;
     $blue: $blue,
     $primary: $green,
     $info: $blue,
+    $navbar-burger-color: $white,
     $message-border-l-delta: 0%,
 );
 @use "../../../third-party/bulma-slider/src/sass";

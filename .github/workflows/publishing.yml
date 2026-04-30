@@ -39,10 +39,9 @@ jobs:
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install libarchive-tools
-          uv sync
+        run: uv sync
+      - name: Install Sass
+        run: npm install -g sass
       - name: Build distribution
         run: |
           # Use public version without local version label

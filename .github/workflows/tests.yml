@@ -114,10 +114,8 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install libarchive-tools
+      - name: Install Sass
+        run: npm install -g sass
       - name: Test
         run: |
           make test_installation
@@ -201,13 +199,20 @@ jobs:
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install libarchive-tools
-          uv sync
+        run: uv sync
+      - name: Install Playwright browsers
+        run: uv run -- playwright install --with-deps chromium
+      - name: Install Sass
+        run: npm install -g sass
       - name: Test
         run: |
           make test_e2e
+      - name: Upload Playwright traces
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
 
   test_latest_dependencies:
     name: Latest Dependencies
@@ -241,14 +246,22 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install libarchive-tools
           uv lock --upgrade
           uv sync
           cargo update
+      - name: Install Sass
+        run: npm install -g sass
+      - name: Install Playwright browsers
+        run: uv run -- playwright install --with-deps chromium
       - name: Test
         run: |
           make test
+      - name: Upload Playwright traces
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces-latest
+          path: test-results/
 
   test_latest_release:
     name: Latest Release

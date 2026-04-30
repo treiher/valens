@@ -11,7 +11,7 @@ env:
   RUST_VERSION: "1.85"
   CARGO_LLVM_COV_VERSION: "0.6.14"
   NEXTEST_VERSION: "0.9.85"
-  TRUNK_VERSION: "0.17.5"
+  DIOXUS_VERSION: "0.7.5"
   UV_VERSION: "0.5.26"
 
 jobs:
@@ -52,6 +52,10 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
           echo ~/.cargo/bin >> $GITHUB_PATH
+      - name: Install dioxus-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Check
         run: |
           make check_frontend
@@ -106,11 +110,14 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
+      - name: Install dioxus-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install libarchive-tools
-          cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Test
         run: |
           make test_installation
@@ -189,12 +196,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: frontend
+      - name: Install dioxus-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install libarchive-tools
           uv sync
-          cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Test
         run: |
           make test_e2e
@@ -223,10 +233,10 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --target wasm32-unknown-unknown --profile minimal
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
-      - name: Install cargo-llvm-cov and Nextest
+      - name: Install cargo-llvm-cov, Nextest and dioxus-cli
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }},nextest@${{ env.NEXTEST_VERSION }}
+          tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }},nextest@${{ env.NEXTEST_VERSION }},dioxus-cli
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Install dependencies
@@ -236,7 +246,6 @@ jobs:
           uv lock --upgrade
           uv sync
           cargo update
-          cargo install --locked trunk
       - name: Test
         run: |
           make test

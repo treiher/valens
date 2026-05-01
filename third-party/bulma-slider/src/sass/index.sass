@@ -4,21 +4,22 @@
 // - Removed vertical slider support to avoid warnings about slider-vertical keyword
 
 @use "sass:math"
-@import "../../../bulma/sass/utilities/_index.scss"
+@use "sass:list"
+@use "../../../bulma/sass/utilities/_index.scss" as utilities
 
-$slider-radius: $radius !default
-$slider-track-background: $grey-lighter !default
-$slider-track-radius: $radius !default
-$slider-track-border: 0px solid $grey !default
-$slider-track-shadow: 0px 0px 0px $grey !default
-$slider-thumb-background: $white !default
-$slider-thumb-radius: $radius !default
-$slider-thumb-border: 1px solid $grey-light !default
+$slider-radius: utilities.$radius !default
+$slider-track-background: utilities.$grey-lighter !default
+$slider-track-radius: utilities.$radius !default
+$slider-track-border: 0px solid utilities.$grey !default
+$slider-track-shadow: 0px 0px 0px utilities.$grey !default
+$slider-thumb-background: utilities.$white !default
+$slider-thumb-radius: utilities.$radius !default
+$slider-thumb-border: 1px solid utilities.$grey-light !default
 $slider-thumb-shadow: none !default
 $slider-thumb-to-track-ratio: 2 !default
 $slider-output-width: 3rem !default
-$slider-output-background: $grey-dark !default
-$slider-output-radius: $radius !default
+$slider-output-background: utilities.$grey-dark !default
+$slider-output-radius: utilities.$radius !default
 
 =slider-size($size)
 	$track-height: math.div($size, $slider-thumb-to-track-ratio)
@@ -77,12 +78,12 @@ input[type="range"]
 				background: $slider-output-background
 				border-radius: $slider-output-radius
 				padding: 0.4rem 0.8rem
-				font-size: $size-7
-				line-height: $size-7
+				font-size: utilities.$size-7
+				line-height: utilities.$size-7
 				text-align: center
 				text-overflow: ellipsis
 				white-space: nowrap
-				color: $white
+				color: utilities.$white
 				overflow: hidden
 				pointer-events: none
 				z-index: 200
@@ -131,10 +132,10 @@ input[type="range"]
 			border: $slider-track-border
 
 		&::-ms-fill-lower
-			background: $grey-lighter
+			background: utilities.$grey-lighter
 			border-radius: $slider-radius
 		&::-ms-fill-upper
-			background: $grey-lighter
+			background: utilities.$grey-lighter
 			border-radius: $slider-radius
 
 		&::-webkit-slider-thumb
@@ -161,11 +162,11 @@ input[type="range"]
 
 		&.is-circle
 			&::-webkit-slider-thumb
-				border-radius: $radius-rounded
+				border-radius: utilities.$radius-rounded
 			&::-moz-range-thumb
-				border-radius: $radius-rounded
+				border-radius: utilities.$radius-rounded
 			&::-ms-thumb
-				border-radius: $radius-rounded
+				border-radius: utilities.$radius-rounded
 
 		&:active
 			&::-webkit-slider-thumb
@@ -189,20 +190,20 @@ input[type="range"]
 				cursor: not-allowed
 				transform: scale(1)
 
-		+slider-size($size-normal)
+		+slider-size(utilities.$size-normal)
 
 		&.is-small
-			+slider-size($size-small)
+			+slider-size(utilities.$size-small)
 
 		&.is-medium
-			+slider-size($size-medium)
+			+slider-size(utilities.$size-medium)
 
 		&.is-large
-			+slider-size($size-large)
+			+slider-size(utilities.$size-large)
 
-		@each $name, $pair in $colors
-			$color: nth($pair, 1)
-			$color-invert: nth($pair, 1)
+		@each $name, $pair in utilities.$colors
+			$color: list.nth($pair, 1)
+			$color-invert: list.nth($pair, 1)
 
 			&.is-#{$name}
 				&::-moz-range-track

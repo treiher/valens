@@ -358,7 +358,7 @@ dependencies = [
  "js-sys",
  "serde",
  "serde_json",
- "thiserror 2.0.18",
+ "thiserror",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -366,15 +366,15 @@ dependencies = [
 
 [[package]]
 name = "gloo-storage"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbc8031e8c92758af912f9bc08fbbadd3c6f3cfcbf6b64cdf3d6a81f0139277a"
+checksum = "e82ce7d41c6d821640a43726f6ff33c924795cc151b62e5a84d0c988c151c980"
 dependencies = [
- "gloo-utils 0.2.0",
+ "gloo-utils 0.3.0",
  "js-sys",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -491,7 +491,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "smallvec",
- "thiserror 2.0.18",
+ "thiserror",
  "tokio",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1005,31 +1005,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6aaf5339b578ea85b50e080feb250a3e8ae8cfcdff9a461c9ec2904bc923f52"
-dependencies = [
- "thiserror-impl 1.0.69",
-]
-
-[[package]]
-name = "thiserror"
 version = "2.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4288b5bcbc7920c07a1149a35cf9590a2aa808e0bc1eafaade0b80947865fbc4"
 dependencies = [
- "thiserror-impl 2.0.18",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.69"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "thiserror-impl",
 ]
 
 [[package]]
@@ -1121,7 +1101,7 @@ dependencies = [
  "derive_more",
  "pretty_assertions",
  "rstest",
- "thiserror 2.0.18",
+ "thiserror",
  "uuid",
 ]
 
@@ -1140,7 +1120,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
- "thiserror 2.0.18",
+ "thiserror",
  "uuid",
  "valens-domain",
  "valens-web-app",
@@ -1158,7 +1138,7 @@ dependencies = [
  "plotters",
  "serde",
  "serde-wasm-bindgen",
- "thiserror 2.0.18",
+ "thiserror",
  "valens-domain",
  "wasm-bindgen",
  "web-sys",

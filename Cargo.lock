@@ -1142,6 +1142,7 @@ dependencies = [
  "thiserror",
  "valens-domain",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

@@ -17,4 +17,5 @@ serde = { workspace = true, features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 thiserror = { workspace = true }
 wasm-bindgen = { workspace = true }
-web-sys = { workspace = true, features = ["Navigator", "ServiceWorker", "ServiceWorkerContainer"] }
+wasm-bindgen-futures = "0.4"
+web-sys = { workspace = true, features = ["MediaQueryList", "MessageEvent", "Navigator", "Notification", "NotificationPermission", "ServiceWorker", "ServiceWorkerContainer", "Window"] }

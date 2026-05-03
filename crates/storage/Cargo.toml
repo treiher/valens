@@ -17,11 +17,11 @@ indexed_db_futures = { version = "0.6.4", features = ["serde"] }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-strum = { version = "0.28", features = ["derive"] }
+strum = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
-wasm-bindgen-test = "0.3.68"
+wasm-bindgen-test = "0.3.64"

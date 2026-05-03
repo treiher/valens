@@ -5,7 +5,7 @@ on: push
 env:
   PYTHON_VERSION: "3.14"
   RUST_VERSION: "1.85"
-  TRUNK_VERSION: "0.17.5"
+  DIOXUS_VERSION: "0.7.5"
   UV_VERSION: "0.5.26"
 
 jobs:
@@ -34,12 +34,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: frontend
+      - name: Install dioxus-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install libarchive-tools
           uv sync
-          cargo install --locked trunk@${{ env.TRUNK_VERSION }}
       - name: Build distribution
         run: |
           # Use public version without local version label

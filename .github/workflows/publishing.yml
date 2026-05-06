@@ -32,8 +32,6 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: frontend
       - name: Install dioxus-cli
         uses: taiki-e/install-action@v2
         with:

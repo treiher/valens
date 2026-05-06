@@ -52,6 +52,7 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
           echo ~/.cargo/bin >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
       - name: Install dioxus-cli
         uses: taiki-e/install-action@v2
         with:
@@ -75,6 +76,7 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
+          cache-suffix: ${{ matrix.python-version }}-${{ matrix.target }}
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -101,6 +103,7 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
+          cache-suffix: ${{ matrix.python-version }}
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -136,6 +139,7 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --profile minimal
           echo ~/.cargo/bin >> $GITHUB_PATH
+      - uses: Swatinem/rust-cache@v2
       - name: Install cargo-llvm-cov and Nextest
         uses: taiki-e/install-action@v2
         with:
@@ -160,6 +164,7 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
+          cache-suffix: ${{ matrix.python-version }}
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
@@ -198,8 +203,18 @@ jobs:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
         run: uv sync
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('uv.lock') }}
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: uv run -- playwright install --with-deps --no-shell chromium
+      - name: Install Playwright browser dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: uv run -- playwright install-deps chromium
       - name: Install Sass
         run: npm install -g sass
       - name: Test
@@ -249,8 +264,18 @@ jobs:
           cargo update
       - name: Install Sass
         run: npm install -g sass
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ hashFiles('uv.lock') }}
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: uv run -- playwright install --with-deps --no-shell chromium
+      - name: Install Playwright browser dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: uv run -- playwright install-deps chromium
       - name: Test
         run: |
           make test

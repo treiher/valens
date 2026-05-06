@@ -116,12 +116,7 @@ pub fn cycles(period: &[Period]) -> Vec<Cycle> {
     }
 
     let mut result = vec![];
-    let mut begin = period
-        .iter()
-        .cloned()
-        .map(|p| p.date)
-        .min()
-        .unwrap_or_default();
+    let mut begin = period.iter().map(|p| p.date).min().unwrap_or_default();
     let mut last = begin;
 
     for p in &period[1..] {
@@ -160,7 +155,7 @@ pub fn current_cycle(cycles: &[Cycle]) -> Option<CurrentCycle> {
     let today = Local::now().date_naive();
     let cycles = cycles
         .iter()
-        .filter(|c| (c.begin >= today - Duration::days(182) && c.begin <= today))
+        .filter(|c| c.begin >= today - Duration::days(182) && c.begin <= today)
         .collect::<Vec<_>>();
     let stats = cycle_stats(&cycles);
 
@@ -210,14 +205,14 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
     match quartile_num {
         Quartile::Q1 => quartile(&durations[..idx], Quartile::Q2),
         Quartile::Q2 => {
-            if durations.len() % 2 == 0 {
+            if durations.len().is_multiple_of(2) {
                 (durations[idx - 1] + durations[idx]) / 2
             } else {
                 durations[idx]
             }
         }
         Quartile::Q3 => {
-            if durations.len() % 2 == 0 {
+            if durations.len().is_multiple_of(2) {
                 quartile(&durations[idx..], Quartile::Q2)
             } else {
                 quartile(&durations[idx + 1..], Quartile::Q2)

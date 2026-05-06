@@ -41,11 +41,12 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
     let training_session = use_memo(move || {
         if let CacheState::Ready(training_sessions) = &*cache.training_sessions.read() {
             let training_session = training_sessions.iter().find(|e| e.id == id).cloned();
-            if let Some(training_session) = &training_session {
-                if training_session.is_empty() && !progress.read().is_active() {
-                    edit.set(true);
-                    progress.write().set_element_idx(0);
-                }
+            if let Some(training_session) = &training_session
+                && training_session.is_empty()
+                && !progress.read().is_active()
+            {
+                edit.set(true);
+                progress.write().set_element_idx(0);
             }
             training_session
         } else {
@@ -69,11 +70,11 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
 
     use_future(move || async move {
         let ongoing_training_session = WEB_APP_SERVICE.read().get_ongoing_training_session().await;
-        if let Ok(Some(ongoing_training_session)) = ongoing_training_session {
-            if ongoing_training_session.training_session_id == id.as_u128() {
-                progress.set(Progress::from(ongoing_training_session));
-                edit.set(true);
-            }
+        if let Ok(Some(ongoing_training_session)) = ongoing_training_session
+            && ongoing_training_session.training_session_id == id.as_u128()
+        {
+            progress.set(Progress::from(ongoing_training_session));
+            edit.set(true);
         }
     });
     use_effect(move || {
@@ -161,79 +162,79 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
 
     use_effect(move || {
         let element_idx = progress.read().element_idx;
-        if let Some(training_session) = training_session() {
-            if let Some(element) = training_session.elements.get(element_idx) {
-                let automatic_metronome = settings.automatic_metronome();
-                match element {
-                    domain::TrainingSessionElement::Set {
-                        target_reps,
-                        target_time,
-                        automatic,
-                        ..
-                    } => {
-                        if automatic_metronome {
-                            METRONOME.write().pause();
+        if let Some(training_session) = training_session()
+            && let Some(element) = training_session.elements.get(element_idx)
+        {
+            let automatic_metronome = settings.automatic_metronome();
+            match element {
+                domain::TrainingSessionElement::Set {
+                    target_reps,
+                    target_time,
+                    automatic,
+                    ..
+                } => {
+                    if automatic_metronome {
+                        METRONOME.write().pause();
+                    }
+                    if let Some(target_time) = target_time {
+                        if automatic_metronome && target_reps.is_some() {
+                            METRONOME.with_mut(|metronome| {
+                                metronome.set_interval((*target_time).into());
+                                metronome.set_stressed_beat(1);
+                                metronome.start();
+                            });
                         }
-                        if let Some(target_time) = target_time {
-                            if automatic_metronome && target_reps.is_some() {
-                                METRONOME.with_mut(|metronome| {
-                                    metronome.set_interval((*target_time).into());
-                                    metronome.set_stressed_beat(1);
-                                    metronome.start();
+                        if progress.timer_service().read().is_set() {
+                            if progress.timer_service().read().seconds() <= 0 {
+                                progress.write().set_element_idx(element_idx + 1);
+                                progress.timer_service().write().unset();
+                                if let Some(set_field_values) =
+                                    field_values.write().get_mut(&element_idx)
+                                {
+                                    set_field_values.time.validated = Ok(*target_time);
+                                }
+                                spawn(async move {
+                                    let mut training_session = training_session.clone();
+                                    modify_training_session_elements(
+                                        &mut training_session,
+                                        field_values,
+                                    );
+                                    save(training_session, cache, || {}).await;
                                 });
                             }
-                            if progress.timer_service().read().is_set() {
-                                if progress.timer_service().read().seconds() <= 0 {
-                                    progress.write().set_element_idx(element_idx + 1);
-                                    progress.timer_service().write().unset();
-                                    if let Some(set_field_values) =
-                                        field_values.write().get_mut(&element_idx)
-                                    {
-                                        set_field_values.time.validated = Ok(*target_time);
-                                    }
-                                    spawn(async move {
-                                        let mut training_session = training_session.clone();
-                                        modify_training_session_elements(
-                                            &mut training_session,
-                                            field_values,
-                                        );
-                                        save(training_session, cache, || {}).await;
-                                    });
-                                }
-                            } else {
-                                progress
-                                    .timer_service()
-                                    .write()
-                                    .set(i64::from(*target_time));
-                                if *automatic {
-                                    progress.timer_service().write().start();
-                                }
+                        } else {
+                            progress
+                                .timer_service()
+                                .write()
+                                .set(i64::from(*target_time));
+                            if *automatic {
+                                progress.timer_service().write().start();
                             }
                         }
                     }
-                    domain::TrainingSessionElement::Rest {
-                        target_time,
-                        automatic,
-                    } => {
-                        if automatic_metronome {
-                            METRONOME.write().pause();
-                        }
-                        if let Some(target_time) = target_time {
-                            if progress.timer_service().read().is_set() {
-                                if *automatic && progress.timer_service().read().seconds() <= 0 {
-                                    progress.write().set_element_idx(element_idx + 1);
-                                    progress.timer_service().write().unset();
-                                }
-                            } else {
-                                progress
-                                    .timer_service()
-                                    .write()
-                                    .set(i64::from(*target_time));
-                                progress.timer_service().write().start();
+                }
+                domain::TrainingSessionElement::Rest {
+                    target_time,
+                    automatic,
+                } => {
+                    if automatic_metronome {
+                        METRONOME.write().pause();
+                    }
+                    if let Some(target_time) = target_time {
+                        if progress.timer_service().read().is_set() {
+                            if *automatic && progress.timer_service().read().seconds() <= 0 {
+                                progress.write().set_element_idx(element_idx + 1);
+                                progress.timer_service().write().unset();
                             }
-                        } else if *automatic {
-                            progress.write().set_element_idx(element_idx + 1);
+                        } else {
+                            progress
+                                .timer_service()
+                                .write()
+                                .set(i64::from(*target_time));
+                            progress.timer_service().write().start();
                         }
+                    } else if *automatic {
+                        progress.write().set_element_idx(element_idx + 1);
                     }
                 }
             }
@@ -428,7 +429,7 @@ fn view_form(
     };
     let mut set_index_for_exercise: HashMap<domain::ExerciseID, usize> = HashMap::new();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
-        let is_current_section = progress.read().element_idx >= element_idx.checked_sub(1).unwrap_or_default() && progress.read().element_idx < element_idx + section.elements().len();
+        let is_current_section = progress.read().element_idx >= element_idx.saturating_sub(1) && progress.read().element_idx < element_idx + section.elements().len();
         let exercise_ids = unique(section.exercise_ids());
         let exercise_ids_len = exercise_ids.len();
         let element_idx_for_options = element_idx;
@@ -1264,33 +1265,32 @@ fn modify_training_session_elements(
             rpe,
             ..
         } = element
+            && let Some(set_field_values) = field_values.get(&element_idx)
         {
-            if let Some(set_field_values) = field_values.get(&element_idx) {
-                *reps = set_field_values
-                    .reps
-                    .validated
-                    .clone()
-                    .ok()
-                    .filter(|reps| *reps > domain::Reps::default());
-                *time = set_field_values
-                    .time
-                    .validated
-                    .clone()
-                    .ok()
-                    .filter(|time| *time > domain::Time::default());
-                *weight = set_field_values
-                    .weight
-                    .validated
-                    .clone()
-                    .ok()
-                    .filter(|weight| *weight > domain::Weight::default());
-                *rpe = set_field_values
-                    .rpe
-                    .validated
-                    .clone()
-                    .ok()
-                    .filter(|rpe| *rpe > domain::RPE::default());
-            }
+            *reps = set_field_values
+                .reps
+                .validated
+                .clone()
+                .ok()
+                .filter(|reps| *reps > domain::Reps::default());
+            *time = set_field_values
+                .time
+                .validated
+                .clone()
+                .ok()
+                .filter(|time| *time > domain::Time::default());
+            *weight = set_field_values
+                .weight
+                .validated
+                .clone()
+                .ok()
+                .filter(|weight| *weight > domain::Weight::default());
+            *rpe = set_field_values
+                .rpe
+                .validated
+                .clone()
+                .ok()
+                .filter(|rpe| *rpe > domain::RPE::default());
         }
     }
 }
@@ -1317,7 +1317,7 @@ async fn save(
                 .write()
                 .push(format!("Failed to modify training session: {err}"));
         }
-    };
+    }
     *IS_LOADING.write() = false;
     close_dialog();
 }

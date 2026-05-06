@@ -53,7 +53,6 @@ impl CachedREST<GlooNetSendRequest> {
 }
 
 impl Default for CachedREST<GlooNetSendRequest> {
-    #[must_use]
     fn default() -> Self {
         Self::new()
     }
@@ -65,10 +64,10 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
         user_id: domain::UserID,
     ) -> Result<domain::User, domain::ReadError> {
         let rest_result = self.rest.request_session(user_id).await;
-        if let Ok(ref user) = rest_result {
-            if let Err(err) = IndexedDB.write_session(user).await {
-                error!("failed to write session into IDB: {err}");
-            }
+        if let Ok(ref user) = rest_result
+            && let Err(err) = IndexedDB.write_session(user).await
+        {
+            error!("failed to write session into IDB: {err}");
         }
 
         rest_result
@@ -1516,7 +1515,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_exercises(&[EXERCISE.clone()])
+                .write_exercises(std::slice::from_ref(&EXERCISE))
                 .await
                 .unwrap();
 
@@ -1567,7 +1566,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_exercises(&[EXERCISE.clone()])
+                .write_exercises(std::slice::from_ref(&EXERCISE))
                 .await
                 .unwrap();
 
@@ -1757,7 +1756,10 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            IndexedDB.write_routines(&[ROUTINE.clone()]).await.unwrap();
+            IndexedDB
+                .write_routines(std::slice::from_ref(&ROUTINE))
+                .await
+                .unwrap();
 
             let mut routine = ROUTINE.clone();
             routine.name = domain::Name::new("C").unwrap();
@@ -1817,7 +1819,10 @@ mod tests {
             reset_cache().await;
             init_session().await;
 
-            IndexedDB.write_routines(&[ROUTINE.clone()]).await.unwrap();
+            IndexedDB
+                .write_routines(std::slice::from_ref(&ROUTINE))
+                .await
+                .unwrap();
 
             assert!(matches!(
                 cached_rest_with_response(None)
@@ -2021,7 +2026,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_training_sessions(&[TRAINING_SESSION.clone()])
+                .write_training_sessions(std::slice::from_ref(&TRAINING_SESSION))
                 .await
                 .unwrap();
 
@@ -2081,7 +2086,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_training_sessions(&[TRAINING_SESSION.clone()])
+                .write_training_sessions(std::slice::from_ref(&TRAINING_SESSION))
                 .await
                 .unwrap();
 

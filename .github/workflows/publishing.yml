@@ -4,7 +4,7 @@ on: push
 
 env:
   PYTHON_VERSION: "3.14"
-  RUST_VERSION: "1.85"
+  RUST_VERSION: "1.95"
   DIOXUS_VERSION: "0.7"
   UV_VERSION: "0.5.26"
 

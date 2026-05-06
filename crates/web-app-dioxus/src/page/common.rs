@@ -165,7 +165,7 @@ impl MetronomeService {
             while self.next_beat_time < audio_context.current_time() + 0.5 {
                 if let Err(err) = play_beep(
                     audio_context,
-                    if self.beat_number % self.stressed_beat == 0 {
+                    if self.beat_number.is_multiple_of(self.stressed_beat) {
                         1000.
                     } else {
                         500.
@@ -424,8 +424,8 @@ impl TimerService {
                             warn!("failed to play beep: {err:?}");
                         }
                     }
-                    if (0..=2).contains(&remaining_seconds) {
-                        if let Err(err) = play_beep(
+                    if (0..=2).contains(&remaining_seconds)
+                        && let Err(err) = play_beep(
                             audio_context,
                             2000.,
                             if remaining_seconds == 2 {
@@ -437,9 +437,9 @@ impl TimerService {
                             },
                             if remaining_seconds == 0 { 0.5 } else { 0.15 },
                             self.beep_volume,
-                        ) {
-                            warn!("failed to play beep: {err:?}");
-                        }
+                        )
+                    {
+                        warn!("failed to play beep: {err:?}");
                     }
                 }
             }
@@ -482,7 +482,7 @@ impl From<web_app::TimerState> for TimerService {
                 timer.set(time);
                 timer.pause();
             }
-        };
+        }
         timer
     }
 }
@@ -522,10 +522,10 @@ fn play_beep(
 }
 
 fn resume_audio_context(audio_context: Option<&web_sys::AudioContext>) {
-    if let Some(audio_context) = &audio_context {
-        if let Err(err) = audio_context.resume() {
-            warn!("failed to resume audio context: {err:?}");
-        }
+    if let Some(audio_context) = &audio_context
+        && let Err(err) = audio_context.resume()
+    {
+        warn!("failed to resume audio context: {err:?}");
     }
 }
 
@@ -844,7 +844,7 @@ pub fn SetsPerMuscle(stimulus_per_muscle: BTreeMap<domain::MuscleID, domain::Sti
         .iter()
         .map(|(muscle_id, stimulus)| (*muscle_id, *stimulus))
         .collect::<Vec<_>>();
-    stimulus_per_muscle.sort_by(|a, b| b.1.cmp(&a.1));
+    stimulus_per_muscle.sort_by_key(|b| std::cmp::Reverse(b.1));
     let mut groups = [vec![], vec![], vec![], vec![]];
     for (muscle, stimulus) in stimulus_per_muscle {
         let name = muscle.name();

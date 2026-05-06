@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
+    fmt::Write,
     ops::RangeInclusive,
     str::FromStr,
 };
@@ -66,10 +67,9 @@ pub trait TrainingSessionService {
                 rpe,
                 ..
             } = element
+                && (reps.is_some() || time.is_some() || weight.is_some() || rpe.is_some())
             {
-                if reps.is_some() || time.is_some() || weight.is_some() || rpe.is_some() {
-                    result.entry(*exercise_id).or_default().push(element);
-                }
+                result.entry(*exercise_id).or_default().push(element);
             }
         }
         result
@@ -317,10 +317,10 @@ impl TrainingSession {
                 if reps.is_none() && time.is_none() {
                     continue;
                 }
-                if let Some(rpe) = rpe {
-                    if *rpe < RPE::SEVEN {
-                        continue;
-                    }
+                if let Some(rpe) = rpe
+                    && *rpe < RPE::SEVEN
+                {
+                    continue;
                 }
                 if let Some(exercise) = exercises.iter().find(|e| e.id == *exercise_id) {
                     for (muscle_id, stimulus) in &exercise.muscle_stimulus() {
@@ -590,14 +590,14 @@ impl TrainingSession {
         debug_assert!(section.start() <= section.end());
         let previous_section = self.section_range(section_idx - 1);
         let mut trailing_rest = 0;
-        if section.end() + 1 == self.elements.len() {
-            if let Some(TrainingSessionElement::Set { .. }) = self.elements.last() {
-                self.elements.push(TrainingSessionElement::Rest {
-                    target_time: None,
-                    automatic: true,
-                });
-                trailing_rest += 1;
-            }
+        if section.end() + 1 == self.elements.len()
+            && let Some(TrainingSessionElement::Set { .. }) = self.elements.last()
+        {
+            self.elements.push(TrainingSessionElement::Rest {
+                target_time: None,
+                automatic: true,
+            });
+            trailing_rest += 1;
         }
         self.elements[*previous_section.start()..=*section.end() + trailing_rest]
             .rotate_right(section.end() - section.start() + trailing_rest + 1);
@@ -613,14 +613,14 @@ impl TrainingSession {
         let section_len = section.end() - section.start() + 1;
         let subsequent_section_len = subsequent_section.end() - subsequent_section.start() + 1;
         let mut trailing_rest = 0;
-        if section.start() + section_len + subsequent_section_len == self.elements.len() {
-            if let Some(TrainingSessionElement::Set { .. }) = self.elements.last() {
-                self.elements.push(TrainingSessionElement::Rest {
-                    target_time: None,
-                    automatic: true,
-                });
-                trailing_rest += 1;
-            }
+        if section.start() + section_len + subsequent_section_len == self.elements.len()
+            && let Some(TrainingSessionElement::Set { .. }) = self.elements.last()
+        {
+            self.elements.push(TrainingSessionElement::Rest {
+                target_time: None,
+                automatic: true,
+            });
+            trailing_rest += 1;
         }
         self.elements[*section.start()
             ..*section.start() + section_len + subsequent_section_len + trailing_rest]
@@ -707,10 +707,10 @@ impl TrainingSession {
 
         debug_assert!(element_idx <= last);
 
-        if last + 1 < self.elements.len() {
-            if let TrainingSessionElement::Rest { .. } = &self.elements[last + 1] {
-                last += 1;
-            }
+        if last + 1 < self.elements.len()
+            && let TrainingSessionElement::Rest { .. } = &self.elements[last + 1]
+        {
+            last += 1;
         }
 
         last
@@ -906,7 +906,7 @@ impl Set {
         let mut result = parts.join(" × ");
 
         if show_rpe && self.rpe > RPE::ZERO {
-            result.push_str(&format!(" @ {}", self.rpe));
+            let _ = write!(result, " @ {}", self.rpe);
         }
 
         result

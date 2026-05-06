@@ -132,10 +132,9 @@ impl Routine {
         let new_rounds = rounds;
         if let Some(RoutinePart::RoutineSection { rounds, .. }) =
             Self::get_mut_part(&mut self.sections, path)
+            && let Some(new_rounds) = new_rounds
         {
-            if let Some(new_rounds) = new_rounds {
-                *rounds = new_rounds;
-            }
+            *rounds = new_rounds;
         }
     }
 
@@ -258,17 +257,17 @@ impl Routine {
     }
 
     fn get_part<'a>(sections: &'a [RoutinePart], path: &[usize]) -> Option<&'a RoutinePart> {
-        if let Some(i) = path.last() {
-            if i < &sections.len() {
-                let p = &sections[*i];
-                if path.len() == 1 {
-                    return Some(p);
-                }
-                if let RoutinePart::RoutineSection { rounds: _, parts } = p {
-                    return Self::get_part(parts, &path[..path.len() - 1]);
-                }
+        if let Some(i) = path.last()
+            && i < &sections.len()
+        {
+            let p = &sections[*i];
+            if path.len() == 1 {
+                return Some(p);
             }
-        };
+            if let RoutinePart::RoutineSection { rounds: _, parts } = p {
+                return Self::get_part(parts, &path[..path.len() - 1]);
+            }
+        }
         None
     }
 
@@ -276,17 +275,17 @@ impl Routine {
         sections: &'a mut [RoutinePart],
         path: &[usize],
     ) -> Option<&'a mut RoutinePart> {
-        if let Some(i) = path.last() {
-            if i < &sections.len() {
-                let p = &mut sections[*i];
-                if path.len() == 1 {
-                    return Some(p);
-                }
-                if let RoutinePart::RoutineSection { rounds: _, parts } = p {
-                    return Self::get_mut_part(parts, &path[..path.len() - 1]);
-                }
+        if let Some(i) = path.last()
+            && i < &sections.len()
+        {
+            let p = &mut sections[*i];
+            if path.len() == 1 {
+                return Some(p);
             }
-        };
+            if let RoutinePart::RoutineSection { rounds: _, parts } = p {
+                return Self::get_mut_part(parts, &path[..path.len() - 1]);
+            }
+        }
         None
     }
 }

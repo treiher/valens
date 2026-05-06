@@ -221,21 +221,19 @@ pub fn Users() -> Element {
                                 gloo_timers::future::sleep(std::time::Duration::from_millis(10)).await;
                                 {
                                     match &*dialog.read() {
-                                        UserDialog::Add { name, .. } | UserDialog::Edit { name, .. } => {
-                                            if name.input != input {
+                                        UserDialog::Add { name, .. } | UserDialog::Edit { name, .. }
+                                            if name.input != input => {
                                                 return;
                                             }
-                                        }
                                         _ => {}
                                     }
                                 }
                                 let validated_name = DOMAIN_SERVICE().validate_user_name(&input, id).await.map_err(|err| err.to_string());
                                 match &mut *dialog.write() {
-                                    UserDialog::Add { name, .. } | UserDialog::Edit { name, .. } => {
-                                        if name.input == input {
+                                    UserDialog::Add { name, .. } | UserDialog::Edit { name, .. }
+                                        if name.input == input => {
                                             name.validated = validated_name;
                                         }
-                                    }
                                     _ => {}
                                 }
                             }

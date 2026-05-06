@@ -81,14 +81,13 @@ impl Theme {
         if let Some(html) = web_sys::window()
             .and_then(|w| w.document())
             .and_then(|d| d.document_element())
-        {
-            if let Err(err) = match self {
+            && let Err(err) = match self {
                 Theme::System => html.remove_attribute("data-theme"),
                 Theme::Light => html.set_attribute("data-theme", "light"),
                 Theme::Dark => html.set_attribute("data-theme", "dark"),
-            } {
-                warn!("failed to apply theme: {err:?}");
             }
+        {
+            warn!("failed to apply theme: {err:?}");
         }
     }
 }

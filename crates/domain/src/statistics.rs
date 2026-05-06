@@ -38,7 +38,7 @@ pub fn init_interval(dates: &[NaiveDate], default_interval: DefaultInterval) -> 
         && last >= today - Duration::days(default_interval as i64)
     {
         first = today - Duration::days(default_interval as i64);
-    };
+    }
 
     last = today;
 
@@ -58,7 +58,7 @@ pub fn init_interval(dates: &[NaiveDate], default_interval: DefaultInterval) -> 
 ///
 ///  - `group_day` is called to combine values of the *same* day.
 ///  - `group_range` is called to combine values of multiple days after all
-///     values for the same day have been combined by `group_day`.
+///    values for the same day have been combined by `group_day`.
 ///
 /// Return `None` in those functions to indicate the absence of a value.
 ///

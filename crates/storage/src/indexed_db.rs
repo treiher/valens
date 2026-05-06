@@ -1826,7 +1826,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_exercises(&[EXERCISE.clone()])
+                .write_exercises(std::slice::from_ref(&EXERCISE))
                 .await
                 .unwrap();
 
@@ -1852,7 +1852,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_exercises(&[EXERCISE.clone()])
+                .write_exercises(std::slice::from_ref(&EXERCISE))
                 .await
                 .unwrap();
 
@@ -1913,7 +1913,10 @@ mod tests {
             reset().await;
             init_session().await;
 
-            IndexedDB.write_routines(&[ROUTINE.clone()]).await.unwrap();
+            IndexedDB
+                .write_routines(std::slice::from_ref(&ROUTINE))
+                .await
+                .unwrap();
 
             assert_eq!(
                 IndexedDB.read_routines().await.unwrap(),
@@ -1946,7 +1949,10 @@ mod tests {
             reset().await;
             init_session().await;
 
-            IndexedDB.write_routines(&[ROUTINE.clone()]).await.unwrap();
+            IndexedDB
+                .write_routines(std::slice::from_ref(&ROUTINE))
+                .await
+                .unwrap();
 
             assert_eq!(
                 IndexedDB.read_routines().await.unwrap(),
@@ -2017,7 +2023,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_training_sessions(&[TRAINING_SESSION.clone()])
+                .write_training_sessions(std::slice::from_ref(&TRAINING_SESSION))
                 .await
                 .unwrap();
 
@@ -2054,7 +2060,7 @@ mod tests {
             init_session().await;
 
             IndexedDB
-                .write_training_sessions(&[TRAINING_SESSION.clone()])
+                .write_training_sessions(std::slice::from_ref(&TRAINING_SESSION))
                 .await
                 .unwrap();
 

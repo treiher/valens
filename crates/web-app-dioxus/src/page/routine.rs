@@ -1030,7 +1030,7 @@ async fn modify_routine_sections(
                 .write()
                 .push(format!("Failed to modify routine: {err}"));
         }
-    };
+    }
     IS_LOADING.with_mut(|is_loading| *is_loading = false);
     close_dialog();
 }

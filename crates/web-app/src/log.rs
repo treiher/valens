@@ -68,22 +68,22 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &Record) {
-        if self.enabled(record.metadata()) {
-            if let Some(ref log) = *LOG.lock().unwrap() {
-                let message = record.args().to_string();
-                match record.level() {
-                    Level::Error => gloo_console::error!(message),
-                    Level::Warn => gloo_console::warn!(message),
-                    Level::Info => gloo_console::info!(message),
-                    Level::Debug | Level::Trace => gloo_console::debug!(message),
-                }
-
-                let _ = log.lock().unwrap().deref_mut().write_entry(Entry {
-                    time: Local::now().format("%b %d %H:%M:%S").to_string(),
-                    level: record.level(),
-                    message: record.args().to_string(),
-                });
+        if self.enabled(record.metadata())
+            && let Some(ref log) = *LOG.lock().unwrap()
+        {
+            let message = record.args().to_string();
+            match record.level() {
+                Level::Error => gloo_console::error!(message),
+                Level::Warn => gloo_console::warn!(message),
+                Level::Info => gloo_console::info!(message),
+                Level::Debug | Level::Trace => gloo_console::debug!(message),
             }
+
+            let _ = log.lock().unwrap().deref_mut().write_entry(Entry {
+                time: Local::now().format("%b %d %H:%M:%S").to_string(),
+                level: record.level(),
+                message: record.args().to_string(),
+            });
         }
     }
 

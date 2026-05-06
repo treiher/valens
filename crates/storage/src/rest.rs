@@ -27,7 +27,6 @@ impl REST<GlooNetSendRequest> {
 }
 
 impl Default for REST<GlooNetSendRequest> {
-    #[must_use]
     fn default() -> Self {
         Self::new()
     }

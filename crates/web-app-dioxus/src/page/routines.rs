@@ -192,8 +192,8 @@ pub fn view_dialog(
         async move {
             let mut saved = false;
             is_loading! {
-                if let RoutineDialog::Add { name } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. } = &*dialog.read() {
-                    if let Ok(name) = name.validated.clone() {
+                if let RoutineDialog::Add { name } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. } = &*dialog.read()
+                    && let Ok(name) = name.validated.clone() {
                         match &*dialog.read() {
                             RoutineDialog::Add { .. } => {
                                 match DOMAIN_SERVICE()
@@ -265,7 +265,6 @@ pub fn view_dialog(
                             _ => {}
                         }
                     }
-                }
             }
             if saved {
                 close_dialog();
@@ -404,21 +403,19 @@ pub fn view_dialog(
                             gloo_timers::future::sleep(std::time::Duration::from_millis(10)).await;
                             {
                                 match &*dialog.read() {
-                                    RoutineDialog::Add { name, .. } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. } => {
-                                        if name.input != input {
+                                    RoutineDialog::Add { name, .. } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. }
+                                        if name.input != input => {
                                             return;
                                         }
-                                    }
                                     _ => {}
                                 }
                             }
                             let validated_name = DOMAIN_SERVICE().validate_routine_name(&input, routine_id).await.map_err(|err| err.to_string());
                             match &mut *dialog.write() {
-                                RoutineDialog::Add { name, .. } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. } => {
-                                    if name.input == input {
+                                RoutineDialog::Add { name, .. } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. }
+                                    if name.input == input => {
                                         name.validated = validated_name;
                                     }
-                                }
                                 _ => {}
                             }
                         }

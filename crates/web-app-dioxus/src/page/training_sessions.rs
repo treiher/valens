@@ -411,8 +411,8 @@ pub fn view_dialog(
 
     let save = move |_| async move {
         is_loading! {
-            if let TrainingDialog::Add { date, routine_id } = &*dialog.read() {
-                if let (Ok(date), Ok(routine_id)) = (date.validated.clone(), routine_id.validated.clone()) {
+            if let TrainingDialog::Add { date, routine_id } = &*dialog.read()
+                && let (Ok(date), Ok(routine_id)) = (date.validated.clone(), routine_id.validated.clone()) {
                     match DOMAIN_SERVICE().get_routines().await {
                         Ok(routines) => {
                             let elements = routines.iter().find(|r| r.id == routine_id).map(|routine| {
@@ -445,7 +445,6 @@ pub fn view_dialog(
                         }
                     }
                 }
-            }
         }
     };
     let delete = eh!(close_dialog; {

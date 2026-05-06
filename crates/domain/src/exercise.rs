@@ -119,7 +119,7 @@ pub struct ExerciseMuscle {
     pub stimulus: Stimulus,
 }
 
-#[derive(Deref, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Deref, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Stimulus(u32);
 
 impl Stimulus {
@@ -247,7 +247,6 @@ impl Property for MuscleID {
         MUSCLES.iter()
     }
 
-    #[must_use]
     fn name(self) -> &'static str {
         match self {
             MuscleID::None => "No Muscle",

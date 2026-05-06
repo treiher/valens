@@ -159,7 +159,7 @@ pub async fn check_for_updates() {
             } else {
                 UpdateStatus::Available
             };
-            *SERVER_VERSION.write() = ServerVersion::Version(version.to_string());
+            *SERVER_VERSION.write() = ServerVersion::Version(version.clone());
         }
         Err(domain::ReadError::Storage(domain::StorageError::NoConnection)) => {
             *SERVER_VERSION.write() = ServerVersion::NoConnection;
@@ -167,7 +167,7 @@ pub async fn check_for_updates() {
         Err(err) => {
             *SERVER_VERSION.write() = ServerVersion::Error(err.to_string());
         }
-    };
+    }
 
     *CHECKING_FOR_UPDATES.write() = false;
 }

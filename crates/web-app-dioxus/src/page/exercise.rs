@@ -148,7 +148,7 @@ where
         .map(|(k, v)| (*k.borrow(), *v.borrow()))
         .filter(|(_, stimulus)| **stimulus > *domain::Stimulus::NONE)
         .collect::<Vec<_>>();
-    muscles.sort_by(|a, b| b.1.cmp(&a.1));
+    muscles.sort_by_key(|b| std::cmp::Reverse(b.1));
     rsx! {
         CenteredTags {
             for (m, stimulus) in muscles {

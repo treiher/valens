@@ -105,13 +105,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
     let settings = use_context::<Settings>();
     let notification_permission = web_sys::Notification::permission();
     let notifications_color = match notification_permission {
-        web_sys::NotificationPermission::Granted => {
-            if settings.notifications() {
-                "is-link"
-            } else {
-                ""
-            }
-        }
+        web_sys::NotificationPermission::Granted if settings.notifications() => "is-link",
         web_sys::NotificationPermission::Denied => "is-danger",
         _ => "",
     };

@@ -172,7 +172,7 @@ impl RPE {
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let v = (value * 10.0) as u8;
 
-        if v % 5 != 0 {
+        if !v.is_multiple_of(5) {
             return Err(RPEError::InvalidResolution);
         }
 

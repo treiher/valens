@@ -35,7 +35,7 @@ dev = [
     "hatch >=1",
     "mypy >=1",
     "pip", # required by hatch
-    "playwright ==1.56.0", # must be compatible with Playwright provided by Nix
+    "playwright==1.59.0", # must be compatible with Playwright provided by Nix
     "pytest >=5",
     "pytest-alembic >=0.3.1",
     "pytest-cov >=2.10.0",

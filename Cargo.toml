@@ -17,7 +17,7 @@ anyhow = "1.0.102"
 assert_approx_eq = "1.1.0"
 chrono = { version = "0.4.44", default-features = false }
 futures-util = "0.3"
-gloo-timers = { version = "0.3", features = ["futures"] }
+gloo-timers = { version = "0.4", features = ["futures"] }
 log = { version = "0.4.28" }
 plotters = { version = "0.3.7", default-features = false }
 pretty_assertions = "1.4.1"

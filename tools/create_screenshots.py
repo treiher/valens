@@ -27,15 +27,17 @@ def main() -> None:
         path = Path(d)
         config_file = config.create_config_file(path, path / "test.db")
         with Popen(
-            f"valens demo --port {PORT}".split(),
+            f"build/venv/bin/valens demo --port {PORT}".split(),
             stdout=PIPE,
             stderr=STDOUT,
             env={"VALENS_CONFIG": str(config_file), **os.environ},
         ) as p:
             assert p.stdout
             wait_for_output(p.stdout, "Running on")
-            take_screenshots()
-            p.terminate()
+            try:
+                take_screenshots()
+            finally:
+                p.terminate()
 
 
 def take_screenshots() -> None:
@@ -45,9 +47,11 @@ def take_screenshots() -> None:
     screenshots = []
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        browser = pw.chromium.launch(channel="chromium", headless=True)
         context = browser.new_context(viewport={"width": 425, "height": 800})
         page = context.new_page()
+        page.set_default_timeout(5000)
+        page.set_default_navigation_timeout(5000)
 
         def save_screenshot(name: str) -> None:
             filename = TARGET_DIR / f"{name}.png"

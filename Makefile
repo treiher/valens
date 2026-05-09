@@ -111,7 +111,7 @@ third-party/fontawesome:
 
 .PHONY: screenshots
 
-screenshots: $(PACKAGE_GENERATED_FILES)
+screenshots: $(BUILD_DIR)/venv/bin/valens
 	tools/create_screenshots.py
 
 .PHONY: dist

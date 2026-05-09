@@ -24,5 +24,5 @@ jobs:
             --json number,baseRefOid \
             | jq -r --arg sha "$MAIN_SHA" '.[] | select(.baseRefOid != $sha) | .number' \
             | while read -r pr; do
-                gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body "@dependabot rebase"
+                gh pr update-branch "$pr" --repo "$GITHUB_REPOSITORY" --rebase
               done

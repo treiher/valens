@@ -1,0 +1,28 @@
+name: Dependabot Auto-Rebase
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rebase out-of-date Dependabot PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --author "dependabot[bot]" \
+            --state open \
+            --json number,baseRefOid \
+            | jq -r --arg sha "$MAIN_SHA" '.[] | select(.baseRefOid != $sha) | .number' \
+            | while read -r pr; do
+                gh pr comment "$pr" --body "@dependabot rebase"
+              done

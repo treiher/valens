@@ -15,6 +15,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "friday"
+    versioning-strategy: "lockfile-only"
     groups:
       python-minor-patch:
         update-types:
@@ -26,8 +27,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "friday"
-    ignore:
-      - dependency-name: "wasm-bindgen"
+    versioning-strategy: "lockfile-only"
     groups:
       rust-minor-patch:
         update-types:

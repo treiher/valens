@@ -810,8 +810,7 @@ pub fn Calendar(entries: Vec<(NaiveDate, usize, f64)>, interval: domain::Interva
                                 td {
                                     style: if opacity > 0. {
                                         "background-color:{web_app::chart::rgba_color(color, opacity)}"
-                                    },
-                                    style: if date < interval.first || date > interval.last {
+                                    } else if date < interval.first || date > interval.last {
                                         "background-color:var(--bulma-scheme-main)"
                                     },
                                     div { "{date.day()}" }

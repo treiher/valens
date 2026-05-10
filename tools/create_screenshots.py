@@ -11,6 +11,7 @@ from tests.e2e.const import PORT
 from tests.e2e.io import wait_for_output
 from tests.e2e.pages import (
     BodyFatPage,
+    HomePage,
     LoginPage,
     MenstrualCyclePage,
     RoutinePage,
@@ -65,8 +66,9 @@ def take_screenshots() -> None:
         # Prevent the mouse from hovering over an element
         page.mouse.move(0, 100)
 
-        page.goto(base_url)
-        page.wait_for_timeout(500)
+        home_page = HomePage(page)
+        home_page.expect_page()
+        home_page.expect_synchronization()
 
         save_screenshot("home")
 
@@ -89,6 +91,7 @@ def take_screenshots() -> None:
         body_fat_page = BodyFatPage(page, base_url)
         body_fat_page.goto()
         page.get_by_text("6M").first.click()
+        page.wait_for_timeout(400)
 
         save_screenshot("body_fat")
 

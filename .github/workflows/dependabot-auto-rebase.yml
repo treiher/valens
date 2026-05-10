@@ -5,17 +5,13 @@ on:
     branches:
       - main
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   rebase:
     runs-on: ubuntu-latest
     steps:
       - name: Rebase out-of-date Dependabot PRs
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.REBASE_TOKEN }}
           MAIN_SHA: ${{ github.sha }}
         run: |
           gh pr list \

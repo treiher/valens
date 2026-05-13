@@ -122,7 +122,7 @@ $(WHEEL): $(PACKAGE_GENERATED_FILES)
 	uv build
 
 $(PACKAGE_GENERATED_FILES): DX_RELEASE_DIR := target/dx/valens-web-app-dioxus/release/web/public
-$(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-party/fontawesome $(shell find crates/web-app-dioxus/{assets,src}/ -type f) $(BUILD_DIR)/version
+$(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-party/fontawesome $(shell find crates/ -type f) $(BUILD_DIR)/version
 	mkdir -p $(GENERATED_DIR)
 	rm -rf $(GENERATED_DIR)/*
 	sass crates/web-app-dioxus/assets/main.scss $(GENERATED_DIR)/main.css

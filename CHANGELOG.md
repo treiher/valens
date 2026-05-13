@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Routine page: Option to show and copy routine as text
+- Routines page: Option to show and copy routine as text
 - CLI commands to list, create, update and delete users
 
 ### Fixed

@@ -3611,6 +3611,7 @@ dependencies = [
  "valens-domain",
  "valens-storage",
  "valens-web-app",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

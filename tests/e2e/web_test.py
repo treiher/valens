@@ -1026,6 +1026,24 @@ def test_routine_remove_activity(page: Page) -> None:
     assert len(sections[0].parts) == 0
 
 
+def test_routine_show_as_text(page: Page) -> None:
+    routine = USER.routines[0]
+    assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
+    exercise_1 = str(routine.sections[0].parts[0].exercise.name)
+    assert isinstance(routine.sections[1].parts[0], models.RoutineActivity)
+    exercise_2 = str(routine.sections[1].parts[0].exercise.name)
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    text = p.show_as_text()
+
+    assert routine.name in text
+    assert exercise_1 in text
+    assert exercise_2 in text
+
+
 def test_routine_delete_training_session(page: Page) -> None:
     routine = USER.routines[0]
     workouts = sorted(

@@ -92,6 +92,27 @@ $blue: #3B8ED0;
     border-radius: 50%;
 }
 
+// Pin button to the top-right corner of its container
+
+.button.is-overlay-top-right {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--bulma-link-text);
+
+    &:hover,
+    &:active,
+    &:focus {
+        border-color: transparent;
+        box-shadow: none;
+        color: var(--bulma-link);
+        text-decoration: none;
+    }
+}
+
 // Flex row gap helper (based on https://github.com/jgthms/bulma/pull/3542)
 
 @each $name, $value in bulma.$spacing-values {

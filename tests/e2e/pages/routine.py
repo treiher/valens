@@ -169,6 +169,12 @@ class RoutinePage(BasePage):
                 break
         self.wait_until_idle()
 
+    def show_as_text(self) -> str:
+        self.page.get_by_test_id("fab").click()
+        self.page.get_by_test_id("options-show-as-text").click()
+        self.dialog.wait_until_open()
+        return self.page.get_by_test_id("show-text-content").inner_text()
+
 
 class EditDialog(Dialog):
     def get_date(self) -> str:

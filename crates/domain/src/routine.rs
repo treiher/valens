@@ -106,6 +106,25 @@ impl Routine {
         result
     }
 
+    #[must_use]
+    pub fn to_text(&self, exercises: &[Exercise], show_tut: bool, show_rpe: bool) -> String {
+        let mut lines = vec![self.name.to_string()];
+        if !self.notes.is_empty() {
+            lines.push(String::new());
+            lines.push(self.notes.clone());
+        }
+        for (i, section) in self.sections.iter().enumerate() {
+            lines.push(String::new());
+            let label = u8::try_from(i)
+                .ok()
+                .map(|n| char::from(b'A'.saturating_add(n)))
+                .filter(char::is_ascii_uppercase)
+                .map_or_else(|| format!("#{}", i + 1), |c| c.to_string());
+            lines.extend(section.to_text_lines(&label, 0, exercises, show_tut, show_rpe));
+        }
+        lines.join("\n")
+    }
+
     pub fn exercises(&self) -> BTreeSet<ExerciseID> {
         self.sections
             .iter()
@@ -477,6 +496,119 @@ impl RoutinePart {
             }
         }
         result
+    }
+
+    fn to_text_lines(
+        &self,
+        label: &str,
+        depth: usize,
+        exercises: &[Exercise],
+        show_tut: bool,
+        show_rpe: bool,
+    ) -> Vec<String> {
+        use std::fmt::Write as _;
+        let indent = "  ".repeat(depth);
+        let mut lines = vec![];
+        match self {
+            RoutinePart::RoutineSection { rounds, parts } => {
+                let r = u32::from(*rounds);
+                let sets_label = if r == 1 { "set" } else { "sets" };
+                lines.push(format!("{indent}[{label}] {r} {sets_label}"));
+                let mut counter = 1;
+                for part in parts {
+                    match part {
+                        RoutinePart::RoutineSection { .. } => {
+                            let label = RoutinePart::part_label(label, counter);
+                            counter += 1;
+                            lines.extend(part.to_text_lines(
+                                &label,
+                                depth + 1,
+                                exercises,
+                                show_tut,
+                                show_rpe,
+                            ));
+                            lines.push(String::new());
+                        }
+                        RoutinePart::RoutineActivity { exercise_id, .. }
+                            if exercise_id.is_nil() =>
+                        {
+                            lines.extend(part.to_text_lines(
+                                "",
+                                depth + 1,
+                                exercises,
+                                show_tut,
+                                show_rpe,
+                            ));
+                        }
+                        RoutinePart::RoutineActivity { .. } => {
+                            let label = RoutinePart::part_label(label, counter);
+                            counter += 1;
+                            lines.extend(part.to_text_lines(
+                                &label,
+                                depth + 1,
+                                exercises,
+                                show_tut,
+                                show_rpe,
+                            ));
+                        }
+                    }
+                }
+                if lines.last().is_some_and(String::is_empty) {
+                    lines.pop();
+                }
+            }
+            RoutinePart::RoutineActivity {
+                exercise_id,
+                reps,
+                time,
+                weight,
+                rpe,
+                ..
+            } => {
+                if exercise_id.is_nil() {
+                    if *time > Time::default() {
+                        lines.push(format!("{indent}Rest \u{2014} {time} s"));
+                    } else {
+                        lines.push(format!("{indent}Rest"));
+                    }
+                } else {
+                    let name = exercises.iter().find(|e| e.id == *exercise_id).map_or_else(
+                        || format!("Exercise#{}", **exercise_id),
+                        |e| e.name.to_string(),
+                    );
+                    let mut parts = vec![];
+                    if *reps > Reps::default() {
+                        parts.push(reps.to_string());
+                    }
+                    if show_tut && *time > Time::default() {
+                        parts.push(format!("{time} s"));
+                    }
+                    if *weight > Weight::default() {
+                        parts.push(format!("{weight} kg"));
+                    }
+                    let mut targets = parts.join(" \u{00d7} ");
+                    if show_rpe && *rpe > RPE::ZERO {
+                        let _ = write!(targets, " @ {rpe}");
+                    }
+                    if targets.is_empty() {
+                        lines.push(format!("{indent}{label} \u{2014} {name}"));
+                    } else {
+                        lines.push(format!(
+                            "{indent}{label} \u{2014} {name} \u{2014} {targets}"
+                        ));
+                    }
+                }
+            }
+        }
+        lines
+    }
+
+    fn part_label(parent: &str, n: usize) -> String {
+        if parent.ends_with(|c: char| c.is_ascii_digit()) {
+            format!("{parent}.{n}")
+        } else {
+            format!("{parent}{n}")
+        }
     }
 }
 
@@ -922,5 +1054,188 @@ mod tests {
             notes: String::new(),
             elements: vec![],
         }
+    }
+
+    #[test]
+    fn test_routine_to_text() {
+        assert_eq!(
+            ROUTINE.to_text(&EXERCISES, true, true),
+            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 2 s \u{00d7} 30 kg @ 10\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_without_notes() {
+        let routine = Routine {
+            id: 0.into(),
+            name: Name::new("N").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: 1.into(),
+                    reps: Reps::new(5).unwrap(),
+                    time: Time::default(),
+                    weight: Weight::default(),
+                    rpe: RPE::ZERO,
+                    automatic: false,
+                }],
+            }],
+        };
+        assert_eq!(
+            routine.to_text(&EXERCISES, true, true),
+            "N\n\n[A] 1 set\n  A1 \u{2014} A \u{2014} 5"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_time_only_and_rest_no_time() {
+        let routine = Routine {
+            id: 0.into(),
+            name: Name::new("T").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![RoutinePart::RoutineSection {
+                rounds: Rounds::new(2).unwrap(),
+                parts: vec![
+                    RoutinePart::RoutineActivity {
+                        exercise_id: 1.into(),
+                        reps: Reps::default(),
+                        time: Time::new(30).unwrap(),
+                        weight: Weight::default(),
+                        rpe: RPE::ZERO,
+                        automatic: false,
+                    },
+                    RoutinePart::RoutineActivity {
+                        exercise_id: ExerciseID::nil(),
+                        reps: Reps::default(),
+                        time: Time::default(),
+                        weight: Weight::default(),
+                        rpe: RPE::ZERO,
+                        automatic: false,
+                    },
+                ],
+            }],
+        };
+        assert_eq!(
+            routine.to_text(&EXERCISES, true, true),
+            "T\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 30 s\n  Rest"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_nested() {
+        let routine = Routine {
+            id: 0.into(),
+            name: Name::new("N").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![RoutinePart::RoutineSection {
+                rounds: Rounds::new(2).unwrap(),
+                parts: vec![
+                    RoutinePart::RoutineActivity {
+                        exercise_id: 1.into(),
+                        reps: Reps::new(5).unwrap(),
+                        time: Time::default(),
+                        weight: Weight::default(),
+                        rpe: RPE::ZERO,
+                        automatic: false,
+                    },
+                    RoutinePart::RoutineSection {
+                        rounds: Rounds::new(3).unwrap(),
+                        parts: vec![
+                            RoutinePart::RoutineActivity {
+                                exercise_id: 1.into(),
+                                reps: Reps::new(8).unwrap(),
+                                time: Time::default(),
+                                weight: Weight::default(),
+                                rpe: RPE::ZERO,
+                                automatic: false,
+                            },
+                            RoutinePart::RoutineActivity {
+                                exercise_id: ExerciseID::nil(),
+                                reps: Reps::default(),
+                                time: Time::new(30).unwrap(),
+                                weight: Weight::default(),
+                                rpe: RPE::ZERO,
+                                automatic: false,
+                            },
+                        ],
+                    },
+                ],
+            }],
+        };
+        assert_eq!(
+            routine.to_text(&EXERCISES, true, true),
+            "N\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 5\n  [A2] 3 sets\n    A2.1 \u{2014} A \u{2014} 8\n    Rest \u{2014} 30 s"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_no_params() {
+        let routine = Routine {
+            id: 0.into(),
+            name: Name::new("X").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: 1.into(),
+                    reps: Reps::default(),
+                    time: Time::default(),
+                    weight: Weight::default(),
+                    rpe: RPE::ZERO,
+                    automatic: false,
+                }],
+            }],
+        };
+        assert_eq!(
+            routine.to_text(&EXERCISES, true, true),
+            "X\n\n[A] 1 set\n  A1 \u{2014} A"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_hide_tut() {
+        assert_eq!(
+            ROUTINE.to_text(&EXERCISES, false, true),
+            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 30 kg @ 10\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_hide_rpe() {
+        assert_eq!(
+            ROUTINE.to_text(&EXERCISES, true, false),
+            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 2 s \u{00d7} 30 kg\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_many_sections() {
+        let sections = (0..27)
+            .map(|_| RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![],
+            })
+            .collect();
+        let routine = Routine {
+            id: 0.into(),
+            name: Name::new("N").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections,
+        };
+        let text = routine.to_text(&[], true, true);
+        assert!(
+            text.contains("[Z] 1 set"),
+            "expected label Z for 26th section"
+        );
+        assert!(
+            text.contains("[#27] 1 set"),
+            "expected fallback label for 27th section"
+        );
     }
 }

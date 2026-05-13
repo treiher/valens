@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use log::warn;
 
 use valens_domain::{self as domain, RoutineService, SessionService};
 
@@ -7,11 +8,12 @@ use crate::{
     cache::{Cache, CacheState},
     eh, ensure_session,
     routing::NavigatorScrollExt,
+    settings::Settings,
     ui::{
         element::{
-            DeleteConfirmationDialog, ErrorMessage, FloatingActionButton, ItemOptionsButton,
-            LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog, SearchBox, Table,
-            Title,
+            Block, DeleteConfirmationDialog, Dialog, ErrorMessage, FloatingActionButton, Icon,
+            ItemOptionsButton, LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog,
+            SearchBox, Table, Title,
         },
         form::{FieldValue, FieldValueState, InputField},
     },
@@ -172,6 +174,7 @@ pub fn view_dialog(
     closed_dialog_route: Option<Route>,
 ) -> Element {
     let mut is_loading = use_signal(|| false);
+    let mut copy_success = use_signal(|| false);
 
     macro_rules! is_loading {
         ($block:expr) => {
@@ -295,12 +298,36 @@ pub fn view_dialog(
         RoutineDialog::None => rsx! {},
         RoutineDialog::Options(routine) => {
             let routine = routine.clone();
+            let routine_for_text = routine.clone();
             let routine_name_copy = routine.name.clone();
             let routine_name_edit = routine.name.clone();
             rsx! {
                 OptionsMenu {
                     options: vec![
                         rsx! {
+                            MenuOption {
+                                icon: "file-lines".to_string(),
+                                text: "Show as text".to_string(),
+                                "data-testid": "options-show-as-text",
+                                on_click: move |_| {
+                                    let settings = consume_context::<Settings>();
+                                    let text = match &*consume_context::<Cache>().exercises.read() {
+                                        CacheState::Ready(exercises) => {
+                                            routine_for_text.to_text(
+                                                exercises,
+                                                settings.show_tut(),
+                                                settings.show_rpe(),
+                                            )
+                                        }
+                                        _ => routine_for_text.to_text(
+                                            &[],
+                                            settings.show_tut(),
+                                            settings.show_rpe(),
+                                        ),
+                                    };
+                                    *dialog.write() = RoutineDialog::ShowText(text);
+                                }
+                            },
                             MenuOption {
                                 icon: (if routine.archived { "box-open" } else { "box-archive" }).to_string(),
                                 text: (if routine.archived { "Unarchive routine" } else { "Archive routine" }).to_string(),
@@ -361,7 +388,7 @@ pub fn view_dialog(
                                 "data-testid": "options-delete",
                                 on_click: move |_| { *dialog.write() = RoutineDialog::Delete(routine.clone()); }
                             },
-                        },
+                        }
                     ],
                     on_close: eh!(close_dialog; { close_dialog(); })
                 }
@@ -432,6 +459,64 @@ pub fn view_dialog(
                 is_loading: is_loading(),
             }
         },
+        RoutineDialog::ShowText(text) => {
+            rsx! {
+                Dialog {
+                    on_close: eh!(close_dialog; { close_dialog(); }),
+                    div {
+                        class: "is-relative",
+                        Block {
+                            pre {
+                                class: "has-text-text px-0 py-1",
+                                "data-testid": "show-text-content",
+                                "{text}"
+                            }
+                        }
+                        button {
+                            class: "button is-overlay-top-right p-0",
+                            "data-testid": "show-text-copy",
+                            onclick: eh!(text; {
+                                if let Some(window) = web_sys::window() {
+                                    let promise = window.navigator().clipboard().write_text(&text);
+                                    spawn(async move {
+                                        match wasm_bindgen_futures::JsFuture::from(promise).await {
+                                            Ok(_) => {
+                                                *copy_success.write() = true;
+                                                gloo_timers::future::TimeoutFuture::new(2_000).await;
+                                                *copy_success.write() = false;
+                                            }
+                                            Err(e) => {
+                                                warn!("failed to copy to clipboard: {e:?}");
+                                                ERRORS.write().push(format!("Failed to copy to clipboard: {e:?}"));
+                                            }
+                                        }
+                                    });
+                                }
+                            }),
+                            if copy_success() {
+                                Icon { name: "check".to_string() }
+                            } else {
+                                Icon { name: "copy".to_string() }
+                            }
+                        }
+                    }
+                    Block {
+                        div {
+                            class: "field is-grouped is-grouped-centered",
+                            div {
+                                class: "control",
+                                button {
+                                    class: "button is-light is-soft",
+                                    "data-testid": "show-text-close",
+                                    onclick: eh!(close_dialog; { close_dialog(); }),
+                                    "Close"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -450,4 +535,5 @@ pub enum RoutineDialog {
         routine_id: domain::RoutineID,
     },
     Delete(domain::Routine),
+    ShowText(String),
 }

@@ -110,7 +110,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                     {page::routines::view_dialog(routine_dialog, None)}
                     {view_edit_dialog(edit_dialog, cache)}
                     FloatingActionButton {
-                        icon: "edit",
+                        icon: "ellipsis-vertical",
                         on_click: eh!(routine; {
                             *routine_dialog.write() = page::routines::RoutineDialog::Options(routine.clone());
                         }),

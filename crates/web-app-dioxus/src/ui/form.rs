@@ -33,6 +33,7 @@ pub fn InputField(
     has_changed: bool,
     has_text_right: Option<bool>,
     is_disabled: Option<bool>,
+    autofocus: Option<bool>,
     on_input: EventHandler<FormEvent>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
@@ -60,6 +61,11 @@ pub fn InputField(
                     step: if let Some(step) = step { step },
                     value: "{value}",
                     oninput: on_input,
+                    onmounted: move |event| async move {
+                        if autofocus.unwrap_or_default() {
+                            let _ = event.set_focus(true).await;
+                        }
+                    },
                     ..attributes,
                 }
                 if let Some(ref left_icon) = left_icon {

@@ -386,6 +386,9 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
 
     macro_rules! skinfold_input_field {
         ($name:ident, $dialog:expr) => {
+            skinfold_input_field!($name, $dialog, false)
+        };
+        ($name:ident, $dialog:expr, $autofocus:expr) => {
             rsx! {
                 InputField {
                     label: skinfold_name!($name).to_string(),
@@ -397,6 +400,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                         err.clone()
                     },
                     has_changed: $name.changed(),
+                    autofocus: $autofocus,
                     on_input: move |event: FormEvent| async move {
                         match &mut *$dialog.write() {
                             BodyFatDialog::Add { $name, .. } | BodyFatDialog::Edit { $name, .. } => {
@@ -649,12 +653,12 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                     legend: "Jackson-Pollock 3".to_string(),
                     match sex {
                         domain::Sex::FEMALE => rsx! {
-                            {skinfold_input_field!(tricep, dialog)},
+                            {skinfold_input_field!(tricep, dialog, true)},
                             {skinfold_input_field!(suprailiac, dialog)},
                             {skinfold_input_field!(thigh, dialog)},
                         },
                         domain::Sex::MALE => rsx! {
-                            {skinfold_input_field!(chest, dialog)},
+                            {skinfold_input_field!(chest, dialog, true)},
                             {skinfold_input_field!(abdominal, dialog)},
                             {skinfold_input_field!(thigh, dialog)},
                         }

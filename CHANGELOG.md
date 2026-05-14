@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Routine page: Option to show and copy routine as text
 - Routines page: Option to show and copy routine as text
+- Body weight, body fat, exercises and routines pages: Automatic focus of the first input field in dialogs for adding entries
 - CLI commands to list, create, update and delete users
 
 ### Changed

@@ -383,6 +383,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                         value: weight.input.clone(),
                         error: if let Err(err) = &weight.validated { err.clone() },
                         has_changed: weight.changed(),
+                        autofocus: true,
                         on_input: move |event: FormEvent| {
                             let input = event.value();
                             async move {

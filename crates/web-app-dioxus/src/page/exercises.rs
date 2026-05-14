@@ -581,6 +581,7 @@ pub fn view_dialog(
                     value: name.input.clone(),
                     error: if let Err(err) = &name.validated { err.clone() },
                     has_changed: name.changed(),
+                    autofocus: true,
                     on_input: move |event: FormEvent| {
                         let input = event.value();
                         match &mut *dialog.write() {

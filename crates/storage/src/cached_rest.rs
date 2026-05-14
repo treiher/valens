@@ -303,8 +303,16 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
         id: domain::TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
+        exercise_notes: Option<std::collections::BTreeMap<domain::ExerciseID, String>>,
     ) -> Result<domain::TrainingSession, domain::UpdateError> {
-        execute!(self, modify_training_session, id, notes, elements)
+        execute!(
+            self,
+            modify_training_session,
+            id,
+            notes,
+            elements,
+            exercise_notes
+        )
     }
 
     async fn delete_training_session(
@@ -2036,7 +2044,8 @@ mod tests {
                     .modify_training_session(
                         training_session.id,
                         Some(training_session.notes.clone()),
-                        Some(training_session.elements.clone())
+                        Some(training_session.elements.clone()),
+                        None
                     )
                     .await,
                 Err(domain::UpdateError::Storage(
@@ -2061,7 +2070,8 @@ mod tests {
                 .modify_training_session(
                     training_session.id,
                     Some(training_session.notes.clone()),
-                    Some(training_session.elements.clone())
+                    Some(training_session.elements.clone()),
+                    None
                 )
                 .await
                 .unwrap(),

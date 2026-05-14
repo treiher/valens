@@ -3,8 +3,9 @@ use std::{
     hash::Hash,
 };
 
-use dioxus::prelude::*;
+use dioxus::{prelude::*, web::WebEventExt};
 use indexmap::IndexMap;
+use web_sys::wasm_bindgen::JsCast;
 
 use valens_domain::{self as domain, TrainingSessionService};
 use valens_web_app::{self as web_app, OngoingTrainingSessionService};
@@ -21,7 +22,7 @@ use crate::{
     ui::{
         element::{
             Block, CenteredBlock, Dialog, ErrorMessage, FloatingActionButton, Icon, Loading,
-            LoadingDialog, LoadingPage, MenuOption, NoConnection, OptionsMenu, Title,
+            LoadingDialog, LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog, Title,
         },
         form::{Field, FieldValue, FieldValueState, InputField},
     },
@@ -434,13 +435,16 @@ fn view_form(
         let exercise_names = exercise_ids.iter().enumerate().map(|(i, id)| {
             let name = exercise_name(*id, exercises);
             let number = exercise_number(id, &exercise_ids);
+            let note = training_session.exercise_notes.get(id).cloned().unwrap_or_default();
+            let note_is_empty = note.is_empty();
+            let exercise_id = *id;
             rsx! {
                 tr {
                     class: if is_current_section { "" } else { "is-semitransparent" },
                     td {
                         class: "has-text-centered has-text-weight-bold",
                         class: if i == 0 { "pt-2" },
-                        class: if i == exercise_ids_len - 1 { "pb-1" },
+                        class: if i == exercise_ids_len - 1 && note_is_empty { "pb-1" },
                         colspan: 6,
                         if let Some(number) = number {
                             span{
@@ -455,6 +459,7 @@ fn view_form(
                         }
                         a {
                             class: "px-1 is-link",
+                            "data-testid": "item-options",
                             onclick: eh!(training_session, element_idx_for_options; {
                                 *edit_dialog.write() = EditDialog::Options {
                                     training_session: training_session.clone(),
@@ -464,6 +469,27 @@ fn view_form(
                                 }
                             }),
                             Icon { name: "ellipsis-vertical" }
+                        }
+                    }
+                }
+                if !note_is_empty {
+                    tr {
+                        class: if is_current_section { "" } else { "is-semitransparent" },
+                        td {
+                            class: "px-2",
+                            class: if i == exercise_ids_len - 1 { "pb-1" },
+                            colspan: 6,
+                            div {
+                                class: "is-clickable is-italic has-text-centered",
+                                "data-testid": "exercise-note",
+                                onclick: eh!(mut edit_dialog; training_session; {
+                                    *edit_dialog.write() = EditDialog::ExerciseNote {
+                                        training_session,
+                                        exercise_id,
+                                    };
+                                }),
+                                { note }
+                            }
                         }
                     }
                 }
@@ -889,12 +915,14 @@ fn view_list(
         let exercise_names = exercise_ids.clone().into_iter().enumerate().map(|(i, id)| {
             let name = exercise_name(id, exercises);
             let number = exercise_number(&id, &exercise_ids);
+            let note = training_session.exercise_notes.get(&id).cloned().unwrap_or_default();
+            let note_is_empty = note.is_empty();
             rsx! {
                 tr {
                     td {
                         class: "has-text-centered has-text-weight-bold",
                         class: if i == 0 { "pt-2" },
-                        class: if i == exercise_ids_len - 1 { "pb-1" },
+                        class: if i == exercise_ids_len - 1 && note_is_empty { "pb-1" },
                         colspan: 5,
                         if let Some(number) = number {
                             span{
@@ -906,6 +934,20 @@ fn view_list(
                             class: "px-1",
                             to: Route::Exercise { id },
                             "{name}"
+                        }
+                    }
+                }
+                if !note_is_empty {
+                    tr {
+                        td {
+                            class: "px-2",
+                            class: if i == exercise_ids_len - 1 { "pb-1" },
+                            colspan: 5,
+                            div {
+                                class: "is-italic has-text-centered",
+                                "data-testid": "exercise-note",
+                                { note }
+                            }
                         }
                     }
                 }
@@ -1052,6 +1094,17 @@ fn view_edit_dialog(
                     OptionsMenu {
                         options: vec![
                             rsx! {
+                                MenuOption {
+                                    icon: "file-lines".to_string(),
+                                    text: "Show exercise notes".to_string(),
+                                    "data-testid": "options-show-exercise-notes",
+                                    on_click: eh!(mut edit_dialog; training_session, section_idx, exercise_idx; {
+                                        let sections = training_session.compute_sections();
+                                        let exercise_ids = unique(sections[section_idx].exercise_ids());
+                                        let exercise_id = exercise_ids[exercise_idx];
+                                        *edit_dialog.write() = EditDialog::ExerciseNote { training_session, exercise_id };
+                                    })
+                                },
                                 MenuOption {
                                     icon: "plus".to_string(),
                                     text: "Add set".to_string(),
@@ -1216,6 +1269,124 @@ fn view_edit_dialog(
                 }
             }
         }
+        EditDialog::ExerciseNote {
+            training_session,
+            exercise_id,
+        } => {
+            rsx! {
+                ExerciseNoteDialog {
+                    training_session: training_session.clone(),
+                    exercise_id: *exercise_id,
+                    on_save: move |ts| save(ts, cache, close_dialog),
+                    on_close: eh!(mut close_dialog; { close_dialog(); }),
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ExerciseNoteDialog(
+    training_session: domain::TrainingSession,
+    exercise_id: domain::ExerciseID,
+    on_save: EventHandler<domain::TrainingSession>,
+    on_close: EventHandler<MouseEvent>,
+) -> Element {
+    let cache = consume_context::<Cache>();
+    let note = training_session
+        .exercise_notes
+        .get(&exercise_id)
+        .cloned()
+        .unwrap_or_default();
+    let mut note_input = use_signal(|| note.clone());
+    let mut textarea_element = use_signal(|| None::<web_sys::HtmlTextAreaElement>);
+    let changed = note_input.read().trim() != note.trim();
+    let previous_notes: Vec<(chrono::NaiveDate, String, String)> =
+        match (&*cache.training_sessions.read(), &*cache.routines.read()) {
+            (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => training_session
+                .previous_exercise_notes(exercise_id, training_sessions)
+                .into_iter()
+                .map(|previous_note| {
+                    (
+                        previous_note.date,
+                        routines
+                            .iter()
+                            .find(|routine| routine.id == previous_note.routine_id)
+                            .map_or_else(|| "-".to_string(), |routine| routine.name.to_string()),
+                        previous_note.note,
+                    )
+                })
+                .collect(),
+            _ => vec![],
+        };
+    rsx! {
+        SaveDialog {
+            title: rsx! { "Exercise notes" },
+            on_close,
+            on_save: eh!(mut training_session; exercise_id; {
+                let note = note_input.read().trim().to_string();
+                if note.is_empty() {
+                    training_session.exercise_notes.remove(&exercise_id);
+                } else {
+                    training_session.exercise_notes.insert(exercise_id, note);
+                }
+                on_save.call(training_session);
+            }),
+            is_loading: IS_LOADING(),
+            disabled: IS_LOADING() || !changed,
+            div {
+                class: "field",
+                div {
+                    class: "control",
+                    textarea {
+                        class: "textarea",
+                        class: if changed { "is-info" },
+                        oninput: move |event| {
+                            *note_input.write() = event.value();
+                        },
+                        onmounted: move |event| async move {
+                            let _ = event.set_focus(true).await;
+                            if let Some(element) = event.data().try_as_web_event()
+                                && let Some(textarea) = element.dyn_ref::<web_sys::HtmlTextAreaElement>()
+                            {
+                                if let Ok(len) = u32::try_from(textarea.value().encode_utf16().count()) {
+                                    let _ = textarea.set_selection_range(len, len);
+                                }
+                                textarea_element.set(Some(textarea.clone()));
+                            }
+                        },
+                        { note.clone() }
+                    }
+                }
+            }
+            if !previous_notes.is_empty() {
+                for (date, routine_name, note) in previous_notes {
+                    div {
+                        div {
+                            class: "block has-text-centered has-text-weight-bold mb-1",
+                            "{date} {routine_name}"
+                        }
+                        div {
+                            class: "is-relative is-italic has-text-centered mb-2",
+                            "data-testid": "previous-exercise-note",
+                            {note.clone()}
+                            button {
+                                class: "button is-overlay-top-right p-0 mr-2",
+                                r#type: "button",
+                                "data-testid": "exercise-note-reuse",
+                                onclick: move |_| {
+                                    note_input.write().clone_from(&note);
+                                    if let Some(textarea) = textarea_element.read().as_ref() {
+                                        textarea.set_value(&note);
+                                    }
+                                },
+                                Icon { name: "reply".to_string() }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1304,6 +1475,7 @@ async fn save(
             training_session.id,
             Some(training_session.notes),
             Some(training_session.elements),
+            Some(training_session.exercise_notes),
         )
         .await
     {
@@ -1397,5 +1569,9 @@ pub enum EditDialog {
     },
     AppendExercise {
         training_session: domain::TrainingSession,
+    },
+    ExerciseNote {
+        training_session: domain::TrainingSession,
+        exercise_id: domain::ExerciseID,
     },
 }

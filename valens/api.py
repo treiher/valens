@@ -28,6 +28,7 @@ from valens.models import (
     User,
     Workout,
     WorkoutElement,
+    WorkoutExerciseNote,
     WorkoutRest,
     WorkoutSet,
 )
@@ -85,6 +86,10 @@ def _(model: Workout) -> dict[str, object]:
     return {
         **model_to_dict(model),
         "elements": [to_dict(e) for e in model.elements],
+        "exercise_notes": [
+            {"exercise_id": n.exercise_id, "notes": n.notes}
+            for n in sorted(model.exercise_notes, key=lambda n: n.exercise_id)
+        ],
     }
 
 
@@ -170,6 +175,17 @@ def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # 
             )
         )
         for position, element in enumerate(json, start=1)
+    ]
+
+
+def to_workout_exercise_notes(json: list[dict[str, Any]]) -> list[WorkoutExerciseNote]:  # type: ignore[explicit-any]
+    return [
+        WorkoutExerciseNote(
+            exercise_id=note["exercise_id"],
+            notes=note["notes"],
+        )
+        for note in json
+        if note["notes"]
     ]
 
 
@@ -886,7 +902,7 @@ def read_workouts() -> ResponseReturnValue:
         db.session.execute(
             select(Workout)
             .where(Workout.user_id == session["user_id"])
-            .options(selectinload(Workout.elements))
+            .options(selectinload(Workout.elements), selectinload(Workout.exercise_notes))
         )
         .scalars()
         .all()
@@ -923,6 +939,7 @@ def create_workout() -> ResponseReturnValue:
             date=date.fromisoformat(data["date"]),
             notes=data["notes"],
             elements=to_workout_elements(data["elements"]),
+            exercise_notes=to_workout_exercise_notes(data["exercise_notes"]),
         )
     except (DeserializationError, NoResultFound, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -938,6 +955,25 @@ def create_workout() -> ResponseReturnValue:
     )
 
 
+def _apply_workout_update(workout: Workout, data: dict[str, Any], *, is_put: bool) -> None:  # type: ignore[explicit-any]
+    if "elements" in data or is_put:
+        for e in workout.elements:
+            db.session.delete(e)
+        db.session.flush()
+    if "exercise_notes" in data or is_put:
+        for n in workout.exercise_notes:
+            db.session.delete(n)
+        db.session.flush()
+    if "date" in data or is_put:
+        workout.date = date.fromisoformat(data["date"])
+    if "notes" in data or is_put:
+        workout.notes = data["notes"]
+    if "elements" in data or is_put:
+        workout.elements = to_workout_elements(data["elements"])
+    if "exercise_notes" in data or is_put:
+        workout.exercise_notes = to_workout_exercise_notes(data["exercise_notes"])
+
+
 @bp.route("/workouts/<int:id_>", methods=["PUT", "PATCH"])
 @session_required
 @json_expected
@@ -948,6 +984,7 @@ def update_workout(id_: int) -> ResponseReturnValue:
                 select(Workout)
                 .where(Workout.id == id_)
                 .where(Workout.user_id == session["user_id"])
+                .options(selectinload(Workout.elements), selectinload(Workout.exercise_notes))
             )
             .scalars()
             .one()
@@ -959,19 +996,8 @@ def update_workout(id_: int) -> ResponseReturnValue:
 
     assert isinstance(data, dict)
 
-    if "elements" in data or request.method == "PUT":
-        for e in workout.elements:
-            db.session.delete(e)
-
-        db.session.flush()
-
     try:
-        if "date" in data or request.method == "PUT":
-            workout.date = date.fromisoformat(data["date"])
-        if "notes" in data or request.method == "PUT":
-            workout.notes = data["notes"]
-        if "elements" in data or request.method == "PUT":
-            workout.elements = to_workout_elements(data["elements"])
+        _apply_workout_update(workout, data, is_put=request.method == "PUT")
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 

@@ -405,11 +405,11 @@ pub fn SaveDialog(
                     }
                     div {
                         class: "control",
-                        onclick: on_save,
                         button {
                             class: "button is-primary",
                             class: if is_loading { "is-loading" },
                             "data-testid": "dialog-save",
+                            onclick: on_save,
                             disabled,
                             "Save"
                         }

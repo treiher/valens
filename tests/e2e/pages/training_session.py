@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
-from .base import BasePage
+from .base import BasePage, Dialog
 from .utils import parse_float, parse_int
 
 if TYPE_CHECKING:
@@ -17,6 +17,7 @@ class TrainingSessionPage(BasePage):
         super().__init__(page, base_url)
 
         self.session_id = session_id
+        self.exercise_note_dialog: ExerciseNoteDialog = ExerciseNoteDialog(page)
 
     @property
     def path(self) -> str:
@@ -94,3 +95,42 @@ class TrainingSessionPage(BasePage):
     def set_notes(self, text: str) -> None:
         self.expect_edit_mode()
         self.page.locator("textarea").first.fill(text)
+
+    def open_exercise_options(self, exercise_idx: int = 0) -> None:
+        self.page.get_by_test_id("item-options").nth(exercise_idx).click()
+        self.page.get_by_test_id("options-menu").wait_for(state="visible")
+
+    def edit_exercise_note(self, note: str, exercise_idx: int = 0) -> None:
+        self.open_exercise_note_dialog(exercise_idx)
+        self.exercise_note_dialog.set_note(note)
+        self.exercise_note_dialog.save()
+        self.wait_until_idle()
+
+    def open_exercise_note_dialog(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        self.page.get_by_test_id("options-show-exercise-notes").click()
+        self.exercise_note_dialog.wait_until_open()
+
+    def get_exercise_note(self, exercise_idx: int = 0) -> str:
+        return self.page.get_by_test_id("exercise-note").nth(exercise_idx).inner_text().strip()
+
+    def click_exercise_note(self, exercise_idx: int = 0) -> None:
+        self.page.get_by_test_id("exercise-note").nth(exercise_idx).click()
+        self.exercise_note_dialog.wait_until_open()
+
+
+class ExerciseNoteDialog(Dialog):
+    def get_note(self) -> str:
+        return self.root.locator("textarea").input_value()
+
+    def set_note(self, note: str) -> None:
+        self.root.locator("textarea").fill(note)
+
+    def get_previous_notes(self) -> list[str]:
+        return [
+            element.inner_text().strip()
+            for element in self.root.get_by_test_id("previous-exercise-note").all()
+        ]
+
+    def reuse_previous_note(self, idx: int = 0) -> None:
+        self.root.get_by_test_id("exercise-note-reuse").nth(idx).click()

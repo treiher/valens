@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Training session-specific exercise notes
 - Routine page: Option to show and copy routine as text
 - Routines page: Option to show and copy routine as text
 - Body weight, body fat, exercises and routines pages: Automatic focus of the first input field in dialogs for adding entries

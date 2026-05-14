@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     fmt::Write,
     ops::RangeInclusive,
     str::FromStr,
@@ -30,6 +30,7 @@ pub trait TrainingSessionService {
         id: TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
+        exercise_notes: Option<BTreeMap<ExerciseID, String>>,
     ) -> Result<TrainingSession, UpdateError>;
     async fn delete_training_session(&self, id: TrainingSessionID) -> Result<(), DeleteError>;
 
@@ -116,6 +117,7 @@ pub trait TrainingSessionRepository {
         id: TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
+        exercise_notes: Option<BTreeMap<ExerciseID, String>>,
     ) -> Result<TrainingSession, UpdateError>;
     async fn delete_training_session(&self, id: TrainingSessionID) -> Result<(), DeleteError>;
 }
@@ -127,6 +129,7 @@ pub struct TrainingSession {
     pub date: NaiveDate,
     pub notes: String,
     pub elements: Vec<TrainingSessionElement>,
+    pub exercise_notes: BTreeMap<ExerciseID, String>,
 }
 
 impl TrainingSession {
@@ -335,6 +338,56 @@ impl TrainingSession {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.elements.iter().all(TrainingSessionElement::is_empty)
+    }
+
+    /// Retrieves the most recent distinct previous exercise notes for a given exercise.
+    ///
+    /// This method returns up to three distinct previous exercise notes for the specified
+    /// exercise, sourced from past training sessions.
+    ///
+    /// # Key Behaviors
+    ///
+    /// - Session filtering: Only considers training sessions with `date < self.date`.
+    /// - Empty notes skipped: Ignores sessions with empty notes.
+    /// - Current note excluded: Filters out any notes matching the current exercise note.
+    /// - Deduplication: Returns only distinct note texts (if the same note appears in
+    ///   multiple sessions, only the most recent is included).
+    /// - Ordering: Results are sorted by date in descending order (newest first).
+    /// - Result limit: Returns at most 3 notes.
+    #[must_use]
+    pub fn previous_exercise_notes(
+        &self,
+        exercise_id: ExerciseID,
+        training_sessions: &[TrainingSession],
+    ) -> Vec<PreviousExerciseNote> {
+        let current_note = self
+            .exercise_notes
+            .get(&exercise_id)
+            .map_or("", |note| note.trim());
+        let mut notes = training_sessions
+            .iter()
+            .filter(|session| session.id != self.id && session.date < self.date)
+            .filter_map(|session| {
+                let note = session.exercise_notes.get(&exercise_id)?.trim().to_string();
+                if note.is_empty() {
+                    return None;
+                }
+                Some(PreviousExerciseNote {
+                    date: session.date,
+                    routine_id: session.routine_id,
+                    note,
+                })
+            })
+            .collect::<Vec<_>>();
+        notes.sort_by_key(|note| std::cmp::Reverse(note.date));
+
+        let mut seen_notes = HashSet::new();
+        notes
+            .into_iter()
+            .filter(|previous_note| previous_note.note != current_note)
+            .filter(|previous_note| seen_notes.insert(previous_note.note.clone()))
+            .take(3)
+            .collect()
     }
 
     pub fn add_set(&mut self, element_idx: usize) {
@@ -762,6 +815,13 @@ impl TrainingSession {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreviousExerciseNote {
+    pub date: NaiveDate,
+    pub routine_id: RoutineID,
+    pub note: String,
+}
+
 #[derive(Deref, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TrainingSessionID(Uuid);
 
@@ -1022,6 +1082,7 @@ mod tests {
                     automatic: true,
                 },
             ],
+            exercise_notes: BTreeMap::new(),
         });
 
     static EMPTY_TRAINING_SESSION: std::sync::LazyLock<TrainingSession> =
@@ -2676,6 +2737,265 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_training_session_previous_exercise_notes_returns_distinct_notes_ordered_newest_first_limited_to_three()
+     {
+        let exercise_id = ExerciseID::from(1_u128);
+        let current = training_session_with_exercise_notes(
+            10,
+            1,
+            NaiveDate::from_ymd_opt(2026, 5, 16).unwrap(),
+            &[(exercise_id, "current")],
+        );
+        let sessions = vec![
+            current.clone(),
+            training_session_with_exercise_notes(
+                9,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                &[(exercise_id, "note 1")],
+            ),
+            training_session_with_exercise_notes(
+                8,
+                2,
+                NaiveDate::from_ymd_opt(2026, 5, 14).unwrap(),
+                &[(exercise_id, "note 2")],
+            ),
+            training_session_with_exercise_notes(
+                7,
+                3,
+                NaiveDate::from_ymd_opt(2026, 5, 13).unwrap(),
+                &[(exercise_id, "note 3")],
+            ),
+            training_session_with_exercise_notes(
+                6,
+                2,
+                NaiveDate::from_ymd_opt(2026, 5, 12).unwrap(),
+                &[(exercise_id, "note 4")],
+            ),
+        ];
+
+        let result = current.previous_exercise_notes(exercise_id, &sessions);
+
+        assert_eq!(
+            result,
+            vec![
+                PreviousExerciseNote {
+                    date: NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                    routine_id: RoutineID::from(1_u128),
+                    note: "note 1".to_string(),
+                },
+                PreviousExerciseNote {
+                    date: NaiveDate::from_ymd_opt(2026, 5, 14).unwrap(),
+                    routine_id: RoutineID::from(2_u128),
+                    note: "note 2".to_string(),
+                },
+                PreviousExerciseNote {
+                    date: NaiveDate::from_ymd_opt(2026, 5, 13).unwrap(),
+                    routine_id: RoutineID::from(3_u128),
+                    note: "note 3".to_string(),
+                },
+            ],
+        );
+    }
+
+    #[test]
+    fn test_training_session_previous_exercise_notes_deduplicates_keeping_most_recent() {
+        let exercise_id = ExerciseID::from(1_u128);
+        let current = training_session_with_exercise_notes(
+            10,
+            1,
+            NaiveDate::from_ymd_opt(2026, 5, 16).unwrap(),
+            &[],
+        );
+        let sessions = vec![
+            current.clone(),
+            training_session_with_exercise_notes(
+                9,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                &[(exercise_id, "repeat")],
+            ),
+            training_session_with_exercise_notes(
+                8,
+                2,
+                NaiveDate::from_ymd_opt(2026, 5, 14).unwrap(),
+                &[(exercise_id, "other")],
+            ),
+            training_session_with_exercise_notes(
+                7,
+                3,
+                NaiveDate::from_ymd_opt(2026, 5, 13).unwrap(),
+                &[(exercise_id, "repeat")],
+            ),
+        ];
+
+        let result = current.previous_exercise_notes(exercise_id, &sessions);
+
+        assert_eq!(
+            result
+                .into_iter()
+                .map(|n| (n.date, n.note))
+                .collect::<Vec<_>>(),
+            vec![
+                (
+                    NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                    "repeat".to_string(),
+                ),
+                (
+                    NaiveDate::from_ymd_opt(2026, 5, 14).unwrap(),
+                    "other".to_string(),
+                ),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_training_session_previous_exercise_notes_excludes_current_note_after_trimming() {
+        let exercise_id = ExerciseID::from(1_u128);
+        let current = training_session_with_exercise_notes(
+            10,
+            1,
+            NaiveDate::from_ymd_opt(2026, 5, 16).unwrap(),
+            &[(exercise_id, "  shared  ")],
+        );
+        let sessions = vec![
+            current.clone(),
+            training_session_with_exercise_notes(
+                9,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                &[(exercise_id, "shared")],
+            ),
+            training_session_with_exercise_notes(
+                8,
+                2,
+                NaiveDate::from_ymd_opt(2026, 5, 14).unwrap(),
+                &[(exercise_id, "other")],
+            ),
+        ];
+
+        let result = current.previous_exercise_notes(exercise_id, &sessions);
+
+        assert_eq!(
+            result.into_iter().map(|n| n.note).collect::<Vec<_>>(),
+            vec!["other".to_string()],
+        );
+    }
+
+    #[test]
+    fn test_training_session_previous_exercise_notes_excludes_self_same_date_and_future_sessions() {
+        let exercise_id = ExerciseID::from(1_u128);
+        let current = training_session_with_exercise_notes(
+            10,
+            1,
+            NaiveDate::from_ymd_opt(2026, 5, 16).unwrap(),
+            &[(exercise_id, "current")],
+        );
+        let sessions = vec![
+            current.clone(),
+            training_session_with_exercise_notes(
+                11,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 17).unwrap(),
+                &[(exercise_id, "future")],
+            ),
+            training_session_with_exercise_notes(
+                12,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 16).unwrap(),
+                &[(exercise_id, "same day")],
+            ),
+            training_session_with_exercise_notes(
+                9,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                &[(exercise_id, "past")],
+            ),
+        ];
+
+        let result = current.previous_exercise_notes(exercise_id, &sessions);
+
+        assert_eq!(
+            result.into_iter().map(|n| n.note).collect::<Vec<_>>(),
+            vec!["past".to_string()],
+        );
+    }
+
+    #[test]
+    fn test_training_session_previous_exercise_notes_skips_sessions_whose_note_is_empty_after_trimming()
+     {
+        let exercise_id = ExerciseID::from(1_u128);
+        let current = training_session_with_exercise_notes(
+            10,
+            1,
+            NaiveDate::from_ymd_opt(2026, 5, 16).unwrap(),
+            &[],
+        );
+        let sessions = vec![
+            current.clone(),
+            training_session_with_exercise_notes(
+                9,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                &[(exercise_id, "")],
+            ),
+            training_session_with_exercise_notes(
+                8,
+                2,
+                NaiveDate::from_ymd_opt(2026, 5, 14).unwrap(),
+                &[(exercise_id, "   ")],
+            ),
+            training_session_with_exercise_notes(
+                7,
+                3,
+                NaiveDate::from_ymd_opt(2026, 5, 13).unwrap(),
+                &[(exercise_id, "kept")],
+            ),
+        ];
+
+        let result = current.previous_exercise_notes(exercise_id, &sessions);
+
+        assert_eq!(
+            result.into_iter().map(|n| n.note).collect::<Vec<_>>(),
+            vec!["kept".to_string()],
+        );
+    }
+
+    #[test]
+    fn test_training_session_previous_exercise_notes_ignores_other_exercises() {
+        let exercise_id = ExerciseID::from(1_u128);
+        let other_exercise = ExerciseID::from(2_u128);
+        let current = training_session_with_exercise_notes(
+            10,
+            1,
+            NaiveDate::from_ymd_opt(2026, 5, 16).unwrap(),
+            &[],
+        );
+        let sessions = vec![
+            current.clone(),
+            training_session_with_exercise_notes(
+                9,
+                1,
+                NaiveDate::from_ymd_opt(2026, 5, 15).unwrap(),
+                &[(other_exercise, "other exercise")],
+            ),
+            training_session_with_exercise_notes(
+                8,
+                2,
+                NaiveDate::from_ymd_opt(2026, 5, 14).unwrap(),
+                &[(exercise_id, "matching")],
+            ),
+        ];
+
+        let result = current.previous_exercise_notes(exercise_id, &sessions);
+
+        assert_eq!(
+            result.into_iter().map(|n| n.note).collect::<Vec<_>>(),
+            vec!["matching".to_string()],
+        );
+    }
+
     fn training_session(elements: &[TrainingSessionElement]) -> TrainingSession {
         TrainingSession {
             id: 1.into(),
@@ -2683,6 +3003,26 @@ mod tests {
             date: *TODAY - Duration::days(10),
             notes: String::new(),
             elements: elements.to_vec(),
+            exercise_notes: BTreeMap::new(),
+        }
+    }
+
+    fn training_session_with_exercise_notes(
+        id: u128,
+        routine_id: u128,
+        date: NaiveDate,
+        exercise_notes: &[(ExerciseID, &str)],
+    ) -> TrainingSession {
+        TrainingSession {
+            id: TrainingSessionID::from(id),
+            routine_id: RoutineID::from(routine_id),
+            date,
+            notes: String::new(),
+            elements: vec![],
+            exercise_notes: exercise_notes
+                .iter()
+                .map(|(id, n)| (*id, (*n).to_string()))
+                .collect(),
         }
     }
 

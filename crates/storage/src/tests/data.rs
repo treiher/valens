@@ -233,6 +233,7 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
                 automatic: true,
             },
         ],
+        exercise_notes: std::collections::BTreeMap::new(),
     });
 
 pub static TRAINING_SESSION_2: std::sync::LazyLock<domain::TrainingSession> =
@@ -259,4 +260,5 @@ pub static TRAINING_SESSION_2: std::sync::LazyLock<domain::TrainingSession> =
                 automatic: true,
             },
         ],
+        exercise_notes: std::collections::BTreeMap::new(),
     });

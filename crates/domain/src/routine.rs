@@ -1053,6 +1053,7 @@ mod tests {
             date,
             notes: String::new(),
             elements: vec![],
+            exercise_notes: BTreeMap::new(),
         }
     }
 

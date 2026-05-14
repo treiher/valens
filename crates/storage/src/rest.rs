@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::NaiveDate;
 use futures_util::{
     future::{Either, select},
@@ -553,19 +555,14 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         let r: TrainingSession = self
             .fetch(
                 gloo_net::http::Request::post("/api/workouts"),
-                Some(&TrainingSessionData {
-                    routine_id: if routine_id.is_nil() {
-                        None
-                    } else {
-                        Some(routine_id.as_u128())
-                    },
+                Some(&TrainingSessionData::from(domain::TrainingSession {
+                    id: domain::TrainingSessionID::default(),
+                    routine_id,
                     date,
-                    notes: Some(notes),
-                    elements: elements
-                        .into_iter()
-                        .map(TrainingSessionElement::from)
-                        .collect(),
-                }),
+                    notes,
+                    elements,
+                    exercise_notes: BTreeMap::new(),
+                })),
             )
             .await?;
         Ok(r.into())
@@ -576,6 +573,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         id: domain::TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
+        exercise_notes: Option<BTreeMap<domain::ExerciseID, String>>,
     ) -> Result<domain::TrainingSession, domain::UpdateError> {
         let mut content = Map::new();
         if let Some(notes) = notes {
@@ -588,6 +586,20 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
                     elements
                         .into_iter()
                         .map(TrainingSessionElement::from)
+                        .collect::<Vec<_>>()
+                ),
+            );
+        }
+        if let Some(exercise_notes) = exercise_notes {
+            content.insert(
+                "exercise_notes".into(),
+                json!(
+                    exercise_notes
+                        .into_iter()
+                        .map(|(k, v)| ExerciseNote {
+                            exercise_id: k.as_u128(),
+                            notes: v,
+                        })
                         .collect::<Vec<_>>()
                 ),
             );
@@ -1028,12 +1040,19 @@ impl From<RoutinePart> for domain::RoutinePart {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct ExerciseNote {
+    pub exercise_id: u128,
+    pub notes: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct TrainingSession {
     pub id: u128,
     pub routine_id: Option<u128>,
     pub date: NaiveDate,
     pub notes: Option<String>,
     pub elements: Vec<TrainingSessionElement>,
+    pub exercise_notes: Vec<ExerciseNote>,
 }
 
 impl From<domain::TrainingSession> for TrainingSession {
@@ -1052,6 +1071,14 @@ impl From<domain::TrainingSession> for TrainingSession {
                 .into_iter()
                 .map(TrainingSessionElement::from)
                 .collect(),
+            exercise_notes: value
+                .exercise_notes
+                .into_iter()
+                .map(|(k, v)| ExerciseNote {
+                    exercise_id: k.as_u128(),
+                    notes: v,
+                })
+                .collect(),
         }
     }
 }
@@ -1068,6 +1095,12 @@ impl From<TrainingSession> for domain::TrainingSession {
                 .into_iter()
                 .map(domain::TrainingSessionElement::from)
                 .collect(),
+            exercise_notes: value
+                .exercise_notes
+                .into_iter()
+                .filter(|n| !n.notes.is_empty())
+                .map(|n| (n.exercise_id.into(), n.notes))
+                .collect(),
         }
     }
 }
@@ -1078,6 +1111,7 @@ pub struct TrainingSessionData {
     pub date: NaiveDate,
     pub notes: Option<String>,
     pub elements: Vec<TrainingSessionElement>,
+    pub exercise_notes: Vec<ExerciseNote>,
 }
 
 impl From<domain::TrainingSession> for TrainingSessionData {
@@ -1094,6 +1128,14 @@ impl From<domain::TrainingSession> for TrainingSessionData {
                 .elements
                 .into_iter()
                 .map(TrainingSessionElement::from)
+                .collect(),
+            exercise_notes: value
+                .exercise_notes
+                .into_iter()
+                .map(|(k, v)| ExerciseNote {
+                    exercise_id: k.as_u128(),
+                    notes: v,
+                })
                 .collect(),
         }
     }
@@ -1873,11 +1915,37 @@ mod tests {
                 .modify_training_session(
                     TRAINING_SESSION.id,
                     Some(TRAINING_SESSION.notes.clone()),
-                    Some(TRAINING_SESSION.elements.clone())
+                    Some(TRAINING_SESSION.elements.clone()),
+                    None
                 )
                 .await
                 .unwrap(),
                 TRAINING_SESSION.clone()
+            );
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_modify_training_session_with_exercise_notes() {
+            let mut session_with_note = TRAINING_SESSION.clone();
+            let exercise_id: domain::ExerciseID = 1.into();
+            session_with_note
+                .exercise_notes
+                .insert(exercise_id, "Test note".to_string());
+            assert_eq!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&TrainingSession::from(session_with_note.clone())),
+                ))
+                .modify_training_session(
+                    session_with_note.id,
+                    Some(session_with_note.notes.clone()),
+                    Some(session_with_note.elements.clone()),
+                    Some(session_with_note.exercise_notes.clone()),
+                )
+                .await
+                .unwrap(),
+                session_with_note
             );
         }
 

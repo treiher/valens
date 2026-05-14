@@ -409,6 +409,7 @@ mod tests {
                     automatic: true,
                 },
             ],
+            exercise_notes: BTreeMap::new(),
         });
 
     #[rstest]

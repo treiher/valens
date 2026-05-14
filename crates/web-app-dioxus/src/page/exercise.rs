@@ -62,6 +62,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                                         })
                                     .cloned()
                                         .collect::<Vec<_>>(),
+                                    exercise_notes: t.exercise_notes.clone(),
                                 })
                             .collect::<Vec<_>>();
                             if training_sessions.is_empty() {
@@ -94,7 +95,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                                         {view_charts(&training_sessions, interval, settings)}
                                         {view_calendar(&training_sessions, interval)}
                                         {page::training_sessions::view_table(&training_sessions, routines, interval, training_dialog, settings)}
-                                        {view_sets(&training_sessions, routines, settings)}
+                                        {view_sets(id, &training_sessions, routines, settings)}
                                         {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                                     }
                                 }
@@ -452,6 +453,7 @@ fn view_calendar(
 }
 
 fn view_sets(
+    exercise_id: domain::ExerciseID,
     training_sessions: &[domain::TrainingSession],
     routines: &[domain::Routine],
     settings: Settings,
@@ -459,6 +461,11 @@ fn view_sets(
     let blocks = training_sessions.iter().rev().flat_map(|t| {
         let routine = routines.iter().find(|r| r.id == t.routine_id);
         let routine_id = routine.map(|r| r.id).unwrap_or_default();
+        let note = t
+            .exercise_notes
+            .get(&exercise_id)
+            .cloned()
+            .unwrap_or_default();
         let sets = t.elements.iter().filter_map(|e| {
             if let domain::TrainingSessionElement::Set { .. } = e {
                 Some(rsx! {
@@ -489,6 +496,13 @@ fn view_sets(
                                 None => rsx! { "-" }
                             }
                         }
+                    }
+                }
+                if !note.is_empty() {
+                    div {
+                        class: "is-italic has-text-centered mb-2",
+                        "data-testid": "exercise-note",
+                        { note.clone() }
                     }
                 }
             },

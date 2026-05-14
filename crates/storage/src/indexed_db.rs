@@ -1,5 +1,7 @@
 #![allow(clippy::missing_errors_doc)]
 
+use std::collections::BTreeMap;
+
 use chrono::NaiveDate;
 use indexed_db_futures::{
     DeserialiseFromJs, KeyPath, SerialiseToJs, database::Database, error::OpenDbError, prelude::*,
@@ -581,6 +583,7 @@ impl domain::TrainingSessionRepository for IndexedDB {
         id: domain::TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
+        exercise_notes: Option<BTreeMap<domain::ExerciseID, String>>,
     ) -> Result<domain::TrainingSession, domain::UpdateError> {
         let mut training_session = IndexedDB
             .get::<String, domain::TrainingSession, TrainingSession>(
@@ -595,6 +598,9 @@ impl domain::TrainingSessionRepository for IndexedDB {
         }
         if let Some(elements) = elements {
             training_session.elements = elements;
+        }
+        if let Some(exercise_notes) = exercise_notes {
+            training_session.exercise_notes = exercise_notes;
         }
 
         Ok(IndexedDB
@@ -1035,6 +1041,8 @@ pub struct TrainingSession {
     pub date: NaiveDate,
     pub notes: String,
     pub elements: Vec<TrainingSessionElement>,
+    #[serde(default)]
+    pub exercise_notes: BTreeMap<Uuid, String>,
 }
 
 impl From<domain::TrainingSession> for TrainingSession {
@@ -1048,6 +1056,11 @@ impl From<domain::TrainingSession> for TrainingSession {
                 .elements
                 .into_iter()
                 .map(TrainingSessionElement::from)
+                .collect(),
+            exercise_notes: value
+                .exercise_notes
+                .into_iter()
+                .map(|(k, v)| (*k, v))
                 .collect(),
         }
     }
@@ -1066,6 +1079,11 @@ impl From<&domain::TrainingSession> for TrainingSession {
                 .cloned()
                 .map(TrainingSessionElement::from)
                 .collect(),
+            exercise_notes: value
+                .exercise_notes
+                .iter()
+                .map(|(k, v)| (**k, v.clone()))
+                .collect(),
         }
     }
 }
@@ -1081,6 +1099,11 @@ impl From<TrainingSession> for domain::TrainingSession {
                 .elements
                 .into_iter()
                 .map(domain::TrainingSessionElement::from)
+                .collect(),
+            exercise_notes: value
+                .exercise_notes
+                .into_iter()
+                .map(|(k, v)| (k.into(), v))
                 .collect(),
         }
     }
@@ -2041,7 +2064,8 @@ mod tests {
                     .modify_training_session(
                         training_session.id,
                         Some(training_session.notes.clone()),
-                        Some(training_session.elements.clone())
+                        Some(training_session.elements.clone()),
+                        None
                     )
                     .await
                     .unwrap(),

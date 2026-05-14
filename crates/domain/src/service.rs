@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::NaiveDate;
 use log::{debug, error};
 
@@ -274,9 +276,11 @@ impl<R: TrainingSessionRepository> TrainingSessionService for Service<R> {
         id: TrainingSessionID,
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
+        exercise_notes: Option<BTreeMap<ExerciseID, String>>,
     ) -> Result<TrainingSession, UpdateError> {
         log_on_error!(
-            self.repository.modify_training_session(id, notes, elements),
+            self.repository
+                .modify_training_session(id, notes, elements, exercise_notes),
             UpdateError,
             "modify",
             "training session"

@@ -170,6 +170,9 @@ class Exercise(Base):
     routine_activities: Mapped[list[RoutineActivity]] = relationship(
         "RoutineActivity", back_populates="exercise", cascade="all, delete-orphan"
     )
+    exercise_notes: Mapped[list[WorkoutExerciseNote]] = relationship(
+        "WorkoutExerciseNote", back_populates="exercise", cascade="all, delete-orphan"
+    )
 
 
 class ExerciseMuscle(Base):
@@ -304,6 +307,24 @@ class Workout(Base):
     elements: Mapped[list[WorkoutElement]] = relationship(
         "WorkoutElement", back_populates="workout", cascade="all, delete-orphan"
     )
+    exercise_notes: Mapped[list[WorkoutExerciseNote]] = relationship(
+        "WorkoutExerciseNote", back_populates="workout", cascade="all, delete-orphan"
+    )
+
+
+class WorkoutExerciseNote(Base):
+    __tablename__ = "workout_exercise_note"
+
+    workout_id: Mapped[int] = mapped_column(
+        ForeignKey("workout.id", ondelete="CASCADE"), primary_key=True
+    )
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE"), primary_key=True
+    )
+    notes: Mapped[str] = mapped_column(String, nullable=False)
+
+    workout: Mapped[Workout] = relationship("Workout", back_populates="exercise_notes")
+    exercise: Mapped[Exercise] = relationship("Exercise", back_populates="exercise_notes")
 
 
 class WorkoutElement(Base):

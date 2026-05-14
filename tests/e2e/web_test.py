@@ -612,6 +612,42 @@ def test_training_session_change_notes(page: Page) -> None:
     assert p.get_notes() == new_notes
 
 
+def test_training_session_exercise_notes(page: Page) -> None:
+    workout = USER.workouts[-1]
+    exercise = next(e.exercise for e in workout.elements if isinstance(e, models.WorkoutSet))
+    earlier_note = next(
+        n.notes for n in USER.workouts[0].exercise_notes if n.exercise_id == exercise.id
+    )
+    note = "Test note"
+    updated_note = "Updated note"
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.edit_exercise_note(note)
+    assert p.get_exercise_note() == note
+
+    p.click_exercise_note()
+    assert p.exercise_note_dialog.get_note() == note
+
+    p.exercise_note_dialog.set_note(updated_note)
+    p.exercise_note_dialog.save()
+    assert p.get_exercise_note() == updated_note
+
+    p.click_exercise_note()
+    assert any(earlier_note in n for n in p.exercise_note_dialog.get_previous_notes())
+    p.exercise_note_dialog.reuse_previous_note()
+    assert p.exercise_note_dialog.get_note() == earlier_note
+    p.exercise_note_dialog.save()
+    assert p.get_exercise_note() == earlier_note
+
+    exercise_page = ExercisePage(page, exercise.id)
+    exercise_page.goto()
+    expect(exercise_page.exercise_note().filter(has_text=earlier_note)).to_have_count(2)
+
+
 def test_routines_add(page: Page) -> None:
     name = USER.routines[-1].name
     new_name = "New Routine"

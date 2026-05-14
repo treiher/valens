@@ -40,6 +40,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
     exercise_3 = Exercise(id=3, user_id=1, name="Exercise 3")
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 4")
     exercise_5 = Exercise(id=5, user_id=1, name="Unused Exercise")
+    exercise_6 = Exercise(id=6, user_id=1, name="Exercise 6")
 
     return [
         User(
@@ -84,6 +85,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                 exercise_1,
                 exercise_3,
                 exercise_5,
+                exercise_6,
             ],
             routines=[
                 Routine(
@@ -242,8 +244,8 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                         WorkoutSet(position=1, exercise=exercise_3, reps=9),
                         WorkoutSet(position=2, exercise=exercise_3, reps=8),
                         WorkoutSet(position=3, exercise=exercise_3, reps=7),
-                        WorkoutSet(position=4, exercise=exercise_4, reps=6),
-                        WorkoutSet(position=5, exercise=exercise_4, reps=5),
+                        WorkoutSet(position=4, exercise=exercise_6, reps=6),
+                        WorkoutSet(position=5, exercise=exercise_6, reps=5),
                     ],
                 ),
                 Workout(

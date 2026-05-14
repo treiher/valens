@@ -1164,6 +1164,7 @@ def test_exercises_delete(page: Page) -> None:
     current_exercises = sorted(CURRENT_WORKOUT_EXERCISES)
     current_name_1 = current_exercises[0]
     current_name_2 = current_exercises[1]
+    current_name_3 = current_exercises[2]
 
     login(page)
     p = ExercisesPage(page)
@@ -1180,6 +1181,11 @@ def test_exercises_delete(page: Page) -> None:
     p.dialog.delete()
 
     p.table.expect_value(1, 1, 1, current_name_2)
+
+    p.delete_item(0)
+    p.dialog.delete()
+
+    p.table.expect_value(1, 1, 1, current_name_3)
 
     previous_name = sorted(PREVIOUS_WORKOUT_EXERCISES)[0]
 

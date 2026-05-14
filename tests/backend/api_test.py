@@ -348,6 +348,7 @@ def test_delete_user(client: Client) -> None:
             [
                 {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
                 {"id": 3, "name": "Exercise 3", "muscles": []},
+                {"id": 6, "name": "Exercise 6", "muscles": []},
                 {"id": 5, "name": "Unused Exercise", "muscles": []},
             ],
         ),
@@ -569,7 +570,7 @@ def test_delete_user(client: Client) -> None:
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 6,
                             "time": None,
                             "weight": None,
@@ -581,7 +582,7 @@ def test_delete_user(client: Client) -> None:
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 5,
                             "time": None,
                             "weight": None,
@@ -711,15 +712,16 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
         (
             "/api/exercises",
             {
-                "id": 6,
+                "id": 7,
                 "name": "New Exercise",
                 "muscles": [{"muscle_id": 11, "stimulus": 100}, {"muscle_id": 12, "stimulus": 50}],
             },
             [
                 {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
                 {"id": 3, "name": "Exercise 3", "muscles": []},
+                {"id": 6, "name": "Exercise 6", "muscles": []},
                 {
-                    "id": 6,
+                    "id": 7,
                     "name": "New Exercise",
                     "muscles": [
                         {"muscle_id": 11, "stimulus": 100},
@@ -1172,7 +1174,7 @@ def test_create_workout(
                     "automatic": False,
                 },
                 {
-                    "exercise_id": 4,
+                    "exercise_id": 6,
                     "reps": 6,
                     "time": None,
                     "weight": None,
@@ -1184,7 +1186,7 @@ def test_create_workout(
                     "automatic": False,
                 },
                 {
-                    "exercise_id": 4,
+                    "exercise_id": 6,
                     "reps": 5,
                     "time": None,
                     "weight": None,
@@ -1334,6 +1336,7 @@ def test_create_workout(
                     ],
                 },
                 {"id": 3, "name": "Exercise 3", "muscles": []},
+                {"id": 6, "name": "Exercise 6", "muscles": []},
                 {"id": 5, "name": "Unused Exercise", "muscles": []},
             ],
             {"name": "Exercise 3", "muscles": []},
@@ -1683,7 +1686,7 @@ def test_create_workout(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 6,
                             "time": None,
                             "weight": None,
@@ -1695,7 +1698,7 @@ def test_create_workout(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 5,
                             "time": None,
                             "weight": None,
@@ -2776,7 +2779,7 @@ def test_replace(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 6,
                             "time": None,
                             "weight": None,
@@ -2788,7 +2791,7 @@ def test_replace(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 5,
                             "time": None,
                             "weight": None,
@@ -2961,7 +2964,7 @@ def test_replace(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 6,
                             "time": None,
                             "weight": None,
@@ -2973,7 +2976,7 @@ def test_replace(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 5,
                             "time": None,
                             "weight": None,
@@ -3159,7 +3162,7 @@ def test_replace(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 6,
                             "time": None,
                             "weight": None,
@@ -3171,7 +3174,7 @@ def test_replace(
                             "automatic": False,
                         },
                         {
-                            "exercise_id": 4,
+                            "exercise_id": 6,
                             "reps": 5,
                             "time": None,
                             "weight": None,
@@ -3279,6 +3282,7 @@ def test_modify(
             "/api/exercises/3",
             [
                 {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
+                {"id": 6, "name": "Exercise 6", "muscles": []},
                 {"id": 5, "name": "Unused Exercise", "muscles": []},
             ],
         ),

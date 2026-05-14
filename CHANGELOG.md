@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Routines page: Option to show and copy routine as text
 - CLI commands to list, create, update and delete users
 
+### Changed
+
+- Login page: Redesigned the login flow to require entering a known username
+- Navigation bar: Renamed "Log out" to "Sign out"
+
 ### Fixed
 
 - Incorrect background color in calendars

@@ -28,10 +28,11 @@ class BasePage:
     def expect_page(self) -> None:
         raise NotImplementedError
 
-    def goto(self) -> None:
+    def goto(self, *, expect_page: bool = True) -> None:
         self.page.goto(f"{self.base_url}{self.path}")
         self.page.wait_for_load_state("networkidle")
-        self.expect_page()
+        if expect_page:
+            self.expect_page()
 
     def go_back(self) -> None:
         self.page.get_by_test_id("navbar-back").click()

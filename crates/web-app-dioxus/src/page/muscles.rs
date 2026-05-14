@@ -1,12 +1,10 @@
 use dioxus::prelude::*;
 
-use valens_domain::{
-    self as domain, ExerciseService, Property, SessionService, TrainingSessionService,
-};
+use valens_domain::{self as domain, ExerciseService, Property, TrainingSessionService};
 use valens_web_app as web_app;
 
 use crate::{
-    DATA_CHANGED, DOMAIN_SERVICE, Route, ensure_session,
+    DATA_CHANGED, DOMAIN_SERVICE,
     page::common::{Chart, ChartLabel, IntervalControl},
     settings::Settings,
     ui::element::{ErrorMessage, LoadingPage, NoConnection, Title},
@@ -14,8 +12,6 @@ use crate::{
 
 #[component]
 pub fn Muscles() -> Element {
-    ensure_session!();
-
     let training_sessions = use_resource(|| async {
         let _ = DATA_CHANGED.read();
         DOMAIN_SERVICE().get_training_sessions().await

@@ -211,12 +211,12 @@ def read_session() -> ResponseReturnValue:
 def create_session() -> ResponseReturnValue:
     try:
         assert isinstance(request.json, dict)
-        user_id = request.json["id"]
+        name = request.json["name"]
     except KeyError as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     try:
-        user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
+        user = db.session.execute(select(User).where(User.name == name.strip())).scalars().one()
     except NoResultFound:
         return "", HTTPStatus.NOT_FOUND
 
@@ -235,6 +235,7 @@ def delete_session() -> ResponseReturnValue:
 
 
 @bp.route("/users")
+@session_required
 def read_users() -> ResponseReturnValue:
     users = db.session.execute(select(User)).scalars().all()
     return jsonify([to_dict(u) for u in users])
@@ -252,6 +253,7 @@ def read_user(user_id: int) -> ResponseReturnValue:
 
 
 @bp.route("/users", methods=["POST"])
+@session_required
 @json_expected
 def create_user() -> ResponseReturnValue:
     data = request.json
@@ -278,6 +280,7 @@ def create_user() -> ResponseReturnValue:
 
 
 @bp.route("/users/<int:user_id>", methods=["PUT"])
+@session_required
 @json_expected
 def replace_user(user_id: int) -> ResponseReturnValue:
     try:
@@ -304,6 +307,7 @@ def replace_user(user_id: int) -> ResponseReturnValue:
 
 
 @bp.route("/users/<int:user_id>", methods=["DELETE"])
+@session_required
 def delete_user(user_id: int) -> ResponseReturnValue:
     try:
         user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()

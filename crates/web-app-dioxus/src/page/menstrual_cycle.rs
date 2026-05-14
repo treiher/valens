@@ -1,13 +1,12 @@
 use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, PeriodService, SessionService};
+use valens_domain::{self as domain, PeriodService};
 use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    ensure_session,
     page::common::{Calendar, Chart, ChartLabel, IntervalControl},
     routing::NavigatorScrollExt,
     settings::Settings,
@@ -23,8 +22,6 @@ use crate::{
 
 #[component]
 pub fn MenstrualCycle(add: bool) -> Element {
-    ensure_session!();
-
     let cache = consume_context::<Cache>();
     let dates = use_memo(move || {
         if let CacheState::Ready(period) = &*cache.period.read() {

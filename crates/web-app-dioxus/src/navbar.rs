@@ -4,14 +4,14 @@ use dioxus::prelude::*;
 
 use futures_util::StreamExt;
 use gloo_timers::future::IntervalStream;
+use log::warn;
 
-use valens_domain as domain;
 use valens_domain::SessionService;
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, METRONOME, NO_CONNECTION, Route,
-    cache::Cache,
     page::common::{Metronome, MutableTimer, Stopwatch, StopwatchService, TimerService},
+    session::Session,
     settings::{Settings, SettingsDialog},
     synchronization::Synchronization,
     ui::element::{Dialog, ElementWithDescription, Icon},
@@ -19,10 +19,41 @@ use crate::{
 
 #[component]
 pub fn Navbar() -> Element {
+    use_effect(|| {
+        let Some(body) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.body())
+        else {
+            warn!("failed to access document body");
+            return;
+        };
+        if let Err(e) = body
+            .class_list()
+            .add_2("has-navbar-fixed-top", "has-navbar-fixed-bottom")
+        {
+            warn!("failed to add body classes: {e:?}");
+        }
+    });
+    use_drop(|| {
+        let Some(body) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.body())
+        else {
+            warn!("failed to access document body");
+            return;
+        };
+        if let Err(e) = body
+            .class_list()
+            .remove_2("has-navbar-fixed-top", "has-navbar-fixed-bottom")
+        {
+            warn!("failed to remove body classes: {e:?}");
+        }
+    });
+
     let mut menu_visible = use_signal(|| false);
     let mut settings_visible = use_signal(|| false);
     let mut metronome_time_stopwatch_visible = use_signal(|| false);
-    let mut session = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
+    let session = consume_context::<Session>();
     let settings = use_context::<Settings>();
 
     let mut stopwatch = use_signal(StopwatchService::new);
@@ -40,24 +71,11 @@ pub fn Navbar() -> Element {
         }
     });
 
-    let user = match *session.read() {
-        Some(Ok(ref user)) => Some(user.clone()),
-        Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))) => {
-            *NO_CONNECTION.write() = true;
-            None
-        }
-        Some(Err(_)) | None => None,
-    };
+    let user = session.user;
     let route = use_route::<Route>();
     let page_title = match route.clone() {
-        Route::Root {} | Route::Login {} => "Valens".to_string(),
-        Route::Home {} => {
-            if let Some(ref user) = user {
-                user.name.to_string()
-            } else {
-                "Home".to_string()
-            }
-        }
+        Route::Login {} => "Valens".to_string(),
+        Route::Home {} => user.name.to_string(),
         Route::Admin {} => "Administration".to_string(),
         Route::TrainingSessions { .. } => "Training sessions".to_string(),
         Route::TrainingSession { .. } => "Training session".to_string(),
@@ -73,7 +91,7 @@ pub fn Navbar() -> Element {
         Route::NotFound { .. } => String::new(),
     };
     let go_up_target = match route {
-        Route::Root {} | Route::Login {} | Route::Home {} => None,
+        Route::Login {} | Route::Home {} => None,
         Route::Admin {}
         | Route::TrainingSessions { .. }
         | Route::Routines { .. }
@@ -94,9 +112,7 @@ pub fn Navbar() -> Element {
         }),
     };
 
-    Cache::provide();
-    Synchronization::provide();
-    let mut synchronization = use_context::<Synchronization>();
+    let mut synchronization = consume_context::<Synchronization>();
 
     rsx! {
         nav {
@@ -190,39 +206,34 @@ pub fn Navbar() -> Element {
                             Icon { name: "gear", px: 5 }
                             "Settings"
                         }
-                        if user.is_some() {
-                            a {
-                                class: "navbar-item",
-                                onclick: move |_| {
-                                    synchronization.sync();
-                                    menu_visible.set(false);
-                                },
-                                Icon { name: "rotate", px: 5 }
-                                "Refresh data"
-                            }
+                        a {
+                            class: "navbar-item",
+                            onclick: move |_| {
+                                synchronization.sync();
+                                menu_visible.set(false);
+                            },
+                            Icon { name: "rotate", px: 5 }
+                            "Refresh data"
                         }
-                        if let Some(user) = user {
-                            a {
-                                class: "navbar-item",
-                                "data-testid": "navbar-logout",
-                                onclick: move |_| async move {
-                                    let result = DOMAIN_SERVICE().delete_session().await;
-                                    match result {
-                                        Ok(()) => {
-                                            session.restart();
-                                            navigator().push(Route::Root {});
-                                        }
-                                        Err(err) => {
-                                            ERRORS
-                                                .write()
-                                                .push(format!("Failed to log out: {err}"));
-                                            }
+                        a {
+                            class: "navbar-item",
+                            "data-testid": "navbar-logout",
+                            onclick: move |_| async move {
+                                let result = DOMAIN_SERVICE().delete_session().await;
+                                match result {
+                                    Ok(()) => {
+                                        navigator().push(Route::Login {});
                                     }
-                                    menu_visible.set(false);
-                                },
-                                Icon { name: "sign-out-alt", px: 5 }
-                                "Log out ({user.name})"
-                            }
+                                    Err(err) => {
+                                        ERRORS
+                                            .write()
+                                            .push(format!("Failed to sign out: {err}"));
+                                        }
+                                }
+                                menu_visible.set(false);
+                            },
+                            Icon { name: "sign-out-alt", px: 5 }
+                            "Sign out ({user.name})"
                         }
                         a {
                             class: "navbar-item",
@@ -252,7 +263,10 @@ pub fn Navbar() -> Element {
             }
         }
 
-        Outlet::<Route> {}
+        div {
+            class: "container is-max-desktop py-4",
+            Outlet::<Route> {}
+        }
     }
 }
 

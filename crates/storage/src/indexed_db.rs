@@ -293,7 +293,7 @@ impl IndexedDB {
 }
 
 impl domain::SessionRepository for IndexedDB {
-    async fn request_session(&self, _: domain::UserID) -> Result<domain::User, domain::ReadError> {
+    async fn request_session(&self, _: domain::Name) -> Result<domain::User, domain::ReadError> {
         panic!("unsupported")
     }
 
@@ -1415,7 +1415,7 @@ mod tests {
         #[wasm_bindgen_test]
         #[should_panic]
         async fn test_request_session() {
-            let _ = IndexedDB.request_session(USER.id).await;
+            let _ = IndexedDB.request_session(USER.name.clone()).await;
         }
 
         #[wasm_bindgen_test]

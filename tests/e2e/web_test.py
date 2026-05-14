@@ -7,7 +7,7 @@ from subprocess import PIPE, STDOUT, Popen
 from tempfile import TemporaryDirectory
 
 import pytest
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 
 import tests.utils
 from valens import app, models
@@ -78,8 +78,6 @@ def test_login(page: Page) -> None:
     login_page = LoginPage(page)
     login_page.goto()
 
-    assert login_page.users() == USERNAMES
-
     login_page.login(USERNAMES[0])
 
     p = HomePage(page)
@@ -96,6 +94,44 @@ def test_logout(page: Page) -> None:
     home_page.logout()
 
     LoginPage(page).expect_page()
+
+
+def test_login_with_enter_key(page: Page) -> None:
+    login_page = LoginPage(page)
+    login_page.goto()
+
+    login_page.login_with_enter(USERNAMES[0])
+
+    HomePage(page).expect_page()
+
+
+def test_login_invalid_username(page: Page) -> None:
+    login_page = LoginPage(page)
+    login_page.goto()
+
+    login_page.submit_username("unknown_user")
+
+    expect(login_page.error_message).to_be_visible()
+    expect(login_page.error_message).to_have_text("User not found")
+
+
+def test_login_error_reset_on_input(page: Page) -> None:
+    login_page = LoginPage(page)
+    login_page.goto()
+
+    login_page.submit_username("")
+    expect(login_page.error_message).to_be_visible()
+
+    login_page.type_username("a")
+    expect(login_page.error_message).not_to_be_visible()
+
+
+def test_login_redirect_if_authenticated(page: Page) -> None:
+    login(page)
+
+    LoginPage(page).goto(expect_page=False)
+
+    HomePage(page).expect_page()
 
 
 def test_home_links(page: Page) -> None:

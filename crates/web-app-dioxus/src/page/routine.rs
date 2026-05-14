@@ -3,13 +3,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, RoutineService, SessionService};
+use valens_domain::{self as domain, RoutineService};
 use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    eh, ensure_session,
+    eh,
     page::{
         self,
         common::{Chart, ChartLabel, IntervalControl, SetsPerMuscle},
@@ -29,8 +29,6 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 
 #[component]
 pub fn Routine(id: domain::RoutineID) -> Element {
-    ensure_session!();
-
     let cache = consume_context::<Cache>();
     let mut current_interval = use_signal(domain::Interval::default);
     let settings = use_context::<Settings>();

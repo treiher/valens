@@ -3,13 +3,13 @@ use std::{borrow::Borrow, collections::BTreeMap};
 use chrono::NaiveDate;
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, Property, SessionService};
+use valens_domain::{self as domain, Property};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, Route,
+    Route,
     cache::{Cache, CacheState},
-    eh, ensure_session,
+    eh,
     page::{
         self,
         common::{Calendar, Chart, ChartLabel, IntervalControl},
@@ -23,8 +23,6 @@ use crate::{
 
 #[component]
 pub fn Exercise(id: domain::ExerciseID) -> Element {
-    ensure_session!();
-
     let cache = consume_context::<Cache>();
     let mut current_interval = use_signal(domain::Interval::default);
     let settings = use_context::<Settings>();

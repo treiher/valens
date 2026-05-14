@@ -5,12 +5,12 @@ use chrono::{Duration, Local};
 use dioxus::prelude::*;
 use log::{error, warn};
 
-use valens_domain::{self as domain, ExerciseService, Property, SessionService};
+use valens_domain::{self as domain, ExerciseService, Property};
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    eh, ensure_session,
+    eh,
     routing::NavigatorScrollExt,
     ui::{
         element::{
@@ -51,8 +51,6 @@ macro_rules! show_add_dialog {
 
 #[component]
 pub fn Exercises(add: bool, filter: String) -> Element {
-    ensure_session!();
-
     rsx! {
         ExerciseList {
             add,

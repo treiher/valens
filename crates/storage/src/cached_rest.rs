@@ -59,11 +59,8 @@ impl Default for CachedREST<GlooNetSendRequest> {
 }
 
 impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
-    async fn request_session(
-        &self,
-        user_id: domain::UserID,
-    ) -> Result<domain::User, domain::ReadError> {
-        let rest_result = self.rest.request_session(user_id).await;
+    async fn request_session(&self, name: domain::Name) -> Result<domain::User, domain::ReadError> {
+        let rest_result = self.rest.request_session(name).await;
         if let Ok(ref user) = rest_result
             && let Err(err) = IndexedDB.write_session(user).await
         {
@@ -352,7 +349,7 @@ mod tests {
 
             assert!(matches!(
                 cached_rest_with_response(None)
-                    .request_session(USER.id)
+                    .request_session(USER.name.clone())
                     .await,
                 Err(domain::ReadError::Storage(
                     domain::StorageError::NoConnection
@@ -370,7 +367,7 @@ mod tests {
                         .status(200)
                         .json(&rest::User::from(USER.clone())),
                 ))
-                .request_session(USER.id)
+                .request_session(USER.name.clone())
                 .await
                 .unwrap(),
                 USER.clone()
@@ -380,7 +377,7 @@ mod tests {
 
             assert!(matches!(
                 cached_rest_with_response(None)
-                    .request_session(USER_2.id)
+                    .request_session(USER_2.name.clone())
                     .await,
                 Err(domain::ReadError::Storage(
                     domain::StorageError::NoConnection

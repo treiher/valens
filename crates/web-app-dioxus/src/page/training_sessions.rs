@@ -3,13 +3,13 @@ use std::{collections::BTreeMap, str::FromStr};
 use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, RoutineService, SessionService, TrainingSessionService};
+use valens_domain::{self as domain, RoutineService, TrainingSessionService};
 use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    eh, ensure_session,
+    eh,
     page::common::{Calendar, Chart, ChartLabel, IntervalControl},
     routing::NavigatorScrollExt,
     settings::Settings,
@@ -24,8 +24,6 @@ use crate::{
 
 #[component]
 pub fn TrainingSessions(add: bool) -> Element {
-    ensure_session!();
-
     let cache = consume_context::<Cache>();
     let dates = use_memo(move || {
         if let CacheState::Ready(training_session) = &*cache.training_sessions.read() {

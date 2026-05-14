@@ -70,6 +70,8 @@ pub enum StorageError {
     NoConnection,
     #[error("no session")]
     NoSession,
+    #[error("timeout")]
+    Timeout,
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error>),
 }

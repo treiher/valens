@@ -16,7 +16,7 @@ use crate::{
     ui::element::{Color, Dialog},
 };
 
-static CURRENT_ROUTE: GlobalSignal<Route> = Signal::global(|| Route::Root {});
+static CURRENT_ROUTE: GlobalSignal<Route> = Signal::global(|| Route::Login {});
 static UNSAVED_CHANGES_GUARD: GlobalSignal<UnsavedChangesGuard> =
     Signal::global(UnsavedChangesGuard::default);
 

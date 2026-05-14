@@ -127,9 +127,8 @@ impl From<FetchError> for domain::StorageError {
     fn from(value: FetchError) -> Self {
         match value {
             FetchError::NoConnection => domain::StorageError::NoConnection,
-            FetchError::Response { .. } | FetchError::Timeout => {
-                domain::StorageError::Other(value.into())
-            }
+            FetchError::Timeout => domain::StorageError::Timeout,
+            FetchError::Response { .. } => domain::StorageError::Other(value.into()),
             FetchError::Other(err) => domain::StorageError::Other(err.into()),
         }
     }
@@ -137,7 +136,10 @@ impl From<FetchError> for domain::StorageError {
 
 impl From<FetchError> for domain::ReadError {
     fn from(value: FetchError) -> Self {
-        domain::ReadError::Storage(value.into())
+        match value {
+            FetchError::Response { status: 404, .. } => domain::ReadError::NotFound,
+            _ => domain::ReadError::Storage(value.into()),
+        }
     }
 }
 
@@ -166,14 +168,11 @@ impl From<FetchError> for domain::DeleteError {
 }
 
 impl<S: SendRequest> domain::SessionRepository for REST<S> {
-    async fn request_session(
-        &self,
-        user_id: domain::UserID,
-    ) -> Result<domain::User, domain::ReadError> {
+    async fn request_session(&self, name: domain::Name) -> Result<domain::User, domain::ReadError> {
         let r: User = self
             .fetch(
                 gloo_net::http::Request::post("/api/session"),
-                Some(&json!({ "id": user_id.as_u128() })),
+                Some(&json!({ "name": name.as_ref() })),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
@@ -1393,11 +1392,21 @@ mod tests {
                         .status(200)
                         .json(&User::from(USER.clone())),
                 ))
-                .request_session(USER.id)
+                .request_session(USER.name.clone())
                 .await
                 .unwrap(),
                 USER.clone()
             );
+            assert!(matches!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(404)
+                        .body::<Option<&str>>(None),
+                ))
+                .request_session(USER.name.clone())
+                .await,
+                Err(domain::ReadError::NotFound)
+            ));
         }
 
         #[wasm_bindgen_test]

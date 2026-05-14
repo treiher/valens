@@ -6,13 +6,13 @@ use std::{
 use dioxus::prelude::*;
 use indexmap::IndexMap;
 
-use valens_domain::{self as domain, SessionService, TrainingSessionService};
+use valens_domain::{self as domain, TrainingSessionService};
 use valens_web_app::{self as web_app, OngoingTrainingSessionService};
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, METRONOME, Route, WEB_APP_SERVICE,
     cache::{Cache, CacheState},
-    eh, ensure_session,
+    eh,
     page::{
         self,
         common::{SetsPerMuscle, Timer, TimerService},
@@ -32,8 +32,6 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 
 #[component]
 pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
-    ensure_session!();
-
     let mut edit = use_signal(|| false);
     let mut progress = use_store(|| Progress::new(id));
 

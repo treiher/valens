@@ -92,9 +92,9 @@ impl<R: VersionRepository> VersionService for Service<R> {
 }
 
 impl<R: SessionRepository> SessionService for Service<R> {
-    async fn request_session(&self, user_id: UserID) -> Result<User, ReadError> {
+    async fn request_session(&self, name: Name) -> Result<User, ReadError> {
         log_on_error!(
-            self.repository.request_session(user_id),
+            self.repository.request_session(name),
             ReadError,
             "request",
             "session"

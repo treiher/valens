@@ -1,12 +1,12 @@
 use dioxus::prelude::*;
 use log::warn;
 
-use valens_domain::{self as domain, RoutineService, SessionService};
+use valens_domain::{self as domain, RoutineService};
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    eh, ensure_session,
+    eh,
     routing::NavigatorScrollExt,
     settings::Settings,
     ui::{
@@ -21,8 +21,6 @@ use crate::{
 
 #[component]
 pub fn Routines(add: bool, search: String) -> Element {
-    ensure_session!();
-
     let cache = consume_context::<Cache>();
     let mut dialog = use_signal(|| RoutineDialog::None);
 

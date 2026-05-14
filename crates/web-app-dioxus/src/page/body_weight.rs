@@ -1,13 +1,12 @@
 use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, BodyWeightService, SessionService};
+use valens_domain::{self as domain, BodyWeightService};
 use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    ensure_session,
     page::common::{Calendar, Chart, ChartLabel, IntervalControl},
     routing::NavigatorScrollExt,
     settings::Settings,
@@ -23,8 +22,6 @@ use crate::{
 
 #[component]
 pub fn BodyWeight(add: bool) -> Element {
-    ensure_session!();
-
     let cache = consume_context::<Cache>();
     let dates = use_memo(move || {
         if let CacheState::Ready(body_weight) = &*cache.body_weight.read() {

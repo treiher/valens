@@ -9,9 +9,8 @@ use crate::{
     page::{
         admin::Admin, body_fat::BodyFat, body_weight::BodyWeight, catalog::Catalog,
         exercise::Exercise, exercises::Exercises, home::Home, login::Login,
-        menstrual_cycle::MenstrualCycle, muscles::Muscles, not_found::NotFound, root::Root,
-        routine::Routine, routines::Routines, training_session::TrainingSession,
-        training_sessions::TrainingSessions,
+        menstrual_cycle::MenstrualCycle, muscles::Muscles, not_found::NotFound, routine::Routine,
+        routines::Routines, training_session::TrainingSession, training_sessions::TrainingSessions,
     },
     session::SessionProvider,
 };
@@ -19,12 +18,11 @@ use crate::{
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {
-    #[layout(Navbar)]
-        #[route("/")]
-        Root {},
-        #[route("/login")]
-        Login {},
-        #[layout(SessionProvider)]
+    #[route("/login")]
+    Login {},
+    #[layout(SessionProvider)]
+        #[layout(Navbar)]
+            #[redirect("/", || Route::Home {})]
             #[route("/home")]
             Home {},
             #[route("/admin")]

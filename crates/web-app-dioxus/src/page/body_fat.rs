@@ -1,21 +1,20 @@
 use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, BodyFatService, BodyWeightService, SessionService};
+use valens_domain::{self as domain, BodyFatService, BodyWeightService};
 use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    ensure_session,
     page::common::{Calendar, Chart, ChartLabel, IntervalControl},
     routing::NavigatorScrollExt,
+    session::Session,
     settings::Settings,
     ui::{
         element::{
             Block, DeleteConfirmationDialog, ErrorMessage, FloatingActionButton, ItemOptionsButton,
-            LoadingPage, MenuOption, NoConnection, NoWrap, OptionsMenu, SaveDialog, Table,
-            value_or_dash,
+            LoadingPage, MenuOption, NoWrap, OptionsMenu, SaveDialog, Table, value_or_dash,
         },
         form::{FieldSet, FieldValue, FieldValueState, InputField},
     },
@@ -23,8 +22,7 @@ use crate::{
 
 #[component]
 pub fn BodyFat(add: bool) -> Element {
-    let session = ensure_session!();
-
+    let user = consume_context::<Session>().user;
     let cache = consume_context::<Cache>();
     let dates = use_memo(move || {
         if let CacheState::Ready(body_fat) = &*cache.body_fat.read() {
@@ -68,12 +66,8 @@ pub fn BodyFat(add: bool) -> Element {
         }
     });
 
-    match (
-        &*session.read(),
-        &*cache.body_fat.read(),
-        &*cache.body_weight.read(),
-    ) {
-        (Some(Ok(user)), CacheState::Ready(body_fat), CacheState::Ready(body_weight)) => {
+    match (&*cache.body_fat.read(), &*cache.body_weight.read()) {
+        (CacheState::Ready(body_fat), CacheState::Ready(body_weight)) => {
             let avg_body_weight = DOMAIN_SERVICE().avg_body_weight(body_weight);
             rsx! {
                 IntervalControl { current_interval, all },
@@ -87,15 +81,10 @@ pub fn BodyFat(add: bool) -> Element {
                 }
             }
         }
-        (Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))), _, _) => {
-            rsx! { NoConnection {} }
-        }
-        (Some(Err(err)), _, _)
-        | (_, CacheState::Error(err), _)
-        | (_, _, CacheState::Error(err)) => {
+        (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
             rsx! { ErrorMessage { message: err } }
         }
-        (None, _, _) | (_, CacheState::Loading, _) | (_, _, CacheState::Loading) => {
+        (CacheState::Loading, _) | (_, CacheState::Loading) => {
             rsx! { LoadingPage {} }
         }
     }

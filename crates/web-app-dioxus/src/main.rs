@@ -107,14 +107,11 @@ fn App() -> Element {
     Settings::provide();
 
     rsx! {
-        div {
-            class: "container is-max-desktop py-4",
-            Router::<Route> {
-                config: router_config
-            }
-            UpdateNotification {}
-            ErrorDialog {}
+        Router::<Route> {
+            config: router_config
         }
+        UpdateNotification {}
+        ErrorDialog {}
     }
 }
 
@@ -146,17 +143,6 @@ fn ErrorDialog() -> Element {
             }
         }
     }
-}
-
-#[macro_export]
-macro_rules! ensure_session {
-    () => {{
-        let session = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
-        if let Some(Err(_)) = *session.read() {
-            navigator().push(Route::Login {});
-        }
-        session
-    }};
 }
 
 fn signal_changed_data() {

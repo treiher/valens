@@ -22,8 +22,8 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
         yield client
 
 
-def create_session(client: Client, user_id: int = 1) -> Response:
-    return client.post("/api/session", json={"id": user_id})
+def create_session(client: Client, name: str = "Alice") -> Response:
+    return client.post("/api/session", json={"name": name})
 
 
 def delete_session(client: Client) -> Response:
@@ -33,7 +33,11 @@ def delete_session(client: Client) -> Response:
 @pytest.mark.parametrize(
     ("method", "route"),
     [
+        ("get", "/api/users"),
+        ("post", "/api/users"),
         ("get", "/api/users/1"),
+        ("put", "/api/users/2"),
+        ("delete", "/api/users/2"),
         ("get", "/api/body_weight"),
         ("post", "/api/body_weight"),
         ("put", "/api/body_weight/2002-02-22"),
@@ -155,19 +159,17 @@ def test_read_session_not_found(client: Client) -> None:
 
 
 def test_create_session_not_found(client: Client) -> None:
-    resp = client.post("/api/session", json={"id": 1})
+    resp = client.post("/api/session", json={"name": "Alice"})
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
 
 
 def test_read_users(client: Client) -> None:
-    resp = client.get("/api/users")
-
-    assert resp.status_code == HTTPStatus.OK
-    assert resp.json == []
-
     tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
     resp = client.get("/api/users")
 
     assert resp.status_code == HTTPStatus.OK
@@ -201,6 +203,8 @@ def test_read_user(client: Client) -> None:
 def test_create_user(client: Client) -> None:
     tests.utils.init_db_data()
 
+    assert create_session(client).status_code == HTTPStatus.OK
+
     resp = client.post("/api/users", json={"name": "Carol", "sex": 0})
 
     assert resp.status_code == HTTPStatus.CREATED
@@ -219,6 +223,8 @@ def test_create_user(client: Client) -> None:
 def test_create_user_conflict(client: Client) -> None:
     tests.utils.init_db_data()
 
+    assert create_session(client).status_code == HTTPStatus.OK
+
     resp = client.post("/api/users", json={"name": " Alice ", "sex": 0})
 
     assert resp.status_code == HTTPStatus.CONFLICT
@@ -227,6 +233,8 @@ def test_create_user_conflict(client: Client) -> None:
 
 def test_replace_user(client: Client) -> None:
     tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.put("/api/users/2", json={"name": "Carol", "sex": 0})
 
@@ -245,6 +253,8 @@ def test_replace_user(client: Client) -> None:
 def test_replace_user_not_found(client: Client) -> None:
     tests.utils.init_db_data()
 
+    assert create_session(client).status_code == HTTPStatus.OK
+
     resp = client.put("/api/users/3", json={"name": "Carol", "sex": 0})
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
@@ -254,6 +264,8 @@ def test_replace_user_not_found(client: Client) -> None:
 def test_replace_user_conflict(client: Client) -> None:
     tests.utils.init_db_data()
 
+    assert create_session(client).status_code == HTTPStatus.OK
+
     resp = client.put("/api/users/2", json={"name": " Alice ", "sex": 0})
 
     assert resp.status_code == HTTPStatus.CONFLICT
@@ -262,6 +274,8 @@ def test_replace_user_conflict(client: Client) -> None:
 
 def test_delete_user(client: Client) -> None:
     tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.delete("/api/users/2")
 
@@ -607,7 +621,8 @@ def test_delete_user(client: Client) -> None:
 def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str, object]]) -> None:
     tests.utils.init_db_users()
 
-    assert create_session(client, user_id).status_code == HTTPStatus.OK
+    username = next(u.name for u in tests.data.users_only() if u.id == user_id)
+    assert create_session(client, username).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 
@@ -617,7 +632,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
     tests.utils.clear_db()
     tests.utils.init_db_data()
 
-    assert create_session(client, user_id).status_code == HTTPStatus.OK
+    assert create_session(client, username).status_code == HTTPStatus.OK
 
     resp = client.get(route)
 

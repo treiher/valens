@@ -67,7 +67,7 @@ test_frontend:
 
 test_backend:
 	mkdir -p $(GENERATED_DIR)
-	touch $(PACKAGE_GENERATED_FILES)
+	$(foreach f,$(PACKAGE_GENERATED_FILES),test -f $(f) || touch $(f);)
 	uv run -- pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
 	find $(PACKAGE_GENERATED_FILES) -type f -empty -delete
 
@@ -75,6 +75,7 @@ test_installation: $(BUILD_DIR)/venv/bin/valens
 	$(BUILD_DIR)/venv/bin/valens --version
 
 test_e2e: $(BUILD_DIR)/venv/bin/valens
+	@grep -qaF "$(VERSION)" $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm || { echo "ERROR: $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm does not contain current version string \"$(VERSION)\""; exit 1; }
 	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
 
 $(BUILD_DIR)/venv:

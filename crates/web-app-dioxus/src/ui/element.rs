@@ -320,6 +320,7 @@ pub fn Dialog(
             button {
                 aria_label: "close",
                 class: "modal-close",
+                "data-testid": "dialog-close",
                 onclick: on_close,
             }
         }

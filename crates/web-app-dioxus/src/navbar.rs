@@ -9,8 +9,10 @@ use log::warn;
 use valens_domain::SessionService;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, METRONOME, NO_CONNECTION, Route,
-    page::common::{Metronome, MutableTimer, Stopwatch, StopwatchService, TimerService},
+    DOMAIN_SERVICE, ERRORS, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR, Route,
+    page::common::{
+        Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch, StopwatchService, TimerService,
+    },
     session::Session,
     settings::{Settings, SettingsDialog},
     synchronization::Synchronization,
@@ -175,6 +177,7 @@ pub fn Navbar() -> Element {
                         aria_label: "menu",
                         class: "navbar-burger ml-0",
                         class: if menu_visible() { "is-active" },
+                        "data-testid": "navbar-menu",
                         role: "button",
                         onclick: move |_| { menu_visible.toggle() },
                         span { aria_hidden: "true" }
@@ -196,6 +199,16 @@ pub fn Navbar() -> Element {
                             },
                             Icon { name: "stopwatch", px: 5 }
                             "Metronome · Stopwatch · Timer"
+                        }
+                        a {
+                            class: "navbar-item",
+                            "data-testid": "navbar-1rm-calculator",
+                            onclick: move |_| {
+                                ONE_REP_MAX_CALCULATOR.write().visible = true;
+                                menu_visible.set(false);
+                            },
+                            Icon { name: "dumbbell", px: 5 }
+                            "1RM calculator"
                         }
                         a {
                             class: "navbar-item",
@@ -261,6 +274,10 @@ pub fn Navbar() -> Element {
             SettingsDialog {
                 on_close: move |_| { settings_visible.set(false); }
             }
+        }
+
+        if ONE_REP_MAX_CALCULATOR.read().visible {
+            OneRepMaxCalculator {}
         }
 
         div {

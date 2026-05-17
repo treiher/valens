@@ -21,6 +21,13 @@ impl Reps {
 
         Ok(Self(value))
     }
+
+    #[must_use]
+    pub fn including_rir(self, rpe: RPE) -> f32 {
+        #[allow(clippy::cast_precision_loss)]
+        let reps = self.0 as f32;
+        reps + f32::from(RIR::from(rpe))
+    }
 }
 
 impl TryFrom<&str> for Reps {
@@ -341,8 +348,47 @@ fn average_weighted_sum_of_load(
         .collect::<Vec<_>>()
 }
 
+/// Calculates the one-rep max using a hybrid formula.
+///
+/// The Brzycki formula is used for 2-6 reps, the Desgorces formula for 7-19
+/// reps, and the Wathan formula for 20+ reps.
+#[must_use]
+pub fn one_rep_max(reps: f32, weight: f32) -> f32 {
+    if reps <= 1.0 {
+        weight
+    } else if reps <= 6.0 {
+        // Brzycki
+        weight * 36.0 / (37.0 - reps)
+    } else if reps <= 19.0 {
+        // Desgorces
+        100.0 * weight / (83.7677 * (-0.0338 * reps).exp() + 17.6846)
+    } else {
+        // Wathan
+        100.0 * weight / (48.8 + 53.8 * (-0.075 * reps).exp())
+    }
+}
+
+/// Returns the number of reps achievable at a given percentage of the one-rep
+/// max (inverse of [`one_rep_max`]).
+#[must_use]
+pub fn reps_for_percentage(percentage: f32) -> f32 {
+    if percentage >= 100.0 {
+        return 1.0;
+    }
+    let r_brzycki = 37.0 - 36.0 * percentage / 100.0;
+    if r_brzycki <= 6.0 {
+        return r_brzycki;
+    }
+    let r_desgorces = -((percentage - 17.6846) / 83.7677).ln() / 0.0338;
+    if r_desgorces <= 19.0 {
+        return r_desgorces;
+    }
+    -((percentage - 48.8) / 53.8).ln() / 0.075
+}
+
 #[cfg(test)]
 mod tests {
+    use assert_approx_eq::assert_approx_eq;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -439,6 +485,14 @@ mod tests {
     #[case(Reps(8), "8")]
     fn test_reps_display(#[case] input: Reps, #[case] expected: &str) {
         assert_eq!(input.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case(Reps(5), RPE::TEN, 5.0)]
+    #[case(Reps(5), RPE::EIGHT, 7.0)]
+    #[case(Reps(5), RPE::ZERO, 15.0)]
+    fn test_reps_including_rir(#[case] reps: Reps, #[case] rpe: RPE, #[case] expected: f32) {
+        assert_approx_eq!(reps.including_rir(rpe), expected);
     }
 
     #[rstest]
@@ -642,6 +696,52 @@ mod tests {
             average_weighted_sum_of_load(weighted_sum_of_load, window_size),
             expected
         );
+    }
+
+    #[rstest]
+    #[case(1.0, 100.0, 100.0)]
+    #[case(5.0, 100.0, 112.5)]
+    #[case(10.0, 100.0, 129.2)]
+    #[case(30.0, 100.0, 183.6)]
+    fn test_one_rep_max(#[case] reps: f32, #[case] weight: f32, #[case] expected: f32) {
+        assert_approx_eq!(one_rep_max(reps, weight), expected, 0.05);
+    }
+
+    #[rstest]
+    #[case(100.0, 1.0)]
+    #[case(97.2, 2.0)]
+    #[case(86.1, 6.0)]
+    #[case(77.4, 10.0)]
+    #[case(61.7, 19.0)]
+    #[case(60.8, 20.0)]
+    #[case(54.5, 30.0)]
+    fn test_reps_for_percentage(#[case] percentage: f32, #[case] expected: f32) {
+        assert_approx_eq!(reps_for_percentage(percentage), expected, 0.1);
+    }
+
+    #[rstest]
+    #[case(150.0)]
+    #[case(105.0)]
+    fn test_reps_for_percentage_clamped_above_one_rep_max(#[case] percentage: f32) {
+        assert_approx_eq!(reps_for_percentage(percentage), 1.0);
+    }
+
+    #[rstest]
+    #[case(1.0)]
+    #[case(2.5)]
+    #[case(5.0)]
+    #[case(6.0)]
+    #[case(7.0)]
+    #[case(12.0)]
+    #[case(19.0)]
+    #[case(20.0)]
+    #[case(30.0)]
+    #[case(50.0)]
+    fn test_one_rep_max_and_reps_for_percentage_are_inverses(#[case] reps: f32) {
+        let weight = 100.0;
+        let one_rm = one_rep_max(reps, weight);
+        let percentage = 100.0 * weight / one_rm;
+        assert_approx_eq!(reps_for_percentage(percentage), reps, 0.05);
     }
 
     fn from_num_days(days: i32) -> NaiveDate {

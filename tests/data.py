@@ -262,6 +262,16 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                         WorkoutSet(position=1, exercise=exercise_3, reps=11, time=4, rpe=8.5),
                     ],
                 ),
+                Workout(
+                    id=5,
+                    user_id=1,
+                    date=days_ago(10),
+                    notes=None,
+                    elements=[
+                        WorkoutSet(position=1, exercise=exercise_6, reps=10, weight=100.0),
+                        WorkoutSet(position=2, exercise=exercise_6, reps=8, weight=105.0),
+                    ],
+                ),
             ],
         ),
         User(

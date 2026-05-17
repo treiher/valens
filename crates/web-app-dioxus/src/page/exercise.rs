@@ -92,7 +92,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                                     if training_sessions.is_empty() {
                                         NoData {}
                                     } else {
-                                        {view_charts(&training_sessions, interval, settings)}
+                                        {view_charts(id, &training_sessions, interval, settings)}
                                         {view_calendar(&training_sessions, interval)}
                                         {page::training_sessions::view_table(&training_sessions, routines, interval, training_dialog, settings)}
                                         {view_sets(id, &training_sessions, routines, settings)}
@@ -165,6 +165,7 @@ where
 }
 
 fn view_charts(
+    exercise_id: domain::ExerciseID,
     training_sessions: &[domain::TrainingSession],
     interval: domain::Interval,
     settings: Settings,
@@ -200,6 +201,11 @@ fn view_charts(
                 .and_modify(|e| e.1.push(avg_rpe));
         }
     }
+
+    let one_rep_max_values: Vec<(NaiveDate, f32)> = training_sessions
+        .iter()
+        .filter_map(|s| s.one_rep_max(exercise_id).map(|v| (s.date, v)))
+        .collect();
 
     let mut reps_labels = vec![ChartLabel {
         name: "Reps".to_string(),
@@ -369,6 +375,31 @@ fn view_charts(
                 theme,
             ).map_err(|err| err.to_string()),
             no_data_label: false,
+        }
+        if !one_rep_max_values.is_empty() {
+            Chart {
+                labels: vec![
+                    ChartLabel {
+                        name: "Est. 1RM (kg)".to_string(),
+                        color: web_app::chart::COLOR_1RM,
+                        opacity: web_app::chart::OPACITY_LINE,
+                    },
+                ],
+                chart: web_app::chart::plot(
+                    &[
+                    web_app::chart::PlotData {
+                        values_high: domain::value_based_centered_moving_average(&one_rep_max_values, 2),
+                        values_low: None,
+                        plots: web_app::chart::plot_line(web_app::chart::COLOR_1RM),
+                        params: web_app::chart::PlotParams::primary_range(0., 10.),
+                    },
+                    ],
+                    interval,
+                    theme,
+                )
+                    .map_err(|err| err.to_string()),
+                    no_data_label: false,
+            }
         }
         if settings.show_tut() {
             Chart {

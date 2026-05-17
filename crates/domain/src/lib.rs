@@ -30,10 +30,12 @@ pub use statistics::{
     DefaultInterval, Interval, centered_moving_average, centered_moving_total, init_interval,
     value_based_centered_moving_average,
 };
-pub use training::{RIR, RPE, Reps, Time, TrainingStats, Weight, training_stats};
+pub use training::{
+    RIR, RPE, Reps, Time, TrainingStats, Weight, one_rep_max, reps_for_percentage, training_stats,
+};
 pub use training_session::{
     Set, TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,
-    TrainingSessionSection, TrainingSessionService,
+    TrainingSessionSection, TrainingSessionService, most_recent_best_set_for_one_rep_max,
 };
 pub use user::{Sex, User, UserID, UserRepository, UserService};
 pub use version::{VersionRepository, VersionService};

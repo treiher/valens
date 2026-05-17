@@ -11,12 +11,12 @@ use valens_domain::{self as domain, TrainingSessionService};
 use valens_web_app::{self as web_app, OngoingTrainingSessionService};
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, METRONOME, Route, WEB_APP_SERVICE,
+    DOMAIN_SERVICE, ERRORS, METRONOME, ONE_REP_MAX_CALCULATOR, Route, WEB_APP_SERVICE,
     cache::{Cache, CacheState},
     eh,
     page::{
         self,
-        common::{SetsPerMuscle, Timer, TimerService},
+        common::{OneRepMaxCalculatorState, SetsPerMuscle, Timer, TimerService},
     },
     settings::Settings,
     ui::{
@@ -314,7 +314,11 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
         &*training_session.read(),
         &*cache.exercises.read(),
     ) {
-        (CacheState::Ready(_), Some(training_session), CacheState::Ready(exercises)) => {
+        (
+            CacheState::Ready(training_sessions),
+            Some(training_session),
+            CacheState::Ready(exercises),
+        ) => {
             rsx! {
                 Title { "{training_session.date}" }
                 if let Some(routine) = &*routine.read() {
@@ -335,7 +339,7 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
-                {view_edit_dialog(edit_dialog, field_values, cache)}
+                {view_edit_dialog(edit_dialog, field_values, training_sessions, cache)}
                 FloatingActionButton {
                     icon: (if edit() { if has_changes() { "save" } else { "eye" } } else { "edit" }).to_string(),
                     on_click: eh!(mut edit, training_session; {
@@ -1073,6 +1077,7 @@ fn view_muscles(
 fn view_edit_dialog(
     mut edit_dialog: Signal<EditDialog>,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
+    training_sessions: &[domain::TrainingSession],
     cache: Cache,
 ) -> Element {
     let close_dialog = move || {
@@ -1104,6 +1109,30 @@ fn view_edit_dialog(
                                         let exercise_id = exercise_ids[exercise_idx];
                                         *edit_dialog.write() = EditDialog::ExerciseNote { training_session, exercise_id };
                                     })
+                                },
+                                {
+                                    let sections = training_session.compute_sections();
+                                    let exercise_ids = unique(sections[*section_idx].exercise_ids());
+                                    let exercise_id = exercise_ids[*exercise_idx];
+                                    let recent_best_set = domain::most_recent_best_set_for_one_rep_max(
+                                        training_sessions,
+                                        exercise_id,
+                                    );
+                                    rsx! {
+                                        if let Some((reps, weight)) = recent_best_set {
+                                            MenuOption {
+                                                icon: "dumbbell".to_string(),
+                                                text: "Show 1RM".to_string(),
+                                                "data-testid": "options-1rm",
+                                                on_click: eh!(mut edit_dialog; {
+                                                    let mut state = OneRepMaxCalculatorState::new(reps.into(), f32::from(weight));
+                                                    state.visible = true;
+                                                    *ONE_REP_MAX_CALCULATOR.write() = state;
+                                                    *edit_dialog.write() = EditDialog::None;
+                                                })
+                                            }
+                                        }
+                                    }
                                 },
                                 MenuOption {
                                     icon: "plus".to_string(),

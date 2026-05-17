@@ -120,6 +120,10 @@ class Dialog(PageElement):
         self.root.get_by_test_id("dialog-no").click()
         self.wait_until_closed()
 
+    def close(self) -> None:
+        self.page.get_by_test_id("dialog-close").click()
+        self.wait_until_closed()
+
 
 class Table(PageElement):
     def root(self, table_idx: int) -> Locator:

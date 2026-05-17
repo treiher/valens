@@ -15,5 +15,8 @@ from .routine import (
     RoutineSet as RoutineSet,
 )
 from .routines import RoutinesPage as RoutinesPage
-from .training_session import TrainingSessionPage as TrainingSessionPage
+from .training_session import (
+    OneRepMaxCalculatorDialog as OneRepMaxCalculatorDialog,
+    TrainingSessionPage as TrainingSessionPage,
+)
 from .training_sessions import TrainingSessionsPage as TrainingSessionsPage

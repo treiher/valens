@@ -18,6 +18,7 @@ class TrainingSessionPage(BasePage):
 
         self.session_id = session_id
         self.exercise_note_dialog: ExerciseNoteDialog = ExerciseNoteDialog(page)
+        self.one_rep_max_dialog: OneRepMaxCalculatorDialog = OneRepMaxCalculatorDialog(page)
 
     @property
     def path(self) -> str:
@@ -100,6 +101,11 @@ class TrainingSessionPage(BasePage):
         self.page.get_by_test_id("item-options").nth(exercise_idx).click()
         self.page.get_by_test_id("options-menu").wait_for(state="visible")
 
+    def show_1rm(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        self.page.get_by_test_id("options-1rm").click()
+        self.one_rep_max_dialog.wait_until_open()
+
     def edit_exercise_note(self, note: str, exercise_idx: int = 0) -> None:
         self.open_exercise_note_dialog(exercise_idx)
         self.exercise_note_dialog.set_note(note)
@@ -134,3 +140,27 @@ class ExerciseNoteDialog(Dialog):
 
     def reuse_previous_note(self, idx: int = 0) -> None:
         self.root.get_by_test_id("exercise-note-reuse").nth(idx).click()
+
+
+class OneRepMaxCalculatorDialog(Dialog):
+    def get_weight(self) -> str:
+        return self.root.get_by_test_id("1rm-weight").input_value()
+
+    def get_reps(self) -> str:
+        return self.root.get_by_test_id("1rm-reps").input_value()
+
+    def set_weight(self, weight: float) -> None:
+        self.root.get_by_test_id("1rm-weight").fill(str(weight))
+
+    def set_reps(self, reps: int) -> None:
+        self.root.get_by_test_id("1rm-reps").fill(str(reps))
+
+    def get_table_row(self, percentage: int) -> tuple[str, str]:
+        """Return (reps, weight) for a given percentage row."""
+        rows = self.root.locator("table tbody tr").all()
+        for row in rows:
+            cells = row.locator("td").all()
+            if cells[0].inner_text().strip() == str(percentage):
+                return (cells[1].inner_text().strip(), cells[2].inner_text().strip())
+        msg = f"Row for {percentage}% not found"
+        raise ValueError(msg)

@@ -28,6 +28,7 @@ pub const COLOR_REPS: usize = 4;
 pub const COLOR_REPS_RIR: usize = 4;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
+pub const COLOR_1RM: usize = 19;
 
 pub const OPACITY_LINE: f64 = 0.9;
 pub const OPACITY_AREA: f64 = 0.3;

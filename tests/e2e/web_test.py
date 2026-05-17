@@ -33,6 +33,7 @@ from .pages import (
     LoginPage,
     MenstrualCyclePage,
     MusclesPage,
+    OneRepMaxCalculatorDialog,
     RoutinePage,
     RoutineRest,
     RoutineSet,
@@ -613,7 +614,7 @@ def test_training_session_change_notes(page: Page) -> None:
 
 
 def test_training_session_exercise_notes(page: Page) -> None:
-    workout = USER.workouts[-1]
+    workout = USER.workouts[-2]
     exercise = next(e.exercise for e in workout.elements if isinstance(e, models.WorkoutSet))
     earlier_note = next(
         n.notes for n in USER.workouts[0].exercise_notes if n.exercise_id == exercise.id
@@ -646,6 +647,28 @@ def test_training_session_exercise_notes(page: Page) -> None:
     exercise_page = ExercisePage(page, exercise.id)
     exercise_page.goto()
     expect(exercise_page.exercise_note().filter(has_text=earlier_note)).to_have_count(2)
+
+
+def test_training_session_1rm_calculator(page: Page) -> None:
+    workout = next(w for w in USER.workouts if w.id == 5)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.show_1rm()
+
+    dialog = p.one_rep_max_dialog
+    assert dialog.get_weight() == "100"
+    assert dialog.get_reps() == "10"
+
+    reps_100, weight_100 = dialog.get_table_row(100)
+    assert reps_100 == "1"
+    assert float(weight_100) > 0.0
+
+    dialog.close()
+    dialog.wait_until_closed()
 
 
 def test_routines_add(page: Page) -> None:
@@ -1265,6 +1288,40 @@ def test_muscles(page: Page) -> None:
     login(page)
     p = MusclesPage(page)
     p.goto()
+
+
+def test_navbar_1rm_calculator(page: Page) -> None:
+    login(page)
+    p = HomePage(page)
+    p.expect_page()
+
+    page.get_by_test_id("navbar-1rm-calculator").click()
+
+    dialog = OneRepMaxCalculatorDialog(page)
+    dialog.wait_until_open()
+
+    assert dialog.get_weight() == "100"
+    assert dialog.get_reps() == "5"
+
+    reps_100, weight_100 = dialog.get_table_row(100)
+    assert reps_100 == "1"
+    weight_100_float = float(weight_100)
+    assert weight_100_float > 0.0
+
+    dialog.set_weight(80.0)
+    dialog.set_reps(10)
+
+    reps_100_new, weight_100_new = dialog.get_table_row(100)
+    assert reps_100_new == "1"
+    assert float(weight_100_new) != weight_100_float
+
+    dialog.close()
+    dialog.wait_until_closed()
+
+    page.get_by_test_id("navbar-1rm-calculator").click()
+    dialog.wait_until_open()
+    assert dialog.get_weight() == "80"
+    assert dialog.get_reps() == "10"
 
 
 def test_cache(page: Page) -> None:

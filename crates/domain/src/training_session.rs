@@ -12,7 +12,8 @@ use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, MuscleID, RPE, ReadError, Reps, RoutineID,
-    Stimulus, SyncError, Time, TrainingStats, UpdateError, ValidationError, Weight, training_stats,
+    Stimulus, SyncError, Time, TrainingStats, UpdateError, ValidationError, Weight, one_rep_max,
+    training_stats,
 };
 
 #[allow(async_fn_in_trait)]
@@ -303,6 +304,49 @@ impl TrainingSession {
                 .map(|t| u32::from(t.unwrap_or_default()))
                 .sum::<u32>(),
         )
+    }
+
+    #[must_use]
+    pub fn one_rep_max(&self, exercise_id: ExerciseID) -> Option<f32> {
+        self.elements
+            .iter()
+            .filter_map(|e| match e {
+                TrainingSessionElement::Set {
+                    exercise_id: set_exercise_id,
+                    ..
+                } if *set_exercise_id == exercise_id => e.one_rep_max(),
+                TrainingSessionElement::Rest { .. } | TrainingSessionElement::Set { .. } => None,
+            })
+            .reduce(f32::max)
+    }
+
+    /// Returns the reps including RIR (i.e. the estimated reps to failure,
+    /// rounded to the nearest integer) and weight of the set for
+    /// `exercise_id` with the highest estimated 1RM in this session. Returns
+    /// `None` if no set with both reps and weight exists for `exercise_id`.
+    #[must_use]
+    pub fn best_set_for_one_rep_max(&self, exercise_id: ExerciseID) -> Option<(Reps, Weight)> {
+        self.elements
+            .iter()
+            .filter_map(|element| match element {
+                TrainingSessionElement::Set {
+                    exercise_id: id,
+                    reps: Some(reps),
+                    weight: Some(weight),
+                    rpe,
+                    ..
+                } if *id == exercise_id => {
+                    let one_rep_max = element.one_rep_max()?;
+                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                    let reps_including_rir =
+                        Reps::new(reps.including_rir(rpe.unwrap_or(RPE::TEN)).round() as u32)
+                            .ok()?;
+                    Some((one_rep_max, reps_including_rir, *weight))
+                }
+                _ => None,
+            })
+            .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(_, reps, weight)| (reps, weight))
     }
 
     #[must_use]
@@ -898,6 +942,23 @@ impl TrainingSessionElement {
     }
 
     #[must_use]
+    pub fn one_rep_max(&self) -> Option<f32> {
+        match self {
+            TrainingSessionElement::Set {
+                reps, weight, rpe, ..
+            } => {
+                let reps = (*reps)?;
+                let weight = (*weight)?;
+                Some(one_rep_max(
+                    reps.including_rir(rpe.unwrap_or(RPE::TEN)),
+                    f32::from(weight),
+                ))
+            }
+            TrainingSessionElement::Rest { .. } => None,
+        }
+    }
+
+    #[must_use]
     pub fn to_string(&self, show_tut: bool, show_rpe: bool) -> String {
         match self {
             TrainingSessionElement::Set {
@@ -998,6 +1059,22 @@ impl TrainingSessionSection {
 
         counts
     }
+}
+
+/// Returns the reps including RIR and weight of the best set (by estimated
+/// 1RM) for `exercise_id` in the most recent training session that contains
+/// a completed set for that exercise. Sessions are compared by date,
+/// breaking ties by ID.
+#[must_use]
+pub fn most_recent_best_set_for_one_rep_max(
+    sessions: &[TrainingSession],
+    exercise_id: ExerciseID,
+) -> Option<(Reps, Weight)> {
+    sessions
+        .iter()
+        .filter(|s| s.one_rep_max(exercise_id).is_some())
+        .max_by_key(|s| (s.date, s.id))
+        .and_then(|s| s.best_set_for_one_rep_max(exercise_id))
 }
 
 fn next_consecutive_exercise_ids(elements: &[TrainingSessionElement]) -> Vec<ExerciseID> {
@@ -1204,6 +1281,144 @@ mod tests {
         #[case] expected: Option<u32>,
     ) {
         assert_eq!(training_session.tut(), expected);
+    }
+
+    #[rstest]
+    #[case(&*TRAINING_SESSION, Some(40.8))]
+    #[case(&*EMPTY_TRAINING_SESSION, None)]
+    fn test_training_session_one_rep_max(
+        #[case] training_session: &TrainingSession,
+        #[case] expected: Option<f32>,
+    ) {
+        assert_eq!(
+            training_session
+                .one_rep_max(1.into())
+                .map(|v| (v * 10.0).round() / 10.0),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_training_session_one_rep_max_not_present() {
+        assert_eq!(TRAINING_SESSION.one_rep_max(99.into()), None);
+    }
+
+    #[test]
+    fn test_training_session_one_rep_max_no_rpe() {
+        let training_session = TrainingSession {
+            id: 1.into(),
+            routine_id: 0.into(),
+            date: *TODAY,
+            notes: String::new(),
+            elements: vec![TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: Some(Reps::new(30).unwrap()),
+                time: None,
+                weight: Some(Weight::new(100.0).unwrap()),
+                rpe: None,
+                target_reps: None,
+                target_time: None,
+                target_weight: None,
+                target_rpe: None,
+                automatic: false,
+            }],
+            exercise_notes: BTreeMap::new(),
+        };
+        assert_eq!(
+            training_session
+                .one_rep_max(1.into())
+                .map(|v| (v * 10.0).round() / 10.0),
+            Some(183.6)
+        );
+    }
+
+    #[test]
+    fn test_training_session_one_rep_max_picks_best_set() {
+        let training_session = TrainingSession {
+            id: 1.into(),
+            routine_id: 0.into(),
+            date: *TODAY,
+            notes: String::new(),
+            elements: vec![
+                TrainingSessionElement::Set {
+                    exercise_id: 1.into(),
+                    reps: Some(Reps::new(10).unwrap()),
+                    time: None,
+                    weight: Some(Weight::new(100.0).unwrap()),
+                    rpe: None,
+                    target_reps: None,
+                    target_time: None,
+                    target_weight: None,
+                    target_rpe: None,
+                    automatic: false,
+                },
+                TrainingSessionElement::Set {
+                    exercise_id: 1.into(),
+                    reps: Some(Reps::new(8).unwrap()),
+                    time: None,
+                    weight: Some(Weight::new(105.0).unwrap()),
+                    rpe: None,
+                    target_reps: None,
+                    target_time: None,
+                    target_weight: None,
+                    target_rpe: None,
+                    automatic: false,
+                },
+            ],
+            exercise_notes: BTreeMap::new(),
+        };
+        assert_eq!(
+            training_session
+                .one_rep_max(1.into())
+                .map(|v| (v * 10.0).round() / 10.0),
+            Some(129.2)
+        );
+    }
+
+    #[test]
+    fn test_training_session_best_set_for_one_rep_max_picks_highest_estimated() {
+        let training_session = training_session(&[
+            set(1, Some(10), Some(100.0), None),
+            set(1, Some(8), Some(105.0), None),
+        ]);
+        assert_eq!(
+            training_session.best_set_for_one_rep_max(1.into()),
+            Some((Reps::new(10).unwrap(), Weight::new(100.0).unwrap()))
+        );
+    }
+
+    #[test]
+    fn test_training_session_best_set_for_one_rep_max_includes_rir_in_reps() {
+        let training_session = training_session(&[set(1, Some(5), Some(100.0), Some(RPE::EIGHT))]);
+        assert_eq!(
+            training_session.best_set_for_one_rep_max(1.into()),
+            Some((Reps::new(7).unwrap(), Weight::new(100.0).unwrap()))
+        );
+    }
+
+    #[test]
+    fn test_training_session_best_set_for_one_rep_max_ignores_other_exercises() {
+        let training_session = training_session(&[
+            set(2, Some(20), Some(200.0), None),
+            set(1, Some(5), Some(100.0), None),
+        ]);
+        assert_eq!(
+            training_session.best_set_for_one_rep_max(1.into()),
+            Some((Reps::new(5).unwrap(), Weight::new(100.0).unwrap()))
+        );
+    }
+
+    #[test]
+    fn test_training_session_best_set_for_one_rep_max_ignores_incomplete_sets() {
+        let training_session =
+            training_session(&[set(1, None, Some(100.0), None), set(1, Some(5), None, None)]);
+        assert_eq!(training_session.best_set_for_one_rep_max(1.into()), None);
+    }
+
+    #[test]
+    fn test_training_session_best_set_for_one_rep_max_no_set_for_exercise() {
+        let training_session = training_session(&[set(2, Some(5), Some(100.0), None)]);
+        assert_eq!(training_session.best_set_for_one_rep_max(1.into()), None);
     }
 
     #[rstest]
@@ -2996,6 +3211,48 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_most_recent_best_set_for_one_rep_max_picks_latest_session_by_date() {
+        let mut older = training_session(&[set(1, Some(3), Some(150.0), None)]);
+        older.date = *TODAY - Duration::days(7);
+        let mut newer = training_session(&[set(1, Some(8), Some(100.0), None)]);
+        newer.date = *TODAY - Duration::days(1);
+        assert_eq!(
+            most_recent_best_set_for_one_rep_max(&[older, newer], 1.into()),
+            Some((Reps::new(8).unwrap(), Weight::new(100.0).unwrap()))
+        );
+    }
+
+    #[test]
+    fn test_most_recent_best_set_for_one_rep_max_breaks_ties_by_id() {
+        let a = training_session(&[set(1, Some(5), Some(100.0), None)]);
+        let mut b = training_session(&[set(1, Some(3), Some(120.0), None)]);
+        b.id = 2.into();
+        assert_eq!(
+            most_recent_best_set_for_one_rep_max(&[a, b], 1.into()),
+            Some((Reps::new(3).unwrap(), Weight::new(120.0).unwrap()))
+        );
+    }
+
+    #[test]
+    fn test_most_recent_best_set_for_one_rep_max_skips_sessions_without_exercise() {
+        let mut with_other_exercise = training_session(&[set(2, Some(10), Some(200.0), None)]);
+        with_other_exercise.date = *TODAY;
+        let with_target_exercise = training_session(&[set(1, Some(5), Some(100.0), None)]);
+        assert_eq!(
+            most_recent_best_set_for_one_rep_max(
+                &[with_other_exercise, with_target_exercise],
+                1.into()
+            ),
+            Some((Reps::new(5).unwrap(), Weight::new(100.0).unwrap()))
+        );
+    }
+
+    #[test]
+    fn test_most_recent_best_set_for_one_rep_max_empty() {
+        assert_eq!(most_recent_best_set_for_one_rep_max(&[], 1.into()), None);
+    }
+
     fn training_session(elements: &[TrainingSessionElement]) -> TrainingSession {
         TrainingSession {
             id: 1.into(),
@@ -3053,6 +3310,26 @@ mod tests {
                 None
             },
             automatic: true,
+        }
+    }
+
+    fn set(
+        exercise_id: u128,
+        reps: Option<u32>,
+        weight: Option<f32>,
+        rpe: Option<RPE>,
+    ) -> TrainingSessionElement {
+        TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            reps: reps.map(|r| Reps::new(r).unwrap()),
+            time: None,
+            weight: weight.map(|w| Weight::new(w).unwrap()),
+            rpe,
+            target_reps: None,
+            target_time: None,
+            target_weight: None,
+            target_rpe: None,
+            automatic: false,
         }
     }
 

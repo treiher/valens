@@ -68,7 +68,7 @@ def take_screenshots() -> None:
 
         home_page = HomePage(page)
         home_page.expect_page()
-        home_page.expect_synchronization()
+        home_page.navbar.expect_synchronization()
 
         save_screenshot("home")
 

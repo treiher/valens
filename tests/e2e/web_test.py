@@ -83,7 +83,7 @@ def test_login(page: Page) -> None:
 
     p = HomePage(page)
     p.expect_page()
-    p.expect_synchronization()
+    p.navbar.expect_synchronization()
     p.expect_loading_to_be_finished()
 
 
@@ -92,7 +92,7 @@ def test_logout(page: Page) -> None:
 
     home_page = HomePage(page)
     home_page.expect_page()
-    home_page.logout()
+    home_page.navbar.logout()
 
     LoginPage(page).expect_page()
 
@@ -144,43 +144,43 @@ def test_home_links(page: Page) -> None:
     home_page.go_to_training_sessions()
     training_sessions_page = TrainingSessionsPage(page)
     training_sessions_page.expect_page()
-    training_sessions_page.go_back()
+    training_sessions_page.navbar.go_back()
     home_page.expect_page()
 
     home_page.go_to_routines()
     routine_page = RoutinesPage(page)
     routine_page.expect_page()
-    routine_page.go_back()
+    routine_page.navbar.go_back()
     home_page.expect_page()
 
     home_page.go_to_exercises()
     exercises_page = ExercisesPage(page)
     exercises_page.expect_page()
-    exercises_page.go_back()
+    exercises_page.navbar.go_back()
     home_page.expect_page()
 
     home_page.go_to_muscles()
     muscles_page = MusclesPage(page)
     muscles_page.expect_page()
-    muscles_page.go_back()
+    muscles_page.navbar.go_back()
     home_page.expect_page()
 
     home_page.go_to_body_weight()
     body_weight_page = BodyWeightPage(page)
     body_weight_page.expect_page()
-    body_weight_page.go_back()
+    body_weight_page.navbar.go_back()
     home_page.expect_page()
 
     home_page.go_to_body_fat()
     body_fat_page = BodyFatPage(page)
     body_fat_page.expect_page()
-    body_fat_page.go_back()
+    body_fat_page.navbar.go_back()
     home_page.expect_page()
 
     home_page.go_to_menstrual_cycle()
     menstrual_cycle_page = MenstrualCyclePage(page)
     menstrual_cycle_page.expect_page()
-    menstrual_cycle_page.go_back()
+    menstrual_cycle_page.navbar.go_back()
     home_page.expect_page()
 
 
@@ -476,7 +476,7 @@ def test_training_sessions_add(page: Page) -> None:
     session_page = TrainingSessionPage(page, 0)
     session_page.expect_page()
 
-    session_page.go_back()
+    session_page.navbar.go_back()
 
     training_sessions_page.expect_page()
     assert training_sessions_page.table.get_value(1, 1, 1) == date
@@ -1295,7 +1295,7 @@ def test_navbar_1rm_calculator(page: Page) -> None:
     p = HomePage(page)
     p.expect_page()
 
-    page.get_by_test_id("navbar-1rm-calculator").click()
+    p.navbar.open_1rm_calculator()
 
     dialog = OneRepMaxCalculatorDialog(page)
     dialog.wait_until_open()
@@ -1318,7 +1318,7 @@ def test_navbar_1rm_calculator(page: Page) -> None:
     dialog.close()
     dialog.wait_until_closed()
 
-    page.get_by_test_id("navbar-1rm-calculator").click()
+    p.navbar.open_1rm_calculator()
     dialog.wait_until_open()
     assert dialog.get_weight() == "80"
     assert dialog.get_reps() == "10"

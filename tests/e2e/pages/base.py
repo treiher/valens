@@ -16,6 +16,7 @@ class BasePage:
         self.page = page
         self.base_url = BASE_URL if base_url is None else base_url
 
+        self.navbar = Navbar(page)
         self.dialog = Dialog(page)
         self.table = Table(page)
 
@@ -34,15 +35,9 @@ class BasePage:
         if expect_page:
             self.expect_page()
 
-    def go_back(self) -> None:
-        self.page.get_by_test_id("navbar-back").click()
-
     def reload(self) -> None:
         self.page.reload()
         self.page.wait_for_load_state("networkidle")
-
-    def logout(self) -> None:
-        self.page.get_by_test_id("navbar-logout").click()
 
     def wait_until_idle(self) -> None:
         self.page.get_by_test_id("loading").wait_for(state="detached")
@@ -78,10 +73,6 @@ class BasePage:
 
     def expect_fab(self, icon: str) -> None:
         expect(self.fab().locator(f"i.fa-{icon}")).to_be_visible()
-
-    def expect_synchronization(self) -> None:
-        expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_visible()
-        expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_hidden()
 
     def _open_item_options(self, index: int) -> None:
         self.page.get_by_test_id("item-options").nth(index).click()
@@ -123,6 +114,21 @@ class Dialog(PageElement):
     def close(self) -> None:
         self.page.get_by_test_id("dialog-close").click()
         self.wait_until_closed()
+
+
+class Navbar(PageElement):
+    def go_back(self) -> None:
+        self.page.get_by_test_id("navbar-back").click()
+
+    def logout(self) -> None:
+        self.page.get_by_test_id("navbar-logout").click()
+
+    def open_1rm_calculator(self) -> None:
+        self.page.get_by_test_id("navbar-1rm-calculator").click()
+
+    def expect_synchronization(self) -> None:
+        expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_visible()
+        expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_hidden()
 
 
 class Table(PageElement):

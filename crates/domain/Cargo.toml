@@ -7,8 +7,8 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = { workspace = true, default-features = false }
-derive_more = { version = "2.0.1", features = ["as_ref", "deref", "display", "into"] }
+chrono = { workspace = true, default-features = false, features = ["clock"] }
+derive_more = { version = "2.0.1", features = ["as_ref", "deref", "display", "into", "from"] }
 log = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }

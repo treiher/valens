@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Login page: Redesigned the login flow to require entering a known username
+- Exercise page: Reordered charts to show performance metrics first
 - Navigation bar: Renamed "Log out" to "Sign out"
 
 ### Fixed

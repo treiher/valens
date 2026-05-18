@@ -257,6 +257,136 @@ fn view_charts(
     let theme = settings.current_theme();
 
     rsx! {
+        if !one_rep_max_values.is_empty() {
+            Chart {
+                labels: vec![
+                    ChartLabel {
+                        name: "Est. 1RM (kg)".to_string(),
+                        color: web_app::chart::COLOR_1RM,
+                        opacity: web_app::chart::OPACITY_LINE,
+                    },
+                ],
+                chart: web_app::chart::plot(
+                    &[
+                    web_app::chart::PlotData {
+                        values_high: domain::value_based_centered_moving_average(&one_rep_max_values, 2),
+                        values_low: None,
+                        plots: web_app::chart::plot_line(web_app::chart::COLOR_1RM),
+                        params: web_app::chart::PlotParams::primary_range(0., 10.),
+                    },
+                    ],
+                    interval,
+                    theme,
+                )
+                    .map_err(|err| err.to_string()),
+                    no_data_label: false,
+            }
+        }
+        Chart {
+            labels: reps_labels,
+            chart: web_app::chart::plot(
+                &reps_data,
+                interval,
+                theme,
+            ).map_err(|err| err.to_string()),
+            no_data_label: false,
+        }
+        Chart {
+            labels: vec![
+                ChartLabel {
+                    name: "Weight (kg)".to_string(),
+                    color: web_app::chart::COLOR_WEIGHT,
+                    opacity: web_app::chart::OPACITY_AREA,
+                },
+                ChartLabel {
+                    name: "Avg. Weight (kg)".to_string(),
+                    color: web_app::chart::COLOR_WEIGHT,
+                    opacity: web_app::chart::OPACITY_LINE,
+                },
+            ],
+            chart: web_app::chart::plot_min_avg_max(
+                &training_sessions
+                    .iter()
+                    .flat_map(|s| s
+                        .elements
+                        .iter()
+                        .filter_map(|e| match e {
+                            domain::TrainingSessionElement::Set { weight, .. } =>
+                                weight.map(|w| (s.date, w)),
+                            domain::TrainingSessionElement::Rest { .. } => None,
+                        })
+                        .collect::<Vec<_>>())
+                    .collect::<Vec<_>>(),
+                interval,
+                web_app::chart::PlotParams::primary_range(0., 10.),
+                web_app::chart::COLOR_WEIGHT,
+                theme,
+            ).map_err(|err| err.to_string()),
+            no_data_label: false,
+        }
+        if settings.show_tut() {
+            Chart {
+                labels: vec![
+                    ChartLabel {
+                        name: "Time under tension (s)".to_string(),
+                        color: web_app::chart::COLOR_TUT,
+                        opacity: web_app::chart::OPACITY_LINE,
+                    },
+                ],
+                chart: web_app::chart::plot(
+                    &[
+                        web_app::chart::PlotData {
+                            values_high: tut.into_iter().collect::<Vec<_>>(),
+                            values_low: None,
+                            plots: web_app::chart::plot_area_with_border(
+                                web_app::chart::COLOR_TUT,
+                                web_app::chart::COLOR_TUT,
+                            ),
+                            params: web_app::chart::PlotParams::primary_range(0., 10.),
+                        }
+                    ],
+                    interval,
+                    theme,
+                ).map_err(|err| err.to_string()),
+                no_data_label: false,
+            }
+        }
+        if settings.show_tut() {
+            Chart {
+                labels: vec![
+                    ChartLabel {
+                        name: "Time (s)".to_string(),
+                        color: web_app::chart::COLOR_TIME,
+                        opacity: web_app::chart::OPACITY_AREA,
+                    },
+                    ChartLabel {
+                        name: "Avg. time (s)".to_string(),
+                        color: web_app::chart::COLOR_TIME,
+                        opacity: web_app::chart::OPACITY_LINE,
+                    },
+                ],
+                chart: web_app::chart::plot_min_avg_max(
+                    &training_sessions
+                        .iter()
+                        .flat_map(|s| s
+                            .elements
+                            .iter()
+                            .filter_map(|e| match e {
+                                #[allow(clippy::cast_precision_loss)]
+                                domain::TrainingSessionElement::Set { time, .. } =>
+                                    time.map(|v| (s.date, u32::from(v) as f32)),
+                                domain::TrainingSessionElement::Rest { .. } => None,
+                            })
+                            .collect::<Vec<_>>())
+                        .collect::<Vec<_>>(),
+                    interval,
+                    web_app::chart::PlotParams::primary_range(0., 10.),
+                    web_app::chart::COLOR_TIME,
+                    theme,
+                ).map_err(|err| err.to_string()),
+                no_data_label: false,
+            }
+        }
         Chart {
             labels: vec![
                 ChartLabel {
@@ -306,136 +436,6 @@ fn view_charts(
                 theme,
             ).map_err(|err| err.to_string()),
             no_data_label: false,
-        }
-        if settings.show_tut() {
-            Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "Time under tension (s)".to_string(),
-                        color: web_app::chart::COLOR_TUT,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                ],
-                chart: web_app::chart::plot(
-                    &[
-                        web_app::chart::PlotData {
-                            values_high: tut.into_iter().collect::<Vec<_>>(),
-                            values_low: None,
-                            plots: web_app::chart::plot_area_with_border(
-                                web_app::chart::COLOR_TUT,
-                                web_app::chart::COLOR_TUT,
-                            ),
-                            params: web_app::chart::PlotParams::primary_range(0., 10.),
-                        }
-                    ],
-                    interval,
-                    theme,
-                ).map_err(|err| err.to_string()),
-                no_data_label: false,
-            }
-        }
-        Chart {
-            labels: reps_labels,
-            chart: web_app::chart::plot(
-                &reps_data,
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
-            no_data_label: false,
-        }
-        Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Weight (kg)".to_string(),
-                    color: web_app::chart::COLOR_WEIGHT,
-                    opacity: web_app::chart::OPACITY_AREA,
-                },
-                ChartLabel {
-                    name: "Avg. Weight (kg)".to_string(),
-                    color: web_app::chart::COLOR_WEIGHT,
-                    opacity: web_app::chart::OPACITY_LINE,
-                },
-            ],
-            chart: web_app::chart::plot_min_avg_max(
-                &training_sessions
-                    .iter()
-                    .flat_map(|s| s
-                        .elements
-                        .iter()
-                        .filter_map(|e| match e {
-                            domain::TrainingSessionElement::Set { weight, .. } =>
-                                weight.map(|w| (s.date, w)),
-                            domain::TrainingSessionElement::Rest { .. } => None,
-                        })
-                        .collect::<Vec<_>>())
-                    .collect::<Vec<_>>(),
-                interval,
-                web_app::chart::PlotParams::primary_range(0., 10.),
-                web_app::chart::COLOR_WEIGHT,
-                theme,
-            ).map_err(|err| err.to_string()),
-            no_data_label: false,
-        }
-        if !one_rep_max_values.is_empty() {
-            Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "Est. 1RM (kg)".to_string(),
-                        color: web_app::chart::COLOR_1RM,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                ],
-                chart: web_app::chart::plot(
-                    &[
-                    web_app::chart::PlotData {
-                        values_high: domain::value_based_centered_moving_average(&one_rep_max_values, 2),
-                        values_low: None,
-                        plots: web_app::chart::plot_line(web_app::chart::COLOR_1RM),
-                        params: web_app::chart::PlotParams::primary_range(0., 10.),
-                    },
-                    ],
-                    interval,
-                    theme,
-                )
-                    .map_err(|err| err.to_string()),
-                    no_data_label: false,
-            }
-        }
-        if settings.show_tut() {
-            Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "Time (s)".to_string(),
-                        color: web_app::chart::COLOR_TIME,
-                        opacity: web_app::chart::OPACITY_AREA,
-                    },
-                    ChartLabel {
-                        name: "Avg. time (s)".to_string(),
-                        color: web_app::chart::COLOR_TIME,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                ],
-                chart: web_app::chart::plot_min_avg_max(
-                    &training_sessions
-                        .iter()
-                        .flat_map(|s| s
-                            .elements
-                            .iter()
-                            .filter_map(|e| match e {
-                                #[allow(clippy::cast_precision_loss)]
-                                domain::TrainingSessionElement::Set { time, .. } =>
-                                    time.map(|v| (s.date, u32::from(v) as f32)),
-                                domain::TrainingSessionElement::Rest { .. } => None,
-                            })
-                            .collect::<Vec<_>>())
-                        .collect::<Vec<_>>(),
-                    interval,
-                    web_app::chart::PlotParams::primary_range(0., 10.),
-                    web_app::chart::COLOR_TIME,
-                    theme,
-                ).map_err(|err| err.to_string()),
-                no_data_label: false,
-            }
         }
     }
 }

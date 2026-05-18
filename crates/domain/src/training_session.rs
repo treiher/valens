@@ -213,6 +213,21 @@ impl TrainingSession {
     }
 
     #[must_use]
+    pub fn estimated_max_reps(&self) -> Option<f32> {
+        self.elements
+            .iter()
+            .filter_map(|e| match e {
+                TrainingSessionElement::Set {
+                    reps: Some(reps),
+                    rpe: Some(rpe),
+                    ..
+                } => Some(reps.including_rir(*rpe)),
+                _ => None,
+            })
+            .fold(None, |acc, v| Some(acc.map_or(v, |m: f32| m.max(v))))
+    }
+
+    #[must_use]
     pub fn load(&self) -> u32 {
         let sets = &self
             .elements
@@ -1241,6 +1256,16 @@ mod tests {
         #[case] expected: Option<RPE>,
     ) {
         assert_eq!(training_session.avg_rpe(), expected);
+    }
+
+    #[rstest]
+    #[case(&*TRAINING_SESSION, Some(12.0))]
+    #[case(&*EMPTY_TRAINING_SESSION, None)]
+    fn test_training_session_estimated_max_reps(
+        #[case] training_session: &TrainingSession,
+        #[case] expected: Option<f32>,
+    ) {
+        assert_eq!(training_session.estimated_max_reps(), expected);
     }
 
     #[rstest]

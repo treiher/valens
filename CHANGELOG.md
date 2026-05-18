@@ -13,14 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 1RM calculator accessible from the navigation menu and from the training session exercise options
 - Routine page: Option to show and copy routine as text
 - Routines page: Option to show and copy routine as text
-- Exercise page: 1RM chart
+- Exercise page:
+    - Estimated maximum reps to reps chart
+    - Estimated 1RM to weight chart
 - Body weight, body fat, exercises and routines pages: Automatic focus of the first input field in dialogs for adding entries
 - CLI commands to list, create, update and delete users
 
 ### Changed
 
 - Login page: Redesigned the login flow to require entering a known username
-- Exercise page: Reordered charts to show performance metrics first
+- Exercise page:
+    - Reordered charts to show performance metrics before volume metrics
+    - Reordered and unified chart legend labels
 - Navigation bar: Renamed "Log out" to "Sign out"
 
 ### Fixed

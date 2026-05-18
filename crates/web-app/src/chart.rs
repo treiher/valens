@@ -5,7 +5,7 @@ use gloo_utils::window;
 use plotters::{
     chart::ChartBuilder,
     prelude::{Circle, DrawingAreaErrorKind, IntoDrawingArea, Polygon, SVGBackend},
-    series::{AreaSeries, Histogram, LineSeries},
+    series::{AreaSeries, DottedLineSeries, Histogram, LineSeries},
     style::{Color, IntoFont, Palette, Palette99, RGBColor, TextStyle, WHITE},
 };
 use valens_domain as domain;
@@ -25,15 +25,15 @@ pub const COLOR_SET_VOLUME: usize = 3;
 pub const COLOR_VOLUME_LOAD: usize = 6;
 pub const COLOR_TUT: usize = 2;
 pub const COLOR_REPS: usize = 4;
-pub const COLOR_REPS_RIR: usize = 4;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
-pub const COLOR_1RM: usize = 19;
 
 pub const OPACITY_LINE: f64 = 0.9;
+pub const OPACITY_DOTTED_LINE: f64 = 0.6;
 pub const OPACITY_AREA: f64 = 0.3;
 
 pub const WIDTH_LINE: u32 = 2;
+pub const WIDTH_DOTTED_LINE: u32 = 1;
 
 pub const FONT: (&str, u32) = ("Roboto", 11);
 
@@ -42,6 +42,7 @@ pub enum PlotType {
     #[allow(dead_code)]
     Circle(usize, f64, u32),
     Line(usize, f64, u32),
+    DottedLine(usize, f64, u32),
     Histogram(usize, f64),
     Area(usize, f64),
 }
@@ -49,6 +50,15 @@ pub enum PlotType {
 #[must_use]
 pub fn plot_line(color: usize) -> Vec<PlotType> {
     vec![PlotType::Line(color, OPACITY_LINE, WIDTH_LINE)]
+}
+
+#[must_use]
+pub fn plot_dotted_line(color: usize) -> Vec<PlotType> {
+    vec![PlotType::DottedLine(
+        color,
+        OPACITY_DOTTED_LINE,
+        WIDTH_DOTTED_LINE,
+    )]
 }
 
 #[must_use]
@@ -146,6 +156,8 @@ impl Bounds {
 ///
 ///   - Circle: plot a circle with the given color and size for each element
 ///   - Line: plot the series as a line with the given color and thickness
+///   - Dotted line: plot the series as a dotted line with the given color and
+///     thickness
 ///   - Histogram: plot the series as a histogram with the given color
 ///   - Area: plot the series as area or band plot (see details below)
 ///
@@ -285,6 +297,33 @@ pub fn plot(
                                 },
                             )?;
                     }
+                    PlotType::DottedLine(color, opacity, size) => {
+                        [values_low.as_ref(), values_high.as_ref()]
+                            .into_iter()
+                            .flatten()
+                            .try_for_each(
+                                |values| -> Result<(), DrawingAreaErrorKind<std::io::Error>> {
+                                    let data = DottedLineSeries::new(
+                                        values.iter().map(|(x, y)| (*x, *y)),
+                                        1,
+                                        4,
+                                        move |c| {
+                                            Circle::new(
+                                                c,
+                                                size,
+                                                Palette99::pick(color).mix(opacity).filled(),
+                                            )
+                                        },
+                                    );
+                                    if plot_data.params.secondary {
+                                        chart.draw_secondary_series(data)?;
+                                    } else {
+                                        chart.draw_series(data)?;
+                                    }
+                                    Ok(())
+                                },
+                            )?;
+                    }
                     PlotType::Histogram(color, opacity) => {
                         [values_low.as_ref(), values_high.as_ref()]
                             .into_iter()
@@ -353,14 +392,13 @@ pub fn plot(
     Ok(Some(result))
 }
 
-#[allow(clippy::missing_errors_doc)]
-pub fn plot_min_avg_max<T: Into<f32> + Copy>(
-    data: &Vec<(NaiveDate, T)>,
+#[must_use]
+pub fn plot_data_min_avg_max<T: Into<f32> + Copy>(
+    data: &[(NaiveDate, T)],
     interval: domain::Interval,
     params: PlotParams,
     color: usize,
-    theme: Theme,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
+) -> Vec<PlotData> {
     let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
 
     for (date, value) in data {
@@ -397,21 +435,32 @@ pub fn plot_min_avg_max<T: Into<f32> + Copy>(
         values_max.push((date, max));
     }
 
+    vec![
+        PlotData {
+            values_high: values_min,
+            values_low: Some(values_max),
+            plots: plot_area(color),
+            params,
+        },
+        PlotData {
+            values_high: values_avg,
+            values_low: None,
+            plots: plot_line(color),
+            params,
+        },
+    ]
+}
+
+#[allow(clippy::missing_errors_doc)]
+pub fn plot_min_avg_max<T: Into<f32> + Copy>(
+    data: &[(NaiveDate, T)],
+    interval: domain::Interval,
+    params: PlotParams,
+    color: usize,
+    theme: Theme,
+) -> Result<Option<String>, Box<dyn std::error::Error>> {
     plot(
-        &[
-            PlotData {
-                values_high: values_min,
-                values_low: Some(values_max),
-                plots: plot_area(color),
-                params,
-            },
-            PlotData {
-                values_high: values_avg,
-                values_low: None,
-                plots: plot_line(color),
-                params,
-            },
-        ],
+        &plot_data_min_avg_max(data, interval, params, color),
         interval,
         theme,
     )

@@ -65,11 +65,11 @@ $ make run
 Alternatively, start the development servers for the frontend and the backend separately:
 
 ```console
-$ make run_frontend
+$ make run-frontend
 ```
 
 ```console
-$ make run_backend
+$ make run-backend
 ```
 
 After a successful start of the development servers, the web app can be reached on `http://127.0.0.1:8000`.

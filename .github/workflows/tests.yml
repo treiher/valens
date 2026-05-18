@@ -15,8 +15,8 @@ env:
   UV_VERSION: "0.5.26"
 
 jobs:
-  check_general:
-    name: General Checks
+  check_project:
+    name: Project Checks
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -34,7 +34,7 @@ jobs:
           uv sync
       - name: Check
         run: |
-          make check_general
+          make check-project
 
   check_frontend:
     name: Frontend Checks
@@ -59,7 +59,7 @@ jobs:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Check
         run: |
-          make check_frontend
+          make check-frontend
 
   check_backend:
     name: Backend Checks
@@ -86,7 +86,7 @@ jobs:
           uv sync
       - name: Check
         run: |
-          make check_${{ matrix.target }}
+          make check-${{ matrix.target }}
 
   test_installation:
     name: Installation Test
@@ -121,7 +121,7 @@ jobs:
         run: npm install -g sass
       - name: Test
         run: |
-          make test_installation
+          make test-installation
 
   test_frontend:
     name: Frontend Tests
@@ -148,7 +148,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Test
         run: |
-          make test_frontend
+          make test-frontend
 
   test_backend:
     name: Backend Tests
@@ -174,7 +174,7 @@ jobs:
           uv sync
       - name: Test
         run: |
-          make test_backend
+          make test-backend
 
   test_e2e:
     name: End-to-End Tests
@@ -219,7 +219,7 @@ jobs:
         run: npm install -g sass
       - name: Test
         run: |
-          make test_e2e
+          make test-e2e
       - name: Upload Playwright traces
         uses: actions/upload-artifact@v7
         if: failure()

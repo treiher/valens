@@ -22,32 +22,32 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check_general check_lockfile check_kacl check_frontend check_backend check_black check_ruff check_mypy
+.PHONY: check check-project check-lockfile check-kacl check-frontend check-backend check-black check-ruff check-mypy
 
-check: check_frontend check_backend
+check: check-project check-frontend check-backend
 
-check_general: check_lockfile check_kacl
+check-project: check-lockfile check-kacl
 
-check_lockfile:
+check-lockfile:
 	uv lock --locked
 
-check_kacl:
+check-kacl:
 	uv run -- kacl-cli verify
 
-check_frontend:
+check-frontend:
 	cargo fmt -- --check
 	cargo clippy --all-targets -- --warn clippy::pedantic --deny warnings
 	dx check -p valens-web-app-dioxus
 
-check_backend: check_lockfile check_black check_ruff check_mypy
+check-backend: check-black check-ruff check-mypy
 
-check_black:
+check-black:
 	uv run -- black --check --diff $(PYTHON_PACKAGES)
 
-check_ruff:
+check-ruff:
 	uv run -- ruff check $(PYTHON_PACKAGES)
 
-check_mypy:
+check-mypy:
 	uv run -- mypy --pretty $(PYTHON_PACKAGES)
 
 .PHONY: format
@@ -57,26 +57,28 @@ format:
 	uv run -- ruff check --fix-only $(PYTHON_PACKAGES) | true
 	uv run -- black $(PYTHON_PACKAGES)
 
-.PHONY: test test_frontend test_backend test_e2e
+.PHONY: test test-frontend test-backend test-installation test-e2e test-venv
 
-test: test_frontend test_backend test_installation test_e2e
+test: test-frontend test-backend test-installation test-e2e
 
-test_frontend:
+test-frontend:
 	cargo llvm-cov nextest --no-fail-fast
 	wasm-pack test --headless --chrome crates/storage
 
-test_backend:
+test-backend:
 	mkdir -p $(GENERATED_DIR)
 	$(foreach f,$(PACKAGE_GENERATED_FILES),test -f $(f) || touch $(f);)
 	uv run -- pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
 	find $(PACKAGE_GENERATED_FILES) -type f -empty -delete
 
-test_installation: $(BUILD_DIR)/venv/bin/valens
+test-installation: test-venv
 	$(BUILD_DIR)/venv/bin/valens --version
 
-test_e2e: $(BUILD_DIR)/venv/bin/valens
+test-e2e: test-venv
 	@grep -qaF "$(VERSION)" $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm || { echo "ERROR: $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm does not contain current version string \"$(VERSION)\""; exit 1; }
 	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
+
+test-venv: $(BUILD_DIR)/venv/bin/valens
 
 $(BUILD_DIR)/venv:
 	python3 -m venv $(BUILD_DIR)/venv
@@ -86,13 +88,11 @@ $(BUILD_DIR)/venv/bin/valens: $(BUILD_DIR)/venv $(WHEEL)
 	test -f $(BUILD_DIR)/venv/bin/valens
 	touch --no-create $(BUILD_DIR)/venv/bin/valens
 
-.PHONY: update update_css update_fonts
+.PHONY: update update-fonts
 
-update: update_css update_fonts
+update: update-fonts third-party/bulma third-party/bulma-slider
 
-update_css: third-party/bulma third-party/bulma-slider
-
-update_fonts: third-party/fontawesome
+update-fonts: third-party/fontawesome
 	cp third-party/fontawesome/webfonts/fa-solid-900.woff2 $(ASSETS_DIR)/fonts/
 
 third-party/bulma:
@@ -112,7 +112,7 @@ third-party/fontawesome:
 
 .PHONY: screenshots
 
-screenshots: $(BUILD_DIR)/venv/bin/valens
+screenshots: test-venv
 	tools/create_screenshots.py
 
 .PHONY: dist
@@ -156,21 +156,21 @@ container-script:
 	echo $(BUILD_CONTAINER_CMD) >> $(BUILD_CONTAINER_SCRIPT)
 	chmod +x $(BUILD_CONTAINER_SCRIPT)
 
-.PHONY: run run_frontend run_backend
+.PHONY: run run-frontend run-backend
 
 run:
-	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_frontend
-	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run_backend
+	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run-frontend
+	tmux new-window $(MAKE) CONFIG_FILE=$(CONFIG_FILE) run-backend
 
 DETECT_HOST := if [ -f /run/.containerenv ] || [ -f /.dockerenv ]; then echo "0.0.0.0"; else echo "127.0.0.1"; fi
 
-run_frontend:
+run-frontend:
 	mkdir -p target/dx/valens-web-app-dioxus/debug/web/public/
 	cp -r valens/static/assets/{fonts,images,favicon.ico,manifest.json,sw.js} target/dx/valens-web-app-dioxus/debug/web/public/
 	sass --update crates/web-app-dioxus/assets/main.scss target/dx/valens-web-app-dioxus/debug/web/public/main.css
 	dx serve --package valens-web-app-dioxus --addr $$($(DETECT_HOST))
 
-run_backend: $(CONFIG_FILE)
+run-backend: $(CONFIG_FILE)
 	VALENS_CONFIG=$(CONFIG_FILE) uv run -- flask --app valens --debug run -h $$($(DETECT_HOST))
 
 $(CONFIG_FILE): $(BUILD_DIR)
@@ -179,15 +179,16 @@ $(CONFIG_FILE): $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-.PHONY: clean clean_all
+.PHONY: clean
 
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf $(GENERATED_DIR)
-	rm -rf valens.egg-info
-	rm -rf valens/static/generated
+	rm -rf dist
 	rm -rf target
 	rm -rf test-results
+	rm -rf valens.egg-info
+	rm -rf valens/static/generated
 
 .PHONY: version version-public
 

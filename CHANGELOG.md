@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Incorrect background color in calendars
 - Training sessions page: Incorrect chart legend label
+- Body fat page: Missing and incorrect chart legend labels for body weight
 
 ## [0.7.0] - 2026-05-10
 

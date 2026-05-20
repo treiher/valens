@@ -149,6 +149,11 @@ fn chart(
                     ChartLabel {
                         name: "Weight (kg)".to_string(),
                         color: web_app::chart::COLOR_BODY_WEIGHT,
+                        opacity: web_app::chart::OPACITY_AREA,
+                    },
+                    ChartLabel {
+                        name: "Avg. weight (kg)".to_string(),
+                        color: web_app::chart::COLOR_AVG_BODY_WEIGHT,
                         opacity: web_app::chart::OPACITY_LINE,
                     },
                 ],
@@ -180,6 +185,11 @@ fn chart(
                     ChartLabel {
                         name: "Weight (kg)".to_string(),
                         color: web_app::chart::COLOR_BODY_WEIGHT,
+                        opacity: web_app::chart::OPACITY_AREA,
+                    },
+                    ChartLabel {
+                        name: "Avg. weight (kg)".to_string(),
+                        color: web_app::chart::COLOR_AVG_BODY_WEIGHT,
                         opacity: web_app::chart::OPACITY_LINE,
                     },
                 ],

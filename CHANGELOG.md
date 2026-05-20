@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Reordered charts to show performance metrics before volume metrics
     - Reordered and unified chart legend labels
 - Muscles pages: Unified chart legend labels for set volume
+- Body weight page: Reordered chart legend entries
+- Body fat page: Reordered chart legend entries
 - Navigation bar: Renamed "Log out" to "Sign out"
 
 ### Fixed

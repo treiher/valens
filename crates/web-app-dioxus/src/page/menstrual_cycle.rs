@@ -7,9 +7,8 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    page::common::{Calendar, Chart, ChartLabel, IntervalControl},
+    page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
-    settings::Settings,
     ui::{
         element::{
             DataBox, DeleteConfirmationDialog, ErrorMessage, FloatingActionButton,
@@ -37,7 +36,6 @@ pub fn MenstrualCycle(add: bool) -> Element {
         last: dates.read().iter().max().copied().unwrap_or_default(),
     })
     .read();
-    let settings = use_context::<Settings>();
     let mut dialog = use_signal(|| PeriodDialog::None);
 
     let show_add_dialog = move || async move {
@@ -66,7 +64,7 @@ pub fn MenstrualCycle(add: bool) -> Element {
                 {current_cycle(&cycles)}
                 IntervalControl { current_interval, all }
                 {calendar(period, *current_interval.read())}
-                {chart(period, *current_interval.read(), settings)}
+                {chart(period, *current_interval.read())}
                 {cycle_stats(&cycles, *current_interval.read())}
                 {table(period, *current_interval.read(), dialog)}
                 {view_dialog(dialog)}
@@ -108,38 +106,26 @@ fn current_cycle(cycles: &[domain::Cycle]) -> Element {
     }
 }
 
-fn chart(period: &[domain::Period], interval: domain::Interval, settings: Settings) -> Element {
+fn chart(period: &[domain::Period], interval: domain::Interval) -> Element {
     let period = period
         .iter()
         .filter(|p| p.date >= interval.first && p.date <= interval.last)
         .collect::<Vec<_>>();
 
+    let intensity_data = web_app::chart::PlotData {
+        values_high: period
+            .iter()
+            .map(|p| (p.date, f32::from(p.intensity as u8)))
+            .collect::<Vec<_>>(),
+        values_low: None,
+        plots: web_app::chart::plot_histogram(web_app::chart::COLOR_PERIOD_INTENSITY),
+        params: web_app::chart::PlotParams::primary_range(0., 4.),
+    };
     rsx! {
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Intensity".to_string(),
-                    color: web_app::chart::COLOR_PERIOD_INTENSITY,
-                    opacity: web_app::chart::OPACITY_LINE,
-                },
-            ],
-            chart: web_app::chart::plot(
-                &[web_app::chart::PlotData {
-                    values_high: period
-                        .iter()
-                        .map(|p| (p.date, f32::from(p.intensity as u8)))
-                        .collect::<Vec<_>>(),
-                    values_low: None,
-                    plots: vec![web_app::chart::PlotType::Histogram(
-                        web_app::chart::COLOR_PERIOD_INTENSITY,
-                        web_app::chart::OPACITY_LINE,
-                    )],
-                    params: web_app::chart::PlotParams::primary_range(0., 4.),
-                }],
-                interval,
-                settings.current_theme(),
-                ).map_err(|err| err.to_string()),
-                no_data_label: true,
+            series: vec![web_app::chart::LabeledSeries::new("Intensity", intensity_data)],
+            interval,
+            no_data_label: true,
         }
     }
 }

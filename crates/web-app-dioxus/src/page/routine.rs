@@ -12,7 +12,7 @@ use crate::{
     eh,
     page::{
         self,
-        common::{Chart, ChartLabel, IntervalControl, SetsPerMuscle},
+        common::{Chart, IntervalControl, SetsPerMuscle},
     },
     settings::Settings,
     ui::{
@@ -479,83 +479,47 @@ fn view_charts(
         }
     }
 
-    let theme = settings.current_theme();
-
     rsx! {
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Load".to_string(),
-                    color: web_app::chart::COLOR_LOAD,
-                    opacity: web_app::chart::OPACITY_LINE,
+            series: vec![web_app::chart::LabeledSeries::new(
+                "Load",
+                web_app::chart::PlotData {
+                    values_high: load.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
+                    plots: web_app::chart::plot_area_with_border(
+                        web_app::chart::COLOR_LOAD,
+                    ),
+                    params,
                 },
-            ],
-            chart: web_app::chart::plot(
-                &[
-                    web_app::chart::PlotData {
-                        values_high: load.into_iter().collect::<Vec<_>>(),
-                        values_low: None,
-                        plots: web_app::chart::plot_area_with_border(
-                            web_app::chart::COLOR_LOAD,
-                            web_app::chart::COLOR_LOAD,
-                        ),
-                        params,
-                    }
-                ],
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+            )],
+            interval,
             no_data_label: false,
         }
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Set volume".to_string(),
-                    color: web_app::chart::COLOR_SET_VOLUME,
-                    opacity: web_app::chart::OPACITY_LINE,
+            series: vec![web_app::chart::LabeledSeries::new(
+                "Set volume",
+                web_app::chart::PlotData {
+                    values_high: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
+                    plots: web_app::chart::plot_area_with_border(
+                        web_app::chart::COLOR_SET_VOLUME,
+                    ),
+                    params,
                 },
-            ],
-            chart: web_app::chart::plot(
-                &[
-                    web_app::chart::PlotData {
-                        values_high: set_volume.into_iter().collect::<Vec<_>>(),
-                        values_low: None,
-                        plots: web_app::chart::plot_area_with_border(
-                            web_app::chart::COLOR_SET_VOLUME,
-                            web_app::chart::COLOR_SET_VOLUME,
-                        ),
-                        params,
-                    }
-                ],
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+            )],
+            interval,
             no_data_label: false,
         }
         if settings.show_rpe() {
             Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "Avg. RPE".to_string(),
-                        color: web_app::chart::COLOR_RPE,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                    ChartLabel {
-                        name: "Min./max. RPE".to_string(),
-                        color: web_app::chart::COLOR_RPE,
-                        opacity: web_app::chart::OPACITY_AREA,
-                    },
-                ],
-                chart: web_app::chart::plot(
-                    &web_app::chart::plot_data_min_avg_max(
-                        &rpe_values,
-                        interval,
-                        rpe_params,
-                        web_app::chart::COLOR_RPE,
-                    ),
+                series: web_app::chart::labeled_min_avg_max(
+                    "RPE",
+                    &rpe_values,
                     interval,
-                    theme,
-                ).map_err(|err| err.to_string()),
+                    rpe_params,
+                    web_app::chart::COLOR_RPE,
+                ),
+                interval,
                 no_data_label: false,
             }
         }

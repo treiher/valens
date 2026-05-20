@@ -7,9 +7,8 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    page::common::{Calendar, Chart, ChartLabel, IntervalControl},
+    page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
-    settings::Settings,
     ui::{
         element::{
             DeleteConfirmationDialog, ErrorMessage, FloatingActionButton, ItemOptionsButton,
@@ -37,7 +36,6 @@ pub fn BodyWeight(add: bool) -> Element {
         last: dates.read().iter().max().copied().unwrap_or_default(),
     })
     .read();
-    let settings = use_context::<Settings>();
     let mut dialog = use_signal(|| BodyWeightDialog::None);
 
     let show_add_dialog = move || async move {
@@ -64,7 +62,7 @@ pub fn BodyWeight(add: bool) -> Element {
             let avg_body_weight = DOMAIN_SERVICE().avg_body_weight(body_weight);
             rsx! {
                 IntervalControl { current_interval, all }
-                {chart(body_weight, &avg_body_weight, *current_interval.read(), settings)}
+                {chart(body_weight, &avg_body_weight, *current_interval.read())}
                 {calendar(body_weight, *current_interval.read())}
                 {table(body_weight, &avg_body_weight, *current_interval.read(), dialog)}
                 {view_dialog(dialog)}
@@ -90,51 +88,35 @@ fn chart(
     body_weight: &[domain::BodyWeight],
     avg_body_weight: &[domain::BodyWeight],
     interval: domain::Interval,
-    settings: Settings,
 ) -> Element {
     let avg_body_weight_chart = avg_body_weight
         .iter()
         .filter(|bw| bw.date >= interval.first && bw.date <= interval.last)
         .map(|bw| (bw.date, bw.weight))
         .collect::<Vec<_>>();
+    let body_weight_data = web_app::chart::PlotData {
+        values_high: body_weight
+            .iter()
+            .filter(|bw| bw.date >= interval.first && bw.date <= interval.last)
+            .map(|bw| (bw.date, bw.weight))
+            .collect::<Vec<_>>(),
+        values_low: Some(avg_body_weight_chart.clone()),
+        plots: web_app::chart::plot_area(web_app::chart::COLOR_BODY_WEIGHT),
+        params: web_app::chart::PlotParams::default(),
+    };
+    let avg_data = web_app::chart::PlotData {
+        values_high: avg_body_weight_chart,
+        values_low: None,
+        plots: web_app::chart::plot_line(web_app::chart::COLOR_AVG_BODY_WEIGHT),
+        params: web_app::chart::PlotParams::default(),
+    };
     rsx! {
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Weight (kg)".to_string(),
-                    color: web_app::chart::COLOR_BODY_WEIGHT,
-                    opacity: web_app::chart::OPACITY_AREA,
-                },
-                ChartLabel {
-                    name: "Avg. weight (kg)".to_string(),
-                    color: web_app::chart::COLOR_AVG_BODY_WEIGHT,
-                    opacity: web_app::chart::OPACITY_LINE,
-                },
+            series: vec![
+                web_app::chart::LabeledSeries::new("Avg. weight (kg)", avg_data),
+                web_app::chart::LabeledSeries::new("Weight (kg)", body_weight_data),
             ],
-            chart: web_app::chart::plot(
-                &[
-                    web_app::chart::PlotData {
-                        values_high: body_weight
-                            .iter()
-                            .filter(|bw| {
-                                bw.date >= interval.first && bw.date <= interval.last
-                            })
-                        .map(|bw| (bw.date, bw.weight))
-                            .collect::<Vec<_>>(),
-                            values_low: Some(avg_body_weight_chart.clone()),
-                            plots: web_app::chart::plot_area(web_app::chart::COLOR_BODY_WEIGHT),
-                            params: web_app::chart::PlotParams::default(),
-                    },
-                    web_app::chart::PlotData {
-                        values_high: avg_body_weight_chart,
-                        values_low: None,
-                        plots: web_app::chart::plot_line(web_app::chart::COLOR_AVG_BODY_WEIGHT),
-                        params: web_app::chart::PlotParams::default(),
-                    },
-                ],
-                interval,
-                settings.current_theme(),
-            ).map_err(|err| err.to_string()),
+            interval,
             no_data_label: true,
         }
     }

@@ -7,10 +7,9 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
-    page::common::{Calendar, Chart, ChartLabel, IntervalControl},
+    page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     session::Session,
-    settings::Settings,
     ui::{
         element::{
             Block, DeleteConfirmationDialog, ErrorMessage, FloatingActionButton, ItemOptionsButton,
@@ -38,7 +37,6 @@ pub fn BodyFat(add: bool) -> Element {
         last: dates.read().iter().max().copied().unwrap_or_default(),
     })
     .read();
-    let settings = use_context::<Settings>();
     let mut dialog = use_signal(|| BodyFatDialog::None);
 
     let show_add_dialog = move || async move {
@@ -71,7 +69,7 @@ pub fn BodyFat(add: bool) -> Element {
             let avg_body_weight = DOMAIN_SERVICE().avg_body_weight(body_weight);
             rsx! {
                 IntervalControl { current_interval, all },
-                {chart(body_fat, body_weight, &avg_body_weight, user.sex, *current_interval.read(), settings)},
+                {chart(body_fat, body_weight, &avg_body_weight, user.sex, *current_interval.read())},
                 {calendar(body_fat, user.sex, *current_interval.read())},
                 {table(body_fat, user.sex, *current_interval.read(), dialog)},
                 {view_dialog(dialog, user.sex)},
@@ -96,7 +94,6 @@ fn chart(
     avg_body_weight: &[domain::BodyWeight],
     sex: domain::Sex,
     interval: domain::Interval,
-    settings: Settings,
 ) -> Element {
     let body_fat = body_fat
         .iter()
@@ -140,73 +137,39 @@ fn chart(
     rsx! {
         if !body_fat_jp3.is_empty() {
             Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "JP3 (%)".to_string(),
-                        color: web_app::chart::COLOR_BODY_FAT_JP3,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                    ChartLabel {
-                        name: "Weight (kg)".to_string(),
-                        color: web_app::chart::COLOR_BODY_WEIGHT,
-                        opacity: web_app::chart::OPACITY_AREA,
-                    },
-                    ChartLabel {
-                        name: "Avg. weight (kg)".to_string(),
-                        color: web_app::chart::COLOR_AVG_BODY_WEIGHT,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                ],
-                chart: web_app::chart::plot(
-                    &[
-                        body_weight_plot_data.clone(),
-                        avg_body_weight_plot_data.clone(),
+                series: vec![
+                    web_app::chart::LabeledSeries::new(
+                        "JP3 (%)",
                         web_app::chart::PlotData {
                             values_high: body_fat_jp3,
                             values_low: None,
                             plots: web_app::chart::plot_line(web_app::chart::COLOR_BODY_FAT_JP3),
                             params: web_app::chart::PlotParams::default(),
                         },
-                    ],
-                    interval,
-                    settings.current_theme()
-                ).map_err(|err| err.to_string()),
+                    ),
+                    web_app::chart::LabeledSeries::new("Avg. weight (kg)", avg_body_weight_plot_data.clone()),
+                    web_app::chart::LabeledSeries::new("Weight (kg)", body_weight_plot_data.clone()),
+                ],
+                interval,
                 no_data_label: true,
             }
         }
         if !body_fat_jp7.is_empty() {
             Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "JP7 (%)".to_string(),
-                        color: web_app::chart::COLOR_BODY_FAT_JP7,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                    ChartLabel {
-                        name: "Weight (kg)".to_string(),
-                        color: web_app::chart::COLOR_BODY_WEIGHT,
-                        opacity: web_app::chart::OPACITY_AREA,
-                    },
-                    ChartLabel {
-                        name: "Avg. weight (kg)".to_string(),
-                        color: web_app::chart::COLOR_AVG_BODY_WEIGHT,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                ],
-                chart: web_app::chart::plot(
-                    &[
-                        body_weight_plot_data.clone(),
-                        avg_body_weight_plot_data.clone(),
+                series: vec![
+                    web_app::chart::LabeledSeries::new(
+                        "JP7 (%)",
                         web_app::chart::PlotData {
                             values_high: body_fat_jp7,
                             values_low: None,
                             plots: web_app::chart::plot_line(web_app::chart::COLOR_BODY_FAT_JP7),
                             params: web_app::chart::PlotParams::default(),
                         },
-                    ],
-                    interval,
-                    settings.current_theme()
-                ).map_err(|err| err.to_string()),
+                    ),
+                    web_app::chart::LabeledSeries::new("Avg. weight (kg)", avg_body_weight_plot_data),
+                    web_app::chart::LabeledSeries::new("Weight (kg)", body_weight_plot_data),
+                ],
+                interval,
                 no_data_label: true,
             }
         }

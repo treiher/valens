@@ -12,7 +12,7 @@ use crate::{
     eh,
     page::{
         self,
-        common::{Calendar, Chart, ChartLabel, IntervalControl},
+        common::{Calendar, Chart, IntervalControl},
     },
     settings::Settings,
     ui::element::{
@@ -235,200 +235,120 @@ fn view_charts(
         }
     }
 
-    let mut reps_labels = vec![
-        ChartLabel {
-            name: "Avg. reps".to_string(),
-            color: web_app::chart::COLOR_REPS,
-            opacity: web_app::chart::OPACITY_LINE,
-        },
-        ChartLabel {
-            name: "Min./max. reps".to_string(),
-            color: web_app::chart::COLOR_REPS,
-            opacity: web_app::chart::OPACITY_AREA,
-        },
-    ];
-    let mut reps_data = web_app::chart::plot_data_min_avg_max(
+    let mut reps_series = web_app::chart::labeled_min_avg_max(
+        "reps",
         &reps_values,
         interval,
         params,
         web_app::chart::COLOR_REPS,
     );
     if settings.show_rpe() && !estimated_max_reps_by_date.is_empty() {
-        reps_labels.insert(
+        reps_series.insert(
             1,
-            ChartLabel {
-                name: "Est. max. reps".to_string(),
-                color: web_app::chart::COLOR_REPS,
-                opacity: web_app::chart::OPACITY_DOTTED_LINE,
-            },
+            web_app::chart::LabeledSeries::new(
+                "Est. max. reps",
+                web_app::chart::PlotData {
+                    values_high: estimated_max_reps_by_date.into_iter().collect(),
+                    values_low: None,
+                    plots: web_app::chart::plot_dotted_line(web_app::chart::COLOR_REPS),
+                    params,
+                },
+            ),
         );
-        reps_data.push(web_app::chart::PlotData {
-            values_high: estimated_max_reps_by_date.into_iter().collect(),
-            values_low: None,
-            plots: web_app::chart::plot_dotted_line(web_app::chart::COLOR_REPS),
-            params,
-        });
     }
 
-    let mut weight_labels = vec![
-        ChartLabel {
-            name: "Avg. weight (kg)".to_string(),
-            color: web_app::chart::COLOR_WEIGHT,
-            opacity: web_app::chart::OPACITY_LINE,
-        },
-        ChartLabel {
-            name: "Min./max. weight (kg)".to_string(),
-            color: web_app::chart::COLOR_WEIGHT,
-            opacity: web_app::chart::OPACITY_AREA,
-        },
-    ];
-    let mut weight_data = web_app::chart::plot_data_min_avg_max(
+    let mut weight_series = web_app::chart::labeled_min_avg_max(
+        "weight (kg)",
         &weight_values,
         interval,
         params,
         web_app::chart::COLOR_WEIGHT,
     );
     if !one_rep_max_by_date.is_empty() {
-        weight_labels.insert(
+        weight_series.insert(
             1,
-            ChartLabel {
-                name: "Est. 1RM (kg)".to_string(),
-                color: web_app::chart::COLOR_WEIGHT,
-                opacity: web_app::chart::OPACITY_DOTTED_LINE,
-            },
+            web_app::chart::LabeledSeries::new(
+                "Est. 1RM (kg)",
+                web_app::chart::PlotData {
+                    values_high: one_rep_max_by_date.into_iter().collect(),
+                    values_low: None,
+                    plots: web_app::chart::plot_dotted_line(web_app::chart::COLOR_WEIGHT),
+                    params,
+                },
+            ),
         );
-        weight_data.push(web_app::chart::PlotData {
-            values_high: one_rep_max_by_date.into_iter().collect(),
-            values_low: None,
-            plots: web_app::chart::plot_dotted_line(web_app::chart::COLOR_WEIGHT),
-            params,
-        });
     }
 
-    let time_data = web_app::chart::plot_data_min_avg_max(
+    let time_series = web_app::chart::labeled_min_avg_max(
+        "time (s)",
         &time_values,
         interval,
         params,
         web_app::chart::COLOR_TIME,
     );
 
-    let theme = settings.current_theme();
-
     rsx! {
         Chart {
-            labels: reps_labels,
-            chart: web_app::chart::plot(
-                &reps_data,
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+            series: reps_series,
+            interval,
             no_data_label: false,
         }
         Chart {
-            labels: weight_labels,
-            chart: web_app::chart::plot(
-                &weight_data,
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+            series: weight_series,
+            interval,
             no_data_label: false,
         }
         if settings.show_tut() {
             Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "Avg. time (s)".to_string(),
-                        color: web_app::chart::COLOR_TIME,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                    ChartLabel {
-                        name: "Min./max. time (s)".to_string(),
-                        color: web_app::chart::COLOR_TIME,
-                        opacity: web_app::chart::OPACITY_AREA,
-                    },
-                ],
-                chart: web_app::chart::plot(
-                    &time_data,
-                    interval,
-                    theme,
-                ).map_err(|err| err.to_string()),
+                series: time_series,
+                interval,
                 no_data_label: false,
             }
         }
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Set volume".to_string(),
-                    color: web_app::chart::COLOR_SET_VOLUME,
-                    opacity: web_app::chart::OPACITY_LINE,
+            series: vec![web_app::chart::LabeledSeries::new(
+                "Set volume",
+                web_app::chart::PlotData {
+                    values_high: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
+                    plots: web_app::chart::plot_area_with_border(
+                        web_app::chart::COLOR_SET_VOLUME,
+                    ),
+                    params,
                 },
-            ],
-            chart: web_app::chart::plot(
-                &[
-                    web_app::chart::PlotData {
-                        values_high: set_volume.into_iter().collect::<Vec<_>>(),
-                        values_low: None,
-                        plots: web_app::chart::plot_area_with_border(
-                            web_app::chart::COLOR_SET_VOLUME,
-                            web_app::chart::COLOR_SET_VOLUME,
-                        ),
-                        params,
-                    }
-                ],
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+            )],
+            interval,
             no_data_label: false,
         }
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Volume load".to_string(),
-                    color: web_app::chart::COLOR_VOLUME_LOAD,
-                    opacity: web_app::chart::OPACITY_LINE,
+            series: vec![web_app::chart::LabeledSeries::new(
+                "Volume load",
+                web_app::chart::PlotData {
+                    values_high: volume_load.into_iter().collect::<Vec<_>>(),
+                    values_low: None,
+                    plots: web_app::chart::plot_area_with_border(
+                        web_app::chart::COLOR_VOLUME_LOAD,
+                    ),
+                    params,
                 },
-            ],
-            chart: web_app::chart::plot(
-                &[
-                    web_app::chart::PlotData {
-                        values_high: volume_load.into_iter().collect::<Vec<_>>(),
-                        values_low: None,
-                        plots: web_app::chart::plot_area_with_border(
-                            web_app::chart::COLOR_VOLUME_LOAD,
-                            web_app::chart::COLOR_VOLUME_LOAD,
-                        ),
-                        params,
-                    }
-                ],
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+            )],
+            interval,
             no_data_label: false,
         }
         if settings.show_tut() {
             Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "Time under tension (s)".to_string(),
-                        color: web_app::chart::COLOR_TUT,
-                        opacity: web_app::chart::OPACITY_LINE,
+                series: vec![web_app::chart::LabeledSeries::new(
+                    "Time under tension (s)",
+                    web_app::chart::PlotData {
+                        values_high: tut.into_iter().collect::<Vec<_>>(),
+                        values_low: None,
+                        plots: web_app::chart::plot_area_with_border(
+                            web_app::chart::COLOR_TUT,
+                        ),
+                        params,
                     },
-                ],
-                chart: web_app::chart::plot(
-                    &[
-                        web_app::chart::PlotData {
-                            values_high: tut.into_iter().collect::<Vec<_>>(),
-                            values_low: None,
-                            plots: web_app::chart::plot_area_with_border(
-                                web_app::chart::COLOR_TUT,
-                                web_app::chart::COLOR_TUT,
-                            ),
-                            params,
-                        }
-                    ],
-                    interval,
-                    theme,
-                ).map_err(|err| err.to_string()),
+                )],
+                interval,
                 no_data_label: false,
             }
         }

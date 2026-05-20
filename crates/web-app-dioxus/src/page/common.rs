@@ -14,6 +14,7 @@ use valens_web_app as web_app;
 
 use crate::{
     METRONOME, ONE_REP_MAX_CALCULATOR,
+    settings::Settings,
     ui::{
         element::{Dialog, Error, Icon, NoData, TagsWithAddon},
         form::{FieldValue, InputField, SelectField, SelectOption},
@@ -698,10 +699,20 @@ pub fn IntervalControl(
 
 #[component]
 pub fn Chart(
-    labels: Vec<ChartLabel>,
-    chart: Result<Option<String>, String>,
+    series: Vec<web_app::chart::LabeledSeries>,
+    interval: domain::Interval,
     no_data_label: bool,
 ) -> Element {
+    let settings = use_context::<Settings>();
+    let labels: Vec<web_app::chart::ChartLabel> = series
+        .iter()
+        .map(web_app::chart::LabeledSeries::label)
+        .collect();
+    let data: Vec<web_app::chart::PlotData> =
+        series.into_iter().rev().flat_map(|s| s.data).collect();
+    let chart =
+        web_app::chart::plot(&data, interval, settings.current_theme()).map_err(|e| e.to_string());
+
     match chart {
         Ok(result) => match result {
             None => {
@@ -745,13 +756,6 @@ pub fn Chart(
         },
         Err(err) => rsx! { Error { message: err } },
     }
-}
-
-#[derive(Clone, PartialEq)]
-pub struct ChartLabel {
-    pub name: String,
-    pub color: usize,
-    pub opacity: f64,
 }
 
 #[component]

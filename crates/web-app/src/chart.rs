@@ -28,16 +28,19 @@ pub const COLOR_REPS: usize = 4;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
 
+pub const OPACITY_CIRCLE: f64 = 0.9;
 pub const OPACITY_LINE: f64 = 0.9;
 pub const OPACITY_DOTTED_LINE: f64 = 0.6;
+pub const OPACITY_HISTOGRAM: f64 = 0.9;
 pub const OPACITY_AREA: f64 = 0.3;
 
+pub const SIZE_CIRCLE: u32 = 2;
 pub const WIDTH_LINE: u32 = 2;
 pub const WIDTH_DOTTED_LINE: u32 = 1;
 
 pub const FONT: (&str, u32) = ("Roboto", 11);
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum PlotType {
     #[allow(dead_code)]
     Circle(usize, f64, u32),
@@ -62,19 +65,24 @@ pub fn plot_dotted_line(color: usize) -> Vec<PlotType> {
 }
 
 #[must_use]
+pub fn plot_histogram(color: usize) -> Vec<PlotType> {
+    vec![PlotType::Histogram(color, OPACITY_HISTOGRAM)]
+}
+
+#[must_use]
 pub fn plot_area(color: usize) -> Vec<PlotType> {
     vec![PlotType::Area(color, OPACITY_AREA)]
 }
 
 #[must_use]
-pub fn plot_area_with_border(line_color: usize, area_color: usize) -> Vec<PlotType> {
+pub fn plot_area_with_border(color: usize) -> Vec<PlotType> {
     vec![
-        PlotType::Area(area_color, OPACITY_AREA),
-        PlotType::Line(line_color, OPACITY_LINE, WIDTH_LINE),
+        PlotType::Area(color, OPACITY_AREA),
+        PlotType::Line(color, OPACITY_LINE, WIDTH_LINE),
     ]
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq)]
 pub struct PlotParams {
     pub y_min_opt: Option<f32>,
     pub y_max_opt: Option<f32>,
@@ -98,12 +106,28 @@ impl PlotParams {
     };
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct PlotData {
     pub values_high: Vec<(NaiveDate, f32)>,
     pub values_low: Option<Vec<(NaiveDate, f32)>>,
     pub plots: Vec<PlotType>,
     pub params: PlotParams,
+}
+
+impl PlotData {
+    #[must_use]
+    pub fn dominant_color_and_opacity(&self) -> (usize, f64) {
+        match self.plots.last() {
+            Some(
+                PlotType::Circle(c, o, _)
+                | PlotType::Line(c, o, _)
+                | PlotType::DottedLine(c, o, _)
+                | PlotType::Histogram(c, o)
+                | PlotType::Area(c, o),
+            ) => (*c, *o),
+            None => (0, 0.0),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -398,7 +422,7 @@ pub fn plot_data_min_avg_max<T: Into<f32> + Copy>(
     interval: domain::Interval,
     params: PlotParams,
     color: usize,
-) -> Vec<PlotData> {
+) -> [PlotData; 2] {
     let mut date_map: BTreeMap<&NaiveDate, Vec<f32>> = BTreeMap::new();
 
     for (date, value) in data {
@@ -435,7 +459,7 @@ pub fn plot_data_min_avg_max<T: Into<f32> + Copy>(
         values_max.push((date, max));
     }
 
-    vec![
+    [
         PlotData {
             values_high: values_min,
             values_low: Some(values_max),
@@ -448,6 +472,76 @@ pub fn plot_data_min_avg_max<T: Into<f32> + Copy>(
             plots: plot_line(color),
             params,
         },
+    ]
+}
+
+/// A named series of plot data shown in a chart legend.
+///
+/// List series in legend order (most prominent first). Chart renderers
+/// typically reverse this for drawing, so the first-listed series ends up
+/// drawn on top.
+///
+/// The `data` field is a `Vec<PlotData>` so a single named series can span
+/// multiple gap-separated segments (e.g. a 7-day rolling average broken by
+/// missing data). All segments share the same plot style and contribute one
+/// legend entry.
+#[derive(Clone, PartialEq)]
+pub struct LabeledSeries {
+    pub name: String,
+    pub data: Vec<PlotData>,
+}
+
+impl LabeledSeries {
+    #[must_use]
+    pub fn new(name: impl Into<String>, data: impl Into<Vec<PlotData>>) -> Self {
+        Self {
+            name: name.into(),
+            data: data.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn label(&self) -> ChartLabel {
+        let (color, opacity) = self
+            .data
+            .first()
+            .map_or((0, 0.0), PlotData::dominant_color_and_opacity);
+        ChartLabel {
+            name: self.name.clone(),
+            color,
+            opacity,
+        }
+    }
+}
+
+impl From<PlotData> for Vec<PlotData> {
+    fn from(value: PlotData) -> Self {
+        vec![value]
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct ChartLabel {
+    pub name: String,
+    pub color: usize,
+    pub opacity: f64,
+}
+
+/// Build a legend-ordered pair of [`LabeledSeries`] for a min/avg/max chart.
+///
+/// Returned in legend order: `["Avg. {metric_name}", "Min./max. {metric_name}"]`.
+#[must_use]
+pub fn labeled_min_avg_max<T: Into<f32> + Copy>(
+    metric_name: &str,
+    data: &[(NaiveDate, T)],
+    interval: domain::Interval,
+    params: PlotParams,
+    color: usize,
+) -> Vec<LabeledSeries> {
+    let [area, line] = plot_data_min_avg_max(data, interval, params, color);
+    vec![
+        LabeledSeries::new(format!("Avg. {metric_name}"), line),
+        LabeledSeries::new(format!("Min./max. {metric_name}"), area),
     ]
 }
 

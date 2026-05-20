@@ -10,7 +10,7 @@ use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
     eh,
-    page::common::{Calendar, Chart, ChartLabel, IntervalControl},
+    page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     settings::Settings,
     ui::{
@@ -142,110 +142,79 @@ fn view_charts(
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    let average_7day_rpe = domain::centered_moving_average(&rpe_values, interval, 3);
-    let min_7day_rpe = domain::centered_moving_min(&rpe_values, interval, 3);
-    let max_7day_rpe = domain::centered_moving_max(&rpe_values, interval, 3);
     let rpe_params = web_app::chart::PlotParams::primary_range(5., 10.);
-    let rpe_plot_data: Vec<web_app::chart::PlotData> = min_7day_rpe
-        .into_iter()
-        .zip(max_7day_rpe)
-        .zip(average_7day_rpe)
-        .flat_map(|((min_values, max_values), avg_values)| {
-            [
-                web_app::chart::PlotData {
-                    values_high: min_values,
-                    values_low: Some(max_values),
-                    plots: web_app::chart::plot_area(web_app::chart::COLOR_RPE),
-                    params: rpe_params,
-                },
-                web_app::chart::PlotData {
-                    values_high: avg_values,
-                    values_low: None,
-                    plots: web_app::chart::plot_line(web_app::chart::COLOR_RPE),
-                    params: rpe_params,
-                },
-            ]
-        })
-        .collect();
-    let theme = settings.current_theme();
+    let avg_rpe_segments: Vec<web_app::chart::PlotData> =
+        domain::centered_moving_average(&rpe_values, interval, 3)
+            .into_iter()
+            .map(|seg| web_app::chart::PlotData {
+                values_high: seg,
+                values_low: None,
+                plots: web_app::chart::plot_line(web_app::chart::COLOR_RPE),
+                params: rpe_params,
+            })
+            .collect();
+    let min_max_rpe_segments: Vec<web_app::chart::PlotData> =
+        domain::centered_moving_min(&rpe_values, interval, 3)
+            .into_iter()
+            .zip(domain::centered_moving_max(&rpe_values, interval, 3))
+            .map(|(min_seg, max_seg)| web_app::chart::PlotData {
+                values_high: min_seg,
+                values_low: Some(max_seg),
+                plots: web_app::chart::plot_area(web_app::chart::COLOR_RPE),
+                params: rpe_params,
+            })
+            .collect();
+
+    let load_params = web_app::chart::PlotParams::primary_range(0., 10.);
     let show_rpe = settings.show_rpe();
 
     rsx! {
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "Short-term load".to_string(),
-                    color: web_app::chart::COLOR_LOAD,
-                    opacity: web_app::chart::OPACITY_LINE,
-                },
-                ChartLabel {
-                    name: "Long-term load".to_string(),
-                    color: web_app::chart::COLOR_LONG_TERM_LOAD,
-                    opacity: web_app::chart::OPACITY_AREA,
-                },
-            ],
-            chart: web_app::chart::plot(
-                &[
-                    web_app::chart::PlotData {
-                        values_high: long_term_load_high,
-                        values_low: Some(long_term_load_low),
-                        plots: web_app::chart::plot_area(web_app::chart::COLOR_LONG_TERM_LOAD),
-                        params: web_app::chart::PlotParams::primary_range(0., 10.),
-                    },
+            series: vec![
+                web_app::chart::LabeledSeries::new(
+                    "Short-term load",
                     web_app::chart::PlotData {
                         values_high: short_term_load,
                         values_low: None,
                         plots: web_app::chart::plot_line(web_app::chart::COLOR_LOAD),
-                        params: web_app::chart::PlotParams::primary_range(0., 10.),
-                    }
-                ],
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+                        params: load_params,
+                    },
+                ),
+                web_app::chart::LabeledSeries::new(
+                    "Long-term load",
+                    web_app::chart::PlotData {
+                        values_high: long_term_load_high,
+                        values_low: Some(long_term_load_low),
+                        plots: web_app::chart::plot_area(web_app::chart::COLOR_LONG_TERM_LOAD),
+                        params: load_params,
+                    },
+                ),
+            ],
+            interval,
             no_data_label: false,
         }
         Chart {
-            labels: vec![
-                ChartLabel {
-                    name: "7-day set volume".to_string(),
-                    color: web_app::chart::COLOR_SET_VOLUME,
-                    opacity: web_app::chart::OPACITY_LINE,
-                },
-            ],
-            chart: web_app::chart::plot(
-                &[web_app::chart::PlotData {
+            series: vec![web_app::chart::LabeledSeries::new(
+                "7-day set volume",
+                web_app::chart::PlotData {
                     values_high: total_7day_set_volume,
                     values_low: None,
                     plots: web_app::chart::plot_area_with_border(
                         web_app::chart::COLOR_SET_VOLUME,
-                        web_app::chart::COLOR_SET_VOLUME,
                     ),
-                    params: web_app::chart::PlotParams::primary_range(0., 10.),
-                }],
-                interval,
-                theme,
-            ).map_err(|err| err.to_string()),
+                    params: load_params,
+                },
+            )],
+            interval,
             no_data_label: false,
         }
         if show_rpe {
             Chart {
-                labels: vec![
-                    ChartLabel {
-                        name: "7-day avg. RPE".to_string(),
-                        color: web_app::chart::COLOR_RPE,
-                        opacity: web_app::chart::OPACITY_LINE,
-                    },
-                    ChartLabel {
-                        name: "7-day min./max. RPE".to_string(),
-                        color: web_app::chart::COLOR_RPE,
-                        opacity: web_app::chart::OPACITY_AREA,
-                    },
+                series: vec![
+                    web_app::chart::LabeledSeries::new("7-day avg. RPE", avg_rpe_segments),
+                    web_app::chart::LabeledSeries::new("7-day min./max. RPE", min_max_rpe_segments),
                 ],
-                chart: web_app::chart::plot(
-                    &rpe_plot_data,
-                    interval,
-                    theme,
-                ).map_err(|err| err.to_string()),
+                interval,
                 no_data_label: false,
             }
         }

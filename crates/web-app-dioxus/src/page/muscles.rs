@@ -5,8 +5,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DATA_CHANGED, DOMAIN_SERVICE,
-    page::common::{Chart, ChartLabel, IntervalControl},
-    settings::Settings,
+    page::common::{Chart, IntervalControl},
     ui::element::{ErrorMessage, LoadingPage, NoConnection, Title},
 };
 
@@ -37,13 +36,11 @@ pub fn Muscles() -> Element {
         last: dates.read().iter().max().copied().unwrap_or_default(),
     })
     .read();
-    let settings = use_context::<Settings>();
-
     match (&*training_sessions.read(), &*exercises.read()) {
         (Some(Ok(training_sessions)), Some(Ok(exercises))) => {
             rsx! {
                 IntervalControl { current_interval, all }
-                {charts(training_sessions, exercises, *current_interval.read(), settings)}
+                {charts(training_sessions, exercises, *current_interval.read())}
             }
         }
         (Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))), _) => {
@@ -60,7 +57,6 @@ fn charts(
     training_sessions: &[domain::TrainingSession],
     exercises: &[domain::Exercise],
     interval: domain::Interval,
-    settings: Settings,
 ) -> Element {
     let charts = domain::MuscleID::iter().map(|m| {
         #[allow(clippy::cast_precision_loss)]
@@ -87,28 +83,18 @@ fn charts(
                     {m.description()}
                 }
                 Chart {
-                    labels: vec![
-                        ChartLabel {
-                            name: "7-day set volume".to_string(),
-                            color: web_app::chart::COLOR_SET_VOLUME,
-                            opacity: web_app::chart::OPACITY_LINE,
+                    series: vec![web_app::chart::LabeledSeries::new(
+                        "7-day set volume",
+                        web_app::chart::PlotData {
+                            values_high: total_7day_set_volume,
+                            values_low: None,
+                            plots: web_app::chart::plot_area_with_border(
+                                web_app::chart::COLOR_SET_VOLUME,
+                            ),
+                            params: web_app::chart::PlotParams::primary_range(0., 10.),
                         },
-                    ],
-                    chart: web_app::chart::plot(
-                        &[
-                            web_app::chart::PlotData {
-                                values_high: total_7day_set_volume,
-                                values_low: None,
-                                plots: web_app::chart::plot_area_with_border(
-                                    web_app::chart::COLOR_SET_VOLUME,
-                                    web_app::chart::COLOR_SET_VOLUME,
-                                ),
-                                params: web_app::chart::PlotParams::primary_range(0., 10.),
-                            }
-                        ],
-                        interval,
-                        settings.current_theme(),
-                    ).map_err(|err| err.to_string()),
+                    )],
+                    interval,
                     no_data_label: true,
                 }
             }

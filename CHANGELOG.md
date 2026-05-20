@@ -23,11 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Login page: Redesigned the login flow to require entering a known username
-- Training sessions page: RPE chart now averages per-set RPE values instead of per-session averages
+- Training sessions page:
+    - RPE chart now averages per-set RPE values instead of per-session averages
+    - Unified chart legend labels for set volume
 - Routine page: Reordered and unified chart legend labels
 - Exercise page:
     - Reordered charts to show performance metrics before volume metrics
     - Reordered and unified chart legend labels
+- Muscles pages: Unified chart legend labels for set volume
 - Navigation bar: Renamed "Log out" to "Sign out"
 
 ### Fixed

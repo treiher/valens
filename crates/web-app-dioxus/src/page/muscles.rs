@@ -89,7 +89,7 @@ fn charts(
                 Chart {
                     labels: vec![
                         ChartLabel {
-                            name: "Set volume (7 day total)".to_string(),
+                            name: "7-day set volume".to_string(),
                             color: web_app::chart::COLOR_SET_VOLUME,
                             opacity: web_app::chart::OPACITY_LINE,
                         },

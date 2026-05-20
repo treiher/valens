@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Login page: Redesigned the login flow to require entering a known username
+- Routine page: Reordered and unified chart legend labels
 - Exercise page:
     - Reordered charts to show performance metrics before volume metrics
     - Reordered and unified chart legend labels
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Incorrect background color in calendars
+- Training sessions page: Incorrect chart legend label
 
 ## [0.7.0] - 2026-05-10
 

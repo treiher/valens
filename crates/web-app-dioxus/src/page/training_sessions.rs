@@ -150,7 +150,7 @@ fn view_charts(
                     opacity: web_app::chart::OPACITY_LINE,
                 },
                 ChartLabel {
-                    name: "Short-term load".to_string(),
+                    name: "Long-term load".to_string(),
                     color: web_app::chart::COLOR_LONG_TERM_LOAD,
                     opacity: web_app::chart::OPACITY_AREA,
                 },

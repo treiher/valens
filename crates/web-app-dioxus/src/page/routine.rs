@@ -527,14 +527,14 @@ fn view_charts(
             Chart {
                 labels: vec![
                     ChartLabel {
-                        name: "RPE".to_string(),
-                        color: web_app::chart::COLOR_RPE,
-                        opacity: web_app::chart::OPACITY_AREA,
-                    },
-                    ChartLabel {
                         name: "Avg. RPE".to_string(),
                         color: web_app::chart::COLOR_RPE,
                         opacity: web_app::chart::OPACITY_LINE,
+                    },
+                    ChartLabel {
+                        name: "Min./max. RPE".to_string(),
+                        color: web_app::chart::COLOR_RPE,
+                        opacity: web_app::chart::OPACITY_AREA,
                     },
                 ],
                 chart: web_app::chart::plot_min_avg_max(

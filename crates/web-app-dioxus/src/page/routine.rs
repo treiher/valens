@@ -456,8 +456,12 @@ fn view_charts(
     interval: domain::Interval,
     settings: Settings,
 ) -> Element {
+    let params = web_app::chart::PlotParams::primary_range(0., 10.);
+    let rpe_params = web_app::chart::PlotParams::primary_range(5., 10.);
+
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut rpe_values: Vec<(NaiveDate, f32)> = vec![];
     for training_session in training_sessions {
         #[allow(clippy::cast_precision_loss)]
         load.entry(training_session.date)
@@ -468,6 +472,11 @@ fn view_charts(
             .entry(training_session.date)
             .and_modify(|e| *e += training_session.set_volume() as f32)
             .or_insert(training_session.set_volume() as f32);
+        for element in &training_session.elements {
+            if let domain::TrainingSessionElement::Set { rpe: Some(rpe), .. } = element {
+                rpe_values.push((training_session.date, f32::from(*rpe)));
+            }
+        }
     }
 
     let theme = settings.current_theme();
@@ -490,7 +499,7 @@ fn view_charts(
                             web_app::chart::COLOR_LOAD,
                             web_app::chart::COLOR_LOAD,
                         ),
-                        params: web_app::chart::PlotParams::primary_range(0., 10.),
+                        params,
                     }
                 ],
                 interval,
@@ -515,7 +524,7 @@ fn view_charts(
                             web_app::chart::COLOR_SET_VOLUME,
                             web_app::chart::COLOR_SET_VOLUME,
                         ),
-                        params: web_app::chart::PlotParams::primary_range(0., 10.),
+                        params,
                     }
                 ],
                 interval,
@@ -537,22 +546,14 @@ fn view_charts(
                         opacity: web_app::chart::OPACITY_AREA,
                     },
                 ],
-                chart: web_app::chart::plot_min_avg_max(
-                    &training_sessions
-                        .iter()
-                        .flat_map(|s| s
-                            .elements
-                            .iter()
-                            .filter_map(|e| match e {
-                                domain::TrainingSessionElement::Set { rpe, .. } =>
-                                    rpe.map(|v| (s.date, v)),
-                                domain::TrainingSessionElement::Rest { .. } => None,
-                            })
-                            .collect::<Vec<_>>())
-                        .collect::<Vec<_>>(),
+                chart: web_app::chart::plot(
+                    &web_app::chart::plot_data_min_avg_max(
+                        &rpe_values,
+                        interval,
+                        rpe_params,
+                        web_app::chart::COLOR_RPE,
+                    ),
                     interval,
-                    web_app::chart::PlotParams::primary_range(5., 10.),
-                    web_app::chart::COLOR_RPE,
                     theme,
                 ).map_err(|err| err.to_string()),
                 no_data_label: false,

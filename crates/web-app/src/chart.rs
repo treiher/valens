@@ -451,21 +451,6 @@ pub fn plot_data_min_avg_max<T: Into<f32> + Copy>(
     ]
 }
 
-#[allow(clippy::missing_errors_doc)]
-pub fn plot_min_avg_max<T: Into<f32> + Copy>(
-    data: &[(NaiveDate, T)],
-    interval: domain::Interval,
-    params: PlotParams,
-    color: usize,
-    theme: Theme,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
-    plot(
-        &plot_data_min_avg_max(data, interval, params, color),
-        interval,
-        theme,
-    )
-}
-
 #[must_use]
 pub fn hex_color(color: usize, opacity: f64) -> String {
     let plotters::style::RGBAColor(r, g, b, a) =

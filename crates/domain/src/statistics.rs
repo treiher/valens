@@ -183,6 +183,56 @@ pub fn centered_moving_average<T: Into<f32> + Copy>(
     )
 }
 
+/// Calculate a series of moving minimums from a given series of (date, value) pairs.
+///
+/// The radius argument determines the number of days to include into the calculated
+/// minimum before and after each value within the interval.
+///
+/// Multiple values for the same date will be combined by taking the minimum.
+///
+/// An empty result vector may be returned if there is no data within the interval.
+/// Multiple result vectors may be returned in cases where there are gaps of more than
+/// 2*radius+1 days in the input data within the interval.
+#[must_use]
+pub fn centered_moving_min<T: Into<f32> + Copy>(
+    data: &Vec<(NaiveDate, T)>,
+    interval: Interval,
+    radius: u64,
+) -> Vec<Vec<(NaiveDate, f32)>> {
+    centered_moving_grouping(
+        data,
+        interval,
+        radius,
+        |d| d.into_iter().reduce(f32::min),
+        |d| d.into_iter().reduce(f32::min),
+    )
+}
+
+/// Calculate a series of moving maximums from a given series of (date, value) pairs.
+///
+/// The radius argument determines the number of days to include into the calculated
+/// maximum before and after each value within the interval.
+///
+/// Multiple values for the same date will be combined by taking the maximum.
+///
+/// An empty result vector may be returned if there is no data within the interval.
+/// Multiple result vectors may be returned in cases where there are gaps of more than
+/// 2*radius+1 days in the input data within the interval.
+#[must_use]
+pub fn centered_moving_max<T: Into<f32> + Copy>(
+    data: &Vec<(NaiveDate, T)>,
+    interval: Interval,
+    radius: u64,
+) -> Vec<Vec<(NaiveDate, f32)>> {
+    centered_moving_grouping(
+        data,
+        interval,
+        radius,
+        |d| d.into_iter().reduce(f32::max),
+        |d| d.into_iter().reduce(f32::max),
+    )
+}
+
 /// Calculate a series of moving averages from a given series of (date, value) pairs.
 ///
 /// The data argument must have only one value per day.
@@ -339,6 +389,164 @@ mod tests {
     ) {
         assert_eq!(
             centered_moving_average(
+                &input
+                    .iter()
+                    .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
+                    .collect::<Vec<_>>(),
+                Interval {
+                    first: NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap(),
+                    last: NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap(),
+                },
+                radius,
+            ),
+            expected
+                .iter()
+                .map(|v| v
+                    .iter()
+                    .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
+                    .collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    #[rstest]
+    #[case::empty_series(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[],
+        vec![]
+    )]
+    #[case::value_outside_interval(
+        (2020, 3, 3),
+        (2020, 3, 5),
+        0,
+        &[(2020, 2, 3, 1.0)],
+        vec![]
+    )]
+    #[case::zero_radius_single_value(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[(2020, 2, 3, 1.0)],
+        vec![vec![(2020, 2, 3, 1.0)]]
+    )]
+    #[case::zero_radius_multiple_days(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)],
+        vec![vec![(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)]]
+    )]
+    #[case::zero_radius_multiple_values_per_day(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0), (2020, 2, 3, 3.0)],
+        vec![vec![(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)]]
+    )]
+    #[case::nonzero_radius_multiple_days(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        1,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)],
+        vec![vec![(2020, 2, 3, 1.0), (2020, 2, 4, 1.0), (2020, 2, 5, 2.0)]]
+    )]
+    #[case::nonzero_radius_with_gap(
+        (2020, 2, 3),
+        (2020, 2, 7),
+        1,
+        &[(2020, 2, 3, 1.0), (2020, 2, 7, 1.0)],
+        vec![vec![(2020, 2, 3, 1.0), (2020, 2, 4, 1.0)], vec![(2020, 2, 6, 1.0), (2020, 2, 7, 1.0)]]
+    )]
+    fn test_centered_moving_min(
+        #[case] start: (i32, u32, u32),
+        #[case] end: (i32, u32, u32),
+        #[case] radius: u64,
+        #[case] input: &[(i32, u32, u32, f32)],
+        #[case] expected: Vec<Vec<(i32, u32, u32, f32)>>,
+    ) {
+        assert_eq!(
+            centered_moving_min(
+                &input
+                    .iter()
+                    .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
+                    .collect::<Vec<_>>(),
+                Interval {
+                    first: NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap(),
+                    last: NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap(),
+                },
+                radius,
+            ),
+            expected
+                .iter()
+                .map(|v| v
+                    .iter()
+                    .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
+                    .collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    #[rstest]
+    #[case::empty_series(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[],
+        vec![]
+    )]
+    #[case::value_outside_interval(
+        (2020, 3, 3),
+        (2020, 3, 5),
+        0,
+        &[(2020, 2, 3, 1.0)],
+        vec![]
+    )]
+    #[case::zero_radius_single_value(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[(2020, 2, 3, 1.0)],
+        vec![vec![(2020, 2, 3, 1.0)]]
+    )]
+    #[case::zero_radius_multiple_days(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)],
+        vec![vec![(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)]]
+    )]
+    #[case::zero_radius_multiple_values_per_day(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        0,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0), (2020, 2, 3, 3.0)],
+        vec![vec![(2020, 2, 3, 3.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)]]
+    )]
+    #[case::nonzero_radius_multiple_days(
+        (2020, 2, 3),
+        (2020, 2, 5),
+        1,
+        &[(2020, 2, 3, 1.0), (2020, 2, 4, 2.0), (2020, 2, 5, 3.0)],
+        vec![vec![(2020, 2, 3, 2.0), (2020, 2, 4, 3.0), (2020, 2, 5, 3.0)]]
+    )]
+    #[case::nonzero_radius_with_gap(
+        (2020, 2, 3),
+        (2020, 2, 7),
+        1,
+        &[(2020, 2, 3, 1.0), (2020, 2, 7, 1.0)],
+        vec![vec![(2020, 2, 3, 1.0), (2020, 2, 4, 1.0)], vec![(2020, 2, 6, 1.0), (2020, 2, 7, 1.0)]]
+    )]
+    fn test_centered_moving_max(
+        #[case] start: (i32, u32, u32),
+        #[case] end: (i32, u32, u32),
+        #[case] radius: u64,
+        #[case] input: &[(i32, u32, u32, f32)],
+        #[case] expected: Vec<Vec<(i32, u32, u32, f32)>>,
+    ) {
+        assert_eq!(
+            centered_moving_max(
                 &input
                     .iter()
                     .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))

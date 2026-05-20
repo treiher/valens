@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Training session-specific exercise notes
 - 1RM calculator accessible from the navigation menu and from the training session exercise options
+- Training sessions page: 7-day min./max. RPE to RPE chart
 - Routine page: Option to show and copy routine as text
 - Routines page: Option to show and copy routine as text
 - Exercise page:
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Login page: Redesigned the login flow to require entering a known username
+- Training sessions page: RPE chart now averages per-set RPE values instead of per-session averages
 - Routine page: Reordered and unified chart legend labels
 - Exercise page:
     - Reordered charts to show performance metrics before volume metrics

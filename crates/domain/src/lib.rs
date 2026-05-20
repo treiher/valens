@@ -27,8 +27,8 @@ pub use routine::{
 pub use service::Service;
 pub use session::{SessionRepository, SessionService};
 pub use statistics::{
-    DefaultInterval, Interval, centered_moving_average, centered_moving_total, init_interval,
-    value_based_centered_moving_average,
+    DefaultInterval, Interval, centered_moving_average, centered_moving_max, centered_moving_min,
+    centered_moving_total, init_interval, value_based_centered_moving_average,
 };
 pub use training::{
     RIR, RPE, Reps, Time, TrainingStats, Weight, one_rep_max, reps_for_percentage, training_stats,

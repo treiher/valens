@@ -130,14 +130,43 @@ fn view_charts(
         interval,
         3,
     );
-    let average_7day_rpe = domain::centered_moving_average(
-        &training_sessions
-            .iter()
-            .filter_map(|s| s.avg_rpe().map(|v| (s.date, v)))
-            .collect::<Vec<_>>(),
-        interval,
-        3,
-    );
+    let rpe_values = training_sessions
+        .iter()
+        .flat_map(|s| {
+            s.elements
+                .iter()
+                .filter_map(|e| match e {
+                    domain::TrainingSessionElement::Set { rpe, .. } => rpe.map(|v| (s.date, v)),
+                    domain::TrainingSessionElement::Rest { .. } => None,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let average_7day_rpe = domain::centered_moving_average(&rpe_values, interval, 3);
+    let min_7day_rpe = domain::centered_moving_min(&rpe_values, interval, 3);
+    let max_7day_rpe = domain::centered_moving_max(&rpe_values, interval, 3);
+    let rpe_params = web_app::chart::PlotParams::primary_range(5., 10.);
+    let rpe_plot_data: Vec<web_app::chart::PlotData> = min_7day_rpe
+        .into_iter()
+        .zip(max_7day_rpe)
+        .zip(average_7day_rpe)
+        .flat_map(|((min_values, max_values), avg_values)| {
+            [
+                web_app::chart::PlotData {
+                    values_high: min_values,
+                    values_low: Some(max_values),
+                    plots: web_app::chart::plot_area(web_app::chart::COLOR_RPE),
+                    params: rpe_params,
+                },
+                web_app::chart::PlotData {
+                    values_high: avg_values,
+                    values_low: None,
+                    plots: web_app::chart::plot_line(web_app::chart::COLOR_RPE),
+                    params: rpe_params,
+                },
+            ]
+        })
+        .collect();
     let theme = settings.current_theme();
     let show_rpe = settings.show_rpe();
 
@@ -202,17 +231,18 @@ fn view_charts(
             Chart {
                 labels: vec![
                     ChartLabel {
-                        name: "RPE (7 day average)".to_string(),
+                        name: "7-day avg. RPE".to_string(),
                         color: web_app::chart::COLOR_RPE,
                         opacity: web_app::chart::OPACITY_LINE,
                     },
+                    ChartLabel {
+                        name: "7-day min./max. RPE".to_string(),
+                        color: web_app::chart::COLOR_RPE,
+                        opacity: web_app::chart::OPACITY_AREA,
+                    },
                 ],
                 chart: web_app::chart::plot(
-                    &average_7day_rpe.iter().map(|values| web_app::chart::PlotData{values_high: values.clone(),
-                        values_low: None,
-                        plots: web_app::chart::plot_line(web_app::chart::COLOR_RPE),
-                        params: web_app::chart::PlotParams::primary_range(5., 10.)
-                    }).collect::<Vec<_>>(),
+                    &rpe_plot_data,
                     interval,
                     theme,
                 ).map_err(|err| err.to_string()),

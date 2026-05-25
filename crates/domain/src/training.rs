@@ -112,7 +112,8 @@ impl Weight {
             return Err(WeightError::OutOfRange);
         }
 
-        if (value * 10.0 % 1.0).abs() > f32::EPSILON {
+        let scaled = value * 100.0;
+        if (scaled - scaled.round()).abs() > 1e-3 {
             return Err(WeightError::InvalidResolution);
         }
 
@@ -147,9 +148,9 @@ impl TryFrom<&str> for Weight {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum WeightError {
-    #[error("Weight must be a multiple of 0.1 kg")]
+    #[error("Weight must be a multiple of 0.01 kg")]
     InvalidResolution,
-    #[error("Weight must be in the range 0.0 to 999.9 kg")]
+    #[error("Weight must be in the range 0.0 to 999.99 kg")]
     OutOfRange,
     #[error("Weight must be a decimal")]
     ParseError,
@@ -526,9 +527,11 @@ mod tests {
 
     #[rstest]
     #[case(0.0, Ok(Weight(0.0)))]
+    #[case(0.25, Ok(Weight(0.25)))]
+    #[case(1.23, Ok(Weight(1.23)))]
     #[case(999.9, Ok(Weight(999.9)))]
     #[case(1000.0, Err(WeightError::OutOfRange))]
-    #[case(1.23, Err(WeightError::InvalidResolution))]
+    #[case(1.234, Err(WeightError::InvalidResolution))]
     fn test_weight_new(#[case] input: f32, #[case] expected: Result<Weight, WeightError>) {
         assert_eq!(Weight::new(input), expected);
     }

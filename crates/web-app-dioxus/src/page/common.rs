@@ -973,7 +973,7 @@ pub fn OneRepMaxCalculator() -> Element {
                         tr {
                             td { class: "has-text-right", "{percentage}" }
                             td { class: "has-text-right", "{row_reps}" }
-                            td { class: "has-text-right", { format!("{row_weight:.1}") } }
+                            td { class: "has-text-right", "{row_weight:.2}" }
                         }
                     }
                 }

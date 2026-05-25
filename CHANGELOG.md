@@ -23,10 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Login page: Redesigned the login flow to require entering a known username
+- Training session page: Weight input resolution from 0.1 to 0.01 kg
 - Training sessions page:
     - RPE chart now averages per-set RPE values instead of per-session averages
     - Unified chart legend labels for set volume
-- Routine page: Reordered and unified chart legend labels
+- Routine page:
+    - Weight input resolution from 0.1 to 0.01 kg
+    - Reordered and unified chart legend labels
 - Exercise page:
     - Reordered charts to show performance metrics before volume metrics
     - Reordered and unified chart legend labels

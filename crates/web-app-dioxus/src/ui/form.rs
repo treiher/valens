@@ -105,7 +105,9 @@ pub fn SelectField(
     label: String,
     options: Vec<Element>,
     has_changed: bool,
+    is_fullwidth: Option<bool>,
     on_change: EventHandler<FormEvent>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     rsx! {
         div {
@@ -115,9 +117,11 @@ pub fn SelectField(
                 class: "control",
                 div {
                     class: "select",
+                    class: if is_fullwidth.unwrap_or_default() { "is-fullwidth" },
                     select {
                         class: if has_changed { "has-text-info" },
                         onchange: on_change,
+                        ..attributes,
                         for option in options {
                             {option}
                         }

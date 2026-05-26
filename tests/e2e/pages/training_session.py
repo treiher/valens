@@ -19,6 +19,7 @@ class TrainingSessionPage(BasePage):
         self.session_id = session_id
         self.exercise_note_dialog: ExerciseNoteDialog = ExerciseNoteDialog(page)
         self.one_rep_max_dialog: OneRepMaxCalculatorDialog = OneRepMaxCalculatorDialog(page)
+        self.drop_set_dialog: DropSetCalculatorDialog = DropSetCalculatorDialog(page)
 
     @property
     def path(self) -> str:
@@ -106,6 +107,11 @@ class TrainingSessionPage(BasePage):
         self.page.get_by_test_id("options-1rm").click()
         self.one_rep_max_dialog.wait_until_open()
 
+    def show_drop_set(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        self.page.get_by_test_id("options-drop-set").click()
+        self.drop_set_dialog.wait_until_open()
+
     def edit_exercise_note(self, note: str, exercise_idx: int = 0) -> None:
         self.open_exercise_note_dialog(exercise_idx)
         self.exercise_note_dialog.set_note(note)
@@ -164,3 +170,38 @@ class OneRepMaxCalculatorDialog(Dialog):
                 return (cells[1].inner_text().strip(), cells[2].inner_text().strip())
         msg = f"Row for {percentage}% not found"
         raise ValueError(msg)
+
+
+class DropSetCalculatorDialog(Dialog):
+    def get_start_weight(self) -> str:
+        return self.root.get_by_test_id("drop-set-start-weight").input_value()
+
+    def get_drop_percentage(self) -> str:
+        return self.root.get_by_test_id("drop-set-drop-percentage").input_value()
+
+    def get_increment(self) -> str:
+        return self.root.get_by_test_id("drop-set-increment").input_value()
+
+    def set_start_weight(self, weight: float) -> None:
+        self.root.get_by_test_id("drop-set-start-weight").fill(str(weight))
+
+    def set_drop_percentage(self, percentage: float) -> None:
+        self.root.get_by_test_id("drop-set-drop-percentage").fill(str(percentage))
+
+    def set_increment(self, increment: str) -> None:
+        self.root.get_by_test_id("drop-set-increment").select_option(increment)
+
+    def get_rows(self) -> list[tuple[str, str, str]]:
+        """Return (nominal_pct, actual_pct, weight) for all rows."""
+        rows = self.root.locator("table tbody tr").all()
+        result = []
+        for row in rows:
+            cells = row.locator("td").all()
+            result.append(
+                (
+                    cells[0].inner_text().strip(),
+                    cells[1].inner_text().strip(),
+                    cells[2].inner_text().strip(),
+                )
+            )
+        return result

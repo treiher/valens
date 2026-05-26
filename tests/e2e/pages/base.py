@@ -126,6 +126,9 @@ class Navbar(PageElement):
     def open_1rm_calculator(self) -> None:
         self.page.get_by_test_id("navbar-1rm-calculator").click()
 
+    def open_drop_set_calculator(self) -> None:
+        self.page.get_by_test_id("navbar-drop-set-calculator").click()
+
     def expect_synchronization(self) -> None:
         expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_visible()
         expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_hidden()

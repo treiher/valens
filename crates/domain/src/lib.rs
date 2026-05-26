@@ -31,7 +31,8 @@ pub use statistics::{
     centered_moving_total, init_interval, value_based_centered_moving_average,
 };
 pub use training::{
-    RIR, RPE, Reps, Time, TrainingStats, Weight, one_rep_max, reps_for_percentage, training_stats,
+    RIR, RPE, Reps, Time, TrainingStats, Weight, drop_set_weights, one_rep_max,
+    reps_for_percentage, round_drop_to_increment, training_stats,
 };
 pub use training_session::{
     Set, TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,

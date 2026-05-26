@@ -10,7 +10,7 @@ use valens_domain as domain;
 use valens_storage as storage;
 use valens_web_app as web_app;
 
-use page::common::{MetronomeService, OneRepMaxCalculatorState};
+use page::common::{DropSetCalculatorState, MetronomeService, OneRepMaxCalculatorState};
 use routing::Route;
 use settings::Settings;
 use ui::element::{Color, Dialog};
@@ -39,6 +39,8 @@ static DATA_CHANGED: GlobalSignal<usize> = Signal::global(|| 0);
 static METRONOME: GlobalSignal<MetronomeService> = Signal::global(MetronomeService::new);
 static ONE_REP_MAX_CALCULATOR: GlobalSignal<OneRepMaxCalculatorState> =
     Signal::global(|| OneRepMaxCalculatorState::new(5, 100.0));
+static DROP_SET_CALCULATOR: GlobalSignal<DropSetCalculatorState> =
+    Signal::global(|| DropSetCalculatorState::new(100.0, 20.0, 2.0));
 
 fn main() {
     init_logging();

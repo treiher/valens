@@ -9,9 +9,11 @@ use log::warn;
 use valens_domain::SessionService;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR, Route,
+    DOMAIN_SERVICE, DROP_SET_CALCULATOR, ERRORS, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR,
+    Route,
     page::common::{
-        Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch, StopwatchService, TimerService,
+        DropSetCalculator, Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch,
+        StopwatchService, TimerService,
     },
     session::Session,
     settings::{Settings, SettingsDialog},
@@ -212,6 +214,16 @@ pub fn Navbar() -> Element {
                         }
                         a {
                             class: "navbar-item",
+                            "data-testid": "navbar-drop-set-calculator",
+                            onclick: move |_| {
+                                DROP_SET_CALCULATOR.write().visible = true;
+                                menu_visible.set(false);
+                            },
+                            Icon { name: "arrow-down-wide-short", px: 5 }
+                            "Drop set calculator"
+                        }
+                        a {
+                            class: "navbar-item",
                             onclick: move |_| {
                                 settings_visible.set(true);
                                 menu_visible.set(false);
@@ -278,6 +290,10 @@ pub fn Navbar() -> Element {
 
         if ONE_REP_MAX_CALCULATOR.read().visible {
             OneRepMaxCalculator {}
+        }
+
+        if DROP_SET_CALCULATOR.read().visible {
+            DropSetCalculator {}
         }
 
         div {

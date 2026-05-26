@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Training session-specific exercise notes
-- 1RM calculator accessible from the navigation menu and from the training session exercise options
+- 1RM calculator accessible from the navigation menu
+- Drop set calculator accessible from the navigation menu
+- Training session page:
+    - Option to open the 1RM calculator from the exercise options
+    - Option to open the drop set calculator from the exercise options
 - Training sessions page: 7-day min./max. RPE to RPE chart
 - Routine page: Option to show and copy routine as text
 - Routines page: Option to show and copy routine as text

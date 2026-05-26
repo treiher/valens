@@ -387,6 +387,70 @@ pub fn reps_for_percentage(percentage: f32) -> f32 {
     -((percentage - 48.8) / 53.8).ln() / 0.075
 }
 
+/// Rounds a drop `amount` up to the nearest multiple of `increment`, unless
+/// the remainder is at most 20% of the increment, in which case it rounds down.
+///
+/// The 20% threshold prefers dropping slightly more than prescribed because
+/// undershooting downward (a lighter set) is acceptable for a drop set, while
+/// overshooting upward would make the next set harder than intended.
+///
+/// Rounding the drop rather than the resulting weight ensures successive
+/// weights stay on the same lattice as the starting weight. This matters for
+/// machines whose stack is offset from zero (e.g. 5 kg base with 3.75 kg
+/// increments, where valid settings are 5 + k * 3.75).
+#[must_use]
+pub fn round_drop_to_increment(amount: f32, increment: f32) -> f32 {
+    const ROUND_DOWN_FRACTION: f32 = 0.2;
+    // Add a small epsilon so that a `remainder` equal to the `threshold` (up
+    // to float jitter) still rounds down.
+    const EPS: f32 = 1e-4;
+
+    if increment <= 0.0 {
+        return amount;
+    }
+    let steps = (amount / increment).floor();
+    let remainder = amount - steps * increment;
+    let threshold = (ROUND_DOWN_FRACTION + EPS) * increment;
+    if remainder <= threshold {
+        steps * increment
+    } else {
+        (steps + 1.0) * increment
+    }
+}
+
+/// Generates successive drop-set weights starting from `start_weight`. Each
+/// step subtracts `drop_percentage` percent of the previous weight, rounded to
+/// a multiple of `increment` via [`round_drop_to_increment`]. Because the drop
+/// itself is the multiple of `increment`, every produced weight lies on the
+/// same lattice as `start_weight`, so any `start_weight` that matches an
+/// existing stack setting yields results that also match stack settings.
+/// Generation stops when the next weight would fall below `increment`.
+#[must_use]
+pub fn drop_set_weights(start_weight: f32, drop_percentage: f32, increment: f32) -> Vec<f32> {
+    let mut result = Vec::new();
+    if !start_weight.is_finite()
+        || !drop_percentage.is_finite()
+        || !increment.is_finite()
+        || increment <= 0.0
+        || drop_percentage <= 0.0
+        || drop_percentage >= 100.0
+    {
+        return result;
+    }
+    let drop_fraction = drop_percentage / 100.0;
+    let mut current = start_weight;
+    loop {
+        let drop = round_drop_to_increment(current * drop_fraction, increment);
+        let next = current - drop;
+        if drop < increment || next < increment {
+            break;
+        }
+        result.push(next);
+        current = next;
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use assert_approx_eq::assert_approx_eq;
@@ -745,6 +809,106 @@ mod tests {
         let one_rm = one_rep_max(reps, weight);
         let percentage = 100.0 * weight / one_rm;
         assert_approx_eq!(reps_for_percentage(percentage), reps, 0.05);
+    }
+
+    #[rstest]
+    #[case(0.0, 2.5, 0.0)]
+    #[case(0.4, 2.5, 0.0)]
+    #[case(0.6, 2.5, 2.5)]
+    #[case(2.5, 2.5, 2.5)]
+    #[case(2.9, 2.5, 2.5)]
+    #[case(3.1, 2.5, 5.0)]
+    #[case(5.0, 2.5, 5.0)]
+    #[case(100.0, 2.0, 100.0)]
+    #[case(100.3, 2.0, 100.0)]
+    #[case(100.5, 2.0, 102.0)]
+    #[case(80.0, 0.0, 80.0)]
+    fn test_round_drop_to_increment(
+        #[case] amount: f32,
+        #[case] increment: f32,
+        #[case] expected: f32,
+    ) {
+        assert_approx_eq!(round_drop_to_increment(amount, increment), expected, 1e-4);
+    }
+
+    #[rstest]
+    #[case(100.0, 20.0, 2.0, &[80.0, 64.0, 50.0])]
+    #[case(100.0, 50.0, 10.0, &[50.0, 20.0, 10.0])]
+    #[case(80.0, 25.0, 5.0, &[60.0, 45.0, 30.0])]
+    // Offset stack (5 + k * 3.75): every result must stay on the same lattice.
+    #[case(
+        80.0,
+        20.0,
+        3.75,
+        &[61.25, 46.25, 35.0, 27.5, 20.0, 16.25, 12.5, 8.75, 5.0],
+    )]
+    fn test_drop_set_weights_prefix(
+        #[case] start_weight: f32,
+        #[case] drop_percentage: f32,
+        #[case] increment: f32,
+        #[case] expected_prefix: &[f32],
+    ) {
+        let actual = drop_set_weights(start_weight, drop_percentage, increment);
+        assert!(
+            actual.len() >= expected_prefix.len(),
+            "expected at least {} entries, got {}",
+            expected_prefix.len(),
+            actual.len()
+        );
+        for (a, e) in actual.iter().zip(expected_prefix.iter()) {
+            assert_approx_eq!(*a, *e, 1e-4);
+        }
+    }
+
+    #[rstest]
+    #[case(100.0, 0.0, 2.0)]
+    #[case(100.0, 20.0, 0.0)]
+    #[case(100.0, 100.0, 2.0)]
+    #[case(100.0, 150.0, 2.0)]
+    #[case(100.0, -10.0, 2.0)]
+    #[case(f32::NAN, 20.0, 2.0)]
+    #[case(100.0, f32::NAN, 2.0)]
+    #[case(100.0, 20.0, f32::NAN)]
+    #[case(f32::INFINITY, 20.0, 2.0)]
+    #[case(100.0, f32::INFINITY, 2.0)]
+    #[case(100.0, 20.0, f32::INFINITY)]
+    fn test_drop_set_weights_invalid_inputs(
+        #[case] start_weight: f32,
+        #[case] drop_percentage: f32,
+        #[case] increment: f32,
+    ) {
+        assert!(drop_set_weights(start_weight, drop_percentage, increment).is_empty());
+    }
+
+    #[rstest]
+    // First drop rounds below `increment`, so no weights are produced.
+    #[case(1.0, 20.0, 2.0)]
+    // `start_weight` equals `increment`: `drop` = 0.2 -> rounds down to 0 -> empty.
+    #[case(2.0, 10.0, 2.0)]
+    fn test_drop_set_weights_below_increment_is_empty(
+        #[case] start_weight: f32,
+        #[case] drop_percentage: f32,
+        #[case] increment: f32,
+    ) {
+        assert!(drop_set_weights(start_weight, drop_percentage, increment).is_empty());
+    }
+
+    #[rstest]
+    #[case(100.0, 20.0, 2.0)]
+    #[case(100.0, 10.0, 2.5)]
+    #[case(50.0, 25.0, 1.0)]
+    fn test_drop_set_weights_terminates_and_decreases(
+        #[case] start_weight: f32,
+        #[case] drop_percentage: f32,
+        #[case] increment: f32,
+    ) {
+        let weights = drop_set_weights(start_weight, drop_percentage, increment);
+        assert!(!weights.is_empty());
+        assert!(weights.first().unwrap() < &start_weight);
+        for pair in weights.windows(2) {
+            assert!(pair[1] < pair[0], "weights must strictly decrease");
+        }
+        assert!(*weights.last().unwrap() >= increment);
     }
 
     fn from_num_days(days: i32) -> NaiveDate {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Generator
+from itertools import pairwise
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from tempfile import TemporaryDirectory
@@ -27,6 +28,7 @@ from .io import wait_for_output
 from .pages import (
     BodyFatPage,
     BodyWeightPage,
+    DropSetCalculatorDialog,
     ExercisePage,
     ExercisesPage,
     HomePage,
@@ -1322,6 +1324,46 @@ def test_navbar_1rm_calculator(page: Page) -> None:
     dialog.wait_until_open()
     assert dialog.get_weight() == "80"
     assert dialog.get_reps() == "10"
+
+
+def test_navbar_drop_set_calculator(page: Page) -> None:
+    login(page)
+    p = HomePage(page)
+    p.expect_page()
+
+    p.navbar.open_drop_set_calculator()
+
+    dialog = DropSetCalculatorDialog(page)
+    dialog.wait_until_open()
+
+    assert dialog.get_start_weight() == "100"
+    assert dialog.get_drop_percentage() == "20"
+    assert dialog.get_increment() == "2"
+
+    rows = dialog.get_rows()
+    assert rows[0] == ("100.0", "100.0", "100")
+    assert rows[1] == ("80.0", "80.0", "80")
+    assert rows[2] == ("64.0", "64.0", "64")
+    assert rows[3] == ("51.2", "50.0", "50")
+    for current, nxt in pairwise(rows):
+        assert float(nxt[2]) < float(current[2])
+
+    dialog.set_start_weight(50.0)
+    dialog.set_drop_percentage(50)
+    dialog.set_increment("5")
+    rows_new = dialog.get_rows()
+    assert rows_new[0] == ("100.0", "100.0", "50")
+    assert rows_new[1] == ("50.0", "50.0", "25")
+    assert rows_new[2] == ("25.0", "20.0", "10")
+
+    dialog.close()
+    dialog.wait_until_closed()
+
+    p.navbar.open_drop_set_calculator()
+    dialog.wait_until_open()
+    assert dialog.get_start_weight() == "50"
+    assert dialog.get_drop_percentage() == "50"
+    assert dialog.get_increment() == "5"
 
 
 def test_cache(page: Page) -> None:

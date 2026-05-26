@@ -11,7 +11,8 @@ use valens_domain::{self as domain, TrainingSessionService};
 use valens_web_app::{self as web_app, OngoingTrainingSessionService};
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, METRONOME, ONE_REP_MAX_CALCULATOR, Route, WEB_APP_SERVICE,
+    DOMAIN_SERVICE, DROP_SET_CALCULATOR, ERRORS, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
+    WEB_APP_SERVICE,
     cache::{Cache, CacheState},
     eh,
     page::{
@@ -1128,6 +1129,17 @@ fn view_edit_dialog(
                                                     let mut state = OneRepMaxCalculatorState::new(reps.into(), f32::from(weight));
                                                     state.visible = true;
                                                     *ONE_REP_MAX_CALCULATOR.write() = state;
+                                                    *edit_dialog.write() = EditDialog::None;
+                                                })
+                                            }
+                                            MenuOption {
+                                                icon: "arrow-down-wide-short".to_string(),
+                                                text: "Show drop set".to_string(),
+                                                "data-testid": "options-drop-set",
+                                                on_click: eh!(mut edit_dialog; {
+                                                    let mut state = DROP_SET_CALCULATOR.write();
+                                                    state.start_weight = f32::from(weight);
+                                                    state.visible = true;
                                                     *edit_dialog.write() = EditDialog::None;
                                                 })
                                             }

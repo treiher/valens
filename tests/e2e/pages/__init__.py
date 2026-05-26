@@ -16,6 +16,7 @@ from .routine import (
 )
 from .routines import RoutinesPage as RoutinesPage
 from .training_session import (
+    DropSetCalculatorDialog as DropSetCalculatorDialog,
     OneRepMaxCalculatorDialog as OneRepMaxCalculatorDialog,
     TrainingSessionPage as TrainingSessionPage,
 )

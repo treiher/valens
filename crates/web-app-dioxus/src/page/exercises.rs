@@ -68,9 +68,8 @@ pub fn ExerciseList(
     filter: String,
     on_exercise_click: EventHandler<(MouseEvent, domain::ExerciseID)>,
     on_catalog_click: EventHandler<(MouseEvent, String)>,
-    exercises_page: Option<bool>,
+    #[props(default)] exercises_page: bool,
 ) -> Element {
-    let exercises_page = exercises_page.unwrap_or_default();
     let cache = consume_context::<Cache>();
     let mut dialog = use_signal(|| ExerciseDialog::None);
     let filter_dialog_shown = use_signal(|| false);

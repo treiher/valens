@@ -186,7 +186,7 @@ pub fn NoConnection() -> Element {
 #[component]
 pub fn Icon(
     name: String,
-    is_small: Option<bool>,
+    #[props(default)] is_small: bool,
     px: Option<u8>,
     on_click: Option<EventHandler<MouseEvent>>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
@@ -194,7 +194,7 @@ pub fn Icon(
     rsx! {
         span {
             class: "icon",
-            class: if is_small.unwrap_or_default() { "is-small" },
+            class: if is_small { "is-small" },
             class: if let Some(px) = px { "px-{px}" },
             onclick: move |evt| {
                 if let Some(event_handler) = on_click {
@@ -235,12 +235,12 @@ pub fn IconText(
 pub fn ElementWithDescription(
     children: Element,
     description: String,
-    right_aligned: Option<bool>,
+    #[props(default)] right_aligned: bool,
 ) -> Element {
     rsx! {
         div {
             class: "dropdown is-hoverable",
-            class: if right_aligned.unwrap_or_default() { "is-right" },
+            class: if right_aligned { "is-right" },
             div {
                 class: "dropdown-trigger",
                 div {
@@ -268,12 +268,12 @@ pub fn ElementWithDescription(
 pub fn FloatingActionButton(
     icon: String,
     on_click: EventHandler<MouseEvent>,
-    is_loading: Option<bool>,
+    #[props(default)] is_loading: bool,
 ) -> Element {
     rsx! {
         button {
             class: "button is-fab is-medium is-link",
-            class: if is_loading.unwrap_or_default() { "is-loading" },
+            class: if is_loading { "is-loading" },
             "data-testid": "fab",
             onclick: on_click,
             Icon { name: icon }
@@ -287,10 +287,9 @@ pub fn Dialog(
     title: Option<Element>,
     on_close: EventHandler<MouseEvent>,
     color: Option<Color>,
-    no_horizontal_padding: Option<bool>,
+    #[props(default)] no_horizontal_padding: bool,
 ) -> Element {
     let color = color.unwrap_or(Color::Primary);
-    let no_horizontal_padding = no_horizontal_padding.unwrap_or_default();
     rsx! {
         div {
             class: "modal is-active",
@@ -422,11 +421,11 @@ pub fn SaveDialog(
 }
 
 #[component]
-pub fn Container(children: Element, has_text_centered: Option<bool>) -> Element {
+pub fn Container(children: Element, #[props(default)] has_text_centered: bool) -> Element {
     rsx! {
         div {
             class: "container px-3",
-            class: if has_text_centered.unwrap_or_default() { "has-text-centered" },
+            class: if has_text_centered { "has-text-centered" },
             {children}
         }
     }

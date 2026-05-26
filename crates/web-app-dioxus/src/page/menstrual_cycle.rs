@@ -340,7 +340,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                     value: date.input.clone(),
                     error: if let Err(err) = &date.validated { err.clone() },
                     has_changed: date.changed(),
-                    is_disabled: if let PeriodDialog::Edit { .. } = *dialog.read() { true },
+                    is_disabled: matches!(*dialog.read(), PeriodDialog::Edit { .. }),
                     on_input: move |event: FormEvent| {
                         let input = event.value();
                         async move {

@@ -31,9 +31,9 @@ pub fn InputField(
     value: String,
     error: Option<String>,
     has_changed: bool,
-    has_text_right: Option<bool>,
-    is_disabled: Option<bool>,
-    autofocus: Option<bool>,
+    #[props(default)] has_text_right: bool,
+    #[props(default)] is_disabled: bool,
+    #[props(default)] autofocus: bool,
     on_input: EventHandler<FormEvent>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
@@ -51,8 +51,8 @@ pub fn InputField(
                     class: "input",
                     class: if has_error { "is-danger" },
                     class: if has_changed { "is-info" },
-                    class: if has_text_right.unwrap_or_default() { "has-text-right" },
-                    disabled: if let Some(is_disabled) = is_disabled { is_disabled },
+                    class: if has_text_right { "has-text-right" },
+                    disabled: is_disabled,
                     r#type: if let Some(r#type) = r#type { r#type } else { "text" },
                     inputmode: if let Some(inputmode) = inputmode { inputmode },
                     size: if let Some(size) = size { size },
@@ -62,7 +62,7 @@ pub fn InputField(
                     value: "{value}",
                     oninput: on_input,
                     onmounted: move |event| async move {
-                        if autofocus.unwrap_or_default() {
+                        if autofocus {
                             let _ = event.set_focus(true).await;
                         }
                     },
@@ -105,7 +105,7 @@ pub fn SelectField(
     label: String,
     options: Vec<Element>,
     has_changed: bool,
-    is_fullwidth: Option<bool>,
+    #[props(default)] is_fullwidth: bool,
     on_change: EventHandler<FormEvent>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
@@ -117,7 +117,7 @@ pub fn SelectField(
                 class: "control",
                 div {
                     class: "select",
-                    class: if is_fullwidth.unwrap_or_default() { "is-fullwidth" },
+                    class: if is_fullwidth { "is-fullwidth" },
                     select {
                         class: if has_changed { "has-text-info" },
                         onchange: on_change,

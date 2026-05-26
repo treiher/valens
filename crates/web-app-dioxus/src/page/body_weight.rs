@@ -339,7 +339,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                         value: date.input.clone(),
                         error: if let Err(err) = &date.validated { err.clone() },
                         has_changed: date.changed(),
-                        is_disabled: if let BodyWeightDialog::Edit { .. } = *dialog.read() { true },
+                        is_disabled: matches!(*dialog.read(), BodyWeightDialog::Edit { .. }),
                         on_input: move |event: FormEvent| {
                             let input = event.value();
                             async move {

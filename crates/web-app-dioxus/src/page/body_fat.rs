@@ -607,7 +607,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                     value: date.input.clone(),
                     error: if let Err(err) = &date.validated { err.clone() },
                     has_changed: date.changed(),
-                    is_disabled: if let BodyFatDialog::Edit { .. } = *dialog.read() { true },
+                    is_disabled: matches!(*dialog.read(), BodyFatDialog::Edit { .. }),
                     on_input: move |event: FormEvent| {
                         let input = event.value();
                         async move {

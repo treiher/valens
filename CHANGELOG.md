@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Training session page:
     - Option to open the 1RM calculator from the exercise options
     - Option to open the drop set calculator from the exercise options
+    - Automatic scrolling that brings the active section into view when it changes
     - Optional scroll snapping that centers a section on the screen
 - Training sessions page: 7-day min./max. RPE to RPE chart
 - Routine page: Option to show and copy routine as text

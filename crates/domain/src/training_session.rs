@@ -782,6 +782,13 @@ impl TrainingSession {
         section_idx
     }
 
+    /// Like [`Self::section_idx`], but the last element of a section maps to the *next* section.
+    /// Returns the section count once `element_idx` is at or past the final element.
+    #[must_use]
+    pub fn section_idx_lookahead(&self, element_idx: usize) -> usize {
+        self.section_idx(element_idx.saturating_add(1))
+    }
+
     #[must_use]
     fn section_range(&self, section_idx: usize) -> RangeInclusive<usize> {
         let mut first = 0;
@@ -3276,6 +3283,50 @@ mod tests {
     #[test]
     fn test_most_recent_best_set_for_one_rep_max_empty() {
         assert_eq!(most_recent_best_set_for_one_rep_max(&[], 1.into()), None);
+    }
+
+    #[test]
+    fn test_section_idx_lookahead_empty() {
+        let ts = training_session(&[]);
+        assert_eq!(ts.section_idx_lookahead(0), 0);
+        assert_eq!(ts.section_idx_lookahead(7), 0);
+    }
+
+    #[test]
+    fn test_section_idx_lookahead_matches_section_idx_within_section() {
+        let ts = training_session(&[
+            set(1, Some(5), Some(100.0), None),
+            set(1, Some(5), Some(100.0), None),
+            rest(60),
+            set(2, Some(8), Some(50.0), None),
+            set(2, Some(8), Some(50.0), None),
+        ]);
+        assert_eq!(ts.section_idx_lookahead(0), 0);
+        assert_eq!(ts.section_idx_lookahead(3), 1);
+    }
+
+    #[test]
+    fn test_section_idx_lookahead_at_section_boundary_advances() {
+        let ts = training_session(&[
+            set(1, Some(5), Some(100.0), None),
+            set(1, Some(5), Some(100.0), None),
+            rest(60),
+            set(2, Some(8), Some(50.0), None),
+            set(2, Some(8), Some(50.0), None),
+        ]);
+        assert_eq!(ts.section_idx(2), 0);
+        assert_eq!(ts.section_idx_lookahead(2), 1);
+    }
+
+    #[test]
+    fn test_section_idx_lookahead_past_end_returns_section_count() {
+        let ts = training_session(&[
+            set(1, Some(5), Some(100.0), None),
+            rest(60),
+            set(2, Some(8), Some(50.0), None),
+        ]);
+        assert_eq!(ts.section_idx_lookahead(2), 2);
+        assert_eq!(ts.section_idx_lookahead(99), 2);
     }
 
     fn training_session(elements: &[TrainingSessionElement]) -> TrainingSession {

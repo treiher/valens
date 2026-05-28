@@ -310,6 +310,34 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
                 .any(|(_, f)| f.has_valid_changes())
     });
 
+    let section_elements: Signal<HashMap<usize, web_sys::Element>> = use_signal(HashMap::new);
+
+    let current_section_idx = use_memo(move || -> Option<usize> {
+        let ts_ref = training_session.read();
+        let ts = ts_ref.as_ref()?;
+        if ts.elements.is_empty() {
+            return None;
+        }
+        Some(ts.section_idx_lookahead(progress.read().element_idx))
+    });
+
+    // Resolve the active section's DOM element through a memo so the scroll effect below
+    // re-fires only when the target changes, not on every unrelated section mount.
+    let current_section_element = use_memo(move || -> Option<web_sys::Element> {
+        let idx = current_section_idx()?;
+        section_elements.read().get(&idx).cloned()
+    });
+
+    use_effect(move || {
+        let Some(element) = current_section_element() else {
+            return;
+        };
+        let options = web_sys::ScrollIntoViewOptions::new();
+        options.set_behavior(web_sys::ScrollBehavior::Smooth);
+        options.set_block(web_sys::ScrollLogicalPosition::Center);
+        element.scroll_into_view_with_scroll_into_view_options(&options);
+    });
+
     match (
         &*cache.training_sessions.read(),
         &*training_session.read(),
@@ -334,7 +362,7 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, edit_dialog, training_session, exercises, settings, cache)},
+                    {view_form(field_values, progress, edit_dialog, training_session, exercises, settings, cache, section_elements)},
                 } else {
                     {view_list(training_session, exercises, settings)},
                     {view_muscles(training_session, exercises)}
@@ -410,6 +438,7 @@ impl SetFieldValues {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn view_form(
     mut field_values: Signal<HashMap<usize, SetFieldValues>>,
     mut progress: Store<Progress>,
@@ -418,9 +447,14 @@ fn view_form(
     exercises: &[domain::Exercise],
     settings: Settings,
     cache: Cache,
+    mut section_elements: Signal<HashMap<usize, web_sys::Element>>,
 ) -> Element {
     let mut element_idx: usize = 0;
     let sections = training_session.compute_sections();
+    let progress_element_idx = progress.read().element_idx;
+    let progress_section_idx = training_session.section_idx(progress_element_idx);
+    let progress_section_idx_lookahead =
+        training_session.section_idx_lookahead(progress_element_idx);
     let training_sessions_cache = &*cache.training_sessions.read();
     let sets_by_exercise = DOMAIN_SERVICE().get_sets_by_exercise(training_session);
     let previous_session_sets_by_exercise = {
@@ -433,7 +467,8 @@ fn view_form(
     };
     let mut set_index_for_exercise: HashMap<domain::ExerciseID, usize> = HashMap::new();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
-        let is_current_section = progress.read().element_idx >= element_idx.saturating_sub(1) && progress.read().element_idx < element_idx + section.elements().len();
+        let is_current_section =
+            section_idx == progress_section_idx || section_idx == progress_section_idx_lookahead;
         let exercise_ids = unique(section.exercise_ids());
         let exercise_ids_len = exercise_ids.len();
         let element_idx_for_options = element_idx;
@@ -832,6 +867,11 @@ fn view_form(
         rsx! {
             tbody {
                 class: if settings.scroll_snapping() { "section-snap" },
+                onmounted: move |event| {
+                    if let Some(element) = event.data().try_as_web_event() {
+                        section_elements.write().insert(section_idx, element);
+                    }
+                },
                 for name in exercise_names {
                     {name}
                 }

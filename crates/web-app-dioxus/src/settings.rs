@@ -86,6 +86,14 @@ impl Settings {
         self.settings.write().show_tut = show_tut;
     }
 
+    pub fn scroll_snapping(&self) -> bool {
+        self.settings.read().scroll_snapping
+    }
+
+    pub fn set_scroll_snapping(&mut self, scroll_snapping: bool) {
+        self.settings.write().scroll_snapping = scroll_snapping;
+    }
+
     pub async fn save(&self) {
         if let Err(err) = WEB_APP_SERVICE
             .write()
@@ -243,6 +251,24 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                 },
                 h1 { class: "subtitle", "Time Under Tension (TUT)" }
                 if settings.show_tut() {
+                    button { class: "button is-link", "Enabled" }
+                } else {
+                    button { class: "button", "Disabled" }
+                }
+            }
+            p {
+                class: "mb-5",
+                onclick: {
+                    move |_| {
+                        let mut settings = settings;
+                        settings.set_scroll_snapping(!settings.scroll_snapping());
+                        async move {
+                            settings.save().await;
+                        }
+                    }
+                },
+                h1 { class: "subtitle", "Scroll snapping" }
+                if settings.scroll_snapping() {
                     button { class: "button is-link", "Enabled" }
                 } else {
                     button { class: "button", "Disabled" }

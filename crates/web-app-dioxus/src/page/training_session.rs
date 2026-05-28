@@ -830,11 +830,14 @@ fn view_form(
             set
         });
         rsx! {
-            for name in exercise_names {
-                {name}
-            }
-            for set in sets {
-                {set}
+            tbody {
+                class: if settings.scroll_snapping() { "section-snap" },
+                for name in exercise_names {
+                    {name}
+                }
+                for set in sets {
+                    {set}
+                }
             }
         }
     });

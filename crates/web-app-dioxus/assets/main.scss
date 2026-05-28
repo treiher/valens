@@ -284,3 +284,13 @@ div.is-calendar {
 .is-width-auto {
   width: auto;
 }
+
+// Scroll snapping
+
+html:has(.section-snap) {
+  scroll-snap-type: y proximity;
+}
+
+tbody.section-snap {
+  scroll-snap-align: center;
+}

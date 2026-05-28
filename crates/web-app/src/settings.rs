@@ -21,6 +21,8 @@ pub struct Settings {
     pub notifications: bool,
     pub show_rpe: bool,
     pub show_tut: bool,
+    #[serde(default)]
+    pub scroll_snapping: bool,
 }
 
 impl Settings {
@@ -65,6 +67,7 @@ impl Default for Settings {
             notifications: false,
             show_rpe: true,
             show_tut: true,
+            scroll_snapping: false,
         }
     }
 }

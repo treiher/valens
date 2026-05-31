@@ -28,6 +28,10 @@ class TrainingSessionsPage(BasePage):
         self.dialog.set_routine(name)
         self.dialog.save()
 
+    def delete_training_session(self, index: int) -> None:
+        self.delete_item(index)
+        self.dialog.delete()
+
 
 class TrainingDialog(Dialog):
     def get_date(self) -> str:

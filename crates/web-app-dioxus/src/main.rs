@@ -19,6 +19,7 @@ use update::UpdateNotification;
 
 mod cache;
 mod navbar;
+mod ongoing_training_session;
 mod page;
 mod routing;
 mod session;

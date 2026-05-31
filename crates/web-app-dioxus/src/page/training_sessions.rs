@@ -10,6 +10,7 @@ use crate::{
     DOMAIN_SERVICE, ERRORS, Route,
     cache::{Cache, CacheState},
     eh,
+    ongoing_training_session::OngoingTrainingSession,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     settings::Settings,
@@ -390,6 +391,7 @@ pub fn view_dialog(
     closed_dialog_route: Option<Route>,
 ) -> Element {
     let mut is_loading = use_signal(|| false);
+    let ongoing = consume_context::<OngoingTrainingSession>();
 
     macro_rules! is_loading {
         ($block:expr) => {
@@ -449,9 +451,13 @@ pub fn view_dialog(
             let mut deleted = false;
             is_loading! {
                 if let TrainingDialog::Delete(training_session) = &*dialog.read() {
-                    match DOMAIN_SERVICE().delete_training_session(training_session.id).await {
+                    let id = training_session.id;
+                    match DOMAIN_SERVICE().delete_training_session(id).await {
                         Ok(()) => {
                             deleted = true;
+                            if ongoing.get().is_some_and(|o| o.training_session_id == id.as_u128()) {
+                                ongoing.clear().await;
+                            }
                             consume_context::<Cache>().refresh_training_sessions();
                         },
                         Err(err) => ERRORS.write().push(format!("Failed to delete training session: {err}"))

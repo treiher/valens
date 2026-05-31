@@ -6,11 +6,12 @@ use futures_util::StreamExt;
 use gloo_timers::future::IntervalStream;
 use log::warn;
 
-use valens_domain::SessionService;
+use valens_domain::{self as domain, SessionService};
 
 use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, ERRORS, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR,
     Route,
+    ongoing_training_session::OngoingTrainingSession,
     page::common::{
         DropSetCalculator, Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch,
         StopwatchService, TimerService,
@@ -18,40 +19,23 @@ use crate::{
     session::Session,
     settings::{Settings, SettingsDialog},
     synchronization::Synchronization,
-    ui::element::{Dialog, ElementWithDescription, Icon},
+    ui::element::{ActivityBar, Dialog, ElementWithDescription, Icon},
 };
 
 #[component]
 pub fn Navbar() -> Element {
+    let ongoing = consume_context::<OngoingTrainingSession>();
     use_effect(|| {
-        let Some(body) = web_sys::window()
-            .and_then(|w| w.document())
-            .and_then(|d| d.body())
-        else {
-            warn!("failed to access document body");
-            return;
-        };
-        if let Err(e) = body
-            .class_list()
-            .add_2("has-navbar-fixed-top", "has-navbar-fixed-bottom")
-        {
-            warn!("failed to add body classes: {e:?}");
-        }
+        set_body_class("has-navbar-fixed-top", true);
+        set_body_class("has-navbar-fixed-bottom", true);
+    });
+    use_effect(move || {
+        set_body_class("has-activity-bar", ongoing.get().is_some());
     });
     use_drop(|| {
-        let Some(body) = web_sys::window()
-            .and_then(|w| w.document())
-            .and_then(|d| d.body())
-        else {
-            warn!("failed to access document body");
-            return;
-        };
-        if let Err(e) = body
-            .class_list()
-            .remove_2("has-navbar-fixed-top", "has-navbar-fixed-bottom")
-        {
-            warn!("failed to remove body classes: {e:?}");
-        }
+        set_body_class("has-navbar-fixed-top", false);
+        set_body_class("has-navbar-fixed-bottom", false);
+        set_body_class("has-activity-bar", false);
     });
 
     let mut menu_visible = use_signal(|| false);
@@ -247,6 +231,7 @@ pub fn Navbar() -> Element {
                                 let result = DOMAIN_SERVICE().delete_session().await;
                                 match result {
                                     Ok(()) => {
+                                        ongoing.clear().await;
                                         navigator().push(Route::Login {});
                                     }
                                     Err(err) => {
@@ -299,6 +284,64 @@ pub fn Navbar() -> Element {
         div {
             class: "container is-max-desktop py-4",
             Outlet::<Route> {}
+        }
+
+        ActivityBarNavigate { route: route.clone() }
+    }
+}
+
+fn set_body_class(name: &str, present: bool) {
+    let Some(body) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.body())
+    else {
+        warn!("failed to access document body");
+        return;
+    };
+    let result = if present {
+        body.class_list().add_1(name)
+    } else {
+        body.class_list().remove_1(name)
+    };
+    if let Err(e) = result {
+        warn!("failed to update body class `{name}`: {e:?}");
+    }
+}
+
+#[component]
+fn ActivityBarNavigate(route: Route) -> Element {
+    let ongoing = consume_context::<OngoingTrainingSession>();
+    let show_on_route = match &route {
+        Route::Login {} | Route::NotFound { .. } => false,
+        Route::TrainingSession { id } => ongoing.in_progress_other_than(id.as_u128()),
+        _ => true,
+    };
+    if !show_on_route {
+        return rsx! {};
+    }
+    let Some(ongoing) = ongoing.get() else {
+        return rsx! {};
+    };
+    let target_id = domain::TrainingSessionID::from(ongoing.training_session_id);
+    rsx! {
+        ActivityBar {
+            Link {
+                "data-testid": "activity-bar",
+                class: "is-flex is-align-items-center is-undecorated",
+                to: Route::TrainingSession { id: target_id },
+                span {
+                    class: "icon has-text-info mr-3",
+                    i { class: "fas fa-dumbbell" }
+                }
+                div {
+                    class: "is-flex-grow-1 has-text-centered has-text-weight-bold",
+                    "Training session in progress"
+                }
+                span {
+                    class: "icon has-text-info ml-3",
+                    i { class: "fas fa-chevron-right" }
+                }
+            }
         }
     }
 }

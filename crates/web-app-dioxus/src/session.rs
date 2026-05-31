@@ -3,7 +3,8 @@ use dioxus::prelude::*;
 use valens_domain::{self as domain, SessionService};
 
 use crate::{
-    DOMAIN_SERVICE, Route, cache::Cache, synchronization::Synchronization, ui::element::LoadingPage,
+    DOMAIN_SERVICE, Route, cache::Cache, ongoing_training_session::OngoingTrainingSession,
+    synchronization::Synchronization, ui::element::LoadingPage,
 };
 
 #[derive(Clone)]
@@ -15,6 +16,7 @@ pub struct Session {
 pub fn SessionProvider() -> Element {
     Cache::provide();
     Synchronization::provide();
+    OngoingTrainingSession::provide();
     let session = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
     match &*session.read() {
         Some(Ok(user)) => {
@@ -35,6 +37,7 @@ fn AuthenticatedSession(user: domain::User) -> Element {
     use_effect(move || {
         consume_context::<Cache>().refresh();
         consume_context::<Synchronization>().sync();
+        consume_context::<OngoingTrainingSession>().load();
     });
     rsx! { Outlet::<Route> {} }
 }

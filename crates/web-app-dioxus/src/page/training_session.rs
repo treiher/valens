@@ -4,17 +4,19 @@ use std::{
 };
 
 use dioxus::{prelude::*, web::WebEventExt};
+use futures_util::StreamExt;
+use gloo_timers::future::IntervalStream;
 use indexmap::IndexMap;
 use web_sys::wasm_bindgen::JsCast;
 
 use valens_domain::{self as domain, TrainingSessionService};
-use valens_web_app::{self as web_app, OngoingTrainingSessionService};
+use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, ERRORS, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
-    WEB_APP_SERVICE,
     cache::{Cache, CacheState},
     eh,
+    ongoing_training_session::OngoingTrainingSession,
     page::{
         self,
         common::{OneRepMaxCalculatorState, SetsPerMuscle, Timer, TimerService},
@@ -22,8 +24,9 @@ use crate::{
     settings::Settings,
     ui::{
         element::{
-            Block, CenteredBlock, Dialog, ErrorMessage, FloatingActionButton, Icon, Loading,
-            LoadingDialog, LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog, Title,
+            ActivityBar, Block, CenteredBlock, Color, Dialog, ErrorMessage, FloatingActionButton,
+            Icon, Loading, LoadingDialog, LoadingPage, MenuOption, NoConnection, OptionsMenu,
+            SaveDialog, Title,
         },
         form::{Field, FieldValue, FieldValueState, InputField},
     },
@@ -32,10 +35,62 @@ use crate::{
 
 static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 
+/// Renders a training session and drives its *ongoing* state.
+///
+/// At most one training session is ongoing at a time. It is tracked in the session-scoped
+/// [`OngoingTrainingSession`] context. `progress` mirrors that state locally, while
+/// `owns_progress` records whether this page currently drives it.
+///
+/// An ongoing training session is started when no other session is ongoing and either
+/// - this session is opened while it still has no stored set, or
+/// - the user activates a set through a `<<` button in edit mode (this also restarts a
+///   session that already has stored sets).
+///
+/// An ongoing session previously stored for this id is resumed when the page is opened.
+///
+/// The ongoing session ends as soon as any of the following holds:
+/// - the end of the training session is reached,
+/// - every set has stored input, or
+/// - the user presses the end button.
+///
+/// Ending the session returns the page to view mode.
+///
+/// While another session is ongoing, this page stays editable but shows no active focus
+/// and ignores `<<` activations.
+///
+/// The inner component is rendered as a single keyed list entry so that navigating directly
+/// between two training sessions remounts it, reinitializing all per-session state. A lone
+/// keyed child would not be remounted on a key change, and the router reuses the route
+/// component across parameter changes.
 #[component]
 pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
+    rsx! {
+        for current in [id] {
+            TrainingSessionInner { key: "{current:?}", id: current }
+        }
+    }
+}
+
+#[component]
+fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     let mut edit = use_signal(|| false);
     let mut progress = use_store(|| Progress::new(id));
+    let mut owns_progress = use_signal(|| false);
+    let mut resume_attempted = use_signal(|| false);
+
+    let ongoing = consume_context::<OngoingTrainingSession>();
+    let id_value = id.as_u128();
+    let other_session_running = move || ongoing.in_progress_other_than(id_value);
+
+    let mut end_session = move |element_count: usize| {
+        edit.set(false);
+        owns_progress.set(false);
+        progress.write().set_element_idx(element_count);
+        progress.timer_service().write().unset();
+        spawn(async move {
+            ongoing.clear().await;
+        });
+    };
 
     let cache = consume_context::<Cache>();
     let training_session = use_memo(move || {
@@ -46,7 +101,10 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
                 && !progress.read().is_active()
             {
                 edit.set(true);
-                progress.write().set_element_idx(0);
+                if ongoing.is_loaded() && !other_session_running() {
+                    owns_progress.set(true);
+                    progress.write().set_element_idx(0);
+                }
             }
             training_session
         } else {
@@ -68,37 +126,40 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
         }
     });
 
-    use_future(move || async move {
-        let ongoing_training_session = WEB_APP_SERVICE.read().get_ongoing_training_session().await;
-        if let Ok(Some(ongoing_training_session)) = ongoing_training_session
-            && ongoing_training_session.training_session_id == id.as_u128()
+    use_effect(move || {
+        if !ongoing.is_loaded() || *resume_attempted.peek() {
+            return;
+        }
+        resume_attempted.set(true);
+        if let Some(ongoing) = ongoing
+            .get()
+            .filter(|o| o.training_session_id == id.as_u128())
         {
-            progress.set(Progress::from(ongoing_training_session));
+            progress.set(Progress::from(ongoing));
             edit.set(true);
+            owns_progress.set(true);
         }
     });
     use_effect(move || {
-        if progress.read().is_active() {
-            spawn(async move {
-                let _ = WEB_APP_SERVICE
-                    .read()
-                    .set_ongoing_training_session(
-                        if progress.read().element_idx
-                            < training_session
-                                .read()
-                                .as_ref()
-                                .map_or(usize::MAX, |training_session| {
-                                    training_session.elements.len()
-                                })
-                        {
-                            Some(web_app::OngoingTrainingSession::from(
-                                (*progress.read()).clone(),
-                            ))
-                        } else {
-                            None
-                        },
+        if !owns_progress() || !progress.read().is_active() {
+            return;
+        }
+        let (len, all_sets_recorded) =
+            training_session
+                .read()
+                .as_ref()
+                .map_or((usize::MAX, false), |training_session| {
+                    (
+                        training_session.elements.len(),
+                        training_session.all_sets_recorded(),
                     )
-                    .await;
+                });
+        if progress.read().element_idx >= len || all_sets_recorded {
+            end_session(len);
+        } else {
+            let value = web_app::OngoingTrainingSession::from((*progress.read()).clone());
+            spawn(async move {
+                ongoing.set(value).await;
             });
         }
     });
@@ -313,12 +374,16 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
     let section_elements: Signal<HashMap<usize, web_sys::Element>> = use_signal(HashMap::new);
 
     let current_section_idx = use_memo(move || -> Option<usize> {
-        let ts_ref = training_session.read();
-        let ts = ts_ref.as_ref()?;
-        if ts.elements.is_empty() {
+        if !owns_progress() {
             return None;
         }
-        Some(ts.section_idx_lookahead(progress.read().element_idx))
+        let ts_ref = training_session.read();
+        let ts = ts_ref.as_ref()?;
+        let element_idx = progress.read().element_idx;
+        if ts.elements.is_empty() || element_idx >= ts.elements.len() {
+            return None;
+        }
+        Some(ts.section_idx_lookahead(element_idx))
     });
 
     // Resolve the active section's DOM element through a memo so the scroll effect below
@@ -348,6 +413,14 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
             Some(training_session),
             CacheState::Ready(exercises),
         ) => {
+            let elements_len = training_session.elements.len();
+            let show_active_focus = owns_progress() && progress.read().element_idx < elements_len;
+            let focus = SetFocus {
+                progress,
+                owns_progress,
+                ongoing,
+                show_active_focus,
+            };
             rsx! {
                 Title { "{training_session.date}" }
                 if let Some(routine) = &*routine.read() {
@@ -362,13 +435,19 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, edit_dialog, training_session, exercises, settings, cache, section_elements)},
+                    {view_form(field_values, progress, focus, edit_dialog, training_session, exercises, settings, cache, section_elements)},
                 } else {
                     {view_list(training_session, exercises, settings)},
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
                 {view_edit_dialog(edit_dialog, field_values, training_sessions, cache)}
+                if let Some(ongoing) = ongoing.get().filter(|o| o.training_session_id == id.as_u128()) {
+                    OngoingSessionBar {
+                        start_time: ongoing.start_time,
+                        on_end: move |()| end_session(elements_len),
+                    }
+                }
                 FloatingActionButton {
                     icon: (if edit() { if has_changes() { "save" } else { "eye" } } else { "edit" }).to_string(),
                     on_click: eh!(mut edit, training_session; {
@@ -409,6 +488,89 @@ pub fn TrainingSession(id: domain::TrainingSessionID) -> Element {
     }
 }
 
+#[component]
+fn OngoingSessionBar(
+    start_time: chrono::DateTime<chrono::Utc>,
+    on_end: EventHandler<()>,
+) -> Element {
+    let mut now = use_signal(chrono::Utc::now);
+    use_coroutine(move |_: UnboundedReceiver<()>| async move {
+        let mut interval = IntervalStream::new(1000);
+        while interval.next().await.is_some() {
+            now.set(chrono::Utc::now());
+        }
+    });
+    let mut confirm = use_signal(|| false);
+
+    let elapsed = (now() - start_time).num_seconds().max(0);
+    let hours = elapsed / 3600;
+    let minutes = (elapsed % 3600) / 60;
+    let seconds = elapsed % 60;
+    let elapsed_text = if hours > 0 {
+        format!("{hours}:{minutes:02}:{seconds:02}")
+    } else {
+        format!("{minutes}:{seconds:02}")
+    };
+
+    rsx! {
+        ActivityBar {
+            div {
+                class: "is-flex is-align-items-center",
+                Icon {
+                    name: "dumbbell",
+                    class: "has-text-info mr-3"
+                }
+                div {
+                    class: "is-flex-grow-1 s-size-7 has-text-centered has-text-weight-bold",
+                    span {
+                        "{elapsed_text}"
+                    }
+                }
+                a {
+                    class: "has-text-info ml-3",
+                    "data-testid": "activity-bar-end-session",
+                    onclick: move |_| confirm.set(true),
+                    Icon { name: "stop" }
+                }
+            }
+        }
+        if confirm() {
+            Dialog {
+                on_close: move |_| confirm.set(false),
+                color: Color::Info,
+                div {
+                    class: "block",
+                    "End the current training session?"
+                }
+                div {
+                    class: "field is-grouped is-grouped-centered",
+                    div {
+                        class: "control",
+                        onclick: move |_| confirm.set(false),
+                        button {
+                            class: "button is-light is-soft",
+                            "data-testid": "activity-bar-end-session-cancel",
+                            "Continue"
+                        }
+                    }
+                    div {
+                        class: "control",
+                        onclick: move |_| {
+                            confirm.set(false);
+                            on_end.call(());
+                        },
+                        button {
+                            class: "button is-info",
+                            "data-testid": "activity-bar-end-session-confirm",
+                            "End"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct SetFieldValues {
     reps: FieldValue<domain::Reps>,
@@ -438,10 +600,46 @@ impl SetFieldValues {
     }
 }
 
+/// Per-set focus state of the training session form.
+///
+/// Bundles the state that decides how a set row reacts to interaction: whether this page owns
+/// the ongoing session, whether a *different* session is ongoing, and whether the row matching
+/// the current progress should be highlighted as the active focus.
+#[derive(Clone, Copy)]
+struct SetFocus {
+    progress: Store<Progress>,
+    owns_progress: Signal<bool>,
+    ongoing: OngoingTrainingSession,
+    show_active_focus: bool,
+}
+
+impl SetFocus {
+    fn is_focused(self, element_idx: usize) -> bool {
+        self.show_active_focus && self.progress.read().element_idx == element_idx
+    }
+
+    fn other_session_running(self) -> bool {
+        self.ongoing
+            .in_progress_other_than(self.progress.read().training_session_id.as_u128())
+    }
+
+    /// Marks this page as the owner of the ongoing session.
+    ///
+    /// Gaining ownership from a non-owning state begins a new run and resets the elapsed time.
+    /// Re-focusing a row within an already-owned session keeps the original start time.
+    fn take_ownership(mut self) {
+        if !*self.owns_progress.peek() {
+            self.progress.write().reset();
+        }
+        self.owns_progress.set(true);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn view_form(
     mut field_values: Signal<HashMap<usize, SetFieldValues>>,
     mut progress: Store<Progress>,
+    focus: SetFocus,
     mut edit_dialog: Signal<EditDialog>,
     training_session: &domain::TrainingSession,
     exercises: &[domain::Exercise],
@@ -467,8 +665,9 @@ fn view_form(
     };
     let mut set_index_for_exercise: HashMap<domain::ExerciseID, usize> = HashMap::new();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
-        let is_current_section =
-            section_idx == progress_section_idx || section_idx == progress_section_idx_lookahead;
+        let is_current_section = !focus.show_active_focus
+            || section_idx == progress_section_idx
+            || section_idx == progress_section_idx_lookahead;
         let exercise_ids = unique(section.exercise_ids());
         let exercise_ids_len = exercise_ids.len();
         let element_idx_for_options = element_idx;
@@ -574,7 +773,7 @@ fn view_form(
                         }
                     }
 
-                    let set = if set_field_values.is_empty() && !set_field_values.changed() && target_reps.is_none() && target_time.is_some() {
+                    let set = if set_field_values.is_empty() && !set_field_values.changed() && target_reps.is_none() && target_time.is_some() && !focus.other_session_running() {
                         if let Some(target_time) = target_time {
                             rsx! {
                                 tr {
@@ -585,12 +784,16 @@ fn view_form(
                                         colspan: 4,
                                         div {
                                             class: "notification is-link has-text-centered px-6 py-1",
-                                            class: if progress.read().element_idx == element_idx { "is-size-1" },
-                                            if progress.read().element_idx == element_idx {
+                                            class: if focus.is_focused(element_idx) { "is-size-1" },
+                                            if focus.is_focused(element_idx) {
                                                 Timer { timer: progress.timer_service() }
                                             } else {
                                                 div {
                                                     onclick: move |_| {
+                                                        if focus.other_session_running() {
+                                                            return;
+                                                        }
+                                                        focus.take_ownership();
                                                         progress.write().set_element_idx(element_idx);
                                                         progress.timer_service().write().unset();
                                                     },
@@ -604,9 +807,10 @@ fn view_form(
                                         style: "vertical-align: middle",
                                         button {
                                             class: "button is-small",
-                                            class: if progress.read().element_idx == element_idx { "is-link is-outlined" },
+                                            class: if focus.is_focused(element_idx) { "is-link is-outlined" },
+                                            disabled: focus.other_session_running(),
                                             onclick: eh!(mut training_session; target_time; {
-                                                if progress.read().element_idx == element_idx {
+                                                if focus.is_focused(element_idx) {
                                                     progress.write().set_element_idx(element_idx + 1);
                                                     progress.timer_service().write().unset();
                                                     if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
@@ -617,11 +821,12 @@ fn view_form(
                                                         save(training_session.clone(), cache, || {}).await;
                                                     });
                                                 } else {
+                                                    focus.take_ownership();
                                                     progress.write().set_element_idx(element_idx);
                                                     progress.timer_service().write().unset();
                                                 }
                                             }),
-                                            Icon { name: if progress.read().element_idx == element_idx { "check" } else { "angles-left" } }
+                                            Icon { name: if focus.is_focused(element_idx) { "check" } else { "angles-left" } }
                                         }
                                     }
                                 }
@@ -753,12 +958,15 @@ fn view_form(
                                 td {
                                     class: "p-1",
                                     style: "vertical-align: middle",
-                                    if set_field_values.valid() && !(set_field_values.is_empty() && !set_field_values.changed() && progress.read().element_idx == element_idx) {
+                                    if set_field_values.valid() && !(set_field_values.is_empty() && !set_field_values.changed() && focus.is_focused(element_idx)) {
                                         button {
                                             class: "button is-small",
                                             class: if set_field_values.has_valid_changes() { "is-link is-outlined" } else if !set_field_values.is_empty() { "is-ghost" },
+                                            "data-testid": "set-action",
+                                            disabled: focus.other_session_running() && set_field_values.is_empty() && !set_field_values.changed(),
                                             onclick: eh!(mut training_session; field_values, set_field_values; {
                                                 if set_field_values.is_empty() && !set_field_values.changed() {
+                                                    focus.take_ownership();
                                                     progress.write().set_element_idx(element_idx);
                                                 } else {
                                                     progress.write().set_element_idx(element_idx + 1);
@@ -786,7 +994,7 @@ fn view_form(
                     rsx! {
                         tr {
                             class: if is_current_section { "" } else { "is-semitransparent" },
-                            if progress.read().element_idx == element_idx {
+                            if focus.is_focused(element_idx) {
                                 td {}
                                 td {
                                     class: "p-1",
@@ -820,6 +1028,10 @@ fn view_form(
                                     div {
                                         class: "notification p-0 is-size-7 has-background-auto-text-95 has-text-centered",
                                         onclick: move |_| {
+                                            if focus.other_session_running() {
+                                                return;
+                                            }
+                                            focus.take_ownership();
                                             progress.write().set_element_idx(element_idx);
                                             progress.timer_service().write().unset();
                                         },
@@ -1623,6 +1835,10 @@ impl Progress {
         }
         self.element_idx = element_idx;
         self.element_start_time = chrono::Utc::now();
+    }
+
+    fn reset(&mut self) {
+        self.start_time = chrono::Utc::now();
     }
 }
 

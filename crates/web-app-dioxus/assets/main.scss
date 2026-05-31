@@ -85,11 +85,31 @@ $blue: #3B8ED0;
     border-radius: 50%;
 }
 
-.button.is-fab-navbar {
+// Activity bar pinned to the bottom of the screen
+
+.activity-bar {
     position: fixed;
-    right: 1rem;
-    bottom: 3.5rem;
-    border-radius: 50%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding: 0.5rem;
+
+    .notification {
+        // Halo in the page background color, so the bar stays distinct from content of the same color
+        box-shadow: 0 0 2px 1px var(--bulma-scheme-main);
+        padding: 0.5rem;
+    }
+}
+
+// Reserve space for the activity bar and lift the FABs above it
+
+body.has-activity-bar {
+    padding-bottom: 5rem;
+
+    .button.is-fab {
+        bottom: 4rem;
+    }
 }
 
 // Pin button to the top-right corner of its container
@@ -287,6 +307,12 @@ div.is-calendar {
 
 .is-width-auto {
   width: auto;
+}
+
+// Text decoration
+
+.is-undecorated {
+  text-decoration: none !important;
 }
 
 // Scroll snapping

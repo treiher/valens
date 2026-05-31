@@ -98,6 +98,31 @@ class TrainingSessionPage(BasePage):
         self.expect_edit_mode()
         self.page.locator("textarea").first.fill(text)
 
+    def expect_set_action_button_disabled(self, index: int = 0) -> None:
+        self.expect_edit_mode()
+        expect(self.page.get_by_test_id("set-action").nth(index)).to_be_disabled()
+
+    def count_form_rows(self) -> int:
+        return len(self.get_form())
+
+    def end_training_session(self) -> None:
+        self.page.get_by_test_id("activity-bar-end-session").click()
+        self.dialog.wait_until_open()
+        self.page.get_by_test_id("activity-bar-end-session-confirm").click()
+        self.dialog.wait_until_closed()
+
+    def cancel_end_training_session(self) -> None:
+        self.page.get_by_test_id("activity-bar-end-session").click()
+        self.dialog.wait_until_open()
+        self.page.get_by_test_id("activity-bar-end-session-cancel").click()
+        self.dialog.wait_until_closed()
+
+    def expect_end_training_session_visible(self) -> None:
+        expect(self.page.get_by_test_id("activity-bar-end-session")).to_be_visible()
+
+    def expect_end_training_session_hidden(self) -> None:
+        expect(self.page.get_by_test_id("activity-bar-end-session")).to_be_hidden()
+
     def open_exercise_options(self, exercise_idx: int = 0) -> None:
         self.page.get_by_test_id("item-options").nth(exercise_idx).click()
         self.page.get_by_test_id("options-menu").wait_for(state="visible")

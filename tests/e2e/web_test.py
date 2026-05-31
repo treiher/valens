@@ -563,6 +563,7 @@ def test_training_session_change_entries(page: Page) -> None:
     p.reload()
 
     p.expect_page()
+    p.edit()
     assert p.get_form() == sets
 
     p.set_form(0, new_values)
@@ -570,6 +571,7 @@ def test_training_session_change_entries(page: Page) -> None:
 
     p.save()
     p.goto()
+    p.edit()
 
     assert p.get_form() == [new_values, *sets[1:]]
 
@@ -604,6 +606,7 @@ def test_training_session_change_notes(page: Page) -> None:
 
     p.reload()
     p.expect_page()
+    p.edit()
     assert p.get_notes() == notes
 
     p.set_notes(new_notes)
@@ -611,6 +614,7 @@ def test_training_session_change_notes(page: Page) -> None:
 
     p.save()
     p.goto()
+    p.edit()
 
     assert p.get_notes() == new_notes
 
@@ -671,6 +675,134 @@ def test_training_session_1rm_calculator(page: Page) -> None:
 
     dialog.close()
     dialog.wait_until_closed()
+
+
+def test_activity_bar(page: Page) -> None:
+    routine = USER.routines[-1].name
+
+    login(page)
+    home = HomePage(page)
+    home.goto()
+    home.activity_bar.expect_hidden()
+
+    # A freshly created session has no stored set yet, so it starts automatically.
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_end_training_session_visible()
+    p.activity_bar.expect_hidden()
+
+    home.goto()
+    home.activity_bar.expect_visible()
+
+    body_weight = BodyWeightPage(page)
+    body_weight.goto()
+    body_weight.activity_bar.expect_visible()
+
+    exercises = ExercisesPage(page)
+    exercises.goto()
+    exercises.activity_bar.expect_visible()
+    exercises.activity_bar.resume()
+
+    p.expect_page()
+    p.expect_end_training_session_visible()
+    p.cancel_end_training_session()
+    p.expect_end_training_session_visible()
+    p.end_training_session()
+    p.expect_end_training_session_hidden()
+    p.expect_view_mode()
+
+    home.goto()
+    home.activity_bar.expect_hidden()
+    body_weight.goto()
+    body_weight.activity_bar.expect_hidden()
+
+
+def test_delete_in_progress_training_session_clears_activity_bar(page: Page) -> None:
+    routine = USER.routines[-1].name
+
+    login(page)
+    home = HomePage(page)
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_end_training_session_visible()
+
+    home.goto()
+    home.activity_bar.expect_visible()
+
+    # Deleting the in-progress session also ends it, so the activity bar disappears.
+    training_sessions.goto()
+    training_sessions.activity_bar.expect_visible()
+    training_sessions.delete_training_session(0)
+    training_sessions.activity_bar.expect_hidden()
+
+    home.goto()
+    home.activity_bar.expect_hidden()
+
+
+def test_training_session_in_progress_while_editing_other(page: Page) -> None:
+    routine = USER.routines[-1].name
+    other = USER.workouts[-1]
+
+    login(page)
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    ongoing = TrainingSessionPage(page, 0)
+    ongoing.expect_page()
+    ongoing.expect_end_training_session_visible()
+
+    # While another session is in progress, a different session stays editable but
+    # shows the banner instead of an active focus.
+    other_page = TrainingSessionPage(page, other.id)
+    other_page.goto()
+    other_page.edit()
+    other_page.expect_end_training_session_hidden()
+    other_page.activity_bar.expect_visible()
+
+    other_page.set_form(0, (5, 6, 7.5, 8))
+    other_page.save()
+
+    other_page.activity_bar.resume()
+    ongoing.expect_page()
+    ongoing.expect_end_training_session_visible()
+
+
+def test_training_session_opened_while_other_in_progress_cannot_be_started(page: Page) -> None:
+    routine = USER.routines[0].name
+
+    login(page)
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    # The first session owns the active focus, so its time-based sets show a timer
+    # rather than input fields.
+    ongoing = TrainingSessionPage(page, 0)
+    ongoing.expect_page()
+    ongoing.expect_end_training_session_visible()
+    rows_with_timer = ongoing.count_form_rows()
+
+    # A session opened while another one is in progress cannot be started: its set
+    # action buttons are disabled and its time-based sets fall back to input fields,
+    # appearing as additional rows.
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    other_page = TrainingSessionPage(page, 0)
+    other_page.expect_page()
+    other_page.activity_bar.expect_visible()
+    other_page.expect_set_action_button_disabled()
+    assert other_page.count_form_rows() > rows_with_timer
 
 
 def test_routines_add(page: Page) -> None:

@@ -19,6 +19,7 @@ class BasePage:
         self.navbar = Navbar(page)
         self.dialog = Dialog(page)
         self.table = Table(page)
+        self.activity_bar = ActivityBar(page)
 
     @property
     @abstractmethod
@@ -114,6 +115,21 @@ class Dialog(PageElement):
     def close(self) -> None:
         self.page.get_by_test_id("dialog-close").click()
         self.wait_until_closed()
+
+
+class ActivityBar(PageElement):
+    @property
+    def root(self) -> Locator:
+        return self.page.get_by_test_id("activity-bar")
+
+    def expect_visible(self) -> None:
+        expect(self.root).to_be_visible()
+
+    def expect_hidden(self) -> None:
+        expect(self.root).to_be_hidden()
+
+    def resume(self) -> None:
+        self.root.click()
 
 
 class Navbar(PageElement):

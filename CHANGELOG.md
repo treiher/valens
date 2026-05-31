@@ -12,12 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Training session-specific exercise notes
 - 1RM calculator accessible from the navigation menu
 - Drop set calculator accessible from the navigation menu
+- Activity bar at the bottom of the screen for returning to an in-progress training session, shown on every page except the matching training session page
 - Training session page:
     - Option to open the 1RM calculator from the exercise options
     - Option to open the drop set calculator from the exercise options
     - Automatic scrolling that brings the active section into view when it changes
     - Optional scroll snapping that centers a section on the screen
     - Buttons for target and previous values for time-based sets
+    - Activity bar at the bottom of the screen showing the elapsed time with a button to end the current training session
+    - Automatic start of an in-progress training session when a session without recorded sets is opened
+    - Automatic end of the in-progress training session when all sets are recorded or its end is reached
+    - Input fields for time-based sets while another training session is in progress
 - Training sessions page: 7-day min./max. RPE to RPE chart
 - Routine page: Option to show and copy routine as text
 - Routines page: Option to show and copy routine as text
@@ -30,7 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Login page: Redesigned the login flow to require entering a known username
-- Training session page: Weight input resolution from 0.1 to 0.01 kg
+- Training session page:
+    - Weight input resolution from 0.1 to 0.01 kg
+    - Preservation of an in-progress training session when editing a different one
+    - Dimming of inactive exercise sections only while a training session is in progress
 - Training sessions page:
     - RPE chart now averages per-set RPE values instead of per-session averages
     - Unified chart legend labels for set volume

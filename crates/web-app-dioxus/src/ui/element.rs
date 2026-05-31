@@ -134,6 +134,23 @@ pub fn Message(children: Element, color: Color) -> Element {
 }
 
 #[component]
+pub fn ActivityBar(children: Element) -> Element {
+    rsx! {
+        div {
+            class: "activity-bar",
+            div {
+                // Cap and center the bar to the same width as the page content
+                class: "container is-max-desktop",
+                div {
+                    class: "notification",
+                    {children}
+                }
+            }
+        }
+    }
+}
+
+#[component]
 pub fn Error(message: String) -> Element {
     rsx! {
         IconText { icon: "triangle-exclamation", text: message, color: Color::Danger }
@@ -188,6 +205,7 @@ pub fn Icon(
     name: String,
     #[props(default)] is_small: bool,
     px: Option<u8>,
+    class: Option<String>,
     on_click: Option<EventHandler<MouseEvent>>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
@@ -196,6 +214,7 @@ pub fn Icon(
             class: "icon",
             class: if is_small { "is-small" },
             class: if let Some(px) = px { "px-{px}" },
+            class: if let Some(class) = &class { "{class}" },
             onclick: move |evt| {
                 if let Some(event_handler) = on_click {
                     event_handler.call(evt);

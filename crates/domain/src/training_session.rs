@@ -399,6 +399,17 @@ impl TrainingSession {
         self.elements.iter().all(TrainingSessionElement::is_empty)
     }
 
+    /// Returns `true` if every set in the session has recorded input.
+    ///
+    /// A session without sets is vacuously fully recorded.
+    #[must_use]
+    pub fn all_sets_recorded(&self) -> bool {
+        self.elements
+            .iter()
+            .filter(|element| matches!(element, TrainingSessionElement::Set { .. }))
+            .all(|element| !element.is_empty())
+    }
+
     /// Retrieves the most recent distinct previous exercise notes for a given exercise.
     ///
     /// This method returns up to three distinct previous exercise notes for the specified
@@ -3327,6 +3338,19 @@ mod tests {
         ]);
         assert_eq!(ts.section_idx_lookahead(2), 2);
         assert_eq!(ts.section_idx_lookahead(99), 2);
+    }
+
+    #[test]
+    fn test_training_session_all_sets_recorded() {
+        assert!(
+            training_session(&[set(1, Some(5), Some(100.0), None), rest(60)]).all_sets_recorded()
+        );
+        assert!(
+            !training_session(&[set(1, Some(5), Some(100.0), None), set(2, None, None, None)])
+                .all_sets_recorded()
+        );
+        assert!(training_session(&[rest(60)]).all_sets_recorded());
+        assert!(training_session(&[]).all_sets_recorded());
     }
 
     fn training_session(elements: &[TrainingSessionElement]) -> TrainingSession {

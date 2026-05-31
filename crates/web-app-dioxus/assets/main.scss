@@ -102,6 +102,63 @@ $blue: #3B8ED0;
     }
 }
 
+// Notification bar pinned below the fixed top navbar
+
+.notification-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: var(--bulma-navbar-height, 3.25rem);
+    z-index: 50;
+    padding: 0.5rem;
+
+    .notification {
+        // Halo in the page background color, so the bar stays distinct from content of the same color
+        box-shadow: 0 0 2px 1px var(--bulma-scheme-main);
+        padding: 0.5rem;
+        position: relative;
+        // Clip the rounded corners of the countdown bar pinned to the bottom edge
+        overflow: hidden;
+    }
+
+    .notification-progress {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.6);
+        // Anchored right so the bar drains left-to-right as time elapses
+        transform-origin: right;
+        animation: notification-countdown var(--dismiss-ms) linear forwards;
+    }
+
+    // Pause the progress while the user interacts with the notification
+    .notification:hover .notification-progress,
+    .notification:focus-within .notification-progress {
+        animation-play-state: paused;
+    }
+}
+
+@keyframes notification-countdown {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    // Keep a same-duration animation running so the dismissal still fires, but without visible
+    // motion: hide the bar and swap to a keyframe that animates nothing
+    .notification-progress {
+        background: transparent;
+        animation-name: notification-timeout;
+    }
+}
+
+@keyframes notification-timeout {
+    from { opacity: 1; }
+    to { opacity: 1; }
+}
+
 // Reserve space for the activity bar and lift the FABs above it
 
 body.has-activity-bar {

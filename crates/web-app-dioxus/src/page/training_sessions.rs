@@ -7,9 +7,10 @@ use valens_domain::{self as domain, RoutineService, TrainingSessionService};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, Route,
+    DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
+    notification::notify_error,
     ongoing_training_session::OngoingTrainingSession,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
@@ -431,16 +432,12 @@ pub fn view_dialog(
                                     navigator().push(Route::TrainingSession { id });
                                 }
                                 Err(err) => {
-                                    ERRORS
-                                        .write()
-                                        .push(format!("Failed to add training session: {err}"));
+                                    notify_error(format!("Failed to add training session: {err}"));
                                 }
                             }
                         }
                         Err(err) => {
-                            ERRORS
-                                .write()
-                                .push(format!("Failed to add training session: {err}"));
+                            notify_error(format!("Failed to add training session: {err}"));
                         }
                     }
                 }
@@ -460,7 +457,7 @@ pub fn view_dialog(
                             }
                             consume_context::<Cache>().refresh_training_sessions();
                         },
-                        Err(err) => ERRORS.write().push(format!("Failed to delete training session: {err}"))
+                        Err(err) => notify_error(format!("Failed to delete training session: {err}"))
                     }
                 }
             }

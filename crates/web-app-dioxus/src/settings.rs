@@ -5,7 +5,8 @@ use log::warn;
 use valens_web_app::{self as web_app, SettingsService};
 
 use crate::{
-    ERRORS, WEB_APP_SERVICE,
+    WEB_APP_SERVICE,
+    notification::notify_error,
     ui::element::{Color, Dialog, Icon},
 };
 
@@ -26,9 +27,7 @@ impl Settings {
             }
             Some(Err(err)) => {
                 warn!("failed to get settings: {err}");
-                ERRORS
-                    .write()
-                    .push(format!("Failed to load settings: {err}"));
+                notify_error(format!("Failed to load settings: {err}"));
             }
             None => {}
         });
@@ -101,9 +100,7 @@ impl Settings {
             .await
         {
             warn!("failed to save settings: {err}");
-            ERRORS
-                .write()
-                .push(format!("Failed to save settings: {err}"));
+            notify_error(format!("Failed to save settings: {err}"));
         }
     }
 }
@@ -295,9 +292,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                                         Ok(_) => {}
                                         Err(err) => {
                                             warn!("failed to enable notifications: {err}");
-                                            ERRORS
-                                                .write()
-                                                .push(format!("Failed to enable notifications: {err}"));
+                                            notify_error(format!("Failed to enable notifications: {err}"));
                                         }
                                     }
                                     settings.save().await;

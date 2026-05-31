@@ -7,9 +7,10 @@ use valens_domain::{self as domain, RoutineService};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, Route,
+    DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
+    notification::notify_error,
     page::{
         self,
         common::{Chart, IntervalControl, SetsPerMuscle},
@@ -989,9 +990,7 @@ async fn modify_routine_sections(
             cache.refresh_routines();
         }
         Err(err) => {
-            ERRORS
-                .write()
-                .push(format!("Failed to modify routine: {err}"));
+            notify_error(format!("Failed to modify routine: {err}"));
         }
     }
     IS_LOADING.with_mut(|is_loading| *is_loading = false);

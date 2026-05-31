@@ -5,8 +5,9 @@ use valens_domain::{self as domain, PeriodService};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, Route,
+    DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    notification::notify_error,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     ui::{
@@ -232,9 +233,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                                     consume_context::<Cache>().refresh_period();
                                 }
                                 Err(err) => {
-                                    ERRORS
-                                        .write()
-                                        .push(format!("Failed to add period: {err}"));
+                                    notify_error(format!("Failed to add period: {err}"));
                                     }
                             }
                     }
@@ -250,9 +249,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                                     consume_context::<Cache>().refresh_period();
                                 }
                                 Err(err) => {
-                                    ERRORS
-                                        .write()
-                                        .push(format!("Failed to edit period: {err}"));
+                                    notify_error(format!("Failed to edit period: {err}"));
                                     }
                             }
                     }
@@ -273,7 +270,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                         deleted = true;
                         consume_context::<Cache>().refresh_period();
                     },
-                    Err(err) => ERRORS.write().push(format!("Failed to delete period: {err}"))
+                    Err(err) => notify_error(format!("Failed to delete period: {err}"))
                 }
             }
         }

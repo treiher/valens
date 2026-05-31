@@ -5,8 +5,9 @@ use valens_domain::{self as domain, BodyFatService, BodyWeightService};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, Route,
+    DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    notification::notify_error,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     session::Session,
@@ -441,9 +442,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                 consume_context::<Cache>().refresh_body_fat();
                             }
                             Err(err) => {
-                                ERRORS
-                                    .write()
-                                    .push(format!("Failed to add body fat: {err}"));
+                                notify_error(format!("Failed to add body fat: {err}"));
                                 }
                         }
                     }
@@ -495,9 +494,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                 consume_context::<Cache>().refresh_body_fat();
                             }
                             Err(err) => {
-                                ERRORS
-                                    .write()
-                                    .push(format!("Failed to edit body fat: {err}"));
+                                notify_error(format!("Failed to edit body fat: {err}"));
                                 }
                         }
                     }
@@ -518,9 +515,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                         deleted = true;
                         consume_context::<Cache>().refresh_body_fat();
                     }
-                    Err(err) => ERRORS
-                        .write()
-                        .push(format!("Failed to delete body fat: {err}")),
+                    Err(err) => notify_error(format!("Failed to delete body fat: {err}")),
                 }
             }
         }

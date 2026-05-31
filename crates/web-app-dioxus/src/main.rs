@@ -10,15 +10,16 @@ use valens_domain as domain;
 use valens_storage as storage;
 use valens_web_app as web_app;
 
+use notification::NotificationBar;
 use page::common::{DropSetCalculatorState, MetronomeService, OneRepMaxCalculatorState};
 use routing::Route;
 use settings::Settings;
-use ui::element::{Color, Dialog};
 use unsaved_changes::router_config;
 use update::UpdateNotification;
 
 mod cache;
 mod navbar;
+mod notification;
 mod ongoing_training_session;
 mod page;
 mod routing;
@@ -34,7 +35,6 @@ static DOMAIN_SERVICE: GlobalSignal<
 > = Signal::global(|| domain::Service::new(storage::cached_rest::CachedREST::new()));
 static WEB_APP_SERVICE: GlobalSignal<web_app::Service<storage::local_storage::LocalStorage>> =
     Signal::global(|| web_app::Service::new(storage::local_storage::LocalStorage));
-static ERRORS: GlobalSignal<Vec<String>> = Signal::global(Vec::new);
 static NO_CONNECTION: GlobalSignal<bool> = Signal::global(|| false);
 static DATA_CHANGED: GlobalSignal<usize> = Signal::global(|| 0);
 static METRONOME: GlobalSignal<MetronomeService> = Signal::global(MetronomeService::new);
@@ -116,37 +116,7 @@ fn App() -> Element {
             config: router_config
         }
         UpdateNotification {}
-        ErrorDialog {}
-    }
-}
-
-#[component]
-fn ErrorDialog() -> Element {
-    let notification = ERRORS.read().last().cloned();
-
-    rsx! {
-        if let Some(message) = notification {
-            Dialog {
-                color: Color::Danger,
-                title: rsx! { "Error" },
-                on_close: move |_| { let _ = ERRORS.write().pop(); },
-                div {
-                    class: "block",
-                    "{message}"
-                }
-                div {
-                    class: "field is-grouped is-grouped-centered",
-                    div {
-                        class: "control",
-                        button {
-                            class: "button is-danger",
-                            onclick: move |_| { let _ = ERRORS.write().pop(); },
-                            "Close"
-                        }
-                    }
-                }
-            }
-        }
+        NotificationBar {}
     }
 }
 

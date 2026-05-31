@@ -8,9 +8,10 @@ use log::{error, warn};
 use valens_domain::{self as domain, ExerciseService, Property};
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, Route,
+    DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
+    notification::notify_error,
     routing::NavigatorScrollExt,
     ui::{
         element::{
@@ -339,9 +340,7 @@ fn view_list(
                                                     consume_context::<Cache>().refresh_exercises();
                                                 }
                                                 Err(err) => {
-                                                    ERRORS
-                                                        .write()
-                                                        .push(format!("Failed to add exercise from catalog: {err}"));
+                                                    notify_error(format!("Failed to add exercise from catalog: {err}"));
                                                 }
                                             }
                                     }
@@ -411,9 +410,7 @@ pub fn view_dialog(
                                             consume_context::<Cache>().refresh_exercises();
                                         }
                                         Err(err) => {
-                                            ERRORS
-                                                .write()
-                                                .push(format!("Failed to add exercise: {err}"));
+                                            notify_error(format!("Failed to add exercise: {err}"));
                                         }
                                     }
                                 }
@@ -434,21 +431,15 @@ pub fn view_dialog(
                                                         consume_context::<Cache>().refresh_exercises();
                                                     }
                                                     Err(err) => {
-                                                        ERRORS
-                                                            .write()
-                                                            .push(format!("Failed to copy exercise: {err}"));
+                                                        notify_error(format!("Failed to copy exercise: {err}"));
                                                         }
                                                 }
                                         }
                                         CacheState::Error(err) => {
-                                            ERRORS
-                                                .write()
-                                                .push(format!("Failed to copy exercise: {err}"));
+                                            notify_error(format!("Failed to copy exercise: {err}"));
                                             }
                                         CacheState::Loading => {
-                                            ERRORS
-                                                .write()
-                                                .push("Failed to copy exercise: Cache is loading".to_string());
+                                            notify_error("Failed to copy exercise: Cache is loading");
                                             }
                                     }
                                 }
@@ -466,9 +457,7 @@ pub fn view_dialog(
                                             consume_context::<Cache>().refresh_exercises();
                                         }
                                         Err(err) => {
-                                            ERRORS
-                                                .write()
-                                                .push(format!("Failed to rename exercise: {err}"));
+                                            notify_error(format!("Failed to rename exercise: {err}"));
                                         }
                                     }
                                 }
@@ -495,7 +484,7 @@ pub fn view_dialog(
                                 deleted = true;
                                 consume_context::<Cache>().refresh_exercises();
                             },
-                            Err(err) => ERRORS.write().push(format!("Failed to delete training session: {err}"))
+                            Err(err) => notify_error(format!("Failed to delete training session: {err}"))
                         }
                     }
                 }
@@ -741,9 +730,7 @@ fn ExercisePropertiesDialog(
                         consume_context::<Cache>().refresh_exercises();
                     }
                     Err(err) => {
-                        ERRORS
-                            .write()
-                            .push(format!("Failed to change properties of exercise: {err}"));
+                        notify_error(format!("Failed to change properties of exercise: {err}"));
                     }
                 }
             }

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import os
 from collections.abc import Generator
+from contextlib import contextmanager
 from itertools import pairwise
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from tempfile import TemporaryDirectory
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Browser, Page, expect
 
 import tests.utils
 from valens import app, models
@@ -1496,6 +1497,64 @@ def test_navbar_drop_set_calculator(page: Page) -> None:
     assert dialog.get_start_weight() == "50"
     assert dialog.get_drop_percentage() == "50"
     assert dialog.get_increment() == "5"
+
+
+def test_notification_shown_above_dialog(browser: Browser) -> None:
+    with failed_exercise_add(browser) as p:
+        p.notification.expect_message("Failed to add exercise: no connection")
+        # Dismissing requires the close button to receive the click, which only succeeds if the
+        # notification is stacked above the open dialog
+        p.notification.dismiss()
+
+
+def test_notification_auto_dismisses(browser: Browser) -> None:
+    with failed_exercise_add(browser) as p:
+        p.notification.expect_visible()
+        p.notification.expect_auto_dismissed()
+
+
+def test_notification_progress_pauses_on_hover(browser: Browser) -> None:
+    with failed_exercise_add(browser) as p:
+        p.notification.expect_visible()
+        p.notification.expect_paused_while_hovered()
+
+
+def test_stacked_notifications_all_auto_dismiss(browser: Browser) -> None:
+    with failed_exercise_add(browser) as p:
+        p.notification.expect_visible()
+        # Trigger a second failed save so a notification stacks on top of the first
+        p.dialog.click_save()
+        p.notification.expect_stacked(1)
+        # Both must auto-dismiss: the top one, then the one that resurfaces beneath it.
+        p.notification.expect_auto_dismissed(timeout=20_000)
+
+
+@contextmanager
+def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None]:
+    # Block the service worker so `page.route` can intercept the API request it would
+    # otherwise handle out of the page's reach
+    context = browser.new_context(service_workers="block")
+    try:
+        page = context.new_page()
+        login(page)
+        p = ExercisesPage(page)
+        p.goto()
+
+        # Fail only the create request so the add dialog raises a notification and stays open
+        page.route(
+            "**/api/exercises",
+            lambda route: (route.abort() if route.request.method == "POST" else route.continue_()),
+        )
+
+        p.fab().click()
+        p.dialog.wait_until_open()
+        p.dialog.set_name("Unsaved exercise")
+        p.dialog.click_save()
+
+        p.dialog.wait_until_open()
+        yield p
+    finally:
+        context.close()
 
 
 def test_cache(page: Page) -> None:

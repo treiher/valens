@@ -4,9 +4,10 @@ use log::warn;
 use valens_domain::{self as domain, RoutineService};
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, Route,
+    DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
+    notification::notify_error,
     routing::NavigatorScrollExt,
     settings::Settings,
     ui::{
@@ -206,9 +207,7 @@ pub fn view_dialog(
                                         consume_context::<Cache>().refresh_routines();
                                     }
                                     Err(err) => {
-                                        ERRORS
-                                            .write()
-                                            .push(format!("Failed to add routine: {err}"));
+                                        notify_error(format!("Failed to add routine: {err}"));
                                     }
                                 }
                             }
@@ -229,21 +228,15 @@ pub fn view_dialog(
                                                 consume_context::<Cache>().refresh_routines();
                                             }
                                             Err(err) => {
-                                                ERRORS
-                                                    .write()
-                                                    .push(format!("Failed to copy routine: {err}"));
+                                                notify_error(format!("Failed to copy routine: {err}"));
                                             }
                                         }
                                     }
                                     CacheState::Error(err) => {
-                                        ERRORS
-                                            .write()
-                                            .push(format!("Failed to copy routine: {err}"));
+                                        notify_error(format!("Failed to copy routine: {err}"));
                                     }
                                     CacheState::Loading => {
-                                        ERRORS
-                                            .write()
-                                            .push("Failed to copy routine: Cache is loading".to_string());
+                                        notify_error("Failed to copy routine: Cache is loading");
                                     }
                                 }
                             }
@@ -257,9 +250,7 @@ pub fn view_dialog(
                                         consume_context::<Cache>().refresh_routines();
                                     }
                                     Err(err) => {
-                                        ERRORS
-                                            .write()
-                                            .push(format!("Failed to rename routine: {err}"));
+                                        notify_error(format!("Failed to rename routine: {err}"));
                                     }
                                 }
                             }
@@ -282,7 +273,7 @@ pub fn view_dialog(
                             deleted = true;
                             consume_context::<Cache>().refresh_routines();
                         },
-                        Err(err) => ERRORS.write().push(format!("Failed to delete training session: {err}"))
+                        Err(err) => notify_error(format!("Failed to delete training session: {err}"))
                     }
                 }
             }
@@ -341,9 +332,7 @@ pub fn view_dialog(
                                                 consume_context::<Cache>().refresh_routines();
                                             }
                                             Err(err) => {
-                                                ERRORS
-                                                    .write()
-                                                    .push(format!("Failed to modify routine: {err}"));
+                                                notify_error(format!("Failed to modify routine: {err}"));
                                             }
                                         }
                                     }
@@ -486,7 +475,7 @@ pub fn view_dialog(
                                             }
                                             Err(e) => {
                                                 warn!("failed to copy to clipboard: {e:?}");
-                                                ERRORS.write().push(format!("Failed to copy to clipboard: {e:?}"));
+                                                notify_error(format!("Failed to copy to clipboard: {e:?}"));
                                             }
                                         }
                                     });

@@ -5,8 +5,9 @@ use valens_domain::{self as domain, BodyWeightService};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, Route,
+    DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    notification::notify_error,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     ui::{
@@ -233,9 +234,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                                     consume_context::<Cache>().refresh_body_weight();
                                 }
                                 Err(err) => {
-                                    ERRORS
-                                        .write()
-                                        .push(format!("Failed to add body weight: {err}"));
+                                    notify_error(format!("Failed to add body weight: {err}"));
                                     }
                             }
                     }
@@ -251,9 +250,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                                     consume_context::<Cache>().refresh_body_weight();
                                 }
                                 Err(err) => {
-                                    ERRORS
-                                        .write()
-                                        .push(format!("Failed to edit body weight: {err}"));
+                                    notify_error(format!("Failed to edit body weight: {err}"));
                                     }
                             }
                     }
@@ -274,7 +271,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                         deleted = true;
                         consume_context::<Cache>().refresh_body_weight();
                     },
-                    Err(err) => ERRORS.write().push(format!("Failed to delete body weight: {err}"))
+                    Err(err) => notify_error(format!("Failed to delete body weight: {err}"))
                 }
             }
         }

@@ -5,7 +5,9 @@ use valens_domain::UserService;
 use valens_web_app::log::Service;
 
 use crate::{
-    DATA_CHANGED, DOMAIN_SERVICE, ERRORS, WEB_APP_SERVICE, signal_changed_data,
+    DATA_CHANGED, DOMAIN_SERVICE, WEB_APP_SERVICE,
+    notification::notify_error,
+    signal_changed_data,
     ui::{
         element::{
             Block, CenteredBlock, Color, DeleteConfirmationDialog, Error, ErrorMessage, Icon,
@@ -59,7 +61,7 @@ pub fn Users() -> Element {
                                 signal_changed_data();
                             },
                             Err(err) => {
-                                ERRORS.write().push(format!("Failed to add user: {err}"));
+                                notify_error(format!("Failed to add user: {err}"));
                             }
                         }
                     }
@@ -73,7 +75,7 @@ pub fn Users() -> Element {
                                 signal_changed_data();
                             },
                             Err(err) => {
-                                ERRORS.write().push(format!("Failed to edit user: {err}"));
+                                notify_error(format!("Failed to edit user: {err}"));
                             }
                         }
                     }
@@ -94,7 +96,7 @@ pub fn Users() -> Element {
                         deleted = true;
                         signal_changed_data();
                     },
-                    Err(err) => ERRORS.write().push(format!("Failed to delete user: {err}"))
+                    Err(err) => notify_error(format!("Failed to delete user: {err}"))
 
                 }
             }

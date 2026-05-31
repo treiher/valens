@@ -11,8 +11,9 @@ use log::warn;
 use valens_domain as domain;
 
 use crate::{
-    DOMAIN_SERVICE, ERRORS, NO_CONNECTION,
+    DOMAIN_SERVICE, NO_CONNECTION,
     cache::{Cache, CacheState},
+    notification::notify_error,
 };
 
 macro_rules! sync {
@@ -27,7 +28,7 @@ macro_rules! sync {
                 Err(domain::SyncError::Storage(domain::StorageError::NoConnection)) => {
                     if !NO_CONNECTION() {
                         *NO_CONNECTION.write() = true;
-                        ERRORS.write().push("No connection to server".to_string());
+                        notify_error("No connection to server");
                     }
                 }
                 Err(err) => {
@@ -35,7 +36,7 @@ macro_rules! sync {
                         warn!("synchronization failed: {err}");
                         let error_message = format!("Synchronization failed: {err}");
                         synchronization.error.set(error_message.clone());
-                        ERRORS.write().push(error_message);
+                        notify_error(error_message);
                         *NO_CONNECTION.write() = false;
                     }
                 }

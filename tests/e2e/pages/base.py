@@ -20,6 +20,7 @@ class BasePage:
         self.dialog = Dialog(page)
         self.table = Table(page)
         self.activity_bar = ActivityBar(page)
+        self.notification = Notification(page)
 
     @property
     @abstractmethod
@@ -101,8 +102,11 @@ class Dialog(PageElement):
         self.wait_until_closed()
 
     def save(self) -> None:
-        self.root.get_by_test_id("dialog-save").click()
+        self.click_save()
         self.wait_until_closed()
+
+    def click_save(self) -> None:
+        self.root.get_by_test_id("dialog-save").click()
 
     def delete(self) -> None:
         self.root.get_by_test_id("dialog-delete").click()
@@ -130,6 +134,47 @@ class ActivityBar(PageElement):
 
     def resume(self) -> None:
         self.root.click()
+
+
+class Notification(PageElement):
+    @property
+    def root(self) -> Locator:
+        return self.page.get_by_test_id("notification")
+
+    @property
+    def progress(self) -> Locator:
+        return self.root.get_by_test_id("notification-progress")
+
+    @property
+    def count(self) -> Locator:
+        return self.root.get_by_test_id("notification-count")
+
+    def expect_visible(self) -> None:
+        expect(self.root).to_be_visible()
+
+    def expect_hidden(self) -> None:
+        expect(self.root).to_be_hidden()
+
+    def expect_message(self, message: str) -> None:
+        expect(self.root).to_have_text(message)
+
+    def expect_stacked(self, hidden: int) -> None:
+        expect(self.count).to_have_text(f"+{hidden}")
+
+    def expect_auto_dismissed(self, timeout: float = 12_000) -> None:
+        # Allow for the longest per-severity timeout plus margin
+        expect(self.root).to_be_hidden(timeout=timeout)
+
+    def expect_paused_while_hovered(self) -> None:
+        self.root.hover()
+        play_state = self.progress.evaluate(
+            "el => getComputedStyle(el).animationPlayState",
+        )
+        assert play_state == "paused", play_state
+
+    def dismiss(self) -> None:
+        self.root.get_by_test_id("notification-close").click()
+        self.expect_hidden()
 
 
 class Navbar(PageElement):

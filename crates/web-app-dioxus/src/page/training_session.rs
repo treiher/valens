@@ -13,9 +13,10 @@ use valens_domain::{self as domain, TrainingSessionService};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, DROP_SET_CALCULATOR, ERRORS, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
+    DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
     cache::{Cache, CacheState},
     eh,
+    notification::notify_error,
     ongoing_training_session::OngoingTrainingSession,
     page::{
         self,
@@ -1796,9 +1797,7 @@ async fn save(
             cache.refresh_training_sessions();
         }
         Err(err) => {
-            ERRORS
-                .write()
-                .push(format!("Failed to modify training session: {err}"));
+            notify_error(format!("Failed to modify training session: {err}"));
         }
     }
     *IS_LOADING.write() = false;

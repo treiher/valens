@@ -499,20 +499,6 @@ pub fn view_dialog(
                             }
                         }
                     }
-                    Block {
-                        div {
-                            class: "field is-grouped is-grouped-centered",
-                            div {
-                                class: "control",
-                                button {
-                                    class: "button is-light is-soft",
-                                    "data-testid": "show-text-close",
-                                    onclick: eh!(close_dialog; { close_dialog(); }),
-                                    "Close"
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

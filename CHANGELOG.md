@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Option to open the drop set calculator from the exercise options
     - Automatic scrolling that brings the active section into view when it changes
     - Optional scroll snapping that centers a section on the screen
+    - Buttons for target and previous values for time-based sets
 - Training sessions page: 7-day min./max. RPE to RPE chart
 - Routine page: Option to show and copy routine as text
 - Routines page: Option to show and copy routine as text

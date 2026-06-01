@@ -625,6 +625,9 @@ fn view_form(
                                         }
                                     }
                                 }
+                                if is_current_section {
+                                    {set_value_buttons(set_buttons, element_idx, field_values, settings)}
+                                }
                             }
                         } else {
                             rsx! {}
@@ -772,36 +775,7 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                tr {
-                                    td {}
-                                    td {
-                                        class: "p-1 has-text-centered",
-                                        colspan: 4,
-                                        for (set, icons) in set_buttons {
-                                            button {
-                                                class: "button is-small mr-2",
-                                                onclick: eh!(mut field_values; set; {
-                                                    if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
-                                                        let reps = set.reps;
-                                                        set_field_values.reps.input = if reps == domain::Reps::default() { String::new() } else { reps.to_string() };
-                                                        set_field_values.reps.validated = Ok(reps);
-                                                        let time = set.time;
-                                                        set_field_values.time.input = if time == domain::Time::default() { String::new() } else { time.to_string() };
-                                                        set_field_values.time.validated = Ok(time);
-                                                        let weight = set.weight;
-                                                        set_field_values.weight.input = if weight == domain::Weight::default() { String::new() } else { weight.to_string() };
-                                                        set_field_values.weight.validated = Ok(weight);
-                                                        let rpe = set.rpe;
-                                                        set_field_values.rpe.input = if rpe == domain::RPE::default() { String::new() } else { rpe.to_string() };
-                                                        set_field_values.rpe.validated = Ok(rpe);
-                                                    }
-                                                }),
-                                                Icon { name: icons[0].clone(), is_small: true },
-                                                span { {set.to_string(settings.show_tut(), settings.show_rpe())} },
-                                            }
-                                        }
-                                    }
-                                }
+                                {set_value_buttons(set_buttons, element_idx, field_values, settings)}
                             }
                         }
                     };
@@ -900,6 +874,49 @@ fn view_form(
                         *edit_dialog.write() = EditDialog::AppendExercise { training_session };
                     }),
                     Icon { name: "plus" }
+                }
+            }
+        }
+    }
+}
+
+/// Renders the row of buttons that prefill a set with the target, previous-set,
+/// or previous-session values.
+fn set_value_buttons(
+    set_buttons: IndexMap<domain::Set, Vec<String>>,
+    element_idx: usize,
+    field_values: Signal<HashMap<usize, SetFieldValues>>,
+    settings: Settings,
+) -> Element {
+    rsx! {
+        tr {
+            td {}
+            td {
+                class: "p-1 has-text-centered",
+                colspan: 4,
+                for (set, icons) in set_buttons {
+                    button {
+                        class: "button is-small mr-2",
+                        "data-testid": "set-value",
+                        onclick: eh!(mut field_values; set; {
+                            if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
+                                let reps = set.reps;
+                                set_field_values.reps.input = if reps == domain::Reps::default() { String::new() } else { reps.to_string() };
+                                set_field_values.reps.validated = Ok(reps);
+                                let time = set.time;
+                                set_field_values.time.input = if time == domain::Time::default() { String::new() } else { time.to_string() };
+                                set_field_values.time.validated = Ok(time);
+                                let weight = set.weight;
+                                set_field_values.weight.input = if weight == domain::Weight::default() { String::new() } else { weight.to_string() };
+                                set_field_values.weight.validated = Ok(weight);
+                                let rpe = set.rpe;
+                                set_field_values.rpe.input = if rpe == domain::RPE::default() { String::new() } else { rpe.to_string() };
+                                set_field_values.rpe.validated = Ok(rpe);
+                            }
+                        }),
+                        Icon { name: icons[0].clone(), is_small: true },
+                        span { {set.to_string(settings.show_tut(), settings.show_rpe())} },
+                    }
                 }
             }
         }

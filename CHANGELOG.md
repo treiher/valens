@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Body fat page: Reordered chart legend entries
 - Navigation bar: Renamed "Log out" to "Sign out"
 - Presentation of error messages from a dialog to a notification below the navigation bar
+- Severity of recoverable notifications from error to warning
 
 ### Fixed
 

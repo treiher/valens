@@ -14,7 +14,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE,
-    notification::notify_error,
+    notification::notify_warning,
     ui::element::{Color, Dialog, ErrorMessage, Icon, Loading, NoConnection},
 };
 
@@ -88,14 +88,14 @@ pub fn UpdateNotification() -> Element {
                                             if UPDATE_STATUS() == UpdateStatus::Updating {
                                                 warn!("app update timed out");
                                                 *UPDATE_STATUS.write() = UpdateStatus::Available;
-                                                notify_error("App update timed out. Please try again.");
+                                                notify_warning("App update timed out. Please try again.");
                                             }
                                         });
                                     }
                                     Err(err) => {
                                         warn!("app update failed: {err}");
                                         *UPDATE_STATUS.write() = UpdateStatus::Available;
-                                        notify_error(format!("App update failed: {err}"));
+                                        notify_warning(format!("App update failed: {err}"));
                                     }
                                 }
                             },

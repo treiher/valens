@@ -54,7 +54,6 @@ pub fn notify_error(message: impl Into<String>) {
     push(Severity::Error, message);
 }
 
-#[allow(dead_code)]
 pub fn notify_warning(message: impl Into<String>) {
     push(Severity::Warning, message);
 }

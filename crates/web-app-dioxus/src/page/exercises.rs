@@ -11,7 +11,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
-    notification::notify_error,
+    notification::{notify_error, notify_warning},
     routing::NavigatorScrollExt,
     ui::{
         element::{
@@ -439,7 +439,7 @@ pub fn view_dialog(
                                             notify_error(format!("Failed to copy exercise: {err}"));
                                             }
                                         CacheState::Loading => {
-                                            notify_error("Failed to copy exercise: Cache is loading");
+                                            notify_warning("Failed to copy exercise: Cache is loading");
                                             }
                                     }
                                 }

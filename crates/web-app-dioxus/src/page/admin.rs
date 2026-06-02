@@ -6,7 +6,8 @@ use valens_web_app::log::Service;
 
 use crate::{
     DATA_CHANGED, DOMAIN_SERVICE, WEB_APP_SERVICE,
-    notification::notify_error,
+    diagnostics::log_failure,
+    notification::notify,
     signal_changed_data,
     ui::{
         element::{
@@ -61,7 +62,7 @@ pub fn Users() -> Element {
                                 signal_changed_data();
                             },
                             Err(err) => {
-                                notify_error(format!("Failed to add user: {err}"));
+                                notify("Failed to add user", &err);
                             }
                         }
                     }
@@ -75,7 +76,7 @@ pub fn Users() -> Element {
                                 signal_changed_data();
                             },
                             Err(err) => {
-                                notify_error(format!("Failed to edit user: {err}"));
+                                notify("Failed to edit user", &err);
                             }
                         }
                     }
@@ -96,7 +97,7 @@ pub fn Users() -> Element {
                         deleted = true;
                         signal_changed_data();
                     },
-                    Err(err) => notify_error(format!("Failed to delete user: {err}"))
+                    Err(err) => notify("Failed to delete user", &err)
 
                 }
             }
@@ -144,9 +145,12 @@ pub fn Users() -> Element {
                     NoConnection {}
                 }
             }
-            Some(Err(err)) => rsx! {
-                ErrorMessage { message: err }
-            },
+            Some(Err(err)) => {
+                log_failure("load users", err);
+                rsx! {
+                    ErrorMessage { message: err }
+                }
+            }
             None => rsx! {
                 Loading {}
             },
@@ -329,25 +333,28 @@ pub fn Log() -> Element {
         Title { "Log" }
         Block {
             class: "px-3",
-            match entries {
-                Ok(entries) => rsx! {
-                    for entry in entries {
-                        Message {
-                            color: match entry.level {
-                                log::Level::Error => Color::Danger,
-                                log::Level::Warn => Color::Warning,
-                                log::Level::Info => Color::Primary,
-                                log::Level::Debug => Color::Info,
-                                log::Level::Trace => Color::Dark,
-                            },
-                            p { class: "is-size-7", {entry.time} }
-                            p { "{entry.message}" }
+            div {
+                "data-testid": "log",
+                match entries {
+                    Ok(entries) => rsx! {
+                        for entry in entries {
+                            Message {
+                                color: match entry.level {
+                                    log::Level::Error => Color::Danger,
+                                    log::Level::Warn => Color::Warning,
+                                    log::Level::Info => Color::Primary,
+                                    log::Level::Debug => Color::Info,
+                                    log::Level::Trace => Color::Dark,
+                                },
+                                p { class: "is-size-7", {entry.time} }
+                                p { "{entry.message}" }
+                            }
                         }
-                    }
-                },
-                Err(err) => rsx! {
-                    Error { message: err }
-                },
+                    },
+                    Err(err) => rsx! {
+                        Error { message: err }
+                    },
+                }
             }
         }
     }

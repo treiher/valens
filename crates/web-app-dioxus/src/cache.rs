@@ -15,10 +15,10 @@ use valens_domain::{
     RoutineService, TrainingSessionService,
 };
 
-use crate::DOMAIN_SERVICE;
+use crate::{DOMAIN_SERVICE, diagnostics::log_failure};
 
 macro_rules! refresh {
-    ($self:ident, $field:ident, $method:ident) => {{
+    ($self:ident, $field:ident, $method:ident, $label:literal) => {{
         let mut signal = $self.$field;
         spawn({
             async move {
@@ -27,6 +27,7 @@ macro_rules! refresh {
                         signal.set(CacheState::Ready(values));
                     }
                     Err(err) => {
+                        log_failure($label, &err);
                         signal.set(CacheState::Error(err));
                     }
                 }
@@ -82,27 +83,32 @@ impl Cache {
     }
 
     pub fn refresh_body_weight(&self) {
-        refresh!(self, body_weight, get_body_weight);
+        refresh!(self, body_weight, get_body_weight, "load body weight");
     }
 
     pub fn refresh_body_fat(&self) {
-        refresh!(self, body_fat, get_body_fat);
+        refresh!(self, body_fat, get_body_fat, "load body fat");
     }
 
     pub fn refresh_period(&self) {
-        refresh!(self, period, get_period);
+        refresh!(self, period, get_period, "load period");
     }
 
     pub fn refresh_exercises(&self) {
-        refresh!(self, exercises, get_exercises);
+        refresh!(self, exercises, get_exercises, "load exercises");
     }
 
     pub fn refresh_routines(&self) {
-        refresh!(self, routines, get_routines);
+        refresh!(self, routines, get_routines, "load routines");
     }
 
     pub fn refresh_training_sessions(&self) {
-        refresh!(self, training_sessions, get_training_sessions);
+        refresh!(
+            self,
+            training_sessions,
+            get_training_sessions,
+            "load training sessions"
+        );
     }
 
     pub fn add_training_session(&mut self, training_session: domain::TrainingSession) {

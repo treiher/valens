@@ -7,7 +7,7 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
-    notification::notify_error,
+    notification::notify,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     session::Session,
@@ -442,7 +442,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                 consume_context::<Cache>().refresh_body_fat();
                             }
                             Err(err) => {
-                                notify_error(format!("Failed to add body fat: {err}"));
+                                notify("Failed to add body fat", &err);
                                 }
                         }
                     }
@@ -494,7 +494,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                 consume_context::<Cache>().refresh_body_fat();
                             }
                             Err(err) => {
-                                notify_error(format!("Failed to edit body fat: {err}"));
+                                notify("Failed to edit body fat", &err);
                                 }
                         }
                     }
@@ -515,7 +515,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                         deleted = true;
                         consume_context::<Cache>().refresh_body_fat();
                     }
-                    Err(err) => notify_error(format!("Failed to delete body fat: {err}")),
+                    Err(err) => notify("Failed to delete body fat", &err),
                 }
             }
         }

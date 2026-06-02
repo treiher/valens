@@ -3,8 +3,9 @@ use dioxus::prelude::*;
 use valens_domain::{self as domain, SessionService};
 
 use crate::{
-    DOMAIN_SERVICE, Route, cache::Cache, ongoing_training_session::OngoingTrainingSession,
-    synchronization::Synchronization, ui::element::LoadingPage,
+    DOMAIN_SERVICE, Route, cache::Cache, diagnostics::log_failure,
+    ongoing_training_session::OngoingTrainingSession, synchronization::Synchronization,
+    ui::element::LoadingPage,
 };
 
 #[derive(Clone)]
@@ -23,7 +24,8 @@ pub fn SessionProvider() -> Element {
             let user = user.clone();
             rsx! { AuthenticatedSession { user } }
         }
-        Some(Err(_)) => {
+        Some(Err(err)) => {
+            log_failure("restore the session", err);
             navigator().push(Route::Login {});
             rsx! {}
         }

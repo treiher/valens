@@ -29,6 +29,13 @@ class ExercisesPage(BasePage):
         self.dialog.save()
         self.wait_until_idle()
 
+    def copy_exercise(self, index: int, name: str) -> None:
+        self._open_item_options(index)
+        self.page.get_by_test_id("options-copy").click()
+        self.dialog.set_name(name)
+        self.dialog.save()
+        self.wait_until_idle()
+
 
 class ExercisesDialog(Dialog):
     def set_name(self, text: str) -> None:

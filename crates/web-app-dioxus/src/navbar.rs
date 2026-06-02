@@ -10,7 +10,7 @@ use valens_domain::{self as domain, SessionService};
 
 use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR, Route,
-    notification::notify_error,
+    notification::notify,
     ongoing_training_session::OngoingTrainingSession,
     page::common::{
         DropSetCalculator, Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch,
@@ -235,7 +235,7 @@ pub fn Navbar() -> Element {
                                         navigator().push(Route::Login {});
                                     }
                                     Err(err) => {
-                                        notify_error(format!("Failed to sign out: {err}"));
+                                        notify("Failed to sign out", &err);
                                         }
                                 }
                                 menu_visible.set(false);

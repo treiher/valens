@@ -6,7 +6,7 @@
 
 use dioxus::prelude::*;
 
-use log::{info, warn};
+use log::info;
 
 use valens_domain as domain;
 use valens_domain::VersionService;
@@ -14,6 +14,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE,
+    diagnostics::log_failure,
     notification::notify_warning,
     ui::element::{Color, Dialog, ErrorMessage, Icon, Loading, NoConnection},
 };
@@ -86,14 +87,12 @@ pub fn UpdateNotification() -> Element {
                                         spawn(async move {
                                             gloo_timers::future::TimeoutFuture::new(10_000).await;
                                             if UPDATE_STATUS() == UpdateStatus::Updating {
-                                                warn!("app update timed out");
                                                 *UPDATE_STATUS.write() = UpdateStatus::Available;
-                                                notify_warning("App update timed out. Please try again.");
+                                                notify_warning("App update timed out");
                                             }
                                         });
                                     }
                                     Err(err) => {
-                                        warn!("app update failed: {err}");
                                         *UPDATE_STATUS.write() = UpdateStatus::Available;
                                         notify_warning(format!("App update failed: {err}"));
                                     }
@@ -166,6 +165,7 @@ pub async fn check_for_updates() {
             *SERVER_VERSION.write() = ServerVersion::NoConnection;
         }
         Err(err) => {
+            log_failure("fetch the server version", err);
             *SERVER_VERSION.write() = ServerVersion::Error(err.to_string());
         }
     }

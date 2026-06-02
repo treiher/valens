@@ -6,14 +6,12 @@
 
 use dioxus::prelude::*;
 
-use log::warn;
-
 use valens_domain as domain;
 
 use crate::{
     DOMAIN_SERVICE, NO_CONNECTION,
     cache::{Cache, CacheState},
-    notification::notify_warning,
+    notification::{notify, notify_warning},
 };
 
 macro_rules! sync {
@@ -33,10 +31,8 @@ macro_rules! sync {
                 }
                 Err(err) => {
                     if !synchronization.has_error() {
-                        warn!("synchronization failed: {err}");
-                        let error_message = format!("Synchronization failed: {err}");
-                        synchronization.error.set(error_message.clone());
-                        notify_warning(error_message);
+                        synchronization.error.set(format!("Synchronization failed: {err}"));
+                        notify("Synchronization failed", &err);
                         *NO_CONNECTION.write() = false;
                     }
                 }

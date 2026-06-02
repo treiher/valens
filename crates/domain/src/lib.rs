@@ -8,7 +8,8 @@ pub use body_weight::{
     BodyWeight, BodyWeightRepository, BodyWeightService, avg_body_weight, avg_weekly_change,
 };
 pub use error::{
-    CreateError, DeleteError, ReadError, StorageError, SyncError, UpdateError, ValidationError,
+    CreateError, DeleteError, ReadError, Recoverable, StorageError, SyncError, UpdateError,
+    ValidationError,
 };
 pub use exercise::{
     Assistance, Category, Equipment, Exercise, ExerciseFilter, ExerciseID, ExerciseMuscle,

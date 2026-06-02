@@ -1,5 +1,6 @@
 """Playwright page objects for end-to-end tests."""
 
+from .admin import AdminPage as AdminPage
 from .body_fat import BodyFatPage as BodyFatPage
 from .body_weight import BodyWeightPage as BodyWeightPage
 from .exercise import ExercisePage as ExercisePage

@@ -27,6 +27,7 @@ from .const import (
 )
 from .io import wait_for_output
 from .pages import (
+    AdminPage,
     BodyFatPage,
     BodyWeightPage,
     DropSetCalculatorDialog,
@@ -1329,6 +1330,21 @@ def test_exercises_add(page: Page) -> None:
     assert {e[0] for e in p.table.get_body(2)} == expected_previous
 
 
+def test_exercises_copy(page: Page) -> None:
+    new_name = "Copied Exercise"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+
+    current = {e[0] for e in p.table.get_body(1)}
+    assert new_name not in current
+
+    p.copy_exercise(0, new_name)
+
+    assert new_name in {e[0] for e in p.table.get_body(1)}
+
+
 def test_exercises_rename(page: Page) -> None:
     current_name = sorted(CURRENT_WORKOUT_EXERCISES)[0]
     new_name = "Changed Exercise"
@@ -1502,6 +1518,8 @@ def test_navbar_drop_set_calculator(page: Page) -> None:
 def test_notification_shown_above_dialog(browser: Browser) -> None:
     with failed_exercise_add(browser) as p:
         p.notification.expect_message("Failed to add exercise: no connection")
+        # A missing connection is recoverable, so the failure is shown as a warning, not an error
+        p.notification.expect_warning()
         # Dismissing requires the close button to receive the click, which only succeeds if the
         # notification is stacked above the open dialog
         p.notification.dismiss()
@@ -1527,6 +1545,14 @@ def test_stacked_notifications_all_auto_dismiss(browser: Browser) -> None:
         p.notification.expect_stacked(1)
         # Both must auto-dismiss: the top one, then the one that resurfaces beneath it.
         p.notification.expect_auto_dismissed(timeout=20_000)
+
+
+def test_notification_recorded_in_log(browser: Browser) -> None:
+    with failed_exercise_add(browser) as p:
+        p.notification.expect_message("Failed to add exercise: no connection")
+        admin = AdminPage(p.page)
+        admin.goto()
+        admin.expect_log_warning("Failed to add exercise: no connection")
 
 
 @contextmanager

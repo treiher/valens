@@ -5,6 +5,7 @@ use valens_domain::SessionService;
 
 use crate::{
     DOMAIN_SERVICE, Route,
+    diagnostics::log_failure,
     ui::{
         element::{IconText, LoadingPage},
         form::InputField,
@@ -49,6 +50,7 @@ pub fn Login() -> Element {
                             error.set(Some("No connection to server".to_string()));
                         }
                         Err(err) => {
+                            log_failure("sign in", &err);
                             error.set(Some(format!("Something went wrong: {err}")));
                         }
                     }

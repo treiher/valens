@@ -16,7 +16,7 @@ use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
     cache::{Cache, CacheState},
     eh,
-    notification::notify_error,
+    notification::notify,
     ongoing_training_session::OngoingTrainingSession,
     page::{
         self,
@@ -1797,7 +1797,7 @@ async fn save(
             cache.refresh_training_sessions();
         }
         Err(err) => {
-            notify_error(format!("Failed to modify training session: {err}"));
+            notify("Failed to modify training session", &err);
         }
     }
     *IS_LOADING.write() = false;

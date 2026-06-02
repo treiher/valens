@@ -1,7 +1,5 @@
 use dioxus::prelude::*;
 
-use log::warn;
-
 use valens_web_app::{self as web_app, SettingsService};
 
 use crate::{
@@ -26,7 +24,6 @@ impl Settings {
                 settings.theme.apply();
             }
             Some(Err(err)) => {
-                warn!("failed to get settings: {err}");
                 notify_error(format!("Failed to load settings: {err}"));
             }
             None => {}
@@ -99,7 +96,6 @@ impl Settings {
             .set_settings(self.settings.cloned())
             .await
         {
-            warn!("failed to save settings: {err}");
             notify_error(format!("Failed to save settings: {err}"));
         }
     }
@@ -291,7 +287,6 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                                         }
                                         Ok(_) => {}
                                         Err(err) => {
-                                            warn!("failed to enable notifications: {err}");
                                             notify_error(format!("Failed to enable notifications: {err}"));
                                         }
                                     }

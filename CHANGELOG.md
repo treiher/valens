@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Estimated maximum reps to reps chart
     - Estimated 1RM to weight chart
 - Body weight, body fat, exercises and routines pages: Automatic focus of the first input field in dialogs for adding entries
+- Recording of notifications in the log
 - CLI commands to list, create, update and delete users
 
 ### Changed

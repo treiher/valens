@@ -10,7 +10,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
-    notification::notify_error,
+    notification::notify,
     page::{
         self,
         common::{Chart, IntervalControl, SetsPerMuscle},
@@ -990,7 +990,7 @@ async fn modify_routine_sections(
             cache.refresh_routines();
         }
         Err(err) => {
-            notify_error(format!("Failed to modify routine: {err}"));
+            notify("Failed to modify routine", &err);
         }
     }
     IS_LOADING.with_mut(|is_loading| *is_loading = false);

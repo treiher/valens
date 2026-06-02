@@ -18,6 +18,7 @@ use unsaved_changes::router_config;
 use update::UpdateNotification;
 
 mod cache;
+mod diagnostics;
 mod navbar;
 mod notification;
 mod ongoing_training_session;

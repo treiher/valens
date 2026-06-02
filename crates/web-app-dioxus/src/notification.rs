@@ -1,13 +1,17 @@
 //! App-wide notifications shown in a bar below the navigation bar.
 //!
-//! Notifications are pushed onto a stack via the [`notify_error`] and [`notify_warning`] helpers,
-//! which are callable from any context, including detached async tasks. [`NotificationBar`]
-//! renders the topmost notification; dismissing it
-//! reveals the next. Every notification auto-dismisses after a per-severity timeout (see
-//! [`dismiss_after`]), visualized by a depleting progress bar that pauses while the notification
-//! is hovered or focused.
+//! Notifications are pushed onto a stack via the [`notify_error`], [`notify_warning`] and
+//! [`notify`] helpers, which are callable from any context, including detached async
+//! tasks. [`NotificationBar`] renders the topmost notification; dismissing it reveals the next.
+//! Every notification auto-dismisses after a per-severity timeout, visualized by a depleting
+//! progress bar that pauses while the notification is hovered or focused.
+//!
+//! Showing a notification also writes a log entry at the matching level.
+
+use std::fmt::Display;
 
 use dioxus::prelude::*;
+use valens_domain::Recoverable;
 
 use crate::ui::element::Color;
 
@@ -58,7 +62,27 @@ pub fn notify_warning(message: impl Into<String>) {
     push(Severity::Warning, message);
 }
 
+/// Notify about a failed operation, choosing the severity from the error: recoverable (transient)
+/// errors become warnings, everything else an error.
+pub fn notify<E: Recoverable + Display>(context: impl Display, err: &E) {
+    push(severity_for(err.recoverable()), format!("{context}: {err}"));
+}
+
+fn severity_for(recoverable: bool) -> Severity {
+    if recoverable {
+        Severity::Warning
+    } else {
+        Severity::Error
+    }
+}
+
 fn push(severity: Severity, message: impl Into<String>) {
+    let message = message.into();
+    // Mirror every notification into the log
+    match severity {
+        Severity::Warning => log::warn!("{message}"),
+        Severity::Error => log::error!("{message}"),
+    }
     let id = {
         let mut next = NEXT_ID.write();
         *next += 1;
@@ -67,7 +91,7 @@ fn push(severity: Severity, message: impl Into<String>) {
     NOTIFICATIONS.write().push(Notification {
         id,
         severity,
-        message: message.into(),
+        message,
     });
 }
 
@@ -161,5 +185,11 @@ mod tests {
     #[test]
     fn dismiss_after_increases_with_severity() {
         assert!(Severity::Error.dismiss_after() >= Severity::Warning.dismiss_after());
+    }
+
+    #[test]
+    fn severity_for_recoverability() {
+        assert!(matches!(severity_for(true), Severity::Warning));
+        assert!(matches!(severity_for(false), Severity::Error));
     }
 }

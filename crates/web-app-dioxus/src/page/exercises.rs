@@ -11,7 +11,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
-    notification::{notify_error, notify_warning},
+    notification::notify,
     routing::NavigatorScrollExt,
     ui::{
         element::{
@@ -340,7 +340,7 @@ fn view_list(
                                                     consume_context::<Cache>().refresh_exercises();
                                                 }
                                                 Err(err) => {
-                                                    notify_error(format!("Failed to add exercise from catalog: {err}"));
+                                                    notify("Failed to add exercise from catalog", &err);
                                                 }
                                             }
                                     }
@@ -410,37 +410,22 @@ pub fn view_dialog(
                                             consume_context::<Cache>().refresh_exercises();
                                         }
                                         Err(err) => {
-                                            notify_error(format!("Failed to add exercise: {err}"));
+                                            notify("Failed to add exercise", &err);
                                         }
                                     }
                                 }
-                                ExerciseDialog::Copy { exercise_id, .. } => {
-                                    match &*consume_context::<Cache>().exercises.read() {
-                                        CacheState::Ready(exercises) => {
-                                            let sections = exercises.iter().find(|r| r.id == *exercise_id).map(|exercise| {
-                                                exercise
-                                                    .muscles
-                                                    .clone()
-                                            }).unwrap_or_default();
-                                            match DOMAIN_SERVICE()
-                                                .create_exercise(name, sections)
-                                                .await
-                                                {
-                                                    Ok(_) => {
-                                                        saved = true;
-                                                        consume_context::<Cache>().refresh_exercises();
-                                                    }
-                                                    Err(err) => {
-                                                        notify_error(format!("Failed to copy exercise: {err}"));
-                                                        }
-                                                }
+                                ExerciseDialog::Copy { muscles, .. } => {
+                                    match DOMAIN_SERVICE()
+                                        .create_exercise(name, muscles.clone())
+                                        .await
+                                    {
+                                        Ok(_) => {
+                                            saved = true;
+                                            consume_context::<Cache>().refresh_exercises();
                                         }
-                                        CacheState::Error(err) => {
-                                            notify_error(format!("Failed to copy exercise: {err}"));
-                                            }
-                                        CacheState::Loading => {
-                                            notify_warning("Failed to copy exercise: Cache is loading");
-                                            }
+                                        Err(err) => {
+                                            notify("Failed to copy exercise", &err);
+                                        }
                                     }
                                 }
                                 ExerciseDialog::Rename { exercise, .. } => {
@@ -457,7 +442,7 @@ pub fn view_dialog(
                                             consume_context::<Cache>().refresh_exercises();
                                         }
                                         Err(err) => {
-                                            notify_error(format!("Failed to rename exercise: {err}"));
+                                            notify("Failed to rename exercise", &err);
                                         }
                                     }
                                 }
@@ -484,7 +469,7 @@ pub fn view_dialog(
                                 deleted = true;
                                 consume_context::<Cache>().refresh_exercises();
                             },
-                            Err(err) => notify_error(format!("Failed to delete training session: {err}"))
+                            Err(err) => notify("Failed to delete exercise", &err)
                         }
                     }
                 }
@@ -500,6 +485,7 @@ pub fn view_dialog(
         ExerciseDialog::Options(exercise) => {
             let exercise = exercise.clone();
             let exercise_name = exercise.name.clone();
+            let exercise_muscles = exercise.muscles.clone();
             rsx! {
                 OptionsMenu {
                     options: vec![
@@ -508,7 +494,7 @@ pub fn view_dialog(
                                 icon: "copy".to_string(),
                                 text: "Copy exercise".to_string(),
                                 "data-testid": "options-copy",
-                                on_click: eh!(exercise_name; {
+                                on_click: eh!(exercise_name, exercise_muscles; {
                                     async move {
                                         let validated_name = DOMAIN_SERVICE().validate_exercise_name(&exercise_name.to_string(), domain::ExerciseID::nil()).await.map_err(|err| err.to_string());
                                         *dialog.write() = ExerciseDialog::Copy {
@@ -517,7 +503,7 @@ pub fn view_dialog(
                                                 validated: validated_name,
                                                 orig: exercise_name.to_string(),
                                             },
-                                            exercise_id: exercise.id,
+                                            muscles: exercise_muscles,
                                         };
                                     }
                                 })
@@ -730,7 +716,7 @@ fn ExercisePropertiesDialog(
                         consume_context::<Cache>().refresh_exercises();
                     }
                     Err(err) => {
-                        notify_error(format!("Failed to change properties of exercise: {err}"));
+                        notify("Failed to change properties of exercise", &err);
                     }
                 }
             }
@@ -848,7 +834,7 @@ pub enum ExerciseDialog {
     },
     Copy {
         name: FieldValue<domain::Name>,
-        exercise_id: domain::ExerciseID,
+        muscles: Vec<domain::ExerciseMuscle>,
     },
     Rename {
         name: FieldValue<domain::Name>,

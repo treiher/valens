@@ -1,5 +1,4 @@
 use dioxus::prelude::*;
-use log::warn;
 
 use valens_domain::{self as domain, RoutineService};
 
@@ -7,7 +6,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
-    notification::{notify_error, notify_warning},
+    notification::{notify, notify_error},
     routing::NavigatorScrollExt,
     settings::Settings,
     ui::{
@@ -207,36 +206,21 @@ pub fn view_dialog(
                                         consume_context::<Cache>().refresh_routines();
                                     }
                                     Err(err) => {
-                                        notify_error(format!("Failed to add routine: {err}"));
+                                        notify("Failed to add routine", &err);
                                     }
                                 }
                             }
-                            RoutineDialog::Copy { routine_id, .. } => {
-                                match &*consume_context::<Cache>().routines.read() {
-                                    CacheState::Ready(routines) => {
-                                        let sections = routines.iter().find(|r| r.id == *routine_id).map(|routine| {
-                                            routine
-                                                .sections
-                                                .clone()
-                                        }).unwrap_or_default();
-                                        match DOMAIN_SERVICE()
-                                            .create_routine(name, sections)
-                                            .await
-                                        {
-                                            Ok(_) => {
-                                                saved = true;
-                                                consume_context::<Cache>().refresh_routines();
-                                            }
-                                            Err(err) => {
-                                                notify_error(format!("Failed to copy routine: {err}"));
-                                            }
-                                        }
+                            RoutineDialog::Copy { sections, .. } => {
+                                match DOMAIN_SERVICE()
+                                    .create_routine(name, sections.clone())
+                                    .await
+                                {
+                                    Ok(_) => {
+                                        saved = true;
+                                        consume_context::<Cache>().refresh_routines();
                                     }
-                                    CacheState::Error(err) => {
-                                        notify_error(format!("Failed to copy routine: {err}"));
-                                    }
-                                    CacheState::Loading => {
-                                        notify_warning("Failed to copy routine: Cache is loading");
+                                    Err(err) => {
+                                        notify("Failed to copy routine", &err);
                                     }
                                 }
                             }
@@ -250,7 +234,7 @@ pub fn view_dialog(
                                         consume_context::<Cache>().refresh_routines();
                                     }
                                     Err(err) => {
-                                        notify_error(format!("Failed to rename routine: {err}"));
+                                        notify("Failed to rename routine", &err);
                                     }
                                 }
                             }
@@ -273,7 +257,7 @@ pub fn view_dialog(
                             deleted = true;
                             consume_context::<Cache>().refresh_routines();
                         },
-                        Err(err) => notify_error(format!("Failed to delete training session: {err}"))
+                        Err(err) => notify("Failed to delete routine", &err)
                     }
                 }
             }
@@ -287,6 +271,7 @@ pub fn view_dialog(
         RoutineDialog::None => rsx! {},
         RoutineDialog::Options(routine) => {
             let routine = routine.clone();
+            let routine_sections = routine.sections.clone();
             let routine_for_text = routine.clone();
             let routine_name_copy = routine.name.clone();
             let routine_name_edit = routine.name.clone();
@@ -332,7 +317,7 @@ pub fn view_dialog(
                                                 consume_context::<Cache>().refresh_routines();
                                             }
                                             Err(err) => {
-                                                notify_error(format!("Failed to modify routine: {err}"));
+                                                notify("Failed to modify routine", &err);
                                             }
                                         }
                                     }
@@ -344,6 +329,7 @@ pub fn view_dialog(
                                 "data-testid": "options-copy",
                                 on_click: move |_| {
                                     let routine_name = routine_name_copy.clone();
+                                    let routine_sections = routine_sections.clone();
                                     async move {
                                         let validated_name = DOMAIN_SERVICE().validate_routine_name(&routine_name.to_string(), domain::RoutineID::nil()).await.map_err(|err| err.to_string());
                                         *dialog.write() = RoutineDialog::Copy {
@@ -352,7 +338,7 @@ pub fn view_dialog(
                                                 validated: validated_name,
                                                 orig: routine_name.to_string(),
                                             },
-                                            routine_id: routine.id,
+                                            sections: routine_sections,
                                         };
                                     }
                                 }
@@ -474,7 +460,6 @@ pub fn view_dialog(
                                                 *copy_success.write() = false;
                                             }
                                             Err(e) => {
-                                                warn!("failed to copy to clipboard: {e:?}");
                                                 notify_error(format!("Failed to copy to clipboard: {e:?}"));
                                             }
                                         }
@@ -502,7 +487,7 @@ pub enum RoutineDialog {
     },
     Copy {
         name: FieldValue<domain::Name>,
-        routine_id: domain::RoutineID,
+        sections: Vec<domain::RoutinePart>,
     },
     Rename {
         name: FieldValue<domain::Name>,

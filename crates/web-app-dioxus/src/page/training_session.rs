@@ -373,8 +373,12 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     });
 
     let section_elements: Signal<HashMap<usize, web_sys::Element>> = use_signal(HashMap::new);
+    let element_elements: Signal<HashMap<usize, web_sys::Element>> = use_signal(HashMap::new);
 
-    let current_section_idx = use_memo(move || -> Option<usize> {
+    // Resolve the DOM element to keep in view through a memo so the scroll effect below
+    // re-fires only when the target changes, not on every unrelated mount. With scroll
+    // snapping the target is the active element; otherwise it is the active section.
+    let target_element = use_memo(move || -> Option<web_sys::Element> {
         if !owns_progress() {
             return None;
         }
@@ -384,18 +388,16 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         if ts.elements.is_empty() || element_idx >= ts.elements.len() {
             return None;
         }
-        Some(ts.section_idx_lookahead(element_idx))
-    });
-
-    // Resolve the active section's DOM element through a memo so the scroll effect below
-    // re-fires only when the target changes, not on every unrelated section mount.
-    let current_section_element = use_memo(move || -> Option<web_sys::Element> {
-        let idx = current_section_idx()?;
-        section_elements.read().get(&idx).cloned()
+        if settings.scroll_snapping() {
+            element_elements.read().get(&element_idx).cloned()
+        } else {
+            let section_idx = ts.section_idx_lookahead(element_idx);
+            section_elements.read().get(&section_idx).cloned()
+        }
     });
 
     use_effect(move || {
-        let Some(element) = current_section_element() else {
+        let Some(element) = target_element() else {
             return;
         };
         let options = web_sys::ScrollIntoViewOptions::new();
@@ -436,7 +438,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, training_session, exercises, settings, cache, section_elements)},
+                    {view_form(field_values, progress, focus, edit_dialog, training_session, exercises, settings, cache, section_elements, element_elements)},
                 } else {
                     {view_list(training_session, exercises, settings)},
                     {view_muscles(training_session, exercises)}
@@ -647,6 +649,7 @@ fn view_form(
     settings: Settings,
     cache: Cache,
     mut section_elements: Signal<HashMap<usize, web_sys::Element>>,
+    mut element_elements: Signal<HashMap<usize, web_sys::Element>>,
 ) -> Element {
     let mut element_idx: usize = 0;
     let sections = training_session.compute_sections();
@@ -739,6 +742,7 @@ fn view_form(
         let exercise_counts = section.exercise_counts();
 
         let sets = section.elements().iter().map(|element| {
+            let current_element_idx = element_idx;
             let set = match element {
                 domain::TrainingSessionElement::Set { exercise_id, target_reps, target_time, target_weight, target_rpe, .. } => {
                     let set_index = *set_index_for_exercise.entry(*exercise_id).or_default();
@@ -1049,21 +1053,40 @@ fn view_form(
                 }
             };
             element_idx += 1;
-            set
+            (current_element_idx, set)
         });
         rsx! {
-            tbody {
-                class: if settings.scroll_snapping() { "section-snap" },
-                onmounted: move |event| {
-                    if let Some(element) = event.data().try_as_web_event() {
-                        section_elements.write().insert(section_idx, element);
+            if settings.scroll_snapping() {
+                tbody {
+                    for name in exercise_names {
+                        {name}
                     }
-                },
-                for name in exercise_names {
-                    {name}
                 }
-                for set in sets {
-                    {set}
+                for (element_idx, set) in sets {
+                    tbody {
+                        class: "element-snap",
+                        class: if focus.is_focused(element_idx) { "element-snap-current" },
+                        onmounted: move |event| {
+                            if let Some(element) = event.data().try_as_web_event() {
+                                element_elements.write().insert(element_idx, element);
+                            }
+                        },
+                        {set}
+                    }
+                }
+            } else {
+                tbody {
+                    onmounted: move |event| {
+                        if let Some(element) = event.data().try_as_web_event() {
+                            section_elements.write().insert(section_idx, element);
+                        }
+                    },
+                    for name in exercise_names {
+                        {name}
+                    }
+                    for (_, set) in sets {
+                        {set}
+                    }
                 }
             }
         }

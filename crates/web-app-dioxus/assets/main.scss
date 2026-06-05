@@ -374,10 +374,19 @@ div.is-calendar {
 
 // Scroll snapping
 
-html:has(.section-snap) {
-  scroll-snap-type: y proximity;
+html:has(.element-snap) {
+  scroll-snap-type: y mandatory;
 }
 
-tbody.section-snap {
+tbody.element-snap {
   scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+tbody.element-snap-current > tr:first-child > td {
+  padding-top: 9vh !important;
+}
+
+tbody.element-snap-current > tr:last-child > td {
+  padding-bottom: 9vh !important;
 }

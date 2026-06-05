@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Option to open the 1RM calculator from the exercise options
     - Option to open the drop set calculator from the exercise options
     - Automatic scrolling that brings the active section into view when it changes
-    - Optional scroll snapping that centers a section on the screen
+    - Optional scroll snapping that centers and enlarges the current element on the screen and restricts scrolling to one element at a time
     - Buttons for target and previous values for time-based sets
     - Activity bar at the bottom of the screen showing the elapsed time with a button to end the current training session
     - Automatic start of an in-progress training session when a session without recorded sets is opened

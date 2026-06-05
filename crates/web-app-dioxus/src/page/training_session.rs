@@ -372,12 +372,10 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 .any(|(_, f)| f.has_valid_changes())
     });
 
-    let section_elements: Signal<HashMap<usize, web_sys::Element>> = use_signal(HashMap::new);
     let element_elements: Signal<HashMap<usize, web_sys::Element>> = use_signal(HashMap::new);
 
     // Resolve the DOM element to keep in view through a memo so the scroll effect below
-    // re-fires only when the target changes, not on every unrelated mount. With scroll
-    // snapping the target is the active element; otherwise it is the active section.
+    // re-fires only when the target changes, not on every unrelated mount.
     let target_element = use_memo(move || -> Option<web_sys::Element> {
         if !owns_progress() {
             return None;
@@ -388,12 +386,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         if ts.elements.is_empty() || element_idx >= ts.elements.len() {
             return None;
         }
-        if settings.scroll_snapping() {
-            element_elements.read().get(&element_idx).cloned()
-        } else {
-            let section_idx = ts.section_idx_lookahead(element_idx);
-            section_elements.read().get(&section_idx).cloned()
-        }
+        element_elements.read().get(&element_idx).cloned()
     });
 
     use_effect(move || {
@@ -438,7 +431,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, training_session, exercises, settings, cache, section_elements, element_elements)},
+                    {view_form(field_values, progress, focus, edit_dialog, training_session, exercises, settings, cache, element_elements)},
                 } else {
                     {view_list(training_session, exercises, settings)},
                     {view_muscles(training_session, exercises)}
@@ -648,7 +641,6 @@ fn view_form(
     exercises: &[domain::Exercise],
     settings: Settings,
     cache: Cache,
-    mut section_elements: Signal<HashMap<usize, web_sys::Element>>,
     mut element_elements: Signal<HashMap<usize, web_sys::Element>>,
 ) -> Element {
     let mut element_idx: usize = 0;
@@ -1056,37 +1048,21 @@ fn view_form(
             (current_element_idx, set)
         });
         rsx! {
-            if settings.scroll_snapping() {
-                tbody {
-                    for name in exercise_names {
-                        {name}
-                    }
+            tbody {
+                for name in exercise_names {
+                    {name}
                 }
-                for (element_idx, set) in sets {
-                    tbody {
-                        class: "element-snap",
-                        class: if focus.is_focused(element_idx) { "element-snap-current" },
-                        onmounted: move |event| {
-                            if let Some(element) = event.data().try_as_web_event() {
-                                element_elements.write().insert(element_idx, element);
-                            }
-                        },
-                        {set}
-                    }
-                }
-            } else {
+            }
+            for (element_idx, set) in sets {
                 tbody {
+                    class: if settings.scroll_snapping() { "element-snap" },
+                    class: if settings.scroll_snapping() && focus.is_focused(element_idx) { "element-snap-current" },
                     onmounted: move |event| {
                         if let Some(element) = event.data().try_as_web_event() {
-                            section_elements.write().insert(section_idx, element);
+                            element_elements.write().insert(element_idx, element);
                         }
                     },
-                    for name in exercise_names {
-                        {name}
-                    }
-                    for (_, set) in sets {
-                        {set}
-                    }
+                    {set}
                 }
             }
         }

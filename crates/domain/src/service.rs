@@ -91,8 +91,13 @@ impl<R: UserRepository> UserService for Service<R> {
         self.repository.read_users().await
     }
 
-    async fn create_user(&self, name: Name, sex: Sex) -> Result<User, CreateError> {
-        self.repository.create_user(name, sex).await
+    async fn create_user(
+        &self,
+        name: Name,
+        sex: Sex,
+        height: Option<u8>,
+    ) -> Result<User, CreateError> {
+        self.repository.create_user(name, sex, height).await
     }
 
     async fn replace_user(&self, user: User) -> Result<User, UpdateError> {

@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Body weight, body fat, exercises and routines pages: Automatic focus of the first input field in dialogs for adding entries
 - Recording of notifications in the log
 - CLI commands to list, create, update and delete users
+- FFMI (Fat-Free Mass Index) page with a chart and interval selection
+- Home page: Most recent FFMI
+- Administration page: Body height of users
 
 ### Changed
 

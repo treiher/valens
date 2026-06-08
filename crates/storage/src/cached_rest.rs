@@ -6,7 +6,7 @@
 
 use chrono::NaiveDate;
 use log::error;
-use valens_domain as domain;
+use valens_domain::{self as domain, SessionRepository};
 
 use super::{
     indexed_db::{IndexedDB, Store},
@@ -95,12 +95,20 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
         &self,
         name: domain::Name,
         sex: domain::Sex,
+        height: Option<u8>,
     ) -> Result<domain::User, domain::CreateError> {
-        self.rest.create_user(name, sex).await
+        self.rest.create_user(name, sex, height).await
     }
 
     async fn replace_user(&self, user: domain::User) -> Result<domain::User, domain::UpdateError> {
-        self.rest.replace_user(user).await
+        let user = self.rest.replace_user(user).await?;
+        if let Ok(session_user) = IndexedDB.initialize_session().await
+            && session_user.id == user.id
+            && let Err(err) = IndexedDB.write_session(&user).await
+        {
+            error!("failed to write session into IDB: {err}");
+        }
+        Ok(user)
     }
 
     async fn delete_user(&self, id: domain::UserID) -> Result<(), domain::DeleteError> {
@@ -528,7 +536,7 @@ mod tests {
 
             assert!(matches!(
                 cached_rest_with_response(None)
-                    .create_user(USER.name.clone(), USER.sex)
+                    .create_user(USER.name.clone(), USER.sex, USER.height)
                     .await,
                 Err(domain::CreateError::Storage(
                     domain::StorageError::NoConnection
@@ -541,7 +549,7 @@ mod tests {
                         .status(200)
                         .json(&rest::User::from(USER.clone()))
                 ))
-                .create_user(USER.name.clone(), USER.sex)
+                .create_user(USER.name.clone(), USER.sex, USER.height)
                 .await
                 .unwrap(),
                 USER.clone()
@@ -551,9 +559,11 @@ mod tests {
         #[wasm_bindgen_test]
         async fn test_replace_user() {
             reset_cache().await;
+            init_session().await;
 
             let mut user = USER.clone();
             user.name = domain::Name::new("C").unwrap();
+            user.height = Some(170);
 
             assert!(matches!(
                 cached_rest_with_response(None)
@@ -563,6 +573,8 @@ mod tests {
                     domain::StorageError::NoConnection
                 ))
             ));
+
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
 
             assert_eq!(
                 cached_rest_with_response(Some(
@@ -575,6 +587,32 @@ mod tests {
                 .unwrap(),
                 user.clone()
             );
+
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), user);
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_replace_user_keeps_session_of_other_user() {
+            reset_cache().await;
+            init_session().await;
+
+            let mut user = USER_2.clone();
+            user.height = Some(190);
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&rest::User::from(user.clone()))
+                ))
+                .replace_user(user)
+                .await
+                .unwrap()
+                .id,
+                USER_2.id
+            );
+
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
         }
 
         #[wasm_bindgen_test]

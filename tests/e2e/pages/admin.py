@@ -19,6 +19,26 @@ class AdminPage(BasePage):
     def expect_page(self) -> None:
         expect(self.log).to_be_attached()
 
+    def add_user(self, name: str, height: str) -> None:
+        self.page.get_by_test_id("add-user").click()
+        self.dialog.wait_until_open()
+        self.dialog.root.locator("input").first.fill(name)
+        self.dialog.root.locator("input[inputmode='numeric']").fill(height)
+        self.dialog.save()
+        self.wait_until_idle()
+
+    def edit_user_height(self, name: str, height: str) -> None:
+        row = self.page.get_by_role("row").filter(has=self.user_row(name))
+        row.get_by_test_id("item-options").click()
+        self.page.get_by_test_id("options-edit-user").click()
+        self.dialog.wait_until_open()
+        self.dialog.root.locator("input[inputmode='numeric']").fill(height)
+        self.dialog.save()
+        self.wait_until_idle()
+
+    def user_row(self, name: str) -> Locator:
+        return self.page.get_by_role("cell", name=name, exact=True)
+
     @property
     def log(self) -> Locator:
         return self.page.get_by_test_id("log")

@@ -216,6 +216,7 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
         &self,
         name: domain::Name,
         sex: domain::Sex,
+        height: Option<u8>,
     ) -> Result<domain::User, domain::CreateError> {
         let r: User = self
             .fetch(
@@ -223,6 +224,7 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
                 Some(&UserData {
                     name: name.to_string(),
                     sex: sex as u8,
+                    height,
                 }),
             )
             .await?;
@@ -631,6 +633,8 @@ pub struct User {
     pub id: u128,
     pub name: String,
     pub sex: u8,
+    #[serde(default)]
+    pub height: Option<u8>,
 }
 
 impl From<domain::User> for User {
@@ -639,6 +643,7 @@ impl From<domain::User> for User {
             id: value.id.as_u128(),
             name: value.name.to_string(),
             sex: value.sex as u8,
+            height: value.height,
         }
     }
 }
@@ -651,6 +656,7 @@ impl TryFrom<User> for domain::User {
             id: value.id.into(),
             name: domain::Name::new(&value.name)?,
             sex: value.sex.into(),
+            height: value.height,
         })
     }
 }
@@ -659,6 +665,7 @@ impl TryFrom<User> for domain::User {
 pub struct UserData {
     pub name: String,
     pub sex: u8,
+    pub height: Option<u8>,
 }
 
 impl From<domain::User> for UserData {
@@ -666,6 +673,7 @@ impl From<domain::User> for UserData {
         Self {
             name: value.name.to_string(),
             sex: value.sex as u8,
+            height: value.height,
         }
     }
 }
@@ -1289,6 +1297,7 @@ mod tests {
             id: (2u128.pow(64) - 1).into(),
             name: domain::Name::new("A").unwrap(),
             sex,
+            height: Some(180),
         }
         .into();
         let serialized = json!(obj);
@@ -1519,7 +1528,7 @@ mod tests {
                         .status(200)
                         .json(&User::from(USER.clone())),
                 ))
-                .create_user(USER.name.clone(), USER.sex)
+                .create_user(USER.name.clone(), USER.sex, USER.height)
                 .await
                 .unwrap(),
                 USER.clone()

@@ -8,12 +8,13 @@ use crate::{
     DATA_CHANGED, DOMAIN_SERVICE, WEB_APP_SERVICE,
     diagnostics::log_failure,
     notification::notify,
+    session::{Session, SessionRefresh},
     signal_changed_data,
     ui::{
         element::{
             Block, CenteredBlock, Color, DeleteConfirmationDialog, Error, ErrorMessage, Icon,
             ItemOptionsButton, Loading, MenuOption, Message, NoConnection, OptionsMenu, SaveDialog,
-            Table, Title,
+            Table, Title, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -54,9 +55,9 @@ pub fn Users() -> Element {
         let mut saved = false;
         is_loading! {
             match &*dialog.read() {
-                UserDialog::Add { name, sex } => {
-                    if let (Ok(name), Ok(sex)) = (name.validated.clone(), sex.validated.clone()) {
-                        match DOMAIN_SERVICE().create_user(name, sex).await {
+                UserDialog::Add { name, sex, height } => {
+                    if let (Ok(name), Ok(sex), Ok(height)) = (name.validated.clone(), sex.validated.clone(), height.validated.clone()) {
+                        match DOMAIN_SERVICE().create_user(name, sex, height).await {
                             Ok(_) => {
                                 saved = true;
                                 signal_changed_data();
@@ -67,13 +68,16 @@ pub fn Users() -> Element {
                         }
                     }
                 },
-                UserDialog::Edit { id, name, sex } => {
-                    if let (Ok(name), Ok(sex)) = (name.validated.clone(), sex.validated.clone()) {
+                UserDialog::Edit { id, name, sex, height } => {
+                    if let (Ok(name), Ok(sex), Ok(height)) = (name.validated.clone(), sex.validated.clone(), height.validated.clone()) {
                         let id = *id;
-                        match DOMAIN_SERVICE().replace_user(domain::User { id, name, sex }).await {
+                        match DOMAIN_SERVICE().replace_user(domain::User { id, name, sex, height }).await {
                             Ok(_) => {
                                 saved = true;
                                 signal_changed_data();
+                                if id == consume_context::<Session>().user.id {
+                                    consume_context::<SessionRefresh>().refresh();
+                                }
                             },
                             Err(err) => {
                                 notify("Failed to edit user", &err);
@@ -114,12 +118,13 @@ pub fn Users() -> Element {
             Some(Ok(users)) => {
                 rsx! {
                     Table {
-                        head: vec![rsx! { "Name" }, rsx! { "Sex" }, rsx! {}],
+                        head: vec![rsx! { "Name" }, rsx! { "Sex" }, rsx! { "Height (cm)" }, rsx! {}],
                         body: users.iter().map(|user| {
                             let user = user.clone();
                             vec![
                                 rsx! { "{user.name}" },
                                 rsx! { "{user.sex}" },
+                                rsx! { {value_or_dash(user.height)} },
                                 rsx! {
                                     ItemOptionsButton { on_click: move |_| { *dialog.write() = UserDialog::Options(user.clone()); } }
                                 }
@@ -129,10 +134,12 @@ pub fn Users() -> Element {
                     CenteredBlock {
                         button {
                             class: "button is-link",
+                            "data-testid": "add-user",
                             onclick: move |_| {
                                 *dialog.write() = UserDialog::Add {
                                     name: FieldValue::default(),
                                     sex: FieldValue::new(domain::Sex::MALE),
+                                    height: FieldValue::from_option(None),
                                 };
                             },
                             Icon { name: "user-plus" }
@@ -167,6 +174,7 @@ pub fn Users() -> Element {
                                 MenuOption {
                                     icon: "user-edit".to_string(),
                                     text: "Edit user".to_string(),
+                                    "data-testid": "options-edit-user",
                                     on_click: move |_| {
                                         *dialog.write() = UserDialog::Edit {
                                             id: user_edit.id,
@@ -179,7 +187,8 @@ pub fn Users() -> Element {
                                                 input: user_edit.sex.to_string(),
                                                 validated: Ok(user_edit.sex),
                                                 orig: user_edit.sex.to_string()
-                                            }
+                                            },
+                                            height: FieldValue::from_option(user_edit.height),
                                         };
                                     }
                                 },
@@ -194,13 +203,13 @@ pub fn Users() -> Element {
                     }
                 }
             },
-            UserDialog::Add { name, sex } | UserDialog::Edit { name, sex, .. } => rsx! {
+            UserDialog::Add { name, sex, height } | UserDialog::Edit { name, sex, height, .. } => rsx! {
                 SaveDialog {
                     title: rsx! { if let UserDialog::Add { .. } = &*dialog.read() { "Add user" } else { "Edit user" } },
                     on_close: close,
                     on_save: save,
                     is_loading: is_loading(),
-                    disabled: (!name.changed() && !sex.changed()) || !name.valid() || !sex.valid(),
+                    disabled: (!name.changed() && !sex.changed() && !height.changed()) || !name.valid() || !sex.valid() || !height.valid(),
                     InputField {
                         label: "Name".to_string(),
                         value: name.input.clone(),
@@ -271,6 +280,22 @@ pub fn Users() -> Element {
                             }
                         }
                     }
+                    InputField {
+                        label: "Height".to_string(),
+                        right_icon: rsx! { "cm" },
+                        inputmode: "numeric".to_string(),
+                        value: height.input.clone(),
+                        error: if let Err(err) = &height.validated { err.clone() },
+                        has_changed: height.changed(),
+                        on_input: move |event: FormEvent| {
+                            if let UserDialog::Add { height, .. } | UserDialog::Edit { height, .. } = &mut *dialog.write() {
+                                height.input = event.value();
+                                height.validated = DOMAIN_SERVICE()
+                                    .validate_user_height(&height.input)
+                                    .map_err(|err| err.to_string());
+                            }
+                        }
+                    }
                 }
             },
             UserDialog::Delete(user) => rsx! {
@@ -292,11 +317,13 @@ enum UserDialog {
     Add {
         name: FieldValue<domain::Name>,
         sex: FieldValue<domain::Sex>,
+        height: FieldValue<Option<u8>>,
     },
     Edit {
         id: domain::UserID,
         name: FieldValue<domain::Name>,
         sex: FieldValue<domain::Sex>,
+        height: FieldValue<Option<u8>>,
     },
     Delete(domain::User),
 }

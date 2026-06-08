@@ -5,6 +5,7 @@ from .body_fat import BodyFatPage as BodyFatPage
 from .body_weight import BodyWeightPage as BodyWeightPage
 from .exercise import ExercisePage as ExercisePage
 from .exercises import ExercisesPage as ExercisesPage
+from .ffmi import FfmiPage as FfmiPage
 from .home import HomePage as HomePage
 from .login import LoginPage as LoginPage
 from .menstrual_cycle import MenstrualCyclePage as MenstrualCyclePage

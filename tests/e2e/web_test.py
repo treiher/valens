@@ -33,6 +33,7 @@ from .pages import (
     DropSetCalculatorDialog,
     ExercisePage,
     ExercisesPage,
+    FfmiPage,
     HomePage,
     LoginPage,
     MenstrualCyclePage,
@@ -181,11 +182,68 @@ def test_home_links(page: Page) -> None:
     body_fat_page.navbar.go_back()
     home_page.expect_page()
 
+    home_page.go_to_ffmi()
+    ffmi_page = FfmiPage(page)
+    ffmi_page.expect_page()
+    ffmi_page.navbar.go_back()
+    home_page.expect_page()
+
     home_page.go_to_menstrual_cycle()
     menstrual_cycle_page = MenstrualCyclePage(page)
     menstrual_cycle_page.expect_page()
     menstrual_cycle_page.navbar.go_back()
     home_page.expect_page()
+
+
+def test_ffmi(page: Page) -> None:
+    login(page)
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+    expect(home_page.ffmi).to_be_visible()
+
+    home_page.go_to_ffmi()
+
+    ffmi_page = FfmiPage(page)
+    ffmi_page.expect_page()
+    ffmi_page.wait_until_idle()
+
+    expect(ffmi_page.chart).to_be_visible()
+    expect(ffmi_page.interval_button("ALL")).to_be_visible()
+
+
+def test_ffmi_requires_height(page: Page) -> None:
+    login_page = LoginPage(page)
+    login_page.goto()
+    login_page.login(USERNAMES[1])
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+    expect(home_page.ffmi).to_have_count(0)
+
+    ffmi_page = FfmiPage(page)
+    ffmi_page.goto()
+    ffmi_page.expect_height_missing_message()
+
+    admin_page = AdminPage(page)
+    admin_page.goto()
+    admin_page.edit_user_height(USERNAMES[1], "185")
+
+    admin_page.navbar.go_back()
+    home_page.expect_page()
+    expect(home_page.ffmi).to_be_visible()
+
+
+def test_add_user_with_height(page: Page) -> None:
+    login(page)
+
+    admin = AdminPage(page)
+    admin.goto()
+
+    admin.add_user("Dave", "182")
+
+    expect(admin.user_row("Dave")).to_be_visible()
+    expect(admin.user_row("182")).to_be_visible()
 
 
 def test_body_weight_add(page: Page) -> None:

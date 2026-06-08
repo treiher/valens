@@ -153,6 +153,31 @@ def test_user_update(tmp_path: Path) -> None:
     assert not any("Alice" in line for line in lines)
 
 
+def test_user_height(tmp_path: Path) -> None:
+    config = create_config_file(tmp_path, tmp_path / "test.db")
+    env = {"VALENS_CONFIG": str(config), **os.environ}
+    run(
+        f"{VALENS} user create Alice female --height 175".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    p = run(f"{VALENS} user list".split(), check=False, stdout=PIPE, stderr=STDOUT, env=env)
+    assert any("Alice" in line and "175" in line for line in p.stdout.decode("utf-8").splitlines())
+    run(
+        f"{VALENS} user update Alice --height 0".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    p = run(f"{VALENS} user list".split(), check=False, stdout=PIPE, stderr=STDOUT, env=env)
+    assert not any(
+        "Alice" in line and "175" in line for line in p.stdout.decode("utf-8").splitlines()
+    )
+
+
 def test_user_update_duplicate(tmp_path: Path) -> None:
     config = create_config_file(tmp_path, tmp_path / "test.db")
     env = {"VALENS_CONFIG": str(config), **os.environ}

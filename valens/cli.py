@@ -88,6 +88,12 @@ def main() -> int:
         choices=["female", "male"],
         help="biological sex",
     )
+    parser_user_create.add_argument(
+        "--height",
+        type=int,
+        metavar="CM",
+        help="body height in cm (1-255)",
+    )
 
     parser_user_update = user_subparsers.add_parser("update", help="update a user")
     parser_user_update.set_defaults(func=update_user)
@@ -99,6 +105,13 @@ def main() -> int:
         choices=["female", "male"],
         metavar="SEX",
         help="new biological sex (female or male)",
+    )
+    parser_user_update.add_argument(
+        "--height",
+        dest="new_height",
+        type=int,
+        metavar="CM",
+        help="new body height in cm (1-255, or 0 to clear)",
     )
 
     parser_user_delete = user_subparsers.add_parser("delete", help="delete a user")
@@ -157,7 +170,8 @@ def list_users(_: argparse.Namespace) -> int:
         config.check_config_file(os.environ.copy())
         users = db.session.execute(select(User)).scalars().all()
         for user in users:
-            print(f"{user.id}\t{user.name}\t{user.sex.name.lower()}")
+            height = user.height if user.height is not None else ""
+            print(f"{user.id}\t{user.name}\t{user.sex.name.lower()}\t{height}")
 
     return 0
 
@@ -168,13 +182,19 @@ def create_user(args: argparse.Namespace) -> int:
         print("Username must not be empty", file=sys.stderr)
         return 1
 
+    try:
+        height = _resolve_height(args.height)
+    except ValueError:
+        print("Height must be a whole number between 1 and 255", file=sys.stderr)
+        return 1
+
     with app.app_context():
         config.check_config_file(os.environ.copy())
         if db.session.execute(select(User).where(User.name == name)).scalars().one_or_none():
             print(f'User "{name}" already exists', file=sys.stderr)
             return 1
         sex = Sex.FEMALE if args.sex == "female" else Sex.MALE
-        db.session.add(User(name=name, sex=sex))
+        db.session.add(User(name=name, sex=sex, height=height))
         db.session.commit()
         print(f'Created user "{name}"')
 
@@ -186,9 +206,17 @@ def update_user(args: argparse.Namespace) -> int:
     if new_name is not None and not new_name:
         print("Username must not be empty", file=sys.stderr)
         return 1
-    if new_name is None and args.new_sex is None:
-        print("At least one of --name or --sex must be provided", file=sys.stderr)
+    if new_name is None and args.new_sex is None and args.new_height is None:
+        print("At least one of --name, --sex or --height must be provided", file=sys.stderr)
         return 1
+
+    new_height: int | None = None
+    if args.new_height is not None:
+        try:
+            new_height = _resolve_height(args.new_height)
+        except ValueError:
+            print("Height must be a whole number between 1 and 255", file=sys.stderr)
+            return 1
 
     with app.app_context():
         config.check_config_file(os.environ.copy())
@@ -209,6 +237,8 @@ def update_user(args: argparse.Namespace) -> int:
             user.name = new_name
         if args.new_sex is not None:
             user.sex = Sex.FEMALE if args.new_sex == "female" else Sex.MALE
+        if args.new_height is not None:
+            user.height = new_height
         db.session.commit()
         print(f'Updated user "{args.name}"')
 
@@ -229,3 +259,16 @@ def delete_user(args: argparse.Namespace) -> int:
         print(f'Deleted user "{args.name}"')
 
     return 0
+
+
+def _resolve_height(value: int | None) -> int | None:
+    """
+    Return the stored height for a `--height` value, treating `0` as unset.
+
+    Raises `ValueError` if `value` is outside the storable range of `1` to `255`.
+    """
+    if value is None or value == 0:
+        return None
+    if not 0 < value <= 255:
+        raise ValueError
+    return value

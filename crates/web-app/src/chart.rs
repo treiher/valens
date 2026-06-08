@@ -17,6 +17,7 @@ pub const COLOR_BODY_WEIGHT: usize = 1;
 pub const COLOR_AVG_BODY_WEIGHT: usize = 1;
 pub const COLOR_BODY_FAT_JP3: usize = 4;
 pub const COLOR_BODY_FAT_JP7: usize = 0;
+pub const COLOR_FFMI: usize = 7;
 pub const COLOR_PERIOD_INTENSITY: usize = 0;
 pub const COLOR_LOAD: usize = 1;
 pub const COLOR_LONG_TERM_LOAD: usize = 1;

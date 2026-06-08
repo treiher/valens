@@ -7,6 +7,7 @@ pub mod catalog;
 pub mod common;
 pub mod exercise;
 pub mod exercises;
+pub mod ffmi;
 pub mod home;
 pub mod login;
 pub mod menstrual_cycle;

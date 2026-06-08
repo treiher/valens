@@ -75,6 +75,7 @@ pub fn Navbar() -> Element {
         Route::Muscles { .. } => "Muscles".to_string(),
         Route::BodyWeight { .. } => "Body weight".to_string(),
         Route::BodyFat { .. } => "Body fat".to_string(),
+        Route::Ffmi {} => "FFMI".to_string(),
         Route::MenstrualCycle { .. } => "Menstrual cycle".to_string(),
         Route::NotFound { .. } => String::new(),
     };
@@ -87,6 +88,7 @@ pub fn Navbar() -> Element {
         | Route::Muscles { .. }
         | Route::BodyWeight { .. }
         | Route::BodyFat { .. }
+        | Route::Ffmi {}
         | Route::MenstrualCycle { .. }
         | Route::NotFound { .. } => Some(Route::Home {}),
         Route::TrainingSession { .. } => Some(Route::TrainingSessions { add: false }),

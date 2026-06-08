@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, TrainingSessionService};
+use valens_domain::{self as domain, BodyWeightService, TrainingSessionService};
 
 use crate::{
     DOMAIN_SERVICE, Route,
@@ -14,6 +14,22 @@ pub fn Home() -> Element {
     let user = consume_context::<Session>().user;
     let cache = consume_context::<Cache>();
     let today = chrono::Local::now().date_naive();
+    let sex = user.sex;
+    let height = user.height;
+
+    let latest_ffmi = use_memo(move || {
+        if let (Some(height), CacheState::Ready(body_fat), CacheState::Ready(body_weight)) =
+            (height, &*cache.body_fat.read(), &*cache.body_weight.read())
+        {
+            let avg_body_weight = DOMAIN_SERVICE().avg_body_weight(body_weight);
+            domain::ffmi(&avg_body_weight, body_fat, sex, height)
+                .into_iter()
+                .filter(|(date, _)| *date <= today)
+                .max_by(|a, b| a.0.cmp(&b.0))
+        } else {
+            None
+        }
+    });
 
     let training_subtitle = match &*cache.training_sessions.read() {
         CacheState::Ready(training_sessions) => {
@@ -92,6 +108,33 @@ pub fn Home() -> Element {
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
+    let ffmi_subtitle = if user.height.is_some() {
+        match (&*cache.body_fat.read(), &*cache.body_weight.read()) {
+            (CacheState::Ready(_), CacheState::Ready(_)) => latest_ffmi()
+                .map(|(date, value)| rsx! { strong { "{value:.1}" } " ({last(date)})" }),
+            (
+                CacheState::Error(
+                    domain::ReadError::NotFound
+                    | domain::ReadError::Storage(domain::StorageError::NoConnection),
+                ),
+                _,
+            )
+            | (
+                _,
+                CacheState::Error(
+                    domain::ReadError::NotFound
+                    | domain::ReadError::Storage(domain::StorageError::NoConnection),
+                ),
+            ) => None,
+            (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
+                Some(rsx! { Error { message: "{err}" } })
+            }
+            (CacheState::Loading, _) | (_, CacheState::Loading) => Some(rsx! { Loading {} }),
+        }
+    } else {
+        None
+    };
+
     let menstrual_cycle_subtitle = {
         if user.sex == domain::Sex::FEMALE {
             match &*cache.period.read() {
@@ -157,6 +200,15 @@ pub fn Home() -> Element {
                 target: Route::BodyFat { add: false },
                 target_add: Some(Route::BodyFat { add: true }),
                 subtitle: body_fat_subtitle,
+            }
+            if user.height.is_some() {
+                Tile {
+                    title: "FFMI",
+                    testid: "home-ffmi",
+                    target: Route::Ffmi {},
+                    target_add: None,
+                    subtitle: ffmi_subtitle,
+                }
             }
             if user.sex == domain::Sex::FEMALE {
                 Tile {

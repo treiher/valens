@@ -151,6 +151,14 @@ def to_routine_activity(  # type: ignore[explicit-any]
     )
 
 
+def to_user_height(json: Any) -> int | None:  # type: ignore[explicit-any]
+    if json is None:
+        return None
+    if isinstance(json, bool) or not isinstance(json, int) or json <= 0:
+        raise ValueError("height must be a positive integer")
+    return json
+
+
 def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # type: ignore[explicit-any]
     return [
         (
@@ -219,7 +227,14 @@ def read_session() -> ResponseReturnValue:
     if "username" not in session or "user_id" not in session or "sex" not in session:
         return "", HTTPStatus.NOT_FOUND
 
-    return jsonify({"id": session["user_id"], "name": session["username"], "sex": session["sex"]})
+    return jsonify(
+        {
+            "id": session["user_id"],
+            "name": session["username"],
+            "sex": session["sex"],
+            "height": session.get("height"),
+        }
+    )
 
 
 @bp.route("/session", methods=["POST"])
@@ -239,6 +254,7 @@ def create_session() -> ResponseReturnValue:
     session["user_id"] = user.id
     session["username"] = user.name
     session["sex"] = user.sex
+    session["height"] = user.height
     session.permanent = True
 
     return jsonify(to_dict(user))
@@ -277,7 +293,11 @@ def create_user() -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        user = User(name=data["name"].strip(), sex=Sex(data["sex"]))
+        user = User(
+            name=data["name"].strip(),
+            sex=Sex(data["sex"]),
+            height=to_user_height(data.get("height")),
+        )
     except (KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -311,6 +331,7 @@ def replace_user(user_id: int) -> ResponseReturnValue:
     try:
         user.name = data["name"].strip()
         user.sex = Sex(data["sex"])
+        user.height = to_user_height(data.get("height"))
     except (KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -318,6 +339,11 @@ def replace_user(user_id: int) -> ResponseReturnValue:
         db.session.commit()
     except IntegrityError as e:
         return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    if user.id == session["user_id"]:
+        session["username"] = user.name
+        session["sex"] = user.sex
+        session["height"] = user.height
 
     return jsonify(to_dict(user)), HTTPStatus.OK
 

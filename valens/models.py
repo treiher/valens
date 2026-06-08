@@ -46,10 +46,18 @@ class Sex(enum.IntEnum):
 
 class User(Base):
     __tablename__ = "user"
+    __table_args__ = (
+        CheckConstraint(
+            "typeof(height) = 'integer' or typeof(height) = 'null'",
+            name="height_type_integer_or_null",
+        ),
+        CheckConstraint(column("height") > 0, name="height_gt_0"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     sex: Mapped[Sex] = mapped_column(Enum(Sex), nullable=False)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     body_weight: Mapped[list[BodyWeight]] = relationship(
         "BodyWeight", backref="user", cascade="all, delete-orphan", passive_deletes=True

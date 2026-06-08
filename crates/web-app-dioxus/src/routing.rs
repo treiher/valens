@@ -8,7 +8,7 @@ use crate::{
     navbar::Navbar,
     page::{
         admin::Admin, body_fat::BodyFat, body_weight::BodyWeight, catalog::Catalog,
-        exercise::Exercise, exercises::Exercises, home::Home, login::Login,
+        exercise::Exercise, exercises::Exercises, ffmi::Ffmi, home::Home, login::Login,
         menstrual_cycle::MenstrualCycle, muscles::Muscles, not_found::NotFound, routine::Routine,
         routines::Routines, training_session::TrainingSession, training_sessions::TrainingSessions,
     },
@@ -47,6 +47,8 @@ pub enum Route {
             BodyWeight { add: bool },
             #[route("/body_fat?:add")]
             BodyFat { add: bool },
+            #[route("/ffmi")]
+            Ffmi {},
             #[route("/menstrual_cycle?:add")]
             MenstrualCycle { add: bool },
         #[end_layout]

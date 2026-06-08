@@ -121,10 +121,15 @@ pub fn LoadingPage() -> Element {
 }
 
 #[component]
-pub fn Message(children: Element, color: Color) -> Element {
+pub fn Message(
+    children: Element,
+    color: Color,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
     rsx! {
         div {
             class: "message my-1 is-{color}",
+            ..attributes,
             div {
                 class: "message-body p-2",
                 {children}

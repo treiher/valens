@@ -669,6 +669,7 @@ pub fn IntervalControl(
                     a {
                         class: "button is-small",
                         class: if is_active { "is-link" },
+                        "data-testid": "interval-{name}",
                         onclick: move |_| { *current_interval.write() = domain::Interval { first, last } },
                         "{name}"
                     }

@@ -99,7 +99,12 @@ def test_json_required(client: Client, method: str, route: str) -> None:
     [
         ("post", "/api/session", {"invalid": "data"}),
         ("post", "/api/users", {"invalid": "data"}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": "invalid"}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 175.5}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": True}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 0}),
         ("put", "/api/users/2", {"invalid": "data"}),
+        ("put", "/api/users/2", {"name": "Carol", "sex": 0, "height": -175}),
         ("post", "/api/body_weight", {"invalid": "data"}),
         ("put", "/api/body_weight/2002-02-22", {"invalid": "data"}),
         ("post", "/api/body_fat", {"invalid": "data"}),
@@ -140,11 +145,11 @@ def test_session(client: Client) -> None:
 
     resp = create_session(client)
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 1, "name": "Alice", "sex": 0}
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168}
 
     resp = client.get("/api/session")
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 1, "name": "Alice", "sex": 0}
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168}
 
     resp = delete_session(client)
     assert resp.status_code == HTTPStatus.NO_CONTENT
@@ -174,8 +179,8 @@ def test_read_users(client: Client) -> None:
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0},
-        {"id": 2, "name": "Bob", "sex": 1},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
+        {"id": 2, "name": "Bob", "sex": 1, "height": None},
     ]
 
 
@@ -193,7 +198,7 @@ def test_read_user(client: Client) -> None:
     resp = client.get("/api/users/1")
 
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 1, "name": "Alice", "sex": 0}
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168}
 
     resp = delete_session(client)
     assert resp.status_code == HTTPStatus.NO_CONTENT
@@ -205,18 +210,18 @@ def test_create_user(client: Client) -> None:
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.post("/api/users", json={"name": "Carol", "sex": 0})
+    resp = client.post("/api/users", json={"name": "Carol", "sex": 0, "height": 175})
 
     assert resp.status_code == HTTPStatus.CREATED
-    assert resp.json == {"id": 3, "name": "Carol", "sex": 0}
+    assert resp.json == {"id": 3, "name": "Carol", "sex": 0, "height": 175}
 
     resp = client.get("/api/users")
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0},
-        {"id": 2, "name": "Bob", "sex": 1},
-        {"id": 3, "name": "Carol", "sex": 0},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
+        {"id": 2, "name": "Bob", "sex": 1, "height": None},
+        {"id": 3, "name": "Carol", "sex": 0, "height": 175},
     ]
 
 
@@ -239,15 +244,30 @@ def test_replace_user(client: Client) -> None:
     resp = client.put("/api/users/2", json={"name": "Carol", "sex": 0})
 
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 2, "name": "Carol", "sex": 0}
+    assert resp.json == {"id": 2, "name": "Carol", "sex": 0, "height": None}
 
     resp = client.get("/api/users")
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0},
-        {"id": 2, "name": "Carol", "sex": 0},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
+        {"id": 2, "name": "Carol", "sex": 0, "height": None},
     ]
+
+
+def test_replace_user_updates_session_of_current_user(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put("/api/users/1", json={"name": "Anna", "sex": 1, "height": 170})
+
+    assert resp.status_code == HTTPStatus.OK
+
+    resp = client.get("/api/session")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 1, "name": "Anna", "sex": 1, "height": 170}
 
 
 def test_replace_user_not_found(client: Client) -> None:
@@ -286,7 +306,7 @@ def test_delete_user(client: Client) -> None:
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
     ]
 
     resp = client.delete("/api/users/2")

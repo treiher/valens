@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from playwright.sync_api import expect
 
 from .base import BasePage
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Locator
 
 
 class HomePage(BasePage):
     @property
     def path(self) -> str:
         return "/home"
+
+    @property
+    def ffmi(self) -> Locator:
+        return self.page.get_by_test_id("home-ffmi")
 
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("home-training-sessions")).to_be_visible()
@@ -30,6 +39,9 @@ class HomePage(BasePage):
 
     def go_to_body_fat(self) -> None:
         self.page.get_by_test_id("home-body-fat").click()
+
+    def go_to_ffmi(self) -> None:
+        self.ffmi.click()
 
     def go_to_menstrual_cycle(self) -> None:
         self.page.get_by_test_id("home-menstrual-cycle").click()

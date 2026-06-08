@@ -21,7 +21,7 @@ from valens.models import (
 
 def users_only() -> list[User]:
     return [
-        User(id=1, name="Alice", sex=Sex.FEMALE),
+        User(id=1, name="Alice", sex=Sex.FEMALE, height=168),
         User(id=2, name="Bob", sex=Sex.MALE),
     ]
 
@@ -48,6 +48,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
             id=1,
             name="Alice",
             sex=Sex.FEMALE,
+            height=168,
             body_weight=[
                 BodyWeight(user_id=1, date=days_ago(20), weight=67.5),
                 BodyWeight(user_id=1, date=days_ago(19), weight=67.7),

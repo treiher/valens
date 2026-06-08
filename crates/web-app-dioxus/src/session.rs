@@ -13,12 +13,23 @@ pub struct Session {
     pub user: domain::User,
 }
 
+/// Handle for re-reading the session user after the user has been modified.
+#[derive(Clone, Copy)]
+pub struct SessionRefresh(Resource<Result<domain::User, domain::ReadError>>);
+
+impl SessionRefresh {
+    pub fn refresh(mut self) {
+        self.0.restart();
+    }
+}
+
 #[component]
 pub fn SessionProvider() -> Element {
     Cache::provide();
     Synchronization::provide();
     OngoingTrainingSession::provide();
     let session = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
+    use_context_provider(|| SessionRefresh(session));
     match &*session.read() {
         Some(Ok(user)) => {
             let user = user.clone();
@@ -35,7 +46,8 @@ pub fn SessionProvider() -> Element {
 
 #[component]
 fn AuthenticatedSession(user: domain::User) -> Element {
-    use_context_provider(|| Session { user: user.clone() });
+    // Re-provide the context on every render to keep it in sync with the re-read session user
+    provide_context(Session { user: user.clone() });
     use_effect(move || {
         consume_context::<Cache>().refresh();
         consume_context::<Synchronization>().sync();

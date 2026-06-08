@@ -16,6 +16,7 @@ pub use exercise::{
     ExerciseRepository, ExerciseService, Force, Laterality, Mechanic, MuscleID, MuscleIDError,
     Property, Stimulus, StimulusError,
 };
+pub use ffmi::ffmi;
 pub use name::{Name, NameError};
 pub use period::{
     CurrentCycle, Cycle, Intensity, IntensityError, Period, PeriodRepository, PeriodService,
@@ -46,6 +47,7 @@ mod body_fat;
 mod body_weight;
 mod error;
 mod exercise;
+mod ffmi;
 mod name;
 mod period;
 mod routine;

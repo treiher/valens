@@ -90,7 +90,7 @@ def test_main_user_list(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "check_config_file", lambda x: None)
     mock_session = MagicMock()
     mock_session.execute.return_value.scalars.return_value.all.return_value = [
-        models.User(id=1, name="Alice", sex=models.Sex.FEMALE),
+        models.User(id=1, name="Alice", sex=models.Sex.FEMALE, height=180),
         models.User(id=2, name="Bob", sex=models.Sex.MALE),
     ]
     monkeypatch.setattr(db, "session", mock_session)
@@ -109,6 +109,44 @@ def test_main_user_create(monkeypatch: pytest.MonkeyPatch) -> None:
     assert created_user.name == "Alice"
     assert created_user.sex == models.Sex.FEMALE
     mock_session.commit.assert_called_once()
+
+
+def test_main_user_create_height(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        sys, "argv", ["valens", "user", "create", "Alice", "female", "--height", "175"]
+    )
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = None
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    created_user = mock_session.add.call_args[0][0]
+    assert created_user.height == 175
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_create_height_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        sys, "argv", ["valens", "user", "create", "Alice", "female", "--height", "0"]
+    )
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = None
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    created_user = mock_session.add.call_args[0][0]
+    assert created_user.height is None
+
+
+def test_main_user_create_height_out_of_range(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        sys, "argv", ["valens", "user", "create", "Alice", "female", "--height", "256"]
+    )
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 1
+    mock_session.add.assert_not_called()
 
 
 def test_main_user_create_strips_name(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -183,6 +221,39 @@ def test_main_user_update_same_name(monkeypatch: pytest.MonkeyPatch) -> None:
     assert mock_user.name == "Alice"
     assert mock_user.sex == models.Sex.MALE
     mock_session.commit.assert_called_once()
+
+
+def test_main_user_update_height(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "update", "Alice", "--height", "175"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=1, name="Alice", sex=models.Sex.FEMALE)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    assert mock_user.height == 175
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_update_height_clears(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "update", "Alice", "--height", "0"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=1, name="Alice", sex=models.Sex.FEMALE, height=180)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    assert mock_user.height is None
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_update_height_out_of_range(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "update", "Alice", "--height", "256"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 1
+    mock_session.execute.assert_not_called()
 
 
 def test_main_user_update_strips_name(monkeypatch: pytest.MonkeyPatch) -> None:

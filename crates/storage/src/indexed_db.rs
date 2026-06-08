@@ -344,6 +344,7 @@ impl domain::UserRepository for IndexedDB {
         &self,
         _name: domain::Name,
         _sex: domain::Sex,
+        _height: Option<u8>,
     ) -> Result<domain::User, domain::CreateError> {
         panic!("unsupported")
     }
@@ -657,6 +658,8 @@ pub struct User {
     pub id: Uuid,
     pub name: String,
     pub sex: u8,
+    #[serde(default)]
+    pub height: Option<u8>,
 }
 
 impl From<domain::User> for User {
@@ -671,6 +674,7 @@ impl From<&domain::User> for User {
             id: *value.id,
             name: value.name.to_string(),
             sex: value.sex as u8,
+            height: value.height,
         }
     }
 }
@@ -683,6 +687,7 @@ impl TryFrom<User> for domain::User {
             id: value.id.into(),
             name: domain::Name::new(&value.name)?,
             sex: value.sex.into(),
+            height: value.height,
         })
     }
 }
@@ -1288,6 +1293,7 @@ mod tests {
             id: (2u128.pow(64) - 1).into(),
             name: domain::Name::new("A").unwrap(),
             sex,
+            height: Some(180),
         }
         .into();
         let serialized = json!(obj);
@@ -1485,7 +1491,9 @@ mod tests {
         #[wasm_bindgen_test]
         #[should_panic]
         async fn test_create_user() {
-            let _ = IndexedDB.create_user(USER.name.clone(), USER.sex).await;
+            let _ = IndexedDB
+                .create_user(USER.name.clone(), USER.sex, USER.height)
+                .await;
         }
 
         #[wasm_bindgen_test]

@@ -64,6 +64,10 @@ class BasePage:
         self.page.get_by_test_id("options-rename").click()
         self.wait_until_idle()
 
+    @property
+    def page_title(self) -> Locator:
+        return self.page.get_by_test_id("page-title")
+
     def fab(self) -> Locator:
         return self.page.get_by_test_id("fab")
 

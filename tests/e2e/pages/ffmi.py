@@ -25,5 +25,30 @@ class FfmiPage(BasePage):
     def chart(self) -> Locator:
         return self.page.locator("svg").first
 
+    @property
+    def chart_tooltip(self) -> Locator:
+        return self.page.get_by_test_id("chart-tooltip")
+
+    def hover_chart_center(self) -> None:
+        self.page.get_by_test_id("chart-overlay").first.hover()
+
+    def touch_chart_center(self) -> None:
+        box = self.page.get_by_test_id("chart-overlay").first.bounding_box()
+        assert box
+        self._cdp = self.page.context.new_cdp_session(self.page)
+        self._cdp.send(
+            "Input.dispatchTouchEvent",
+            {
+                "type": "touchStart",
+                "touchPoints": [
+                    {"x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2}
+                ],
+            },
+        )
+
+    def release_touch(self) -> None:
+        self._cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+        self._cdp.detach()
+
     def interval_button(self, label: str) -> Locator:
         return self.page.get_by_test_id(f"interval-{label}")

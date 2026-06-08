@@ -7,7 +7,10 @@ use dioxus::prelude::*;
 use futures_util::StreamExt;
 use gloo_timers::future::IntervalStream;
 use log::{error, warn};
-use web_sys;
+use web_sys::{
+    self,
+    wasm_bindgen::{JsCast, closure::Closure},
+};
 
 use valens_domain::{self as domain, Property};
 use valens_web_app as web_app;
@@ -705,6 +708,9 @@ pub fn Chart(
     no_data_label: bool,
 ) -> Element {
     let settings = use_context::<Settings>();
+    // The size of the SVG and the pixel positions of the samples depend on the window width at
+    // the time of plotting
+    use_window_width();
     let labels: Vec<web_app::chart::ChartLabel> = series
         .iter()
         .map(web_app::chart::LabeledSeries::label)
@@ -715,17 +721,27 @@ pub fn Chart(
         web_app::chart::plot(&data, interval, settings.current_theme()).map_err(|e| e.to_string());
 
     match chart {
-        Ok(result) => match result {
-            None => {
-                if no_data_label {
-                    rsx! {
-                        NoData {}
-                    }
-                } else {
-                    rsx! {}
+        Ok(None) => {
+            if no_data_label {
+                rsx! {
+                    NoData {}
                 }
+            } else {
+                rsx! {}
             }
-            Some(value) => rsx! {
+        }
+        Ok(Some(result)) => {
+            let web_app::chart::PlotResult { svg, series, area } = result;
+
+            let mut marks: Vec<(NaiveDate, i32)> = series
+                .iter()
+                .flat_map(|s| s.high.iter().chain(s.low.iter().flatten()))
+                .map(|sample| (sample.date, sample.x))
+                .collect();
+            marks.sort_by_key(|(_, x)| *x);
+            marks.dedup_by_key(|(date, _)| *date);
+
+            rsx! {
                 div {
                     class: "container has-text-centered",
                     h1 {
@@ -750,12 +766,186 @@ pub fn Chart(
                         }
                     }
                     div {
-                        dangerous_inner_html: value,
+                        style: "position: relative; display: inline-block; touch-action: pan-y;
+                                -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;",
+                        div { dangerous_inner_html: svg }
+                        ChartOverlay { marks, series, area }
                     }
                 }
-            },
-        },
+            }
+        }
         Err(err) => rsx! { Error { message: err } },
+    }
+}
+
+static WINDOW_WIDTH: GlobalSignal<f64> = Signal::global(window_width);
+static RESIZE_LISTENER: std::sync::Once = std::sync::Once::new();
+
+/// Subscribes the component to changes of the window width and returns the current width.
+fn use_window_width() -> f64 {
+    use_hook(|| {
+        RESIZE_LISTENER.call_once(|| {
+            let Some(window) = web_sys::window() else {
+                warn!("failed to access window");
+                return;
+            };
+            let closure = Closure::<dyn FnMut()>::new(|| {
+                *WINDOW_WIDTH.write() = window_width();
+            });
+            if let Err(e) =
+                window.add_event_listener_with_callback("resize", closure.as_ref().unchecked_ref())
+            {
+                warn!("failed to register resize handler: {e:?}");
+                return;
+            }
+            closure.forget();
+        });
+    });
+
+    WINDOW_WIDTH()
+}
+
+fn window_width() -> f64 {
+    web_sys::window()
+        .and_then(|window| window.inner_width().ok())
+        .and_then(|width| width.as_f64())
+        .unwrap_or_default()
+}
+
+/// Transparent layer over a chart that tracks the pointer and renders the
+/// hover crosshair, markers and value tooltip.
+///
+/// Owns the hover state, so pointer movement re-renders only this overlay and
+/// not the chart SVG.
+#[component]
+fn ChartOverlay(
+    marks: Vec<(NaiveDate, i32)>,
+    series: Vec<web_app::chart::SeriesSamples>,
+    area: web_app::chart::PlotArea,
+) -> Element {
+    let mut hovered = use_signal(|| None::<i32>);
+    let active = hovered.read().and_then(|x| nearest_mark(&marks, x));
+
+    // A tap emits no pointer movement, so the position must also be tracked on pointer down
+    let track_pointer = move |event: PointerEvent| {
+        #[allow(clippy::cast_possible_truncation)]
+        let x = event.element_coordinates().x as i32;
+        if x < area.left || x > area.right {
+            hovered.set(None);
+        } else {
+            hovered.set(Some(x));
+        }
+    };
+
+    rsx! {
+        div {
+            "data-testid": "chart-overlay",
+            style: "position: absolute; inset: 0;
+                    -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;",
+            // A long press must not open the browser's context menu
+            oncontextmenu: move |event| event.prevent_default(),
+            onpointerdown: track_pointer,
+            onpointermove: track_pointer,
+            onpointerleave: move |_| hovered.set(None),
+            onpointercancel: move |_| hovered.set(None),
+            if let Some((date, x)) = active {
+                ChartHover { series, area, date, x }
+            }
+        }
+    }
+}
+
+#[component]
+fn ChartHover(
+    series: Vec<web_app::chart::SeriesSamples>,
+    area: web_app::chart::PlotArea,
+    date: NaiveDate,
+    x: i32,
+) -> Element {
+    // One tooltip row per series; a band (both edges present) collapses to a
+    // single `low – high` range row.
+    let mut rows: Vec<(String, String)> = vec![];
+    let mut dots: Vec<(String, i32, i32)> = vec![];
+    for s in &series {
+        let color = web_app::chart::hex_color(s.color, s.opacity);
+        let high = s.high.iter().find(|p| p.date == date);
+        let low = s
+            .low
+            .as_ref()
+            .and_then(|l| l.iter().find(|p| p.date == date));
+        for sample in high.into_iter().chain(low) {
+            dots.push((color.clone(), sample.x, sample.y));
+        }
+        let label = match (high, low) {
+            (Some(h), Some(l)) => {
+                let (lo, hi) = (h.value.min(l.value), h.value.max(l.value));
+                format!("{} – {}", format_value(lo), format_value(hi))
+            }
+            (Some(p), None) | (None, Some(p)) => format_value(p.value),
+            (None, None) => continue,
+        };
+        rows.push((color, label));
+    }
+    // The plotted samples are built from the series in reverse order, so undo
+    // that here to match the order of the legend.
+    rows.reverse();
+
+    let tooltip_transform = if x.saturating_mul(2) > area.left + area.right {
+        "translateX(calc(-100% - 8px))"
+    } else {
+        "translateX(8px)"
+    };
+
+    rsx! {
+        div {
+            style: "position: absolute; pointer-events: none; width: 1px;
+                    left: {x}px; top: {area.top}px; height: {area.bottom - area.top}px;
+                    background: rgba(128, 128, 128, 0.8);",
+        }
+        for (color, dot_x, dot_y) in dots {
+            div {
+                style: "position: absolute; pointer-events: none; border-radius: 50%;
+                        width: 7px; height: 7px; margin: -4px 0 0 -4px;
+                        left: {dot_x}px; top: {dot_y}px; background: {color};",
+            }
+        }
+        div {
+            class: "box p-2 has-text-left",
+            "data-testid": "chart-tooltip",
+            style: "position: absolute; pointer-events: none; white-space: nowrap; z-index: 1;
+                    left: {x}px; top: {area.top}px; transform: {tooltip_transform};",
+            div { class: "is-size-7 has-text-centered has-text-weight-bold", "{date}" }
+            for (color, label) in rows {
+                div {
+                    class: "icon-text is-size-7",
+                    style: "flex-wrap: nowrap",
+                    span {
+                        class: "icon",
+                        style: "color: {color}",
+                        i { class: "fas fa-square" }
+                    }
+                    span { "{label}" }
+                }
+            }
+        }
+    }
+}
+
+fn nearest_mark(marks: &[(NaiveDate, i32)], x: i32) -> Option<(NaiveDate, i32)> {
+    marks
+        .iter()
+        .min_by_key(|(_, mark_x)| (mark_x - x).abs())
+        .copied()
+}
+
+fn format_value(value: f32) -> String {
+    let formatted = format!("{value:.2}");
+    let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
+    // Negative values that round to zero must not be displayed as `-0`
+    if trimmed == "-0" {
+        "0".to_string()
+    } else {
+        trimmed.to_string()
     }
 }
 
@@ -1178,7 +1368,47 @@ fn decimal_places(increment: f32) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{decimal_places, parse_drop_percentage};
+    use chrono::NaiveDate;
+
+    use super::{decimal_places, format_value, nearest_mark, parse_drop_percentage};
+
+    fn date(day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 1, day).unwrap()
+    }
+
+    #[test]
+    fn nearest_mark_picks_closest_pixel() {
+        let marks = [(date(1), 0), (date(2), 50), (date(3), 100)];
+        assert_eq!(nearest_mark(&marks, 60), Some((date(2), 50)));
+        assert_eq!(nearest_mark(&marks, 90), Some((date(3), 100)));
+        assert_eq!(nearest_mark(&marks, -20), Some((date(1), 0)));
+    }
+
+    #[test]
+    fn nearest_mark_on_tie_keeps_earlier() {
+        let marks = [(date(1), 0), (date(2), 100)];
+        assert_eq!(nearest_mark(&marks, 50), Some((date(1), 0)));
+    }
+
+    #[test]
+    fn nearest_mark_without_marks_is_none() {
+        assert_eq!(nearest_mark(&[], 10), None);
+    }
+
+    #[test]
+    fn format_value_trims_trailing_zeros() {
+        assert_eq!(format_value(82.3), "82.3");
+        assert_eq!(format_value(5.0), "5");
+        assert_eq!(format_value(0.25), "0.25");
+        assert_eq!(format_value(100.0), "100");
+    }
+
+    #[test]
+    fn format_value_avoids_negative_zero() {
+        assert_eq!(format_value(-0.001), "0");
+        assert_eq!(format_value(-0.25), "-0.25");
+        assert_eq!(format_value(-5.0), "-5");
+    }
 
     #[test]
     fn decimal_places_matches_preset_precision() {

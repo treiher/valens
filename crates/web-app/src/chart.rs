@@ -131,6 +131,43 @@ impl PlotData {
     }
 }
 
+/// A data point together with its pixel position in the rendered chart SVG.
+#[derive(Clone, Copy, PartialEq)]
+pub struct Sample {
+    pub date: NaiveDate,
+    pub value: f32,
+    pub x: i32,
+    pub y: i32,
+}
+
+/// Pixel-mapped samples of a single series, in the same order as the input.
+///
+/// `low` is present only for band plots and holds the lower edge.
+#[derive(Clone, PartialEq)]
+pub struct SeriesSamples {
+    pub color: usize,
+    pub opacity: f64,
+    pub high: Vec<Sample>,
+    pub low: Option<Vec<Sample>>,
+}
+
+/// Inner plotting rectangle in SVG pixel coordinates.
+#[derive(Clone, Copy, Default, PartialEq)]
+pub struct PlotArea {
+    pub left: i32,
+    pub right: i32,
+    pub top: i32,
+    pub bottom: i32,
+}
+
+/// The rendered chart SVG together with the pixel positions of its samples.
+#[derive(Clone, PartialEq)]
+pub struct PlotResult {
+    pub svg: String,
+    pub series: Vec<SeriesSamples>,
+    pub area: PlotArea,
+}
+
 #[derive(Clone, Copy, Default)]
 struct Bounds {
     min: f32,
@@ -208,7 +245,7 @@ pub fn plot(
     data: &[PlotData],
     interval: domain::Interval,
     theme: Theme,
-) -> Result<Option<String>, Box<dyn std::error::Error>> {
+) -> Result<Option<PlotResult>, Box<dyn std::error::Error>> {
     if all_zeros(data) {
         return Ok(None);
     }
@@ -218,6 +255,8 @@ pub fn plot(
     };
 
     let mut result = String::new();
+    let mut series = Vec::with_capacity(data.len());
+    let area;
 
     {
         let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
@@ -411,10 +450,54 @@ pub fn plot(
             }
         }
 
+        for plot_data in data {
+            let (color, opacity) = plot_data.dominant_color_and_opacity();
+            let sample = |values: &[(NaiveDate, f32)]| {
+                let mut samples = values
+                    .iter()
+                    .map(|(date, value)| {
+                        let (x, y) = if plot_data.params.secondary {
+                            chart.borrow_secondary().backend_coord(&(*date, *value))
+                        } else {
+                            chart.backend_coord(&(*date, *value))
+                        };
+                        Sample {
+                            date: *date,
+                            value: *value,
+                            x,
+                            y,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                samples.sort_by_key(|s| s.date);
+                samples
+            };
+            series.push(SeriesSamples {
+                color,
+                opacity,
+                high: sample(&plot_data.values_high),
+                low: plot_data.values_low.as_deref().map(sample),
+            });
+        }
+
+        let (left, bottom) =
+            chart.backend_coord(&(interval.first, primary_bounds.min_with_margin()));
+        let (right, top) = chart.backend_coord(&(interval.last, primary_bounds.max_with_margin()));
+        area = PlotArea {
+            left,
+            right,
+            top,
+            bottom,
+        };
+
         root.present()?;
     }
 
-    Ok(Some(result))
+    Ok(Some(PlotResult {
+        svg: result,
+        series,
+        area,
+    }))
 }
 
 #[must_use]

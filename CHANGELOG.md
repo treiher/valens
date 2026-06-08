@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FFMI (Fat-Free Mass Index) page with a chart and interval selection
 - Home page: Most recent FFMI
 - Administration page: Body height of users
+- Display of chart values at the hovered or touched date
 
 ### Changed
 

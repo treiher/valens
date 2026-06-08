@@ -234,6 +234,60 @@ def test_ffmi_requires_height(page: Page) -> None:
     expect(home_page.ffmi).to_be_visible()
 
 
+def test_chart_hover_shows_values(page: Page) -> None:
+    login(page)
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+    home_page.go_to_ffmi()
+
+    ffmi_page = FfmiPage(page)
+    ffmi_page.expect_page()
+    ffmi_page.wait_until_idle()
+
+    expect(ffmi_page.chart_tooltip).to_be_hidden()
+
+    ffmi_page.hover_chart_center()
+    expect(ffmi_page.chart_tooltip).to_be_visible()
+
+    ffmi_page.page_title.hover()
+    expect(ffmi_page.chart_tooltip).to_be_hidden()
+
+
+def test_chart_touch_shows_values(page: Page) -> None:
+    login(page)
+
+    ffmi_page = FfmiPage(page)
+    ffmi_page.goto()
+    ffmi_page.expect_page()
+    ffmi_page.wait_until_idle()
+
+    expect(ffmi_page.chart_tooltip).to_be_hidden()
+
+    ffmi_page.touch_chart_center()
+    expect(ffmi_page.chart_tooltip).to_be_visible()
+
+    ffmi_page.release_touch()
+
+
+def test_chart_resized_on_window_resize(page: Page) -> None:
+    login(page)
+
+    ffmi_page = FfmiPage(page)
+    ffmi_page.goto()
+    ffmi_page.expect_page()
+    ffmi_page.wait_until_idle()
+
+    width = ffmi_page.chart.get_attribute("width")
+    assert width
+
+    viewport = page.viewport_size
+    assert viewport
+    page.set_viewport_size({"width": viewport["width"] // 2, "height": viewport["height"]})
+
+    expect(ffmi_page.chart).not_to_have_attribute("width", width)
+
+
 def test_add_user_with_height(page: Page) -> None:
     login(page)
 

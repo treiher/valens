@@ -1,25 +1,45 @@
 name: Dependabot Auto-Rebase
 
+# Dependabot only rebases on conflicts, so with the "require branches to be
+# up to date" rule, PRs that fall behind main would block auto-merge forever.
+#
+# AUTOMATION_TOKEN is a fine-grained PAT (write access to contents and pull
+# requests) stored as an *Actions* secret, as push-triggered runs cannot see
+# the Dependabot store. GITHUB_TOKEN would not work, as Dependabot ignores
+# commands from the github-actions bot.
+
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+
+permissions: {}
 
 jobs:
   rebase:
     runs-on: ubuntu-latest
     steps:
-      - name: Rebase out-of-date Dependabot PRs
+      - run: |
+          # GitHub recomputes the merge state of open PRs asynchronously after
+          # a push, and the first query is what starts the computation. Query
+          # repeatedly until no PR reports UNKNOWN anymore, so PRs that are
+          # slow to settle are not silently skipped.
+          for attempt in 1 2 3; do
+            sleep 30
+            states=$(gh pr list --repo "$REPO" --author 'app/dependabot' \
+              --state open --json number,mergeStateStatus \
+              --jq '.[] | "\(.number) \(.mergeStateStatus)"')
+            grep -q 'UNKNOWN$' <<< "$states" || break
+            echo "Merge states still being computed (attempt $attempt):"
+            echo "$states"
+          done
+          if grep -q 'UNKNOWN$' <<< "$states"; then
+            echo "::warning::Merge states could not be determined, PRs may be skipped"
+          fi
+          awk '$2 == "BEHIND" { print $1 }' <<< "$states" |
+          while read -r pr; do
+            gh pr comment --repo "$REPO" "$pr" --body '@dependabot rebase' ||
+              echo "::warning::Could not request rebase of PR #$pr"
+          done
         env:
-          GH_TOKEN: ${{ secrets.REBASE_TOKEN }}
-          MAIN_SHA: ${{ github.sha }}
-        run: |
-          gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --author "dependabot[bot]" \
-            --state open \
-            --json number,baseRefOid \
-            | jq -r --arg sha "$MAIN_SHA" '.[] | select(.baseRefOid != $sha) | .number' \
-            | while read -r pr; do
-                gh pr update-branch "$pr" --repo "$GITHUB_REPOSITORY" --rebase
-              done
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}

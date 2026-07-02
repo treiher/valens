@@ -1,22 +1,24 @@
 name: Dependabot Auto-Merge
 
+# GitHub's native auto-merge waits for the required status checks, so
+# updates that break CI stay open instead of merging.
+#
+# AUTOMATION_TOKEN is a fine-grained PAT (write access to contents and pull
+# requests) stored as a *Dependabot* secret, the only store visible here.
+# GITHUB_TOKEN would also work, but its pushes trigger no other workflows and
+# would silently skip the deployment. There is no fallback, so a missing or
+# expired PAT fails loudly instead.
+
 on: pull_request
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
     steps:
-      - name: Fetch Dependabot metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@v3
-      - name: Auto-merge all updates except major version bumps
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
-        run: gh pr merge --auto --rebase "$PR_URL"
+      - run: gh pr merge --auto --rebase "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}

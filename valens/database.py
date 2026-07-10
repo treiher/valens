@@ -31,25 +31,47 @@ def upgrade_lock_file() -> Path:
     return db_dir() / "valens_upgrade.lock"
 
 
+_engines: dict[str, Engine] = {}
+_scoped_sessions: dict[str, scoped_session[Session]] = {}
+_checked_databases: set[str] = set()
+
+
 def get_engine() -> Engine:
-    config.check_app_config()
-    db_dir().mkdir(exist_ok=True)
-    return create_engine(current_app.config["DATABASE"])
+    database = current_app.config["DATABASE"]
+    if database not in _engines:
+        config.check_app_config()
+        db_dir().mkdir(exist_ok=True)
+        # A changed database URI makes the cached engines and sessions stale; dispose them to
+        # release their pooled connections. The file behind a previously checked URI may have
+        # been replaced in the meantime, so require a new check as well.
+        for engine in _engines.values():
+            engine.dispose()
+        _engines.clear()
+        _scoped_sessions.clear()
+        _checked_databases.clear()
+        _engines[database] = create_engine(database)
+    return _engines[database]
 
 
 def get_scoped_session() -> scoped_session[Session]:
-    return scoped_session(
-        sessionmaker(autocommit=False, autoflush=False, bind=get_engine(), future=True)
-    )
+    database = current_app.config["DATABASE"]
+    if database not in _scoped_sessions:
+        _scoped_sessions[database] = scoped_session(
+            sessionmaker(autocommit=False, autoflush=False, bind=get_engine(), future=True)
+        )
+    return _scoped_sessions[database]
 
 
 def get_session() -> Session:
     if "db_session" not in g:
-        if not inspect(get_engine()).get_table_names():
-            init()
         g.db_session = get_scoped_session()()
 
-    _upgrade(g.db_session.connection())
+    database = current_app.config["DATABASE"]
+    if database not in _checked_databases:
+        if not inspect(get_engine()).get_table_names():
+            init()
+        _upgrade(g.db_session.connection())
+        _checked_databases.add(database)
 
     return g.db_session
 
@@ -57,8 +79,10 @@ def get_session() -> Session:
 session: Session = LocalProxy(get_session)  # type: ignore[assignment]
 
 
-def remove_session() -> None:
-    get_scoped_session().remove()
+def remove_session(_exception: BaseException | None = None) -> None:
+    if "db_session" in g:
+        get_scoped_session().remove()
+        g.pop("db_session")
 
 
 def init() -> None:
@@ -71,6 +95,7 @@ def init() -> None:
 
 
 def upgrade() -> None:
+    _checked_databases.discard(current_app.config["DATABASE"])
     get_session()
 
 

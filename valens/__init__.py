@@ -1,6 +1,6 @@
 from flask import Flask
 
-from . import api, static
+from . import api, database, static
 
 app = Flask(__name__)
 
@@ -12,3 +12,5 @@ app.jinja_env.trim_blocks = True
 
 app.register_blueprint(static.bp)
 app.register_blueprint(api.bp)
+
+app.teardown_appcontext(database.remove_session)

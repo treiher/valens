@@ -9,7 +9,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request, session
 from flask.typing import ResponseReturnValue
-from sqlalchemy import column, select
+from sqlalchemy import column, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import selectinload
 
@@ -24,6 +24,9 @@ from valens.models import (
     RoutineActivity,
     RoutinePart,
     RoutineSection,
+    ScheduleRotation,
+    ScheduleRotationRoutine,
+    ScheduleSlot,
     Sex,
     User,
     Workout,
@@ -78,6 +81,14 @@ def _(model: RoutineSection) -> dict[str, object]:
 def _(model: RoutineActivity) -> dict[str, object]:
     return {
         **model_to_dict(model, exclude=["id"]),
+    }
+
+
+@to_dict.register
+def _(model: ScheduleRotation) -> dict[str, object]:
+    return {
+        **model_to_dict(model),
+        "routines": [r.routine_id for r in sorted(model.routines, key=lambda r: r.position)],
     }
 
 
@@ -195,6 +206,75 @@ def to_workout_exercise_notes(json: list[dict[str, Any]]) -> list[WorkoutExercis
         for note in json
         if note["notes"]
     ]
+
+
+def schedule_to_dict(
+    rotations: list[ScheduleRotation], slots: list[ScheduleSlot]
+) -> dict[str, object]:
+    entries: dict[int, list[dict[str, int]]] = {}
+    for slot in sorted(slots, key=lambda s: (s.weekday, s.position)):
+        entries.setdefault(slot.weekday, []).append(schedule_slot_to_dict(slot))
+    return {
+        "rotations": [to_dict(rotation) for rotation in sorted(rotations, key=lambda r: r.id)],
+        "entries": [
+            {"weekday": weekday, "slots": slots} for weekday, slots in sorted(entries.items())
+        ],
+    }
+
+
+def schedule_slot_to_dict(slot: ScheduleSlot) -> dict[str, int]:
+    if slot.routine_id is not None:
+        return {"routine": slot.routine_id}
+    assert slot.rotation_id is not None
+    return {"rotation": slot.rotation_id}
+
+
+def to_schedule_rotations(  # type: ignore[explicit-any]
+    json: list[dict[str, Any]], user_id: int
+) -> list[ScheduleRotation]:
+    for rotation in json:
+        if len(set(rotation["routines"])) < len(rotation["routines"]):
+            raise DeserializationError("rotation must not contain duplicate routines")
+    return [
+        ScheduleRotation(
+            id=rotation["id"],
+            user_id=user_id,
+            name=rotation["name"],
+            routines=[
+                ScheduleRotationRoutine(position=position, routine_id=routine_id)
+                for position, routine_id in enumerate(rotation["routines"], start=1)
+            ],
+        )
+        for rotation in json
+    ]
+
+
+def to_schedule_slots(  # type: ignore[explicit-any]
+    json: list[dict[str, Any]], user_id: int
+) -> list[ScheduleSlot]:
+    return [
+        to_schedule_slot(slot, user_id, entry["weekday"], position)
+        for entry in json
+        for position, slot in enumerate(entry["slots"], start=1)
+    ]
+
+
+def to_schedule_slot(  # type: ignore[explicit-any]
+    json: dict[str, Any], user_id: int, weekday: int, position: int
+) -> ScheduleSlot:
+    if not isinstance(weekday, int) or isinstance(weekday, bool):
+        raise DeserializationError("weekday must be an integer")
+    if not 1 <= weekday <= 7:
+        raise DeserializationError("weekday must be in the range 1 to 7")
+    if set(json) == {"routine"}:
+        return ScheduleSlot(
+            user_id=user_id, weekday=weekday, position=position, routine_id=json["routine"]
+        )
+    if set(json) == {"rotation"}:
+        return ScheduleSlot(
+            user_id=user_id, weekday=weekday, position=position, rotation_id=json["rotation"]
+        )
+    raise DeserializationError("slot must contain either 'routine' or 'rotation'")
 
 
 def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]
@@ -915,10 +995,94 @@ def delete_routine(id_: int) -> ResponseReturnValue:
     except (NoResultFound, ValueError):
         return "", HTTPStatus.NOT_FOUND
 
+    if (
+        db.session.execute(
+            select(ScheduleSlot)
+            .where(ScheduleSlot.user_id == session["user_id"])
+            .where(ScheduleSlot.routine_id == id_)
+        ).first()
+        is not None
+        or db.session.execute(
+            select(ScheduleRotationRoutine)
+            .join(ScheduleRotation)
+            .where(ScheduleRotation.user_id == session["user_id"])
+            .where(ScheduleRotationRoutine.routine_id == id_)
+        ).first()
+        is not None
+    ):
+        return (
+            jsonify({"details": "routine is used in the schedule"}),
+            HTTPStatus.CONFLICT,
+        )
+
     db.session.delete(routine)
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
+
+
+@bp.route("/schedule")
+@session_required
+def read_schedule() -> ResponseReturnValue:
+    rotations = (
+        db.session.execute(
+            select(ScheduleRotation)
+            .where(ScheduleRotation.user_id == session["user_id"])
+            .options(selectinload(ScheduleRotation.routines))
+        )
+        .scalars()
+        .all()
+    )
+    slots = (
+        db.session.execute(select(ScheduleSlot).where(ScheduleSlot.user_id == session["user_id"]))
+        .scalars()
+        .all()
+    )
+    return jsonify(schedule_to_dict(list(rotations), list(slots)))
+
+
+@bp.route("/schedule", methods=["PUT"])
+@session_required
+@json_expected
+def replace_schedule() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        rotations = to_schedule_rotations(data["rotations"], session["user_id"])
+        slots = to_schedule_slots(data["entries"], session["user_id"])
+    except (DeserializationError, KeyError, TypeError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    routine_ids = set(
+        db.session.execute(
+            select(Routine.id).where(Routine.user_id == session["user_id"])
+        ).scalars()
+    )
+    referenced_routine_ids = {r.routine_id for rotation in rotations for r in rotation.routines} | {
+        slot.routine_id for slot in slots if slot.routine_id is not None
+    }
+    if not referenced_routine_ids <= routine_ids:
+        return (
+            jsonify({"details": "schedule references an unknown routine"}),
+            HTTPStatus.CONFLICT,
+        )
+
+    # Delete slots before rotations so an `ON DELETE CASCADE` from a slot's rotation never fires
+    db.session.execute(delete(ScheduleSlot).where(ScheduleSlot.user_id == session["user_id"]))
+    db.session.execute(
+        delete(ScheduleRotation).where(ScheduleRotation.user_id == session["user_id"])
+    )
+
+    db.session.add_all([*rotations, *slots])
+
+    try:
+        db.session.commit()
+    except IntegrityError as e:
+        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+
+    return jsonify(schedule_to_dict(rotations, slots)), HTTPStatus.OK
 
 
 @bp.route("/workouts")

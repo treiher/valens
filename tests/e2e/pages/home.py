@@ -31,8 +31,23 @@ class HomePage(BasePage):
     def go_to_exercises(self) -> None:
         self.page.get_by_test_id("home-exercises").click()
 
+    def go_to_schedule(self) -> None:
+        self.page.get_by_test_id("home-schedule").click()
+
     def go_to_muscles(self) -> None:
         self.page.get_by_test_id("home-muscles").click()
+
+    def expect_today_entries(self, names: list[str]) -> None:
+        if names:
+            expect(self.page.get_by_test_id("home-today-routine")).to_have_text(names)
+        else:
+            expect(self.page.get_by_test_id("home-today-entry")).to_have_count(0)
+
+    def expect_today_rotations(self, names: list[str]) -> None:
+        expect(self.page.get_by_test_id("home-today-rotation")).to_have_text(names)
+
+    def start_today_entry(self, index: int) -> None:
+        self.page.get_by_test_id("home-today-start").nth(index).click()
 
     def go_to_body_weight(self) -> None:
         self.page.get_by_test_id("home-body-weight").click()

@@ -13,6 +13,9 @@ from valens.models import (
     Routine,
     RoutineActivity,
     RoutineSection,
+    ScheduleRotation,
+    ScheduleRotationRoutine,
+    ScheduleSlot,
     Sex,
     User,
     Workout,
@@ -36,6 +39,7 @@ def users() -> list[User]:
     for user_id, name, sex, height in [(1, "Alice", Sex.FEMALE, 168), (2, "Bob", Sex.MALE, 182)]:
         exercises, routines, workouts = _workouts(user_id)
         body_weight = _body_weight(user_id)
+        schedule_rotations, schedule_slots = _schedule(routines, user_id)
         result.append(
             User(
                 id=user_id,
@@ -48,6 +52,8 @@ def users() -> list[User]:
                 exercises=exercises,
                 routines=routines,
                 workouts=workouts,
+                schedule_rotations=schedule_rotations,
+                schedule_slots=schedule_slots,
             )
         )
     return result
@@ -264,3 +270,25 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
         for day in [0, 3]
     ]
     return (exercises, routines, workouts)
+
+
+def _schedule(
+    routines: list[Routine], user_id: int = 1
+) -> tuple[list[ScheduleRotation], list[ScheduleSlot]]:
+    rotation = ScheduleRotation(
+        id=1,
+        user_id=user_id,
+        name="A/B",
+        routines=[
+            ScheduleRotationRoutine(position=position, routine_id=routine.id)
+            for position, routine in enumerate(routines[:2], start=1)
+        ],
+    )
+    return (
+        [rotation],
+        [
+            ScheduleSlot(user_id=user_id, weekday=1, position=1, rotation_id=rotation.id),
+            ScheduleSlot(user_id=user_id, weekday=3, position=1, rotation_id=rotation.id),
+            ScheduleSlot(user_id=user_id, weekday=5, position=1, routine_id=routines[2].id),
+        ],
+    )

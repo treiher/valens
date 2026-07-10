@@ -53,6 +53,8 @@ def delete_session(client: Client) -> Response:
         ("get", "/api/routines"),
         ("post", "/api/routines"),
         ("put", "/api/routines/1"),
+        ("get", "/api/schedule"),
+        ("put", "/api/schedule"),
         ("get", "/api/workouts"),
         ("post", "/api/workouts"),
     ],
@@ -80,6 +82,7 @@ def test_session_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/exercises/1"),
         ("post", "/api/routines"),
         ("put", "/api/routines/1"),
+        ("put", "/api/schedule"),
         ("post", "/api/workouts"),
     ],
 )
@@ -117,6 +120,50 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("post", "/api/routines", {"invalid": "data"}),
         ("put", "/api/routines/1", {"invalid": "data"}),
         ("patch", "/api/routines/1", {"sections": [{"invalid": "data"}]}),
+        ("put", "/api/schedule", {"invalid": "data"}),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [], "entries": [{"weekday": 1, "slots": [{"invalid": "data"}]}]},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {
+                "rotations": [],
+                "entries": [{"weekday": 1, "slots": [{"routine": 1, "rotation": 1}]}],
+            },
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [{"id": 1, "name": "A"}], "entries": []},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [], "entries": [{"weekday": 0, "slots": [{"routine": 1}]}]},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [], "entries": [{"weekday": 8, "slots": [{"routine": 1}]}]},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [], "entries": [{"weekday": 1.5, "slots": [{"routine": 1}]}]},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [], "entries": [{"weekday": True, "slots": [{"routine": 1}]}]},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [{"id": 1, "name": "A/B", "routines": [1, 1]}], "entries": []},
+        ),
         ("post", "/api/workouts", {"invalid": "data"}),
         ("put", "/api/workouts/1", {"invalid": "data"}),
         ("patch", "/api/workouts/1", {"elements": [{"invalid": "data"}]}),
@@ -4486,3 +4533,179 @@ def test_delete(
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
+
+
+SCHEDULE = {
+    "rotations": [{"id": 1, "name": "A/B", "routines": [1, 3]}],
+    "entries": [
+        {"weekday": 1, "slots": [{"rotation": 1}, {"routine": 1}]},
+        {"weekday": 3, "slots": [{"rotation": 1}]},
+    ],
+}
+
+
+def test_read_schedule_empty(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.get("/api/schedule")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"rotations": [], "entries": []}
+
+
+def test_replace_schedule(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put("/api/schedule", json=SCHEDULE)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == SCHEDULE
+
+    resp = client.get("/api/schedule")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == SCHEDULE
+
+
+def test_replace_schedule_replaces_existing(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+    assert client.put("/api/schedule", json=SCHEDULE).status_code == HTTPStatus.OK
+
+    schedule = {
+        "rotations": [],
+        "entries": [{"weekday": 5, "slots": [{"routine": 3}]}],
+    }
+
+    resp = client.put("/api/schedule", json=schedule)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == schedule
+
+    resp = client.get("/api/schedule")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == schedule
+
+    resp = client.put("/api/schedule", json={"rotations": [], "entries": []})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"rotations": [], "entries": []}
+
+
+def test_replace_schedule_only_affects_session_user(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+    assert client.put("/api/schedule", json=SCHEDULE).status_code == HTTPStatus.OK
+    assert delete_session(client).status_code == HTTPStatus.NO_CONTENT
+    assert create_session(client, "Bob").status_code == HTTPStatus.OK
+
+    resp = client.get("/api/schedule")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {
+        "rotations": [{"id": 1, "name": "A/B", "routines": [2, 4]}],
+        "entries": [{"weekday": 1, "slots": [{"rotation": 1}, {"routine": 2}]}],
+    }
+
+    resp = client.put("/api/schedule", json={"rotations": [], "entries": []})
+
+    assert resp.status_code == HTTPStatus.OK
+
+    assert delete_session(client).status_code == HTTPStatus.NO_CONTENT
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.get("/api/schedule")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == SCHEDULE
+
+
+def test_replace_schedule_same_rotation_id_for_different_users(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+    assert client.put("/api/schedule", json=SCHEDULE).status_code == HTTPStatus.OK
+    assert delete_session(client).status_code == HTTPStatus.NO_CONTENT
+    assert create_session(client, "Bob").status_code == HTTPStatus.OK
+
+    schedule = {
+        "rotations": [{"id": 1, "name": "C/D", "routines": [2, 4]}],
+        "entries": [{"weekday": 2, "slots": [{"rotation": 1}]}],
+    }
+
+    resp = client.put("/api/schedule", json=schedule)
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == schedule
+
+    assert delete_session(client).status_code == HTTPStatus.NO_CONTENT
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.get("/api/schedule")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == SCHEDULE
+
+
+@pytest.mark.parametrize(
+    "schedule",
+    [
+        {
+            "rotations": [],
+            "entries": [{"weekday": 1, "slots": [{"rotation": 1}]}],
+        },
+        {
+            "rotations": [{"id": 1, "name": "A/B", "routines": [1, 2]}],
+            "entries": [],
+        },
+        {
+            "rotations": [],
+            "entries": [{"weekday": 1, "slots": [{"routine": 2}]}],
+        },
+        {
+            "rotations": [
+                {"id": 1, "name": "A/B", "routines": [1]},
+                {"id": 2, "name": "A/B", "routines": [3]},
+            ],
+            "entries": [],
+        },
+    ],
+)
+def test_replace_schedule_conflict(client: Client, schedule: dict[str, object]) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put("/api/schedule", json=schedule)
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.is_json
+
+
+@pytest.mark.parametrize("routine_id", [1, 3])
+def test_delete_routine_blocked_by_schedule(client: Client, routine_id: int) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+    assert client.put("/api/schedule", json=SCHEDULE).status_code == HTTPStatus.OK
+
+    resp = client.delete(f"/api/routines/{routine_id}")
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "routine is used in the schedule"}
+
+    assert (
+        client.put("/api/schedule", json={"rotations": [], "entries": []}).status_code
+        == HTTPStatus.OK
+    )
+
+    resp = client.delete(f"/api/routines/{routine_id}")
+
+    assert resp.status_code == HTTPStatus.NO_CONTENT

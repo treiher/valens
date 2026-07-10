@@ -3608,6 +3608,7 @@ name = "valens-web-app-dioxus"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "assert_approx_eq",
  "base64",
  "chrono",
  "dioxus",

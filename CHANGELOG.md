@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Home page: Most recent FFMI
 - Administration page: Body height of users
 - Display of chart values at the hovered or touched date
+- Schedule page for planning routines on days of the week, including rotations of routines across training days
+- Home page: Planned routines for the current day with buttons to start the corresponding training sessions
 
 ### Changed
 
@@ -59,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Navigation bar: Renamed "Log out" to "Sign out"
 - Presentation of error messages from a dialog to a notification below the navigation bar
 - Severity of recoverable notifications from error to warning
+- Routines page: Prevention of the deletion of routines that are used in the schedule
 
 ### Fixed
 

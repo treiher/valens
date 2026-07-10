@@ -74,9 +74,10 @@ impl Synchronization {
         if !*self.in_progress.peek() {
             self.error.set(String::new());
             self.in_progress.set(true);
-            self.pending_sync_count.set(6);
+            self.pending_sync_count.set(7);
             sync!(exercises, sync_exercises, refresh_exercises);
             sync!(routines, sync_routines, refresh_routines);
+            sync!(schedule, sync_schedule, refresh_schedule);
             sync!(
                 training_sessions,
                 sync_training_sessions,

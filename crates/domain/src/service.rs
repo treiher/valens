@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::NaiveDate;
 
@@ -6,11 +6,11 @@ use crate::{
     BodyFat, BodyFatRepository, BodyFatService, BodyWeight, BodyWeightRepository, CreateError,
     CurrentCycle, Cycle, DeleteError, Exercise, ExerciseID, ExerciseMuscle, ExerciseRepository,
     ExerciseService, Name, Period, PeriodRepository, PeriodService, ReadError, Routine, RoutineID,
-    RoutinePart, RoutineRepository, RoutineService, SessionRepository, SessionService, Sex,
-    SyncError, TrainingSession, TrainingSessionElement, TrainingSessionID,
-    TrainingSessionRepository, TrainingSessionService, UpdateError, User, UserID, UserRepository,
-    UserService, VersionRepository, VersionService, body_weight::BodyWeightService, current_cycle,
-    cycles,
+    RoutinePart, RoutineRepository, RoutineService, Schedule, ScheduleRepository, ScheduleService,
+    SessionRepository, SessionService, Sex, SyncError, TrainingSession, TrainingSessionElement,
+    TrainingSessionID, TrainingSessionRepository, TrainingSessionService, UpdateError, User,
+    UserID, UserRepository, UserService, VersionRepository, VersionService,
+    body_weight::BodyWeightService, current_cycle, cycles,
 };
 
 #[derive(Clone, Copy)]
@@ -22,6 +22,7 @@ impl<R> Service<R>
 where
     R: ExerciseRepository
         + RoutineRepository
+        + ScheduleRepository
         + TrainingSessionRepository
         + BodyWeightRepository
         + BodyFatRepository
@@ -34,6 +35,7 @@ where
     pub async fn sync(&self) -> Result<(), SyncError> {
         self.repository.sync_exercises().await?;
         self.repository.sync_routines().await?;
+        self.repository.sync_schedule().await?;
         self.repository.sync_training_sessions().await?;
         self.repository.sync_body_weight().await?;
         self.repository.sync_body_fat().await?;
@@ -47,6 +49,10 @@ where
 
     pub async fn sync_routines(&self) -> Result<Vec<Routine>, SyncError> {
         self.repository.sync_routines().await
+    }
+
+    pub async fn sync_schedule(&self) -> Result<Schedule, SyncError> {
+        self.repository.sync_schedule().await
     }
 
     pub async fn sync_training_sessions(&self) -> Result<Vec<TrainingSession>, SyncError> {
@@ -131,7 +137,7 @@ impl<R: ExerciseRepository> ExerciseService for Service<R> {
     }
 }
 
-impl<R: RoutineRepository> RoutineService for Service<R> {
+impl<R: RoutineRepository + ScheduleRepository> RoutineService for Service<R> {
     async fn get_routines(&self) -> Result<Vec<Routine>, ReadError> {
         self.repository.read_routines().await
     }
@@ -157,7 +163,40 @@ impl<R: RoutineRepository> RoutineService for Service<R> {
     }
 
     async fn delete_routine(&self, id: RoutineID) -> Result<(), DeleteError> {
+        if self
+            .repository
+            .read_schedule()
+            .await?
+            .routines()
+            .contains(&id)
+        {
+            return Err(DeleteError::Conflict(
+                "routine is used in the schedule".to_string(),
+            ));
+        }
         self.repository.delete_routine(id).await
+    }
+}
+
+impl<R: ScheduleRepository + RoutineRepository> ScheduleService for Service<R> {
+    async fn get_schedule(&self) -> Result<Schedule, ReadError> {
+        self.repository.read_schedule().await
+    }
+
+    async fn modify_schedule(&self, schedule: Schedule) -> Result<Schedule, UpdateError> {
+        let existing = self
+            .repository
+            .read_routines()
+            .await?
+            .iter()
+            .map(|r| r.id)
+            .collect::<BTreeSet<_>>();
+        if !schedule.routines().is_subset(&existing) {
+            return Err(UpdateError::Conflict(
+                "schedule references an unknown routine".to_string(),
+            ));
+        }
+        self.repository.replace_schedule(schedule).await
     }
 }
 

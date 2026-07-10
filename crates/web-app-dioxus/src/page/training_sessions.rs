@@ -10,7 +10,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
-    notification::notify,
+    notification::{notify, notify_error},
     ongoing_training_session::OngoingTrainingSession,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
@@ -415,25 +415,11 @@ pub fn view_dialog(
                 && let (Ok(date), Ok(routine_id)) = (date.validated.clone(), routine_id.validated.clone()) {
                     match DOMAIN_SERVICE().get_routines().await {
                         Ok(routines) => {
-                            let elements = routines.iter().find(|r| r.id == routine_id).map(|routine| {
-                                routine
-                                    .sections
-                                    .iter()
-                                    .flat_map(domain::RoutinePart::to_training_session_elements)
-                                    .collect::<Vec<_>>()
-                            }).unwrap_or_default();
-                            match DOMAIN_SERVICE()
-                                .create_training_session(routine_id, date, String::new(), elements)
-                                .await
-                            {
-                                Ok(training_session) => {
-                                    let id = training_session.id;
-                                    consume_context::<Cache>().add_training_session(training_session);
-                                    navigator().push(Route::TrainingSession { id });
-                                }
-                                Err(err) => {
-                                    notify("Failed to add training session", &err);
-                                }
+                            let routine = routines.iter().find(|r| r.id == routine_id);
+                            if routine.is_none() && !routine_id.is_nil() {
+                                notify_error("Failed to add training session: unknown routine");
+                            } else {
+                                start_training_session(routine, date).await;
                             }
                         }
                         Err(err) => {
@@ -537,6 +523,38 @@ pub fn view_dialog(
                 is_loading: is_loading(),
             }
         },
+    }
+}
+
+/// Creates a training session on `date`, prefilled with the elements of `routine`, and navigates
+/// to it.
+pub async fn start_training_session(routine: Option<&domain::Routine>, date: NaiveDate) {
+    let elements = routine
+        .map(|routine| {
+            routine
+                .sections
+                .iter()
+                .flat_map(domain::RoutinePart::to_training_session_elements)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    match DOMAIN_SERVICE()
+        .create_training_session(
+            routine.map_or_else(domain::RoutineID::nil, |routine| routine.id),
+            date,
+            String::new(),
+            elements,
+        )
+        .await
+    {
+        Ok(training_session) => {
+            let id = training_session.id;
+            consume_context::<Cache>().add_training_session(training_session);
+            navigator().push(Route::TrainingSession { id });
+        }
+        Err(err) => {
+            notify("Failed to add training session", &err);
+        }
     }
 }
 

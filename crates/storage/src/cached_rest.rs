@@ -268,6 +268,23 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
     }
 }
 
+impl<S: SendRequest> domain::ScheduleRepository for CachedREST<S> {
+    async fn sync_schedule(&self) -> Result<domain::Schedule, domain::SyncError> {
+        sync!(self, read_schedule, write_schedule, "schedule")
+    }
+
+    async fn read_schedule(&self) -> Result<domain::Schedule, domain::ReadError> {
+        IndexedDB.read_schedule().await
+    }
+
+    async fn replace_schedule(
+        &self,
+        schedule: domain::Schedule,
+    ) -> Result<domain::Schedule, domain::UpdateError> {
+        execute!(self, replace_schedule, schedule)
+    }
+}
+
 impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
     async fn sync_training_sessions(
         &self,
@@ -343,8 +360,8 @@ mod tests {
         use serde_json::json;
         use valens_domain::{
             BodyFatRepository, BodyWeightRepository, ExerciseRepository, PeriodRepository,
-            RoutineRepository, SessionRepository, TrainingSessionRepository, UserRepository,
-            VersionRepository,
+            RoutineRepository, ScheduleRepository, SessionRepository, TrainingSessionRepository,
+            UserRepository, VersionRepository,
         };
         use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -352,8 +369,8 @@ mod tests {
             rest,
             tests::data::{
                 BODY_FAT, BODY_FATS, BODY_WEIGHT, BODY_WEIGHTS, EXERCISE, EXERCISES, PERIOD,
-                PERIODS, ROUTINE, ROUTINES, TRAINING_SESSION, TRAINING_SESSIONS, USER, USER_2,
-                USERS,
+                PERIODS, ROUTINE, ROUTINES, SCHEDULE, TRAINING_SESSION, TRAINING_SESSIONS, USER,
+                USER_2, USERS,
             },
         };
 
@@ -1929,6 +1946,126 @@ mod tests {
                 .await
                 .unwrap(),
                 ()
+            );
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_sync_schedule() {
+            reset_cache().await;
+            init_session().await;
+
+            assert!(matches!(
+                cached_rest_with_response(None).sync_schedule().await,
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&rest::Schedule::from(SCHEDULE.clone()))
+                ))
+                .sync_schedule()
+                .await
+                .unwrap(),
+                SCHEDULE.clone()
+            );
+
+            assert_eq!(
+                cached_rest_with_response(None)
+                    .read_schedule()
+                    .await
+                    .unwrap(),
+                SCHEDULE.clone()
+            );
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&rest::Schedule::from(domain::Schedule::default()))
+                ))
+                .sync_schedule()
+                .await
+                .unwrap(),
+                domain::Schedule::default()
+            );
+
+            assert_eq!(
+                cached_rest_with_response(None)
+                    .read_schedule()
+                    .await
+                    .unwrap(),
+                domain::Schedule::default()
+            );
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_read_schedule() {
+            reset_cache().await;
+            init_session().await;
+
+            assert_eq!(
+                cached_rest_with_response(None)
+                    .read_schedule()
+                    .await
+                    .unwrap(),
+                domain::Schedule::default()
+            );
+
+            IndexedDB.write_schedule(&SCHEDULE).await.unwrap();
+
+            assert_eq!(
+                cached_rest_with_response(None)
+                    .read_schedule()
+                    .await
+                    .unwrap(),
+                SCHEDULE.clone()
+            );
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_replace_schedule() {
+            reset_cache().await;
+            init_session().await;
+
+            assert!(matches!(
+                cached_rest_with_response(None)
+                    .replace_schedule(SCHEDULE.clone())
+                    .await,
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
+
+            assert_eq!(
+                cached_rest_with_response(None)
+                    .read_schedule()
+                    .await
+                    .unwrap(),
+                domain::Schedule::default()
+            );
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&rest::Schedule::from(SCHEDULE.clone())),
+                ))
+                .replace_schedule(SCHEDULE.clone())
+                .await
+                .unwrap(),
+                SCHEDULE.clone()
+            );
+
+            assert_eq!(
+                cached_rest_with_response(None)
+                    .read_schedule()
+                    .await
+                    .unwrap(),
+                SCHEDULE.clone()
             );
         }
 

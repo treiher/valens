@@ -77,6 +77,12 @@ class User(Base):
     workouts: Mapped[list[Workout]] = relationship(
         "Workout", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
+    schedule_rotations: Mapped[list[ScheduleRotation]] = relationship(
+        "ScheduleRotation", backref="user", cascade="all, delete-orphan", passive_deletes=True
+    )
+    schedule_slots: Mapped[list[ScheduleSlot]] = relationship(
+        "ScheduleSlot", backref="user", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class BodyWeight(Base):
@@ -300,6 +306,74 @@ class RoutineActivity(RoutinePart):
         "polymorphic_load": "selectin",
         "inherit_condition": id == RoutinePart.id,
     }
+
+
+class ScheduleRotation(Base):
+    __tablename__ = "schedule_rotation"
+    __table_args__ = (UniqueConstraint("user_id", "name"),)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+
+    routines: Mapped[list[ScheduleRotationRoutine]] = relationship(
+        "ScheduleRotationRoutine", back_populates="rotation", cascade="all, delete-orphan"
+    )
+
+
+class ScheduleRotationRoutine(Base):
+    __tablename__ = "schedule_rotation_routine"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id", "rotation_id"],
+            ["schedule_rotation.user_id", "schedule_rotation.id"],
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("typeof(position) = 'integer'", name="position_type_integer"),
+        CheckConstraint(column("position") > 0, name="position_gt_0"),
+    )
+
+    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    rotation_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    routine_id: Mapped[int] = mapped_column(ForeignKey("routine.id"), nullable=False)
+
+    rotation: Mapped[ScheduleRotation] = relationship("ScheduleRotation", back_populates="routines")
+    routine: Mapped[Routine] = relationship("Routine")
+
+
+class ScheduleSlot(Base):
+    __tablename__ = "schedule_slot"
+    __table_args__ = (
+        UniqueConstraint("user_id", "weekday", "position"),
+        ForeignKeyConstraint(
+            ["user_id", "rotation_id"],
+            ["schedule_rotation.user_id", "schedule_rotation.id"],
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("typeof(weekday) = 'integer'", name="weekday_type_integer"),
+        CheckConstraint(column("weekday") >= 1, name="weekday_ge_1"),
+        CheckConstraint(column("weekday") <= 7, name="weekday_le_7"),
+        CheckConstraint("typeof(position) = 'integer'", name="position_type_integer"),
+        CheckConstraint(column("position") > 0, name="position_gt_0"),
+        CheckConstraint(
+            "(routine_id IS NULL) != (rotation_id IS NULL)", name="routine_xor_rotation"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    routine_id: Mapped[int | None] = mapped_column(ForeignKey("routine.id"))
+    rotation_id: Mapped[int | None] = mapped_column(Integer)
+
+    routine: Mapped[Routine] = relationship("Routine")
+    # `viewonly` avoids writing `user_id` through the composite foreign key, which would overlap
+    # with the `user` relationship
+    rotation: Mapped[ScheduleRotation] = relationship("ScheduleRotation", viewonly=True)
 
 
 class Workout(Base):

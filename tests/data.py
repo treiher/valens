@@ -11,6 +11,9 @@ from valens.models import (
     Routine,
     RoutineActivity,
     RoutineSection,
+    ScheduleRotation,
+    ScheduleRotationRoutine,
+    ScheduleSlot,
     Sex,
     User,
     Workout,
@@ -367,6 +370,21 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                     archived=False,
                 ),
                 Routine(id=4, user_id=2, name="Empty", notes="TBD", archived=False),
+            ],
+            schedule_rotations=[
+                ScheduleRotation(
+                    id=1,
+                    user_id=2,
+                    name="A/B",
+                    routines=[
+                        ScheduleRotationRoutine(position=1, routine_id=2),
+                        ScheduleRotationRoutine(position=2, routine_id=4),
+                    ],
+                ),
+            ],
+            schedule_slots=[
+                ScheduleSlot(user_id=2, weekday=1, position=1, rotation_id=1),
+                ScheduleSlot(user_id=2, weekday=1, position=2, routine_id=2),
             ],
             workouts=[
                 Workout(

@@ -148,7 +148,9 @@ impl From<FetchError> for domain::ReadError {
 impl From<FetchError> for domain::CreateError {
     fn from(value: FetchError) -> Self {
         match value {
-            FetchError::Response { status: 409, .. } => domain::CreateError::Conflict,
+            FetchError::Response {
+                status: 409, body, ..
+            } => domain::CreateError::Conflict(conflict_reason(body.as_deref())),
             _ => domain::CreateError::Storage(value.into()),
         }
     }
@@ -157,7 +159,9 @@ impl From<FetchError> for domain::CreateError {
 impl From<FetchError> for domain::UpdateError {
     fn from(value: FetchError) -> Self {
         match value {
-            FetchError::Response { status: 409, .. } => domain::UpdateError::Conflict,
+            FetchError::Response {
+                status: 409, body, ..
+            } => domain::UpdateError::Conflict(conflict_reason(body.as_deref())),
             _ => domain::UpdateError::Storage(value.into()),
         }
     }
@@ -165,8 +169,21 @@ impl From<FetchError> for domain::UpdateError {
 
 impl From<FetchError> for domain::DeleteError {
     fn from(value: FetchError) -> Self {
-        domain::DeleteError::Storage(value.into())
+        match value {
+            FetchError::Response {
+                status: 409, body, ..
+            } => domain::DeleteError::Conflict(conflict_reason(body.as_deref())),
+            _ => domain::DeleteError::Storage(value.into()),
+        }
     }
+}
+
+/// Extract the reason of a conflict from the `details` field of a response body.
+fn conflict_reason(body: Option<&str>) -> String {
+    body.and_then(|body| serde_json::from_str::<serde_json::Value>(body).ok())
+        .as_ref()
+        .and_then(|json| json.get("details")?.as_str())
+        .map_or_else(|| "conflict".to_string(), str::to_string)
 }
 
 impl<S: SendRequest> domain::SessionRepository for REST<S> {
@@ -528,6 +545,32 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
                 None::<&()>,
             )
             .await?)
+    }
+}
+
+impl<S: SendRequest> domain::ScheduleRepository for REST<S> {
+    async fn sync_schedule(&self) -> Result<domain::Schedule, domain::SyncError> {
+        Ok(self.read_schedule().await?)
+    }
+
+    async fn read_schedule(&self) -> Result<domain::Schedule, domain::ReadError> {
+        let r: Schedule = self
+            .fetch(gloo_net::http::Request::get("/api/schedule"), None::<&()>)
+            .await?;
+        Ok(r.try_into().map_err(Box::from)?)
+    }
+
+    async fn replace_schedule(
+        &self,
+        schedule: domain::Schedule,
+    ) -> Result<domain::Schedule, domain::UpdateError> {
+        let r: Schedule = self
+            .fetch(
+                gloo_net::http::Request::put("/api/schedule"),
+                Some(&Schedule::from(schedule)),
+            )
+            .await?;
+        Ok(r.try_into().map_err(Box::from)?)
     }
 }
 
@@ -1048,6 +1091,129 @@ impl From<RoutinePart> for domain::RoutinePart {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct Schedule {
+    pub rotations: Vec<Rotation>,
+    pub entries: Vec<ScheduleEntry>,
+}
+
+impl From<domain::Schedule> for Schedule {
+    fn from(value: domain::Schedule) -> Self {
+        Self {
+            rotations: value
+                .rotations()
+                .iter()
+                .map(|(id, rotation)| Rotation {
+                    id: id.as_u128(),
+                    name: rotation.name.to_string(),
+                    routines: rotation.routines().iter().map(|r| r.as_u128()).collect(),
+                })
+                .collect(),
+            entries: value
+                .entries()
+                .iter()
+                .map(|(weekday, slots)| ScheduleEntry {
+                    weekday: u8::from(*weekday),
+                    slots: slots.iter().copied().map(ScheduleSlot::from).collect(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl TryFrom<Schedule> for domain::Schedule {
+    type Error = ScheduleError;
+
+    fn try_from(value: Schedule) -> Result<Self, Self::Error> {
+        let mut rotations = BTreeMap::new();
+        for rotation in value.rotations {
+            let previous = rotations.insert(
+                domain::RotationID::from(rotation.id),
+                domain::Rotation::new(
+                    domain::Name::new(&rotation.name)?,
+                    rotation
+                        .routines
+                        .into_iter()
+                        .map(domain::RoutineID::from)
+                        .collect(),
+                )?,
+            );
+            if previous.is_some() {
+                return Err(ScheduleError::DuplicateRotation);
+            }
+        }
+        let mut entries = BTreeMap::new();
+        for entry in value.entries {
+            let previous = entries.insert(
+                domain::Weekday::try_from(entry.weekday)?,
+                entry
+                    .slots
+                    .into_iter()
+                    .map(domain::ScheduleSlot::from)
+                    .collect(),
+            );
+            if previous.is_some() {
+                return Err(ScheduleError::DuplicateWeekday);
+            }
+        }
+        Ok(domain::Schedule::new(rotations, entries)?)
+    }
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum ScheduleError {
+    #[error("Schedule must not contain duplicate rotations")]
+    DuplicateRotation,
+    #[error("Schedule must not contain duplicate weekdays")]
+    DuplicateWeekday,
+    #[error(transparent)]
+    InvalidName(#[from] domain::NameError),
+    #[error(transparent)]
+    InvalidRotation(#[from] domain::RotationError),
+    #[error(transparent)]
+    InvalidWeekday(#[from] domain::WeekdayError),
+    #[error(transparent)]
+    InvalidSchedule(#[from] domain::ScheduleError),
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct Rotation {
+    pub id: u128,
+    pub name: String,
+    pub routines: Vec<u128>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct ScheduleEntry {
+    pub weekday: u8,
+    pub slots: Vec<ScheduleSlot>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ScheduleSlot {
+    Routine(u128),
+    Rotation(u128),
+}
+
+impl From<domain::ScheduleSlot> for ScheduleSlot {
+    fn from(value: domain::ScheduleSlot) -> Self {
+        match value {
+            domain::ScheduleSlot::Routine(id) => ScheduleSlot::Routine(id.as_u128()),
+            domain::ScheduleSlot::Rotation(id) => ScheduleSlot::Rotation(id.as_u128()),
+        }
+    }
+}
+
+impl From<ScheduleSlot> for domain::ScheduleSlot {
+    fn from(value: ScheduleSlot) -> Self {
+        match value {
+            ScheduleSlot::Routine(id) => domain::ScheduleSlot::Routine(id.into()),
+            ScheduleSlot::Rotation(id) => domain::ScheduleSlot::Rotation(id.into()),
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct ExerciseNote {
     pub exercise_id: u128,
     pub notes: String,
@@ -1275,11 +1441,157 @@ mod tests {
 
     use crate::tests::data::{
         BODY_FAT, BODY_FAT_2, BODY_FATS, BODY_WEIGHT, BODY_WEIGHT_2, BODY_WEIGHTS, EXERCISE,
-        EXERCISE_2, EXERCISES, PERIOD, PERIOD_2, PERIODS, ROUTINE, ROUTINE_2, ROUTINES,
+        EXERCISE_2, EXERCISES, PERIOD, PERIOD_2, PERIODS, ROUTINE, ROUTINE_2, ROUTINES, SCHEDULE,
         TRAINING_SESSION, TRAINING_SESSION_2, TRAINING_SESSIONS, USER, USER_2, USERS,
     };
 
     use super::*;
+
+    #[test]
+    fn test_conflict_reason() {
+        assert_eq!(
+            conflict_reason(Some(r#"{"details": "the entry is in use"}"#)),
+            "the entry is in use"
+        );
+        assert_eq!(conflict_reason(Some(r#"{"other": "value"}"#)), "conflict");
+        assert_eq!(conflict_reason(Some("not json")), "conflict");
+        assert_eq!(conflict_reason(None), "conflict");
+    }
+
+    #[test]
+    fn test_schedule_try_from() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule::from(SCHEDULE.clone())),
+            Ok(SCHEDULE.clone())
+        );
+    }
+
+    #[test]
+    fn test_schedule_wire_format() {
+        assert_eq!(
+            json!(Schedule::from(SCHEDULE.clone())),
+            json!({
+                "rotations": [
+                    { "id": 1, "name": "A/B", "routines": [1, 2] }
+                ],
+                "entries": [
+                    { "weekday": 1, "slots": [{ "rotation": 1 }, { "routine": 1 }] },
+                    { "weekday": 4, "slots": [{ "rotation": 1 }] }
+                ]
+            })
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_invalid_weekday() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![],
+                entries: vec![ScheduleEntry {
+                    weekday: 8,
+                    slots: vec![ScheduleSlot::Routine(1)],
+                }],
+            }),
+            Err(ScheduleError::InvalidWeekday(
+                domain::WeekdayError::OutOfRange
+            ))
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_duplicate_rotation() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![
+                    Rotation {
+                        id: 1,
+                        name: "A/B".to_string(),
+                        routines: vec![1],
+                    },
+                    Rotation {
+                        id: 1,
+                        name: "C/D".to_string(),
+                        routines: vec![2],
+                    },
+                ],
+                entries: vec![],
+            }),
+            Err(ScheduleError::DuplicateRotation)
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_duplicate_weekday() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![],
+                entries: vec![
+                    ScheduleEntry {
+                        weekday: 1,
+                        slots: vec![ScheduleSlot::Routine(1)],
+                    },
+                    ScheduleEntry {
+                        weekday: 1,
+                        slots: vec![ScheduleSlot::Routine(2)],
+                    },
+                ],
+            }),
+            Err(ScheduleError::DuplicateWeekday)
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_dangling_rotation() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![],
+                entries: vec![ScheduleEntry {
+                    weekday: 1,
+                    slots: vec![ScheduleSlot::Rotation(1)],
+                }],
+            }),
+            Err(ScheduleError::InvalidSchedule(
+                domain::ScheduleError::DanglingRotation
+            ))
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_empty_rotation() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![Rotation {
+                    id: 1,
+                    name: "A/B".to_string(),
+                    routines: vec![],
+                }],
+                entries: vec![],
+            }),
+            Ok(domain::Schedule::new(
+                BTreeMap::from([(
+                    domain::RotationID::from(1),
+                    domain::Rotation::new(domain::Name::new("A/B").unwrap(), vec![]).unwrap(),
+                )]),
+                BTreeMap::new(),
+            )
+            .unwrap())
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_invalid_name() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![Rotation {
+                    id: 1,
+                    name: String::new(),
+                    routines: vec![1],
+                }],
+                entries: vec![],
+            }),
+            Err(ScheduleError::InvalidName(domain::NameError::Empty))
+        );
+    }
 
     #[test]
     fn test_user_try_from() {

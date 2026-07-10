@@ -102,6 +102,9 @@ class Dialog(PageElement):
     def wait_until_closed(self) -> None:
         self.root.wait_for(state="hidden")
 
+    def set_name(self, name: str) -> None:
+        self.page.get_by_test_id("dialog-name").first.fill(name)
+
     def cancel(self) -> None:
         self.root.get_by_test_id("dialog-cancel").click()
         self.wait_until_closed()
@@ -114,8 +117,11 @@ class Dialog(PageElement):
         self.root.get_by_test_id("dialog-save").click()
 
     def delete(self) -> None:
-        self.root.get_by_test_id("dialog-delete").click()
+        self.click_delete()
         self.wait_until_closed()
+
+    def click_delete(self) -> None:
+        self.root.get_by_test_id("dialog-delete").click()
 
     def no(self) -> None:
         self.root.get_by_test_id("dialog-no").click()

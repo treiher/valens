@@ -19,36 +19,35 @@ pub struct IndexedDB;
 impl IndexedDB {
     async fn open(&self) -> Result<Database, OpenDbError> {
         Database::open("valens")
-            .with_version(1u8)
+            .with_version(2u8)
             .with_on_blocked(|event| {
                 debug!("upgrade of database blocked: {event:?}");
                 Ok(())
             })
             .with_on_upgrade_needed(|event, db| {
-                #[allow(clippy::single_match)]
-                match (event.old_version(), event.new_version()) {
-                    (0.0, Some(1.0)) => {
-                        db.create_object_store(Store::App).build()?;
-                        db.create_object_store(Store::BodyWeight)
-                            .with_key_path(KeyPath::One("date"))
-                            .build()?;
-                        db.create_object_store(Store::BodyFat)
-                            .with_key_path(KeyPath::One("date"))
-                            .build()?;
-                        db.create_object_store(Store::Period)
-                            .with_key_path(KeyPath::One("date"))
-                            .build()?;
-                        db.create_object_store(Store::Exercises)
-                            .with_key_path(KeyPath::One("id"))
-                            .build()?;
-                        db.create_object_store(Store::Routines)
-                            .with_key_path(KeyPath::One("id"))
-                            .build()?;
-                        db.create_object_store(Store::TrainingSessions)
-                            .with_key_path(KeyPath::One("id"))
-                            .build()?;
-                    }
-                    _ => {}
+                if event.old_version() < 1.0 {
+                    db.create_object_store(Store::App).build()?;
+                    db.create_object_store(Store::BodyWeight)
+                        .with_key_path(KeyPath::One("date"))
+                        .build()?;
+                    db.create_object_store(Store::BodyFat)
+                        .with_key_path(KeyPath::One("date"))
+                        .build()?;
+                    db.create_object_store(Store::Period)
+                        .with_key_path(KeyPath::One("date"))
+                        .build()?;
+                    db.create_object_store(Store::Exercises)
+                        .with_key_path(KeyPath::One("id"))
+                        .build()?;
+                    db.create_object_store(Store::Routines)
+                        .with_key_path(KeyPath::One("id"))
+                        .build()?;
+                    db.create_object_store(Store::TrainingSessions)
+                        .with_key_path(KeyPath::One("id"))
+                        .build()?;
+                }
+                if event.old_version() < 2.0 {
+                    db.create_object_store(Store::Schedule).build()?;
                 }
                 Ok(())
             })
@@ -216,6 +215,7 @@ impl IndexedDB {
                 Store::Period,
                 Store::Exercises,
                 Store::Routines,
+                Store::Schedule,
                 Store::TrainingSessions,
             ] {
                 let transaction = db
@@ -282,6 +282,26 @@ impl IndexedDB {
         IndexedDB
             .replace_all::<_, Routine, _>(Store::Routines, routines, ())
             .await
+    }
+
+    pub async fn write_schedule(&self, schedule: &domain::Schedule) -> Result<(), String> {
+        async {
+            let db = self.open().await?;
+            let transaction = db
+                .transaction(Store::Schedule.as_ref())
+                .with_mode(TransactionMode::Readwrite)
+                .build()?;
+            let store = transaction.object_store(Store::Schedule.as_ref())?;
+            store
+                .put(Schedule::from(schedule))
+                .with_key("schedule".to_string())
+                .serde()?
+                .await?;
+            transaction.commit().await?;
+            Ok(())
+        }
+        .await
+        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
     }
 
     pub async fn write_training_sessions(
@@ -554,6 +574,43 @@ impl domain::RoutineRepository for IndexedDB {
     }
 }
 
+impl domain::ScheduleRepository for IndexedDB {
+    async fn sync_schedule(&self) -> Result<domain::Schedule, domain::SyncError> {
+        panic!("unsupported")
+    }
+
+    async fn read_schedule(&self) -> Result<domain::Schedule, domain::ReadError> {
+        let schedule = async {
+            let db = IndexedDB.open().await?;
+            let transaction = db
+                .transaction(Store::Schedule.as_ref())
+                .with_mode(TransactionMode::Readonly)
+                .build()?;
+            let store = transaction.object_store(Store::Schedule.as_ref())?;
+            let schedule: Option<Schedule> = store.get("schedule").serde()?.await?;
+            Ok::<Option<Schedule>, Box<dyn std::error::Error>>(schedule)
+        }
+        .await?;
+
+        Ok(schedule
+            .map(domain::Schedule::try_from)
+            .transpose()
+            .map_err(Box::from)?
+            .unwrap_or_default())
+    }
+
+    async fn replace_schedule(
+        &self,
+        schedule: domain::Schedule,
+    ) -> Result<domain::Schedule, domain::UpdateError> {
+        IndexedDB
+            .write_schedule(&schedule)
+            .await
+            .map_err(|err| domain::UpdateError::Other(err.into()))?;
+        Ok(schedule)
+    }
+}
+
 impl domain::TrainingSessionRepository for IndexedDB {
     async fn sync_training_sessions(
         &self,
@@ -649,6 +706,8 @@ pub enum Store {
     Exercises,
     #[strum(serialize = "routines")]
     Routines,
+    #[strum(serialize = "schedule")]
+    Schedule,
     #[strum(serialize = "training_sessions")]
     TrainingSessions,
 }
@@ -1037,6 +1096,129 @@ impl From<RoutinePart> for domain::RoutinePart {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct Schedule {
+    pub rotations: Vec<Rotation>,
+    pub entries: Vec<ScheduleEntry>,
+}
+
+impl From<&domain::Schedule> for Schedule {
+    fn from(value: &domain::Schedule) -> Self {
+        Self {
+            rotations: value
+                .rotations()
+                .iter()
+                .map(|(id, rotation)| Rotation {
+                    id: **id,
+                    name: rotation.name.to_string(),
+                    routines: rotation.routines().iter().map(|r| **r).collect(),
+                })
+                .collect(),
+            entries: value
+                .entries()
+                .iter()
+                .map(|(weekday, slots)| ScheduleEntry {
+                    weekday: u8::from(*weekday),
+                    slots: slots.iter().copied().map(ScheduleSlot::from).collect(),
+                })
+                .collect(),
+        }
+    }
+}
+
+impl TryFrom<Schedule> for domain::Schedule {
+    type Error = ScheduleError;
+
+    fn try_from(value: Schedule) -> Result<Self, Self::Error> {
+        let mut rotations = BTreeMap::new();
+        for rotation in value.rotations {
+            let previous = rotations.insert(
+                domain::RotationID::from(rotation.id),
+                domain::Rotation::new(
+                    domain::Name::new(&rotation.name)?,
+                    rotation
+                        .routines
+                        .into_iter()
+                        .map(domain::RoutineID::from)
+                        .collect(),
+                )?,
+            );
+            if previous.is_some() {
+                return Err(ScheduleError::DuplicateRotation);
+            }
+        }
+        let mut entries = BTreeMap::new();
+        for entry in value.entries {
+            let previous = entries.insert(
+                domain::Weekday::try_from(entry.weekday)?,
+                entry
+                    .slots
+                    .into_iter()
+                    .map(domain::ScheduleSlot::from)
+                    .collect(),
+            );
+            if previous.is_some() {
+                return Err(ScheduleError::DuplicateWeekday);
+            }
+        }
+        Ok(domain::Schedule::new(rotations, entries)?)
+    }
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum ScheduleError {
+    #[error("Schedule must not contain duplicate rotations")]
+    DuplicateRotation,
+    #[error("Schedule must not contain duplicate weekdays")]
+    DuplicateWeekday,
+    #[error(transparent)]
+    InvalidName(#[from] domain::NameError),
+    #[error(transparent)]
+    InvalidRotation(#[from] domain::RotationError),
+    #[error(transparent)]
+    InvalidWeekday(#[from] domain::WeekdayError),
+    #[error(transparent)]
+    InvalidSchedule(#[from] domain::ScheduleError),
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct Rotation {
+    pub id: Uuid,
+    pub name: String,
+    pub routines: Vec<Uuid>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct ScheduleEntry {
+    pub weekday: u8,
+    pub slots: Vec<ScheduleSlot>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ScheduleSlot {
+    Routine(Uuid),
+    Rotation(Uuid),
+}
+
+impl From<domain::ScheduleSlot> for ScheduleSlot {
+    fn from(value: domain::ScheduleSlot) -> Self {
+        match value {
+            domain::ScheduleSlot::Routine(id) => ScheduleSlot::Routine(*id),
+            domain::ScheduleSlot::Rotation(id) => ScheduleSlot::Rotation(*id),
+        }
+    }
+}
+
+impl From<ScheduleSlot> for domain::ScheduleSlot {
+    fn from(value: ScheduleSlot) -> Self {
+        match value {
+            ScheduleSlot::Routine(id) => domain::ScheduleSlot::Routine(id.into()),
+            ScheduleSlot::Rotation(id) => domain::ScheduleSlot::Rotation(id.into()),
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct TrainingSessions(Vec<TrainingSession>);
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
@@ -1272,10 +1454,68 @@ mod tests {
 
     use crate::tests::data::{
         BODY_FAT, BODY_FATS, BODY_WEIGHT, BODY_WEIGHTS, EXERCISE, EXERCISES, PERIOD, PERIODS,
-        ROUTINE, ROUTINES, TRAINING_SESSION, TRAINING_SESSIONS, USER,
+        ROUTINE, ROUTINES, SCHEDULE, TRAINING_SESSION, TRAINING_SESSIONS, USER,
     };
 
     use super::*;
+
+    #[test]
+    fn test_schedule_try_from() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule::from(&*SCHEDULE)),
+            Ok(SCHEDULE.clone())
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_duplicate_rotation() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![
+                    Rotation {
+                        id: Uuid::from_u128(1),
+                        name: "A/B".to_string(),
+                        routines: vec![Uuid::from_u128(1)],
+                    },
+                    Rotation {
+                        id: Uuid::from_u128(1),
+                        name: "C/D".to_string(),
+                        routines: vec![Uuid::from_u128(2)],
+                    },
+                ],
+                entries: vec![],
+            }),
+            Err(ScheduleError::DuplicateRotation)
+        );
+    }
+
+    #[test]
+    fn test_schedule_try_from_duplicate_weekday() {
+        assert_eq!(
+            domain::Schedule::try_from(Schedule {
+                rotations: vec![],
+                entries: vec![
+                    ScheduleEntry {
+                        weekday: 1,
+                        slots: vec![ScheduleSlot::Routine(Uuid::from_u128(1))],
+                    },
+                    ScheduleEntry {
+                        weekday: 1,
+                        slots: vec![ScheduleSlot::Routine(Uuid::from_u128(2))],
+                    },
+                ],
+            }),
+            Err(ScheduleError::DuplicateWeekday)
+        );
+    }
+
+    #[test]
+    fn test_schedule_serde() {
+        let obj = Schedule::from(&*SCHEDULE);
+        let serialized = json!(obj);
+        let deserialized: Schedule = serde_json::from_value(serialized).unwrap();
+        assert_eq!(deserialized, obj);
+    }
 
     #[test]
     fn test_user_try_from() {
@@ -1435,11 +1675,54 @@ mod tests {
         use pretty_assertions::assert_eq;
         use valens_domain::{
             BodyFatRepository, BodyWeightRepository, ExerciseRepository, PeriodRepository,
-            RoutineRepository, SessionRepository, TrainingSessionRepository, UserRepository,
+            RoutineRepository, ScheduleRepository, SessionRepository, TrainingSessionRepository,
+            UserRepository,
         };
         use wasm_bindgen_test::wasm_bindgen_test;
 
         use super::*;
+
+        #[wasm_bindgen_test]
+        #[should_panic]
+        async fn test_sync_schedule() {
+            let _ = IndexedDB.sync_schedule().await;
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_read_schedule() {
+            reset().await;
+            init_session().await;
+
+            assert_eq!(
+                IndexedDB.read_schedule().await.unwrap(),
+                domain::Schedule::default()
+            );
+
+            IndexedDB.write_schedule(&SCHEDULE).await.unwrap();
+
+            assert_eq!(IndexedDB.read_schedule().await.unwrap(), SCHEDULE.clone());
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_replace_schedule() {
+            reset().await;
+            init_session().await;
+
+            IndexedDB.write_schedule(&SCHEDULE).await.unwrap();
+
+            assert_eq!(
+                IndexedDB
+                    .replace_schedule(domain::Schedule::default())
+                    .await
+                    .unwrap(),
+                domain::Schedule::default()
+            );
+
+            assert_eq!(
+                IndexedDB.read_schedule().await.unwrap(),
+                domain::Schedule::default()
+            );
+        }
 
         #[wasm_bindgen_test]
         #[should_panic]

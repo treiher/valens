@@ -257,6 +257,7 @@ pub fn view_dialog(
                             deleted = true;
                             consume_context::<Cache>().refresh_routines();
                         },
+                        Err(domain::DeleteError::Conflict(reason)) => notify_error(format!("Failed to delete routine: {reason}")),
                         Err(err) => notify("Failed to delete routine", &err)
                     }
                 }
@@ -378,6 +379,7 @@ pub fn view_dialog(
                 disabled: !name.valid(),
                 InputField {
                     label: "Name".to_string(),
+                    "data-testid": "dialog-name",
                     value: name.input.clone(),
                     error: if let Err(err) = &name.validated { err.clone() },
                     has_changed: name.changed(),

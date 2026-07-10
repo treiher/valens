@@ -73,6 +73,8 @@ The application is local-first. The REST backend is the authoritative store, the
 
 The storage layer serves entity reads from the local database and sends mutations to the backend before applying them locally (see [`cached_rest.rs`](../crates/storage/src/cached_rest.rs)). User accounts and the server version are read directly from the backend and are not cached locally.
 
+Synchronization assumes that the backend is at least as recent as the frontend. This holds during normal operation because the frontend is bundled into the backend package and served by it. After a server rollback, clients whose service worker has already cached a newer frontend may report synchronization errors for entities the older backend does not know until the server is upgraded again or the cached frontend is cleared.
+
 ### Application state
 
 Application state lives in two kinds of holders.

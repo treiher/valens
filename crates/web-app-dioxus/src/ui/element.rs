@@ -456,15 +456,27 @@ pub fn Container(children: Element, #[props(default)] has_text_centered: bool) -
 }
 
 #[component]
-pub fn Title(children: Element, class: Option<String>) -> Element {
+pub fn Title(children: Element, class: Option<String>, actions: Option<Element>) -> Element {
+    let has_actions = actions.is_some();
     rsx! {
-        CenteredBlock {
-            div {
-                class: "container px-2",
-                h1 {
-                    class: "title is-5",
-                    class: if let Some(c) = &class { "{c}" },
-                    {children}
+        div {
+            class: "block",
+            class: if has_actions { "is-relative" },
+            CenteredBlock {
+                div {
+                    class: "container px-2",
+                    h1 {
+                        class: "title is-5",
+                        class: if let Some(c) = &class { "{c}" },
+                        {children}
+                    }
+                }
+            }
+            if let Some(actions) = actions {
+                div {
+                    class: "is-flex is-align-items-center",
+                    style: "position: absolute; top: 0; right: 0; height: 1.5rem;",
+                    {actions}
                 }
             }
         }

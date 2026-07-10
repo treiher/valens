@@ -43,6 +43,7 @@ from .pages import (
     RoutineRest,
     RoutineSet,
     RoutinesPage,
+    SchedulePage,
     TrainingSessionPage,
     TrainingSessionsPage,
 )
@@ -150,6 +151,12 @@ def test_home_links(page: Page) -> None:
     training_sessions_page = TrainingSessionsPage(page)
     training_sessions_page.expect_page()
     training_sessions_page.navbar.go_back()
+    home_page.expect_page()
+
+    home_page.go_to_schedule()
+    schedule_page = SchedulePage(page)
+    schedule_page.expect_page()
+    schedule_page.navbar.go_back()
     home_page.expect_page()
 
     home_page.go_to_routines()
@@ -1413,6 +1420,239 @@ def test_routine_delete_training_session(page: Page) -> None:
 
     p.wait_for_link_not_present(workout_1)
     p.wait_for_link(workout_2)
+
+
+def test_schedule_plan_routine(page: Page) -> None:
+    routine = str(USER.routines[-1].name)
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(weekday, routine)
+
+    p.expect_slots(weekday, [routine])
+
+    home_page = HomePage(page)
+    home_page.goto()
+
+    home_page.expect_today_entries([routine])
+
+
+def test_schedule_move_slot_by_drag_and_drop(page: Page) -> None:
+    routine_1 = str(USER.routines[0].name)
+    routine_2 = str(USER.routines[-1].name)
+    weekday = TODAY.isoweekday()
+    next_weekday = weekday % 7 + 1
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(weekday, routine_1)
+    p.add_slot(weekday, routine_2)
+
+    p.drag_slot(weekday, 1, weekday, 0)
+
+    p.expect_slots(weekday, [routine_2, routine_1])
+
+    p.drag_slot(weekday, 0, weekday, 2)
+
+    p.expect_slots(weekday, [routine_1, routine_2])
+
+    p.add_slot(next_weekday, routine_1)
+    p.drag_slot(next_weekday, 0, weekday, 1)
+
+    p.expect_slots(weekday, [routine_1, routine_1, routine_2])
+    p.expect_slots(next_weekday, [])
+
+    p.drag_slot(weekday, 1, next_weekday)
+
+    p.expect_slots(weekday, [routine_1, routine_2])
+    p.expect_slots(next_weekday, [routine_1])
+
+
+def test_schedule_move_slot_by_touch_drag_and_drop(page: Page) -> None:
+    routine = str(USER.routines[-1].name)
+    weekday = TODAY.isoweekday()
+    next_weekday = weekday % 7 + 1
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(weekday, routine)
+
+    p.expect_slots(weekday, [routine])
+
+    p.drag_slot_by_touch(weekday, 0, next_weekday)
+
+    p.expect_slots(weekday, [])
+    p.expect_slots(next_weekday, [routine])
+
+
+def test_schedule_remove_slot_by_drag_and_drop(page: Page) -> None:
+    routine = str(USER.routines[-1].name)
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(weekday, routine)
+
+    p.expect_slots(weekday, [routine])
+
+    p.remove_slot(weekday, 0)
+
+    p.expect_slots(weekday, [])
+
+
+def test_schedule_completed_training_session_removes_entry(page: Page) -> None:
+    routine = str(USER.routines[-1].name)
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(weekday, routine)
+
+    home_page = HomePage(page)
+    home_page.goto()
+
+    home_page.expect_today_entries([routine])
+
+    home_page.start_today_entry(0)
+    TrainingSessionPage(page, 0).expect_page()
+
+    home_page.goto()
+
+    home_page.expect_today_entries([])
+
+
+def test_schedule_rotation(page: Page) -> None:
+    # `routine_1` has been trained most recently, so the rotation continues with `routine_2`
+    routine_1 = str(USER.routines[0].name)
+    routine_2 = str(USER.routines[-1].name)
+    rotation = "A/B"
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_rotation(rotation)
+    p.add_rotation_routine(0, routine_1)
+    p.add_rotation_routine(0, routine_2)
+
+    p.expect_rotation(0, rotation, [routine_1, routine_2])
+
+    p.add_slot(weekday, rotation)
+    p.add_slot(weekday, rotation)
+
+    p.expect_slots(weekday, [rotation, rotation])
+
+    home_page = HomePage(page)
+    home_page.goto()
+
+    home_page.expect_today_entries([routine_2, routine_1])
+    home_page.expect_today_rotations([rotation, rotation])
+
+    home_page.start_today_entry(0)
+    TrainingSessionPage(page, 0).expect_page()
+
+    home_page.goto()
+
+    home_page.expect_today_entries([routine_1])
+
+
+def test_schedule_rotation_rename_and_delete(page: Page) -> None:
+    routine = str(USER.routines[0].name)
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_rotation("A/B")
+    p.add_rotation_routine(0, routine)
+    p.add_slot(weekday, "A/B")
+
+    p.rename_rotation(0, "Push/Pull")
+
+    p.expect_rotation(0, "Push/Pull", [routine])
+
+    p.delete_rotation(0)
+
+    p.expect_rotations(1)
+
+    p.remove_slot(weekday, 0)
+
+    p.expect_slots(weekday, [])
+
+    p.delete_rotation(0)
+
+    p.expect_rotations(0)
+
+
+def test_schedule_rotation_reorder_and_remove_routines_by_drag_and_drop(page: Page) -> None:
+    routine_1 = str(USER.routines[0].name)
+    routine_2 = str(USER.routines[-1].name)
+    rotation = "A/B"
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_rotation(rotation)
+    p.add_rotation_routine(0, routine_1)
+    p.add_rotation_routine(0, routine_2)
+
+    p.expect_rotation(0, rotation, [routine_1, routine_2])
+
+    p.drag_rotation_routine(0, 1, 0, 0)
+
+    p.expect_rotation(0, rotation, [routine_2, routine_1])
+
+    p.remove_rotation_routine(0, 0)
+
+    p.expect_rotation(0, rotation, [routine_1])
+
+    p.remove_rotation_routine(0, 0)
+
+    p.expect_rotation(0, rotation, [])
+
+    p.delete_rotation(0)
+
+    p.expect_rotations(0)
+
+
+def test_schedule_blocked_routine_deletion(page: Page) -> None:
+    routine = str(USER.routines[0].name)
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(1, routine)
+
+    routines_page = RoutinesPage(page)
+    routines_page.goto()
+
+    routines_page.table.expect_value(1, 1, 1, routine)
+
+    routines_page.delete_item(0)
+    routines_page.dialog.click_delete()
+
+    routines_page.notification.expect_error()
+    routines_page.notification.expect_message(
+        "Failed to delete routine: routine is used in the schedule"
+    )
+    routines_page.dialog.no()
+
+    routines_page.table.expect_value(1, 1, 1, routine)
 
 
 def test_exercises_add(page: Page) -> None:

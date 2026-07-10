@@ -28,8 +28,8 @@ pub enum ReadError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum CreateError {
-    #[error("conflict")]
-    Conflict,
+    #[error("{0}")]
+    Conflict(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
@@ -39,7 +39,7 @@ pub enum CreateError {
 impl From<UpdateError> for CreateError {
     fn from(value: UpdateError) -> Self {
         match value {
-            UpdateError::Conflict => CreateError::Conflict,
+            UpdateError::Conflict(reason) => CreateError::Conflict(reason),
             UpdateError::Storage(storage) => CreateError::Storage(storage),
             UpdateError::Other(other) => CreateError::Other(other),
         }
@@ -48,20 +48,42 @@ impl From<UpdateError> for CreateError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum UpdateError {
-    #[error("conflict")]
-    Conflict,
+    #[error("{0}")]
+    Conflict(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error>),
 }
 
+impl From<ReadError> for UpdateError {
+    fn from(value: ReadError) -> Self {
+        match value {
+            ReadError::NotFound => UpdateError::Other("not found".into()),
+            ReadError::Storage(storage) => UpdateError::Storage(storage),
+            ReadError::Other(other) => UpdateError::Other(other),
+        }
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum DeleteError {
+    #[error("{0}")]
+    Conflict(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error>),
+}
+
+impl From<ReadError> for DeleteError {
+    fn from(value: ReadError) -> Self {
+        match value {
+            ReadError::NotFound => DeleteError::Other("not found".into()),
+            ReadError::Storage(storage) => DeleteError::Storage(storage),
+            ReadError::Other(other) => DeleteError::Other(other),
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -147,10 +169,26 @@ mod tests {
     }
 
     #[test]
+    fn test_update_error_from_read_error() {
+        assert!(matches!(
+            UpdateError::from(ReadError::NotFound),
+            UpdateError::Other(error) if error.to_string() == "not found"
+        ));
+        assert!(matches!(
+            UpdateError::from(ReadError::Storage(StorageError::NoSession)),
+            UpdateError::Storage(StorageError::NoSession)
+        ));
+        assert!(matches!(
+            UpdateError::from(ReadError::Other("foo".into())),
+            UpdateError::Other(error) if error.to_string() == "foo"
+        ));
+    }
+
+    #[test]
     fn test_create_error_from_update_error() {
         assert!(matches!(
-            CreateError::from(UpdateError::Conflict),
-            CreateError::Conflict
+            CreateError::from(UpdateError::Conflict("foo".to_string())),
+            CreateError::Conflict(reason) if reason == "foo"
         ));
         assert!(matches!(
             CreateError::from(UpdateError::Storage(StorageError::NoSession)),
@@ -177,10 +215,10 @@ mod tests {
         assert!(!ReadError::NotFound.recoverable());
 
         assert!(CreateError::Storage(StorageError::NoSession).recoverable());
-        assert!(!CreateError::Conflict.recoverable());
+        assert!(!CreateError::Conflict("foo".to_string()).recoverable());
 
         assert!(UpdateError::Storage(StorageError::Timeout).recoverable());
-        assert!(!UpdateError::Conflict.recoverable());
+        assert!(!UpdateError::Conflict("foo".to_string()).recoverable());
 
         assert!(DeleteError::Storage(StorageError::NoConnection).recoverable());
         assert!(!DeleteError::Other("foo".into()).recoverable());

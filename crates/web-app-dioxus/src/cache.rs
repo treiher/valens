@@ -12,7 +12,7 @@
 use dioxus::prelude::*;
 use valens_domain::{
     self as domain, BodyFatService, BodyWeightService, ExerciseService, PeriodService,
-    RoutineService, TrainingSessionService,
+    RoutineService, ScheduleService, TrainingSessionService,
 };
 
 use crate::{DOMAIN_SERVICE, diagnostics::log_failure};
@@ -44,12 +44,13 @@ macro_rules! call {
 
 #[derive(Clone, Copy)]
 pub struct Cache {
-    pub body_weight: Signal<CacheState<domain::BodyWeight>>,
-    pub body_fat: Signal<CacheState<domain::BodyFat>>,
-    pub period: Signal<CacheState<domain::Period>>,
-    pub exercises: Signal<CacheState<domain::Exercise>>,
-    pub routines: Signal<CacheState<domain::Routine>>,
-    pub training_sessions: Signal<CacheState<domain::TrainingSession>>,
+    pub body_weight: Signal<CacheState<Vec<domain::BodyWeight>>>,
+    pub body_fat: Signal<CacheState<Vec<domain::BodyFat>>>,
+    pub period: Signal<CacheState<Vec<domain::Period>>>,
+    pub exercises: Signal<CacheState<Vec<domain::Exercise>>>,
+    pub routines: Signal<CacheState<Vec<domain::Routine>>>,
+    pub schedule: Signal<CacheState<domain::Schedule>>,
+    pub training_sessions: Signal<CacheState<Vec<domain::TrainingSession>>>,
 }
 
 impl Cache {
@@ -59,6 +60,7 @@ impl Cache {
         let period = use_signal(|| CacheState::Loading);
         let exercises = use_signal(|| CacheState::Loading);
         let routines = use_signal(|| CacheState::Loading);
+        let schedule = use_signal(|| CacheState::Loading);
         let training_sessions = use_signal(|| CacheState::Loading);
         use_context_provider(move || Self {
             body_weight,
@@ -66,6 +68,7 @@ impl Cache {
             period,
             exercises,
             routines,
+            schedule,
             training_sessions,
         });
     }
@@ -78,6 +81,7 @@ impl Cache {
             refresh_period,
             refresh_exercises,
             refresh_routines,
+            refresh_schedule,
             refresh_training_sessions
         );
     }
@@ -102,6 +106,10 @@ impl Cache {
         refresh!(self, routines, get_routines, "load routines");
     }
 
+    pub fn refresh_schedule(&self) {
+        refresh!(self, schedule, get_schedule, "load schedule");
+    }
+
     pub fn refresh_training_sessions(&self) {
         refresh!(
             self,
@@ -124,5 +132,5 @@ impl Cache {
 pub enum CacheState<T> {
     Loading,
     Error(domain::ReadError),
-    Ready(Vec<T>),
+    Ready(T),
 }

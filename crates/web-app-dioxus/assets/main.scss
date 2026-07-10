@@ -12,6 +12,7 @@ $blue: #3B8ED0;
     $navbar-burger-color: $white,
     $message-border-l-delta: 0%,
 );
+@use "../../../third-party/bulma/sass/utilities/mixins" as mx;
 @use "../../../third-party/bulma-slider/src/sass";
 @use "../../../third-party/fontawesome/scss/variables" with (
   $font-path: $font-path
@@ -360,10 +361,114 @@ div.is-calendar {
   to { opacity: 1; }
 }
 
+// Schedule
+
+// The schedule spans the full screen width, so its columns and headings provide their own inset.
+.schedule-columns,
+.schedule-heading {
+  // Tiles pad their content by this much, so an action button this far from the column edge lines
+  // up with the drag handles of the tiles
+  --schedule-action-inset: 1rem;
+}
+
+.schedule-columns {
+  --schedule-tile-gap: 0.75rem;
+  margin-inline: 0.75rem;
+}
+
+.schedule-heading {
+  margin-inline: 1.5rem;
+}
+
+.schedule-tile {
+  margin-bottom: var(--schedule-tile-gap) !important;
+}
+
+.schedule-action {
+  position: absolute;
+  right: var(--schedule-action-inset);
+  top: 50%;
+  transform: translateY(-50%);
+
+  a {
+    margin-inline: 0 !important;
+  }
+
+  // Uniform icon box, so that the buttons are centered on the same line regardless of their icon
+  .icon {
+    --bulma-icon-dimensions: 1rem;
+  }
+}
+
+// The titles of the weekdays fill their column on wide screens, leaving no room for the inset
+@include mx.tablet {
+  .schedule-title-action {
+    right: 0;
+  }
+}
+
+// Narrow screens stack the columns, where smaller insets and gaps leave more room for the content
+@include mx.mobile {
+  .schedule-columns {
+    --bulma-column-gap: 0.25rem;
+    --schedule-tile-gap: 0.5rem;
+    margin-inline: 0.5rem;
+  }
+
+  .schedule-heading {
+    margin-inline: 0.75rem;
+  }
+}
+
+// Drop zone on empty days while dragging
+
+.is-drop-zone {
+  border: 2px dashed transparent;
+  border-radius: 8px;
+}
+
+.is-drop-zone.is-active {
+  border-color: currentColor;
+}
+
+// Insertion point between slots while dragging
+
+.is-insert-before,
+.is-insert-after {
+  position: relative;
+}
+
+.is-insert-before::before,
+.is-insert-after::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background-color: var(--bulma-primary);
+}
+
+.is-insert-before::before {
+  top: calc(-0.375rem - 1px);
+}
+
+.is-insert-after::after {
+  bottom: calc(-0.375rem - 1px);
+}
+
 // Sizing
 
 .is-width-auto {
   width: auto;
+}
+
+// Text wrapping
+
+.is-nowrap {
+  overflow-wrap: normal;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 // Text decoration

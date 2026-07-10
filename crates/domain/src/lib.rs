@@ -26,6 +26,10 @@ pub use routine::{
     Rounds, Routine, RoutineID, RoutinePart, RoutinePartPath, RoutineRepository, RoutineService,
     routines_sorted_by_last_use,
 };
+pub use schedule::{
+    Rotation, RotationError, RotationID, Schedule, ScheduleError, ScheduleRepository,
+    ScheduleService, ScheduleSlot, Weekday, WeekdayError,
+};
 pub use service::Service;
 pub use session::{SessionRepository, SessionService};
 pub use statistics::{
@@ -51,6 +55,7 @@ mod ffmi;
 mod name;
 mod period;
 mod routine;
+mod schedule;
 mod service;
 mod session;
 mod statistics;

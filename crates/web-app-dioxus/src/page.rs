@@ -15,5 +15,6 @@ pub mod muscles;
 pub mod not_found;
 pub mod routine;
 pub mod routines;
+pub mod schedule;
 pub mod training_session;
 pub mod training_sessions;

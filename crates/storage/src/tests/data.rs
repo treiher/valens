@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::{Duration, Local, NaiveDate};
 use valens_domain as domain;
 
@@ -172,6 +174,30 @@ pub static ROUTINE_2: std::sync::LazyLock<domain::Routine> =
             ],
         }],
     });
+
+pub static SCHEDULE: std::sync::LazyLock<domain::Schedule> = std::sync::LazyLock::new(|| {
+    domain::Schedule::new(
+        BTreeMap::from([(
+            domain::RotationID::from(1),
+            domain::Rotation::new(domain::Name::new("A/B").unwrap(), vec![1.into(), 2.into()])
+                .unwrap(),
+        )]),
+        BTreeMap::from([
+            (
+                domain::Weekday::Monday,
+                vec![
+                    domain::ScheduleSlot::Rotation(1.into()),
+                    domain::ScheduleSlot::Routine(1.into()),
+                ],
+            ),
+            (
+                domain::Weekday::Thursday,
+                vec![domain::ScheduleSlot::Rotation(1.into())],
+            ),
+        ]),
+    )
+    .unwrap()
+});
 
 pub static TODAY: std::sync::LazyLock<NaiveDate> =
     std::sync::LazyLock::new(|| Local::now().date_naive());

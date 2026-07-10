@@ -552,6 +552,7 @@ pub fn view_dialog(
                 disabled: !name.valid(),
                 InputField {
                     label: "Name".to_string(),
+                    "data-testid": "dialog-name",
                     value: name.input.clone(),
                     error: if let Err(err) = &name.validated { err.clone() },
                     has_changed: name.changed(),

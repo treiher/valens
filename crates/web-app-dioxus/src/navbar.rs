@@ -69,6 +69,7 @@ pub fn Navbar() -> Element {
         Route::TrainingSession { .. } => "Training session".to_string(),
         Route::Routines { .. } => "Routines".to_string(),
         Route::Routine { .. } => "Routine".to_string(),
+        Route::Schedule {} => "Schedule".to_string(),
         Route::Exercises { .. } => "Exercises".to_string(),
         Route::Exercise { .. } => "Exercise".to_string(),
         Route::Catalog { .. } => "Catalog exercise".to_string(),
@@ -84,6 +85,7 @@ pub fn Navbar() -> Element {
         Route::Admin {}
         | Route::TrainingSessions { .. }
         | Route::Routines { .. }
+        | Route::Schedule {}
         | Route::Exercises { .. }
         | Route::Muscles { .. }
         | Route::BodyWeight { .. }
@@ -282,7 +284,9 @@ pub fn Navbar() -> Element {
         }
 
         div {
-            class: "container is-max-desktop py-4",
+            class: "container py-4",
+            // The columns of the schedule benefit from the full screen width
+            class: if !matches!(route, Route::Schedule {}) { "is-max-desktop" },
             Outlet::<Route> {}
         }
 

@@ -10,7 +10,8 @@ use crate::{
         admin::Admin, body_fat::BodyFat, body_weight::BodyWeight, catalog::Catalog,
         exercise::Exercise, exercises::Exercises, ffmi::Ffmi, home::Home, login::Login,
         menstrual_cycle::MenstrualCycle, muscles::Muscles, not_found::NotFound, routine::Routine,
-        routines::Routines, training_session::TrainingSession, training_sessions::TrainingSessions,
+        routines::Routines, schedule::Schedule, training_session::TrainingSession,
+        training_sessions::TrainingSessions,
     },
     session::SessionProvider,
 };
@@ -35,6 +36,8 @@ pub enum Route {
             Routines { add: bool, search: String },
             #[route("/routine/:id")]
             Routine { id: domain::RoutineID },
+            #[route("/schedule")]
+            Schedule {},
             #[route("/exercises?:add&:filter")]
             Exercises { add: bool, filter: String },
             #[route("/exercise/:id")]

@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 1RM calculator accessible from the navigation menu
 - Drop set calculator accessible from the navigation menu
 - Activity bar at the bottom of the screen for returning to an in-progress training session, shown on every page except the matching training session page
+- Home page:
+    - Most recent FFMI
+    - Planned routines for the current day with buttons to start the corresponding training sessions
 - Training session page:
     - Option to open the 1RM calculator from the exercise options
     - Option to open the drop set calculator from the exercise options
@@ -25,40 +28,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Input fields for time-based sets while another training session is in progress
 - Training sessions page: 7-day min./max. RPE to RPE chart
 - Routine page: Option to show and copy routine as text
-- Routines page: Option to show and copy routine as text
+- Routines page:
+    - Option to show and copy routine as text
+    - Automatic focus of the first input field in the dialog for adding entries
 - Exercise page:
     - Estimated maximum reps to reps chart
     - Estimated 1RM to weight chart
-- Body weight, body fat, exercises and routines pages: Automatic focus of the first input field in dialogs for adding entries
+- Exercises page: Automatic focus of the first input field in the dialog for adding entries
+- Body weight page: Automatic focus of the first input field in the dialog for adding entries
+- Body fat page: Automatic focus of the first input field in the dialog for adding entries
+- FFMI (Fat-Free Mass Index) page with a chart and interval selection
 - Recording of notifications in the log
 - CLI commands to list, create, update and delete users
-- FFMI (Fat-Free Mass Index) page with a chart and interval selection
-- Home page: Most recent FFMI
 - Administration page: Body height of users
 - Display of chart values at the hovered or touched date
 - Schedule page for planning routines on days of the week, including rotations of routines across training days
-- Home page: Planned routines for the current day with buttons to start the corresponding training sessions
 
 ### Changed
 
-- Login page: Redesigned the login flow to require entering a known username
+- Login page: Login flow to require entering a known username
 - Training session page:
     - Weight input resolution from 0.1 to 0.01 kg
     - Preservation of an in-progress training session when editing a different one
     - Dimming of inactive exercise sections only while a training session is in progress
 - Training sessions page:
-    - RPE chart now averages per-set RPE values instead of per-session averages
-    - Unified chart legend labels for set volume
+    - RPE chart to average per-set RPE values instead of per-session averages
+    - Wording of chart legend labels for set volume to be consistent with other pages
 - Routine page:
     - Weight input resolution from 0.1 to 0.01 kg
-    - Reordered and unified chart legend labels
+    - Order and wording of chart legend labels
 - Exercise page:
-    - Reordered charts to show performance metrics before volume metrics
-    - Reordered and unified chart legend labels
-- Muscles pages: Unified chart legend labels for set volume
-- Body weight page: Reordered chart legend entries
-- Body fat page: Reordered chart legend entries
-- Navigation bar: Renamed "Log out" to "Sign out"
+    - Order of charts to show performance metrics before volume metrics
+    - Order and wording of chart legend labels
+- Muscles page: Wording of chart legend labels for set volume to be consistent with other pages
+- Body weight page: Order of chart legend entries
+- Body fat page: Order of chart legend entries
+- Navigation bar: "Log out" to "Sign out"
 - Presentation of error messages from a dialog to a notification below the navigation bar
 - Severity of recoverable notifications from error to warning
 - Routines page: Prevention of the deletion of routines that are used in the schedule

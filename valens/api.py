@@ -769,7 +769,11 @@ def delete_period(date_: str) -> ResponseReturnValue:
 @session_required
 def read_exercises() -> ResponseReturnValue:
     exercises = (
-        db.session.execute(select(Exercise).where(Exercise.user_id == session["user_id"]))
+        db.session.execute(
+            select(Exercise)
+            .where(Exercise.user_id == session["user_id"])
+            .options(selectinload(Exercise.muscles))
+        )
         .scalars()
         .all()
     )
@@ -894,7 +898,11 @@ def read_routines() -> ResponseReturnValue:
         db.session.execute(
             select(Routine)
             .where(Routine.user_id == session["user_id"])
-            .options(selectinload(Routine.sections))
+            .options(
+                selectinload(Routine.sections).selectinload(
+                    RoutineSection.parts, recursion_depth=-1
+                )
+            )
         )
         .scalars()
         .all()

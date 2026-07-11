@@ -22,6 +22,12 @@ impl Reps {
         Ok(Self(value))
     }
 
+    /// Converts into an `Option`, interpreting zero as unset.
+    #[must_use]
+    pub fn non_zero(self) -> Option<Self> {
+        (self > Self::default()).then_some(self)
+    }
+
     #[must_use]
     pub fn including_rir(self, rpe: RPE) -> f32 {
         #[allow(clippy::cast_precision_loss)]
@@ -67,6 +73,12 @@ impl Time {
         }
 
         Ok(Self(value))
+    }
+
+    /// Converts into an `Option`, interpreting zero as unset.
+    #[must_use]
+    pub fn non_zero(self) -> Option<Self> {
+        (self > Self::default()).then_some(self)
     }
 }
 
@@ -118,6 +130,12 @@ impl Weight {
         }
 
         Ok(Self(value))
+    }
+
+    /// Converts into an `Option`, interpreting zero as unset.
+    #[must_use]
+    pub fn non_zero(self) -> Option<Self> {
+        (self > Self::default()).then_some(self)
     }
 }
 
@@ -185,6 +203,12 @@ impl RPE {
         }
 
         Ok(Self(v))
+    }
+
+    /// Converts into an `Option`, interpreting zero as unset.
+    #[must_use]
+    pub fn non_zero(self) -> Option<Self> {
+        (self > Self::default()).then_some(self)
     }
 
     #[must_use]
@@ -542,6 +566,13 @@ mod tests {
     }
 
     #[rstest]
+    #[case(Reps(0), None)]
+    #[case(Reps(1), Some(Reps(1)))]
+    fn test_reps_non_zero(#[case] input: Reps, #[case] expected: Option<Reps>) {
+        assert_eq!(input.non_zero(), expected);
+    }
+
+    #[rstest]
     fn test_reps_mul_time() {
         assert_eq!(Reps(2) * Time(4), Time(8));
     }
@@ -579,6 +610,13 @@ mod tests {
     }
 
     #[rstest]
+    #[case(Time(0), None)]
+    #[case(Time(1), Some(Time(1)))]
+    fn test_time_non_zero(#[case] input: Time, #[case] expected: Option<Time>) {
+        assert_eq!(input.non_zero(), expected);
+    }
+
+    #[rstest]
     fn test_time_mul_reps() {
         assert_eq!(Time(2) * Reps(4), Time(8));
     }
@@ -611,6 +649,13 @@ mod tests {
     }
 
     #[rstest]
+    #[case(Weight(0.0), None)]
+    #[case(Weight(0.01), Some(Weight(0.01)))]
+    fn test_weight_non_zero(#[case] input: Weight, #[case] expected: Option<Weight>) {
+        assert_eq!(input.non_zero(), expected);
+    }
+
+    #[rstest]
     #[case(Weight(2.0), "2")]
     #[case(Weight(8.4), "8.4")]
     fn test_weight_display(#[case] input: Weight, #[case] expected: &str) {
@@ -635,6 +680,13 @@ mod tests {
     #[case("", Err(RPEError::ParseError))]
     fn test_rpe_from_str(#[case] input: &str, #[case] expected: Result<RPE, RPEError>) {
         assert_eq!(RPE::try_from(input), expected);
+    }
+
+    #[rstest]
+    #[case(RPE::ZERO, None)]
+    #[case(RPE(5), Some(RPE(5)))]
+    fn test_rpe_non_zero(#[case] input: RPE, #[case] expected: Option<RPE>) {
+        assert_eq!(input.non_zero(), expected);
     }
 
     #[rstest]

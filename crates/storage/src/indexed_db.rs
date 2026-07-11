@@ -1371,32 +1371,23 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 automatic,
             } => domain::TrainingSessionElement::Set {
                 exercise_id: exercise_id.into(),
-                reps: reps.map(|r| {
-                    unwrap_or_default_warn(domain::Reps::new(r), "invalid reps in stored set")
-                }),
-                time: time.map(|t| {
-                    unwrap_or_default_warn(domain::Time::new(t), "invalid time in stored set")
-                }),
-                weight: weight.map(|t| {
-                    unwrap_or_default_warn(domain::Weight::new(t), "invalid weight in stored set")
-                }),
+                reps: reps
+                    .and_then(|r| ok_warn(domain::Reps::new(r), "invalid reps in stored set")),
+                time: time
+                    .and_then(|t| ok_warn(domain::Time::new(t), "invalid time in stored set")),
+                weight: weight
+                    .and_then(|w| ok_warn(domain::Weight::new(w), "invalid weight in stored set")),
                 rpe: rpe
                     .and_then(|rpe| ok_warn(domain::RPE::new(rpe), "invalid RPE in stored set")),
-                target_reps: target_reps.map(|r| {
-                    unwrap_or_default_warn(
-                        domain::Reps::new(r),
-                        "invalid target reps in stored set",
-                    )
+                target_reps: target_reps.and_then(|r| {
+                    ok_warn(domain::Reps::new(r), "invalid target reps in stored set")
                 }),
-                target_time: target_time.map(|t| {
-                    unwrap_or_default_warn(
-                        domain::Time::new(t),
-                        "invalid target time in stored set",
-                    )
+                target_time: target_time.and_then(|t| {
+                    ok_warn(domain::Time::new(t), "invalid target time in stored set")
                 }),
-                target_weight: target_weight.map(|t| {
-                    unwrap_or_default_warn(
-                        domain::Weight::new(t),
+                target_weight: target_weight.and_then(|w| {
+                    ok_warn(
+                        domain::Weight::new(w),
                         "invalid target weight in stored set",
                     )
                 }),
@@ -1409,8 +1400,8 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 target_time,
                 automatic,
             } => domain::TrainingSessionElement::Rest {
-                target_time: target_time.map(|t| {
-                    unwrap_or_default_warn(
+                target_time: target_time.and_then(|t| {
+                    ok_warn(
                         domain::Time::new(t),
                         "invalid target time in stored rest element",
                     )

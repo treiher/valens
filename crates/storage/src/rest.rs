@@ -1390,13 +1390,13 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 automatic,
             } => domain::TrainingSessionElement::Set {
                 exercise_id: u128::from(exercise_id).into(),
-                reps: reps.map(|r| domain::Reps::new(r).unwrap_or_default()),
-                time: time.map(|t| domain::Time::new(t).unwrap_or_default()),
-                weight: weight.map(|t| domain::Weight::new(t).unwrap_or_default()),
+                reps: reps.and_then(|r| domain::Reps::new(r).ok()),
+                time: time.and_then(|t| domain::Time::new(t).ok()),
+                weight: weight.and_then(|w| domain::Weight::new(w).ok()),
                 rpe: rpe.and_then(|rpe| domain::RPE::new(rpe).ok()),
-                target_reps: target_reps.map(|r| domain::Reps::new(r).unwrap_or_default()),
-                target_time: target_time.map(|t| domain::Time::new(t).unwrap_or_default()),
-                target_weight: target_weight.map(|t| domain::Weight::new(t).unwrap_or_default()),
+                target_reps: target_reps.and_then(|r| domain::Reps::new(r).ok()),
+                target_time: target_time.and_then(|t| domain::Time::new(t).ok()),
+                target_weight: target_weight.and_then(|w| domain::Weight::new(w).ok()),
                 target_rpe: target_rpe.and_then(|rpe| domain::RPE::new(rpe).ok()),
                 automatic,
             },
@@ -1404,7 +1404,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 target_time,
                 automatic,
             } => domain::TrainingSessionElement::Rest {
-                target_time: target_time.map(|t| domain::Time::new(t).unwrap_or_default()),
+                target_time: target_time.and_then(|t| domain::Time::new(t).ok()),
                 automatic,
             },
         }
@@ -1722,6 +1722,36 @@ mod tests {
         assert_eq!(
             domain::TrainingSession::from(TrainingSession::from(TRAINING_SESSION.clone())),
             TRAINING_SESSION.clone()
+        );
+    }
+
+    #[test]
+    fn test_training_session_element_from_out_of_range_values() {
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::Set {
+                exercise_id: 1,
+                reps: Some(1000),
+                time: Some(1000),
+                weight: Some(1000.0),
+                rpe: Some(10.5),
+                target_reps: Some(1000),
+                target_time: Some(1000),
+                target_weight: Some(1000.0),
+                target_rpe: Some(10.5),
+                automatic: false,
+            }),
+            domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: None,
+                time: None,
+                weight: None,
+                rpe: None,
+                target_reps: None,
+                target_time: None,
+                target_weight: None,
+                target_rpe: None,
+                automatic: false,
+            }
         );
     }
 

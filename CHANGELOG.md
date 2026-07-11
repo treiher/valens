@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Acceptance of invalid values by the server that could make the affected pages permanently unusable
 - Error being reported for a change that was successfully saved on the server when storing the change on the device failed
 - Incorrect background color in calendars
 - Training sessions page: Incorrect chart legend label

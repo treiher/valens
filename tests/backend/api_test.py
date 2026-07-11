@@ -11,6 +11,35 @@ import tests.data
 import tests.utils
 from valens import app
 
+INVALID_ROUTINE_ACTIVITY_FIELDS: list[dict[str, object]] = [
+    {"exercise_id": 0},
+    {"reps": 1000},
+    {"time": -1},
+    {"weight": 1000.0},
+    {"weight": 8.001},
+    {"rpe": 10.5},
+    {"rpe": 7.3},
+    {"automatic": 1},
+]
+
+INVALID_WORKOUT_FIELDS: list[dict[str, object]] = [
+    {"date": 3},
+    {"routine_id": "1"},
+    {"notes": 1},
+    {"exercise_notes": [{"exercise_id": 1, "notes": 5}]},
+    {"elements": [{"target_time": 0, "automatic": False}]},
+    {"elements": [{"target_time": 60, "automatic": "yes"}]},
+]
+
+INVALID_WORKOUT_SET_FIELDS: list[dict[str, object]] = [
+    {"exercise_id": None},
+    {"reps": 0},
+    {"reps": 1000},
+    {"weight": 0},
+    {"rpe": 8.25},
+    {"target_rpe": -1},
+]
+
 
 @pytest.fixture(name="client")
 def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
@@ -101,23 +130,145 @@ def test_json_required(client: Client, method: str, route: str) -> None:
     ("method", "route", "data"),
     [
         ("post", "/api/session", {"invalid": "data"}),
+        ("post", "/api/session", {"name": 1}),
         ("post", "/api/users", {"invalid": "data"}),
+        ("post", "/api/users", {"name": 1, "sex": 0}),
+        ("post", "/api/users", {"name": " ", "sex": 0}),
+        ("post", "/api/users", {"name": "A" * 65, "sex": 0}),
+        ("post", "/api/users", {"name": "Ä" * 33, "sex": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": "female"}),
+        ("post", "/api/users", {"name": "Carol", "sex": True}),
+        ("post", "/api/users", {"name": "Carol", "sex": 2}),
         ("post", "/api/users", {"name": "Carol", "sex": 0, "height": "invalid"}),
         ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 175.5}),
         ("post", "/api/users", {"name": "Carol", "sex": 0, "height": True}),
         ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 256}),
         ("put", "/api/users/2", {"invalid": "data"}),
         ("put", "/api/users/2", {"name": "Carol", "sex": 0, "height": -175}),
         ("post", "/api/body_weight", {"invalid": "data"}),
+        ("post", "/api/body_weight", {"date": 20020224, "weight": 80.0}),
+        ("post", "/api/body_weight", {"date": "2002-02-24", "weight": "80"}),
+        ("post", "/api/body_weight", {"date": "2002-02-24", "weight": float("nan")}),
+        ("post", "/api/body_weight", {"date": "2002-02-24", "weight": 10**400}),
+        ("post", "/api/body_weight", {"date": "2002-02-24", "weight": 0}),
         ("put", "/api/body_weight/2002-02-22", {"invalid": "data"}),
+        ("put", "/api/body_weight/2002-02-22", {"weight": -1}),
         ("post", "/api/body_fat", {"invalid": "data"}),
+        (
+            "post",
+            "/api/body_fat",
+            {
+                "date": "2002-02-24",
+                "chest": 256,
+                "abdominal": None,
+                "thigh": None,
+                "tricep": None,
+                "subscapular": None,
+                "suprailiac": None,
+                "midaxillary": None,
+            },
+        ),
+        (
+            "post",
+            "/api/body_fat",
+            {
+                "date": "2002-02-24",
+                "chest": True,
+                "abdominal": None,
+                "thigh": None,
+                "tricep": None,
+                "subscapular": None,
+                "suprailiac": None,
+                "midaxillary": None,
+            },
+        ),
         ("put", "/api/body_fat/2002-02-20", {"invalid": "data"}),
+        (
+            "put",
+            "/api/body_fat/2002-02-20",
+            {
+                "chest": 0,
+                "abdominal": None,
+                "thigh": None,
+                "tricep": None,
+                "subscapular": None,
+                "suprailiac": None,
+                "midaxillary": None,
+            },
+        ),
         ("post", "/api/period", {"invalid": "data"}),
+        ("post", "/api/period", {"date": "2002-02-24", "intensity": 5}),
+        ("post", "/api/period", {"date": "2002-02-24", "intensity": "1"}),
         ("put", "/api/period/2002-02-22", {"invalid": "data"}),
+        ("put", "/api/period/2002-02-22", {"intensity": 0}),
         ("post", "/api/exercises", {"invalid": "data"}),
         ("post", "/api/exercises", {"name": "data", "muscles": [{"invalid": "data"}]}),
+        ("post", "/api/exercises", {"name": "", "muscles": []}),
+        ("post", "/api/exercises", {"name": "A", "muscles": 1}),
+        ("post", "/api/exercises", {"name": "A", "muscles": [{"muscle_id": 12, "stimulus": 100}]}),
+        (
+            "post",
+            "/api/exercises",
+            {"name": "A", "muscles": [{"muscle_id": "11", "stimulus": 100}]},
+        ),
+        ("post", "/api/exercises", {"name": "A", "muscles": [{"muscle_id": 11, "stimulus": 0}]}),
+        ("post", "/api/exercises", {"name": "A", "muscles": [{"muscle_id": 11, "stimulus": 101}]}),
         ("put", "/api/exercises/1", {"invalid": "data"}),
+        ("put", "/api/exercises/1", {"name": "A", "muscles": [{"muscle_id": 12, "stimulus": 100}]}),
         ("post", "/api/routines", {"invalid": "data"}),
+        ("post", "/api/routines", {"name": "", "notes": None, "archived": False, "sections": []}),
+        ("post", "/api/routines", {"name": "R", "notes": 1, "archived": False, "sections": []}),
+        ("post", "/api/routines", {"name": "R", "notes": None, "archived": 1, "sections": []}),
+        ("post", "/api/routines", {"name": "R", "notes": None, "archived": False, "sections": 1}),
+        (
+            "post",
+            "/api/routines",
+            {
+                "name": "R",
+                "notes": None,
+                "archived": False,
+                "sections": [{"rounds": 0, "parts": []}],
+            },
+        ),
+        (
+            "post",
+            "/api/routines",
+            {
+                "name": "R",
+                "notes": None,
+                "archived": False,
+                "sections": [{"rounds": 1000, "parts": []}],
+            },
+        ),
+        *[
+            (
+                "post",
+                "/api/routines",
+                {
+                    "name": "R",
+                    "notes": None,
+                    "archived": False,
+                    "sections": [
+                        {
+                            "rounds": 1,
+                            "parts": [
+                                {
+                                    "exercise_id": 1,
+                                    "reps": 10,
+                                    "time": 0,
+                                    "weight": 0.0,
+                                    "rpe": 0.0,
+                                    "automatic": False,
+                                    **invalid_activity_field,
+                                }
+                            ],
+                        }
+                    ],
+                },
+            )
+            for invalid_activity_field in INVALID_ROUTINE_ACTIVITY_FIELDS
+        ],
         ("put", "/api/routines/1", {"invalid": "data"}),
         ("patch", "/api/routines/1", {"sections": [{"invalid": "data"}]}),
         ("put", "/api/schedule", {"invalid": "data"}),
@@ -164,7 +315,102 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             "/api/schedule",
             {"rotations": [{"id": 1, "name": "A/B", "routines": [1, 1]}], "entries": []},
         ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [{"id": 1, "name": "", "routines": [1]}], "entries": []},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [{"id": 0, "name": "A/B", "routines": [1]}], "entries": []},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [{"id": "1", "name": "A/B", "routines": [1]}], "entries": []},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [{"id": 1, "name": "A/B", "routines": ["1"]}], "entries": []},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {
+                "rotations": [
+                    {"id": 1, "name": "A/B", "routines": [1]},
+                    {"id": 1, "name": "C/D", "routines": [2]},
+                ],
+                "entries": [],
+            },
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {
+                "rotations": [],
+                "entries": [
+                    {"weekday": 1, "slots": [{"routine": 1}]},
+                    {"weekday": 1, "slots": [{"routine": 2}]},
+                ],
+            },
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [], "entries": [{"weekday": 1, "slots": [{"routine": 0}]}]},
+        ),
+        (
+            "put",
+            "/api/schedule",
+            {"rotations": [], "entries": [{"weekday": 1, "slots": [{"rotation": "1"}]}]},
+        ),
         ("post", "/api/workouts", {"invalid": "data"}),
+        *[
+            (
+                "post",
+                "/api/workouts",
+                {
+                    "date": "2002-02-24",
+                    "routine_id": None,
+                    "notes": None,
+                    "elements": [],
+                    "exercise_notes": [],
+                    **invalid_workout_field,
+                },
+            )
+            for invalid_workout_field in INVALID_WORKOUT_FIELDS
+        ],
+        *[
+            (
+                "post",
+                "/api/workouts",
+                {
+                    "date": "2002-02-24",
+                    "routine_id": None,
+                    "notes": None,
+                    "elements": [
+                        {
+                            "exercise_id": 1,
+                            "reps": None,
+                            "time": None,
+                            "weight": None,
+                            "rpe": None,
+                            "target_reps": None,
+                            "target_time": None,
+                            "target_weight": None,
+                            "target_rpe": None,
+                            "automatic": False,
+                            **invalid_set_field,
+                        }
+                    ],
+                    "exercise_notes": [],
+                },
+            )
+            for invalid_set_field in INVALID_WORKOUT_SET_FIELDS
+        ],
         ("put", "/api/workouts/1", {"invalid": "data"}),
         ("patch", "/api/workouts/1", {"elements": [{"invalid": "data"}]}),
     ],
@@ -817,7 +1063,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
             {
                 "id": 7,
                 "name": "New Exercise",
-                "muscles": [{"muscle_id": 11, "stimulus": 100}, {"muscle_id": 12, "stimulus": 50}],
+                "muscles": [{"muscle_id": 11, "stimulus": 100}, {"muscle_id": 21, "stimulus": 50}],
             },
             [
                 {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
@@ -828,7 +1074,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "name": "New Exercise",
                     "muscles": [
                         {"muscle_id": 11, "stimulus": 100},
-                        {"muscle_id": 12, "stimulus": 50},
+                        {"muscle_id": 21, "stimulus": 50},
                     ],
                 },
                 {"id": 5, "name": "Unused Exercise", "muscles": []},
@@ -1403,6 +1649,129 @@ def test_create_workout(
     assert resp.json == result
 
 
+def _workout_with_exercise(exercise_id: int) -> dict[str, object]:
+    return {
+        "date": "2002-04-01",
+        "routine_id": None,
+        "notes": None,
+        "elements": [
+            {
+                "exercise_id": exercise_id,
+                "reps": 10,
+                "time": None,
+                "weight": None,
+                "rpe": None,
+                "target_reps": None,
+                "target_time": None,
+                "target_weight": None,
+                "target_rpe": None,
+                "automatic": False,
+            }
+        ],
+        "exercise_notes": [],
+    }
+
+
+def _routine_with_exercise(exercise_id: int) -> dict[str, object]:
+    return {
+        "name": "New Routine",
+        "notes": None,
+        "archived": False,
+        "sections": [
+            {
+                "rounds": 1,
+                "parts": [
+                    {
+                        "exercise_id": exercise_id,
+                        "reps": 10,
+                        "time": 0,
+                        "weight": 0.0,
+                        "rpe": 0.0,
+                        "automatic": False,
+                    }
+                ],
+            }
+        ],
+    }
+
+
+# Exercise 2 belongs to Bob, exercise 999 does not exist; Alice must be able to reference neither
+@pytest.mark.parametrize("exercise_id", [2, 999])
+def test_create_workout_rejects_unknown_exercise(client: Client, exercise_id: int) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post("/api/workouts", json=_workout_with_exercise(exercise_id))
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "workout references an unknown exercise"}
+
+
+@pytest.mark.parametrize("exercise_id", [2, 999])
+def test_create_workout_rejects_unknown_exercise_in_notes(client: Client, exercise_id: int) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    data = {
+        "date": "2002-04-01",
+        "routine_id": None,
+        "notes": None,
+        "elements": [],
+        "exercise_notes": [{"exercise_id": exercise_id, "notes": "note"}],
+    }
+    resp = client.post("/api/workouts", json=data)
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "workout references an unknown exercise"}
+
+
+@pytest.mark.parametrize("exercise_id", [2, 999])
+def test_update_workout_rejects_unknown_exercise(client: Client, exercise_id: int) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch(
+        "/api/workouts/1", json={"elements": _workout_with_exercise(exercise_id)["elements"]}
+    )
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "workout references an unknown exercise"}
+
+
+@pytest.mark.parametrize("exercise_id", [2, 999])
+def test_create_routine_rejects_unknown_exercise(client: Client, exercise_id: int) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post("/api/routines", json=_routine_with_exercise(exercise_id))
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "routine references an unknown exercise"}
+
+
+@pytest.mark.parametrize("exercise_id", [2, 999])
+def test_update_routine_rejects_unknown_exercise(client: Client, exercise_id: int) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch(
+        "/api/routines/1", json={"sections": _routine_with_exercise(exercise_id)["sections"]}
+    )
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "routine references an unknown exercise"}
+
+
+def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    # Exercise 5 belongs to Alice but is referenced by none of her workouts
+    resp = client.post("/api/workouts", json=_workout_with_exercise(5))
+
+    assert resp.status_code == HTTPStatus.CREATED
+
+
 @pytest.mark.parametrize(
     ("route", "data", "response", "result", "conflicting_data"),
     [
@@ -1415,7 +1784,7 @@ def test_create_workout(
                 {"date": "2002-02-21", "weight": 67.7},
                 {"date": "2002-02-22", "weight": 67.3},
             ],
-            {"weight": 0},
+            None,
         ),
         (
             "/api/body_fat/2002-02-20",
@@ -1460,15 +1829,7 @@ def test_create_workout(
                     "midaxillary": None,
                 },
             ],
-            {
-                "chest": 0,
-                "abdominal": 0,
-                "thigh": 0,
-                "tricep": 0,
-                "subscapular": 0,
-                "suprailiac": 0,
-                "midaxillary": 0,
-            },
+            None,
         ),
         (
             "/api/period/2002-02-20",
@@ -1479,18 +1840,18 @@ def test_create_workout(
                 {"date": "2002-02-21", "intensity": 4},
                 {"date": "2002-02-22", "intensity": 1},
             ],
-            {"intensity": 0},
+            None,
         ),
         (
             "/api/exercises/1",
             {
                 "name": "Changed Exercise",
-                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 12, "stimulus": 100}],
+                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
             },
             {
                 "id": 1,
                 "name": "Changed Exercise",
-                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 12, "stimulus": 100}],
+                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
             },
             [
                 {
@@ -1498,7 +1859,7 @@ def test_create_workout(
                     "name": "Changed Exercise",
                     "muscles": [
                         {"muscle_id": 11, "stimulus": 50},
-                        {"muscle_id": 12, "stimulus": 100},
+                        {"muscle_id": 21, "stimulus": 100},
                     ],
                 },
                 {"id": 3, "name": "Exercise 3", "muscles": []},

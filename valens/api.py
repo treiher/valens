@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+import math
+from collections.abc import Callable, Iterable
 from datetime import date
 from functools import singledispatch, wraps
 from http import HTTPStatus
@@ -37,6 +38,12 @@ from valens.models import (
 )
 
 bp = Blueprint("api", __name__, url_prefix="/api")
+
+# Largest integer storable in an SQLite `INTEGER` column
+MAX_ID = 2**63 - 1
+
+# Valid muscle IDs, mirroring `MuscleID` in `crates/domain/src/exercise.rs`
+MUSCLE_IDS = frozenset({1, 11, 21, 22, 31, 32, 33, 41, 42, 51, 61, 62, 71, 72, 81, 82, 83, 91})
 
 
 class DeserializationError(Exception):
@@ -143,7 +150,7 @@ def to_routine_sections(json: list[dict[str, Any]]) -> list[RoutineSection]:  # 
 def to_routine_section(json: dict[str, Any], position: int) -> RoutineSection:  # type: ignore[explicit-any]
     return RoutineSection(
         position=position,
-        rounds=json["rounds"],
+        rounds=to_int(json["rounds"], "rounds", 1, 999),
         parts=to_routine_parts(json["parts"]),
     )
 
@@ -153,21 +160,13 @@ def to_routine_activity(  # type: ignore[explicit-any]
 ) -> RoutineActivity:
     return RoutineActivity(
         position=position,
-        exercise_id=json["exercise_id"],
-        reps=json["reps"],
-        time=json["time"],
-        weight=json["weight"],
-        rpe=json["rpe"],
-        automatic=json["automatic"],
+        exercise_id=to_optional_id(json["exercise_id"], "exercise_id"),
+        reps=to_int(json["reps"], "reps", 0, 999),
+        time=to_int(json["time"], "time", 0, 999),
+        weight=to_weight(json["weight"], "weight", 0.0),
+        rpe=to_rpe(json["rpe"], "rpe"),
+        automatic=to_bool(json["automatic"], "automatic"),
     )
-
-
-def to_user_height(json: Any) -> int | None:  # type: ignore[explicit-any]
-    if json is None:
-        return None
-    if isinstance(json, bool) or not isinstance(json, int) or json <= 0:
-        raise ValueError("height must be a positive integer")
-    return json
 
 
 def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # type: ignore[explicit-any]
@@ -175,22 +174,22 @@ def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # 
         (
             WorkoutSet(
                 position=position,
-                exercise_id=element["exercise_id"],
-                reps=element["reps"],
-                time=element["time"],
-                weight=element["weight"],
-                rpe=element["rpe"],
-                target_reps=element["target_reps"],
-                target_time=element["target_time"],
-                target_weight=element["target_weight"],
-                target_rpe=element["target_rpe"],
-                automatic=element["automatic"],
+                exercise_id=to_id(element["exercise_id"], "exercise_id"),
+                reps=to_optional_int(element["reps"], "reps", 1, 999),
+                time=to_optional_int(element["time"], "time", 1, 999),
+                weight=to_optional_weight(element["weight"], "weight", 0.01),
+                rpe=to_optional_rpe(element["rpe"], "rpe"),
+                target_reps=to_optional_int(element["target_reps"], "target_reps", 1, 999),
+                target_time=to_optional_int(element["target_time"], "target_time", 1, 999),
+                target_weight=to_optional_weight(element["target_weight"], "target_weight", 0.01),
+                target_rpe=to_optional_rpe(element["target_rpe"], "target_rpe"),
+                automatic=to_bool(element["automatic"], "automatic"),
             )
             if "exercise_id" in element
             else WorkoutRest(
                 position=position,
-                target_time=element["target_time"],
-                automatic=element["automatic"],
+                target_time=to_optional_int(element["target_time"], "target_time", 1, 999),
+                automatic=to_bool(element["automatic"], "automatic"),
             )
         )
         for position, element in enumerate(json, start=1)
@@ -200,12 +199,42 @@ def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # 
 def to_workout_exercise_notes(json: list[dict[str, Any]]) -> list[WorkoutExerciseNote]:  # type: ignore[explicit-any]
     return [
         WorkoutExerciseNote(
-            exercise_id=note["exercise_id"],
-            notes=note["notes"],
+            exercise_id=to_id(note["exercise_id"], "exercise_id"),
+            notes=to_string(note["notes"], "notes"),
         )
         for note in json
         if note["notes"]
     ]
+
+
+def _referenced_exercises_exist(user_id: int, exercise_ids: set[int]) -> bool:
+    """Return whether every referenced exercise belongs to the user."""
+    if not exercise_ids:
+        return True
+    owned = set(
+        db.session.execute(select(Exercise.id).where(Exercise.user_id == user_id)).scalars()
+    )
+    return exercise_ids <= owned
+
+
+def _routine_exercise_ids(routine: Routine) -> set[int]:
+    return _exercise_ids_in_parts(routine.sections)
+
+
+def _exercise_ids_in_parts(parts: Iterable[RoutinePart]) -> set[int]:
+    ids: set[int] = set()
+    for part in parts:
+        if isinstance(part, RoutineSection):
+            ids |= _exercise_ids_in_parts(part.parts)
+        elif isinstance(part, RoutineActivity) and part.exercise_id is not None:
+            ids.add(part.exercise_id)
+    return ids
+
+
+def _workout_exercise_ids(workout: Workout) -> set[int]:
+    return {e.exercise_id for e in workout.elements if isinstance(e, WorkoutSet)} | {
+        n.exercise_id for n in workout.exercise_notes
+    }
 
 
 def schedule_to_dict(
@@ -232,16 +261,20 @@ def schedule_slot_to_dict(slot: ScheduleSlot) -> dict[str, int]:
 def to_schedule_rotations(  # type: ignore[explicit-any]
     json: list[dict[str, Any]], user_id: int
 ) -> list[ScheduleRotation]:
+    if len({rotation["id"] for rotation in json}) < len(json):
+        raise DeserializationError("schedule must not contain duplicate rotations")
     for rotation in json:
         if len(set(rotation["routines"])) < len(rotation["routines"]):
             raise DeserializationError("rotation must not contain duplicate routines")
     return [
         ScheduleRotation(
-            id=rotation["id"],
+            id=to_id(rotation["id"], "rotation id"),
             user_id=user_id,
-            name=rotation["name"],
+            name=to_name(rotation["name"]),
             routines=[
-                ScheduleRotationRoutine(position=position, routine_id=routine_id)
+                ScheduleRotationRoutine(
+                    position=position, routine_id=to_id(routine_id, "routine id")
+                )
                 for position, routine_id in enumerate(rotation["routines"], start=1)
             ],
         )
@@ -252,6 +285,8 @@ def to_schedule_rotations(  # type: ignore[explicit-any]
 def to_schedule_slots(  # type: ignore[explicit-any]
     json: list[dict[str, Any]], user_id: int
 ) -> list[ScheduleSlot]:
+    if len({entry["weekday"] for entry in json}) < len(json):
+        raise DeserializationError("schedule must not contain duplicate weekdays")
     return [
         to_schedule_slot(slot, user_id, entry["weekday"], position)
         for entry in json
@@ -262,19 +297,137 @@ def to_schedule_slots(  # type: ignore[explicit-any]
 def to_schedule_slot(  # type: ignore[explicit-any]
     json: dict[str, Any], user_id: int, weekday: int, position: int
 ) -> ScheduleSlot:
-    if not isinstance(weekday, int) or isinstance(weekday, bool):
-        raise DeserializationError("weekday must be an integer")
-    if not 1 <= weekday <= 7:
-        raise DeserializationError("weekday must be in the range 1 to 7")
+    weekday = to_int(weekday, "weekday", 1, 7)
     if set(json) == {"routine"}:
         return ScheduleSlot(
-            user_id=user_id, weekday=weekday, position=position, routine_id=json["routine"]
+            user_id=user_id,
+            weekday=weekday,
+            position=position,
+            routine_id=to_id(json["routine"], "routine id"),
         )
     if set(json) == {"rotation"}:
         return ScheduleSlot(
-            user_id=user_id, weekday=weekday, position=position, rotation_id=json["rotation"]
+            user_id=user_id,
+            weekday=weekday,
+            position=position,
+            rotation_id=to_id(json["rotation"], "rotation id"),
         )
     raise DeserializationError("slot must contain either 'routine' or 'rotation'")
+
+
+def to_name(json: object) -> str:
+    if not isinstance(json, str):
+        raise DeserializationError("name must be a string")
+    name = json.strip()
+    if not name:
+        raise DeserializationError("name must not be empty")
+    # The frontend limits the length in UTF-8 bytes (`str::len` in `Name::new`)
+    if len(name.encode()) > 64:
+        raise DeserializationError("name must be 64 characters or fewer")
+    return name
+
+
+def to_notes(json: object) -> str | None:
+    if json is not None and not isinstance(json, str):
+        raise DeserializationError("notes must be a string or null")
+    return json
+
+
+def to_string(json: object, what: str) -> str:
+    if not isinstance(json, str):
+        raise DeserializationError(f"{what} must be a string")
+    return json
+
+
+def to_bool(json: object, what: str) -> bool:
+    if not isinstance(json, bool):
+        raise DeserializationError(f"{what} must be a boolean")
+    return json
+
+
+def to_date(json: object) -> date:
+    if not isinstance(json, str):
+        raise DeserializationError("date must be a string")
+    return date.fromisoformat(json)
+
+
+def to_sex(json: object) -> Sex:
+    if isinstance(json, bool) or not isinstance(json, int):
+        raise DeserializationError("sex must be an integer")
+    return Sex(json)
+
+
+def to_muscle_id(json: object) -> int:
+    if isinstance(json, bool) or not isinstance(json, int):
+        raise DeserializationError("muscle_id must be an integer")
+    if json not in MUSCLE_IDS:
+        raise DeserializationError(f"{json} is not a valid muscle id")
+    return json
+
+
+def to_optional_id(json: object, what: str) -> int | None:
+    return None if json is None else to_id(json, what)
+
+
+def to_id(json: object, what: str) -> int:
+    return to_int(json, what, 1, MAX_ID)
+
+
+def to_optional_int(json: object, what: str, minimum: int, maximum: int) -> int | None:
+    return None if json is None else to_int(json, what, minimum, maximum)
+
+
+def to_int(json: object, what: str, minimum: int, maximum: int) -> int:
+    if isinstance(json, bool) or not isinstance(json, int):
+        raise DeserializationError(f"{what} must be an integer")
+    if not minimum <= json <= maximum:
+        raise DeserializationError(f"{what} must be in the range {minimum} to {maximum}")
+    return json
+
+
+def to_optional_weight(json: object, what: str, minimum: float) -> float | None:
+    return None if json is None else to_weight(json, what, minimum)
+
+
+def to_weight(json: object, what: str, minimum: float) -> float:
+    value = to_number(json, what)
+    if not minimum <= value <= 999.99:
+        raise DeserializationError(f"{what} must be in the range {minimum} to 999.99")
+    if abs(value * 100 - round(value * 100)) > 1e-3:
+        raise DeserializationError(f"{what} must be a multiple of 0.01")
+    return value
+
+
+def to_optional_rpe(json: object, what: str) -> float | None:
+    return None if json is None else to_rpe(json, what)
+
+
+def to_rpe(json: object, what: str) -> float:
+    value = to_number(json, what)
+    if not 0 <= value <= 10:
+        raise DeserializationError(f"{what} must be in the range 0 to 10")
+    if abs(value * 2 - round(value * 2)) > 1e-3:
+        raise DeserializationError(f"{what} must be a multiple of 0.5")
+    return value
+
+
+def to_positive_number(json: object, what: str) -> float:
+    value = to_number(json, what)
+    if value <= 0:
+        raise DeserializationError(f"{what} must be positive")
+    return value
+
+
+def to_number(json: object, what: str) -> float:
+    if isinstance(json, bool) or not isinstance(json, (int, float)):
+        raise DeserializationError(f"{what} must be a number")
+    try:
+        value = float(json)
+    except OverflowError:
+        raise DeserializationError(f"{what} must be finite") from None
+    if not math.isfinite(value):
+        raise DeserializationError(f"{what} must be finite")
+    return value
 
 
 def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]
@@ -322,12 +475,12 @@ def read_session() -> ResponseReturnValue:
 def create_session() -> ResponseReturnValue:
     try:
         assert isinstance(request.json, dict)
-        name = request.json["name"]
-    except KeyError as e:
+        name = to_name(request.json["name"])
+    except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     try:
-        user = db.session.execute(select(User).where(User.name == name.strip())).scalars().one()
+        user = db.session.execute(select(User).where(User.name == name)).scalars().one()
     except NoResultFound:
         return "", HTTPStatus.NOT_FOUND
 
@@ -374,11 +527,11 @@ def create_user() -> ResponseReturnValue:
 
     try:
         user = User(
-            name=data["name"].strip(),
-            sex=Sex(data["sex"]),
-            height=to_user_height(data.get("height")),
+            name=to_name(data["name"]),
+            sex=to_sex(data["sex"]),
+            height=to_optional_int(data.get("height"), "height", 1, 255),
         )
-    except (KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(user)
@@ -409,10 +562,10 @@ def replace_user(user_id: int) -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        user.name = data["name"].strip()
-        user.sex = Sex(data["sex"])
-        user.height = to_user_height(data.get("height"))
-    except (KeyError, ValueError) as e:
+        user.name = to_name(data["name"])
+        user.sex = to_sex(data["sex"])
+        user.height = to_optional_int(data.get("height"), "height", 1, 255)
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     try:
@@ -464,10 +617,10 @@ def create_body_weight() -> ResponseReturnValue:
     try:
         body_weight = BodyWeight(
             user_id=session["user_id"],
-            date=date.fromisoformat(data["date"]),
-            weight=float(data["weight"]),
+            date=to_date(data["date"]),
+            weight=to_positive_number(data["weight"], "weight"),
         )
-    except (KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(body_weight)
@@ -506,14 +659,11 @@ def replace_body_weight(date_: str) -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        body_weight.weight = float(data["weight"])
-    except (KeyError, ValueError) as e:
+        body_weight.weight = to_positive_number(data["weight"], "weight")
+    except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
-    try:
-        db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    db.session.commit()
 
     return (
         jsonify(to_dict(body_weight)),
@@ -565,9 +715,9 @@ def create_body_fat() -> ResponseReturnValue:
     try:
         body_fat = BodyFat(
             user_id=int(session["user_id"]),
-            date=date.fromisoformat(data["date"]),
+            date=to_date(data["date"]),
             **{
-                part: int(data[part]) if data[part] is not None else None
+                part: to_optional_int(data[part], part, 1, 255)
                 for part in [
                     "chest",
                     "abdominal",
@@ -579,7 +729,7 @@ def create_body_fat() -> ResponseReturnValue:
                 ]
             },
         )
-    except (KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(body_fat)
@@ -627,14 +777,11 @@ def replace_body_fat(date_: str) -> ResponseReturnValue:
             "suprailiac",
             "midaxillary",
         ]:
-            setattr(body_fat, attr, int(data[attr]) if data[attr] is not None else None)
-    except (KeyError, ValueError) as e:
+            setattr(body_fat, attr, to_optional_int(data[attr], attr, 1, 255))
+    except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
-    try:
-        db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    db.session.commit()
 
     return (
         jsonify(to_dict(body_fat)),
@@ -686,10 +833,10 @@ def create_period() -> ResponseReturnValue:
     try:
         period = Period(
             user_id=session["user_id"],
-            date=date.fromisoformat(data["date"]),
-            intensity=int(data["intensity"]),
+            date=to_date(data["date"]),
+            intensity=to_int(data["intensity"], "intensity", 1, 4),
         )
-    except (KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(period)
@@ -728,14 +875,11 @@ def replace_period(date_: str) -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        period.intensity = int(data["intensity"])
-    except (KeyError, ValueError) as e:
+        period.intensity = to_int(data["intensity"], "intensity", 1, 4)
+    except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
-    try:
-        db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    db.session.commit()
 
     return (
         jsonify(to_dict(period)),
@@ -791,17 +935,17 @@ def create_exercise() -> ResponseReturnValue:
     try:
         exercise = Exercise(
             user_id=session["user_id"],
-            name=data["name"],
+            name=to_name(data["name"]),
             muscles=[
                 ExerciseMuscle(
                     user_id=session["user_id"],
-                    muscle_id=muscle["muscle_id"],
-                    stimulus=muscle["stimulus"],
+                    muscle_id=to_muscle_id(muscle["muscle_id"]),
+                    stimulus=to_int(muscle["stimulus"], "stimulus", 1, 100),
                 )
                 for muscle in data["muscles"]
             ],
         )
-    except (KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, TypeError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(exercise)
@@ -840,8 +984,11 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        exercise.name = data["name"]
-        muscle_stimulus = {m["muscle_id"]: m["stimulus"] for m in data["muscles"]}
+        exercise.name = to_name(data["name"])
+        muscle_stimulus = {
+            to_muscle_id(m["muscle_id"]): to_int(m["stimulus"], "stimulus", 1, 100)
+            for m in data["muscles"]
+        }
 
         for m in exercise.muscles:
             if m.muscle_id in muscle_stimulus:
@@ -855,7 +1002,7 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
             exercise.muscles.append(
                 ExerciseMuscle(user_id=session["user_id"], muscle_id=muscle_id, stimulus=stimulus)
             )
-    except (KeyError, ValueError, TypeError) as e:
+    except (DeserializationError, KeyError, TypeError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     try:
@@ -921,13 +1068,19 @@ def create_routine() -> ResponseReturnValue:
     try:
         routine = Routine(
             user_id=session["user_id"],
-            name=data["name"],
-            notes=data["notes"],
-            archived=data["archived"],
+            name=to_name(data["name"]),
+            notes=to_notes(data["notes"]),
+            archived=to_bool(data["archived"], "archived"),
             sections=to_routine_sections(data["sections"]),
         )
-    except (DeserializationError, KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, TypeError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    if not _referenced_exercises_exist(session["user_id"], _routine_exercise_ids(routine)):
+        return (
+            jsonify({"details": "routine references an unknown exercise"}),
+            HTTPStatus.CONFLICT,
+        )
 
     db.session.add(routine)
 
@@ -966,15 +1119,23 @@ def update_routine(id_: int) -> ResponseReturnValue:
 
     try:
         if "name" in data or request.method == "PUT":
-            routine.name = data["name"]
+            routine.name = to_name(data["name"])
         if "notes" in data or request.method == "PUT":
-            routine.notes = data["notes"]
+            routine.notes = to_notes(data["notes"])
         if "archived" in data or request.method == "PUT":
-            routine.archived = data["archived"]
+            routine.archived = to_bool(data["archived"], "archived")
         if "sections" in data or request.method == "PUT":
             routine.sections = to_routine_sections(data["sections"])
-    except (DeserializationError, KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, TypeError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    if ("sections" in data or request.method == "PUT") and not _referenced_exercises_exist(
+        session["user_id"], _routine_exercise_ids(routine)
+    ):
+        return (
+            jsonify({"details": "routine references an unknown exercise"}),
+            HTTPStatus.CONFLICT,
+        )
 
     try:
         db.session.commit()
@@ -1077,6 +1238,13 @@ def replace_schedule() -> ResponseReturnValue:
             HTTPStatus.CONFLICT,
         )
 
+    rotation_ids = {rotation.id for rotation in rotations}
+    if any(slot.rotation_id is not None and slot.rotation_id not in rotation_ids for slot in slots):
+        return (
+            jsonify({"details": "schedule references an unknown rotation"}),
+            HTTPStatus.CONFLICT,
+        )
+
     # Delete slots before rotations so an `ON DELETE CASCADE` from a slot's rotation never fires
     db.session.execute(delete(ScheduleSlot).where(ScheduleSlot.user_id == session["user_id"]))
     db.session.execute(
@@ -1117,30 +1285,37 @@ def create_workout() -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
+        routine_id = to_optional_id(data["routine_id"], "routine_id")
         routine = (
             (
                 db.session.execute(
                     select(Routine)
                     .where(Routine.user_id == session["user_id"])
-                    .where(Routine.id == data["routine_id"])
+                    .where(Routine.id == routine_id)
                 )
                 .scalars()
                 .one()
             )
-            if isinstance(data["routine_id"], int)
+            if routine_id is not None
             else None
         )
 
         workout = Workout(
             user_id=session["user_id"],
             routine=routine,
-            date=date.fromisoformat(data["date"]),
-            notes=data["notes"],
+            date=to_date(data["date"]),
+            notes=to_notes(data["notes"]),
             elements=to_workout_elements(data["elements"]),
             exercise_notes=to_workout_exercise_notes(data["exercise_notes"]),
         )
-    except (DeserializationError, NoResultFound, KeyError, ValueError) as e:
+    except (DeserializationError, NoResultFound, KeyError, TypeError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    if not _referenced_exercises_exist(session["user_id"], _workout_exercise_ids(workout)):
+        return (
+            jsonify({"details": "workout references an unknown exercise"}),
+            HTTPStatus.CONFLICT,
+        )
 
     db.session.add(workout)
 
@@ -1163,9 +1338,9 @@ def _apply_workout_update(workout: Workout, data: dict[str, Any], *, is_put: boo
             db.session.delete(n)
         db.session.flush()
     if "date" in data or is_put:
-        workout.date = date.fromisoformat(data["date"])
+        workout.date = to_date(data["date"])
     if "notes" in data or is_put:
-        workout.notes = data["notes"]
+        workout.notes = to_notes(data["notes"])
     if "elements" in data or is_put:
         workout.elements = to_workout_elements(data["elements"])
     if "exercise_notes" in data or is_put:
@@ -1196,8 +1371,14 @@ def update_workout(id_: int) -> ResponseReturnValue:
 
     try:
         _apply_workout_update(workout, data, is_put=request.method == "PUT")
-    except (DeserializationError, KeyError, ValueError) as e:
+    except (DeserializationError, KeyError, TypeError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    if not _referenced_exercises_exist(session["user_id"], _workout_exercise_ids(workout)):
+        return (
+            jsonify({"details": "workout references an unknown exercise"}),
+            HTTPStatus.CONFLICT,
+        )
 
     db.session.commit()
 

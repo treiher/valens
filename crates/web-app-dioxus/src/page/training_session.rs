@@ -1754,25 +1754,25 @@ fn modify_training_session_elements(
                 .validated
                 .clone()
                 .ok()
-                .filter(|reps| *reps > domain::Reps::default());
+                .and_then(domain::Reps::non_zero);
             *time = set_field_values
                 .time
                 .validated
                 .clone()
                 .ok()
-                .filter(|time| *time > domain::Time::default());
+                .and_then(domain::Time::non_zero);
             *weight = set_field_values
                 .weight
                 .validated
                 .clone()
                 .ok()
-                .filter(|weight| *weight > domain::Weight::default());
+                .and_then(domain::Weight::non_zero);
             *rpe = set_field_values
                 .rpe
                 .validated
                 .clone()
                 .ok()
-                .filter(|rpe| *rpe > domain::RPE::default());
+                .and_then(domain::RPE::non_zero);
         }
     }
 }

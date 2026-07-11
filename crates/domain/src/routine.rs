@@ -460,11 +460,7 @@ impl RoutinePart {
             } => {
                 result.push(if exercise_id.is_nil() {
                     TrainingSessionElement::Rest {
-                        target_time: if *time > Time::default() {
-                            Some(*time)
-                        } else {
-                            None
-                        },
+                        target_time: time.non_zero(),
                         automatic: *automatic,
                     }
                 } else {
@@ -474,22 +470,10 @@ impl RoutinePart {
                         time: None,
                         weight: None,
                         rpe: None,
-                        target_reps: if *reps > Reps::default() {
-                            Some(*reps)
-                        } else {
-                            None
-                        },
-                        target_time: if *time > Time::default() {
-                            Some(*time)
-                        } else {
-                            None
-                        },
-                        target_weight: if *weight > Weight::default() {
-                            Some(*weight)
-                        } else {
-                            None
-                        },
-                        target_rpe: if *rpe > RPE::ZERO { Some(*rpe) } else { None },
+                        target_reps: reps.non_zero(),
+                        target_time: time.non_zero(),
+                        target_weight: weight.non_zero(),
+                        target_rpe: rpe.non_zero(),
                         automatic: *automatic,
                     }
                 });

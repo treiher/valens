@@ -51,7 +51,9 @@ class User(Base):
             "typeof(height) = 'integer' or typeof(height) = 'null'",
             name="height_type_integer_or_null",
         ),
+        # Upper bound mirrors `height` in `crates/domain/src/user.rs`
         CheckConstraint(column("height") > 0, name="height_gt_0"),
+        CheckConstraint(column("height") <= 255, name="height_le_255"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -130,6 +132,7 @@ class BodyFat(Base):
             "typeof(midaxillary) = 'integer' or typeof(midaxillary) = 'null'",
             name="midaxillary_type_integer_or_null",
         ),
+        # Upper bounds mirror the skinfold fields in `crates/domain/src/body_fat.rs`
         CheckConstraint(column("chest") > 0, name="chest_gt_0"),
         CheckConstraint(column("abdominal") > 0, name="abdominal_gt_0"),
         CheckConstraint(column("thigh") > 0, name="thigh_gt_0"),
@@ -137,6 +140,13 @@ class BodyFat(Base):
         CheckConstraint(column("subscapular") > 0, name="subscapular_gt_0"),
         CheckConstraint(column("suprailiac") > 0, name="suprailiac_gt_0"),
         CheckConstraint(column("midaxillary") > 0, name="midaxillary_gt_0"),
+        CheckConstraint(column("chest") <= 255, name="chest_le_255"),
+        CheckConstraint(column("abdominal") <= 255, name="abdominal_le_255"),
+        CheckConstraint(column("thigh") <= 255, name="thigh_le_255"),
+        CheckConstraint(column("tricep") <= 255, name="tricep_le_255"),
+        CheckConstraint(column("subscapular") <= 255, name="subscapular_le_255"),
+        CheckConstraint(column("suprailiac") <= 255, name="suprailiac_le_255"),
+        CheckConstraint(column("midaxillary") <= 255, name="midaxillary_le_255"),
     )
 
     user_id: Mapped[int] = mapped_column(
@@ -156,6 +166,7 @@ class Period(Base):
     __tablename__ = "period"
     __table_args__ = (
         CheckConstraint("typeof(intensity) = 'integer'", name="intensity_type_integer"),
+        # Bounds mirror `Intensity` in `crates/domain/src/period.rs`
         CheckConstraint(column("intensity") >= 1, name="intensity_ge_1"),
         CheckConstraint(column("intensity") <= 4, name="intensity_le_4"),
     )
@@ -195,6 +206,8 @@ class ExerciseMuscle(Base):
         UniqueConstraint("user_id", "exercise_id", "muscle_id"),
         CheckConstraint("typeof(muscle_id) = 'integer'", name="muscle_id_integer"),
         CheckConstraint("typeof(stimulus) = 'integer'", name="stimulus_integer"),
+        # Upper bound mirrors `Stimulus` in `crates/domain/src/exercise.rs`. The domain also
+        # permits 0, which must not be stored.
         CheckConstraint(column("stimulus") >= 1, name="stimulus_ge_1"),
         CheckConstraint(column("stimulus") <= 100, name="stimulus_le_100"),
     )
@@ -287,6 +300,7 @@ class RoutineActivity(RoutinePart):
         CheckConstraint("typeof(weight) = 'real'", name="weight_type_real"),
         CheckConstraint(column("weight") >= 0, name="weight_ge_0"),
         CheckConstraint("typeof(rpe) = 'real'", name="rpe_type_real"),
+        # Bounds mirror `RPE` in `crates/domain/src/training.rs`
         CheckConstraint(column("rpe") >= 0, name="rpe_ge_0"),
         CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
     )
@@ -354,6 +368,7 @@ class ScheduleSlot(Base):
             ondelete="CASCADE",
         ),
         CheckConstraint("typeof(weekday) = 'integer'", name="weekday_type_integer"),
+        # Bounds mirror `Weekday` in `crates/domain/src/schedule.rs`
         CheckConstraint(column("weekday") >= 1, name="weekday_ge_1"),
         CheckConstraint(column("weekday") <= 7, name="weekday_le_7"),
         CheckConstraint("typeof(position) = 'integer'", name="position_type_integer"),
@@ -484,6 +499,7 @@ class WorkoutSet(WorkoutElement):
         CheckConstraint(column("reps") > 0, name="reps_gt_0"),
         CheckConstraint(column("time") > 0, name="time_gt_0"),
         CheckConstraint(column("weight") > 0, name="weight_gt_0"),
+        # Bounds of `rpe` and `target_rpe` mirror `RPE` in `crates/domain/src/training.rs`
         CheckConstraint(column("rpe") >= 0, name="rpe_ge_0"),
         CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
         CheckConstraint(column("target_reps") > 0, name="target_reps_gt_0"),

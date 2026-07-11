@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Error being reported for a change that was successfully saved on the server when storing the change on the device failed
 - Incorrect background color in calendars
 - Training sessions page: Incorrect chart legend label
 - Body fat page: Missing and incorrect chart legend labels for body weight

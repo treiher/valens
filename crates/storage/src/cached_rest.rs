@@ -2,7 +2,8 @@
 //!
 //! The `REST` server acts as the authoritative data source, while `IndexedDB` serves as a local
 //! cache for user-specific data. Data modifications are only possible if an active connection to
-//! the server is available.
+//! the server is available. Once the server has accepted a modification, a failure to update the
+//! local cache is only logged; the cache is corrected by the next synchronization.
 
 use chrono::NaiveDate;
 use log::error;
@@ -27,16 +28,22 @@ macro_rules! sync {
 }
 
 macro_rules! create {
-    ($self: ident, $create: ident, $replace: ident, $($arg:expr),*) => {{
+    ($self: ident, $create: ident, $replace: ident, $name: literal, $($arg:expr),*) => {{
         let result = $self.rest.$create($($arg),*).await?;
-        Ok(IndexedDB.$replace(result).await?)
+        if let Err(err) = IndexedDB.$replace(result.clone()).await {
+            error!("failed to update {} in IDB: {err}", $name);
+        }
+        Ok(result)
     }};
 }
 
 macro_rules! execute {
-    ($self: ident, $method: ident, $($arg:expr),*) => {{
-        $self.rest.$method($($arg.clone()),*).await?;
-        IndexedDB.$method($($arg),*).await
+    ($self: ident, $method: ident, $name: literal $(, $arg:expr)*) => {{
+        let result = $self.rest.$method($($arg.clone()),*).await?;
+        if let Err(err) = IndexedDB.$method($($arg),*).await {
+            error!("failed to update {} in IDB: {err}", $name);
+        }
+        Ok(result)
     }};
 }
 
@@ -75,8 +82,14 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
     }
 
     async fn delete_session(&self) -> Result<(), domain::DeleteError> {
-        execute!(self, delete_session,)?;
-        Ok(IndexedDB.clear_session_dependent_data().await?)
+        self.rest.delete_session().await?;
+        if let Err(err) = IndexedDB.delete_session().await {
+            error!("failed to update session in IDB: {err}");
+        }
+        if let Err(err) = IndexedDB.clear_session_dependent_data().await {
+            error!("failed to update session-dependent data in IDB: {err}");
+        }
+        Ok(())
     }
 }
 
@@ -129,18 +142,24 @@ impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
         &self,
         body_weight: domain::BodyWeight,
     ) -> Result<domain::BodyWeight, domain::CreateError> {
-        execute!(self, create_body_weight, body_weight)
+        create!(
+            self,
+            create_body_weight,
+            replace_body_weight,
+            "body weight",
+            body_weight
+        )
     }
 
     async fn replace_body_weight(
         &self,
         body_weight: domain::BodyWeight,
     ) -> Result<domain::BodyWeight, domain::UpdateError> {
-        execute!(self, replace_body_weight, body_weight)
+        execute!(self, replace_body_weight, "body weight", body_weight)
     }
 
     async fn delete_body_weight(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
-        execute!(self, delete_body_weight, date)
+        execute!(self, delete_body_weight, "body weight", date)
     }
 }
 
@@ -157,18 +176,24 @@ impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
         &self,
         body_fat: domain::BodyFat,
     ) -> Result<domain::BodyFat, domain::CreateError> {
-        execute!(self, create_body_fat, body_fat)
+        create!(
+            self,
+            create_body_fat,
+            replace_body_fat,
+            "body fat",
+            body_fat
+        )
     }
 
     async fn replace_body_fat(
         &self,
         body_fat: domain::BodyFat,
     ) -> Result<domain::BodyFat, domain::UpdateError> {
-        execute!(self, replace_body_fat, body_fat)
+        execute!(self, replace_body_fat, "body fat", body_fat)
     }
 
     async fn delete_body_fat(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
-        execute!(self, delete_body_fat, date)
+        execute!(self, delete_body_fat, "body fat", date)
     }
 }
 
@@ -185,18 +210,18 @@ impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
         &self,
         period: domain::Period,
     ) -> Result<domain::Period, domain::CreateError> {
-        execute!(self, create_period, period)
+        create!(self, create_period, replace_period, "period", period)
     }
 
     async fn replace_period(
         &self,
         period: domain::Period,
     ) -> Result<domain::Period, domain::UpdateError> {
-        execute!(self, replace_period, period)
+        execute!(self, replace_period, "period", period)
     }
 
     async fn delete_period(&self, date: NaiveDate) -> Result<(), domain::DeleteError> {
-        execute!(self, delete_period, date)
+        execute!(self, delete_period, "period", date)
     }
 }
 
@@ -214,18 +239,25 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
         name: domain::Name,
         muscles: Vec<domain::ExerciseMuscle>,
     ) -> Result<domain::Exercise, domain::CreateError> {
-        create!(self, create_exercise, replace_exercise, name, muscles)
+        create!(
+            self,
+            create_exercise,
+            replace_exercise,
+            "exercise",
+            name,
+            muscles
+        )
     }
 
     async fn replace_exercise(
         &self,
         exercise: domain::Exercise,
     ) -> Result<domain::Exercise, domain::UpdateError> {
-        execute!(self, replace_exercise, exercise)
+        execute!(self, replace_exercise, "exercise", exercise)
     }
 
     async fn delete_exercise(&self, id: domain::ExerciseID) -> Result<(), domain::DeleteError> {
-        execute!(self, delete_exercise, id)
+        execute!(self, delete_exercise, "exercise", id)
     }
 }
 
@@ -244,13 +276,17 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
         sections: Vec<domain::RoutinePart>,
     ) -> Result<domain::Routine, domain::CreateError> {
         let routine = self.rest.create_routine(name, sections).await?;
-        Ok(IndexedDB
+        if let Err(err) = IndexedDB
             .put(
                 Store::Routines,
                 super::indexed_db::Routine::from(&routine),
-                routine,
+                (),
             )
-            .await?)
+            .await
+        {
+            error!("failed to update routine in IDB: {err}");
+        }
+        Ok(routine)
     }
 
     async fn modify_routine(
@@ -260,11 +296,19 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
         archived: Option<bool>,
         sections: Option<Vec<domain::RoutinePart>>,
     ) -> Result<domain::Routine, domain::UpdateError> {
-        execute!(self, modify_routine, id, name, archived, sections)
+        execute!(
+            self,
+            modify_routine,
+            "routine",
+            id,
+            name,
+            archived,
+            sections
+        )
     }
 
     async fn delete_routine(&self, id: domain::RoutineID) -> Result<(), domain::DeleteError> {
-        execute!(self, delete_routine, id)
+        execute!(self, delete_routine, "routine", id)
     }
 }
 
@@ -281,7 +325,7 @@ impl<S: SendRequest> domain::ScheduleRepository for CachedREST<S> {
         &self,
         schedule: domain::Schedule,
     ) -> Result<domain::Schedule, domain::UpdateError> {
-        execute!(self, replace_schedule, schedule)
+        execute!(self, replace_schedule, "schedule", schedule)
     }
 }
 
@@ -314,13 +358,17 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
             .rest
             .create_training_session(routine_id, date, notes, elements)
             .await?;
-        Ok(IndexedDB
+        if let Err(err) = IndexedDB
             .put(
                 Store::TrainingSessions,
                 super::indexed_db::TrainingSession::from(&training_session),
-                training_session,
+                (),
             )
-            .await?)
+            .await
+        {
+            error!("failed to update training session in IDB: {err}");
+        }
+        Ok(training_session)
     }
 
     async fn modify_training_session(
@@ -333,6 +381,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
         execute!(
             self,
             modify_training_session,
+            "training session",
             id,
             notes,
             elements,
@@ -344,7 +393,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
         &self,
         id: domain::TrainingSessionID,
     ) -> Result<(), domain::DeleteError> {
-        execute!(self, delete_training_session, id)
+        execute!(self, delete_training_session, "training session", id)
     }
 }
 
@@ -791,7 +840,7 @@ mod tests {
             let mut body_weight = BODY_WEIGHT;
             body_weight.weight += 1.0;
 
-            assert!(
+            assert_eq!(
                 cached_rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
@@ -799,9 +848,8 @@ mod tests {
                 ))
                 .create_body_weight(body_weight.clone())
                 .await
-                .unwrap_err()
-                .to_string()
-                .starts_with("ConstraintError: ")
+                .unwrap(),
+                body_weight
             );
 
             assert_eq!(
@@ -809,7 +857,7 @@ mod tests {
                     .read_body_weight()
                     .await
                     .unwrap(),
-                vec![BODY_WEIGHT]
+                vec![body_weight]
             );
         }
 
@@ -1068,7 +1116,7 @@ mod tests {
             let mut body_fat = BODY_FAT;
             body_fat.chest = body_fat.chest.map(|v| v + 1);
 
-            assert!(
+            assert_eq!(
                 cached_rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
@@ -1076,9 +1124,8 @@ mod tests {
                 ))
                 .create_body_fat(body_fat.clone())
                 .await
-                .unwrap_err()
-                .to_string()
-                .starts_with("ConstraintError: ")
+                .unwrap(),
+                body_fat
             );
 
             assert_eq!(
@@ -1086,7 +1133,7 @@ mod tests {
                     .read_body_fat()
                     .await
                     .unwrap(),
-                vec![BODY_FAT]
+                vec![body_fat]
             );
         }
 
@@ -1326,7 +1373,7 @@ mod tests {
             let mut period = PERIOD;
             period.intensity = domain::Intensity::Heavy;
 
-            assert!(
+            assert_eq!(
                 cached_rest_with_response(Some(
                     gloo_net::http::Response::builder()
                         .status(200)
@@ -1334,14 +1381,13 @@ mod tests {
                 ))
                 .create_period(period.clone())
                 .await
-                .unwrap_err()
-                .to_string()
-                .starts_with("ConstraintError: ")
+                .unwrap(),
+                period
             );
 
             assert_eq!(
                 cached_rest_with_response(None).read_period().await.unwrap(),
-                vec![PERIOD]
+                vec![period]
             );
         }
 

@@ -19,20 +19,25 @@ use crate::{DOMAIN_SERVICE, diagnostics::log_failure};
 
 macro_rules! refresh {
     ($self:ident, $field:ident, $method:ident, $label:literal) => {{
-        let mut signal = $self.$field;
-        spawn({
-            async move {
-                match DOMAIN_SERVICE().$method().await {
-                    Ok(values) => {
-                        signal.set(CacheState::Ready(values));
-                    }
-                    Err(err) => {
-                        log_failure($label, &err);
-                        signal.set(CacheState::Error(err));
-                    }
-                }
-            }
+        let this = *$self;
+        spawn(async move {
+            load!(this, $field, $method, $label);
         });
+    }};
+}
+
+macro_rules! load {
+    ($self:ident, $field:ident, $method:ident, $label:literal) => {{
+        let mut signal = $self.$field;
+        match DOMAIN_SERVICE().$method().await {
+            Ok(values) => {
+                signal.set(CacheState::Ready(values));
+            }
+            Err(err) => {
+                log_failure($label, &err);
+                signal.set(CacheState::Error(err));
+            }
+        }
     }};
 }
 
@@ -119,12 +124,14 @@ impl Cache {
         );
     }
 
-    pub fn add_training_session(&mut self, training_session: domain::TrainingSession) {
-        self.training_sessions.with_mut(|training_sessions| {
-            if let CacheState::Ready(training_sessions) = training_sessions {
-                training_sessions.push(training_session);
-            }
-        });
+    /// Reloads the training sessions from the local database and awaits completion.
+    pub async fn load_training_sessions(&self) {
+        load!(
+            self,
+            training_sessions,
+            get_training_sessions,
+            "load training sessions"
+        );
     }
 }
 

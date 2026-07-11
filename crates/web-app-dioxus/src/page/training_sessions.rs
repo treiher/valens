@@ -549,7 +549,7 @@ pub async fn start_training_session(routine: Option<&domain::Routine>, date: Nai
     {
         Ok(training_session) => {
             let id = training_session.id;
-            consume_context::<Cache>().add_training_session(training_session);
+            consume_context::<Cache>().load_training_sessions().await;
             navigator().push(Route::TrainingSession { id });
         }
         Err(err) => {

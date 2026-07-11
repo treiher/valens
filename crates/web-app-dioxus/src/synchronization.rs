@@ -18,6 +18,9 @@ macro_rules! sync {
     ($entry: ident, $sync_method: ident, $refresh_method: ident) => {{
         let mut cache = consume_context::<Cache>();
         let mut synchronization = consume_context::<Synchronization>();
+        synchronization
+            .pending_sync_count
+            .with_mut(|count| *count += 1);
         spawn(async move {
             if matches!(&*cache.$entry.peek(), CacheState::Ready(value) if value.is_empty()) {
                 cache.$entry.set(CacheState::Loading);
@@ -74,7 +77,6 @@ impl Synchronization {
         if !*self.in_progress.peek() {
             self.error.set(String::new());
             self.in_progress.set(true);
-            self.pending_sync_count.set(7);
             sync!(exercises, sync_exercises, refresh_exercises);
             sync!(routines, sync_routines, refresh_routines);
             sync!(schedule, sync_schedule, refresh_schedule);

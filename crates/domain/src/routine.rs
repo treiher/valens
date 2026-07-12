@@ -270,6 +270,83 @@ impl Routine {
         }
     }
 
+    /// Move the part at `source` into the section at `target_parent` at the insertion position
+    /// `index`, with `index` referring to the parts before the removal of the moved part.
+    ///
+    /// The routine is left unchanged if `source` does not exist, if `target_parent` is not a
+    /// section outside the moved part or if the moved part is an activity and `target_parent` is
+    /// the top level, which may only contain sections.
+    pub fn move_part(
+        &mut self,
+        source: &RoutinePartPath,
+        target_parent: &RoutinePartPath,
+        index: usize,
+    ) {
+        if let Some(sections) =
+            Self::sections_with_moved_part(&self.sections, source, target_parent, index)
+        {
+            self.sections = sections;
+        }
+    }
+
+    fn sections_with_moved_part(
+        sections: &[RoutinePart],
+        source: &RoutinePartPath,
+        target_parent: &RoutinePartPath,
+        index: usize,
+    ) -> Option<Vec<RoutinePart>> {
+        let (&source_index, source_parent) = source.split_first()?;
+        if target_parent.ends_with(source) {
+            return None;
+        }
+        let mut sections = sections.to_vec();
+        let part = if source_parent.is_empty() {
+            if source_index >= sections.len() {
+                return None;
+            }
+            sections.remove(source_index)
+        } else {
+            let Some(RoutinePart::RoutineSection { parts, .. }) =
+                Self::get_mut_part(&mut sections, source_parent)
+            else {
+                return None;
+            };
+            if source_index >= parts.len() {
+                return None;
+            }
+            parts.remove(source_index)
+        };
+        if target_parent.is_empty() && matches!(part, RoutinePart::RoutineActivity { .. }) {
+            return None;
+        }
+        // `target_parent` and `index` refer to the parts before the removal of the moved part
+        let mut target_parent = target_parent.to_vec();
+        let mut index = index;
+        if target_parent[..] == *source_parent {
+            if index > source_index {
+                index -= 1;
+            }
+        } else if target_parent.ends_with(source_parent) {
+            let position = target_parent.len() - source_parent.len() - 1;
+            if target_parent[position] > source_index {
+                target_parent[position] -= 1;
+            }
+        }
+        if target_parent.is_empty() {
+            let index = index.min(sections.len());
+            sections.insert(index, part);
+        } else {
+            let Some(RoutinePart::RoutineSection { parts, .. }) =
+                Self::get_mut_part(&mut sections, &target_parent)
+            else {
+                return None;
+            };
+            let index = index.min(parts.len());
+            parts.insert(index, part);
+        }
+        Some(sections)
+    }
+
     #[must_use]
     pub fn part(&self, path: &RoutinePartPath) -> Option<&RoutinePart> {
         Self::get_part(&self.sections, path)
@@ -960,6 +1037,156 @@ mod tests {
         );
         assert!(Routine::get_mut_part(&mut sections, &[1, 1, 0]).is_none());
         assert!(Routine::get_mut_part(&mut sections, &[0, 0, 1, 0]).is_none());
+    }
+
+    fn routine_with_sections(sections: Vec<RoutinePart>) -> Routine {
+        Routine {
+            id: 1.into(),
+            name: Name::new("A").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections,
+        }
+    }
+
+    fn section(rounds: u32, parts: Vec<RoutinePart>) -> RoutinePart {
+        RoutinePart::RoutineSection {
+            rounds: Rounds::new(rounds).unwrap(),
+            parts,
+        }
+    }
+
+    fn activity(reps: u32) -> RoutinePart {
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(reps).unwrap(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    #[test]
+    fn test_routine_move_part_within_section() {
+        let mut routine = routine_with_sections(vec![section(
+            1,
+            vec![activity(1), activity(2), activity(3)],
+        )]);
+        routine.move_part(&vec![0, 0].into(), &vec![0].into(), 2);
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![activity(2), activity(1), activity(3)])]
+        );
+        routine.move_part(&vec![2, 0].into(), &vec![0].into(), 0);
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![activity(3), activity(2), activity(1)])]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_part_onto_itself_keeps_routine_unchanged() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1), activity(2)])]);
+        routine.move_part(&vec![0, 0].into(), &vec![0].into(), 0);
+        routine.move_part(&vec![0, 0].into(), &vec![0].into(), 1);
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![activity(1), activity(2)])]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_part_between_sections() {
+        let mut routine = routine_with_sections(vec![
+            section(1, vec![activity(1), activity(2)]),
+            section(2, vec![activity(3)]),
+        ]);
+        routine.move_part(&vec![1, 0].into(), &vec![1].into(), 0);
+        assert_eq!(
+            routine.sections,
+            vec![
+                section(1, vec![activity(1)]),
+                section(2, vec![activity(2), activity(3)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_part_into_nested_section() {
+        let mut routine = routine_with_sections(vec![section(
+            1,
+            vec![activity(1), section(2, vec![activity(2)])],
+        )]);
+        routine.move_part(&vec![0, 0].into(), &vec![1, 0].into(), 1);
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![section(2, vec![activity(2), activity(1)])])]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_section_at_top_level() {
+        let mut routine = routine_with_sections(vec![
+            section(1, vec![activity(1)]),
+            section(2, vec![activity(2)]),
+        ]);
+        routine.move_part(&vec![0].into(), &RoutinePartPath::default(), 2);
+        assert_eq!(
+            routine.sections,
+            vec![section(2, vec![activity(2)]), section(1, vec![activity(1)])]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_section_into_section() {
+        let mut routine = routine_with_sections(vec![
+            section(1, vec![activity(1)]),
+            section(2, vec![activity(2)]),
+        ]);
+        routine.move_part(&vec![0].into(), &vec![1].into(), 0);
+        assert_eq!(
+            routine.sections,
+            vec![section(2, vec![section(1, vec![activity(1)]), activity(2)])]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_section_into_descendant_keeps_routine_unchanged() {
+        let mut routine =
+            routine_with_sections(vec![section(1, vec![section(2, vec![activity(1)])])]);
+        routine.move_part(&vec![0].into(), &vec![0].into(), 0);
+        routine.move_part(&vec![0].into(), &vec![0, 0].into(), 0);
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![section(2, vec![activity(1)])])]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_activity_to_top_level_keeps_routine_unchanged() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1)])]);
+        routine.move_part(&vec![0, 0].into(), &RoutinePartPath::default(), 0);
+        assert_eq!(routine.sections, vec![section(1, vec![activity(1)])]);
+    }
+
+    #[test]
+    fn test_routine_move_part_into_activity_keeps_routine_unchanged() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1), activity(2)])]);
+        routine.move_part(&vec![0, 0].into(), &vec![1, 0].into(), 0);
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![activity(1), activity(2)])]
+        );
+    }
+
+    #[test]
+    fn test_routine_move_nonexistent_part_keeps_routine_unchanged() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1)])]);
+        routine.move_part(&RoutinePartPath::default(), &vec![0].into(), 0);
+        routine.move_part(&vec![1].into(), &vec![0].into(), 0);
+        routine.move_part(&vec![1, 0].into(), &vec![0].into(), 0);
+        assert_eq!(routine.sections, vec![section(1, vec![activity(1)])]);
     }
 
     #[test]

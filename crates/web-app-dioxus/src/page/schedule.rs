@@ -1015,8 +1015,8 @@ impl drag_and_drop::DropTarget for DropTarget {
         }
     }
 
-    fn suspends_auto_scroll(self) -> bool {
-        self == Self::Remove
+    fn suspends_auto_scroll(&self) -> bool {
+        *self == Self::Remove
     }
 }
 

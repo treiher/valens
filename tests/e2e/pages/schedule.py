@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from .base import BasePage
+from .utils import drop_on_remove_zone, hover_insertion_position, start_drag
 
 if TYPE_CHECKING:
     from playwright.sync_api import FloatRect, Locator
@@ -34,7 +35,9 @@ class SchedulePage(BasePage):
         target_weekday: int,
         target_index: int | None = None,
     ) -> None:
-        self._start_drag(self._day(source_weekday).get_by_test_id("slot-handle").nth(source_index))
+        start_drag(
+            self.page, self._day(source_weekday).get_by_test_id("slot-handle").nth(source_index)
+        )
         if target_index is None:
             day = self._day(target_weekday)
             day.hover()
@@ -42,7 +45,7 @@ class SchedulePage(BasePage):
             if rest_day.count() > 0:
                 expect(rest_day).to_have_class(re.compile("has-text-primary"))
         else:
-            _hover_insertion_position(
+            hover_insertion_position(
                 self._day(target_weekday).get_by_test_id("schedule-slot"), target_index
             )
         self.page.mouse.up()
@@ -78,8 +81,8 @@ class SchedulePage(BasePage):
         cdp.detach()
 
     def remove_slot(self, weekday: int, index: int) -> None:
-        self._start_drag(self._day(weekday).get_by_test_id("slot-handle").nth(index))
-        self._drop_on_remove_zone()
+        start_drag(self.page, self._day(weekday).get_by_test_id("slot-handle").nth(index))
+        drop_on_remove_zone(self.page)
 
     def drag_rotation_routine(
         self,
@@ -88,36 +91,25 @@ class SchedulePage(BasePage):
         target_rotation: int,
         target_index: int | None = None,
     ) -> None:
-        self._start_drag(
+        start_drag(
+            self.page,
             self._rotation(source_rotation)
             .get_by_test_id("rotation-routine-handle")
-            .nth(source_index)
+            .nth(source_index),
         )
         if target_index is None:
             self._rotation(target_rotation).hover()
         else:
-            _hover_insertion_position(
+            hover_insertion_position(
                 self._rotation(target_rotation).get_by_test_id("rotation-routine"), target_index
             )
         self.page.mouse.up()
 
     def remove_rotation_routine(self, rotation: int, index: int) -> None:
-        self._start_drag(
-            self._rotation(rotation).get_by_test_id("rotation-routine-handle").nth(index)
+        start_drag(
+            self.page, self._rotation(rotation).get_by_test_id("rotation-routine-handle").nth(index)
         )
-        self._drop_on_remove_zone()
-
-    def _start_drag(self, handle: Locator) -> None:
-        handle.hover()
-        self.page.mouse.down()
-        # An initial movement is required to activate the drag and show the drop targets
-        self.page.mouse.move(0, 0)
-
-    def _drop_on_remove_zone(self) -> None:
-        remove_zone = self.page.get_by_test_id("remove-drop-zone")
-        remove_zone.hover()
-        expect(remove_zone).not_to_have_class(re.compile("is-light"))
-        self.page.mouse.up()
+        drop_on_remove_zone(self.page)
 
     def expect_slots(self, weekday: int, names: list[str]) -> None:
         expect(self._day(weekday).get_by_test_id("slot-name")).to_have_text(names)
@@ -163,36 +155,3 @@ class SchedulePage(BasePage):
 
 def _center(box: FloatRect) -> tuple[float, float]:
     return (box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-
-
-# Hovering the upper half of an element targets the insertion position before it, hovering the
-# lower half the one after it. Positions between two elements are targeted by hovering the gap.
-def _hover_insertion_position(elements: Locator, index: int) -> None:
-    if index == 0:
-        target = elements.nth(0)
-        _hover_at_height(target, 0.25)
-        expect(target).to_have_class(re.compile("is-insert-before"))
-    elif index < elements.count():
-        _hover_gap(elements, index)
-        expect(elements.nth(index)).to_have_class(re.compile("is-insert-before"))
-    else:
-        target = elements.nth(index - 1)
-        _hover_at_height(target, 0.75)
-        expect(target).to_have_class(re.compile("is-insert-after"))
-
-
-def _hover_at_height(locator: Locator, fraction: float) -> None:
-    box = locator.bounding_box()
-    assert box
-    locator.hover(position={"x": box["width"] / 2, "y": box["height"] * fraction})
-
-
-def _hover_gap(elements: Locator, index: int) -> None:
-    above = elements.nth(index - 1).bounding_box()
-    below = elements.nth(index).bounding_box()
-    assert above
-    assert below
-    elements.page.mouse.move(
-        below["x"] + below["width"] / 2,
-        (above["y"] + above["height"] + below["y"]) / 2,
-    )

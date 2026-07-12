@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -7,7 +8,16 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from .base import BasePage, Dialog
-from .utils import parse_float, parse_int
+from .utils import (
+    drop_on_remove_zone,
+    hover_after_last,
+    hover_at_height,
+    hover_insertion_position,
+    parse_float,
+    parse_int,
+    scroll_to_center,
+    start_drag,
+)
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
@@ -96,6 +106,80 @@ class RoutinePage(BasePage):
         self._open_options_menu(section_idx, activity_idx)
         self.page.get_by_test_id("options-remove").click()
         self.wait_until_idle()
+
+    def drag_section(self, source_idx: int, target_idx: int) -> None:
+        start_drag(self.page, self._top_level_section_handle(source_idx))
+        parts = self._top_level_parts()
+        if target_idx < parts.count():
+            hover_insertion_position(parts, target_idx, self._top_level_section_headers())
+        else:
+            hover_after_last(parts)
+        self.page.mouse.up()
+        self.wait_until_idle()
+
+    def drag_activity(
+        self,
+        source_section_idx: int,
+        source_activity_idx: int,
+        target_section_idx: int,
+        target_idx: int | None = None,
+    ) -> None:
+        start_drag(self.page, self._activity_handle(source_section_idx, source_activity_idx))
+        if target_idx is None:
+            drop_zone = self._section(target_section_idx).get_by_test_id("empty-section-drop-zone")
+            scroll_to_center(drop_zone)
+            drop_zone.hover()
+            expect(drop_zone).to_have_class(re.compile("has-text-primary"))
+        else:
+            hover_insertion_position(
+                self._section(target_section_idx).locator('> [data-testid="routine-part"]'),
+                target_idx,
+            )
+        self.page.mouse.up()
+        self.wait_until_idle()
+
+    def drag_activity_to_section_start(
+        self, source_section_idx: int, source_activity_idx: int, target_section_idx: int
+    ) -> None:
+        start_drag(self.page, self._activity_handle(source_section_idx, source_activity_idx))
+        hover_at_height(
+            self._section(target_section_idx).get_by_test_id("section-header").first, 0.75
+        )
+        expect(
+            self._section(target_section_idx).locator('> [data-testid="routine-part"]').first
+        ).to_have_class(re.compile("is-insert-before"))
+        self.page.mouse.up()
+        self.wait_until_idle()
+
+    def remove_by_drag(self, section_idx: int, activity_idx: int | None = None) -> None:
+        handle = (
+            self._section_handle(section_idx)
+            if activity_idx is None
+            else self._activity_handle(section_idx, activity_idx)
+        )
+        start_drag(self.page, handle)
+        drop_on_remove_zone(self.page)
+        self.wait_until_idle()
+
+    def _section(self, section_idx: int) -> Locator:
+        return self.page.get_by_test_id("routine-section").nth(section_idx)
+
+    def _section_handle(self, section_idx: int) -> Locator:
+        return self._section(section_idx).get_by_test_id("section-handle").first
+
+    def _activity_handle(self, section_idx: int, activity_idx: int) -> Locator:
+        return self._section(section_idx).get_by_test_id("activity-handle").nth(activity_idx)
+
+    def _top_level_parts(self) -> Locator:
+        return self.page.get_by_test_id("routine-parts").locator('> [data-testid="routine-part"]')
+
+    def _top_level_section_headers(self) -> Locator:
+        return self._top_level_parts().locator(
+            '> [data-testid="routine-section"] > [data-testid="section-header"]'
+        )
+
+    def _top_level_section_handle(self, section_idx: int) -> Locator:
+        return self._top_level_section_headers().nth(section_idx).get_by_test_id("section-handle")
 
     def replace_exercise(self, section_idx: int, activity_idx: int, name: str) -> None:
         self._open_replace_dialog(section_idx, activity_idx)

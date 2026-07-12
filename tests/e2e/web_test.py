@@ -1331,6 +1331,100 @@ def test_routine_move_exercise_down(page: Page) -> None:
     assert sections[1].get_set_at(2).exercise_name == exercise_2
 
 
+def test_routine_move_section_by_drag_and_drop(page: Page) -> None:
+    routine = USER.routines[0]
+    section_rounds = [str(s.rounds) for s in routine.sections]
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    p.drag_section(0, 3)
+
+    assert [str(s.rounds) for s in p.get_sections()] == [
+        section_rounds[1],
+        section_rounds[2],
+        section_rounds[0],
+    ]
+
+    p.drag_section(2, 0)
+
+    assert [str(s.rounds) for s in p.get_sections()] == section_rounds
+
+    p.drag_section(0, 2)
+
+    assert [str(s.rounds) for s in p.get_sections()] == [
+        section_rounds[1],
+        section_rounds[0],
+        section_rounds[2],
+    ]
+
+    p.drag_section(1, 0)
+
+    assert [str(s.rounds) for s in p.get_sections()] == section_rounds
+
+
+def test_routine_move_activity_by_drag_and_drop(page: Page) -> None:
+    routine = USER.routines[0]
+    assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
+    exercise = str(routine.sections[0].parts[0].exercise.name)
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    sections = p.get_sections()
+    assert sections[0].get_set_at(0).exercise_name == exercise
+    assert sections[0].is_rest_at(1)
+
+    p.drag_activity(0, 0, 0, 2)
+
+    sections = p.get_sections()
+    assert sections[0].is_rest_at(0)
+    assert sections[0].get_set_at(1).exercise_name == exercise
+
+    p.drag_activity(0, 1, 1, 0)
+
+    sections = p.get_sections()
+    assert len(sections[0].parts) == 1
+    assert sections[0].is_rest_at(0)
+    assert sections[1].get_set_at(0).exercise_name == exercise
+
+    p.add_section(4)
+    p.drag_activity(0, 0, 4, None)
+
+    sections = p.get_sections()
+    assert len(sections[0].parts) == 0
+    assert sections[3].get_rest_at(0).time == 30
+
+    p.drag_activity_to_section_start(4, 0, 1)
+
+    sections = p.get_sections()
+    assert sections[1].get_rest_at(0).time == 30
+    assert len(sections[3].parts) == 0
+
+
+def test_routine_remove_part_by_drag_and_drop(page: Page) -> None:
+    routine = USER.routines[0]
+    section_rounds = [str(s.rounds) for s in routine.sections]
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    sections = p.get_sections()
+    assert len(sections[0].parts) == 2
+
+    p.remove_by_drag(0, 1)
+
+    sections = p.get_sections()
+    assert len(sections[0].parts) == 1
+
+    p.remove_by_drag(0)
+
+    assert [str(s.rounds) for s in p.get_sections()] == section_rounds[1:]
+
+
 def test_routine_remove_section(page: Page) -> None:
     routine = USER.routines[0]
     section_rounds = [str(s.rounds) for s in routine.sections]

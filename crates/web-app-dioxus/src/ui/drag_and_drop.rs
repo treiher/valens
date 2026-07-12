@@ -13,7 +13,7 @@ use crate::ui::element::Icon;
 ///
 /// `active` stays false until the first pointer movement, so that a mere tap on a handle does not
 /// show the drag overlay.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Drag<S, T> {
     pub source: S,
     pub position: (f64, f64),
@@ -22,7 +22,7 @@ pub struct Drag<S, T> {
 }
 
 /// A position where a dragged element can be dropped.
-pub trait DropTarget: Copy + PartialEq {
+pub trait DropTarget: Clone + PartialEq {
     /// Parse the value of a `data-drop` attribute.
     fn parse(value: &str) -> Option<Self>;
 
@@ -30,7 +30,7 @@ pub trait DropTarget: Copy + PartialEq {
     fn resolve(self, element: &web_sys::Element, y: f64) -> Self;
 
     /// Whether hovering this target suspends auto-scrolling.
-    fn suspends_auto_scroll(self) -> bool {
+    fn suspends_auto_scroll(&self) -> bool {
         false
     }
 }
@@ -47,7 +47,7 @@ pub fn view_drag_handle<S, T>(
     on_drop: impl Fn(S, T) + 'static,
 ) -> Element
 where
-    S: Copy + PartialEq + 'static,
+    S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
     rsx! {
@@ -59,7 +59,7 @@ where
             onpointerdown: {
                 let is_valid_target = is_valid_target.clone();
                 move |event: PointerEvent| {
-                    start_drag(&event, drag, source, is_valid_target.clone());
+                    start_drag(&event, drag, source.clone(), is_valid_target.clone());
                 }
             },
             onpointermove: move |event: PointerEvent| update_drag(&event, drag, &is_valid_target),
@@ -93,7 +93,7 @@ pub fn view_drag_overlay(position: (f64, f64), label: &str, remove_hovered: bool
 /// The target hovered during an active drag, or `None` if no drag is in progress.
 pub fn hovered_target<S, T>(drag: Signal<Option<Drag<S, T>>>) -> Option<T>
 where
-    S: Copy + PartialEq + 'static,
+    S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
     drag()
@@ -107,7 +107,7 @@ fn start_drag<S, T>(
     source: S,
     is_valid_target: impl Fn(S, T) -> bool + 'static,
 ) where
-    S: Copy + PartialEq + 'static,
+    S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
     event.prevent_default();
@@ -130,15 +130,20 @@ async fn auto_scroll<S, T>(
     mut drag: Signal<Option<Drag<S, T>>>,
     is_valid_target: impl Fn(S, T) -> bool,
 ) where
-    S: Copy + PartialEq + 'static,
+    S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
     loop {
         gloo_timers::future::sleep(std::time::Duration::from_millis(30)).await;
-        let Some(current) = *drag.peek() else {
+        let Some(current) = drag.peek().clone() else {
             return;
         };
-        if !current.active || current.target.is_some_and(DropTarget::suspends_auto_scroll) {
+        if !current.active
+            || current
+                .target
+                .as_ref()
+                .is_some_and(DropTarget::suspends_auto_scroll)
+        {
             continue;
         }
         let Some(window) = web_sys::window() else {
@@ -157,7 +162,8 @@ async fn auto_scroll<S, T>(
             continue;
         }
         window.scroll_by_with_x_and_y(0.0, velocity);
-        let target = drop_target_at(x, y).filter(|target| is_valid_target(current.source, *target));
+        let target = drop_target_at(x, y)
+            .filter(|target: &T| is_valid_target(current.source.clone(), target.clone()));
         if target != current.target {
             drag.set(Some(Drag { target, ..current }));
         }
@@ -185,14 +191,15 @@ fn update_drag<S, T>(
     mut drag: Signal<Option<Drag<S, T>>>,
     is_valid_target: impl Fn(S, T) -> bool,
 ) where
-    S: Copy + PartialEq + 'static,
+    S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
-    let Some(current) = *drag.peek() else {
+    let Some(current) = drag.peek().clone() else {
         return;
     };
     let (x, y) = client_position(event);
-    let target = drop_target_at(x, y).filter(|target| is_valid_target(current.source, *target));
+    let target = drop_target_at(x, y)
+        .filter(|target: &T| is_valid_target(current.source.clone(), target.clone()));
     drag.set(Some(Drag {
         position: (x, y),
         target,
@@ -203,7 +210,7 @@ fn update_drag<S, T>(
 
 fn finish_drag<S, T>(mut drag: Signal<Option<Drag<S, T>>>, on_drop: impl FnOnce(S, T))
 where
-    S: Copy + PartialEq + 'static,
+    S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
     let Some(current) = drag.take() else {

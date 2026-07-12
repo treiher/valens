@@ -27,7 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Automatic end of the in-progress training session when all sets are recorded or its end is reached
     - Input fields for time-based sets while another training session is in progress
 - Training sessions page: 7-day min./max. RPE to RPE chart
-- Routine page: Option to show and copy routine as text
+- Routine page:
+    - Option to show and copy routine as text
+    - Rearrangement and removal of exercises, rests and sections by drag and drop
 - Routines page:
     - Option to show and copy routine as text
     - Automatic focus of the first input field in the dialog for adding entries

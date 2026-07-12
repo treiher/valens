@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+};
 
 use chrono::NaiveDate;
 use dioxus::prelude::*;
@@ -17,6 +20,7 @@ use crate::{
     },
     settings::Settings,
     ui::{
+        drag_and_drop,
         element::{
             Block, CenteredBlock, DataBox, Dialog, Error, ErrorMessage, FloatingActionButton, Icon,
             IconText, Loading, LoadingDialog, LoadingPage, MenuOption, NoConnection, NoData,
@@ -36,6 +40,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
     let edit_dialog = use_signal(|| EditDialog::None);
     let mut routine_dialog = use_signal(|| page::routines::RoutineDialog::None);
     let training_dialog = use_signal(|| page::training_sessions::TrainingDialog::None);
+    let drag = use_signal(|| None::<Drag>);
 
     match (
         &*cache.routines.read(),
@@ -48,7 +53,8 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                 rsx! {
                     Title { "{routine.name}" }
                     {view_summary(routine)}
-                    {view_routine(routine, exercises, edit_dialog, cache)}
+                    {view_routine(routine, exercises, edit_dialog, drag, cache)}
+                    {view_drag_overlay(routine, exercises, drag)}
                     if let CacheState::Ready(training_sessions) = training_sessions {
                         {view_previous_exercises(routine, training_sessions, exercises)}
                     }
@@ -165,14 +171,18 @@ fn view_routine(
     routine: &domain::Routine,
     exercises: &[domain::Exercise],
     edit_dialog: Signal<EditDialog>,
+    drag: Signal<Option<Drag>>,
     cache: Cache,
 ) -> Element {
+    let routine = Rc::new(routine.clone());
     rsx! {
         Block {
             div {
                 class: "p-2",
+                "data-testid": "routine-parts",
+                "data-drop": "sections",
                 for (i, section) in routine.sections.iter().enumerate() {
-                    {view_routine_part(routine, section, &vec![i].into(), exercises, edit_dialog)}
+                    {view_routine_part(&routine, section, &vec![i].into(), routine.sections.len(), exercises, edit_dialog, drag)}
                 }
             }
             div {
@@ -181,7 +191,8 @@ fn view_routine(
                     class: "button is-white-soft",
                     class: if IS_LOADING() && matches!(edit_dialog(), EditDialog::None) { "is-loading" },
                     "data-testid": "add-section",
-                    onclick: eh!(mut routine; {
+                    onclick: eh!(routine; {
+                        let mut routine = (*routine).clone();
                         routine.add_section(&domain::RoutinePartPath::default());
                         modify_routine_sections(routine, cache, || {})
                     }),
@@ -192,34 +203,49 @@ fn view_routine(
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn view_routine_part(
-    routine: &domain::Routine,
+    routine: &Rc<domain::Routine>,
     part: &domain::RoutinePart,
     path: &domain::RoutinePartPath,
+    num_siblings: usize,
     exercises: &[domain::Exercise],
     mut edit_dialog: Signal<EditDialog>,
+    drag: Signal<Option<Drag>>,
 ) -> Element {
     let show_options = {
-        let routine = routine.clone();
+        let routine = Rc::clone(routine);
         let path = path.clone();
         move || {
             *edit_dialog.write() = EditDialog::Options {
-                routine: routine.clone(),
+                routine: (*routine).clone(),
                 path: path.clone(),
             }
         }
     };
+    let target = drag_and_drop::hovered_target(drag);
+    let index = path.first().copied().unwrap_or_default();
+    let parent = domain::RoutinePartPath::from(path[1..].to_vec());
+    let insert_before = target == Some(DropTarget::Gap(parent.clone(), index));
+    let insert_after =
+        index + 1 == num_siblings && target == Some(DropTarget::Gap(parent, num_siblings));
     match part {
         domain::RoutinePart::RoutineSection { rounds, parts } => {
             rsx! {
                 div {
                     class: "message",
+                    class: if insert_before { "is-insert-before" },
+                    class: if insert_after { "is-insert-after" },
+                    "data-testid": "routine-part",
                     div {
                         class: "message-body p-3 mb-3",
                         class: if path.first() != Some(&0) { "mt-3" },
                         "data-testid": "routine-section",
+                        "data-drop": "section-{path_attribute(path)}",
                         div {
                             class: "is-flex is-justify-content-space-between mb-3",
+                            "data-testid": "section-header",
+                            "data-drop": "header-{path_attribute(path)}",
                             IconText {
                                 icon: "repeat",
                                 text: "{rounds}",
@@ -228,15 +254,23 @@ fn view_routine_part(
                                     if let Some(domain::RoutinePart::RoutineSection {
                                         rounds, ..
                                     }) = routine.part(&path) {
+                                        let routine = (*routine).clone();
                                         let rounds = FieldValue::new_with_empty_default(*rounds);
                                         *edit_dialog.write() = EditDialog::EditSection { routine, path, rounds };
                                     }
                                 })
                             }
-                            Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "section-options" }
+                            div {
+                                class: "is-flex is-align-items-center",
+                                Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "section-options" }
+                                {view_drag_handle(routine, path, "section-handle", drag)}
+                            }
                         }
                         for (i, part) in parts.iter().enumerate() {
-                            {view_routine_part(routine, part, &[&[i], &path[..]].concat().into(), exercises, edit_dialog)}
+                            {view_routine_part(routine, part, &[&[i], &path[..]].concat().into(), parts.len(), exercises, edit_dialog, drag)}
+                        }
+                        if parts.is_empty() {
+                            {view_empty_section_drop_zone(routine, path, drag)}
                         }
                     }
                 }
@@ -259,6 +293,10 @@ fn view_routine_part(
                     } else {
                         "is-info"
                     },
+                    class: if insert_before { "is-insert-before" },
+                    class: if insert_after { "is-insert-after" },
+                    "data-testid": "routine-part",
+                    "data-drop": "part-{path_attribute(path)}",
                     div {
                         class: "message-body has-background-scheme-main p-3",
                         if !exercise_id.is_nil() {
@@ -273,7 +311,11 @@ fn view_routine_part(
                                 } else {
                                     "Exercise#{exercise_id.as_u128()}"
                                 }
-                                Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "activity-options" }
+                                div {
+                                    class: "is-flex is-align-items-center",
+                                    Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "activity-options" }
+                                    {view_drag_handle(routine, path, "activity-handle", drag)}
+                                }
                             }
                         } else {
                             div {
@@ -288,7 +330,7 @@ fn view_routine_part(
                                             automatic,
                                             ..
                                         }) = routine.part(&path) {
-                                            let routine = routine.clone();
+                                            let routine = (*routine).clone();
                                             let reps = FieldValue::new_with_empty_default(*reps);
                                             let time = FieldValue::new_with_empty_default(*time);
                                             let weight = FieldValue::new_with_empty_default(*weight);
@@ -320,7 +362,11 @@ fn view_routine_part(
                                         }
                                     }
                                 }
-                                Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "activity-options" }
+                                div {
+                                    class: "is-flex is-align-items-center",
+                                    Icon { name: "ellipsis-vertical", on_click: eh!(mut show_options; { show_options(); }), "data-testid": "activity-options" }
+                                    {view_drag_handle(routine, path, "activity-handle", drag)}
+                                }
                             }
                         }
                         if !exercise_id.is_nil() {
@@ -334,7 +380,7 @@ fn view_routine_part(
                                         automatic,
                                         ..
                                     }) = routine.part(&path) {
-                                        let routine = routine.clone();
+                                        let routine = (*routine).clone();
                                         let reps = FieldValue::new_with_empty_default(*reps);
                                         let time = FieldValue::new_with_empty_default(*time);
                                         let weight = FieldValue::new_with_empty_default(*weight);
@@ -411,6 +457,165 @@ fn automatic_icon() -> Element {
             }
         }
     }
+}
+
+fn view_drag_handle(
+    routine: &Rc<domain::Routine>,
+    path: &domain::RoutinePartPath,
+    data_testid: &str,
+    drag: Signal<Option<Drag>>,
+) -> Element {
+    drag_and_drop::view_drag_handle(
+        drag,
+        path.clone(),
+        data_testid,
+        drag_validator(routine),
+        drop_handler(routine),
+    )
+}
+
+fn view_empty_section_drop_zone(
+    routine: &domain::Routine,
+    path: &domain::RoutinePartPath,
+    drag: Signal<Option<Drag>>,
+) -> Element {
+    let gap = DropTarget::Gap(path.clone(), 0);
+    let droppable =
+        drag().is_some_and(|drag| drag.active && is_valid_target(routine, &drag.source, &gap));
+    if !droppable {
+        return rsx! {};
+    }
+    let hovered = drag_and_drop::hovered_target(drag) == Some(gap);
+    rsx! {
+        div {
+            class: "is-drop-zone is-active has-text-centered px-4 py-3",
+            class: if hovered { "has-text-primary" } else { "has-text-grey" },
+            "data-testid": "empty-section-drop-zone",
+            "Empty section"
+        }
+    }
+}
+
+fn view_drag_overlay(
+    routine: &domain::Routine,
+    exercises: &[domain::Exercise],
+    drag: Signal<Option<Drag>>,
+) -> Element {
+    let Some(drag) = drag() else {
+        return rsx! {};
+    };
+    if !drag.active {
+        return rsx! {};
+    }
+    let Some(label) = dragged_label(routine, exercises, &drag.source) else {
+        return rsx! {};
+    };
+    drag_and_drop::view_drag_overlay(
+        drag.position,
+        &label,
+        drag.target == Some(DropTarget::Remove),
+    )
+}
+
+fn dragged_label(
+    routine: &domain::Routine,
+    exercises: &[domain::Exercise],
+    source: &domain::RoutinePartPath,
+) -> Option<String> {
+    match routine.part(source)? {
+        domain::RoutinePart::RoutineSection { .. } => Some("Section".to_string()),
+        domain::RoutinePart::RoutineActivity { exercise_id, .. } => {
+            if exercise_id.is_nil() {
+                Some("Rest".to_string())
+            } else {
+                Some(exercises.iter().find(|e| e.id == *exercise_id).map_or_else(
+                    || format!("Exercise#{}", exercise_id.as_u128()),
+                    |exercise| exercise.name.to_string(),
+                ))
+            }
+        }
+    }
+}
+
+fn drag_validator(
+    routine: &Rc<domain::Routine>,
+) -> impl Fn(domain::RoutinePartPath, DropTarget) -> bool + Clone + 'static {
+    let routine = Rc::clone(routine);
+    move |source, target| is_valid_target(&routine, &source, &target)
+}
+
+fn drop_handler(
+    routine: &Rc<domain::Routine>,
+) -> impl Fn(domain::RoutinePartPath, DropTarget) + 'static {
+    let routine = Rc::clone(routine);
+    move |source, target| {
+        if let Some(modified) = apply_drop(&routine, &source, target)
+            && modified != *routine
+        {
+            spawn(modify_routine_sections(
+                modified,
+                consume_context::<Cache>(),
+                || {},
+            ));
+        }
+    }
+}
+
+/// Whether dropping the part at `source` on `target` is allowed.
+///
+/// A part must not be dropped into itself or one of its descendants. The top level may only
+/// contain sections.
+fn is_valid_target(
+    routine: &domain::Routine,
+    source: &domain::RoutinePartPath,
+    target: &DropTarget,
+) -> bool {
+    match target {
+        DropTarget::Remove => true,
+        DropTarget::Gap(parent, _) => {
+            if parent.ends_with(source) {
+                return false;
+            }
+            !parent.is_empty()
+                || matches!(
+                    routine.part(source),
+                    Some(domain::RoutinePart::RoutineSection { .. })
+                )
+        }
+        DropTarget::Part(_) | DropTarget::Header(_) | DropTarget::Section(_) => false,
+    }
+}
+
+/// Apply the effect of dropping the part at `source` on `target`, or `None` if `target` is not a
+/// resolved drop position.
+fn apply_drop(
+    routine: &domain::Routine,
+    source: &domain::RoutinePartPath,
+    target: DropTarget,
+) -> Option<domain::Routine> {
+    let mut routine = routine.clone();
+    match target {
+        DropTarget::Gap(parent, index) => routine.move_part(source, &parent, index),
+        DropTarget::Remove => routine.remove_part(source),
+        DropTarget::Part(_) | DropTarget::Header(_) | DropTarget::Section(_) => return None,
+    }
+    Some(routine)
+}
+
+fn path_attribute(path: &domain::RoutinePartPath) -> String {
+    path.iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+fn parse_path(value: &str) -> Option<domain::RoutinePartPath> {
+    value
+        .split('-')
+        .map(str::parse)
+        .collect::<Result<Vec<usize>, _>>()
+        .ok()
+        .map(Into::into)
 }
 
 fn view_previous_exercises(
@@ -997,6 +1202,88 @@ async fn modify_routine_sections(
     close_dialog();
 }
 
+type Drag = drag_and_drop::Drag<domain::RoutinePartPath, DropTarget>;
+
+/// The index of `Gap` is an insertion position between 0 and the number of parts of the section
+/// at the path, referring to the gap before the part with the same index. An empty path refers to
+/// the top level of the routine.
+#[derive(Clone, Debug, PartialEq)]
+enum DropTarget {
+    Gap(domain::RoutinePartPath, usize),
+    Part(domain::RoutinePartPath),
+    Header(domain::RoutinePartPath),
+    Section(domain::RoutinePartPath),
+    Remove,
+}
+
+impl drag_and_drop::DropTarget for DropTarget {
+    fn parse(value: &str) -> Option<Self> {
+        if value == "remove" {
+            return Some(Self::Remove);
+        }
+        if value == "sections" {
+            return Some(Self::Section(domain::RoutinePartPath::default()));
+        }
+        if let Some(path) = value.strip_prefix("part-") {
+            return Some(Self::Part(parse_path(path)?));
+        }
+        if let Some(path) = value.strip_prefix("header-") {
+            return Some(Self::Header(parse_path(path)?));
+        }
+        if let Some(path) = value.strip_prefix("section-") {
+            return Some(Self::Section(parse_path(path)?));
+        }
+        None
+    }
+
+    fn resolve(self, element: &web_sys::Element, y: f64) -> Self {
+        match self {
+            Self::Part(path) => insertion_target(&path, drag_and_drop::in_lower_half(element, y)),
+            Self::Header(path) => header_target(&path, drag_and_drop::in_lower_half(element, y)),
+            Self::Section(path) => {
+                // The padding above the header belongs to the section element but is visually
+                // outside of the section content, so pointing at it inserts before the section
+                if let Ok(Some(header)) = element.query_selector(":scope > [data-drop^='header-']")
+                    && y < header.get_bounding_client_rect().top()
+                {
+                    return insertion_target(&path, false);
+                }
+                let index =
+                    drag_and_drop::insertion_index(element, ":scope > .message", y).unwrap_or(0);
+                Self::Gap(path, index)
+            }
+            Self::Gap(..) | Self::Remove => self,
+        }
+    }
+
+    fn suspends_auto_scroll(&self) -> bool {
+        *self == Self::Remove
+    }
+}
+
+/// Convert the path of a hovered part into an insertion position among its siblings.
+///
+/// Pointing at the upper half of an element inserts before it, pointing at the lower half inserts
+/// after it.
+fn insertion_target(path: &domain::RoutinePartPath, lower_half: bool) -> DropTarget {
+    let Some((&index, parent)) = path.split_first() else {
+        return DropTarget::Part(path.clone());
+    };
+    DropTarget::Gap(parent.to_vec().into(), index + usize::from(lower_half))
+}
+
+/// Convert the path of a hovered section header into an insertion position.
+///
+/// Pointing at the upper half of the header inserts before the section among its siblings,
+/// pointing at the lower half inserts at the top of the section.
+fn header_target(path: &domain::RoutinePartPath, lower_half: bool) -> DropTarget {
+    if lower_half {
+        DropTarget::Gap(path.clone(), 0)
+    } else {
+        insertion_target(path, false)
+    }
+}
+
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone)]
 pub enum EditDialog {
@@ -1027,4 +1314,179 @@ pub enum EditDialog {
         rpe: FieldValue<domain::RPE>,
         automatic: FieldValue<bool>,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ui::drag_and_drop::DropTarget as _;
+
+    use super::*;
+
+    fn routine() -> domain::Routine {
+        domain::Routine {
+            id: 1.into(),
+            name: domain::Name::new("A").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![
+                section(vec![activity(1), activity(2)]),
+                section(vec![section(vec![activity(3)])]),
+            ],
+        }
+    }
+
+    fn section(parts: Vec<domain::RoutinePart>) -> domain::RoutinePart {
+        domain::RoutinePart::RoutineSection {
+            rounds: domain::Rounds::new(1).unwrap(),
+            parts,
+        }
+    }
+
+    fn activity(reps: u32) -> domain::RoutinePart {
+        domain::RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: domain::Reps::new(reps).unwrap(),
+            time: domain::Time::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    #[test]
+    fn test_parse_drop_target() {
+        assert_eq!(DropTarget::parse("remove"), Some(DropTarget::Remove));
+        assert_eq!(
+            DropTarget::parse("sections"),
+            Some(DropTarget::Section(domain::RoutinePartPath::default()))
+        );
+        assert_eq!(
+            DropTarget::parse("section-1-0"),
+            Some(DropTarget::Section(vec![1, 0].into()))
+        );
+        assert_eq!(
+            DropTarget::parse("part-0"),
+            Some(DropTarget::Part(vec![0].into()))
+        );
+        assert_eq!(
+            DropTarget::parse("header-2-0"),
+            Some(DropTarget::Header(vec![2, 0].into()))
+        );
+        assert_eq!(DropTarget::parse("part-x"), None);
+        assert_eq!(DropTarget::parse("part-"), None);
+        assert_eq!(DropTarget::parse("foo"), None);
+    }
+
+    #[test]
+    fn test_insertion_target() {
+        assert_eq!(
+            insertion_target(&vec![2, 0].into(), false),
+            DropTarget::Gap(vec![0].into(), 2)
+        );
+        assert_eq!(
+            insertion_target(&vec![2, 0].into(), true),
+            DropTarget::Gap(vec![0].into(), 3)
+        );
+        assert_eq!(
+            insertion_target(&domain::RoutinePartPath::default(), true),
+            DropTarget::Part(domain::RoutinePartPath::default())
+        );
+    }
+
+    #[test]
+    fn test_header_target() {
+        assert_eq!(
+            header_target(&vec![2, 0].into(), false),
+            DropTarget::Gap(vec![0].into(), 2)
+        );
+        assert_eq!(
+            header_target(&vec![2, 0].into(), true),
+            DropTarget::Gap(vec![2, 0].into(), 0)
+        );
+    }
+
+    #[test]
+    fn test_is_valid_target() {
+        let routine = routine();
+        assert!(is_valid_target(
+            &routine,
+            &vec![0, 0].into(),
+            &DropTarget::Remove
+        ));
+        assert!(is_valid_target(
+            &routine,
+            &vec![0].into(),
+            &DropTarget::Gap(domain::RoutinePartPath::default(), 1)
+        ));
+        assert!(is_valid_target(
+            &routine,
+            &vec![0, 0].into(),
+            &DropTarget::Gap(vec![1].into(), 0)
+        ));
+        assert!(!is_valid_target(
+            &routine,
+            &vec![0, 0].into(),
+            &DropTarget::Gap(domain::RoutinePartPath::default(), 0)
+        ));
+        assert!(!is_valid_target(
+            &routine,
+            &vec![1].into(),
+            &DropTarget::Gap(vec![1].into(), 0)
+        ));
+        assert!(!is_valid_target(
+            &routine,
+            &vec![1].into(),
+            &DropTarget::Gap(vec![0, 1].into(), 0)
+        ));
+        assert!(!is_valid_target(
+            &routine,
+            &vec![0].into(),
+            &DropTarget::Part(vec![1].into())
+        ));
+        assert!(!is_valid_target(
+            &routine,
+            &vec![0].into(),
+            &DropTarget::Header(vec![1].into())
+        ));
+        assert!(!is_valid_target(
+            &routine,
+            &vec![0].into(),
+            &DropTarget::Section(vec![1].into())
+        ));
+    }
+
+    #[test]
+    fn test_apply_drop() {
+        let routine = routine();
+        assert_eq!(
+            apply_drop(
+                &routine,
+                &vec![0, 0].into(),
+                DropTarget::Gap(vec![0].into(), 2)
+            )
+            .unwrap()
+            .sections,
+            vec![
+                section(vec![activity(2), activity(1)]),
+                section(vec![section(vec![activity(3)])]),
+            ]
+        );
+        assert_eq!(
+            apply_drop(&routine, &vec![0, 0].into(), DropTarget::Remove)
+                .unwrap()
+                .sections,
+            vec![
+                section(vec![activity(2)]),
+                section(vec![section(vec![activity(3)])]),
+            ]
+        );
+        assert!(apply_drop(&routine, &vec![0].into(), DropTarget::Part(vec![1].into())).is_none());
+    }
+
+    #[test]
+    fn test_path_attribute_and_parse_path() {
+        assert_eq!(path_attribute(&vec![1, 0].into()), "1-0");
+        assert_eq!(parse_path("1-0"), Some(vec![1, 0].into()));
+        assert_eq!(parse_path(""), None);
+    }
 }

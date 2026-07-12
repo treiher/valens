@@ -70,6 +70,12 @@ valens config
 
 The environment variable `VALENS_CONFIG` must be set to the *absolute* path of the created config file.
 
+A user must be created before signing in for the first time. Only users with the admin role are able to manage users in the app.
+
+```
+VALENS_CONFIG=$PWD/config.py valens user create <name> <female|male> --role admin
+```
+
 The development server can be used to provide the app for your local computer or local network.
 
 ```

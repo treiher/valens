@@ -338,6 +338,10 @@ impl domain::SessionRepository for IndexedDB {
             .map_err(Box::from)?)
     }
 
+    async fn sync_session(&self) -> Result<Option<domain::User>, domain::SyncError> {
+        panic!("unsupported")
+    }
+
     async fn delete_session(&self) -> Result<(), domain::DeleteError> {
         async {
             let db = IndexedDB.open().await?;
@@ -365,11 +369,22 @@ impl domain::UserRepository for IndexedDB {
         _name: domain::Name,
         _sex: domain::Sex,
         _height: Option<u8>,
+        _role: domain::Role,
     ) -> Result<domain::User, domain::CreateError> {
         panic!("unsupported")
     }
 
     async fn replace_user(&self, _: domain::User) -> Result<domain::User, domain::UpdateError> {
+        panic!("unsupported")
+    }
+
+    async fn update_user(
+        &self,
+        _: domain::UserID,
+        _: domain::Name,
+        _: domain::Sex,
+        _: Option<u8>,
+    ) -> Result<domain::User, domain::UpdateError> {
         panic!("unsupported")
     }
 
@@ -719,6 +734,8 @@ pub struct User {
     pub sex: u8,
     #[serde(default)]
     pub height: Option<u8>,
+    #[serde(default)]
+    pub role: u8,
 }
 
 impl From<domain::User> for User {
@@ -734,6 +751,7 @@ impl From<&domain::User> for User {
             name: value.name.to_string(),
             sex: value.sex as u8,
             height: value.height,
+            role: value.role as u8,
         }
     }
 }
@@ -747,6 +765,7 @@ impl TryFrom<User> for domain::User {
             name: domain::Name::new(&value.name)?,
             sex: value.sex.into(),
             height: value.height,
+            role: value.role.into(),
         })
     }
 }
@@ -1517,19 +1536,29 @@ mod tests {
     }
 
     #[rstest]
-    #[case(domain::Sex::FEMALE)]
-    #[case(domain::Sex::MALE)]
-    fn test_user_serde(#[case] sex: domain::Sex) {
+    #[case(domain::Sex::FEMALE, domain::Role::USER)]
+    #[case(domain::Sex::MALE, domain::Role::ADMIN)]
+    fn test_user_serde(#[case] sex: domain::Sex, #[case] role: domain::Role) {
         let obj: User = domain::User {
             id: (2u128.pow(64) - 1).into(),
             name: domain::Name::new("A").unwrap(),
             sex,
             height: Some(180),
+            role,
         }
         .into();
         let serialized = json!(obj);
         let deserialized: User = serde_json::from_value(serialized).unwrap();
         assert_eq!(deserialized, obj);
+    }
+
+    #[test]
+    fn test_user_deserialization_without_role() {
+        let deserialized: User = serde_json::from_value(
+            json!({"id": "00000000-0000-0000-0000-000000000001", "name": "A", "sex": 0}),
+        )
+        .unwrap();
+        assert_eq!(domain::Role::from(deserialized.role), domain::Role::USER);
     }
 
     #[test]
@@ -1722,6 +1751,12 @@ mod tests {
         }
 
         #[wasm_bindgen_test]
+        #[should_panic]
+        async fn test_sync_session() {
+            let _ = IndexedDB.sync_session().await;
+        }
+
+        #[wasm_bindgen_test]
         async fn test_initialize_session() {
             reset().await;
 
@@ -1766,7 +1801,7 @@ mod tests {
         #[should_panic]
         async fn test_create_user() {
             let _ = IndexedDB
-                .create_user(USER.name.clone(), USER.sex, USER.height)
+                .create_user(USER.name.clone(), USER.sex, USER.height, USER.role)
                 .await;
         }
 
@@ -1774,6 +1809,14 @@ mod tests {
         #[should_panic]
         async fn test_replace_user() {
             let _ = IndexedDB.replace_user(USER.clone()).await;
+        }
+
+        #[wasm_bindgen_test]
+        #[should_panic]
+        async fn test_update_user() {
+            let _ = IndexedDB
+                .update_user(USER.id, USER.name.clone(), USER.sex, USER.height)
+                .await;
         }
 
         #[wasm_bindgen_test]

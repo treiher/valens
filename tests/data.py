@@ -8,6 +8,7 @@ from valens.models import (
     Exercise,
     ExerciseMuscle,
     Period,
+    Role,
     Routine,
     RoutineActivity,
     RoutineSection,
@@ -24,8 +25,8 @@ from valens.models import (
 
 def users_only() -> list[User]:
     return [
-        User(id=1, name="Alice", sex=Sex.FEMALE, height=168),
-        User(id=2, name="Bob", sex=Sex.MALE),
+        User(id=1, name="Alice", sex=Sex.FEMALE, height=168, role=Role.ADMIN),
+        User(id=2, name="Bob", sex=Sex.MALE, role=Role.USER),
     ]
 
 
@@ -52,6 +53,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
             name="Alice",
             sex=Sex.FEMALE,
             height=168,
+            role=Role.ADMIN,
             body_weight=[
                 BodyWeight(user_id=1, date=days_ago(20), weight=67.5),
                 BodyWeight(user_id=1, date=days_ago(19), weight=67.7),
@@ -282,6 +284,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
             id=2,
             name="Bob",
             sex=Sex.MALE,
+            role=Role.USER,
             body_weight=[
                 BodyWeight(user_id=2, date=days_ago(20), weight=100),
                 BodyWeight(user_id=2, date=days_ago(19), weight=101),

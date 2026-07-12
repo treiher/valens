@@ -325,7 +325,7 @@ pub fn Dialog(
                 class: "modal-content",
                 "data-testid": "dialog",
                 div {
-                    class: "message is-{color} mx-2",
+                    class: "message is-dialog is-{color} mx-2",
                     div {
                         class: "message-body has-text-text-bold has-background-scheme-main",
                         class: if no_horizontal_padding { "px-0" },

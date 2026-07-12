@@ -19,6 +19,7 @@ use update::UpdateNotification;
 
 mod cache;
 mod diagnostics;
+mod dialog;
 mod navbar;
 mod notification;
 mod ongoing_training_session;

@@ -44,6 +44,11 @@ class Sex(enum.IntEnum):
     MALE = 1
 
 
+class Role(enum.IntEnum):
+    USER = 0
+    ADMIN = 1
+
+
 class User(Base):
     __tablename__ = "user"
     __table_args__ = (
@@ -60,6 +65,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     sex: Mapped[Sex] = mapped_column(Enum(Sex), nullable=False)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    role: Mapped[Role] = mapped_column(Enum(Role), nullable=False, server_default="USER")
 
     body_weight: Mapped[list[BodyWeight]] = relationship(
         "BodyWeight", backref="user", cascade="all, delete-orphan", passive_deletes=True
@@ -73,17 +79,20 @@ class User(Base):
     exercises: Mapped[list[Exercise]] = relationship(
         "Exercise", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
+    # Routines and schedule entries must be deleted by the ORM instead of the database-level
+    # cascade, as the foreign keys of `routine_section` and `routine_activity` to `routine_part`
+    # and of the schedule entries to `routine` are not cascading.
     routines: Mapped[list[Routine]] = relationship(
-        "Routine", backref="user", cascade="all, delete-orphan", passive_deletes=True
+        "Routine", backref="user", cascade="all, delete-orphan"
     )
     workouts: Mapped[list[Workout]] = relationship(
         "Workout", backref="user", cascade="all, delete-orphan", passive_deletes=True
     )
     schedule_rotations: Mapped[list[ScheduleRotation]] = relationship(
-        "ScheduleRotation", backref="user", cascade="all, delete-orphan", passive_deletes=True
+        "ScheduleRotation", backref="user", cascade="all, delete-orphan"
     )
     schedule_slots: Mapped[list[ScheduleSlot]] = relationship(
-        "ScheduleSlot", backref="user", cascade="all, delete-orphan", passive_deletes=True
+        "ScheduleSlot", backref="user", cascade="all, delete-orphan"
     )
 
 
@@ -279,6 +288,7 @@ class RoutineSection(RoutinePart):
     parts: Mapped[list[RoutinePart]] = relationship(
         "RoutinePart",
         back_populates="section",
+        cascade="all, delete-orphan",
         foreign_keys=RoutinePart.routine_section_id,
     )
     routine: Mapped[Routine] = relationship("Routine", back_populates="sections")

@@ -41,8 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Body fat page: Automatic focus of the first input field in the dialog for adding entries
 - FFMI (Fat-Free Mass Index) page with a chart and interval selection
 - Recording of notifications in the log
+- User roles (user and admin)
+- Profile dialog for editing the own user data, accessible from the navigation menu
 - CLI commands to list, create, update and delete users
-- Administration page: Body height of users
+- Administration dialog:
+    - Body height of users
+    - Role of users
+    - Warning when demoting or deleting the last admin
 - Display of chart values at the hovered or touched date
 - Schedule page for planning routines on days of the week, including rotations of routines across training days
 
@@ -65,7 +70,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Muscles page: Wording of chart legend labels for set volume to be consistent with other pages
 - Body weight page: Order of chart legend entries
 - Body fat page: Order of chart legend entries
-- Navigation bar: "Log out" to "Sign out"
+- Navigation bar:
+    - "Log out" to "Sign out"
+    - Opening of the menu via the menu button on all screen widths, keeping all menu entries reachable on wide screens
+    - "Sign out" as the last menu entry
+- Version information and the log from the administration page to the About dialog, accessible from the navigation menu
+- Administration from a page to a dialog, allowing user management without leaving the current page
+- Administration dialog: Restriction to admin users
+- Synchronization to include the data of the signed-in user, applying changes made outside the app without re-login and signing out if the session was ended on the server
 - Presentation of error messages from a dialog to a notification below the navigation bar
 - Severity of recoverable notifications from error to warning
 - Routines page: Prevention of the deletion of routines that are used in the schedule

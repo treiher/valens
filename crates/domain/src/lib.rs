@@ -44,7 +44,7 @@ pub use training_session::{
     Set, TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,
     TrainingSessionSection, TrainingSessionService, most_recent_best_set_for_one_rep_max,
 };
-pub use user::{Sex, User, UserID, UserRepository, UserService};
+pub use user::{Role, Sex, User, UserID, UserRepository, UserService};
 pub use version::{VersionRepository, VersionService};
 
 mod body_fat;

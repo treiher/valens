@@ -5,11 +5,13 @@ from http import HTTPStatus
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 from werkzeug.test import Client, TestResponse as Response
 
 import tests.data
 import tests.utils
-from valens import app
+from valens import app, database as db
+from valens.models import Role, User
 
 INVALID_ROUTINE_ACTIVITY_FIELDS: list[dict[str, object]] = [
     {"exercise_id": 0},
@@ -66,6 +68,7 @@ def delete_session(client: Client) -> Response:
         ("post", "/api/users"),
         ("get", "/api/users/1"),
         ("put", "/api/users/2"),
+        ("patch", "/api/users/2"),
         ("delete", "/api/users/2"),
         ("get", "/api/body_weight"),
         ("post", "/api/body_weight"),
@@ -101,6 +104,7 @@ def test_session_required(client: Client, method: str, route: str) -> None:
         ("post", "/api/session"),
         ("post", "/api/users"),
         ("put", "/api/users/2"),
+        ("patch", "/api/users/2"),
         ("post", "/api/body_weight"),
         ("put", "/api/body_weight/2002-02-22"),
         ("post", "/api/body_fat"),
@@ -132,20 +136,30 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("post", "/api/session", {"invalid": "data"}),
         ("post", "/api/session", {"name": 1}),
         ("post", "/api/users", {"invalid": "data"}),
-        ("post", "/api/users", {"name": 1, "sex": 0}),
-        ("post", "/api/users", {"name": " ", "sex": 0}),
-        ("post", "/api/users", {"name": "A" * 65, "sex": 0}),
-        ("post", "/api/users", {"name": "Ä" * 33, "sex": 0}),
-        ("post", "/api/users", {"name": "Carol", "sex": "female"}),
-        ("post", "/api/users", {"name": "Carol", "sex": True}),
-        ("post", "/api/users", {"name": "Carol", "sex": 2}),
-        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": "invalid"}),
-        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 175.5}),
-        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": True}),
-        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 0}),
-        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 256}),
+        ("post", "/api/users", {"name": 1, "sex": 0, "role": 0}),
+        ("post", "/api/users", {"name": " ", "sex": 0, "role": 0}),
+        ("post", "/api/users", {"name": "A" * 65, "sex": 0, "role": 0}),
+        ("post", "/api/users", {"name": "Ä" * 33, "sex": 0, "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": "female", "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": True, "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 2, "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": "invalid", "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 175.5, "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": True, "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 0, "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "height": 256, "role": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "role": "user"}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "role": True}),
+        ("post", "/api/users", {"name": "Carol", "sex": 0, "role": 2}),
         ("put", "/api/users/2", {"invalid": "data"}),
-        ("put", "/api/users/2", {"name": "Carol", "sex": 0, "height": -175}),
+        ("put", "/api/users/2", {"name": "Carol", "sex": 0, "height": -175, "role": 0}),
+        ("put", "/api/users/2", {"name": "Carol", "sex": 0}),
+        ("put", "/api/users/2", {"name": "Carol", "sex": 0, "role": 2}),
+        ("patch", "/api/users/2", {"name": 1}),
+        ("patch", "/api/users/2", {"sex": 2}),
+        ("patch", "/api/users/2", {"height": 0}),
+        ("patch", "/api/users/2", {"role": 2}),
         ("post", "/api/body_weight", {"invalid": "data"}),
         ("post", "/api/body_weight", {"date": 20020224, "weight": 80.0}),
         ("post", "/api/body_weight", {"date": "2002-02-24", "weight": "80"}),
@@ -438,11 +452,11 @@ def test_session(client: Client) -> None:
 
     resp = create_session(client)
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168}
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1}
 
     resp = client.get("/api/session")
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168}
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1}
 
     resp = delete_session(client)
     assert resp.status_code == HTTPStatus.NO_CONTENT
@@ -472,8 +486,8 @@ def test_read_users(client: Client) -> None:
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
-        {"id": 2, "name": "Bob", "sex": 1, "height": None},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1},
+        {"id": 2, "name": "Bob", "sex": 1, "height": None, "role": 0},
     ]
 
 
@@ -491,7 +505,7 @@ def test_read_user(client: Client) -> None:
     resp = client.get("/api/users/1")
 
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168}
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1}
 
     resp = delete_session(client)
     assert resp.status_code == HTTPStatus.NO_CONTENT
@@ -503,18 +517,18 @@ def test_create_user(client: Client) -> None:
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.post("/api/users", json={"name": "Carol", "sex": 0, "height": 175})
+    resp = client.post("/api/users", json={"name": "Carol", "sex": 0, "height": 175, "role": 0})
 
     assert resp.status_code == HTTPStatus.CREATED
-    assert resp.json == {"id": 3, "name": "Carol", "sex": 0, "height": 175}
+    assert resp.json == {"id": 3, "name": "Carol", "sex": 0, "height": 175, "role": 0}
 
     resp = client.get("/api/users")
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
-        {"id": 2, "name": "Bob", "sex": 1, "height": None},
-        {"id": 3, "name": "Carol", "sex": 0, "height": 175},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1},
+        {"id": 2, "name": "Bob", "sex": 1, "height": None, "role": 0},
+        {"id": 3, "name": "Carol", "sex": 0, "height": 175, "role": 0},
     ]
 
 
@@ -523,10 +537,10 @@ def test_create_user_conflict(client: Client) -> None:
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.post("/api/users", json={"name": " Alice ", "sex": 0})
+    resp = client.post("/api/users", json={"name": " Alice ", "sex": 0, "role": 0})
 
     assert resp.status_code == HTTPStatus.CONFLICT
-    assert resp.json
+    assert resp.json == {"details": "name is already used"}
 
 
 def test_replace_user(client: Client) -> None:
@@ -534,33 +548,54 @@ def test_replace_user(client: Client) -> None:
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.put("/api/users/2", json={"name": "Carol", "sex": 0})
+    resp = client.put("/api/users/2", json={"name": "Carol", "sex": 0, "role": 0})
 
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 2, "name": "Carol", "sex": 0, "height": None}
+    assert resp.json == {"id": 2, "name": "Carol", "sex": 0, "height": None, "role": 0}
 
     resp = client.get("/api/users")
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
-        {"id": 2, "name": "Carol", "sex": 0, "height": None},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1},
+        {"id": 2, "name": "Carol", "sex": 0, "height": None, "role": 0},
     ]
 
 
-def test_replace_user_updates_session_of_current_user(client: Client) -> None:
+def test_read_session_reflects_out_of_band_changes(client: Client) -> None:
     tests.utils.init_db_data()
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.put("/api/users/1", json={"name": "Anna", "sex": 1, "height": 170})
-
-    assert resp.status_code == HTTPStatus.OK
+    user = db.session.execute(select(User).where(User.id == 1)).scalars().one()
+    user.name = "Anna"
+    user.role = Role.USER
+    db.session.commit()
 
     resp = client.get("/api/session")
 
     assert resp.status_code == HTTPStatus.OK
-    assert resp.json == {"id": 1, "name": "Anna", "sex": 1, "height": 170}
+    assert resp.json == {"id": 1, "name": "Anna", "sex": 0, "height": 168, "role": 0}
+
+
+def test_read_session_user_deleted(client: Client) -> None:
+    tests.utils.init_db_users()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    user = db.session.execute(select(User).where(User.id == 1)).scalars().one()
+    db.session.delete(user)
+    db.session.commit()
+
+    resp = client.get("/api/session")
+
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
+
+    resp = client.get("/api/body_weight")
+
+    assert resp.status_code == HTTPStatus.UNAUTHORIZED
+    assert not resp.data
 
 
 def test_replace_user_not_found(client: Client) -> None:
@@ -568,7 +603,7 @@ def test_replace_user_not_found(client: Client) -> None:
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.put("/api/users/3", json={"name": "Carol", "sex": 0})
+    resp = client.put("/api/users/3", json={"name": "Carol", "sex": 0, "role": 0})
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
@@ -579,10 +614,10 @@ def test_replace_user_conflict(client: Client) -> None:
 
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.put("/api/users/2", json={"name": " Alice ", "sex": 0})
+    resp = client.put("/api/users/2", json={"name": " Alice ", "sex": 0, "role": 0})
 
     assert resp.status_code == HTTPStatus.CONFLICT
-    assert resp.json
+    assert resp.json == {"details": "name is already used"}
 
 
 def test_delete_user(client: Client) -> None:
@@ -599,13 +634,244 @@ def test_delete_user(client: Client) -> None:
 
     assert resp.status_code == HTTPStatus.OK
     assert resp.json == [
-        {"id": 1, "name": "Alice", "sex": 0, "height": 168},
+        {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1},
     ]
 
     resp = client.delete("/api/users/2")
 
     assert resp.status_code == HTTPStatus.NOT_FOUND
     assert not resp.data
+
+
+def test_delete_user_with_routines_and_schedule(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    # A second administrator is required so that deleting user 1 is permitted
+    assert client.patch("/api/users/2", json={"role": 1}).status_code == HTTPStatus.OK
+
+    resp = client.delete("/api/users/1")
+
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+    assert not resp.data
+
+    resp = client.get("/api/session")
+
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
+
+
+@pytest.mark.parametrize(
+    ("method", "route"),
+    [
+        ("get", "/api/users"),
+        ("post", "/api/users"),
+        ("get", "/api/users/1"),
+        ("put", "/api/users/1"),
+        ("patch", "/api/users/1"),
+        ("delete", "/api/users/1"),
+    ],
+)
+def test_admin_required(client: Client, method: str, route: str) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client, name="Bob").status_code == HTTPStatus.OK
+
+    resp = getattr(client, method)(route, json={})
+
+    assert resp.status_code == HTTPStatus.FORBIDDEN
+    assert resp.json == {"details": "user is not an administrator"}
+
+
+def test_admin_required_user_deleted(client: Client) -> None:
+    tests.utils.init_db_users()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put("/api/users/2", json={"name": "Bob", "sex": 1, "role": 1})
+    assert resp.status_code == HTTPStatus.OK
+
+    resp = client.delete("/api/users/1")
+    assert resp.status_code == HTTPStatus.NO_CONTENT
+
+    resp = client.get("/api/users")
+
+    assert resp.status_code == HTTPStatus.FORBIDDEN
+    assert resp.json == {"details": "user is not an administrator"}
+
+
+def test_read_own_user(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client, name="Bob").status_code == HTTPStatus.OK
+
+    resp = client.get("/api/users/2")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Bob", "sex": 1, "height": None, "role": 0}
+
+
+def test_replace_own_user(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client, name="Bob").status_code == HTTPStatus.OK
+
+    resp = client.put("/api/users/2", json={"name": "Ben", "sex": 1, "height": 182, "role": 0})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Ben", "sex": 1, "height": 182, "role": 0}
+
+    resp = client.get("/api/session")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Ben", "sex": 1, "height": 182, "role": 0}
+
+
+def test_replace_own_user_role_change_forbidden(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client, name="Bob").status_code == HTTPStatus.OK
+
+    resp = client.put("/api/users/2", json={"name": "Bob", "sex": 1, "role": 1})
+
+    assert resp.status_code == HTTPStatus.FORBIDDEN
+    assert resp.json == {"details": "role can only be changed by an administrator"}
+
+
+def test_update_user(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/users/2", json={"height": 182})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Bob", "sex": 1, "height": 182, "role": 0}
+
+    resp = client.patch("/api/users/2", json={"height": None})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Bob", "sex": 1, "height": None, "role": 0}
+
+
+def test_update_user_not_found(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/users/3", json={"name": "Carol"})
+
+    assert resp.status_code == HTTPStatus.NOT_FOUND
+    assert not resp.data
+
+
+def test_update_user_conflict(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/users/2", json={"name": " Alice "})
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "name is already used"}
+
+
+def test_update_user_role_change(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/users/2", json={"role": 1})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Bob", "sex": 1, "height": None, "role": 1}
+
+
+def test_update_own_user_keeps_role(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client, name="Bob").status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/users/2", json={"name": "Ben", "sex": 0, "height": 182})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Ben", "sex": 0, "height": 182, "role": 0}
+
+
+def test_update_own_user_role_change_forbidden(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client, name="Bob").status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/users/2", json={"role": 1})
+
+    assert resp.status_code == HTTPStatus.FORBIDDEN
+    assert resp.json == {"details": "role can only be changed by an administrator"}
+
+
+def test_replace_user_role_change(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put("/api/users/2", json={"name": "Bob", "sex": 1, "role": 1})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Bob", "sex": 1, "height": None, "role": 1}
+
+    resp = client.put("/api/users/2", json={"name": "Bob", "sex": 1, "role": 0})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 2, "name": "Bob", "sex": 1, "height": None, "role": 0}
+
+
+def test_replace_user_last_admin_role_change(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put("/api/users/1", json={"name": "Alice", "sex": 0, "height": 168, "role": 0})
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "last administrator cannot be demoted"}
+
+    resp = client.get("/api/users/1")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1}
+
+
+def test_update_user_last_admin_role_change(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/users/1", json={"role": 0})
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "last administrator cannot be demoted"}
+
+    resp = client.get("/api/users/1")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1}
+
+
+def test_delete_user_last_admin(client: Client) -> None:
+    tests.utils.init_db_users()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.delete("/api/users/1")
+
+    assert resp.status_code == HTTPStatus.CONFLICT
+    assert resp.json == {"details": "last administrator cannot be deleted"}
+
+    resp = client.get("/api/session")
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {"id": 1, "name": "Alice", "sex": 0, "height": 168, "role": 1}
 
 
 @pytest.mark.parametrize(

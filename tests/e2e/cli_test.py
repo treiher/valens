@@ -78,7 +78,7 @@ def test_user_list(tmp_path: Path) -> None:
         env=env,
     )
     run(
-        f"{VALENS} user create Bob male".split(),
+        f"{VALENS} user create Bob male --role admin".split(),
         check=True,
         stdout=PIPE,
         stderr=STDOUT,
@@ -87,8 +87,8 @@ def test_user_list(tmp_path: Path) -> None:
     p = run(f"{VALENS} user list".split(), check=False, stdout=PIPE, stderr=STDOUT, env=env)
     lines = p.stdout.decode("utf-8").splitlines()
     assert p.returncode == 0
-    assert any("Alice" in line and "female" in line for line in lines)
-    assert any("Bob" in line and "male" in line for line in lines)
+    assert any("Alice" in line and "female" in line and "user" in line for line in lines)
+    assert any("Bob" in line and "male" in line and "admin" in line for line in lines)
 
 
 def test_user_create(tmp_path: Path) -> None:
@@ -228,6 +228,68 @@ def test_user_update_same_name(tmp_path: Path) -> None:
     p = run(f"{VALENS} user list".split(), check=False, stdout=PIPE, stderr=STDOUT, env=env)
     lines = p.stdout.decode("utf-8").splitlines()
     assert any("Alice" in line and "male" in line for line in lines)
+
+
+def test_user_update_role(tmp_path: Path) -> None:
+    config = create_config_file(tmp_path, tmp_path / "test.db")
+    env = {"VALENS_CONFIG": str(config), **os.environ}
+    run(
+        f"{VALENS} user create Alice female --role admin".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    run(
+        f"{VALENS} user create Bob male".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    p = run(
+        f"{VALENS} user update Alice --role user".split(),
+        check=False,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    assert p.returncode == 0
+    assert 'Updated user "Alice"' in p.stdout.decode("utf-8")
+    assert "Warning: without an admin" in p.stdout.decode("utf-8")
+    run(
+        f"{VALENS} user update Bob --role admin".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    p = run(f"{VALENS} user list".split(), check=False, stdout=PIPE, stderr=STDOUT, env=env)
+    lines = p.stdout.decode("utf-8").splitlines()
+    assert any("Alice" in line and "user" in line for line in lines)
+    assert any("Bob" in line and "admin" in line for line in lines)
+
+
+def test_user_delete_last_admin(tmp_path: Path) -> None:
+    config = create_config_file(tmp_path, tmp_path / "test.db")
+    env = {"VALENS_CONFIG": str(config), **os.environ}
+    run(
+        f"{VALENS} user create Alice female --role admin".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    p = run(
+        f"{VALENS} user delete Alice".split(),
+        check=False,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    assert p.returncode == 0
+    assert 'Deleted user "Alice"' in p.stdout.decode("utf-8")
+    assert "Warning: without an admin" in p.stdout.decode("utf-8")
 
 
 def test_user_update_not_found(tmp_path: Path) -> None:

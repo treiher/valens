@@ -10,6 +10,9 @@ $blue: #3B8ED0;
     $primary: $green,
     $info: $blue,
     $navbar-burger-color: $white,
+    // Keep the hamburger menu on all screen widths, as the horizontal menu exceeds the screen
+    // width on wide screens
+    $navbar-breakpoint: 100000px,
     $message-border-l-delta: 0%,
 );
 @use "../../../third-party/bulma/sass/utilities/mixins" as mx;
@@ -340,6 +343,16 @@ div.is-calendar {
   .has-background-auto-text-95 {
     background-color: var(--bulma-text-95-invert) !important;
   }
+}
+
+// Links in dialogs
+
+// Bulma displays links in messages in the surrounding text color to keep them legible on the
+// tinted message background. Dialogs use the `message` component only as a frame and display
+// their content on the default background, where links should have the regular link style.
+.message.is-dialog a:not(.button):not(.tag):not(.dropdown-item) {
+    color: var(--bulma-link-text);
+    text-decoration: none;
 }
 
 // Visibility

@@ -12,8 +12,17 @@ pub trait UserService: Send + Sync + 'static {
         name: Name,
         sex: Sex,
         height: Option<u8>,
+        role: Role,
     ) -> Result<User, CreateError>;
     async fn replace_user(&self, user: User) -> Result<User, UpdateError>;
+    /// Update the user's data, leaving the role unchanged.
+    async fn update_user(
+        &self,
+        id: UserID,
+        name: Name,
+        sex: Sex,
+        height: Option<u8>,
+    ) -> Result<User, UpdateError>;
     async fn delete_user(&self, id: UserID) -> Result<(), DeleteError>;
 
     async fn validate_user_name(&self, name: &str, id: UserID) -> Result<Name, ValidationError> {
@@ -53,8 +62,17 @@ pub trait UserRepository: Send + Sync + 'static {
         name: Name,
         sex: Sex,
         height: Option<u8>,
+        role: Role,
     ) -> Result<User, CreateError>;
     async fn replace_user(&self, user: User) -> Result<User, UpdateError>;
+    /// Update the user's data, leaving the role unchanged.
+    async fn update_user(
+        &self,
+        id: UserID,
+        name: Name,
+        sex: Sex,
+        height: Option<u8>,
+    ) -> Result<User, UpdateError>;
     async fn delete_user(&self, id: UserID) -> Result<(), DeleteError>;
 }
 
@@ -64,6 +82,7 @@ pub struct User {
     pub name: Name,
     pub sex: Sex,
     pub height: Option<u8>,
+    pub role: Role,
 }
 
 #[derive(Deref, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -130,6 +149,43 @@ impl fmt::Display for Sex {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Role {
+    USER,
+    ADMIN,
+}
+
+impl From<u8> for Role {
+    fn from(value: u8) -> Self {
+        match value {
+            1 => Role::ADMIN,
+            _ => Role::USER,
+        }
+    }
+}
+
+impl From<&str> for Role {
+    fn from(value: &str) -> Self {
+        match value {
+            "admin" => Role::ADMIN,
+            _ => Role::USER,
+        }
+    }
+}
+
+impl fmt::Display for Role {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Role::USER => "user",
+                Role::ADMIN => "admin",
+            }
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -144,11 +200,27 @@ mod tests {
             unimplemented!()
         }
 
-        async fn create_user(&self, _: Name, _: Sex, _: Option<u8>) -> Result<User, CreateError> {
+        async fn create_user(
+            &self,
+            _: Name,
+            _: Sex,
+            _: Option<u8>,
+            _: Role,
+        ) -> Result<User, CreateError> {
             unimplemented!()
         }
 
         async fn replace_user(&self, _: User) -> Result<User, UpdateError> {
+            unimplemented!()
+        }
+
+        async fn update_user(
+            &self,
+            _: UserID,
+            _: Name,
+            _: Sex,
+            _: Option<u8>,
+        ) -> Result<User, UpdateError> {
             unimplemented!()
         }
 
@@ -195,5 +267,28 @@ mod tests {
     #[case(Sex::MALE, "male")]
     fn test_sex_display(#[case] sex: Sex, #[case] string: &str) {
         assert_eq!(sex.to_string(), string);
+    }
+
+    #[rstest]
+    #[case(0, Role::USER)]
+    #[case(1, Role::ADMIN)]
+    #[case(2, Role::USER)]
+    fn test_role_from_u8(#[case] value: u8, #[case] expected: Role) {
+        assert_eq!(Role::from(value), expected);
+    }
+
+    #[rstest]
+    #[case("user", Role::USER)]
+    #[case("admin", Role::ADMIN)]
+    #[case("other", Role::USER)]
+    fn test_role_from_str(#[case] value: &str, #[case] expected: Role) {
+        assert_eq!(Role::from(value), expected);
+    }
+
+    #[rstest]
+    #[case(Role::USER, "user")]
+    #[case(Role::ADMIN, "admin")]
+    fn test_role_display(#[case] role: Role, #[case] string: &str) {
+        assert_eq!(role.to_string(), string);
     }
 }

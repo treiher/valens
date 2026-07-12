@@ -90,8 +90,8 @@ def test_main_user_list(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, "check_config_file", lambda x: None)
     mock_session = MagicMock()
     mock_session.execute.return_value.scalars.return_value.all.return_value = [
-        models.User(id=1, name="Alice", sex=models.Sex.FEMALE, height=180),
-        models.User(id=2, name="Bob", sex=models.Sex.MALE),
+        models.User(id=1, name="Alice", sex=models.Sex.FEMALE, role=models.Role.ADMIN, height=180),
+        models.User(id=2, name="Bob", sex=models.Sex.MALE, role=models.Role.USER),
     ]
     monkeypatch.setattr(db, "session", mock_session)
     assert cli.main() == 0
@@ -108,6 +108,21 @@ def test_main_user_create(monkeypatch: pytest.MonkeyPatch) -> None:
     created_user = mock_session.add.call_args[0][0]
     assert created_user.name == "Alice"
     assert created_user.sex == models.Sex.FEMALE
+    assert created_user.role == models.Role.USER
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_create_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        sys, "argv", ["valens", "user", "create", "Alice", "female", "--role", "admin"]
+    )
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = None
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    created_user = mock_session.add.call_args[0][0]
+    assert created_user.role == models.Role.ADMIN
     mock_session.commit.assert_called_once()
 
 
@@ -206,6 +221,61 @@ def test_main_user_update_sex(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cli.main() == 0
     assert mock_user.sex == models.Sex.MALE
     mock_session.commit.assert_called_once()
+
+
+def test_main_user_update_role_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "update", "Bob", "--role", "admin"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=2, name="Bob", sex=models.Sex.MALE, role=models.Role.USER)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    assert mock_user.role == models.Role.ADMIN
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_update_role_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "update", "Alice", "--role", "user"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=1, name="Alice", sex=models.Sex.FEMALE, role=models.Role.ADMIN)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    mock_session.execute.return_value.scalars.return_value.first.return_value = models.User(
+        id=2, name="Bob", sex=models.Sex.MALE, role=models.Role.ADMIN
+    )
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    assert mock_user.role == models.Role.USER
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_update_role_user_of_non_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "update", "Bob", "--role", "user"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=2, name="Bob", sex=models.Sex.MALE, role=models.Role.USER)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    assert mock_user.role == models.Role.USER
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_update_role_of_last_admin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "update", "Alice", "--role", "user"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=1, name="Alice", sex=models.Sex.FEMALE, role=models.Role.ADMIN)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    mock_session.execute.return_value.scalars.return_value.first.return_value = None
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    assert mock_user.role == models.Role.USER
+    mock_session.commit.assert_called_once()
+    assert "Warning" in capsys.readouterr().err
 
 
 def test_main_user_update_same_name(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -311,15 +381,46 @@ def test_main_user_update_duplicate(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_main_user_delete(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "argv", ["valens", "user", "delete", "Alice"])
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "delete", "Bob"])
     monkeypatch.setattr(config, "check_config_file", lambda x: None)
     mock_session = MagicMock()
-    mock_user = models.User(id=1, name="Alice", sex=models.Sex.FEMALE)
+    mock_user = models.User(id=2, name="Bob", sex=models.Sex.MALE, role=models.Role.USER)
     mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
     monkeypatch.setattr(db, "session", mock_session)
     assert cli.main() == 0
     mock_session.delete.assert_called_once_with(mock_user)
     mock_session.commit.assert_called_once()
+
+
+def test_main_user_delete_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "delete", "Alice"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=1, name="Alice", sex=models.Sex.FEMALE, role=models.Role.ADMIN)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    mock_session.execute.return_value.scalars.return_value.first.return_value = models.User(
+        id=2, name="Bob", sex=models.Sex.MALE, role=models.Role.ADMIN
+    )
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    mock_session.delete.assert_called_once_with(mock_user)
+    mock_session.commit.assert_called_once()
+
+
+def test_main_user_delete_last_admin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "delete", "Alice"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    mock_session = MagicMock()
+    mock_user = models.User(id=1, name="Alice", sex=models.Sex.FEMALE, role=models.Role.ADMIN)
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = mock_user
+    mock_session.execute.return_value.scalars.return_value.first.return_value = None
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 0
+    mock_session.delete.assert_called_once_with(mock_user)
+    mock_session.commit.assert_called_once()
+    assert "Warning" in capsys.readouterr().err
 
 
 def test_main_user_delete_not_found(monkeypatch: pytest.MonkeyPatch) -> None:

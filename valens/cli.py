@@ -9,7 +9,7 @@ from tempfile import NamedTemporaryFile
 from sqlalchemy import select
 
 from valens import app, config, database as db, demo, version
-from valens.models import Sex, User
+from valens.models import Role, Sex, User
 
 
 def main() -> int:
@@ -89,6 +89,12 @@ def main() -> int:
         help="biological sex",
     )
     parser_user_create.add_argument(
+        "--role",
+        choices=["user", "admin"],
+        default="user",
+        help="role (only admins are able to manage users in the app)",
+    )
+    parser_user_create.add_argument(
         "--height",
         type=int,
         metavar="CM",
@@ -105,6 +111,13 @@ def main() -> int:
         choices=["female", "male"],
         metavar="SEX",
         help="new biological sex (female or male)",
+    )
+    parser_user_update.add_argument(
+        "--role",
+        dest="new_role",
+        choices=["user", "admin"],
+        metavar="ROLE",
+        help="new role (user or admin)",
     )
     parser_user_update.add_argument(
         "--height",
@@ -171,7 +184,10 @@ def list_users(_: argparse.Namespace) -> int:
         users = db.session.execute(select(User)).scalars().all()
         for user in users:
             height = user.height if user.height is not None else ""
-            print(f"{user.id}\t{user.name}\t{user.sex.name.lower()}\t{height}")
+            print(
+                f"{user.id}\t{user.name}\t{user.sex.name.lower()}\t"
+                f"{user.role.name.lower()}\t{height}"
+            )
 
     return 0
 
@@ -194,7 +210,8 @@ def create_user(args: argparse.Namespace) -> int:
             print(f'User "{name}" already exists', file=sys.stderr)
             return 1
         sex = Sex.FEMALE if args.sex == "female" else Sex.MALE
-        db.session.add(User(name=name, sex=sex, height=height))
+        role = Role.ADMIN if args.role == "admin" else Role.USER
+        db.session.add(User(name=name, sex=sex, role=role, height=height))
         db.session.commit()
         print(f'Created user "{name}"')
 
@@ -206,8 +223,13 @@ def update_user(args: argparse.Namespace) -> int:
     if new_name is not None and not new_name:
         print("Username must not be empty", file=sys.stderr)
         return 1
-    if new_name is None and args.new_sex is None and args.new_height is None:
-        print("At least one of --name, --sex or --height must be provided", file=sys.stderr)
+    if (
+        new_name is None
+        and args.new_sex is None
+        and args.new_role is None
+        and args.new_height is None
+    ):
+        print("At least one of --name, --sex, --role or --height must be provided", file=sys.stderr)
         return 1
 
     new_height: int | None = None
@@ -235,12 +257,10 @@ def update_user(args: argparse.Namespace) -> int:
                 print(f'User "{new_name}" already exists', file=sys.stderr)
                 return 1
             user.name = new_name
-        if args.new_sex is not None:
-            user.sex = Sex.FEMALE if args.new_sex == "female" else Sex.MALE
-        if args.new_height is not None:
-            user.height = new_height
+        _apply_optional_attributes(user, args, new_height)
         db.session.commit()
         print(f'Updated user "{args.name}"')
+        _warn_if_no_admin_exists()
 
     return 0
 
@@ -257,8 +277,18 @@ def delete_user(args: argparse.Namespace) -> int:
         db.session.delete(user)
         db.session.commit()
         print(f'Deleted user "{args.name}"')
+        _warn_if_no_admin_exists()
 
     return 0
+
+
+def _apply_optional_attributes(user: User, args: argparse.Namespace, height: int | None) -> None:
+    if args.new_sex is not None:
+        user.sex = Sex.FEMALE if args.new_sex == "female" else Sex.MALE
+    if args.new_role is not None:
+        user.role = Role.ADMIN if args.new_role == "admin" else Role.USER
+    if args.new_height is not None:
+        user.height = height
 
 
 def _resolve_height(value: int | None) -> int | None:
@@ -272,3 +302,11 @@ def _resolve_height(value: int | None) -> int | None:
     if not 0 < value <= 255:
         raise ValueError
     return value
+
+
+def _warn_if_no_admin_exists() -> None:
+    if db.session.execute(select(User).where(User.role == Role.ADMIN)).scalars().first() is None:
+        print(
+            "Warning: without an admin, users can no longer be managed in the app",
+            file=sys.stderr,
+        )

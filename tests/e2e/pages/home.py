@@ -22,6 +22,14 @@ class HomePage(BasePage):
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("home-training-sessions")).to_be_visible()
 
+    def expect_ffmi_requires_height(self) -> None:
+        expect(self.ffmi).to_be_visible()
+        expect(self.ffmi).to_contain_text("Set your height in the profile.")
+
+    def expect_ffmi_available(self) -> None:
+        expect(self.ffmi).to_be_visible()
+        expect(self.ffmi).not_to_contain_text("Set your height in the profile.")
+
     def go_to_training_sessions(self) -> None:
         self.page.get_by_test_id("home-training-sessions").click()
 

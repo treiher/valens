@@ -21,6 +21,7 @@ from valens.models import (
     Exercise,
     ExerciseMuscle,
     Period,
+    Role,
     Routine,
     RoutineActivity,
     RoutinePart,
@@ -357,6 +358,12 @@ def to_sex(json: object) -> Sex:
     return Sex(json)
 
 
+def to_role(json: object) -> Role:
+    if isinstance(json, bool) or not isinstance(json, int):
+        raise DeserializationError("role must be an integer")
+    return Role(json)
+
+
 def to_muscle_id(json: object) -> int:
     if isinstance(json, bool) or not isinstance(json, int):
         raise DeserializationError("muscle_id must be an integer")
@@ -443,11 +450,56 @@ def json_expected(function: Callable) -> Callable:  # type: ignore[type-arg]
 def session_required(function: Callable) -> Callable:  # type: ignore[type-arg]
     @wraps(function)
     def decorated_function(*args: object, **kwargs: object) -> ResponseReturnValue:
-        if "username" not in session or "user_id" not in session or "sex" not in session:
+        if "user_id" not in session:
             return "", HTTPStatus.UNAUTHORIZED
         return function(*args, **kwargs)
 
     return decorated_function
+
+
+def admin_required(function: Callable) -> Callable:  # type: ignore[type-arg]
+    @wraps(function)
+    def decorated_function(*args: object, **kwargs: object) -> ResponseReturnValue:
+        if not _session_user_is_admin():
+            return jsonify({"details": "user is not an administrator"}), HTTPStatus.FORBIDDEN
+        return function(*args, **kwargs)
+
+    return decorated_function
+
+
+def self_or_admin(function: Callable) -> Callable:  # type: ignore[type-arg]
+    @wraps(function)
+    def decorated_function(*args: object, **kwargs: object) -> ResponseReturnValue:
+        if kwargs["user_id"] != session["user_id"] and not _session_user_is_admin():
+            return jsonify({"details": "user is not an administrator"}), HTTPStatus.FORBIDDEN
+        return function(*args, **kwargs)
+
+    return decorated_function
+
+
+def _session_user() -> User | None:
+    user_id = session.get("user_id")
+    if user_id is None:
+        return None
+    # The user data is determined from the database instead of the session to ensure that
+    # out-of-band changes (e.g. via the CLI) take effect without re-login
+    return db.session.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+
+
+def _session_user_is_admin() -> bool:
+    user = _session_user()
+    return user is not None and user.role == Role.ADMIN
+
+
+def _is_last_admin(user: User) -> bool:
+    if user.role != Role.ADMIN:
+        return False
+    other_admin = (
+        db.session.execute(select(User).where(User.role == Role.ADMIN, User.id != user.id))
+        .scalars()
+        .first()
+    )
+    return other_admin is None
 
 
 @bp.route("/version")
@@ -457,17 +509,13 @@ def read_version() -> ResponseReturnValue:
 
 @bp.route("/session")
 def read_session() -> ResponseReturnValue:
-    if "username" not in session or "user_id" not in session or "sex" not in session:
+    user = _session_user()
+
+    if user is None:
+        session.clear()
         return "", HTTPStatus.NOT_FOUND
 
-    return jsonify(
-        {
-            "id": session["user_id"],
-            "name": session["username"],
-            "sex": session["sex"],
-            "height": session.get("height"),
-        }
-    )
+    return jsonify(to_dict(user))
 
 
 @bp.route("/session", methods=["POST"])
@@ -485,9 +533,6 @@ def create_session() -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     session["user_id"] = user.id
-    session["username"] = user.name
-    session["sex"] = user.sex
-    session["height"] = user.height
     session.permanent = True
 
     return jsonify(to_dict(user))
@@ -501,6 +546,7 @@ def delete_session() -> ResponseReturnValue:
 
 @bp.route("/users")
 @session_required
+@admin_required
 def read_users() -> ResponseReturnValue:
     users = db.session.execute(select(User)).scalars().all()
     return jsonify([to_dict(u) for u in users])
@@ -508,6 +554,7 @@ def read_users() -> ResponseReturnValue:
 
 @bp.route("/users/<int:user_id>")
 @session_required
+@self_or_admin
 def read_user(user_id: int) -> ResponseReturnValue:
     try:
         user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
@@ -519,6 +566,7 @@ def read_user(user_id: int) -> ResponseReturnValue:
 
 @bp.route("/users", methods=["POST"])
 @session_required
+@admin_required
 @json_expected
 def create_user() -> ResponseReturnValue:
     data = request.json
@@ -530,6 +578,7 @@ def create_user() -> ResponseReturnValue:
             name=to_name(data["name"]),
             sex=to_sex(data["sex"]),
             height=to_optional_int(data.get("height"), "height", 1, 255),
+            role=to_role(data["role"]),
         )
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -538,8 +587,8 @@ def create_user() -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "name is already used"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(user)),
@@ -550,8 +599,11 @@ def create_user() -> ResponseReturnValue:
 
 @bp.route("/users/<int:user_id>", methods=["PUT"])
 @session_required
+@self_or_admin
 @json_expected
 def replace_user(user_id: int) -> ResponseReturnValue:
+    is_admin = _session_user_is_admin()
+
     try:
         user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
     except NoResultFound:
@@ -562,32 +614,101 @@ def replace_user(user_id: int) -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        user.name = to_name(data["name"])
-        user.sex = to_sex(data["sex"])
-        user.height = to_optional_int(data.get("height"), "height", 1, 255)
+        name = to_name(data["name"])
+        sex = to_sex(data["sex"])
+        height = to_optional_int(data.get("height"), "height", 1, 255)
+        role = to_role(data["role"])
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
+    if role != user.role and not is_admin:
+        return (
+            jsonify({"details": "role can only be changed by an administrator"}),
+            HTTPStatus.FORBIDDEN,
+        )
+
+    if user.role == Role.ADMIN and role != Role.ADMIN and _is_last_admin(user):
+        return (
+            jsonify({"details": "last administrator cannot be demoted"}),
+            HTTPStatus.CONFLICT,
+        )
+
+    user.name = name
+    user.sex = sex
+    user.height = height
+    user.role = role
+
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "name is already used"}), HTTPStatus.CONFLICT
 
-    if user.id == session["user_id"]:
-        session["username"] = user.name
-        session["sex"] = user.sex
-        session["height"] = user.height
+    return jsonify(to_dict(user)), HTTPStatus.OK
+
+
+@bp.route("/users/<int:user_id>", methods=["PATCH"])
+@session_required
+@self_or_admin
+@json_expected
+def update_user(user_id: int) -> ResponseReturnValue:
+    is_admin = _session_user_is_admin()
+
+    try:
+        user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
+    except NoResultFound:
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        name = to_name(data["name"]) if "name" in data else user.name
+        sex = to_sex(data["sex"]) if "sex" in data else user.sex
+        height = to_optional_int(data.get("height", user.height), "height", 1, 255)
+        role = to_role(data["role"]) if "role" in data else user.role
+    except (DeserializationError, KeyError, ValueError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    if role != user.role and not is_admin:
+        return (
+            jsonify({"details": "role can only be changed by an administrator"}),
+            HTTPStatus.FORBIDDEN,
+        )
+
+    if user.role == Role.ADMIN and role != Role.ADMIN and _is_last_admin(user):
+        return (
+            jsonify({"details": "last administrator cannot be demoted"}),
+            HTTPStatus.CONFLICT,
+        )
+
+    user.name = name
+    user.sex = sex
+    user.height = height
+    user.role = role
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        return jsonify({"details": "name is already used"}), HTTPStatus.CONFLICT
 
     return jsonify(to_dict(user)), HTTPStatus.OK
 
 
 @bp.route("/users/<int:user_id>", methods=["DELETE"])
 @session_required
+@admin_required
 def delete_user(user_id: int) -> ResponseReturnValue:
     try:
         user = db.session.execute(select(User).where(User.id == user_id)).scalars().one()
     except NoResultFound:
         return "", HTTPStatus.NOT_FOUND
+
+    if _is_last_admin(user):
+        return (
+            jsonify({"details": "last administrator cannot be deleted"}),
+            HTTPStatus.CONFLICT,
+        )
 
     db.session.delete(user)
     db.session.commit()

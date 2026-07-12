@@ -10,6 +10,7 @@ impl From<ReadError> for SyncError {
     fn from(value: ReadError) -> Self {
         match value {
             ReadError::NotFound => SyncError::Other("not found".into()),
+            ReadError::Forbidden(reason) => SyncError::Other(reason.into()),
             ReadError::Storage(storage) => SyncError::Storage(storage),
             ReadError::Other(other) => SyncError::Other(other),
         }
@@ -20,6 +21,8 @@ impl From<ReadError> for SyncError {
 pub enum ReadError {
     #[error("not found")]
     NotFound,
+    #[error("{0}")]
+    Forbidden(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
@@ -30,6 +33,8 @@ pub enum ReadError {
 pub enum CreateError {
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    Forbidden(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
@@ -40,6 +45,7 @@ impl From<UpdateError> for CreateError {
     fn from(value: UpdateError) -> Self {
         match value {
             UpdateError::Conflict(reason) => CreateError::Conflict(reason),
+            UpdateError::Forbidden(reason) => CreateError::Forbidden(reason),
             UpdateError::Storage(storage) => CreateError::Storage(storage),
             UpdateError::Other(other) => CreateError::Other(other),
         }
@@ -50,6 +56,8 @@ impl From<UpdateError> for CreateError {
 pub enum UpdateError {
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    Forbidden(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
@@ -60,6 +68,7 @@ impl From<ReadError> for UpdateError {
     fn from(value: ReadError) -> Self {
         match value {
             ReadError::NotFound => UpdateError::Other("not found".into()),
+            ReadError::Forbidden(reason) => UpdateError::Forbidden(reason),
             ReadError::Storage(storage) => UpdateError::Storage(storage),
             ReadError::Other(other) => UpdateError::Other(other),
         }
@@ -70,6 +79,8 @@ impl From<ReadError> for UpdateError {
 pub enum DeleteError {
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    Forbidden(String),
     #[error(transparent)]
     Storage(#[from] StorageError),
     #[error(transparent)]
@@ -80,6 +91,7 @@ impl From<ReadError> for DeleteError {
     fn from(value: ReadError) -> Self {
         match value {
             ReadError::NotFound => DeleteError::Other("not found".into()),
+            ReadError::Forbidden(reason) => DeleteError::Forbidden(reason),
             ReadError::Storage(storage) => DeleteError::Storage(storage),
             ReadError::Other(other) => DeleteError::Other(other),
         }
@@ -159,6 +171,10 @@ mod tests {
     #[test]
     fn test_sync_error_from_read_error() {
         assert!(matches!(
+            SyncError::from(ReadError::Forbidden("foo".to_string())),
+            SyncError::Other(error) if error.to_string() == "foo"
+        ));
+        assert!(matches!(
             SyncError::from(ReadError::Storage(StorageError::NoSession)),
             SyncError::Storage(StorageError::NoSession)
         ));
@@ -175,6 +191,10 @@ mod tests {
             UpdateError::Other(error) if error.to_string() == "not found"
         ));
         assert!(matches!(
+            UpdateError::from(ReadError::Forbidden("foo".to_string())),
+            UpdateError::Forbidden(reason) if reason == "foo"
+        ));
+        assert!(matches!(
             UpdateError::from(ReadError::Storage(StorageError::NoSession)),
             UpdateError::Storage(StorageError::NoSession)
         ));
@@ -189,6 +209,10 @@ mod tests {
         assert!(matches!(
             CreateError::from(UpdateError::Conflict("foo".to_string())),
             CreateError::Conflict(reason) if reason == "foo"
+        ));
+        assert!(matches!(
+            CreateError::from(UpdateError::Forbidden("foo".to_string())),
+            CreateError::Forbidden(reason) if reason == "foo"
         ));
         assert!(matches!(
             CreateError::from(UpdateError::Storage(StorageError::NoSession)),

@@ -22,7 +22,7 @@ use crate::{
 
 #[component]
 pub fn BodyFat(add: bool) -> Element {
-    let user = consume_context::<Session>().user;
+    let user = consume_context::<Session>().user();
     let cache = consume_context::<Cache>();
     let dates = use_memo(move || {
         if let CacheState::Ready(body_fat) = &*cache.body_fat.read() {

@@ -21,6 +21,9 @@ class FfmiPage(BasePage):
     def expect_height_missing_message(self) -> None:
         expect(self.page.get_by_test_id("ffmi-height-missing")).to_be_visible()
 
+    def expect_height_provided(self) -> None:
+        expect(self.page.get_by_test_id("ffmi-height-missing")).to_be_hidden()
+
     @property
     def chart(self) -> Locator:
         return self.page.locator("svg").first

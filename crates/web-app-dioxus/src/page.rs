@@ -1,6 +1,5 @@
 //! Page components for each application route.
 
-pub mod admin;
 pub mod body_fat;
 pub mod body_weight;
 pub mod catalog;

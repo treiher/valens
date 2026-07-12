@@ -5,7 +5,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from itertools import pairwise
 from pathlib import Path
-from subprocess import PIPE, STDOUT, Popen
+from subprocess import PIPE, STDOUT, Popen, run
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -27,7 +27,8 @@ from .const import (
 )
 from .io import wait_for_output
 from .pages import (
-    AdminPage,
+    AboutDialog,
+    AdminDialog,
     BodyFatPage,
     BodyWeightPage,
     DropSetCalculatorDialog,
@@ -39,18 +40,20 @@ from .pages import (
     MenstrualCyclePage,
     MusclesPage,
     OneRepMaxCalculatorDialog,
+    ProfileDialog,
     RoutinePage,
     RoutineRest,
     RoutineSet,
     RoutinesPage,
     SchedulePage,
+    SettingsDialog,
     TrainingSessionPage,
     TrainingSessionsPage,
 )
 
 
 @pytest.fixture(autouse=True)
-def _backend_server() -> Generator[None, None, None]:
+def backend_server() -> Generator[Path, None, None]:
     """Start the backend server with a fresh database for each test."""
 
     with TemporaryDirectory() as tmp_dir:
@@ -71,7 +74,7 @@ def _backend_server() -> Generator[None, None, None]:
         ) as p:
             assert p.stdout
             wait_for_output(p.stdout, "Running on")
-            yield
+            yield config
             p.terminate()
 
 
@@ -226,19 +229,23 @@ def test_ffmi_requires_height(page: Page) -> None:
 
     home_page = HomePage(page)
     home_page.expect_page()
-    expect(home_page.ffmi).to_have_count(0)
+    home_page.expect_ffmi_requires_height()
 
     ffmi_page = FfmiPage(page)
     ffmi_page.goto()
     ffmi_page.expect_height_missing_message()
 
-    admin_page = AdminPage(page)
-    admin_page.goto()
-    admin_page.edit_user_height(USERNAMES[1], "185")
+    profile_dialog = ProfileDialog(page)
+    profile_dialog.open()
+    profile_dialog.edit_height("185")
 
-    admin_page.navbar.go_back()
+    # The FFMI page reflects the new height without a manual refresh
+    ffmi_page.expect_height_provided()
+
+    ffmi_page.navbar.go_back()
     home_page.expect_page()
-    expect(home_page.ffmi).to_be_visible()
+    # The home page reflects the new height without a manual refresh
+    home_page.expect_ffmi_available()
 
 
 def test_chart_hover_shows_values(page: Page) -> None:
@@ -298,13 +305,175 @@ def test_chart_resized_on_window_resize(page: Page) -> None:
 def test_add_user_with_height(page: Page) -> None:
     login(page)
 
-    admin = AdminPage(page)
-    admin.goto()
+    admin = AdminDialog(page)
+    admin.open()
 
     admin.add_user("Dave", "182")
 
     expect(admin.user_row("Dave")).to_be_visible()
     expect(admin.user_row("182")).to_be_visible()
+    admin.expect_user_role("Dave", "user")
+
+
+def test_add_user_with_admin_role(page: Page) -> None:
+    login(page)
+
+    admin = AdminDialog(page)
+    admin.open()
+
+    admin.add_user("Dave", "182", role="admin")
+
+    expect(admin.user_row("Dave")).to_be_visible()
+    admin.expect_user_role("Dave", "admin")
+
+
+def test_edit_user_role(page: Page) -> None:
+    login(page)
+
+    admin = AdminDialog(page)
+    admin.open()
+    admin.expect_user_role(USERNAMES[1], "user")
+
+    admin.edit_user_role(USERNAMES[1], "admin")
+
+    admin.expect_user_role(USERNAMES[1], "admin")
+
+
+def test_administration_hidden_for_non_admin(page: Page) -> None:
+    login_page = LoginPage(page)
+    login_page.goto()
+    login_page.login(USERNAMES[1])
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+
+    home_page.navbar.expect_no_administration()
+
+
+def test_administration_shown_for_admin(page: Page) -> None:
+    login(page)
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+
+    admin = AdminDialog(page)
+    admin.open()
+    admin.expect_open()
+
+
+def test_role_change_outside_app_without_relogin(page: Page, backend_server: Path) -> None:
+    login(page)
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+
+    run(
+        f"{VALENS} user update {USERNAMES[0]} --role user".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env={"VALENS_CONFIG": str(backend_server), **os.environ},
+    )
+    home_page.reload()
+
+    home_page.navbar.expect_no_administration()
+
+
+def test_sign_out_after_user_deleted_outside_app(page: Page, backend_server: Path) -> None:
+    login(page)
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+
+    run(
+        f"{VALENS} user delete {USERNAMES[0]}".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env={"VALENS_CONFIG": str(backend_server), **os.environ},
+    )
+    home_page.reload()
+
+    LoginPage(page).expect_page()
+
+
+def test_last_admin_role_change_rejected(page: Page) -> None:
+    login(page)
+
+    admin = AdminDialog(page)
+    admin.open()
+    admin.open_edit_user_dialog(USERNAMES[0])
+    admin.select_role("user")
+    admin.dialog.click_save()
+
+    admin.notification.expect_error()
+    admin.notification.expect_message("Failed to edit user: last administrator cannot be demoted")
+    admin.dialog.cancel()
+
+    admin.expect_user_role(USERNAMES[0], "admin")
+
+
+def test_last_admin_delete_rejected(page: Page) -> None:
+    login(page)
+
+    admin = AdminDialog(page)
+    admin.open()
+    admin.open_delete_user_dialog(USERNAMES[0])
+    admin.dialog.click_delete()
+
+    admin.notification.expect_error()
+    admin.notification.expect_message("Failed to delete user: last administrator cannot be deleted")
+    admin.dialog.no()
+
+    admin.expect_user_role(USERNAMES[0], "admin")
+
+
+def test_administration_of_demoted_admin(page: Page) -> None:
+    login(page)
+
+    admin = AdminDialog(page)
+    admin.open()
+
+    # A second administrator is required so that demoting user 1 is permitted
+    admin.edit_user_role(USERNAMES[1], "admin")
+    admin.edit_user_role(USERNAMES[0], "user")
+
+    admin.expect_not_authorized()
+
+    admin.close()
+    admin.navbar.expect_no_administration()
+
+
+def test_profile_edit_name_and_height(page: Page) -> None:
+    login_page = LoginPage(page)
+    login_page.goto()
+    login_page.login(USERNAMES[1])
+
+    home_page = HomePage(page)
+    home_page.expect_page()
+
+    profile = ProfileDialog(page)
+    profile.open()
+    profile.edit_name("Robert")
+
+    profile.open()
+    profile.expect_name("Robert")
+    profile.edit_height("185")
+
+    profile.open()
+    profile.expect_height("185")
+
+
+def test_settings_dialog(page: Page) -> None:
+    login(page)
+
+    settings = SettingsDialog(page)
+    settings.open()
+    settings.expect_open()
+
+    settings.expect_rpe("Enabled")
+    settings.toggle_rpe()
+    settings.expect_rpe("Disabled")
 
 
 def test_body_weight_add(page: Page) -> None:
@@ -1996,9 +2165,10 @@ def test_stacked_notifications_all_auto_dismiss(browser: Browser) -> None:
 def test_notification_recorded_in_log(browser: Browser) -> None:
     with failed_exercise_add(browser) as p:
         p.notification.expect_message("Failed to add exercise: no connection")
-        admin = AdminPage(p.page)
-        admin.goto()
-        admin.expect_log_warning("Failed to add exercise: no connection")
+        p.dialog.cancel()
+        about = AboutDialog(p.page)
+        about.open()
+        about.expect_log_warning("Failed to add exercise: no connection")
 
 
 @contextmanager

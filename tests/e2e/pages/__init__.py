@@ -1,6 +1,7 @@
 """Playwright page objects for end-to-end tests."""
 
-from .admin import AdminPage as AdminPage
+from .about import AboutDialog as AboutDialog
+from .admin import AdminDialog as AdminDialog
 from .body_fat import BodyFatPage as BodyFatPage
 from .body_weight import BodyWeightPage as BodyWeightPage
 from .exercise import ExercisePage as ExercisePage
@@ -10,6 +11,7 @@ from .home import HomePage as HomePage
 from .login import LoginPage as LoginPage
 from .menstrual_cycle import MenstrualCyclePage as MenstrualCyclePage
 from .muscles import MusclesPage as MusclesPage
+from .profile import ProfileDialog as ProfileDialog
 from .routine import (
     RoutinePage as RoutinePage,
     RoutineRest as RoutineRest,
@@ -18,6 +20,7 @@ from .routine import (
 )
 from .routines import RoutinesPage as RoutinesPage
 from .schedule import SchedulePage as SchedulePage
+from .settings import SettingsDialog as SettingsDialog
 from .training_session import (
     DropSetCalculatorDialog as DropSetCalculatorDialog,
     OneRepMaxCalculatorDialog as OneRepMaxCalculatorDialog,

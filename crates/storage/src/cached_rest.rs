@@ -81,6 +81,24 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
         IndexedDB.initialize_session().await
     }
 
+    async fn sync_session(&self) -> Result<Option<domain::User>, domain::SyncError> {
+        if let Some(user) = self.rest.sync_session().await? {
+            if let Err(err) = IndexedDB.write_session(&user).await {
+                error!("failed to write session into IDB: {err}");
+            }
+            Ok(Some(user))
+        } else {
+            // A missing session on the server means the user is signed out
+            if let Err(err) = IndexedDB.delete_session().await {
+                error!("failed to update session in IDB: {err}");
+            }
+            if let Err(err) = IndexedDB.clear_session_dependent_data().await {
+                error!("failed to update session-dependent data in IDB: {err}");
+            }
+            Ok(None)
+        }
+    }
+
     async fn delete_session(&self) -> Result<(), domain::DeleteError> {
         self.rest.delete_session().await?;
         if let Err(err) = IndexedDB.delete_session().await {
@@ -109,12 +127,30 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
         name: domain::Name,
         sex: domain::Sex,
         height: Option<u8>,
+        role: domain::Role,
     ) -> Result<domain::User, domain::CreateError> {
-        self.rest.create_user(name, sex, height).await
+        self.rest.create_user(name, sex, height, role).await
     }
 
     async fn replace_user(&self, user: domain::User) -> Result<domain::User, domain::UpdateError> {
         let user = self.rest.replace_user(user).await?;
+        if let Ok(session_user) = IndexedDB.initialize_session().await
+            && session_user.id == user.id
+            && let Err(err) = IndexedDB.write_session(&user).await
+        {
+            error!("failed to write session into IDB: {err}");
+        }
+        Ok(user)
+    }
+
+    async fn update_user(
+        &self,
+        id: domain::UserID,
+        name: domain::Name,
+        sex: domain::Sex,
+        height: Option<u8>,
+    ) -> Result<domain::User, domain::UpdateError> {
+        let user = self.rest.update_user(id, name, sex, height).await?;
         if let Ok(session_user) = IndexedDB.initialize_session().await
             && session_user.id == user.id
             && let Err(err) = IndexedDB.write_session(&user).await
@@ -490,6 +526,55 @@ mod tests {
         }
 
         #[wasm_bindgen_test]
+        async fn test_sync_session() {
+            reset_cache().await;
+            init_session().await;
+
+            assert!(matches!(
+                cached_rest_with_response(None).sync_session().await,
+                Err(domain::SyncError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
+
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&rest::User::from(USER_2.clone())),
+                ))
+                .sync_session()
+                .await
+                .unwrap(),
+                Some(USER_2.clone())
+            );
+
+            assert_eq!(
+                IndexedDB.initialize_session().await.unwrap(),
+                USER_2.clone()
+            );
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(404)
+                        .body::<Option<&str>>(None),
+                ))
+                .sync_session()
+                .await
+                .unwrap(),
+                None
+            );
+
+            assert!(matches!(
+                IndexedDB.initialize_session().await,
+                Err(domain::ReadError::Storage(domain::StorageError::NoSession))
+            ));
+        }
+
+        #[wasm_bindgen_test]
         async fn test_delete_session() {
             reset_cache().await;
 
@@ -602,7 +687,7 @@ mod tests {
 
             assert!(matches!(
                 cached_rest_with_response(None)
-                    .create_user(USER.name.clone(), USER.sex, USER.height)
+                    .create_user(USER.name.clone(), USER.sex, USER.height, USER.role)
                     .await,
                 Err(domain::CreateError::Storage(
                     domain::StorageError::NoConnection
@@ -615,7 +700,7 @@ mod tests {
                         .status(200)
                         .json(&rest::User::from(USER.clone()))
                 ))
-                .create_user(USER.name.clone(), USER.sex, USER.height)
+                .create_user(USER.name.clone(), USER.sex, USER.height, USER.role)
                 .await
                 .unwrap(),
                 USER.clone()
@@ -655,6 +740,65 @@ mod tests {
             );
 
             assert_eq!(IndexedDB.initialize_session().await.unwrap(), user);
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_update_user() {
+            reset_cache().await;
+            init_session().await;
+
+            let mut user = USER.clone();
+            user.name = domain::Name::new("C").unwrap();
+            user.height = Some(170);
+
+            assert!(matches!(
+                cached_rest_with_response(None)
+                    .update_user(user.id, user.name.clone(), user.sex, user.height)
+                    .await,
+                Err(domain::UpdateError::Storage(
+                    domain::StorageError::NoConnection
+                ))
+            ));
+
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&rest::User::from(user.clone()))
+                ))
+                .update_user(user.id, user.name.clone(), user.sex, user.height)
+                .await
+                .unwrap(),
+                user.clone()
+            );
+
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), user);
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_update_user_keeps_session_of_other_user() {
+            reset_cache().await;
+            init_session().await;
+
+            let mut user = USER_2.clone();
+            user.height = Some(190);
+
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&rest::User::from(user.clone()))
+                ))
+                .update_user(user.id, user.name.clone(), user.sex, user.height)
+                .await
+                .unwrap()
+                .id,
+                USER_2.id
+            );
+
+            assert_eq!(IndexedDB.initialize_session().await.unwrap(), USER.clone());
         }
 
         #[wasm_bindgen_test]

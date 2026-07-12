@@ -10,6 +10,9 @@ use valens_domain::{self as domain, SessionService};
 
 use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR, Route,
+    dialog::{
+        about::AboutDialog, admin::AdminDialog, profile::ProfileDialog, settings::SettingsDialog,
+    },
     notification::notify,
     ongoing_training_session::OngoingTrainingSession,
     page::common::{
@@ -17,7 +20,7 @@ use crate::{
         StopwatchService, TimerService,
     },
     session::Session,
-    settings::{Settings, SettingsDialog},
+    settings::Settings,
     synchronization::Synchronization,
     ui::element::{ActivityBar, Dialog, ElementWithDescription, Icon},
 };
@@ -39,8 +42,11 @@ pub fn Navbar() -> Element {
     });
 
     let mut menu_visible = use_signal(|| false);
-    let mut settings_visible = use_signal(|| false);
     let mut metronome_time_stopwatch_visible = use_signal(|| false);
+    let mut settings_visible = use_signal(|| false);
+    let mut profile_visible = use_signal(|| false);
+    let mut admin_visible = use_signal(|| false);
+    let mut about_visible = use_signal(|| false);
     let session = consume_context::<Session>();
     let settings = use_context::<Settings>();
 
@@ -59,12 +65,11 @@ pub fn Navbar() -> Element {
         }
     });
 
-    let user = session.user;
+    let user = session.user();
     let route = use_route::<Route>();
     let page_title = match route.clone() {
         Route::Login {} => "Valens".to_string(),
         Route::Home {} => user.name.to_string(),
-        Route::Admin {} => "Administration".to_string(),
         Route::TrainingSessions { .. } => "Training sessions".to_string(),
         Route::TrainingSession { .. } => "Training session".to_string(),
         Route::Routines { .. } => "Routines".to_string(),
@@ -82,8 +87,7 @@ pub fn Navbar() -> Element {
     };
     let go_up_target = match route {
         Route::Login {} | Route::Home {} => None,
-        Route::Admin {}
-        | Route::TrainingSessions { .. }
+        Route::TrainingSessions { .. }
         | Route::Routines { .. }
         | Route::Schedule {}
         | Route::Exercises { .. }
@@ -212,12 +216,45 @@ pub fn Navbar() -> Element {
                         }
                         a {
                             class: "navbar-item",
+                            "data-testid": "navbar-settings",
                             onclick: move |_| {
-                                settings_visible.set(true);
                                 menu_visible.set(false);
+                                settings_visible.set(true);
                             },
                             Icon { name: "gear", px: 5 }
                             "Settings"
+                        }
+                        a {
+                            class: "navbar-item",
+                            "data-testid": "navbar-profile",
+                            onclick: move |_| {
+                                menu_visible.set(false);
+                                profile_visible.set(true);
+                            },
+                            Icon { name: "user", px: 5 }
+                            "Profile"
+                        }
+                        if user.role == domain::Role::ADMIN {
+                            a {
+                                class: "navbar-item",
+                                "data-testid": "navbar-administration",
+                                onclick: move |_| {
+                                    menu_visible.set(false);
+                                    admin_visible.set(true);
+                                },
+                                Icon { name: "gears", px: 5 }
+                                "Administration"
+                            }
+                        }
+                        a {
+                            class: "navbar-item",
+                            "data-testid": "navbar-about",
+                            onclick: move |_| {
+                                menu_visible.set(false);
+                                about_visible.set(true);
+                            },
+                            Icon { name: "circle-info", px: 5 }
+                            "About"
                         }
                         a {
                             class: "navbar-item",
@@ -247,15 +284,6 @@ pub fn Navbar() -> Element {
                             Icon { name: "sign-out-alt", px: 5 }
                             "Sign out ({user.name})"
                         }
-                        a {
-                            class: "navbar-item",
-                            onclick: move |_| {
-                                menu_visible.set(false);
-                                navigator().push(Route::Admin {});
-                            },
-                            Icon { name: "gears", px: 5 }
-                            "Administration"
-                        }
                     }
                 }
             }
@@ -272,6 +300,24 @@ pub fn Navbar() -> Element {
         if settings_visible() {
             SettingsDialog {
                 on_close: move |_| { settings_visible.set(false); }
+            }
+        }
+
+        if profile_visible() {
+            ProfileDialog {
+                on_close: move |_| { profile_visible.set(false); }
+            }
+        }
+
+        if admin_visible() {
+            AdminDialog {
+                on_close: move |_| { admin_visible.set(false); }
+            }
+        }
+
+        if about_visible() {
+            AboutDialog {
+                on_close: move |_| { about_visible.set(false); }
             }
         }
 

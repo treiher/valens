@@ -14,11 +14,11 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 
 #[component]
 pub fn Home() -> Element {
-    let user = consume_context::<Session>().user;
     let cache = consume_context::<Cache>();
     let today = chrono::Local::now().date_naive();
-    let sex = user.sex;
-    let height = user.height;
+    let session = consume_context::<Session>();
+    let sex = use_memo(move || session.user().sex);
+    let height = use_memo(move || session.user().height);
 
     let pending_today = use_memo(move || {
         let (
@@ -53,11 +53,13 @@ pub fn Home() -> Element {
     });
 
     let latest_ffmi = use_memo(move || {
-        if let (Some(height), CacheState::Ready(body_fat), CacheState::Ready(body_weight)) =
-            (height, &*cache.body_fat.read(), &*cache.body_weight.read())
-        {
+        if let (Some(height), CacheState::Ready(body_fat), CacheState::Ready(body_weight)) = (
+            height(),
+            &*cache.body_fat.read(),
+            &*cache.body_weight.read(),
+        ) {
             let avg_body_weight = DOMAIN_SERVICE().avg_body_weight(body_weight);
-            domain::ffmi(&avg_body_weight, body_fat, sex, height)
+            domain::ffmi(&avg_body_weight, body_fat, sex(), height)
                 .into_iter()
                 .filter(|(date, _)| *date <= today)
                 .max_by(|a, b| a.0.cmp(&b.0))
@@ -132,7 +134,7 @@ pub fn Home() -> Element {
             .filter(|bf| bf.date <= today)
             .max_by(|a, b| a.date.cmp(&b.date))
             .and_then(|bf| {
-                bf.jp3(user.sex)
+                bf.jp3(sex())
                     .map(|jp3| rsx! { strong { "{jp3:.1} %" } " ({last(bf.date)})" })
             }),
         CacheState::Error(
@@ -143,7 +145,7 @@ pub fn Home() -> Element {
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
-    let ffmi_subtitle = if user.height.is_some() {
+    let ffmi_subtitle = if height().is_some() {
         match (&*cache.body_fat.read(), &*cache.body_weight.read()) {
             (CacheState::Ready(_), CacheState::Ready(_)) => latest_ffmi()
                 .map(|(date, value)| rsx! { strong { "{value:.1}" } " ({last(date)})" }),
@@ -171,7 +173,7 @@ pub fn Home() -> Element {
     };
 
     let menstrual_cycle_subtitle = {
-        if user.sex == domain::Sex::FEMALE {
+        if sex() == domain::Sex::FEMALE {
             match &*cache.period.read() {
                 CacheState::Ready(period) => domain::current_cycle(&domain::cycles(period)).map(|current_cycle| rsx! {
                     strong { "{current_cycle.time_left.num_days()} (±{current_cycle.time_left_variation.num_days()}) days left" } " (day {(today - current_cycle.begin).num_days()})"
@@ -244,16 +246,19 @@ pub fn Home() -> Element {
                 target_add: Some(Route::BodyFat { add: true }),
                 subtitle: body_fat_subtitle,
             }
-            if user.height.is_some() {
-                Tile {
-                    title: "FFMI",
-                    testid: "home-ffmi",
-                    target: Route::Ffmi {},
-                    target_add: None,
-                    subtitle: ffmi_subtitle,
-                }
+            Tile {
+                title: "FFMI",
+                testid: "home-ffmi",
+                target: Route::Ffmi {},
+                target_add: None,
+                subtitle: if height().is_some() {
+                    ffmi_subtitle
+                } else {
+                    Some(rsx! { "Set your height in the profile." })
+                },
+                disabled: height().is_none(),
             }
-            if user.sex == domain::Sex::FEMALE {
+            if sex() == domain::Sex::FEMALE {
                 Tile {
                     title: "Menstrual cycle",
                     testid: "home-menstrual-cycle",
@@ -335,6 +340,7 @@ fn Tile(
     target: Route,
     target_add: Option<Route>,
     subtitle: Option<Element>,
+    #[props(default)] disabled: bool,
 ) -> Element {
     rsx! {
         div {
@@ -344,11 +350,15 @@ fn Tile(
                 a {
                     class: "box px-4 py-3",
                     "data-testid": "{testid}",
-                    onclick: move |_| { navigator().push(target.clone()); },
+                    onclick: move |_| { if !disabled { navigator().push(target.clone()); } },
                     div {
                         class: "is-flex is-justify-content-space-between",
                         div {
-                            a { class: "title is-size-5 has-text-link", {title} }
+                            a {
+                                class: "title is-size-5",
+                                class: if disabled { "has-text-grey-light" } else { "has-text-link" },
+                                {title}
+                            }
                         }
                         if let Some(target_add) = target_add {
                             div {
@@ -364,7 +374,10 @@ fn Tile(
                         }
                     }
                     if let Some(ref subtitle) = subtitle {
-                        p { {subtitle} }
+                        p {
+                            class: if disabled { "has-text-grey" },
+                            {subtitle}
+                        }
                     }
                 }
             }

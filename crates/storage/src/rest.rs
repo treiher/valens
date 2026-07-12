@@ -113,7 +113,7 @@ impl<S: SendRequest> REST<S> {
 enum FetchError {
     #[error("no connection")]
     NoConnection,
-    #[error("{status} {status_text}{}", body.as_ref().map(|body| format!(": {body}")).unwrap_or_default())]
+    #[error("{status} {status_text}{}", body.as_ref().filter(|body| !body.is_empty()).map(|body| format!(": {body}")).unwrap_or_default())]
     Response {
         status: u16,
         status_text: String,
@@ -139,6 +139,9 @@ impl From<FetchError> for domain::StorageError {
 impl From<FetchError> for domain::ReadError {
     fn from(value: FetchError) -> Self {
         match value {
+            FetchError::Response {
+                status: 403, body, ..
+            } => domain::ReadError::Forbidden(error_reason(body.as_deref(), "forbidden")),
             FetchError::Response { status: 404, .. } => domain::ReadError::NotFound,
             _ => domain::ReadError::Storage(value.into()),
         }
@@ -149,8 +152,11 @@ impl From<FetchError> for domain::CreateError {
     fn from(value: FetchError) -> Self {
         match value {
             FetchError::Response {
+                status: 403, body, ..
+            } => domain::CreateError::Forbidden(error_reason(body.as_deref(), "forbidden")),
+            FetchError::Response {
                 status: 409, body, ..
-            } => domain::CreateError::Conflict(conflict_reason(body.as_deref())),
+            } => domain::CreateError::Conflict(error_reason(body.as_deref(), "conflict")),
             _ => domain::CreateError::Storage(value.into()),
         }
     }
@@ -160,8 +166,11 @@ impl From<FetchError> for domain::UpdateError {
     fn from(value: FetchError) -> Self {
         match value {
             FetchError::Response {
+                status: 403, body, ..
+            } => domain::UpdateError::Forbidden(error_reason(body.as_deref(), "forbidden")),
+            FetchError::Response {
                 status: 409, body, ..
-            } => domain::UpdateError::Conflict(conflict_reason(body.as_deref())),
+            } => domain::UpdateError::Conflict(error_reason(body.as_deref(), "conflict")),
             _ => domain::UpdateError::Storage(value.into()),
         }
     }
@@ -171,19 +180,22 @@ impl From<FetchError> for domain::DeleteError {
     fn from(value: FetchError) -> Self {
         match value {
             FetchError::Response {
+                status: 403, body, ..
+            } => domain::DeleteError::Forbidden(error_reason(body.as_deref(), "forbidden")),
+            FetchError::Response {
                 status: 409, body, ..
-            } => domain::DeleteError::Conflict(conflict_reason(body.as_deref())),
+            } => domain::DeleteError::Conflict(error_reason(body.as_deref(), "conflict")),
             _ => domain::DeleteError::Storage(value.into()),
         }
     }
 }
 
-/// Extract the reason of a conflict from the `details` field of a response body.
-fn conflict_reason(body: Option<&str>) -> String {
+/// Extract the reason of an error from the `details` field of a response body.
+fn error_reason(body: Option<&str>, default: &str) -> String {
     body.and_then(|body| serde_json::from_str::<serde_json::Value>(body).ok())
         .as_ref()
         .and_then(|json| json.get("details")?.as_str())
-        .map_or_else(|| "conflict".to_string(), str::to_string)
+        .map_or_else(|| default.to_string(), str::to_string)
 }
 
 impl<S: SendRequest> domain::SessionRepository for REST<S> {
@@ -202,6 +214,15 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
             .fetch(gloo_net::http::Request::get("/api/session"), None::<&()>)
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
+    }
+
+    async fn sync_session(&self) -> Result<Option<domain::User>, domain::SyncError> {
+        match self.initialize_session().await {
+            Ok(user) => Ok(Some(user)),
+            // A missing session on the server means the user is signed out
+            Err(domain::ReadError::NotFound) => Ok(None),
+            Err(err) => Err(err.into()),
+        }
     }
 
     async fn delete_session(&self) -> Result<(), domain::DeleteError> {
@@ -234,6 +255,7 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
         name: domain::Name,
         sex: domain::Sex,
         height: Option<u8>,
+        role: domain::Role,
     ) -> Result<domain::User, domain::CreateError> {
         let r: User = self
             .fetch(
@@ -242,6 +264,7 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
                     name: name.to_string(),
                     sex: sex as u8,
                     height,
+                    role: role as u8,
                 }),
             )
             .await?;
@@ -253,6 +276,26 @@ impl<S: SendRequest> domain::UserRepository for REST<S> {
             .fetch(
                 gloo_net::http::Request::put(&format!("/api/users/{}", user.id.as_u128())),
                 Some(&UserData::from(user)),
+            )
+            .await?;
+        Ok(r.try_into().map_err(Box::from)?)
+    }
+
+    async fn update_user(
+        &self,
+        id: domain::UserID,
+        name: domain::Name,
+        sex: domain::Sex,
+        height: Option<u8>,
+    ) -> Result<domain::User, domain::UpdateError> {
+        let r: User = self
+            .fetch(
+                gloo_net::http::Request::patch(&format!("/api/users/{}", id.as_u128())),
+                Some(&json!({
+                    "name": name.as_ref(),
+                    "sex": sex as u8,
+                    "height": height,
+                })),
             )
             .await?;
         Ok(r.try_into().map_err(Box::from)?)
@@ -678,6 +721,8 @@ pub struct User {
     pub sex: u8,
     #[serde(default)]
     pub height: Option<u8>,
+    #[serde(default)]
+    pub role: u8,
 }
 
 impl From<domain::User> for User {
@@ -687,6 +732,7 @@ impl From<domain::User> for User {
             name: value.name.to_string(),
             sex: value.sex as u8,
             height: value.height,
+            role: value.role as u8,
         }
     }
 }
@@ -700,6 +746,7 @@ impl TryFrom<User> for domain::User {
             name: domain::Name::new(&value.name)?,
             sex: value.sex.into(),
             height: value.height,
+            role: value.role.into(),
         })
     }
 }
@@ -709,6 +756,7 @@ pub struct UserData {
     pub name: String,
     pub sex: u8,
     pub height: Option<u8>,
+    pub role: u8,
 }
 
 impl From<domain::User> for UserData {
@@ -717,6 +765,7 @@ impl From<domain::User> for UserData {
             name: value.name.to_string(),
             sex: value.sex as u8,
             height: value.height,
+            role: value.role as u8,
         }
     }
 }
@@ -1448,14 +1497,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_conflict_reason() {
+    fn test_error_reason() {
         assert_eq!(
-            conflict_reason(Some(r#"{"details": "the entry is in use"}"#)),
+            error_reason(Some(r#"{"details": "the entry is in use"}"#), "conflict"),
             "the entry is in use"
         );
-        assert_eq!(conflict_reason(Some(r#"{"other": "value"}"#)), "conflict");
-        assert_eq!(conflict_reason(Some("not json")), "conflict");
-        assert_eq!(conflict_reason(None), "conflict");
+        assert_eq!(
+            error_reason(Some(r#"{"other": "value"}"#), "conflict"),
+            "conflict"
+        );
+        assert_eq!(error_reason(Some("not json"), "conflict"), "conflict");
+        assert_eq!(error_reason(None, "forbidden"), "forbidden");
+    }
+
+    #[test]
+    fn test_fetch_error_response_display() {
+        assert_eq!(
+            FetchError::Response {
+                status: 403,
+                status_text: "FORBIDDEN".to_string(),
+                body: Some(String::new()),
+            }
+            .to_string(),
+            "403 FORBIDDEN"
+        );
+        assert_eq!(
+            FetchError::Response {
+                status: 403,
+                status_text: "FORBIDDEN".to_string(),
+                body: None,
+            }
+            .to_string(),
+            "403 FORBIDDEN"
+        );
+        assert_eq!(
+            FetchError::Response {
+                status: 400,
+                status_text: "BAD REQUEST".to_string(),
+                body: Some("details".to_string()),
+            }
+            .to_string(),
+            "400 BAD REQUEST: details"
+        );
     }
 
     #[test]
@@ -1602,19 +1685,27 @@ mod tests {
     }
 
     #[rstest]
-    #[case(domain::Sex::FEMALE)]
-    #[case(domain::Sex::MALE)]
-    fn test_user_serde(#[case] sex: domain::Sex) {
+    #[case(domain::Sex::FEMALE, domain::Role::USER)]
+    #[case(domain::Sex::MALE, domain::Role::ADMIN)]
+    fn test_user_serde(#[case] sex: domain::Sex, #[case] role: domain::Role) {
         let obj: User = domain::User {
             id: (2u128.pow(64) - 1).into(),
             name: domain::Name::new("A").unwrap(),
             sex,
             height: Some(180),
+            role,
         }
         .into();
         let serialized = json!(obj);
         let deserialized: User = serde_json::from_value(serialized).unwrap();
         assert_eq!(deserialized, obj);
+    }
+
+    #[test]
+    fn test_user_deserialization_without_role() {
+        let deserialized: User =
+            serde_json::from_value(json!({"id": 1, "name": "A", "sex": 0})).unwrap();
+        assert_eq!(domain::Role::from(deserialized.role), domain::Role::USER);
     }
 
     #[test]
@@ -1818,6 +1909,42 @@ mod tests {
         }
 
         #[wasm_bindgen_test]
+        async fn test_sync_session() {
+            assert_eq!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&User::from(USER.clone())),
+                ))
+                .sync_session()
+                .await
+                .unwrap(),
+                Some(USER.clone())
+            );
+            assert_eq!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(404)
+                        .body::<Option<&str>>(None),
+                ))
+                .sync_session()
+                .await
+                .unwrap(),
+                None
+            );
+            assert!(matches!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(500)
+                        .body::<Option<&str>>(None),
+                ))
+                .sync_session()
+                .await,
+                Err(domain::SyncError::Storage(_))
+            ));
+        }
+
+        #[wasm_bindgen_test]
         async fn test_delete_session() {
             assert_eq!(
                 rest_with_response(Some(
@@ -1860,6 +1987,17 @@ mod tests {
                 .unwrap(),
                 USERS.clone()
             );
+            assert!(matches!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(403)
+                        .body(Some(r#"{"details": "user is not an administrator"}"#)),
+                ))
+                .read_users()
+                .await,
+                Err(domain::ReadError::Forbidden(reason))
+                    if reason == "user is not an administrator"
+            ));
         }
 
         #[wasm_bindgen_test]
@@ -1870,7 +2008,7 @@ mod tests {
                         .status(200)
                         .json(&User::from(USER.clone())),
                 ))
-                .create_user(USER.name.clone(), USER.sex, USER.height)
+                .create_user(USER.name.clone(), USER.sex, USER.height, USER.role)
                 .await
                 .unwrap(),
                 USER.clone()
@@ -1886,6 +2024,32 @@ mod tests {
                         .json(&User::from(USER.clone())),
                 ))
                 .replace_user(USER.clone())
+                .await
+                .unwrap(),
+                USER.clone()
+            );
+            assert!(matches!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder().status(403).body(Some(
+                        r#"{"details": "role can only be changed by an administrator"}"#
+                    )),
+                ))
+                .replace_user(USER.clone())
+                .await,
+                Err(domain::UpdateError::Forbidden(reason))
+                    if reason == "role can only be changed by an administrator"
+            ));
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_update_user() {
+            assert_eq!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .json(&User::from(USER.clone())),
+                ))
+                .update_user(USER.id, USER.name.clone(), USER.sex, USER.height)
                 .await
                 .unwrap(),
                 USER.clone()

@@ -8,10 +8,13 @@ use dioxus::prelude::*;
 
 use valens_domain as domain;
 
+use valens_domain::SessionService;
+
 use crate::{
     DOMAIN_SERVICE, NO_CONNECTION,
     cache::{Cache, CacheState},
     notification::{notify, notify_warning},
+    session::SessionRefresh,
 };
 
 macro_rules! sync {
@@ -26,30 +29,13 @@ macro_rules! sync {
                 cache.$entry.set(CacheState::Loading);
             }
             match DOMAIN_SERVICE().$sync_method().await {
-                Err(domain::SyncError::Storage(domain::StorageError::NoConnection)) => {
-                    if !NO_CONNECTION() {
-                        *NO_CONNECTION.write() = true;
-                        notify_warning("No connection to server");
-                    }
-                }
-                Err(err) => {
-                    if !synchronization.has_error() {
-                        synchronization.error.set(format!("Synchronization failed: {err}"));
-                        notify("Synchronization failed", &err);
-                        *NO_CONNECTION.write() = false;
-                    }
-                }
+                Err(err) => handle_sync_error(&mut synchronization, &err),
                 Ok(_) => {
                     *NO_CONNECTION.write() = false;
                 }
             }
             cache.$refresh_method();
-            synchronization.pending_sync_count.with_mut(|count| {
-                *count = count.saturating_sub(1);
-                if *count == 0 {
-                    synchronization.in_progress.set(false);
-                }
-            });
+            synchronization.finish_sync();
         });
     }};
 }
@@ -77,6 +63,7 @@ impl Synchronization {
         if !*self.in_progress.peek() {
             self.error.set(String::new());
             self.in_progress.set(true);
+            self.sync_session();
             sync!(exercises, sync_exercises, refresh_exercises);
             sync!(routines, sync_routines, refresh_routines);
             sync!(schedule, sync_schedule, refresh_schedule);
@@ -91,6 +78,38 @@ impl Synchronization {
         }
     }
 
+    /// Update the session user from the server and re-read the session if the user has been
+    /// changed or signed out.
+    fn sync_session(&self) {
+        let session_refresh = consume_context::<SessionRefresh>();
+        let mut synchronization = *self;
+        synchronization
+            .pending_sync_count
+            .with_mut(|count| *count += 1);
+        spawn(async move {
+            let previous_user = DOMAIN_SERVICE().get_session().await.ok();
+            match DOMAIN_SERVICE().sync_session().await {
+                Err(err) => handle_sync_error(&mut synchronization, &err),
+                Ok(user) => {
+                    *NO_CONNECTION.write() = false;
+                    if user != previous_user {
+                        session_refresh.refresh();
+                    }
+                }
+            }
+            synchronization.finish_sync();
+        });
+    }
+
+    fn finish_sync(&mut self) {
+        self.pending_sync_count.with_mut(|count| {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                self.in_progress.set(false);
+            }
+        });
+    }
+
     pub fn in_progress(&self) -> bool {
         self.in_progress.cloned()
     }
@@ -101,5 +120,23 @@ impl Synchronization {
 
     pub fn error(&self) -> String {
         self.error.cloned()
+    }
+}
+
+fn handle_sync_error(synchronization: &mut Synchronization, err: &domain::SyncError) {
+    if matches!(
+        err,
+        domain::SyncError::Storage(domain::StorageError::NoConnection)
+    ) {
+        if !NO_CONNECTION() {
+            *NO_CONNECTION.write() = true;
+            notify_warning("No connection to server");
+        }
+    } else if !synchronization.has_error() {
+        synchronization
+            .error
+            .set(format!("Synchronization failed: {err}"));
+        notify("Synchronization failed", err);
+        *NO_CONNECTION.write() = false;
     }
 }

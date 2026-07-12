@@ -14,17 +14,19 @@ use crate::{
 
 #[component]
 pub fn Ffmi() -> Element {
-    let user = consume_context::<Session>().user;
     let cache = consume_context::<Cache>();
-    let sex = user.sex;
-    let height = user.height;
+    let session = consume_context::<Session>();
+    let sex = use_memo(move || session.user().sex);
+    let height = use_memo(move || session.user().height);
 
     let ffmi = use_memo(move || {
-        if let (Some(height), CacheState::Ready(body_fat), CacheState::Ready(body_weight)) =
-            (height, &*cache.body_fat.read(), &*cache.body_weight.read())
-        {
+        if let (Some(height), CacheState::Ready(body_fat), CacheState::Ready(body_weight)) = (
+            height(),
+            &*cache.body_fat.read(),
+            &*cache.body_weight.read(),
+        ) {
             let avg_body_weight = DOMAIN_SERVICE().avg_body_weight(body_weight);
-            domain::ffmi(&avg_body_weight, body_fat, sex, height)
+            domain::ffmi(&avg_body_weight, body_fat, sex(), height)
         } else {
             vec![]
         }
@@ -43,12 +45,12 @@ pub fn Ffmi() -> Element {
     })
     .read();
 
-    if height.is_none() {
+    if height().is_none() {
         return rsx! {
             Message {
                 color: Color::Info,
                 "data-testid": "ffmi-height-missing",
-                "Set your height on the administration page to calculate your FFMI."
+                "Set your height in the profile dialog to calculate your FFMI."
             }
         };
     }

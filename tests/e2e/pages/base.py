@@ -199,17 +199,65 @@ class Navbar(PageElement):
         self.page.get_by_test_id("navbar-back").click()
 
     def logout(self) -> None:
+        self._open_menu()
         self.page.get_by_test_id("navbar-logout").click()
 
+    def open_profile(self) -> None:
+        self._open_menu()
+        self.page.get_by_test_id("navbar-profile").click()
+
+    def open_settings(self) -> None:
+        self._open_menu()
+        self.page.get_by_test_id("navbar-settings").click()
+
+    def open_administration(self) -> None:
+        self._open_menu()
+        self.page.get_by_test_id("navbar-administration").click()
+
+    def open_about(self) -> None:
+        self._open_menu()
+        self.page.get_by_test_id("navbar-about").click()
+
+    def expect_no_administration(self) -> None:
+        self._open_menu()
+        expect(self.page.get_by_test_id("navbar-administration")).to_have_count(0)
+
     def open_1rm_calculator(self) -> None:
+        self._open_menu()
         self.page.get_by_test_id("navbar-1rm-calculator").click()
 
     def open_drop_set_calculator(self) -> None:
+        self._open_menu()
         self.page.get_by_test_id("navbar-drop-set-calculator").click()
+
+    def _open_menu(self) -> None:
+        self.page.get_by_test_id("navbar-menu").click()
 
     def expect_synchronization(self) -> None:
         expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_visible()
         expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_hidden()
+
+
+class BaseDialog(PageElement):
+    """Dialog opened from the navbar menu."""
+
+    def __init__(self, page: Page) -> None:
+        super().__init__(page)
+        self.navbar = Navbar(page)
+        self.dialog = Dialog(page)
+        self.notification = Notification(page)
+
+    @abstractmethod
+    def open(self) -> None:
+        raise NotImplementedError
+
+    def close(self) -> None:
+        self.page.get_by_test_id("dialog-close").first.click()
+        self.page.get_by_test_id("dialog").first.wait_for(state="hidden")
+
+    def wait_until_idle(self) -> None:
+        self.page.get_by_test_id("loading").wait_for(state="detached")
+        self.page.locator(".is-loading").wait_for(state="detached")
 
 
 class Table(PageElement):

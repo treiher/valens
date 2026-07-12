@@ -5,11 +5,11 @@ use chrono::NaiveDate;
 use crate::{
     BodyFat, BodyFatRepository, BodyFatService, BodyWeight, BodyWeightRepository, CreateError,
     CurrentCycle, Cycle, DeleteError, Exercise, ExerciseID, ExerciseMuscle, ExerciseRepository,
-    ExerciseService, Name, Period, PeriodRepository, PeriodService, ReadError, Routine, RoutineID,
-    RoutinePart, RoutineRepository, RoutineService, Schedule, ScheduleRepository, ScheduleService,
-    SessionRepository, SessionService, Sex, SyncError, TrainingSession, TrainingSessionElement,
-    TrainingSessionID, TrainingSessionRepository, TrainingSessionService, UpdateError, User,
-    UserID, UserRepository, UserService, VersionRepository, VersionService,
+    ExerciseService, Name, Period, PeriodRepository, PeriodService, ReadError, Role, Routine,
+    RoutineID, RoutinePart, RoutineRepository, RoutineService, Schedule, ScheduleRepository,
+    ScheduleService, SessionRepository, SessionService, Sex, SyncError, TrainingSession,
+    TrainingSessionElement, TrainingSessionID, TrainingSessionRepository, TrainingSessionService,
+    UpdateError, User, UserID, UserRepository, UserService, VersionRepository, VersionService,
     body_weight::BodyWeightService, current_cycle, cycles,
 };
 
@@ -87,6 +87,10 @@ impl<R: SessionRepository> SessionService for Service<R> {
         self.repository.initialize_session().await
     }
 
+    async fn sync_session(&self) -> Result<Option<User>, SyncError> {
+        self.repository.sync_session().await
+    }
+
     async fn delete_session(&self) -> Result<(), DeleteError> {
         self.repository.delete_session().await
     }
@@ -102,12 +106,23 @@ impl<R: UserRepository> UserService for Service<R> {
         name: Name,
         sex: Sex,
         height: Option<u8>,
+        role: Role,
     ) -> Result<User, CreateError> {
-        self.repository.create_user(name, sex, height).await
+        self.repository.create_user(name, sex, height, role).await
     }
 
     async fn replace_user(&self, user: User) -> Result<User, UpdateError> {
         self.repository.replace_user(user).await
+    }
+
+    async fn update_user(
+        &self,
+        id: UserID,
+        name: Name,
+        sex: Sex,
+        height: Option<u8>,
+    ) -> Result<User, UpdateError> {
+        self.repository.update_user(id, name, sex, height).await
     }
 
     async fn delete_user(&self, id: UserID) -> Result<(), DeleteError> {

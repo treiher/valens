@@ -2,36 +2,35 @@ use dioxus::prelude::*;
 
 use valens_domain as domain;
 use valens_domain::UserService;
-use valens_web_app::log::Service;
 
 use crate::{
-    DATA_CHANGED, DOMAIN_SERVICE, WEB_APP_SERVICE,
+    DATA_CHANGED, DOMAIN_SERVICE,
     diagnostics::log_failure,
     notification::notify,
     session::{Session, SessionRefresh},
     signal_changed_data,
     ui::{
         element::{
-            Block, CenteredBlock, Color, DeleteConfirmationDialog, Error, ErrorMessage, Icon,
-            ItemOptionsButton, Loading, MenuOption, Message, NoConnection, OptionsMenu, SaveDialog,
-            Table, Title, value_or_dash,
+            CenteredBlock, DeleteConfirmationDialog, Dialog, ErrorMessage, Icon, ItemOptionsButton,
+            Loading, MenuOption, NoConnection, OptionsMenu, SaveDialog, Table, Title, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
-    update::{UPDATE_STATUS, UpdateStatus, VersionInfo, check_for_updates},
 };
 
 #[component]
-pub fn Admin() -> Element {
+pub fn AdminDialog(on_close: EventHandler<MouseEvent>) -> Element {
     rsx! {
-        Users {}
-        Version {}
-        Log {}
+        Dialog {
+            title: rsx! { "Administration" },
+            on_close,
+            Users {}
+        }
     }
 }
 
 #[component]
-pub fn Users() -> Element {
+fn Users() -> Element {
     let users = use_resource(|| async {
         let _ = DATA_CHANGED.read();
         DOMAIN_SERVICE().get_users().await
@@ -55,9 +54,9 @@ pub fn Users() -> Element {
         let mut saved = false;
         is_loading! {
             match &*dialog.read() {
-                UserDialog::Add { name, sex, height } => {
-                    if let (Ok(name), Ok(sex), Ok(height)) = (name.validated.clone(), sex.validated.clone(), height.validated.clone()) {
-                        match DOMAIN_SERVICE().create_user(name, sex, height).await {
+                UserDialog::Add { name, sex, height, role } => {
+                    if let (Ok(name), Ok(sex), Ok(height), Ok(role)) = (name.validated.clone(), sex.validated.clone(), height.validated.clone(), role.validated.clone()) {
+                        match DOMAIN_SERVICE().create_user(name, sex, height, role).await {
                             Ok(_) => {
                                 saved = true;
                                 signal_changed_data();
@@ -68,14 +67,14 @@ pub fn Users() -> Element {
                         }
                     }
                 },
-                UserDialog::Edit { id, name, sex, height } => {
-                    if let (Ok(name), Ok(sex), Ok(height)) = (name.validated.clone(), sex.validated.clone(), height.validated.clone()) {
+                UserDialog::Edit { id, name, sex, height, role } => {
+                    if let (Ok(name), Ok(sex), Ok(height), Ok(role)) = (name.validated.clone(), sex.validated.clone(), height.validated.clone(), role.validated.clone()) {
                         let id = *id;
-                        match DOMAIN_SERVICE().replace_user(domain::User { id, name, sex, height }).await {
+                        match DOMAIN_SERVICE().replace_user(domain::User { id, name, sex, height, role }).await {
                             Ok(_) => {
                                 saved = true;
                                 signal_changed_data();
-                                if id == consume_context::<Session>().user.id {
+                                if id == consume_context::<Session>().user().id {
                                     consume_context::<SessionRefresh>().refresh();
                                 }
                             },
@@ -113,36 +112,49 @@ pub fn Users() -> Element {
     let close = move |_| close_dialog();
 
     rsx! {
-        Title { "Users" }
         match &*users.read() {
             Some(Ok(users)) => {
                 rsx! {
+                    Title {
+                        actions: rsx! {
+                            a {
+                                "data-testid": "add-user",
+                                onclick: move |_| {
+                                    *dialog.write() = UserDialog::Add {
+                                        name: FieldValue::default(),
+                                        sex: FieldValue::new(domain::Sex::MALE),
+                                        height: FieldValue::from_option(None),
+                                        role: FieldValue::new(domain::Role::USER),
+                                    };
+                                },
+                                Icon { name: "plus", is_small: true }
+                            }
+                        },
+                        "Users"
+                    }
                     Table {
-                        head: vec![rsx! { "Name" }, rsx! { "Sex" }, rsx! { "Height (cm)" }, rsx! {}],
+                        head: vec![rsx! { "Name" }, rsx! { "Sex" }, rsx! { "Height (cm)" }, rsx! { "Role" }, rsx! {}],
                         body: users.iter().map(|user| {
                             let user = user.clone();
                             vec![
                                 rsx! { "{user.name}" },
                                 rsx! { "{user.sex}" },
                                 rsx! { {value_or_dash(user.height)} },
+                                rsx! { "{user.role}" },
                                 rsx! {
                                     ItemOptionsButton { on_click: move |_| { *dialog.write() = UserDialog::Options(user.clone()); } }
                                 }
                             ]
                         }).collect::<Vec<_>>()
                     }
+                }
+            }
+            Some(Err(domain::ReadError::Forbidden(_))) => {
+                rsx! {
                     CenteredBlock {
-                        button {
-                            class: "button is-link",
-                            "data-testid": "add-user",
-                            onclick: move |_| {
-                                *dialog.write() = UserDialog::Add {
-                                    name: FieldValue::default(),
-                                    sex: FieldValue::new(domain::Sex::MALE),
-                                    height: FieldValue::from_option(None),
-                                };
-                            },
-                            Icon { name: "user-plus" }
+                        p {
+                            "data-testid": "not-authorized",
+                            "You are not authorized to manage users."
                         }
                     }
                 }
@@ -189,12 +201,18 @@ pub fn Users() -> Element {
                                                 orig: user_edit.sex.to_string()
                                             },
                                             height: FieldValue::from_option(user_edit.height),
+                                            role: FieldValue {
+                                                input: user_edit.role.to_string(),
+                                                validated: Ok(user_edit.role),
+                                                orig: user_edit.role.to_string()
+                                            },
                                         };
                                     }
                                 },
                                 MenuOption {
                                     icon: "user-times".to_string(),
                                     text: "Delete user".to_string(),
+                                    "data-testid": "options-delete-user",
                                     on_click: move |_| { *dialog.write() = UserDialog::Delete(user_delete.clone()); }
                                 },
                             },
@@ -203,15 +221,17 @@ pub fn Users() -> Element {
                     }
                 }
             },
-            UserDialog::Add { name, sex, height } | UserDialog::Edit { name, sex, height, .. } => rsx! {
+            UserDialog::Add { name, sex, height, role } | UserDialog::Edit { name, sex, height, role, .. } => {
+                rsx! {
                 SaveDialog {
                     title: rsx! { if let UserDialog::Add { .. } = &*dialog.read() { "Add user" } else { "Edit user" } },
                     on_close: close,
                     on_save: save,
                     is_loading: is_loading(),
-                    disabled: (!name.changed() && !sex.changed() && !height.changed()) || !name.valid() || !sex.valid() || !height.valid(),
+                    disabled: (!name.changed() && !sex.changed() && !height.changed() && !role.changed()) || !name.valid() || !sex.valid() || !height.valid() || !role.valid(),
                     InputField {
                         label: "Name".to_string(),
+                        "data-testid": "user-name",
                         value: name.input.clone(),
                         error: if let Err(err) = &name.validated { err.clone() },
                         has_changed: name.changed(),
@@ -282,6 +302,7 @@ pub fn Users() -> Element {
                     }
                     InputField {
                         label: "Height".to_string(),
+                        "data-testid": "user-height",
                         right_icon: rsx! { "cm" },
                         inputmode: "numeric".to_string(),
                         value: height.input.clone(),
@@ -296,15 +317,44 @@ pub fn Users() -> Element {
                             }
                         }
                     }
+                    SelectField {
+                        label: "Role".to_string(),
+                        "data-testid": "user-role",
+                        options: vec![
+                            rsx! {
+                                SelectOption {
+                                    text: domain::Role::USER.to_string(),
+                                    value: domain::Role::USER.to_string(),
+                                    selected: matches!(role.validated, Ok(domain::Role::USER)),
+                                }
+                            },
+                            rsx! {
+                                SelectOption {
+                                    text: domain::Role::ADMIN.to_string(),
+                                    value: domain::Role::ADMIN.to_string(),
+                                    selected: matches!(role.validated, Ok(domain::Role::ADMIN)),
+                                }
+                            },
+                        ],
+                        has_changed: role.changed(),
+                        on_change: move |event: FormEvent| {
+                            if let UserDialog::Add { role, .. } | UserDialog::Edit { role, .. } = &mut *dialog.write() {
+                                role.input = event.value();
+                                role.validated = Ok(domain::Role::from(role.input.as_ref()));
+                            }
+                        }
+                    }
                 }
-            },
-            UserDialog::Delete(user) => rsx! {
-                DeleteConfirmationDialog {
-                    element_type: "user".to_string(),
-                    element_name: rsx! { "{user.name}" },
-                    on_delete: delete,
-                    on_cancel: close,
-                    is_loading: is_loading(),
+            }},
+            UserDialog::Delete(user) => {
+                rsx! {
+                    DeleteConfirmationDialog {
+                        element_type: "user".to_string(),
+                        element_name: rsx! { "{user.name}" },
+                        on_delete: delete,
+                        on_cancel: close,
+                        is_loading: is_loading(),
+                    }
                 }
             },
         }
@@ -318,71 +368,14 @@ enum UserDialog {
         name: FieldValue<domain::Name>,
         sex: FieldValue<domain::Sex>,
         height: FieldValue<Option<u8>>,
+        role: FieldValue<domain::Role>,
     },
     Edit {
         id: domain::UserID,
         name: FieldValue<domain::Name>,
         sex: FieldValue<domain::Sex>,
         height: FieldValue<Option<u8>>,
+        role: FieldValue<domain::Role>,
     },
     Delete(domain::User),
-}
-
-#[component]
-pub fn Version() -> Element {
-    use_effect(|| {
-        spawn(check_for_updates());
-    });
-    rsx! {
-        Block {
-            class: "px-3",
-            Title { "Version" }
-            VersionInfo {}
-            if let UpdateStatus::Deferred = UPDATE_STATUS() {
-                CenteredBlock {
-                    button {
-                        class: "button is-link mt-5",
-                        onclick: move |_| {
-                            *UPDATE_STATUS.write() = UpdateStatus::Available;
-                        },
-                        Icon { name: "download" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-pub fn Log() -> Element {
-    let entries = WEB_APP_SERVICE.read().get_log_entries();
-    rsx! {
-        Title { "Log" }
-        Block {
-            class: "px-3",
-            div {
-                "data-testid": "log",
-                match entries {
-                    Ok(entries) => rsx! {
-                        for entry in entries {
-                            Message {
-                                color: match entry.level {
-                                    log::Level::Error => Color::Danger,
-                                    log::Level::Warn => Color::Warning,
-                                    log::Level::Info => Color::Primary,
-                                    log::Level::Debug => Color::Info,
-                                    log::Level::Trace => Color::Dark,
-                                },
-                                p { class: "is-size-7", {entry.time} }
-                                p { "{entry.message}" }
-                            }
-                        }
-                    },
-                    Err(err) => rsx! {
-                        Error { message: err }
-                    },
-                }
-            }
-        }
-    }
 }

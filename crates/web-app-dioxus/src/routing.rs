@@ -7,8 +7,8 @@ use valens_domain as domain;
 use crate::{
     navbar::Navbar,
     page::{
-        admin::Admin, body_fat::BodyFat, body_weight::BodyWeight, catalog::Catalog,
-        exercise::Exercise, exercises::Exercises, ffmi::Ffmi, home::Home, login::Login,
+        body_fat::BodyFat, body_weight::BodyWeight, catalog::Catalog, exercise::Exercise,
+        exercises::Exercises, ffmi::Ffmi, home::Home, login::Login,
         menstrual_cycle::MenstrualCycle, muscles::Muscles, not_found::NotFound, routine::Routine,
         routines::Routines, schedule::Schedule, training_session::TrainingSession,
         training_sessions::TrainingSessions,
@@ -26,8 +26,6 @@ pub enum Route {
             #[redirect("/", || Route::Home {})]
             #[route("/home")]
             Home {},
-            #[route("/admin")]
-            Admin {},
             #[route("/training_sessions?:add")]
             TrainingSessions { add: bool },
             #[route("/training_session/:id")]

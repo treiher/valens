@@ -11,6 +11,7 @@ pub static USER: std::sync::LazyLock<domain::User> = std::sync::LazyLock::new(||
     name: domain::Name::new("Alice").unwrap(),
     sex: domain::Sex::FEMALE,
     height: Some(165),
+    role: domain::Role::ADMIN,
 });
 
 pub static USER_2: std::sync::LazyLock<domain::User> = std::sync::LazyLock::new(|| domain::User {
@@ -18,6 +19,7 @@ pub static USER_2: std::sync::LazyLock<domain::User> = std::sync::LazyLock::new(
     name: domain::Name::new("Bob").unwrap(),
     sex: domain::Sex::MALE,
     height: None,
+    role: domain::Role::USER,
 });
 
 pub const BODY_WEIGHTS: &[domain::BodyWeight; 2] = &[BODY_WEIGHT, BODY_WEIGHT_2];

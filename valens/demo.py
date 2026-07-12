@@ -10,6 +10,7 @@ from valens.models import (
     BodyWeight,
     Exercise,
     Period,
+    Role,
     Routine,
     RoutineActivity,
     RoutineSection,
@@ -36,7 +37,10 @@ def run(database: str, host: str = "127.0.0.1", port: int = 5000) -> None:
 
 def users() -> list[User]:
     result = []
-    for user_id, name, sex, height in [(1, "Alice", Sex.FEMALE, 168), (2, "Bob", Sex.MALE, 182)]:
+    for user_id, name, sex, height, role in [
+        (1, "Alice", Sex.FEMALE, 168, Role.ADMIN),
+        (2, "Bob", Sex.MALE, 182, Role.USER),
+    ]:
         exercises, routines, workouts = _workouts(user_id)
         body_weight = _body_weight(user_id)
         schedule_rotations, schedule_slots = _schedule(routines, user_id)
@@ -46,6 +50,7 @@ def users() -> list[User]:
                 name=name,
                 sex=sex,
                 height=height,
+                role=role,
                 body_weight=body_weight,
                 body_fat=_body_fat(body_weight, user_id),
                 period=_period(user_id),

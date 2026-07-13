@@ -714,7 +714,7 @@ fn ExercisePropertiesDialog(
                 {
                     Ok(_) => {
                         saved = true;
-                        consume_context::<Cache>().refresh_exercises();
+                        consume_context::<Cache>().load_exercises().await;
                     }
                     Err(err) => {
                         notify("Failed to change properties of exercise", &err);

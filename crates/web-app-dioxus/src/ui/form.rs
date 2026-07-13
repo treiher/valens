@@ -296,6 +296,7 @@ pub fn MultiToggleTags(multi_toggle: Signal<MultiToggle>) -> Element {
                     class: "tag is-hoverable",
                     class: if *state == 1 { "is-link" },
                     class: if *state == 2 { "is-dark" },
+                    "data-testid": "multi-toggle-tag",
                     onclick: move |_| {
                         let m = multi_toggle.read().num_states;
                         let s = multi_toggle.read().states[i].1;

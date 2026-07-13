@@ -17,6 +17,9 @@ use valens_domain::{
 
 use crate::{DOMAIN_SERVICE, diagnostics::log_failure};
 
+// The spawned task is tied to the scope of the current component and is cancelled if the
+// component is unmounted before completion. Await the corresponding `load_*` method where
+// completion must be guaranteed.
 macro_rules! refresh {
     ($self:ident, $field:ident, $method:ident, $label:literal) => {{
         let this = *$self;
@@ -122,6 +125,11 @@ impl Cache {
             get_training_sessions,
             "load training sessions"
         );
+    }
+
+    /// Reloads the exercises from the local database and awaits completion.
+    pub async fn load_exercises(&self) {
+        load!(self, exercises, get_exercises, "load exercises");
     }
 
     /// Reloads the training sessions from the local database and awaits completion.

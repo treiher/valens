@@ -156,6 +156,7 @@ where
                     span {
                         class: "tag",
                         class: if *stimulus >= *domain::Stimulus::PRIMARY { "is-dark" } else { "is-link" },
+                        "data-testid": "muscle-tag",
                         {m.name()}
                     }
                 }

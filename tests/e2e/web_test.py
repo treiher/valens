@@ -2050,6 +2050,21 @@ def test_exercise_delete_workout(page: Page) -> None:
     p.table.expect_value(1, 1, 1, workout_2)
 
 
+def test_exercise_change_muscles(page: Page) -> None:
+    exercise = next((e for e in USER.exercises if not e.muscles), None)
+    assert exercise is not None, "test data must contain an exercise without muscles"
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+
+    p.expect_no_muscle("Neck")
+
+    p.cycle_muscle("Neck")
+
+    p.expect_muscle("Neck")
+
+
 def test_muscles(page: Page) -> None:
     login(page)
     p = MusclesPage(page)

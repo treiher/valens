@@ -3,14 +3,13 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Iterable
 from datetime import date
-from functools import singledispatch, wraps
+from functools import cache, singledispatch, wraps
 from http import HTTPStatus
-from itertools import chain
 from typing import Any
 
 from flask import Blueprint, jsonify, request, session
 from flask.typing import ResponseReturnValue
-from sqlalchemy import column, delete, select
+from sqlalchemy import Table, delete, select
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import selectinload
 
@@ -123,14 +122,29 @@ def model_to_dict(
     model: object, exclude: list[str] | None = None, include: list[str] | None = None
 ) -> dict[str, object]:
     assert hasattr(model, "__table__")
-    exclude = ["user_id"] if exclude is None else exclude
-    include = [] if include is None else include
-    return {
-        name: attr.isoformat() if isinstance(attr, date) else attr
-        for col in chain(model.__table__.columns, (column(i) for i in include))
-        if col.name not in exclude
-        for name, attr in [(col.name, getattr(model, col.name))]
-    }
+    exclude_key = ("user_id",) if exclude is None else tuple(exclude)
+    include_key = () if include is None else tuple(include)
+    result: dict[str, object] = {}
+    for name, is_date in _serialized_columns(model.__table__, exclude_key, include_key):
+        value = getattr(model, name)
+        if is_date and value is not None:
+            value = value.isoformat()
+        result[name] = value
+    return result
+
+
+@cache
+def _serialized_columns(
+    table: Table, exclude: tuple[str, ...], include: tuple[str, ...]
+) -> tuple[tuple[str, bool], ...]:
+    return (
+        *(
+            (col.name, issubclass(col.type.python_type, date))
+            for col in table.columns
+            if col.name not in exclude
+        ),
+        *((name, False) for name in include if name not in exclude),
+    )
 
 
 def to_routine_parts(json: list[dict[str, Any]]) -> list[RoutinePart]:  # type: ignore[explicit-any]

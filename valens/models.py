@@ -96,6 +96,16 @@ class User(Base):
     )
 
 
+class DataVersion(Base):
+    __tablename__ = "data_version"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    collection: Mapped[str] = mapped_column(String, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class BodyWeight(Base):
     __tablename__ = "body_weight"
     __table_args__ = (

@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Severity of recoverable notifications from error to warning
 - Routines page: Prevention of the deletion of routines that are used in the schedule
 - Server response times due to reduced overhead when accessing the database and serializing responses
+- Data transfer during synchronization by skipping the download of unchanged data
 
 ### Fixed
 

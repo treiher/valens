@@ -3,7 +3,9 @@
 //! The `REST` server acts as the authoritative data source, while `IndexedDB` serves as a local
 //! cache for user-specific data. Data modifications are only possible if an active connection to
 //! the server is available. Once the server has accepted a modification, a failure to update the
-//! local cache is only logged; the cache is corrected by the next synchronization.
+//! local cache is only logged; the cache is corrected by the next synchronization. Modifications
+//! deliberately leave the stored `ETag` untouched, so a dropped cache write is always followed by a
+//! full download instead of a `304`.
 
 use chrono::NaiveDate;
 use log::error;
@@ -11,19 +13,29 @@ use valens_domain::{self as domain, SessionRepository};
 
 use super::{
     indexed_db::{IndexedDB, Store},
-    rest::{GlooNetSendRequest, REST, SendRequest},
+    rest::{Conditional, GlooNetSendRequest, REST, SendRequest},
 };
 
 macro_rules! sync {
-    ($self: ident, $read: ident, $write: ident, $name: literal) => {{
-        let rest_result = $self.rest.$read().await;
-        if let Ok(ref result) = rest_result {
-            if let Err(err) = IndexedDB.$write(result).await {
-                error!("failed to write {} into IDB: {err}", $name);
+    ($self:ident, $read:ident, $write:ident, $read_back:ident, $name:literal) => {{
+        let etag = IndexedDB.read_etag($name).await.ok().flatten();
+        match $self.rest.$read(etag.as_deref()).await {
+            Ok(Conditional::Modified { data, etag }) => {
+                // Persist the ETag only after the data it describes is cached, so a later 304
+                // never serves stale data behind a current ETag.
+                if let Err(err) = IndexedDB.$write(&data).await {
+                    error!("failed to write {} into IDB: {err}", $name);
+                } else if let Some(etag) = etag
+                    && let Err(err) = IndexedDB.write_etag($name, &etag).await
+                {
+                    error!("failed to write {} etag into IDB: {err}", $name);
+                }
+                Ok(data)
             }
+            // Reuse the cached data the server confirmed is still current.
+            Ok(Conditional::NotModified) => Ok(IndexedDB.$read_back().await?),
+            Err(err) => Err(err.into()),
         }
-
-        Ok(rest_result?)
     }};
 }
 
@@ -167,7 +179,13 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
 
 impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
     async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::SyncError> {
-        sync!(self, read_body_weight, write_body_weight, "body weight")
+        sync!(
+            self,
+            read_body_weight_conditional,
+            write_body_weight,
+            read_body_weight,
+            "body weight"
+        )
     }
 
     async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::ReadError> {
@@ -201,7 +219,13 @@ impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
 
 impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
     async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::SyncError> {
-        sync!(self, read_body_fat, write_body_fat, "body fat")
+        sync!(
+            self,
+            read_body_fat_conditional,
+            write_body_fat,
+            read_body_fat,
+            "body fat"
+        )
     }
 
     async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::ReadError> {
@@ -235,7 +259,13 @@ impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
 
 impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
     async fn sync_period(&self) -> Result<Vec<domain::Period>, domain::SyncError> {
-        sync!(self, read_period, write_period, "period")
+        sync!(
+            self,
+            read_period_conditional,
+            write_period,
+            read_period,
+            "period"
+        )
     }
 
     async fn read_period(&self) -> Result<Vec<domain::Period>, domain::ReadError> {
@@ -263,7 +293,13 @@ impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
 
 impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
     async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, domain::SyncError> {
-        sync!(self, read_exercises, write_exercises, "exercises")
+        sync!(
+            self,
+            read_exercises_conditional,
+            write_exercises,
+            read_exercises,
+            "exercises"
+        )
     }
 
     async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, domain::ReadError> {
@@ -299,7 +335,13 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
 
 impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
     async fn sync_routines(&self) -> Result<Vec<domain::Routine>, domain::SyncError> {
-        sync!(self, read_routines, write_routines, "routines")
+        sync!(
+            self,
+            read_routines_conditional,
+            write_routines,
+            read_routines,
+            "routines"
+        )
     }
 
     async fn read_routines(&self) -> Result<Vec<domain::Routine>, domain::ReadError> {
@@ -350,7 +392,13 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
 
 impl<S: SendRequest> domain::ScheduleRepository for CachedREST<S> {
     async fn sync_schedule(&self) -> Result<domain::Schedule, domain::SyncError> {
-        sync!(self, read_schedule, write_schedule, "schedule")
+        sync!(
+            self,
+            read_schedule_conditional,
+            write_schedule,
+            read_schedule,
+            "schedule"
+        )
     }
 
     async fn read_schedule(&self) -> Result<domain::Schedule, domain::ReadError> {
@@ -371,8 +419,9 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
     ) -> Result<Vec<domain::TrainingSession>, domain::SyncError> {
         sync!(
             self,
-            read_training_sessions,
+            read_training_sessions_conditional,
             write_training_sessions,
+            read_training_sessions,
             "training sessions"
         )
     }
@@ -2527,6 +2576,86 @@ mod tests {
             );
         }
 
+        #[wasm_bindgen_test]
+        async fn test_sync_stores_etag_and_sends_if_none_match() {
+            reset_cache().await;
+            init_session().await;
+
+            // A response carrying an ETag caches the data and persists the ETag
+            assert_eq!(
+                cached_rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(200)
+                        .header("etag", "W/\"body_weight-1\"")
+                        .json(&[rest::BodyWeight::from(BODY_WEIGHT)])
+                ))
+                .sync_body_weight()
+                .await
+                .unwrap(),
+                vec![BODY_WEIGHT]
+            );
+
+            assert_eq!(
+                IndexedDB.read_etag("body weight").await.unwrap(),
+                Some("W/\"body_weight-1\"".to_string())
+            );
+
+            // The next synchronization sends the stored ETag; a 304 keeps the cached data without
+            // rewriting it
+            let (cached_rest, request) = cached_rest_capturing(Some(
+                gloo_net::http::Response::builder()
+                    .status(304)
+                    .body::<Option<&str>>(None),
+            ));
+
+            assert_eq!(
+                cached_rest.sync_body_weight().await.unwrap(),
+                vec![BODY_WEIGHT]
+            );
+
+            assert_eq!(
+                request
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .unwrap()
+                    .headers()
+                    .get("If-None-Match"),
+                Some("W/\"body_weight-1\"".to_string())
+            );
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_sync_schedule_not_modified_keeps_cache() {
+            reset_cache().await;
+            init_session().await;
+
+            IndexedDB.write_schedule(&SCHEDULE).await.unwrap();
+            IndexedDB
+                .write_etag("schedule", "W/\"schedule-1\"")
+                .await
+                .unwrap();
+
+            let (cached_rest, request) = cached_rest_capturing(Some(
+                gloo_net::http::Response::builder()
+                    .status(304)
+                    .body::<Option<&str>>(None),
+            ));
+
+            assert_eq!(cached_rest.sync_schedule().await.unwrap(), SCHEDULE.clone());
+
+            assert_eq!(
+                request
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .unwrap()
+                    .headers()
+                    .get("If-None-Match"),
+                Some("W/\"schedule-1\"".to_string())
+            );
+        }
+
         async fn init_session() {
             IndexedDB.write_session(&USER).await.unwrap();
         }
@@ -2539,15 +2668,29 @@ mod tests {
         fn cached_rest_with_response(
             response: Option<Result<gloo_net::http::Response, gloo_net::Error>>,
         ) -> CachedREST<MockSendRequest> {
+            cached_rest_capturing(response).0
+        }
+
+        #[allow(clippy::type_complexity)]
+        fn cached_rest_capturing(
+            response: Option<Result<gloo_net::http::Response, gloo_net::Error>>,
+        ) -> (
+            CachedREST<MockSendRequest>,
+            Arc<Mutex<Option<gloo_net::http::Request>>>,
+        ) {
+            #[allow(clippy::arc_with_non_send_sync)]
+            let request = Arc::new(Mutex::new(None));
             let sender = MockSendRequest {
-                #[allow(clippy::arc_with_non_send_sync)]
-                request: Arc::new(Mutex::new(None)),
+                request: Arc::clone(&request),
                 #[allow(clippy::arc_with_non_send_sync)]
                 response: Arc::new(Mutex::new(response)),
             };
-            CachedREST {
-                rest: REST { sender },
-            }
+            (
+                CachedREST {
+                    rest: REST { sender },
+                },
+                request,
+            )
         }
 
         struct MockSendRequest {

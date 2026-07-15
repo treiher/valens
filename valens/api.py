@@ -7,9 +7,10 @@ from functools import cache, singledispatch, wraps
 from http import HTTPStatus
 from typing import Any
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, make_response, request, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import Table, delete, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import selectinload
 
@@ -17,6 +18,7 @@ from valens import database as db, version
 from valens.models import (
     BodyFat,
     BodyWeight,
+    DataVersion,
     Exercise,
     ExerciseMuscle,
     Period,
@@ -491,6 +493,50 @@ def self_or_admin(function: Callable) -> Callable:  # type: ignore[type-arg]
     return decorated_function
 
 
+def conditional(collection: str) -> Callable:  # type: ignore[type-arg]
+    def decorator(function: Callable) -> Callable:  # type: ignore[type-arg]
+        @wraps(function)
+        def decorated_function(*args: object, **kwargs: object) -> ResponseReturnValue:
+            etag = collection_etag(session["user_id"], collection)
+            if request.if_none_match.contains_weak(etag):
+                response = make_response("", HTTPStatus.NOT_MODIFIED)
+            else:
+                response = make_response(function(*args, **kwargs))
+            response.set_etag(etag, weak=True)
+            # The response is user-specific, so shared caches must not store it and any
+            # cache must revalidate the ETag before reusing it.
+            response.cache_control.private = True
+            response.cache_control.no_cache = True
+            return response
+
+        return decorated_function
+
+    return decorator
+
+
+def collection_etag(user_id: int, collection: str) -> str:
+    stored = db.session.execute(
+        select(DataVersion.version).where(
+            DataVersion.user_id == user_id, DataVersion.collection == collection
+        )
+    ).scalar_one_or_none()
+    # The user id makes the ETag user-specific to prevent the browser HTTP cache from
+    # revalidating one user's cached response with a 304 meant for another user.
+    return f"{collection}-{user_id}-{stored or 0}"
+
+
+def bump_data_version(user_id: int, *collections: str) -> None:
+    for collection in collections:
+        db.session.execute(
+            sqlite_insert(DataVersion)
+            .values(user_id=user_id, collection=collection, version=1)
+            .on_conflict_do_update(
+                index_elements=[DataVersion.user_id, DataVersion.collection],
+                set_={"version": DataVersion.version + 1},
+            )
+        )
+
+
 def _session_user() -> User | None:
     user_id = session.get("user_id")
     if user_id is None:
@@ -732,6 +778,7 @@ def delete_user(user_id: int) -> ResponseReturnValue:
 
 @bp.route("/body_weight")
 @session_required
+@conditional("body_weight")
 def read_body_weight() -> ResponseReturnValue:
     body_weight = (
         db.session.execute(select(BodyWeight).where(BodyWeight.user_id == session["user_id"]))
@@ -759,6 +806,7 @@ def create_body_weight() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(body_weight)
+    bump_data_version(session["user_id"], "body_weight")
 
     try:
         db.session.commit()
@@ -798,6 +846,7 @@ def replace_body_weight(date_: str) -> ResponseReturnValue:
     except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
+    bump_data_version(session["user_id"], "body_weight")
     db.session.commit()
 
     return (
@@ -823,6 +872,7 @@ def delete_body_weight(date_: str) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(body_weight)
+    bump_data_version(session["user_id"], "body_weight")
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
@@ -830,6 +880,7 @@ def delete_body_weight(date_: str) -> ResponseReturnValue:
 
 @bp.route("/body_fat")
 @session_required
+@conditional("body_fat")
 def read_body_fat() -> ResponseReturnValue:
     body_fat = (
         db.session.execute(select(BodyFat).where(BodyFat.user_id == session["user_id"]))
@@ -868,6 +919,7 @@ def create_body_fat() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(body_fat)
+    bump_data_version(session["user_id"], "body_fat")
 
     try:
         db.session.commit()
@@ -916,6 +968,7 @@ def replace_body_fat(date_: str) -> ResponseReturnValue:
     except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
+    bump_data_version(session["user_id"], "body_fat")
     db.session.commit()
 
     return (
@@ -941,6 +994,7 @@ def delete_body_fat(date_: str) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(body_fat)
+    bump_data_version(session["user_id"], "body_fat")
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
@@ -948,6 +1002,7 @@ def delete_body_fat(date_: str) -> ResponseReturnValue:
 
 @bp.route("/period")
 @session_required
+@conditional("period")
 def read_period() -> ResponseReturnValue:
     period = (
         db.session.execute(select(Period).where(Period.user_id == session["user_id"]))
@@ -975,6 +1030,7 @@ def create_period() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(period)
+    bump_data_version(session["user_id"], "period")
 
     try:
         db.session.commit()
@@ -1014,6 +1070,7 @@ def replace_period(date_: str) -> ResponseReturnValue:
     except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
+    bump_data_version(session["user_id"], "period")
     db.session.commit()
 
     return (
@@ -1039,6 +1096,7 @@ def delete_period(date_: str) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(period)
+    bump_data_version(session["user_id"], "period")
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
@@ -1046,6 +1104,7 @@ def delete_period(date_: str) -> ResponseReturnValue:
 
 @bp.route("/exercises")
 @session_required
+@conditional("exercises")
 def read_exercises() -> ResponseReturnValue:
     exercises = (
         db.session.execute(
@@ -1084,6 +1143,7 @@ def create_exercise() -> ResponseReturnValue:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
     db.session.add(exercise)
+    bump_data_version(session["user_id"], "exercises")
 
     try:
         db.session.commit()
@@ -1140,6 +1200,8 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
     except (DeserializationError, KeyError, TypeError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
+    bump_data_version(session["user_id"], "exercises")
+
     try:
         db.session.commit()
     except IntegrityError as e:
@@ -1168,6 +1230,8 @@ def delete_exercise(id_: int) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(exercise)
+    # Deleting an exercise cascades to its workout sets and routine activities.
+    bump_data_version(session["user_id"], "exercises", "workouts", "routines")
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
@@ -1175,6 +1239,7 @@ def delete_exercise(id_: int) -> ResponseReturnValue:
 
 @bp.route("/routines")
 @session_required
+@conditional("routines")
 def read_routines() -> ResponseReturnValue:
     routines = (
         db.session.execute(
@@ -1218,6 +1283,7 @@ def create_routine() -> ResponseReturnValue:
         )
 
     db.session.add(routine)
+    bump_data_version(session["user_id"], "routines")
 
     try:
         db.session.commit()
@@ -1272,6 +1338,8 @@ def update_routine(id_: int) -> ResponseReturnValue:
             HTTPStatus.CONFLICT,
         )
 
+    bump_data_version(session["user_id"], "routines")
+
     try:
         db.session.commit()
     except IntegrityError as e:
@@ -1320,6 +1388,8 @@ def delete_routine(id_: int) -> ResponseReturnValue:
         )
 
     db.session.delete(routine)
+    # Deleting a routine detaches it from the workouts that referenced it.
+    bump_data_version(session["user_id"], "routines", "workouts")
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT
@@ -1327,6 +1397,7 @@ def delete_routine(id_: int) -> ResponseReturnValue:
 
 @bp.route("/schedule")
 @session_required
+@conditional("schedule")
 def read_schedule() -> ResponseReturnValue:
     rotations = (
         db.session.execute(
@@ -1387,6 +1458,7 @@ def replace_schedule() -> ResponseReturnValue:
     )
 
     db.session.add_all([*rotations, *slots])
+    bump_data_version(session["user_id"], "schedule")
 
     try:
         db.session.commit()
@@ -1398,6 +1470,7 @@ def replace_schedule() -> ResponseReturnValue:
 
 @bp.route("/workouts")
 @session_required
+@conditional("workouts")
 def read_workouts() -> ResponseReturnValue:
     workouts = (
         db.session.execute(
@@ -1453,6 +1526,7 @@ def create_workout() -> ResponseReturnValue:
         )
 
     db.session.add(workout)
+    bump_data_version(session["user_id"], "workouts")
 
     db.session.commit()
 
@@ -1515,6 +1589,7 @@ def update_workout(id_: int) -> ResponseReturnValue:
             HTTPStatus.CONFLICT,
         )
 
+    bump_data_version(session["user_id"], "workouts")
     db.session.commit()
 
     return (
@@ -1540,6 +1615,7 @@ def delete_workout(id_: int) -> ResponseReturnValue:
         return "", HTTPStatus.NOT_FOUND
 
     db.session.delete(workout)
+    bump_data_version(session["user_id"], "workouts")
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT

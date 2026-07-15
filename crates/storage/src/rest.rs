@@ -35,13 +35,12 @@ impl Default for REST<GlooNetSendRequest> {
 }
 
 impl<S: SendRequest> REST<S> {
-    async fn fetch<T, J>(
+    async fn send<J>(
         &self,
         request: gloo_net::http::RequestBuilder,
         json: Option<&J>,
-    ) -> Result<T, FetchError>
+    ) -> Result<gloo_net::http::Response, FetchError>
     where
-        T: 'static + for<'de> serde::Deserialize<'de>,
         J: serde::Serialize + ?Sized,
     {
         // Create an abort controller to cancel the request if timeout fires
@@ -62,30 +61,7 @@ impl<S: SendRequest> REST<S> {
         // Send the request future
         let request_future = async {
             match self.sender.send_request(request).await {
-                Ok(response) => {
-                    if response.ok() {
-                        match response.text().await {
-                            Ok(text) => {
-                                let text = if text.is_empty() { "null" } else { &text };
-                                match serde_json::from_str::<T>(text) {
-                                    Ok(data) => Ok(data),
-                                    Err(err) => Err(anyhow::anyhow!(err)
-                                        .context("failed to deserialize response")
-                                        .into()),
-                                }
-                            }
-                            Err(err) => Err(anyhow::anyhow!(err)
-                                .context("failed to read response")
-                                .into()),
-                        }
-                    } else {
-                        Err(FetchError::Response {
-                            status: response.status(),
-                            status_text: response.status_text(),
-                            body: response.text().await.ok(),
-                        })
-                    }
-                }
+                Ok(response) => Ok(response),
                 Err(gloo_net::Error::JsError(_) | gloo_net::Error::GlooError(_)) => {
                     Err(FetchError::NoConnection)
                 }
@@ -106,6 +82,190 @@ impl<S: SendRequest> REST<S> {
                 Err(FetchError::Timeout)
             }
         }
+    }
+
+    async fn fetch<T, J>(
+        &self,
+        request: gloo_net::http::RequestBuilder,
+        json: Option<&J>,
+    ) -> Result<T, FetchError>
+    where
+        T: 'static + for<'de> serde::Deserialize<'de>,
+        J: serde::Serialize + ?Sized,
+    {
+        let response = self.send(request, json).await?;
+        if response.ok() {
+            deserialize_response(response).await
+        } else {
+            Err(response_error(response).await)
+        }
+    }
+
+    async fn fetch_conditional<T>(
+        &self,
+        request: gloo_net::http::RequestBuilder,
+        etag: Option<&str>,
+    ) -> Result<Conditional<T>, FetchError>
+    where
+        T: 'static + for<'de> serde::Deserialize<'de>,
+    {
+        let request = match etag {
+            Some(etag) => request.header("If-None-Match", etag),
+            None => request,
+        };
+        let response = self.send(request, None::<&()>).await?;
+        if response.status() == 304 {
+            Ok(Conditional::NotModified)
+        } else if response.ok() {
+            let etag = response.headers().get("etag");
+            let data = deserialize_response(response).await?;
+            Ok(Conditional::Modified { data, etag })
+        } else {
+            Err(response_error(response).await)
+        }
+    }
+}
+
+#[allow(clippy::missing_errors_doc)]
+impl<S: SendRequest> REST<S> {
+    pub async fn read_body_weight_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::BodyWeight>>, domain::ReadError> {
+        let r: Conditional<Vec<BodyWeight>> = self
+            .fetch_conditional(gloo_net::http::Request::get("/api/body_weight"), etag)
+            .await?;
+        Ok(r.map(|data| data.into_iter().map(domain::BodyWeight::from).collect()))
+    }
+
+    pub async fn read_body_fat_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::BodyFat>>, domain::ReadError> {
+        let r: Conditional<Vec<BodyFat>> = self
+            .fetch_conditional(gloo_net::http::Request::get("/api/body_fat"), etag)
+            .await?;
+        Ok(r.map(|data| data.into_iter().map(domain::BodyFat::from).collect()))
+    }
+
+    pub async fn read_period_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Period>>, domain::ReadError> {
+        let r: Conditional<Vec<Period>> = self
+            .fetch_conditional(gloo_net::http::Request::get("/api/period"), etag)
+            .await?;
+        Ok(r.try_map(|data| {
+            data.into_iter()
+                .map(|p| domain::Period::try_from(p).map_err(Box::from))
+                .collect::<Result<Vec<domain::Period>, Box<dyn std::error::Error>>>()
+        })?)
+    }
+
+    pub async fn read_exercises_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Exercise>>, domain::ReadError> {
+        let r: Conditional<Vec<Exercise>> = self
+            .fetch_conditional(gloo_net::http::Request::get("/api/exercises"), etag)
+            .await?;
+        Ok(r.try_map(|data| {
+            data.into_iter()
+                .map(|exercise| domain::Exercise::try_from(exercise).map_err(Box::from))
+                .collect::<Result<Vec<domain::Exercise>, Box<dyn std::error::Error>>>()
+        })?)
+    }
+
+    pub async fn read_routines_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Routine>>, domain::ReadError> {
+        let r: Conditional<Vec<Routine>> = self
+            .fetch_conditional(gloo_net::http::Request::get("/api/routines"), etag)
+            .await?;
+        Ok(r.try_map(|data| {
+            data.into_iter()
+                .map(|routine| domain::Routine::try_from(routine).map_err(Box::from))
+                .collect::<Result<Vec<domain::Routine>, Box<dyn std::error::Error>>>()
+        })?)
+    }
+
+    pub async fn read_schedule_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<domain::Schedule>, domain::ReadError> {
+        let r: Conditional<Schedule> = self
+            .fetch_conditional(gloo_net::http::Request::get("/api/schedule"), etag)
+            .await?;
+        Ok(r.try_map(|data| domain::Schedule::try_from(data).map_err(Box::from))?)
+    }
+
+    pub async fn read_training_sessions_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::TrainingSession>>, domain::ReadError> {
+        let r: Conditional<Vec<TrainingSession>> = self
+            .fetch_conditional(gloo_net::http::Request::get("/api/workouts"), etag)
+            .await?;
+        Ok(r.map(|data| {
+            data.into_iter()
+                .map(domain::TrainingSession::from)
+                .collect()
+        }))
+    }
+}
+
+async fn deserialize_response<T>(response: gloo_net::http::Response) -> Result<T, FetchError>
+where
+    T: for<'de> serde::Deserialize<'de>,
+{
+    match response.text().await {
+        Ok(text) => {
+            let text = if text.is_empty() { "null" } else { &text };
+            serde_json::from_str::<T>(text).map_err(|err| {
+                anyhow::anyhow!(err)
+                    .context("failed to deserialize response")
+                    .into()
+            })
+        }
+        Err(err) => Err(anyhow::anyhow!(err)
+            .context("failed to read response")
+            .into()),
+    }
+}
+
+async fn response_error(response: gloo_net::http::Response) -> FetchError {
+    FetchError::Response {
+        status: response.status(),
+        status_text: response.status_text(),
+        body: response.text().await.ok(),
+    }
+}
+
+pub enum Conditional<T> {
+    Modified { data: T, etag: Option<String> },
+    NotModified,
+}
+
+impl<T> Conditional<T> {
+    fn map<U>(self, f: impl FnOnce(T) -> U) -> Conditional<U> {
+        match self {
+            Conditional::Modified { data, etag } => Conditional::Modified {
+                data: f(data),
+                etag,
+            },
+            Conditional::NotModified => Conditional::NotModified,
+        }
+    }
+
+    fn try_map<U, E>(self, f: impl FnOnce(T) -> Result<U, E>) -> Result<Conditional<U>, E> {
+        Ok(match self {
+            Conditional::Modified { data, etag } => Conditional::Modified {
+                data: f(data)?,
+                etag,
+            },
+            Conditional::NotModified => Conditional::NotModified,
+        })
     }
 }
 

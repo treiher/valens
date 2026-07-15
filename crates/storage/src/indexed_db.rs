@@ -19,7 +19,7 @@ pub struct IndexedDB;
 impl IndexedDB {
     async fn open(&self) -> Result<Database, OpenDbError> {
         Database::open("valens")
-            .with_version(2u8)
+            .with_version(3u8)
             .with_on_blocked(|event| {
                 debug!("upgrade of database blocked: {event:?}");
                 Ok(())
@@ -48,6 +48,9 @@ impl IndexedDB {
                 }
                 if event.old_version() < 2.0 {
                     db.create_object_store(Store::Schedule).build()?;
+                }
+                if event.old_version() < 3.0 {
+                    db.create_object_store(Store::ETags).build()?;
                 }
                 Ok(())
             })
@@ -209,7 +212,10 @@ impl IndexedDB {
     pub async fn clear_session_dependent_data(&self) -> Result<(), Box<dyn std::error::Error>> {
         async {
             let db = IndexedDB.open().await?;
+            // Clear the ETags first so a failure partway through leaves data without an ETag
+            // (triggering a full re-download) rather than an ETag without data (a stale 304).
             for os in [
+                Store::ETags,
                 Store::BodyWeight,
                 Store::BodyFat,
                 Store::Period,
@@ -242,6 +248,41 @@ impl IndexedDB {
             store
                 .put(User::from(user))
                 .with_key("session".to_string())
+                .serde()?
+                .await?;
+            transaction.commit().await?;
+            Ok(())
+        }
+        .await
+        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
+    }
+
+    pub async fn read_etag(&self, collection: &str) -> Result<Option<String>, String> {
+        async {
+            let db = self.open().await?;
+            let transaction = db
+                .transaction(Store::ETags.as_ref())
+                .with_mode(TransactionMode::Readonly)
+                .build()?;
+            let store = transaction.object_store(Store::ETags.as_ref())?;
+            let etag: Option<String> = store.get(collection).serde()?.await?;
+            Ok(etag)
+        }
+        .await
+        .map_err(|err: Box<dyn std::error::Error>| err.to_string())
+    }
+
+    pub async fn write_etag(&self, collection: &str, etag: &str) -> Result<(), String> {
+        async {
+            let db = self.open().await?;
+            let transaction = db
+                .transaction(Store::ETags.as_ref())
+                .with_mode(TransactionMode::Readwrite)
+                .build()?;
+            let store = transaction.object_store(Store::ETags.as_ref())?;
+            store
+                .put(etag.to_string())
+                .with_key(collection.to_string())
                 .serde()?
                 .await?;
             transaction.commit().await?;
@@ -725,6 +766,8 @@ pub enum Store {
     Schedule,
     #[strum(serialize = "training_sessions")]
     TrainingSessions,
+    #[strum(serialize = "etags")]
+    ETags,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]

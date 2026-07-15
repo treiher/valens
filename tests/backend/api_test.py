@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from http import HTTPStatus
 from pathlib import Path
 
@@ -5336,3 +5336,139 @@ def test_delete_routine_blocked_by_schedule(client: Client, routine_id: int) -> 
     resp = client.delete(f"/api/routines/{routine_id}")
 
     assert resp.status_code == HTTPStatus.NO_CONTENT
+
+
+@pytest.mark.parametrize(
+    ("route", "mutate"),
+    [
+        ("/api/body_weight", lambda c: c.delete("/api/body_weight/2002-02-20")),
+        ("/api/body_fat", lambda c: c.delete("/api/body_fat/2002-02-20")),
+        ("/api/period", lambda c: c.delete("/api/period/2002-02-20")),
+        ("/api/exercises", lambda c: c.delete("/api/exercises/5")),
+        ("/api/routines", lambda c: c.patch("/api/routines/3", json={"name": "Renamed"})),
+        ("/api/schedule", lambda c: c.put("/api/schedule", json={"rotations": [], "entries": []})),
+        ("/api/workouts", lambda c: c.patch("/api/workouts/1", json={"notes": "changed"})),
+    ],
+)
+def test_etag_conditional(client: Client, route: str, mutate: Callable[[Client], Response]) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.get(route)
+    assert resp.status_code == HTTPStatus.OK
+    etag = resp.headers["ETag"]
+    assert etag
+
+    resp = client.get(route, headers={"If-None-Match": etag})
+    assert resp.status_code == HTTPStatus.NOT_MODIFIED
+    assert resp.data == b""
+
+    assert mutate(client).status_code in {
+        HTTPStatus.OK,
+        HTTPStatus.CREATED,
+        HTTPStatus.NO_CONTENT,
+    }
+
+    resp = client.get(route, headers={"If-None-Match": etag})
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.headers["ETag"] != etag
+
+
+def test_etag_increments_on_repeated_mutation(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    etag_0 = client.get("/api/body_weight").headers["ETag"]
+
+    assert (
+        client.post("/api/body_weight", json={"date": "2002-02-24", "weight": 68.1}).status_code
+        == HTTPStatus.CREATED
+    )
+    etag_1 = client.get("/api/body_weight").headers["ETag"]
+
+    assert (
+        client.post("/api/body_weight", json={"date": "2002-02-25", "weight": 68.2}).status_code
+        == HTTPStatus.CREATED
+    )
+    etag_2 = client.get("/api/body_weight").headers["ETag"]
+
+    assert etag_0 != etag_1
+    assert etag_1 != etag_2
+    assert etag_0 != etag_2
+
+
+def test_etag_delete_exercise_bumps_related_collections(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    related = ["/api/exercises", "/api/workouts", "/api/routines"]
+    before = {route: client.get(route).headers["ETag"] for route in [*related, "/api/body_weight"]}
+
+    # Exercise 3 is referenced by workouts and routines, so its deletion cascades
+    assert client.delete("/api/exercises/3").status_code == HTTPStatus.NO_CONTENT
+
+    for route in related:
+        assert client.get(route).headers["ETag"] != before[route]
+
+    # An unrelated collection keeps its ETag
+    assert client.get("/api/body_weight").headers["ETag"] == before["/api/body_weight"]
+
+
+def test_etag_delete_routine_bumps_workouts(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    related = ["/api/routines", "/api/workouts"]
+    before = {route: client.get(route).headers["ETag"] for route in [*related, "/api/exercises"]}
+
+    # Routine 1 is referenced by workouts, so its deletion detaches them
+    assert client.delete("/api/routines/1").status_code == HTTPStatus.NO_CONTENT
+
+    for route in related:
+        assert client.get(route).headers["ETag"] != before[route]
+
+    # An unrelated collection keeps its ETag
+    assert client.get("/api/exercises").headers["ETag"] == before["/api/exercises"]
+
+
+def test_conditional_response_is_privately_cached(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.get("/api/body_weight")
+    assert resp.cache_control.private
+    assert resp.cache_control.no_cache
+    etag = resp.headers["ETag"]
+
+    resp = client.get("/api/body_weight", headers={"If-None-Match": etag})
+    assert resp.status_code == HTTPStatus.NOT_MODIFIED
+    assert resp.headers["ETag"] == etag
+    assert resp.cache_control.private
+    assert resp.cache_control.no_cache
+
+
+def test_etag_is_per_user(client: Client) -> None:
+    tests.utils.init_db_data()
+
+    assert create_session(client, "Bob").status_code == HTTPStatus.OK
+    bob_etag = client.get("/api/body_weight").headers["ETag"]
+
+    assert delete_session(client).status_code == HTTPStatus.NO_CONTENT
+    assert create_session(client, "Alice").status_code == HTTPStatus.OK
+    # Both users are at the same data version, but a browser HTTP cache shared between
+    # them must never get a 304 for the other user's cached response.
+    assert client.get("/api/body_weight").headers["ETag"] != bob_etag
+    assert (
+        client.get("/api/body_weight", headers={"If-None-Match": bob_etag}).status_code
+        == HTTPStatus.OK
+    )
+    assert client.delete("/api/body_weight/2002-02-20").status_code == HTTPStatus.NO_CONTENT
+
+    assert delete_session(client).status_code == HTTPStatus.NO_CONTENT
+    assert create_session(client, "Bob").status_code == HTTPStatus.OK
+    assert client.get("/api/body_weight").headers["ETag"] == bob_etag

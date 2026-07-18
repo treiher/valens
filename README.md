@@ -213,6 +213,7 @@ With compression enabled, the amount of data transferred can be significantly re
 
 - [Development](doc/DEVELOPMENT.md)
 - [Architecture](doc/ARCHITECTURE.md)
+- [Conventions](doc/CONVENTIONS.md)
 
 ## License
 

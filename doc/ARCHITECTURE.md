@@ -33,6 +33,7 @@ Storage adapters.
 
 - Handles data storage on the server and in the browser (IndexedDB, Web Storage)
 - Implements repositories defined in `domain` and `web-app`
+- Keeps separate DTOs per adapter (see [intentional duplication](CONVENTIONS.md#intentional-duplication))
 
 ### [`web-app`](../crates/web-app)
 
@@ -96,6 +97,8 @@ Failures are surfaced through three mechanisms, chosen by audience.
 - **Notifications**: failures of user-initiated actions. They appear below the navigation bar and are mirrored to the log. The severity (warning or error) follows whether the underlying domain error is recoverable.
 - **Component logging**: domain errors that surface in a component, such as a failed cache read, rather than a notification. They are logged only, at debug when the error is recoverable and at error otherwise.
 - **Direct logging**: everything else, such as platform and JavaScript interop failures, parsing fallbacks, and silent background work that has no recoverable domain error and is not surfaced to the user.
+
+The wording of error messages follows the [error message conventions](CONVENTIONS.md#error-messages).
 
 ## Backend ([`valens/`](../valens))
 

@@ -1,10 +1,11 @@
 use dioxus::prelude::*;
 
 use valens_domain as domain;
-use valens_domain::SessionService;
+use valens_domain::{AuthService, SessionService};
+use valens_storage as storage;
 
 use crate::{
-    DOMAIN_SERVICE, Route,
+    DOMAIN_SERVICE, LOGIN_LINK_TOKEN, Route,
     diagnostics::log_failure,
     ui::{
         element::{IconText, LoadingPage},
@@ -14,19 +15,102 @@ use crate::{
 
 #[component]
 pub fn Login() -> Element {
-    let session = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
-    match &*session.read() {
+    let token = use_hook(|| LOGIN_LINK_TOKEN.lock().unwrap().take());
+    let mut redemption_failed = use_signal(|| false);
+    let redemption = use_resource(move || {
+        let token = token.clone();
+        async move {
+            match token {
+                Some(token) => Some(DOMAIN_SERVICE().redeem_login_link(token).await),
+                None => None,
+            }
+        }
+    });
+    match &*redemption.read() {
         None => return rsx! { LoadingPage {} },
-        Some(Ok(_)) => {
+        Some(Some(Ok(_))) => {
             navigator().push(Route::Home {});
             return rsx! {};
         }
-        Some(Err(_)) => {}
+        Some(Some(Err(err))) => {
+            if !redemption_failed() {
+                log_failure("redeem login link", err);
+                redemption_failed.set(true);
+            }
+        }
+        Some(None) => {}
     }
 
+    // A failed login link redemption takes precedence over an existing session
+    let session = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
+    if !redemption_failed() {
+        match &*session.read() {
+            None => return rsx! { LoadingPage {} },
+            Some(Ok(_)) => {
+                navigator().push(Route::Home {});
+                return rsx! {};
+            }
+            Some(Err(_)) => {}
+        }
+    }
+
+    let auth_methods = use_resource(|| async { DOMAIN_SERVICE().get_auth_methods().await });
+    let (username_login, passkey_login) = match &*auth_methods.read() {
+        None => return rsx! { LoadingPage {} },
+        Some(Ok(methods)) => (
+            methods.contains(&domain::AuthMethod::Username),
+            methods.contains(&domain::AuthMethod::Passkey),
+        ),
+        // If the offered authentication methods cannot be determined, all controls are
+        // shown and the server remains the authority on every login attempt
+        Some(Err(_)) => (true, true),
+    };
+
+    rsx! {
+        LoginForm { username_login, passkey_login, redemption_failed: redemption_failed() }
+    }
+}
+
+#[component]
+fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool) -> Element {
     let mut username = use_signal(String::new);
-    let mut error = use_signal(|| Option::<String>::None);
+    let mut error = use_signal(|| {
+        redemption_failed.then(|| "The login link is invalid or has expired".to_string())
+    });
     let mut is_loading = use_signal(|| false);
+
+    let login_with_passkey = move || {
+        spawn(async move {
+            is_loading.set(true);
+            error.set(None);
+            let result = DOMAIN_SERVICE().login_with_passkey().await;
+            is_loading.set(false);
+            match result {
+                Ok(_) => {
+                    navigator().push(Route::Home {});
+                }
+                Err(domain::ReadError::NotFound) => {
+                    error.set(Some("Passkey is not registered".to_string()));
+                }
+                Err(err @ domain::ReadError::Unauthorized(_)) => {
+                    log_failure("sign in with passkey", &err);
+                    error.set(Some("Passkey could not be verified".to_string()));
+                }
+                Err(domain::ReadError::Storage(
+                    domain::StorageError::NoConnection | domain::StorageError::Timeout,
+                )) => {
+                    error.set(Some("No connection to server".to_string()));
+                }
+                // Cancelling the ceremony is a normal user action, not a failure
+                Err(domain::ReadError::Other(err))
+                    if storage::webauthn::Error::is_cancellation(err.as_ref()) => {}
+                Err(err) => {
+                    log_failure("sign in with passkey", &err);
+                    error.set(Some("Something went wrong".to_string()));
+                }
+            }
+        });
+    };
 
     let submit = move || {
         spawn(async move {
@@ -85,30 +169,51 @@ pub fn Login() -> Element {
                     }
                     div {
                         class: "box",
-                        form {
-                            onsubmit: move |e| {
-                                e.prevent_default();
-                                submit();
-                            },
-                            InputField {
-                                label: Some("Username".to_string()),
-                                value: username.read().clone(),
-                                error: error.read().clone(),
-                                has_changed: false,
-                                autofocus: true,
-                                "data-testid": "login-username",
-                                on_input: move |e: FormEvent| {
-                                    username.set(e.value());
-                                    error.set(None);
+                        if username_login {
+                            form {
+                                onsubmit: move |e| {
+                                    e.prevent_default();
+                                    submit();
                                 },
+                                InputField {
+                                    label: Some("Username".to_string()),
+                                    value: username.read().clone(),
+                                    error: error.read().clone(),
+                                    has_changed: false,
+                                    autofocus: true,
+                                    "data-testid": "login-username",
+                                    on_input: move |e: FormEvent| {
+                                        username.set(e.value());
+                                        error.set(None);
+                                    },
+                                }
+                                button {
+                                    class: "button is-link is-fullwidth mt-2",
+                                    class: if is_loading() { "is-loading" },
+                                    "data-testid": "login-button",
+                                    r#type: "submit",
+                                    disabled: is_loading(),
+                                    IconText { icon: "sign-in-alt", text: "Sign in" }
+                                }
                             }
+                        }
+                        if !username_login {
+                            if let Some(error) = error() {
+                                p {
+                                    class: "help is-danger has-text-left mb-2",
+                                    "data-testid": "login-error",
+                                    {error}
+                                }
+                            }
+                        }
+                        if passkey_login {
                             button {
-                                class: "button is-link is-fullwidth mt-2",
+                                class: "button is-fullwidth mt-2",
                                 class: if is_loading() { "is-loading" },
-                                "data-testid": "login-button",
-                                r#type: "submit",
+                                "data-testid": "login-passkey-button",
                                 disabled: is_loading(),
-                                IconText { icon: "sign-in-alt", text: "Sign in" }
+                                onclick: move |_| login_with_passkey(),
+                                IconText { icon: "key", text: "Sign in with passkey" }
                             }
                         }
                     }

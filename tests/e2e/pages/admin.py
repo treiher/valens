@@ -76,6 +76,45 @@ class AdminDialog(BaseDialog):
         row = self.page.get_by_role("row").filter(has=self.user_row(name))
         expect(row.get_by_role("cell", name=role, exact=True)).to_be_visible()
 
+    def create_login_link(self, name: str) -> str:
+        self._open_user_options(name)
+        self.page.get_by_test_id("options-create-login-link").click()
+        url_input = self.page.get_by_test_id("login-link-url")
+        expect(url_input).to_be_visible()
+        url = url_input.input_value()
+        assert url
+        return url
+
+    def expect_passkey_login_unavailable_info(self) -> None:
+        expect(self.page.get_by_test_id("passkey-login-unavailable")).to_be_visible()
+
+    def expect_no_passkey_login_unavailable_info(self) -> None:
+        expect(self.page.get_by_test_id("passkey-login-unavailable")).to_have_count(0)
+
+    def expect_no_login_link_option(self, name: str) -> None:
+        self._open_user_options(name)
+        expect(self.page.get_by_test_id("options-edit-user")).to_be_visible()
+        expect(self.page.get_by_test_id("options-create-login-link")).to_have_count(0)
+
+    def open_user_passkeys(self, name: str) -> None:
+        self._open_user_options(name)
+        self.page.get_by_test_id("options-manage-passkeys").click()
+        self.wait_until_idle()
+
+    def expect_user_passkeys(self, count: int) -> None:
+        if count == 0:
+            expect(self.page.get_by_test_id("no-passkeys")).to_be_visible()
+        else:
+            expect(self.page.get_by_test_id("delete-passkey")).to_have_count(count)
+
+    def delete_user_passkey(self, index: int) -> None:
+        self.page.get_by_test_id("delete-passkey").nth(index).click()
+        delete_dialog = self.page.get_by_test_id("dialog").nth(2)
+        delete_dialog.wait_for(state="visible")
+        delete_dialog.get_by_test_id("dialog-delete").click()
+        delete_dialog.wait_for(state="hidden")
+        self.wait_until_idle()
+
     @property
     def role_select(self) -> Locator:
         return self.dialog.root.get_by_test_id("user-role")

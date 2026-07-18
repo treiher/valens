@@ -111,15 +111,81 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
         }
     }
 
-    async fn delete_session(&self) -> Result<(), domain::DeleteError> {
+    async fn delete_session(&self) -> Result<domain::SignOut, domain::DeleteError> {
         self.rest.delete_session().await?;
+        let mut sign_out = domain::SignOut::Complete;
         if let Err(err) = IndexedDB.delete_session().await {
             error!("failed to update session in IDB: {err}");
+            sign_out = domain::SignOut::DataRetained;
         }
         if let Err(err) = IndexedDB.clear_session_dependent_data().await {
             error!("failed to update session-dependent data in IDB: {err}");
+            sign_out = domain::SignOut::DataRetained;
         }
-        Ok(())
+        Ok(sign_out)
+    }
+}
+
+impl<S: SendRequest> domain::AuthRepository for CachedREST<S> {
+    async fn read_auth_methods(&self) -> Result<Vec<domain::AuthMethod>, domain::ReadError> {
+        self.rest.read_auth_methods().await
+    }
+
+    async fn login_with_passkey(&self) -> Result<domain::User, domain::ReadError> {
+        let rest_result = self.rest.login_with_passkey().await;
+        if let Ok(ref user) = rest_result
+            && let Err(err) = IndexedDB.write_session(user).await
+        {
+            error!("failed to write session into IDB: {err}");
+        }
+
+        rest_result
+    }
+
+    async fn register_passkey(&self) -> Result<domain::Passkey, domain::CreateError> {
+        self.rest.register_passkey().await
+    }
+
+    async fn read_passkeys(
+        &self,
+        user_id: domain::UserID,
+    ) -> Result<Vec<domain::Passkey>, domain::ReadError> {
+        self.rest.read_passkeys(user_id).await
+    }
+
+    async fn rename_passkey(
+        &self,
+        user_id: domain::UserID,
+        id: domain::PasskeyID,
+        label: domain::Name,
+    ) -> Result<domain::Passkey, domain::UpdateError> {
+        self.rest.rename_passkey(user_id, id, label).await
+    }
+
+    async fn delete_passkey(
+        &self,
+        user_id: domain::UserID,
+        id: domain::PasskeyID,
+    ) -> Result<(), domain::DeleteError> {
+        self.rest.delete_passkey(user_id, id).await
+    }
+
+    async fn create_login_link(
+        &self,
+        user_id: domain::UserID,
+    ) -> Result<String, domain::CreateError> {
+        self.rest.create_login_link(user_id).await
+    }
+
+    async fn redeem_login_link(&self, token: String) -> Result<domain::User, domain::ReadError> {
+        let rest_result = self.rest.redeem_login_link(token).await;
+        if let Ok(ref user) = rest_result
+            && let Err(err) = IndexedDB.write_session(user).await
+        {
+            error!("failed to write session into IDB: {err}");
+        }
+
+        rest_result
     }
 }
 
@@ -647,7 +713,7 @@ mod tests {
                 .delete_session()
                 .await
                 .unwrap(),
-                ()
+                domain::SignOut::Complete
             );
 
             assert!(matches!(
@@ -676,7 +742,7 @@ mod tests {
                 .delete_session()
                 .await
                 .unwrap(),
-                ()
+                domain::SignOut::Complete
             );
         }
 

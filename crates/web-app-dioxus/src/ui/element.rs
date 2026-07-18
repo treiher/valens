@@ -186,11 +186,15 @@ pub fn NotFound(element: String) -> Element {
 }
 
 #[component]
-pub fn NoData() -> Element {
+pub fn NoData(
+    #[props(default = "No data".to_string())] label: String,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
     rsx! {
         div {
             class: "block is-size-7 has-text-centered has-text-grey-light mb-6",
-            "No data"
+            ..attributes,
+            "{label}"
         }
     }
 }
@@ -538,6 +542,7 @@ pub fn OptionsMenu(options: Vec<Element>, on_close: EventHandler<MouseEvent>) ->
                     button {
                         aria_label: "close",
                         class: "modal-close",
+                        "data-testid": "options-menu-close",
                         onclick: on_close,
                     }
                 }

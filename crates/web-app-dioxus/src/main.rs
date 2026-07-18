@@ -40,6 +40,10 @@ static WEB_APP_SERVICE: GlobalSignal<web_app::Service<storage::local_storage::Lo
     Signal::global(|| web_app::Service::new(storage::local_storage::LocalStorage));
 static NO_CONNECTION: GlobalSignal<bool> = Signal::global(|| false);
 static DATA_CHANGED: GlobalSignal<usize> = Signal::global(|| 0);
+// Captured from the URL fragment before the router strips it (see `init_login_link_token`).
+// A plain `Mutex` is used instead of a signal because it is written in `main` before the
+// Dioxus runtime, which backs global signals, exists.
+static LOGIN_LINK_TOKEN: Mutex<Option<String>> = Mutex::new(None);
 static METRONOME: GlobalSignal<MetronomeService> = Signal::global(MetronomeService::new);
 static ONE_REP_MAX_CALCULATOR: GlobalSignal<OneRepMaxCalculatorState> =
     Signal::global(|| OneRepMaxCalculatorState::new(5, 100.0));
@@ -49,7 +53,34 @@ static DROP_SET_CALCULATOR: GlobalSignal<DropSetCalculatorState> =
 fn main() {
     init_logging();
     init_service_worker();
+    init_login_link_token();
     dioxus::launch(App);
+}
+
+/// Capture the login link token from the URL fragment (`#recover=<token>`).
+///
+/// This runs before the router initializes, which strips the fragment. The token is passed
+/// in the fragment as fragments never reach the server or proxy logs.
+fn init_login_link_token() {
+    let token = web_sys::window()
+        .and_then(|window| window.location().hash().ok())
+        .and_then(|hash| hash.strip_prefix("#recover=").map(str::to_string))
+        .filter(|token| !token.is_empty());
+    if let Some(token) = token {
+        *LOGIN_LINK_TOKEN.lock().unwrap() = Some(token);
+        // `replaceState` removes the fragment without leaving a dangling `#` or keeping a
+        // history entry containing the consumed token
+        if let Some(window) = web_sys::window()
+            && let Ok(history) = window.history()
+            && let Ok(pathname) = window.location().pathname()
+        {
+            let _ = history.replace_state_with_url(
+                &web_sys::wasm_bindgen::JsValue::NULL,
+                "",
+                Some(&pathname),
+            );
+        }
+    }
 }
 
 fn init_logging() {

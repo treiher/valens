@@ -25,6 +25,7 @@ def test_main_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     config_file = tmp_path / "config.py"
     assert cli.main() == 0
     assert "SECRET_KEY" in config_file.read_text()
+    assert "PUBLIC_URL" in config_file.read_text()
 
 
 def test_main_upgrade(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -421,6 +422,49 @@ def test_main_user_delete_last_admin(
     mock_session.delete.assert_called_once_with(mock_user)
     mock_session.commit.assert_called_once()
     assert "Warning" in capsys.readouterr().err
+
+
+def test_main_user_login_link(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "login-link", "Alice"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    app.config["PUBLIC_URL"] = "https://valens.example.com"
+    mock_session = MagicMock()
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = models.User(
+        id=1, name="Alice", sex=models.Sex.FEMALE, role=models.Role.ADMIN
+    )
+    monkeypatch.setattr(db, "session", mock_session)
+    try:
+        assert cli.main() == 0
+    finally:
+        del app.config["PUBLIC_URL"]
+    mock_session.commit.assert_called_once()
+    assert capsys.readouterr().out.startswith("https://valens.example.com/login#recover=")
+
+
+def test_main_user_login_link_no_public_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "login-link", "Alice"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    app.config.pop("PUBLIC_URL", None)
+    mock_session = MagicMock()
+    monkeypatch.setattr(db, "session", mock_session)
+    assert cli.main() == 1
+    mock_session.execute.assert_not_called()
+
+
+def test_main_user_login_link_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "argv", ["valens", "user", "login-link", "Alice"])
+    monkeypatch.setattr(config, "check_config_file", lambda x: None)
+    app.config["PUBLIC_URL"] = "https://valens.example.com"
+    mock_session = MagicMock()
+    mock_session.execute.return_value.scalars.return_value.one_or_none.return_value = None
+    monkeypatch.setattr(db, "session", mock_session)
+    try:
+        assert cli.main() == 1
+    finally:
+        del app.config["PUBLIC_URL"]
+    mock_session.commit.assert_not_called()
 
 
 def test_main_user_delete_not_found(monkeypatch: pytest.MonkeyPatch) -> None:

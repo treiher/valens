@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,60 @@ def test_missing_key() -> None:
             del app.config["DATABASE"]
         with pytest.raises(RuntimeError, match=r"'DATABASE' is not set in app config"):
             config.check_app_config()
+
+
+def test_username_login_disabled_without_public_url() -> None:
+    with app.app_context():
+        app.config["DATABASE"] = "TEST"
+        app.config["SECRET_KEY"] = "TEST"
+        app.config["USERNAME_LOGIN_ENABLED"] = False
+        app.config.pop("PUBLIC_URL", None)
+        try:
+            with pytest.raises(
+                RuntimeError,
+                match=r"'PUBLIC_URL' must be set in app config if username login is disabled",
+            ):
+                config.check_app_config()
+        finally:
+            app.config["USERNAME_LOGIN_ENABLED"] = True
+
+
+def test_username_login_disabled_with_public_url() -> None:
+    with app.app_context():
+        app.config["DATABASE"] = "TEST"
+        app.config["SECRET_KEY"] = "TEST"
+        app.config["USERNAME_LOGIN_ENABLED"] = False
+        app.config["PUBLIC_URL"] = "https://valens.example.com"
+        try:
+            config.check_app_config()
+        finally:
+            app.config["USERNAME_LOGIN_ENABLED"] = True
+            del app.config["PUBLIC_URL"]
+
+
+def test_public_url_not_set_warning(caplog: pytest.LogCaptureFixture) -> None:
+    with app.app_context():
+        app.config["DATABASE"] = "TEST"
+        app.config["SECRET_KEY"] = "TEST"
+        app.config.pop("PUBLIC_URL", None)
+
+        with caplog.at_level(logging.WARNING):
+            config.check_app_config()
+
+    assert "'PUBLIC_URL' is not set in app config, passkey login is unavailable" in caplog.text
+
+
+@pytest.mark.parametrize("public_url", ["valens.example.com", "ftp://valens.example.com", ""])
+def test_invalid_public_url(public_url: str) -> None:
+    with app.app_context():
+        app.config["DATABASE"] = "TEST"
+        app.config["SECRET_KEY"] = "TEST"
+        app.config["PUBLIC_URL"] = public_url
+        try:
+            with pytest.raises(RuntimeError, match=r"'PUBLIC_URL' must be an HTTP or HTTPS URL"):
+                config.check_app_config()
+        finally:
+            del app.config["PUBLIC_URL"]
 
 
 def test_config_not_set() -> None:

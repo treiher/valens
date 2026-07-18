@@ -3571,6 +3571,7 @@ dependencies = [
  "gloo-storage",
  "gloo-timers 0.4.0",
  "indexed_db_futures",
+ "js-sys",
  "log",
  "pretty_assertions",
  "rstest",
@@ -3581,6 +3582,8 @@ dependencies = [
  "uuid",
  "valens-domain",
  "valens-web-app",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
 ]

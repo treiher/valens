@@ -28,6 +28,7 @@ from valens.models import (
 def run(database: str, host: str = "127.0.0.1", port: int = 5000) -> None:
     app.config["DATABASE"] = database
     app.config["SECRET_KEY"] = b"TEST_KEY"
+    app.config["PUBLIC_URL"] = f"http://localhost:{port}"
     with app.app_context():
         for user in users():
             db.session.add(user)

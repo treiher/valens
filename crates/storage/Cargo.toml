@@ -16,13 +16,25 @@ gloo-net = { version = "0.7.0", default-features = false, features = ["http", "j
 gloo-storage = "0.4.0"
 gloo-timers = { workspace = true }
 indexed_db_futures = { version = "0.6.4", features = ["serde"] }
+js-sys = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 strum = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
-web-sys = { workspace = true, features = ["AbortController", "AbortSignal"] }
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+web-sys = { workspace = true, features = [
+    "AbortController",
+    "AbortSignal",
+    "Credential",
+    "CredentialCreationOptions",
+    "CredentialRequestOptions",
+    "CredentialsContainer",
+    "Navigator",
+    "Window",
+] }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

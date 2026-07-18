@@ -12,6 +12,7 @@ from .login import LoginPage as LoginPage
 from .menstrual_cycle import MenstrualCyclePage as MenstrualCyclePage
 from .muscles import MusclesPage as MusclesPage
 from .profile import ProfileDialog as ProfileDialog
+from .registration import PasskeyRegistrationView as PasskeyRegistrationView
 from .routine import (
     RoutinePage as RoutinePage,
     RoutineRest as RoutineRest,

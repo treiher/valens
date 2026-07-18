@@ -341,3 +341,38 @@ def test_user_delete_not_found(tmp_path: Path) -> None:
     )
     assert p.returncode != 0
     assert 'User "NonExistent" not found' in p.stdout.decode("utf-8")
+
+
+def test_user_login_link(tmp_path: Path) -> None:
+    config = create_config_file(tmp_path, tmp_path / "test.db")
+    env = {"VALENS_CONFIG": str(config), **os.environ}
+    run(
+        f"{VALENS} user create Alice female".split(),
+        check=True,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    p = run(
+        f"{VALENS} user login-link Alice".split(),
+        check=False,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    assert p.returncode == 0
+    assert re.match(r"http://localhost:5000/login#recover=.+\n", p.stdout.decode("utf-8"))
+
+
+def test_user_login_link_not_found(tmp_path: Path) -> None:
+    config = create_config_file(tmp_path, tmp_path / "test.db")
+    env = {"VALENS_CONFIG": str(config), **os.environ}
+    p = run(
+        f"{VALENS} user login-link NonExistent".split(),
+        check=False,
+        stdout=PIPE,
+        stderr=STDOUT,
+        env=env,
+    )
+    assert p.returncode != 0
+    assert 'User "NonExistent" not found' in p.stdout.decode("utf-8")

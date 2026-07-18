@@ -383,7 +383,7 @@ impl domain::SessionRepository for IndexedDB {
         panic!("unsupported")
     }
 
-    async fn delete_session(&self) -> Result<(), domain::DeleteError> {
+    async fn delete_session(&self) -> Result<domain::SignOut, domain::DeleteError> {
         async {
             let db = IndexedDB.open().await?;
             let transaction = db
@@ -393,7 +393,7 @@ impl domain::SessionRepository for IndexedDB {
             let store = transaction.object_store(Store::App.as_ref())?;
             store.delete("session").serde()?.await?;
             transaction.commit().await?;
-            Ok(())
+            Ok(domain::SignOut::Complete)
         }
         .await
         .map_err(domain::DeleteError::Other)
@@ -1819,7 +1819,10 @@ mod tests {
 
             IndexedDB.write_session(&USER).await.unwrap();
 
-            assert_eq!(IndexedDB.delete_session().await.unwrap(), ());
+            assert_eq!(
+                IndexedDB.delete_session().await.unwrap(),
+                domain::SignOut::Complete
+            );
 
             assert!(matches!(
                 IndexedDB.initialize_session().await,
@@ -1831,7 +1834,10 @@ mod tests {
         async fn test_delete_session_non_existing() {
             reset().await;
 
-            assert_eq!(IndexedDB.delete_session().await.unwrap(), ());
+            assert_eq!(
+                IndexedDB.delete_session().await.unwrap(),
+                domain::SignOut::Complete
+            );
         }
 
         #[wasm_bindgen_test]

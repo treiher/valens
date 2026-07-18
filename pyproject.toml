@@ -26,6 +26,7 @@ dependencies = [
     "alembic >=1.6, <2",
     "flask >=3, <4",
     "sqlalchemy >=2, <3",
+    "webauthn >=2.2, <3",
 ]
 
 [dependency-groups]

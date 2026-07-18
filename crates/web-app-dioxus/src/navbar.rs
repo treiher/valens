@@ -6,20 +6,19 @@ use futures_util::StreamExt;
 use gloo_timers::future::IntervalStream;
 use log::warn;
 
-use valens_domain::{self as domain, SessionService};
+use valens_domain as domain;
 
 use crate::{
-    DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR, Route,
+    DROP_SET_CALCULATOR, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR, Route,
     dialog::{
         about::AboutDialog, admin::AdminDialog, profile::ProfileDialog, settings::SettingsDialog,
     },
-    notification::notify,
     ongoing_training_session::OngoingTrainingSession,
     page::common::{
         DropSetCalculator, Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch,
         StopwatchService, TimerService,
     },
-    session::Session,
+    session::{Session, sign_out},
     settings::Settings,
     synchronization::Synchronization,
     ui::element::{ActivityBar, Dialog, ElementWithDescription, Icon},
@@ -269,15 +268,9 @@ pub fn Navbar() -> Element {
                             class: "navbar-item",
                             "data-testid": "navbar-logout",
                             onclick: move |_| async move {
-                                let result = DOMAIN_SERVICE().delete_session().await;
-                                match result {
-                                    Ok(()) => {
-                                        ongoing.clear().await;
-                                        navigator().push(Route::Login {});
-                                    }
-                                    Err(err) => {
-                                        notify("Failed to sign out", &err);
-                                        }
+                                if sign_out().await {
+                                    ongoing.clear().await;
+                                    navigator().push(Route::Login {});
                                 }
                                 menu_visible.set(false);
                             },

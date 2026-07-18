@@ -3,11 +3,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::NaiveDate;
 
 use crate::{
-    BodyFat, BodyFatRepository, BodyFatService, BodyWeight, BodyWeightRepository, CreateError,
-    CurrentCycle, Cycle, DeleteError, Exercise, ExerciseID, ExerciseMuscle, ExerciseRepository,
-    ExerciseService, Name, Period, PeriodRepository, PeriodService, ReadError, Role, Routine,
-    RoutineID, RoutinePart, RoutineRepository, RoutineService, Schedule, ScheduleRepository,
-    ScheduleService, SessionRepository, SessionService, Sex, SyncError, TrainingSession,
+    AuthMethod, AuthRepository, AuthService, BodyFat, BodyFatRepository, BodyFatService,
+    BodyWeight, BodyWeightRepository, CreateError, CurrentCycle, Cycle, DeleteError, Exercise,
+    ExerciseID, ExerciseMuscle, ExerciseRepository, ExerciseService, Name, Passkey, PasskeyID,
+    Period, PeriodRepository, PeriodService, ReadError, Role, Routine, RoutineID, RoutinePart,
+    RoutineRepository, RoutineService, Schedule, ScheduleRepository, ScheduleService,
+    SessionRepository, SessionService, Sex, SignOut, SyncError, TrainingSession,
     TrainingSessionElement, TrainingSessionID, TrainingSessionRepository, TrainingSessionService,
     UpdateError, User, UserID, UserRepository, UserService, VersionRepository, VersionService,
     body_weight::BodyWeightService, current_cycle, cycles,
@@ -91,8 +92,47 @@ impl<R: SessionRepository> SessionService for Service<R> {
         self.repository.sync_session().await
     }
 
-    async fn delete_session(&self) -> Result<(), DeleteError> {
+    async fn delete_session(&self) -> Result<SignOut, DeleteError> {
         self.repository.delete_session().await
+    }
+}
+
+impl<R: AuthRepository> AuthService for Service<R> {
+    async fn get_auth_methods(&self) -> Result<Vec<AuthMethod>, ReadError> {
+        self.repository.read_auth_methods().await
+    }
+
+    async fn login_with_passkey(&self) -> Result<User, ReadError> {
+        self.repository.login_with_passkey().await
+    }
+
+    async fn register_passkey(&self) -> Result<Passkey, CreateError> {
+        self.repository.register_passkey().await
+    }
+
+    async fn get_passkeys(&self, user_id: UserID) -> Result<Vec<Passkey>, ReadError> {
+        self.repository.read_passkeys(user_id).await
+    }
+
+    async fn rename_passkey(
+        &self,
+        user_id: UserID,
+        id: PasskeyID,
+        label: Name,
+    ) -> Result<Passkey, UpdateError> {
+        self.repository.rename_passkey(user_id, id, label).await
+    }
+
+    async fn delete_passkey(&self, user_id: UserID, id: PasskeyID) -> Result<(), DeleteError> {
+        self.repository.delete_passkey(user_id, id).await
+    }
+
+    async fn create_login_link(&self, user_id: UserID) -> Result<String, CreateError> {
+        self.repository.create_login_link(user_id).await
+    }
+
+    async fn redeem_login_link(&self, token: String) -> Result<User, ReadError> {
+        self.repository.redeem_login_link(token).await
     }
 }
 

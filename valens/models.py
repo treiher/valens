@@ -7,11 +7,13 @@ from sqlalchemy import (
     CheckConstraint,
     Constraint,
     Date,
+    DateTime,
     Enum,
     Float,
     ForeignKey,
     ForeignKeyConstraint,
     Integer,
+    LargeBinary,
     MetaData,
     String,
     UniqueConstraint,
@@ -94,6 +96,31 @@ class User(Base):
     schedule_slots: Mapped[list[ScheduleSlot]] = relationship(
         "ScheduleSlot", backref="user", cascade="all, delete-orphan"
     )
+
+
+class Passkey(Base):
+    __tablename__ = "passkey"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
+    credential_id: Mapped[bytes] = mapped_column(LargeBinary, unique=True, nullable=False)
+    public_key: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    sign_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    transports: Mapped[str] = mapped_column(String, nullable=False)
+    aaguid: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=False)
+    created: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    last_used: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
+
+
+class LoginLink(Base):
+    __tablename__ = "login_link"
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), primary_key=True
+    )
+    token_hash: Mapped[str] = mapped_column(String, nullable=False)
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime, nullable=False)
 
 
 class DataVersion(Base):

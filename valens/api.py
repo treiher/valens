@@ -2,25 +2,53 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable
-from datetime import date
+from datetime import date, datetime
 from functools import cache, singledispatch, wraps
 from http import HTTPStatus
 from typing import Any
+from urllib.parse import urlsplit
 
-from flask import Blueprint, jsonify, make_response, request, session
+from flask import Blueprint, current_app, jsonify, make_response, request, session
 from flask.typing import ResponseReturnValue
 from sqlalchemy import Table, delete, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import selectinload
+from webauthn import (
+    generate_authentication_options,
+    generate_registration_options,
+    verify_authentication_response,
+    verify_registration_response,
+)
+from webauthn.helpers import (
+    base64url_to_bytes,
+    options_to_json_dict,
+    parse_authentication_credential_json,
+    parse_registration_credential_json,
+)
+from webauthn.helpers.exceptions import (
+    InvalidAuthenticationResponse,
+    InvalidJSONStructure,
+    InvalidRegistrationResponse,
+)
+from webauthn.helpers.structs import (
+    AttestationConveyancePreference,
+    AuthenticatorSelectionCriteria,
+    PublicKeyCredentialDescriptor,
+    ResidentKeyRequirement,
+    UserVerificationRequirement,
+)
 
-from valens import database as db, version
+from valens import database as db, login_link, version
+from valens.aaguid import AAGUID_NAMES
 from valens.models import (
     BodyFat,
     BodyWeight,
     DataVersion,
     Exercise,
     ExerciseMuscle,
+    LoginLink,
+    Passkey,
     Period,
     Role,
     Routine,
@@ -40,6 +68,9 @@ from valens.models import (
 )
 
 bp = Blueprint("api", __name__, url_prefix="/api")
+
+REGISTRATION_CHALLENGE_KEY = "webauthn_registration_challenge"
+AUTHENTICATION_CHALLENGE_KEY = "webauthn_authentication_challenge"
 
 # Largest integer storable in an SQLite `INTEGER` column
 MAX_ID = 2**63 - 1
@@ -111,6 +142,14 @@ def _(model: Workout) -> dict[str, object]:
             for n in sorted(model.exercise_notes, key=lambda n: n.exercise_id)
         ],
     }
+
+
+@to_dict.register
+def _(model: Passkey) -> dict[str, object]:
+    return model_to_dict(
+        model,
+        exclude=["user_id", "credential_id", "public_key", "sign_count", "transports", "aaguid"],
+    )
 
 
 @to_dict.register
@@ -333,15 +372,23 @@ def to_schedule_slot(  # type: ignore[explicit-any]
 
 
 def to_name(json: object) -> str:
+    return _to_bounded_string(json, "name")
+
+
+def to_label(json: object) -> str:
+    return _to_bounded_string(json, "label")
+
+
+def _to_bounded_string(json: object, what: str) -> str:
     if not isinstance(json, str):
-        raise DeserializationError("name must be a string")
-    name = json.strip()
-    if not name:
-        raise DeserializationError("name must not be empty")
+        raise DeserializationError(f"{what} must be a string")
+    value = json.strip()
+    if not value:
+        raise DeserializationError(f"{what} must not be empty")
     # The frontend limits the length in UTF-8 bytes (`str::len` in `Name::new`)
-    if len(name.encode()) > 64:
-        raise DeserializationError("name must be 64 characters or fewer")
-    return name
+    if len(value.encode()) > 64:
+        raise DeserializationError(f"{what} must be 64 characters or fewer")
+    return value
 
 
 def to_notes(json: object) -> str | None:
@@ -483,11 +530,36 @@ def admin_required(function: Callable) -> Callable:  # type: ignore[type-arg]
     return decorated_function
 
 
+def session_user_required(function: Callable) -> Callable:  # type: ignore[type-arg]
+    @wraps(function)
+    def decorated_function(*args: object, **kwargs: object) -> ResponseReturnValue:
+        if _session_user() is None:
+            # The session references a user that no longer exists, so it is no longer valid
+            session.clear()
+            return "", HTTPStatus.UNAUTHORIZED
+        return function(*args, **kwargs)
+
+    return decorated_function
+
+
 def self_or_admin(function: Callable) -> Callable:  # type: ignore[type-arg]
     @wraps(function)
     def decorated_function(*args: object, **kwargs: object) -> ResponseReturnValue:
         if kwargs["user_id"] != session["user_id"] and not _session_user_is_admin():
             return jsonify({"details": "user is not an administrator"}), HTTPStatus.FORBIDDEN
+        return function(*args, **kwargs)
+
+    return decorated_function
+
+
+def public_url_required(function: Callable) -> Callable:  # type: ignore[type-arg]
+    @wraps(function)
+    def decorated_function(*args: object, **kwargs: object) -> ResponseReturnValue:
+        if "PUBLIC_URL" not in current_app.config:
+            return (
+                jsonify({"details": "'PUBLIC_URL' is not set in app config"}),
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
         return function(*args, **kwargs)
 
     return decorated_function
@@ -562,6 +634,25 @@ def _is_last_admin(user: User) -> bool:
     return other_admin is None
 
 
+def _public_url() -> str:
+    url = current_app.config.get("PUBLIC_URL")
+    assert isinstance(url, str)
+    return url
+
+
+def _relying_party(public_url: str) -> tuple[str, str]:
+    """Return the relying party ID and the expected origin derived from `public_url`."""
+    parts = urlsplit(public_url)
+    assert parts.hostname is not None
+    return (parts.hostname, f"{parts.scheme}://{parts.netloc}")
+
+
+def _passkey_label(aaguid: str) -> str:
+    # Some authenticators report an all-zero AAGUID with attestation `none`, so a mapped
+    # name may not be available
+    return AAGUID_NAMES.get(aaguid, "Passkey")
+
+
 @bp.route("/version")
 def read_version() -> ResponseReturnValue:
     return jsonify(version.get())
@@ -581,6 +672,9 @@ def read_session() -> ResponseReturnValue:
 @bp.route("/session", methods=["POST"])
 @json_expected
 def create_session() -> ResponseReturnValue:
+    if not current_app.config["USERNAME_LOGIN_ENABLED"]:
+        return jsonify({"details": "username login is disabled"}), HTTPStatus.FORBIDDEN
+
     try:
         assert isinstance(request.json, dict)
         name = to_name(request.json["name"])
@@ -592,6 +686,8 @@ def create_session() -> ResponseReturnValue:
     except NoResultFound:
         return "", HTTPStatus.NOT_FOUND
 
+    # Reset the session before authentication to prevent session fixation
+    session.clear()
     session["user_id"] = user.id
     session.permanent = True
 
@@ -602,6 +698,270 @@ def create_session() -> ResponseReturnValue:
 def delete_session() -> ResponseReturnValue:
     session.clear()
     return "", HTTPStatus.NO_CONTENT
+
+
+@bp.route("/auth")
+def read_auth() -> ResponseReturnValue:
+    # Passkeys cannot be offered without `PUBLIC_URL`, from which the relying party ID and
+    # the expected origin are derived
+    methods = ["passkey"] if "PUBLIC_URL" in current_app.config else []
+    if current_app.config["USERNAME_LOGIN_ENABLED"]:
+        methods.append("username")
+    return jsonify({"methods": methods})
+
+
+@bp.route("/auth/passkeys/registration/options", methods=["POST"])
+@session_user_required
+@public_url_required
+def create_passkey_registration_options() -> ResponseReturnValue:
+    user = _session_user()
+    assert user is not None
+
+    rp_id, _origin = _relying_party(_public_url())
+    passkeys = db.session.execute(select(Passkey).where(Passkey.user_id == user.id)).scalars().all()
+    options = generate_registration_options(
+        rp_id=rp_id,
+        rp_name="Valens",
+        user_id=str(user.id).encode(),
+        user_name=user.name,
+        attestation=AttestationConveyancePreference.NONE,
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        ),
+        exclude_credentials=[PublicKeyCredentialDescriptor(id=p.credential_id) for p in passkeys],
+    )
+    session[REGISTRATION_CHALLENGE_KEY] = options.challenge
+
+    return jsonify(options_to_json_dict(options))
+
+
+@bp.route("/auth/passkeys/registration", methods=["POST"])
+@session_user_required
+@json_expected
+@public_url_required
+def create_passkey() -> ResponseReturnValue:
+    user = _session_user()
+    assert user is not None
+
+    challenge = session.pop(REGISTRATION_CHALLENGE_KEY, None)
+
+    if challenge is None:
+        return jsonify({"details": "no passkey registration in progress"}), HTTPStatus.BAD_REQUEST
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    rp_id, origin = _relying_party(_public_url())
+
+    try:
+        # Explicit parsing gives access to the sanitized transports, which
+        # `verify_registration_response` does not return
+        credential = parse_registration_credential_json(data)
+        verified = verify_registration_response(
+            credential=credential,
+            expected_challenge=challenge,
+            expected_rp_id=rp_id,
+            expected_origin=origin,
+            require_user_verification=True,
+        )
+    except (InvalidJSONStructure, InvalidRegistrationResponse) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    transports = credential.response.transports or []
+
+    passkey = Passkey(
+        user_id=user.id,
+        credential_id=verified.credential_id,
+        public_key=verified.credential_public_key,
+        sign_count=verified.sign_count,
+        transports=",".join(t.value for t in transports),
+        aaguid=verified.aaguid,
+        label=_passkey_label(verified.aaguid),
+        created=date.today(),
+    )
+    db.session.add(passkey)
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        return jsonify({"details": "passkey is already registered"}), HTTPStatus.CONFLICT
+
+    return (
+        jsonify(to_dict(passkey)),
+        HTTPStatus.CREATED,
+        {"Location": f"/users/{passkey.user_id}/passkeys/{passkey.id}"},
+    )
+
+
+@bp.route("/auth/passkeys/authentication/options", methods=["POST"])
+@public_url_required
+def create_passkey_authentication_options() -> ResponseReturnValue:
+    rp_id, _origin = _relying_party(_public_url())
+    # Empty `allow_credentials` enables the discoverable credential flow, in which the
+    # authenticator determines the credential without the user entering a username
+    options = generate_authentication_options(
+        rp_id=rp_id,
+        allow_credentials=[],
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+    session[AUTHENTICATION_CHALLENGE_KEY] = options.challenge
+
+    return jsonify(options_to_json_dict(options))
+
+
+@bp.route("/auth/passkeys/authentication", methods=["POST"])
+@json_expected
+@public_url_required
+def create_passkey_authentication() -> ResponseReturnValue:
+    challenge = session.pop(AUTHENTICATION_CHALLENGE_KEY, None)
+
+    if challenge is None:
+        return (
+            jsonify({"details": "no passkey authentication in progress"}),
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        credential_id = base64url_to_bytes(to_string(data["rawId"], "rawId"))
+    except (DeserializationError, KeyError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    passkey = (
+        db.session.execute(select(Passkey).where(Passkey.credential_id == credential_id))
+        .scalars()
+        .one_or_none()
+    )
+
+    if passkey is None:
+        return "", HTTPStatus.NOT_FOUND
+
+    rp_id, origin = _relying_party(_public_url())
+
+    try:
+        # Explicit parsing gives access to the signature, which is logged below to allow
+        # diagnosing authenticators that produce unverifiable assertions
+        credential = parse_authentication_credential_json(data)
+    except (InvalidJSONStructure, InvalidAuthenticationResponse) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.UNAUTHORIZED
+
+    try:
+        # The stored sign count is not passed to the verification to prevent a rejection on
+        # a sign count regression (synced passkeys always report a sign count of zero)
+        verified = verify_authentication_response(
+            credential=credential,
+            expected_challenge=challenge,
+            expected_rp_id=rp_id,
+            expected_origin=origin,
+            credential_public_key=passkey.public_key,
+            credential_current_sign_count=0,
+            require_user_verification=True,
+        )
+    except InvalidAuthenticationResponse as e:
+        current_app.logger.warning(
+            "failed verification of passkey %d of user %d: %s"
+            " (signature of %d bytes, user agent %s)",
+            passkey.id,
+            passkey.user_id,
+            e,
+            len(credential.response.signature),
+            request.user_agent.string,
+        )
+        return jsonify({"details": str(e)}), HTTPStatus.UNAUTHORIZED
+
+    if passkey.sign_count > 0 and verified.new_sign_count <= passkey.sign_count:
+        current_app.logger.warning(
+            "sign count regression for passkey %d of user %d (%d -> %d)",
+            passkey.id,
+            passkey.user_id,
+            passkey.sign_count,
+            verified.new_sign_count,
+        )
+
+    passkey.sign_count = verified.new_sign_count
+    passkey.last_used = date.today()
+
+    user = db.session.execute(select(User).where(User.id == passkey.user_id)).scalars().one()
+
+    # Reset the session before authentication to prevent session fixation
+    session.clear()
+    session["user_id"] = user.id
+    session.permanent = True
+
+    db.session.commit()
+
+    return jsonify(to_dict(user))
+
+
+@bp.route("/auth/login-link", methods=["POST"])
+@session_required
+@admin_required
+@json_expected
+@public_url_required
+def create_login_link() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        user_id = to_id(data["user_id"], "user_id")
+    except (DeserializationError, KeyError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    if db.session.execute(select(User).where(User.id == user_id)).scalars().one_or_none() is None:
+        return "", HTTPStatus.NOT_FOUND
+
+    token = login_link.create(user_id)
+    db.session.commit()
+
+    return jsonify({"url": login_link.url(_public_url(), token)}), HTTPStatus.CREATED
+
+
+@bp.route("/auth/session", methods=["POST"])
+@json_expected
+def create_session_from_login_link() -> ResponseReturnValue:
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        token = to_string(data["token"], "token")
+    except (DeserializationError, KeyError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    link = (
+        db.session.execute(
+            select(LoginLink).where(LoginLink.token_hash == login_link.token_hash(token))
+        )
+        .scalars()
+        .one_or_none()
+    )
+
+    if link is None:
+        return "", HTTPStatus.NOT_FOUND
+
+    if link.expires_at < datetime.now():
+        db.session.delete(link)
+        db.session.commit()
+        return "", HTTPStatus.NOT_FOUND
+
+    user = db.session.execute(select(User).where(User.id == link.user_id)).scalars().one()
+
+    db.session.delete(link)
+
+    # Reset the session before authentication to prevent session fixation
+    session.clear()
+    session["user_id"] = user.id
+    session.permanent = True
+
+    db.session.commit()
+
+    return jsonify(to_dict(user))
 
 
 @bp.route("/users")
@@ -771,6 +1131,82 @@ def delete_user(user_id: int) -> ResponseReturnValue:
         )
 
     db.session.delete(user)
+    db.session.commit()
+
+    return "", HTTPStatus.NO_CONTENT
+
+
+@bp.route("/users/<int:user_id>/passkeys")
+@session_required
+@self_or_admin
+def read_passkeys(user_id: int) -> ResponseReturnValue:
+    if db.session.execute(select(User).where(User.id == user_id)).scalars().one_or_none() is None:
+        return "", HTTPStatus.NOT_FOUND
+
+    passkeys = db.session.execute(select(Passkey).where(Passkey.user_id == user_id)).scalars().all()
+
+    return jsonify([to_dict(p) for p in passkeys])
+
+
+@bp.route("/users/<int:user_id>/passkeys/<int:passkey_id>", methods=["PATCH"])
+@session_required
+@self_or_admin
+@json_expected
+def update_passkey(user_id: int, passkey_id: int) -> ResponseReturnValue:
+    try:
+        passkey = (
+            db.session.execute(
+                select(Passkey).where(Passkey.id == passkey_id).where(Passkey.user_id == user_id)
+            )
+            .scalars()
+            .one()
+        )
+    except NoResultFound:
+        return "", HTTPStatus.NOT_FOUND
+
+    data = request.json
+
+    assert isinstance(data, dict)
+
+    try:
+        passkey.label = to_label(data["label"])
+    except (DeserializationError, KeyError) as e:
+        return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
+
+    db.session.commit()
+
+    return jsonify(to_dict(passkey)), HTTPStatus.OK
+
+
+@bp.route("/users/<int:user_id>/passkeys/<int:passkey_id>", methods=["DELETE"])
+@session_required
+@self_or_admin
+def delete_passkey(user_id: int, passkey_id: int) -> ResponseReturnValue:
+    try:
+        passkey = (
+            db.session.execute(
+                select(Passkey).where(Passkey.id == passkey_id).where(Passkey.user_id == user_id)
+            )
+            .scalars()
+            .one()
+        )
+    except NoResultFound:
+        return "", HTTPStatus.NOT_FOUND
+
+    # Without username login, a passkey is the only way to log in again, so deleting the
+    # last passkey of the own account is rejected. Admins keep the ability to remove all
+    # passkeys of other users, whose access can be restored with a one-time login link.
+    if (
+        not current_app.config["USERNAME_LOGIN_ENABLED"]
+        and user_id == session["user_id"]
+        and len(
+            db.session.execute(select(Passkey.id).where(Passkey.user_id == user_id)).scalars().all()
+        )
+        == 1
+    ):
+        return jsonify({"details": "last passkey cannot be deleted"}), HTTPStatus.CONFLICT
+
+    db.session.delete(passkey)
     db.session.commit()
 
     return "", HTTPStatus.NO_CONTENT

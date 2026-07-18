@@ -58,7 +58,7 @@ To get a first impression of Valens, the app can be run in demo mode.
 valens demo
 ```
 
-The app can be accessed on `http://127.0.0.1:5000/`. A temporary database with random example data is used. All changes are non-persistent. Adding `--public` to the command line makes the app available to other devices on your network.
+The app can be accessed on `http://localhost:5000/`. A temporary database with random example data is used. All changes are non-persistent. Adding `--public` to the command line makes the app available to other devices on your network.
 
 #### Local Network
 
@@ -69,6 +69,11 @@ valens config
 ```
 
 The environment variable `VALENS_CONFIG` must be set to the *absolute* path of the created config file.
+
+The config file supports the following additional settings:
+
+- `PUBLIC_URL`: The URL under which the app is reachable by its users (e.g. `https://valens.example.com`). It is required for passkeys and one-time login links. Passkeys additionally require HTTPS, unless the app is accessed via `localhost`.
+- `USERNAME_LOGIN_ENABLED`: Whether signing in by entering a username without any credential is possible (default: `True`). If set to `False`, users sign in with a passkey and `PUBLIC_URL` must be set. The initial sign-in and the recovery of an account without a passkey is done via a one-time login link created by an admin in the app or with `valens user login-link <name>` on the command line.
 
 A user must be created before signing in for the first time. Only users with the admin role are able to manage users in the app.
 
@@ -82,7 +87,7 @@ The development server can be used to provide the app for your local computer or
 VALENS_CONFIG=$PWD/config.py valens run
 ```
 
-By default, the app is only accessible on your local computer at `http://127.0.0.1:5000/`. If you trust the users in your network, you can make the server publicly available adding `--public` to the command line:
+By default, the app is only accessible on your local computer at `http://localhost:5000/`. If you trust the users in your network, you can make the server publicly available adding `--public` to the command line:
 
 ```
 VALENS_CONFIG=$PWD/config.py valens run --public

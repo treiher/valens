@@ -43,11 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recording of notifications in the log
 - User roles (user and admin)
 - Profile dialog for editing the own user data, accessible from the navigation menu
+- Profile dialog: Management of the own passkeys (registration, renaming, deletion)
+- Login page: Sign-in with a passkey
+- One-time login links for signing in without a passkey, usable once within 24 hours
 - CLI commands to list, create, update and delete users
+- CLI command to create a one-time login link for a user
+- Configuration options for setting the public URL and disabling the sign-in with username
 - Administration dialog:
     - Body height of users
     - Role of users
     - Warning when demoting or deleting the last admin
+    - Creation of one-time login links for users
+    - Deletion of passkeys of users
+    - Notice about unavailable passkey login and login links when no public URL is configured
 - Display of chart values at the hovered or touched date
 - Schedule page for planning routines on days of the week, including rotations of routines across training days
 
@@ -89,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Outdated information related to the current date being shown when the app remains open past midnight
 - Acceptance of invalid values by the server that could make the affected pages permanently unusable
 - Error being reported for a change that was successfully saved on the server when storing the change on the device failed
+- Sign-out being aborted instead of completed when the data on the device could not be removed
 - Incorrect background color in calendars
 - Training sessions page: Incorrect chart legend label
 - Exercise page: Changed muscles not being shown until the next synchronization

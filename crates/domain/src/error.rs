@@ -10,7 +10,9 @@ impl From<ReadError> for SyncError {
     fn from(value: ReadError) -> Self {
         match value {
             ReadError::NotFound => SyncError::Other("not found".into()),
-            ReadError::Forbidden(reason) => SyncError::Other(reason.into()),
+            ReadError::Unauthorized(reason) | ReadError::Forbidden(reason) => {
+                SyncError::Other(reason.into())
+            }
             ReadError::Storage(storage) => SyncError::Storage(storage),
             ReadError::Other(other) => SyncError::Other(other),
         }
@@ -21,6 +23,8 @@ impl From<ReadError> for SyncError {
 pub enum ReadError {
     #[error("not found")]
     NotFound,
+    #[error("{0}")]
+    Unauthorized(String),
     #[error("{0}")]
     Forbidden(String),
     #[error(transparent)]
@@ -68,6 +72,7 @@ impl From<ReadError> for UpdateError {
     fn from(value: ReadError) -> Self {
         match value {
             ReadError::NotFound => UpdateError::Other("not found".into()),
+            ReadError::Unauthorized(reason) => UpdateError::Other(reason.into()),
             ReadError::Forbidden(reason) => UpdateError::Forbidden(reason),
             ReadError::Storage(storage) => UpdateError::Storage(storage),
             ReadError::Other(other) => UpdateError::Other(other),
@@ -91,6 +96,7 @@ impl From<ReadError> for DeleteError {
     fn from(value: ReadError) -> Self {
         match value {
             ReadError::NotFound => DeleteError::Other("not found".into()),
+            ReadError::Unauthorized(reason) => DeleteError::Other(reason.into()),
             ReadError::Forbidden(reason) => DeleteError::Forbidden(reason),
             ReadError::Storage(storage) => DeleteError::Storage(storage),
             ReadError::Other(other) => DeleteError::Other(other),
@@ -171,6 +177,10 @@ mod tests {
     #[test]
     fn test_sync_error_from_read_error() {
         assert!(matches!(
+            SyncError::from(ReadError::Unauthorized("foo".to_string())),
+            SyncError::Other(error) if error.to_string() == "foo"
+        ));
+        assert!(matches!(
             SyncError::from(ReadError::Forbidden("foo".to_string())),
             SyncError::Other(error) if error.to_string() == "foo"
         ));
@@ -189,6 +199,10 @@ mod tests {
         assert!(matches!(
             UpdateError::from(ReadError::NotFound),
             UpdateError::Other(error) if error.to_string() == "not found"
+        ));
+        assert!(matches!(
+            UpdateError::from(ReadError::Unauthorized("foo".to_string())),
+            UpdateError::Other(error) if error.to_string() == "foo"
         ));
         assert!(matches!(
             UpdateError::from(ReadError::Forbidden("foo".to_string())),

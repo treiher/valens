@@ -8,7 +8,7 @@ from tempfile import NamedTemporaryFile
 
 from sqlalchemy import select
 
-from valens import app, config, database as db, demo, version
+from valens import app, config, database as db, demo, login_link, version
 from valens.models import Role, Sex, User
 
 
@@ -130,6 +130,12 @@ def main() -> int:
     parser_user_delete = user_subparsers.add_parser("delete", help="delete a user")
     parser_user_delete.set_defaults(func=delete_user)
     parser_user_delete.add_argument("name", help="username")
+
+    parser_user_login_link = user_subparsers.add_parser(
+        "login-link", help="create a one-time login link for a user"
+    )
+    parser_user_login_link.set_defaults(func=create_login_link)
+    parser_user_login_link.add_argument("name", help="username")
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -278,6 +284,26 @@ def delete_user(args: argparse.Namespace) -> int:
         db.session.commit()
         print(f'Deleted user "{args.name}"')
         _warn_if_no_admin_exists()
+
+    return 0
+
+
+def create_login_link(args: argparse.Namespace) -> int:
+    with app.app_context():
+        config.check_config_file(os.environ.copy())
+        public_url = app.config.get("PUBLIC_URL")
+        if public_url is None:
+            print("'PUBLIC_URL' is not set in the config file", file=sys.stderr)
+            return 1
+        user = (
+            db.session.execute(select(User).where(User.name == args.name)).scalars().one_or_none()
+        )
+        if user is None:
+            print(f'User "{args.name}" not found', file=sys.stderr)
+            return 1
+        token = login_link.create(user.id)
+        db.session.commit()
+        print(login_link.url(public_url, token))
 
     return 0
 

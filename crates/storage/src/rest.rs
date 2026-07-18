@@ -12,6 +12,8 @@ use thiserror::Error;
 
 use valens_domain as domain;
 
+use crate::webauthn;
+
 const TIMEOUT_MILLISECONDS: u32 = 10000;
 
 #[derive(Clone, Copy)]
@@ -300,6 +302,9 @@ impl From<FetchError> for domain::ReadError {
     fn from(value: FetchError) -> Self {
         match value {
             FetchError::Response {
+                status: 401, body, ..
+            } => domain::ReadError::Unauthorized(error_reason(body.as_deref(), "unauthorized")),
+            FetchError::Response {
                 status: 403, body, ..
             } => domain::ReadError::Forbidden(error_reason(body.as_deref(), "forbidden")),
             FetchError::Response { status: 404, .. } => domain::ReadError::NotFound,
@@ -385,10 +390,138 @@ impl<S: SendRequest> domain::SessionRepository for REST<S> {
         }
     }
 
-    async fn delete_session(&self) -> Result<(), domain::DeleteError> {
+    async fn delete_session(&self) -> Result<domain::SignOut, domain::DeleteError> {
+        self.fetch::<(), _>(gloo_net::http::Request::delete("/api/session"), None::<&()>)
+            .await?;
+        Ok(domain::SignOut::Complete)
+    }
+}
+
+impl<S: SendRequest> domain::AuthRepository for REST<S> {
+    async fn read_auth_methods(&self) -> Result<Vec<domain::AuthMethod>, domain::ReadError> {
+        let r: AuthMethods = self
+            .fetch(gloo_net::http::Request::get("/api/auth"), None::<&()>)
+            .await?;
+        Ok(r.methods
+            .iter()
+            .filter_map(|method| match method.as_str() {
+                "passkey" => Some(domain::AuthMethod::Passkey),
+                "username" => Some(domain::AuthMethod::Username),
+                _ => None,
+            })
+            .collect())
+    }
+
+    async fn login_with_passkey(&self) -> Result<domain::User, domain::ReadError> {
+        let options: serde_json::Value = self
+            .fetch(
+                gloo_net::http::Request::post("/api/auth/passkeys/authentication/options"),
+                None::<&()>,
+            )
+            .await?;
+        let credential = webauthn::get_credential(&options)
+            .await
+            .map_err(|err| domain::ReadError::Other(err.into()))?;
+        let r: User = self
+            .fetch(
+                gloo_net::http::Request::post("/api/auth/passkeys/authentication"),
+                Some(&credential),
+            )
+            .await?;
+        Ok(r.try_into().map_err(Box::from)?)
+    }
+
+    async fn register_passkey(&self) -> Result<domain::Passkey, domain::CreateError> {
+        let options: serde_json::Value = self
+            .fetch(
+                gloo_net::http::Request::post("/api/auth/passkeys/registration/options"),
+                None::<&()>,
+            )
+            .await?;
+        let credential = webauthn::create_credential(&options)
+            .await
+            .map_err(|err| domain::CreateError::Other(err.into()))?;
+        let r: Passkey = self
+            .fetch(
+                gloo_net::http::Request::post("/api/auth/passkeys/registration"),
+                Some(&credential),
+            )
+            .await?;
+        Ok(r.try_into().map_err(Box::from)?)
+    }
+
+    async fn read_passkeys(
+        &self,
+        user_id: domain::UserID,
+    ) -> Result<Vec<domain::Passkey>, domain::ReadError> {
+        let r: Vec<Passkey> = self
+            .fetch(
+                gloo_net::http::Request::get(&format!("/api/users/{}/passkeys", user_id.as_u128())),
+                None::<&()>,
+            )
+            .await?;
+        Ok(r.into_iter()
+            .map(|passkey| domain::Passkey::try_from(passkey).map_err(Box::from))
+            .collect::<Result<Vec<domain::Passkey>, _>>()?)
+    }
+
+    async fn rename_passkey(
+        &self,
+        user_id: domain::UserID,
+        id: domain::PasskeyID,
+        label: domain::Name,
+    ) -> Result<domain::Passkey, domain::UpdateError> {
+        let r: Passkey = self
+            .fetch(
+                gloo_net::http::Request::patch(&format!(
+                    "/api/users/{}/passkeys/{}",
+                    user_id.as_u128(),
+                    id.as_u128()
+                )),
+                Some(&json!({ "label": label.as_ref() })),
+            )
+            .await?;
+        Ok(r.try_into().map_err(Box::from)?)
+    }
+
+    async fn delete_passkey(
+        &self,
+        user_id: domain::UserID,
+        id: domain::PasskeyID,
+    ) -> Result<(), domain::DeleteError> {
         Ok(self
-            .fetch(gloo_net::http::Request::delete("/api/session"), None::<&()>)
+            .fetch(
+                gloo_net::http::Request::delete(&format!(
+                    "/api/users/{}/passkeys/{}",
+                    user_id.as_u128(),
+                    id.as_u128()
+                )),
+                None::<&()>,
+            )
             .await?)
+    }
+
+    async fn create_login_link(
+        &self,
+        user_id: domain::UserID,
+    ) -> Result<String, domain::CreateError> {
+        let r: LoginLinkUrl = self
+            .fetch(
+                gloo_net::http::Request::post("/api/auth/login-link"),
+                Some(&json!({ "user_id": user_id.as_u128() })),
+            )
+            .await?;
+        Ok(r.url)
+    }
+
+    async fn redeem_login_link(&self, token: String) -> Result<domain::User, domain::ReadError> {
+        let r: User = self
+            .fetch(
+                gloo_net::http::Request::post("/api/auth/session"),
+                Some(&json!({ "token": token })),
+            )
+            .await?;
+        Ok(r.try_into().map_err(Box::from)?)
     }
 }
 
@@ -909,6 +1042,49 @@ impl TryFrom<User> for domain::User {
             role: value.role.into(),
         })
     }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct AuthMethods {
+    pub methods: Vec<String>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Passkey {
+    pub id: u128,
+    pub label: String,
+    pub created: NaiveDate,
+    #[serde(default)]
+    pub last_used: Option<NaiveDate>,
+}
+
+impl From<domain::Passkey> for Passkey {
+    fn from(value: domain::Passkey) -> Self {
+        Self {
+            id: value.id.as_u128(),
+            label: value.label.to_string(),
+            created: value.created,
+            last_used: value.last_used,
+        }
+    }
+}
+
+impl TryFrom<Passkey> for domain::Passkey {
+    type Error = domain::NameError;
+
+    fn try_from(value: Passkey) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: value.id.into(),
+            label: domain::Name::new(&value.label)?,
+            created: value.created,
+            last_used: value.last_used,
+        })
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct LoginLinkUrl {
+    pub url: String,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -1844,6 +2020,42 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_passkey_try_from() {
+        let passkey = domain::Passkey {
+            id: 1.into(),
+            label: domain::Name::new("My Passkey").unwrap(),
+            created: NaiveDate::from_ymd_opt(2026, 7, 18).unwrap(),
+            last_used: None,
+        };
+        assert_eq!(
+            domain::Passkey::try_from(Passkey::from(passkey.clone())),
+            Ok(passkey)
+        );
+    }
+
+    #[test]
+    fn test_passkey_try_from_invalid_label() {
+        assert_eq!(
+            domain::Passkey::try_from(Passkey {
+                id: 1,
+                label: String::new(),
+                created: NaiveDate::from_ymd_opt(2026, 7, 18).unwrap(),
+                last_used: None,
+            }),
+            Err(domain::NameError::Empty)
+        );
+    }
+
+    #[test]
+    fn test_passkey_deserialization_without_last_used() {
+        let deserialized: Passkey = serde_json::from_value(
+            json!({"id": 1, "label": "My Passkey", "created": "2026-07-18"}),
+        )
+        .unwrap();
+        assert_eq!(deserialized.last_used, None);
+    }
+
     #[rstest]
     #[case(domain::Sex::FEMALE, domain::Role::USER)]
     #[case(domain::Sex::MALE, domain::Role::ADMIN)]
@@ -2115,7 +2327,7 @@ mod tests {
                 .delete_session()
                 .await
                 .unwrap(),
-                ()
+                domain::SignOut::Complete
             );
         }
 
@@ -2157,6 +2369,16 @@ mod tests {
                 .await,
                 Err(domain::ReadError::Forbidden(reason))
                     if reason == "user is not an administrator"
+            ));
+            assert!(matches!(
+                rest_with_response(Some(
+                    gloo_net::http::Response::builder()
+                        .status(401)
+                        .body(None::<&str>),
+                ))
+                .read_users()
+                .await,
+                Err(domain::ReadError::Unauthorized(reason)) if reason == "unauthorized"
             ));
         }
 

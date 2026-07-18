@@ -3,6 +3,7 @@
 
 pub mod catalog;
 
+pub use auth::{AuthMethod, AuthRepository, AuthService, Passkey, PasskeyID};
 pub use body_fat::{BodyFat, BodyFatRepository, BodyFatService};
 pub use body_weight::{
     BodyWeight, BodyWeightRepository, BodyWeightService, avg_body_weight, avg_weekly_change,
@@ -31,7 +32,7 @@ pub use schedule::{
     ScheduleService, ScheduleSlot, Weekday, WeekdayError,
 };
 pub use service::Service;
-pub use session::{SessionRepository, SessionService};
+pub use session::{SessionRepository, SessionService, SignOut};
 pub use statistics::{
     DefaultInterval, Interval, centered_moving_average, centered_moving_max, centered_moving_min,
     centered_moving_total, init_interval, value_based_centered_moving_average,
@@ -47,6 +48,7 @@ pub use training_session::{
 pub use user::{Role, Sex, User, UserID, UserRepository, UserService};
 pub use version::{VersionRepository, VersionService};
 
+mod auth;
 mod body_fat;
 mod body_weight;
 mod error;

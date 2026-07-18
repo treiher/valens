@@ -1,18 +1,20 @@
 use dioxus::prelude::*;
 
 use valens_domain as domain;
-use valens_domain::UserService;
+use valens_domain::{AuthService, UserService};
 
 use crate::{
     DATA_CHANGED, DOMAIN_SERVICE,
     diagnostics::log_failure,
-    notification::notify,
+    dialog::PasskeyTable,
+    notification::{notify, notify_error},
     session::{Session, SessionRefresh},
     signal_changed_data,
     ui::{
         element::{
-            CenteredBlock, DeleteConfirmationDialog, Dialog, ErrorMessage, Icon, ItemOptionsButton,
-            Loading, MenuOption, NoConnection, OptionsMenu, SaveDialog, Table, Title, value_or_dash,
+            CenteredBlock, Color, DeleteConfirmationDialog, Dialog, ErrorMessage, Icon,
+            ItemOptionsButton, Loading, MenuOption, Message, NoConnection, OptionsMenu, SaveDialog,
+            Table, Title, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -35,6 +37,13 @@ fn Users() -> Element {
         let _ = DATA_CHANGED.read();
         DOMAIN_SERVICE().get_users().await
     });
+    let auth_methods = use_resource(|| async { DOMAIN_SERVICE().get_auth_methods().await });
+    // The server offers no passkey login and cannot create login links without
+    // `PUBLIC_URL`, so the corresponding actions are hidden and an explanation is shown
+    let passkey_login_unavailable = matches!(
+        &*auth_methods.read(),
+        Some(Ok(methods)) if !methods.contains(&domain::AuthMethod::Passkey)
+    );
     let mut dialog = use_signal(|| UserDialog::None);
     let mut is_loading = use_signal(|| false);
 
@@ -115,6 +124,13 @@ fn Users() -> Element {
         match &*users.read() {
             Some(Ok(users)) => {
                 rsx! {
+                    if passkey_login_unavailable {
+                        Message {
+                            color: Color::Info,
+                            "data-testid": "passkey-login-unavailable",
+                            "Passkey login and login links are unavailable because PUBLIC_URL is not set in the server configuration."
+                        }
+                    }
                     Title {
                         actions: rsx! {
                             a {
@@ -178,6 +194,8 @@ fn Users() -> Element {
             UserDialog::None => rsx! {},
             UserDialog::Options(user) => {
                 let user_edit = user.clone();
+                let user_passkeys = user.clone();
+                let user_login_link = user.clone();
                 let user_delete = user.clone();
                 rsx! {
                     OptionsMenu {
@@ -210,6 +228,20 @@ fn Users() -> Element {
                                     }
                                 },
                                 MenuOption {
+                                    icon: "key".to_string(),
+                                    text: "Manage passkeys".to_string(),
+                                    "data-testid": "options-manage-passkeys",
+                                    on_click: move |_| { *dialog.write() = UserDialog::Passkeys(user_passkeys.clone()); }
+                                },
+                                if !passkey_login_unavailable {
+                                    MenuOption {
+                                        icon: "link".to_string(),
+                                        text: "Create login link".to_string(),
+                                        "data-testid": "options-create-login-link",
+                                        on_click: move |_| { *dialog.write() = UserDialog::LoginLink(user_login_link.clone()); }
+                                    }
+                                },
+                                MenuOption {
                                     icon: "user-times".to_string(),
                                     text: "Delete user".to_string(),
                                     "data-testid": "options-delete-user",
@@ -220,6 +252,12 @@ fn Users() -> Element {
                         on_close: move |_| *dialog.write() = UserDialog::None,
                     }
                 }
+            },
+            UserDialog::Passkeys(user) => rsx! {
+                UserPasskeysDialog { user: user.clone(), on_close: close }
+            },
+            UserDialog::LoginLink(user) => rsx! {
+                LoginLinkDialog { user: user.clone(), on_close: close }
             },
             UserDialog::Add { name, sex, height, role } | UserDialog::Edit { name, sex, height, role, .. } => {
                 rsx! {
@@ -361,6 +399,170 @@ fn Users() -> Element {
     }
 }
 
+#[component]
+fn UserPasskeysDialog(user: domain::User, on_close: EventHandler<MouseEvent>) -> Element {
+    let user_id = user.id;
+    let mut passkeys =
+        use_resource(move || async move { DOMAIN_SERVICE().get_passkeys(user_id).await });
+    let mut passkey_to_delete = use_signal(|| Option::<domain::Passkey>::None);
+    let mut is_loading = use_signal(|| false);
+
+    let delete = move |_| async move {
+        let mut deleted = false;
+        if let Some(passkey) = &*passkey_to_delete.read() {
+            is_loading.set(true);
+            match DOMAIN_SERVICE().delete_passkey(user_id, passkey.id).await {
+                Ok(()) => {
+                    deleted = true;
+                }
+                Err(err) => notify("Failed to delete passkey", &err),
+            }
+            is_loading.set(false);
+        }
+        if deleted {
+            passkey_to_delete.set(None);
+            passkeys.restart();
+        }
+    };
+
+    rsx! {
+        Dialog {
+            title: rsx! { "Passkeys of {user.name}" },
+            on_close,
+            match &*passkeys.read() {
+                Some(Ok(passkeys)) => {
+                    if passkeys.is_empty() {
+                        rsx! {
+                            CenteredBlock {
+                                p {
+                                    "data-testid": "no-passkeys",
+                                    "No passkeys registered."
+                                }
+                            }
+                        }
+                    } else {
+                        rsx! {
+                            PasskeyTable {
+                                passkeys: passkeys.clone(),
+                                action: move |passkey: domain::Passkey| rsx! {
+                                    button {
+                                        class: "button is-small is-danger is-inverted",
+                                        "data-testid": "delete-passkey",
+                                        onclick: move |_| { passkey_to_delete.set(Some(passkey.clone())); },
+                                        Icon { name: "trash" }
+                                    }
+                                },
+                            }
+                        }
+                    }
+                }
+                Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))) => rsx! {
+                    NoConnection {}
+                },
+                Some(Err(err)) => {
+                    log_failure("load passkeys", err);
+                    rsx! {
+                        ErrorMessage { message: err }
+                    }
+                }
+                None => rsx! {
+                    Loading {}
+                },
+            }
+        }
+        if let Some(passkey) = &*passkey_to_delete.read() {
+            DeleteConfirmationDialog {
+                element_type: "passkey".to_string(),
+                element_name: rsx! { "{passkey.label}" },
+                on_delete: delete,
+                on_cancel: move |_| passkey_to_delete.set(None),
+                is_loading: is_loading(),
+            }
+        }
+    }
+}
+
+#[component]
+fn LoginLinkDialog(user: domain::User, on_close: EventHandler<MouseEvent>) -> Element {
+    let user_id = user.id;
+    let url =
+        use_resource(move || async move { DOMAIN_SERVICE().create_login_link(user_id).await });
+    let mut copy_success = use_signal(|| false);
+
+    rsx! {
+        Dialog {
+            title: rsx! { "Login link for {user.name}" },
+            on_close,
+            match &*url.read() {
+                Some(Ok(url)) => {
+                    let url = url.clone();
+                    rsx! {
+                        p {
+                            class: "mb-3",
+                            "The link can be used once within 24 hours to sign in without a passkey. \
+                             Creating a new link invalidates all previously created links."
+                        }
+                        div {
+                            class: "field has-addons",
+                            div {
+                                class: "control is-expanded",
+                                input {
+                                    class: "input",
+                                    "data-testid": "login-link-url",
+                                    readonly: true,
+                                    value: "{url}",
+                                }
+                            }
+                            div {
+                                class: "control",
+                                button {
+                                    class: "button",
+                                    "data-testid": "login-link-copy",
+                                    onclick: move |_| {
+                                        let url = url.clone();
+                                        if let Some(window) = web_sys::window() {
+                                            let promise = window.navigator().clipboard().write_text(&url);
+                                            spawn(async move {
+                                                match wasm_bindgen_futures::JsFuture::from(promise).await {
+                                                    Ok(_) => {
+                                                        *copy_success.write() = true;
+                                                        gloo_timers::future::TimeoutFuture::new(2_000).await;
+                                                        *copy_success.write() = false;
+                                                    }
+                                                    Err(e) => {
+                                                        notify_error(format!("Failed to copy to clipboard: {e:?}"));
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    },
+                                    if copy_success() {
+                                        Icon { name: "check" }
+                                    } else {
+                                        Icon { name: "copy" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Some(Err(domain::CreateError::Storage(domain::StorageError::NoConnection))) => rsx! {
+                    NoConnection {}
+                },
+                Some(Err(err)) => {
+                    log_failure("create login link", err);
+                    rsx! {
+                        ErrorMessage { message: err }
+                    }
+                }
+                None => rsx! {
+                    Loading {}
+                },
+            }
+        }
+    }
+}
+
 enum UserDialog {
     None,
     Options(domain::User),
@@ -377,5 +579,7 @@ enum UserDialog {
         height: FieldValue<Option<u8>>,
         role: FieldValue<domain::Role>,
     },
+    Passkeys(domain::User),
+    LoginLink(domain::User),
     Delete(domain::User),
 }

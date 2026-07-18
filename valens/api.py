@@ -810,8 +810,8 @@ def create_body_weight() -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "entry with this date already exists"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(body_weight)),
@@ -923,8 +923,8 @@ def create_body_fat() -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "entry with this date already exists"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(body_fat)),
@@ -1034,8 +1034,8 @@ def create_period() -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "entry with this date already exists"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(period)),
@@ -1147,8 +1147,8 @@ def create_exercise() -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "name is already used"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(exercise)),
@@ -1204,8 +1204,8 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "name is already used"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(exercise)),
@@ -1287,8 +1287,8 @@ def create_routine() -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "name is already used"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(routine)),
@@ -1342,8 +1342,8 @@ def update_routine(id_: int) -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "name is already used"}), HTTPStatus.CONFLICT
 
     return (
         jsonify(to_dict(routine)),
@@ -1462,8 +1462,8 @@ def replace_schedule() -> ResponseReturnValue:
 
     try:
         db.session.commit()
-    except IntegrityError as e:
-        return jsonify({"details": str(e)}), HTTPStatus.CONFLICT
+    except IntegrityError:
+        return jsonify({"details": "rotation name is already used"}), HTTPStatus.CONFLICT
 
     return jsonify(schedule_to_dict(rotations, slots)), HTTPStatus.OK
 

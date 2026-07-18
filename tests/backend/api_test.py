@@ -13,6 +13,14 @@ import tests.utils
 from valens import app, database as db
 from valens.models import Role, User
 
+CONFLICT_DETAILS = {
+    "body_weight": "entry with this date already exists",
+    "body_fat": "entry with this date already exists",
+    "period": "entry with this date already exists",
+    "exercises": "name is already used",
+    "routines": "name is already used",
+}
+
 INVALID_ROUTINE_ACTIVITY_FIELDS: list[dict[str, object]] = [
     {"exercise_id": 0},
     {"reps": 1000},
@@ -1620,7 +1628,7 @@ def test_create(
     resp = client.post(route, json=data)
 
     assert resp.status_code == HTTPStatus.CONFLICT
-    assert resp.json
+    assert resp.json == {"details": CONFLICT_DETAILS[Path(route).name]}
 
 
 @pytest.mark.parametrize(
@@ -2860,7 +2868,7 @@ def test_replace(
         resp = client.put(route, json=conflicting_data)
 
         assert resp.status_code == HTTPStatus.CONFLICT
-        assert resp.json
+        assert resp.json == {"details": CONFLICT_DETAILS[Path(route).parent.name]}
 
 
 @pytest.mark.parametrize(
@@ -4891,7 +4899,7 @@ def test_modify(
         resp = client.patch(route, json=conflicting_data)
 
         assert resp.status_code == HTTPStatus.CONFLICT
-        assert resp.json
+        assert resp.json == {"details": CONFLICT_DETAILS[Path(route).parent.name]}
 
 
 @pytest.mark.parametrize(
@@ -5282,30 +5290,44 @@ def test_replace_schedule_same_rotation_id_for_different_users(client: Client) -
 
 
 @pytest.mark.parametrize(
-    "schedule",
+    ("schedule", "details"),
     [
-        {
-            "rotations": [],
-            "entries": [{"weekday": 1, "slots": [{"rotation": 1}]}],
-        },
-        {
-            "rotations": [{"id": 1, "name": "A/B", "routines": [1, 2]}],
-            "entries": [],
-        },
-        {
-            "rotations": [],
-            "entries": [{"weekday": 1, "slots": [{"routine": 2}]}],
-        },
-        {
-            "rotations": [
-                {"id": 1, "name": "A/B", "routines": [1]},
-                {"id": 2, "name": "A/B", "routines": [3]},
-            ],
-            "entries": [],
-        },
+        (
+            {
+                "rotations": [],
+                "entries": [{"weekday": 1, "slots": [{"rotation": 1}]}],
+            },
+            "schedule references an unknown rotation",
+        ),
+        (
+            {
+                "rotations": [{"id": 1, "name": "A/B", "routines": [1, 2]}],
+                "entries": [],
+            },
+            "schedule references an unknown routine",
+        ),
+        (
+            {
+                "rotations": [],
+                "entries": [{"weekday": 1, "slots": [{"routine": 2}]}],
+            },
+            "schedule references an unknown routine",
+        ),
+        (
+            {
+                "rotations": [
+                    {"id": 1, "name": "A/B", "routines": [1]},
+                    {"id": 2, "name": "A/B", "routines": [3]},
+                ],
+                "entries": [],
+            },
+            "rotation name is already used",
+        ),
     ],
 )
-def test_replace_schedule_conflict(client: Client, schedule: dict[str, object]) -> None:
+def test_replace_schedule_conflict(
+    client: Client, schedule: dict[str, object], details: str
+) -> None:
     tests.utils.init_db_data()
 
     assert create_session(client).status_code == HTTPStatus.OK
@@ -5313,7 +5335,7 @@ def test_replace_schedule_conflict(client: Client, schedule: dict[str, object]) 
     resp = client.put("/api/schedule", json=schedule)
 
     assert resp.status_code == HTTPStatus.CONFLICT
-    assert resp.is_json
+    assert resp.json == {"details": details}
 
 
 @pytest.mark.parametrize("routine_id", [1, 3])

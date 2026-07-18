@@ -5,6 +5,7 @@ use valens_domain::{self as domain, BodyWeightService, TrainingSessionService};
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    current_date::current_date,
     page::training_sessions::start_training_session,
     session::Session,
     ui::element::{Block, Error, Icon, Loading, LoadingDialog, Title},
@@ -15,12 +16,13 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 #[component]
 pub fn Home() -> Element {
     let cache = consume_context::<Cache>();
-    let today = chrono::Local::now().date_naive();
+    let today = current_date();
     let session = consume_context::<Session>();
     let sex = use_memo(move || session.user().sex);
     let height = use_memo(move || session.user().height);
 
     let pending_today = use_memo(move || {
+        let today = current_date();
         let (
             CacheState::Ready(schedule),
             CacheState::Ready(routines),
@@ -53,6 +55,7 @@ pub fn Home() -> Element {
     });
 
     let latest_ffmi = use_memo(move || {
+        let today = current_date();
         if let (Some(height), CacheState::Ready(body_fat), CacheState::Ready(body_weight)) = (
             height(),
             &*cache.body_fat.read(),
@@ -386,7 +389,7 @@ fn Tile(
 }
 
 fn last(date: chrono::NaiveDate) -> String {
-    let today = chrono::Local::now().date_naive();
+    let today = current_date();
     let days = (today - date).num_days();
 
     if days == 0 {

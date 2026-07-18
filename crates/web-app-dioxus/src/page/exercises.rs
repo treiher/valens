@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashSet};
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE};
-use chrono::{Duration, Local};
+use chrono::Duration;
 use dioxus::prelude::*;
 use log::{error, warn};
 
@@ -10,6 +10,7 @@ use valens_domain::{self as domain, ExerciseService, Property};
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    current_date::current_date,
     eh,
     notification::notify,
     routing::NavigatorScrollExt,
@@ -230,7 +231,7 @@ fn view_list(
 ) -> Element {
     const CURRENT_EXERCISE_CUTOFF_DAYS: i64 = 31;
 
-    let cutoff = Local::now().date_naive() - Duration::days(CURRENT_EXERCISE_CUTOFF_DAYS);
+    let cutoff = current_date() - Duration::days(CURRENT_EXERCISE_CUTOFF_DAYS);
 
     let current_exercise_ids = training_sessions
         .iter()

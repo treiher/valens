@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, Utc, Weekday};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc, Weekday};
 use dioxus::prelude::*;
 use futures_util::StreamExt;
 use gloo_timers::future::IntervalStream;
@@ -17,6 +17,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR,
+    current_date::current_date,
     settings::Settings,
     ui::{
         element::{Dialog, Error, Icon, NoData, TagsWithAddon},
@@ -566,7 +567,7 @@ pub fn IntervalControl(
     all: domain::Interval,
 ) -> Element {
     let current = current_interval.read();
-    let today = Local::now().date_naive();
+    let today = current_date();
     let duration = current.last - current.first + Duration::days(1);
     let intervals = [
         (

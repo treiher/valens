@@ -18,6 +18,7 @@ use unsaved_changes::router_config;
 use update::UpdateNotification;
 
 mod cache;
+mod current_date;
 mod diagnostics;
 mod dialog;
 mod navbar;
@@ -112,6 +113,8 @@ fn App() -> Element {
     }
 
     Settings::provide();
+
+    use_future(current_date::update_at_midnight);
 
     rsx! {
         Router::<Route> {

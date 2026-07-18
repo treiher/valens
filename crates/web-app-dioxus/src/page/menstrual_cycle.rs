@@ -7,6 +7,7 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    current_date::current_date,
     notification::notify,
     page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
@@ -88,7 +89,7 @@ pub fn MenstrualCycle(add: bool) -> Element {
 }
 
 fn current_cycle(cycles: &[domain::Cycle]) -> Element {
-    let today = Local::now().date_naive();
+    let today = current_date();
     if let Some(current_cycle) = domain::current_cycle(cycles) {
         let days = (today - current_cycle.begin).num_days() + 1;
         let days_left = current_cycle.time_left.num_days();

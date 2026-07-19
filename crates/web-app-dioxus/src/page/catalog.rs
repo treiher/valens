@@ -4,7 +4,7 @@ use valens_domain::{self as domain, Property};
 
 use crate::{
     page,
-    ui::element::{Block, CenteredTags, ErrorMessage, Title},
+    ui::element::{Block, CenteredTags, ErrorPage, Title},
 };
 
 #[component]
@@ -27,10 +27,10 @@ pub fn Catalog(name: String) -> Element {
                 }
             }
         } else {
-            rsx! { ErrorMessage { message: "Exercise not found" } }
+            rsx! { ErrorPage { message: "Exercise not found" } }
         }
     } else {
-        rsx! { ErrorMessage { message: "Exercise not found" } }
+        rsx! { ErrorPage { message: "Exercise not found" } }
     }
 }
 

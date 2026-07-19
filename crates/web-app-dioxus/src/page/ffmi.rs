@@ -9,7 +9,7 @@ use crate::{
     cache::{Cache, CacheState},
     page::common::{Calendar, Chart, IntervalControl},
     session::Session,
-    ui::element::{Color, ErrorMessage, LoadingPage, Message, NoWrap, Table},
+    ui::element::{ErrorPage, InfoPage, LoadingPage, NoWrap, Table},
 };
 
 #[component]
@@ -47,10 +47,9 @@ pub fn Ffmi() -> Element {
 
     if height().is_none() {
         return rsx! {
-            Message {
-                color: Color::Info,
+            InfoPage {
                 "data-testid": "ffmi-height-missing",
-                "Set your height in the profile dialog to calculate your FFMI."
+                message: "Set your height in the profile to calculate your FFMI.",
             }
         };
     }
@@ -66,7 +65,7 @@ pub fn Ffmi() -> Element {
             }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => {
             rsx! { LoadingPage {} }

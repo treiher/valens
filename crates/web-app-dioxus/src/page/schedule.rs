@@ -12,7 +12,7 @@ use crate::{
     ui::{
         drag_and_drop,
         element::{
-            Dialog, ErrorMessage, Icon, ItemOptionsButton, LoadingDialog, LoadingPage, MenuOption,
+            Dialog, ErrorPage, Icon, ItemOptionsButton, LoadingDialog, LoadingPage, MenuOption,
             NoConnection, OptionsMenu, SaveDialog, Table, Title,
         },
         form::{FieldValue, FieldValueState, InputField},
@@ -43,7 +43,7 @@ pub fn Schedule() -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => rsx! { LoadingPage {} },
     }

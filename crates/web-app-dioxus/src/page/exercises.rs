@@ -16,7 +16,7 @@ use crate::{
     routing::NavigatorScrollExt,
     ui::{
         element::{
-            Block, DeleteConfirmationDialog, Dialog, ErrorMessage, FloatingActionButton, Icon,
+            Block, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
             ItemOptionsButton, LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog,
             SearchBox, Table, Title,
         },
@@ -117,7 +117,7 @@ pub fn ExerciseList(
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => rsx! { LoadingPage {} },
     }

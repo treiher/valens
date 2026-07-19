@@ -12,7 +12,7 @@ use crate::{
     routing::NavigatorScrollExt,
     ui::{
         element::{
-            DeleteConfirmationDialog, ErrorMessage, FloatingActionButton, ItemOptionsButton,
+            DeleteConfirmationDialog, ErrorPage, FloatingActionButton, ItemOptionsButton,
             LoadingPage, MenuOption, NoConnection, NoWrap, OptionsMenu, SaveDialog, Table,
             value_or_dash,
         },
@@ -77,7 +77,7 @@ pub fn BodyWeight(add: bool) -> Element {
             rsx! { NoConnection {} }
         }
         CacheState::Error(err) => rsx! {
-            ErrorMessage { message: err }
+            ErrorPage { message: err }
         },
         CacheState::Loading => rsx! {
             LoadingPage {}

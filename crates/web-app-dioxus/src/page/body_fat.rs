@@ -13,7 +13,7 @@ use crate::{
     session::Session,
     ui::{
         element::{
-            Block, DeleteConfirmationDialog, ErrorMessage, FloatingActionButton, ItemOptionsButton,
+            Block, DeleteConfirmationDialog, ErrorPage, FloatingActionButton, ItemOptionsButton,
             LoadingPage, MenuOption, NoWrap, OptionsMenu, SaveDialog, Table, value_or_dash,
         },
         form::{FieldSet, FieldValue, FieldValueState, InputField},
@@ -81,7 +81,7 @@ pub fn BodyFat(add: bool) -> Element {
             }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => {
             rsx! { LoadingPage {} }

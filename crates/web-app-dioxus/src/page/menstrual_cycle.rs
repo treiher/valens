@@ -13,9 +13,8 @@ use crate::{
     routing::NavigatorScrollExt,
     ui::{
         element::{
-            DataBox, DeleteConfirmationDialog, ErrorMessage, FloatingActionButton,
-            ItemOptionsButton, LoadingPage, MenuOption, NoConnection, NoWrap, OptionsMenu,
-            SaveDialog, Table,
+            DataBox, DeleteConfirmationDialog, ErrorPage, FloatingActionButton, ItemOptionsButton,
+            LoadingPage, MenuOption, NoConnection, NoWrap, OptionsMenu, SaveDialog, Table,
         },
         form::{Field, FieldValue, FieldValueState, InputField},
     },
@@ -80,7 +79,7 @@ pub fn MenstrualCycle(add: bool) -> Element {
             rsx! { NoConnection {} }
         }
         CacheState::Error(err) => rsx! {
-            ErrorMessage { message: err }
+            ErrorPage { message: err }
         },
         CacheState::Loading => rsx! {
             LoadingPage {}

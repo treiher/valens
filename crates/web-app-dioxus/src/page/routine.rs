@@ -22,7 +22,7 @@ use crate::{
     ui::{
         drag_and_drop,
         element::{
-            Block, CenteredBlock, DataBox, Dialog, Error, ErrorMessage, FloatingActionButton, Icon,
+            Block, CenteredBlock, DataBox, Dialog, Error, ErrorPage, FloatingActionButton, Icon,
             IconText, Loading, LoadingDialog, LoadingPage, MenuOption, NoConnection, NoData,
             OptionsMenu, SaveDialog, Title,
         },
@@ -123,7 +123,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                 }
             } else {
                 rsx! {
-                    ErrorMessage { message: "Routine not found" }
+                    ErrorPage { message: "Routine not found" }
                 }
             }
         }
@@ -135,7 +135,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (CacheState::Loading, _, _) | (_, _, CacheState::Loading) => {
             rsx! { LoadingPage {} }
@@ -993,7 +993,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
                 _ => {
                     rsx! {
-                        ErrorMessage { message: "Unexpected routine part type" }
+                        Error { message: "Unexpected routine part type" }
                     }
                 }
             }
@@ -1173,7 +1173,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
                 _ => {
                     rsx! {
-                        ErrorMessage { message: "Unexpected routine part type" }
+                        Error { message: "Unexpected routine part type" }
                     }
                 }
             }

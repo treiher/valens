@@ -13,8 +13,8 @@ use crate::{
     signal_changed_data,
     ui::{
         element::{
-            DeleteConfirmationDialog, Dialog, Error, ErrorMessage, Icon, ItemOptionsButton, Loading,
-            MenuOption, NoConnection, NoData, OptionsMenu, SaveDialog, Title,
+            DeleteConfirmationDialog, Dialog, Error, Icon, ItemOptionsButton, Loading, MenuOption,
+            NoConnection, NoData, OptionsMenu, SaveDialog, Title,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -40,7 +40,7 @@ pub fn ProfileDialog(on_close: EventHandler<MouseEvent>) -> Element {
                 Dialog {
                     title: rsx! { "Profile" },
                     on_close,
-                    ErrorMessage { message: err }
+                    Error { message: err }
                 }
             }
         }

@@ -16,7 +16,7 @@ use crate::{
     DOMAIN_SERVICE,
     diagnostics::log_failure,
     notification::notify_warning,
-    ui::element::{Color, Dialog, ErrorMessage, Icon, Loading, NoConnection},
+    ui::element::{Color, Dialog, Error, Icon, Loading, NoConnection},
 };
 
 const APP_VERSION: &str = env!("VALENS_VERSION");
@@ -134,7 +134,7 @@ pub fn VersionInfo() -> Element {
                         }
                     }
                     ServerVersion::Error(err) => rsx! {
-                        ErrorMessage { message: err }
+                        Error { message: err }
                     },
                 }
             }

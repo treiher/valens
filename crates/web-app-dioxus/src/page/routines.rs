@@ -11,7 +11,7 @@ use crate::{
     settings::Settings,
     ui::{
         element::{
-            Block, DeleteConfirmationDialog, Dialog, ErrorMessage, FloatingActionButton, Icon,
+            Block, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
             ItemOptionsButton, LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog,
             SearchBox, Table, Title,
         },
@@ -72,7 +72,7 @@ pub fn Routines(add: bool, search: String) -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => rsx! { LoadingPage {} },
     }

@@ -6,7 +6,7 @@ use valens_web_app as web_app;
 use crate::{
     DATA_CHANGED, DOMAIN_SERVICE,
     page::common::{Chart, IntervalControl},
-    ui::element::{ErrorMessage, LoadingPage, NoConnection, Title},
+    ui::element::{ErrorPage, LoadingPage, NoConnection, Title},
 };
 
 #[component]
@@ -47,7 +47,7 @@ pub fn Muscles() -> Element {
             rsx! { NoConnection {} }
         }
         (Some(Err(err)), _) | (_, Some(Err(err))) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (None, _) | (_, None) => rsx! { LoadingPage {} },
     }

@@ -155,6 +155,7 @@ pub fn ActivityBar(children: Element) -> Element {
     }
 }
 
+/// Compact inline error, framed by the surrounding content.
 #[component]
 pub fn Error(message: String) -> Element {
     rsx! {
@@ -162,8 +163,9 @@ pub fn Error(message: String) -> Element {
     }
 }
 
+/// Boxed error panel that replaces the entire content of a page.
 #[component]
-pub fn ErrorMessage(message: String) -> Element {
+pub fn ErrorPage(message: String) -> Element {
     rsx! {
         div {
             class: "message is-danger mx-2",
@@ -178,10 +180,31 @@ pub fn ErrorMessage(message: String) -> Element {
     }
 }
 
+/// Boxed info panel that replaces the entire content of a page.
+#[component]
+pub fn InfoPage(
+    message: String,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    rsx! {
+        div {
+            class: "message is-info mx-2",
+            ..attributes,
+            div {
+                class: "message-body has-text-dark",
+                div {
+                    class: "title has-text-info is-size-4",
+                    "{message}"
+                }
+            }
+        }
+    }
+}
+
 #[component]
 pub fn NotFound(element: String) -> Element {
     rsx! {
-        ErrorMessage { message: "{element} not found" }
+        ErrorPage { message: "{element} not found" }
     }
 }
 

@@ -12,9 +12,9 @@ use crate::{
     signal_changed_data,
     ui::{
         element::{
-            CenteredBlock, Color, DeleteConfirmationDialog, Dialog, ErrorMessage, Icon,
-            ItemOptionsButton, Loading, MenuOption, Message, NoConnection, OptionsMenu, SaveDialog,
-            Table, Title, value_or_dash,
+            CenteredBlock, Color, DeleteConfirmationDialog, Dialog, Error, Icon, ItemOptionsButton,
+            Loading, MenuOption, Message, NoConnection, OptionsMenu, SaveDialog, Table, Title,
+            value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -183,7 +183,7 @@ fn Users() -> Element {
             Some(Err(err)) => {
                 log_failure("load users", err);
                 rsx! {
-                    ErrorMessage { message: err }
+                    Error { message: err }
                 }
             }
             None => rsx! {
@@ -462,7 +462,7 @@ fn UserPasskeysDialog(user: domain::User, on_close: EventHandler<MouseEvent>) ->
                 Some(Err(err)) => {
                     log_failure("load passkeys", err);
                     rsx! {
-                        ErrorMessage { message: err }
+                        Error { message: err }
                     }
                 }
                 None => rsx! {
@@ -552,7 +552,7 @@ fn LoginLinkDialog(user: domain::User, on_close: EventHandler<MouseEvent>) -> El
                 Some(Err(err)) => {
                     log_failure("create login link", err);
                     rsx! {
-                        ErrorMessage { message: err }
+                        Error { message: err }
                     }
                 }
                 None => rsx! {

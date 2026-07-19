@@ -16,7 +16,7 @@ use crate::{
     },
     settings::Settings,
     ui::element::{
-        Block, CenteredTags, ElementWithDescription, Error, ErrorMessage, FloatingActionButton,
+        Block, CenteredTags, ElementWithDescription, Error, ErrorPage, FloatingActionButton,
         Loading, LoadingPage, NoConnection, NoData, NoWrap, Title,
     },
 };
@@ -120,7 +120,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                 }
             } else {
                 rsx! {
-                    ErrorMessage { message: "Exercise not found" }
+                    ErrorPage { message: "Exercise not found" }
                 }
             }
         }
@@ -128,7 +128,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
             rsx! { NoConnection {} }
         }
         CacheState::Error(err) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         CacheState::Loading => {
             rsx! { LoadingPage {} }

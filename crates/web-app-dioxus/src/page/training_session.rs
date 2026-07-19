@@ -25,7 +25,7 @@ use crate::{
     settings::Settings,
     ui::{
         element::{
-            ActivityBar, Block, CenteredBlock, Color, Dialog, ErrorMessage, FloatingActionButton,
+            ActivityBar, Block, CenteredBlock, Color, Dialog, ErrorPage, FloatingActionButton,
             Icon, Loading, LoadingDialog, LoadingPage, MenuOption, NoConnection, OptionsMenu,
             SaveDialog, Title,
         },
@@ -466,7 +466,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             }
         }
         (CacheState::Ready(_), None, _) => rsx! {
-            ErrorMessage { message: "Training session not found" }
+            ErrorPage { message: "Training session not found" }
         },
         (
             CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)),
@@ -476,7 +476,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
-            rsx! { ErrorMessage { message: err } }
+            rsx! { ErrorPage { message: err } }
         }
         (CacheState::Loading, _, _) | (_, _, CacheState::Loading) => {
             rsx! { LoadingPage {} }

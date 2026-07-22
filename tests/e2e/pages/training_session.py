@@ -29,10 +29,10 @@ class TrainingSessionPage(BasePage):
         expect(self.page.get_by_test_id("page-title")).to_have_text("Training session")
 
     def expect_view_mode(self) -> None:
-        expect(self.page.locator("textarea").first).to_be_hidden()
+        expect(self.page.get_by_test_id("session-notes")).to_be_hidden()
 
     def expect_edit_mode(self) -> None:
-        expect(self.page.locator("textarea").first).to_be_visible()
+        expect(self.page.get_by_test_id("session-notes")).to_be_visible()
 
     def edit(self) -> None:
         if self.fab_has_icon("edit"):
@@ -92,11 +92,11 @@ class TrainingSessionPage(BasePage):
 
     def get_notes(self) -> str:
         self.expect_edit_mode()
-        return self.page.locator("textarea").first.input_value()
+        return self.page.get_by_test_id("session-notes").input_value()
 
     def set_notes(self, text: str) -> None:
         self.expect_edit_mode()
-        self.page.locator("textarea").first.fill(text)
+        self.page.get_by_test_id("session-notes").fill(text)
 
     def expect_set_action_button_disabled(self, index: int = 0) -> None:
         self.expect_edit_mode()
@@ -158,10 +158,10 @@ class TrainingSessionPage(BasePage):
 
 class ExerciseNoteDialog(Dialog):
     def get_note(self) -> str:
-        return self.root.locator("textarea").input_value()
+        return self.root.get_by_test_id("exercise-note-input").input_value()
 
     def set_note(self, note: str) -> None:
-        self.root.locator("textarea").fill(note)
+        self.root.get_by_test_id("exercise-note-input").fill(note)
 
     def get_previous_notes(self) -> list[str]:
         return [

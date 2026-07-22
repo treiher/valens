@@ -26,7 +26,7 @@ class BodyWeightPage(BasePage):
 
 class BodyWeightDialog(Dialog):
     def get_date(self) -> str:
-        return self.page.locator("input[type='date']").first.input_value()
+        return self.page.get_by_test_id("date").first.input_value()
 
     def set_weight(self, weight: str) -> None:
-        self.page.locator("input[inputmode='numeric']").first.fill(weight)
+        self.page.get_by_test_id("weight").first.fill(weight)

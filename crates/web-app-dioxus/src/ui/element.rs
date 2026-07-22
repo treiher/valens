@@ -253,7 +253,7 @@ pub fn Icon(
                 }
             },
             ..attributes,
-            i { class: "fas fa-{name}" }
+            i { class: "fas fa-{name}", "data-testid": "icon-{name}" }
         }
     }
 }

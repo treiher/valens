@@ -30,6 +30,7 @@ pub fn InputField(
     step: Option<usize>,
     value: String,
     error: Option<String>,
+    error_testid: Option<String>,
     has_changed: bool,
     #[props(default)] has_text_right: bool,
     #[props(default)] is_disabled: bool,
@@ -82,7 +83,11 @@ pub fn InputField(
                 }
             }
             if let Some(ref error) = error {
-                p { class: "help is-danger", "{error}" }
+                p {
+                    class: "help is-danger",
+                    "data-testid": if let Some(ref error_testid) = error_testid { error_testid.clone() },
+                    "{error}"
+                }
             } else if let Some(ref help) = help {
                 p { class: "help", "{help}" }
             }

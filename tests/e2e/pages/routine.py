@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
-from .base import BasePage, Dialog
+from .base import BasePage
 from .utils import (
     drop_on_remove_zone,
     hover_after_last,
@@ -83,7 +83,7 @@ class RoutinePage(BasePage):
 
     def set_rounds(self, section_idx: int, rounds: int) -> None:
         dialog = self._open_edit_dialog(section_idx)
-        inp = dialog.locator("input").first
+        inp = dialog.get_by_test_id("rounds").first
         current_rounds = inp.input_value()
         if current_rounds == str(rounds):
             self.dialog.cancel()
@@ -191,7 +191,7 @@ class RoutinePage(BasePage):
         dialog.get_by_test_id("create-exercise").click()
         dialog.get_by_test_id("dialog-save").click()
         self.wait_until_idle()
-        exercises = dialog.locator("span.has-text-link").all()
+        exercises = dialog.get_by_test_id("exercise-item").all()
         for exercise in exercises:
             if name in exercise.inner_text():
                 exercise.click()
@@ -200,29 +200,29 @@ class RoutinePage(BasePage):
 
     def set_reps(self, section_idx: int, activity_idx: int, reps: str) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
-        dialog.locator('input[data-testid="input-reps"]').first.fill(reps)
+        dialog.get_by_test_id("input-reps").fill(reps)
         self.dialog.save()
 
     def set_time(self, section_idx: int, activity_idx: int, time: str) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
-        dialog.locator('input[data-testid="input-time"]').first.fill(time)
+        dialog.get_by_test_id("input-time").fill(time)
         self.dialog.save()
 
     def set_weight(self, section_idx: int, activity_idx: int, weight: str) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
-        dialog.locator('input[data-testid="input-weight"]').first.fill(weight)
+        dialog.get_by_test_id("input-weight").fill(weight)
         self.dialog.save()
 
     def set_rpe(self, section_idx: int, activity_idx: int, rpe: str) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
-        dialog.locator('input[data-testid="input-rpe"]').first.fill(rpe)
+        dialog.get_by_test_id("input-rpe").fill(rpe)
         self.dialog.save()
 
     def set_automatic(self, section_idx: int, activity_idx: int) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
-        dialog.locator(
-            '[data-testid="button-select-automatic"] .button:has-text("Automatic")'
-        ).first.click()
+        dialog.get_by_test_id("button-select-automatic").get_by_text(
+            "Automatic", exact=True
+        ).click()
         self.dialog.save()
 
     def _open_options_menu(self, section_idx: int, activity_idx: int | None = None) -> None:
@@ -246,7 +246,7 @@ class RoutinePage(BasePage):
         return self.page.get_by_test_id("dialog")
 
     def _select_exercise(self, name: str) -> None:
-        exercises = self.page.get_by_test_id("dialog").locator("span.has-text-link").all()
+        exercises = self.page.get_by_test_id("dialog").get_by_test_id("exercise-item").all()
         for exercise in exercises:
             if name in exercise.inner_text():
                 exercise.click()
@@ -258,17 +258,6 @@ class RoutinePage(BasePage):
         self.page.get_by_test_id("options-show-as-text").click()
         self.dialog.wait_until_open()
         return self.page.get_by_test_id("show-text-content").inner_text()
-
-
-class EditDialog(Dialog):
-    def get_date(self) -> str:
-        return self.page.locator("input[type='date']").first.input_value()
-
-    def set_jp7(self, values: tuple[str, ...]) -> None:
-        inputs = self.page.locator("input[inputmode='numeric']").all()
-        assert len(inputs) == 7
-        for inp, val in zip(inputs, values, strict=False):
-            inp.fill(val)
 
 
 @dataclass
@@ -380,14 +369,14 @@ class RoutineSection(RoutinePart):
     def _parse_parts(element: Locator) -> list[RoutinePart]:
         parts: list[RoutinePart] = []
 
-        containers = element.locator("> div.message").all()
+        containers = element.locator('> [data-testid="routine-part"]').all()
 
         for container in containers:
             nested_element = container.locator('[data-testid="routine-section"]').first
             if nested_element.count() > 0:
                 parts.append(RoutineSection.from_element(nested_element))
             else:
-                message_body = container.locator("> div.message-body").first
+                message_body = container.locator('> [data-testid="routine-part-body"]').first
 
                 if message_body.count() == 0:
                     continue

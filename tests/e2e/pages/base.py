@@ -12,6 +12,11 @@ if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
 
 
+def wait_until_idle(page: Page) -> None:
+    page.get_by_test_id("loading").wait_for(state="detached")
+    page.locator(".is-loading").wait_for(state="detached")
+
+
 class BasePage:
     def __init__(self, page: Page, base_url: str | None = None) -> None:
         self.page = page
@@ -43,8 +48,7 @@ class BasePage:
         self.page.wait_for_load_state("networkidle")
 
     def wait_until_idle(self) -> None:
-        self.page.get_by_test_id("loading").wait_for(state="detached")
-        self.page.locator(".is-loading").wait_for(state="detached")
+        wait_until_idle(self.page)
 
     def delete_item(self, index: int) -> None:
         if self.page.get_by_test_id("item-delete").nth(index).is_visible(timeout=1000):
@@ -72,14 +76,14 @@ class BasePage:
         return self.page.get_by_test_id("fab")
 
     def fab_has_icon(self, icon: str) -> bool:
-        return self.fab().locator(f"i.fa-{icon}").first.is_visible()
+        return self.fab().get_by_test_id(f"icon-{icon}").is_visible()
 
     def expect_loading_to_be_finished(self) -> None:
         expect(self.page.get_by_test_id("loading")).to_have_count(0)
         expect(self.page.locator(".is-loading")).to_have_count(0)
 
     def expect_fab(self, icon: str) -> None:
-        expect(self.fab().locator(f"i.fa-{icon}")).to_be_visible()
+        expect(self.fab().get_by_test_id(f"icon-{icon}")).to_be_visible()
 
     def _open_item_options(self, index: int) -> None:
         self.page.get_by_test_id("item-options").nth(index).click()
@@ -256,8 +260,7 @@ class BaseDialog(PageElement):
         self.page.get_by_test_id("dialog").first.wait_for(state="hidden")
 
     def wait_until_idle(self) -> None:
-        self.page.get_by_test_id("loading").wait_for(state="detached")
-        self.page.locator(".is-loading").wait_for(state="detached")
+        wait_until_idle(self.page)
 
 
 class Table(PageElement):

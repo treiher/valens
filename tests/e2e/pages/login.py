@@ -46,4 +46,4 @@ class LoginPage(BasePage):
 
     @property
     def error_message(self) -> Locator:
-        return self.page.locator(".help.is-danger")
+        return self.page.get_by_test_id("login-error")

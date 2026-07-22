@@ -26,10 +26,10 @@ class MenstrualCyclePage(BasePage):
 
 class MenstrualCycleDialog(Dialog):
     def get_date(self) -> str:
-        return self.page.locator("input[type='date']").first.input_value()
+        return self.page.get_by_test_id("date").first.input_value()
 
     def set_intensity(self, value: str) -> None:
-        buttons = self.page.locator('[data-testid="dialog"] button').all()
+        buttons = self.page.get_by_test_id("intensity-option").all()
         for button in buttons:
             if button.inner_text() == value:
                 button.click()

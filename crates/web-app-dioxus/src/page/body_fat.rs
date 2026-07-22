@@ -366,6 +366,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
             rsx! {
                 InputField {
                     label: skinfold_name!($name).to_string(),
+                    "data-testid": "caliper",
                     help: skinfold_description!($name).to_string(),
                     right_icon: rsx! { "mm" },
                     inputmode: "numeric".to_string(),
@@ -597,6 +598,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                 }
                 InputField {
                     label: "Date".to_string(),
+                    "data-testid": "date",
                     r#type: "date".to_string(),
                     max: Local::now().date_naive().to_string(),
                     value: date.input.clone(),

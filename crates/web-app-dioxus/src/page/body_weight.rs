@@ -331,6 +331,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                     disabled: !FieldValue::has_valid_changes(&[date as &dyn FieldValueState, weight]),
                     InputField {
                         label: "Date".to_string(),
+                        "data-testid": "date",
                         r#type: "date".to_string(),
                         max: Local::now().date_naive().to_string(),
                         value: date.input.clone(),
@@ -357,6 +358,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                     }
                     InputField {
                         label: "Weight".to_string(),
+                        "data-testid": "weight",
                         right_icon: rsx! { "kg" },
                         inputmode: "numeric".to_string(),
                         value: weight.input.clone(),

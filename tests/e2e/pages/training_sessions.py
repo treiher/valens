@@ -35,7 +35,7 @@ class TrainingSessionsPage(BasePage):
 
 class TrainingDialog(Dialog):
     def get_date(self) -> str:
-        return self.page.locator("input[type='date']").first.input_value()
+        return self.page.get_by_test_id("date").first.input_value()
 
     def set_routine(self, name: str) -> None:
-        self.page.locator("select").first.select_option(label=name)
+        self.page.get_by_test_id("routine").first.select_option(label=name)

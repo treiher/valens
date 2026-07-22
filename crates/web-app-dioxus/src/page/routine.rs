@@ -299,6 +299,7 @@ fn view_routine_part(
                     "data-drop": "part-{path_attribute(path)}",
                     div {
                         class: "message-body has-background-scheme-main p-3",
+                        "data-testid": "routine-part-body",
                         if !exercise_id.is_nil() {
                             div {
                                 class: "is-flex is-justify-content-space-between has-text-weight-bold",
@@ -969,6 +970,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                             disabled: !FieldValue::has_valid_changes(&[rounds_field as &dyn FieldValueState]),
                             InputField {
                                 label: "Rounds",
+                                "data-testid": "rounds",
                                 right_icon: rsx! { "✕" },
                                 inputmode: "numeric",
                                 value: rounds_field.input.clone(),

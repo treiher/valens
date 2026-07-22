@@ -179,6 +179,7 @@ fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool)
                                     label: Some("Username".to_string()),
                                     value: username.read().clone(),
                                     error: error.read().clone(),
+                                    error_testid: "login-error",
                                     has_changed: false,
                                     autofocus: true,
                                     "data-testid": "login-username",

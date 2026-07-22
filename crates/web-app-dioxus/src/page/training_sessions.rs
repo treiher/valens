@@ -468,6 +468,7 @@ pub fn view_dialog(
                     disabled: !date.valid() || !routine_id.valid(),
                     InputField {
                         label: "Date".to_string(),
+                        "data-testid": "date",
                         r#type: "date".to_string(),
                         max: Local::now().date_naive().to_string(),
                         value: date.input.clone(),
@@ -486,6 +487,7 @@ pub fn view_dialog(
                     }
                     SelectField {
                         label: "Routine".to_string(),
+                        "data-testid": "routine",
                         options: vec![
                             rsx! {
                                 SelectOption {

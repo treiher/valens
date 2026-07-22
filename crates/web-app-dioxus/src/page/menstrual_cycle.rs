@@ -332,6 +332,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                 disabled: !FieldValue::has_valid_changes(&[date as &dyn FieldValueState, intensity]),
                 InputField {
                     label: "Date".to_string(),
+                    "data-testid": "date",
                     r#type: "date".to_string(),
                     max: Local::now().date_naive().to_string(),
                     value: date.input.clone(),
@@ -362,6 +363,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                         button {
                             class: "button mr-2",
                             class: if intensity.validated == Ok(*i) { "is-link" },
+                            "data-testid": "intensity-option",
                             onclick: move |_| {
                                 match &mut *dialog.write() {
                                     PeriodDialog::Add { intensity, .. }

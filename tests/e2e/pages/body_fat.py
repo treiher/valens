@@ -26,10 +26,10 @@ class BodyFatPage(BasePage):
 
 class BodyFatDialog(Dialog):
     def get_date(self) -> str:
-        return self.page.locator("input[type='date']").first.input_value()
+        return self.page.get_by_test_id("date").first.input_value()
 
     def set_jp7(self, values: tuple[str, ...]) -> None:
-        inputs = self.page.locator("input[inputmode='numeric']").all()
+        inputs = self.page.get_by_test_id("caliper").all()
         assert len(inputs) == 7
         for inp, val in zip(inputs, values, strict=False):
             inp.fill(val)

@@ -1155,6 +1155,7 @@ fn Notes(notes: Signal<Option<FieldValue<String>>>, edit: ReadSignal<bool>) -> E
                     textarea {
                         class: "textarea",
                         class: if changed { "is-info" },
+                        "data-testid": "session-notes",
                         oninput: {
                             move |event| {
                                 if let Some(n) = notes.write().as_mut() {
@@ -1654,6 +1655,7 @@ fn ExerciseNoteDialog(
                     textarea {
                         class: "textarea",
                         class: if changed { "is-info" },
+                        "data-testid": "exercise-note-input",
                         oninput: move |event| {
                             *note_input.write() = event.value();
                         },

@@ -268,6 +268,7 @@ fn view_list(
                 rsx! {
                     span {
                         class: "has-text-link",
+                        "data-testid": "exercise-item",
                         onclick: move |event| on_exercise_click((event, e.id)),
                         "{e.name}"
                     }
@@ -289,6 +290,7 @@ fn view_list(
                 rsx! {
                     span {
                         class: "has-text-link",
+                        "data-testid": "exercise-item",
                         onclick: move |event| on_exercise_click((event, e.id)),
                         "{e.name}"
                     }

@@ -99,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error being reported for a change that was successfully saved on the server when storing the change on the device failed
 - Sign-out being aborted instead of completed when the data on the device could not be removed
 - Incorrect background color in calendars
+- Training session page: Manual metronome adjustments being reset immediately instead of persisting until the current element changes
 - Training sessions page: Incorrect chart legend label
 - Exercise page: Changed muscles not being shown until the next synchronization
 - Body fat page: Missing and incorrect chart legend labels for body weight

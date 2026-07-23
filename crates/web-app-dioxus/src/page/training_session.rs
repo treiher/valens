@@ -222,30 +222,52 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         has_unsaved_changes.set(field_values.read().iter().any(|(_, v)| v.changed()));
     });
 
+    // Reconfigure the automatic metronome only when the current element changes,
+    // so that manual adjustments persist until the next element.
+    use_effect(move || {
+        let element_idx = *progress.element_idx().read();
+        if !settings.automatic_metronome() {
+            return;
+        }
+        if let Some(training_session) = training_session()
+            && let Some(element) = training_session.elements.get(element_idx)
+        {
+            match element {
+                domain::TrainingSessionElement::Set {
+                    target_reps,
+                    target_time,
+                    ..
+                } => {
+                    METRONOME.write().pause();
+                    if let Some(target_time) = target_time
+                        && target_reps.is_some()
+                    {
+                        METRONOME.with_mut(|metronome| {
+                            metronome.set_interval((*target_time).into());
+                            metronome.set_stressed_beat(1);
+                            metronome.start();
+                        });
+                    }
+                }
+                domain::TrainingSessionElement::Rest { .. } => {
+                    METRONOME.write().pause();
+                }
+            }
+        }
+    });
+
     use_effect(move || {
         let element_idx = progress.read().element_idx;
         if let Some(training_session) = training_session()
             && let Some(element) = training_session.elements.get(element_idx)
         {
-            let automatic_metronome = settings.automatic_metronome();
             match element {
                 domain::TrainingSessionElement::Set {
-                    target_reps,
                     target_time,
                     automatic,
                     ..
                 } => {
-                    if automatic_metronome {
-                        METRONOME.write().pause();
-                    }
                     if let Some(target_time) = target_time {
-                        if automatic_metronome && target_reps.is_some() {
-                            METRONOME.with_mut(|metronome| {
-                                metronome.set_interval((*target_time).into());
-                                metronome.set_stressed_beat(1);
-                                metronome.start();
-                            });
-                        }
                         if progress.timer_service().read().is_set() {
                             if progress.timer_service().read().seconds() <= 0 {
                                 progress.write().set_element_idx(element_idx + 1);
@@ -279,9 +301,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     target_time,
                     automatic,
                 } => {
-                    if automatic_metronome {
-                        METRONOME.write().pause();
-                    }
                     if let Some(target_time) = target_time {
                         if progress.timer_service().read().is_set() {
                             if *automatic && progress.timer_service().read().seconds() <= 0 {

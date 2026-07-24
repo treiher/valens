@@ -26,7 +26,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
@@ -78,7 +78,7 @@ jobs:
           enable-cache: true
           cache-suffix: ${{ matrix.python-version }}-${{ matrix.target }}
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -105,7 +105,7 @@ jobs:
           enable-cache: true
           cache-suffix: ${{ matrix.python-version }}
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Set up Rust
@@ -166,7 +166,7 @@ jobs:
           enable-cache: true
           cache-suffix: ${{ matrix.python-version }}
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -189,7 +189,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Set up Rust
@@ -243,7 +243,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Set up Rust
@@ -293,7 +293,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install latest PyPI release

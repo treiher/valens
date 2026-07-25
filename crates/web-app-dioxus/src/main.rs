@@ -39,6 +39,8 @@ static DOMAIN_SERVICE: GlobalSignal<
 static WEB_APP_SERVICE: GlobalSignal<web_app::Service<storage::local_storage::LocalStorage>> =
     Signal::global(|| web_app::Service::new(storage::local_storage::LocalStorage));
 static NO_CONNECTION: GlobalSignal<bool> = Signal::global(|| false);
+/// Counter incremented after every mutation. Components that must reflect fresh data read it
+/// first in the closure of a `use_resource`, so the resource re-runs on every data change.
 static DATA_CHANGED: GlobalSignal<usize> = Signal::global(|| 0);
 // Captured from the URL fragment before the router strips it (see `init_login_link_token`).
 // A plain `Mutex` is used instead of a signal because it is written in `main` before the

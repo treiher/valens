@@ -37,6 +37,7 @@ check-kacl:
 check-frontend:
 	cargo fmt -- --check
 	cargo clippy --all-targets -- --warn clippy::pedantic --deny warnings
+	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
 	dx check -p valens-web-app-dioxus
 
 check-backend: check-black check-ruff check-mypy

@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use valens_domain as domain;
-use valens_domain::{AuthService, SessionService, UserService};
+use valens_domain::{AuthService, UserService};
 use valens_storage as storage;
 
 use crate::{
@@ -9,11 +9,11 @@ use crate::{
     diagnostics::log_failure,
     dialog::PasskeyTable,
     notification::notify,
-    session::SessionRefresh,
+    session::{Session, SessionRefresh},
     signal_changed_data,
     ui::{
         element::{
-            DeleteConfirmationDialog, Dialog, Error, Icon, ItemOptionsButton, Loading, MenuOption,
+            DeleteConfirmationDialog, Error, Icon, ItemOptionsButton, Loading, MenuOption,
             NoConnection, NoData, OptionsMenu, SaveDialog, Title,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
@@ -22,40 +22,7 @@ use crate::{
 
 #[component]
 pub fn ProfileDialog(on_close: EventHandler<MouseEvent>) -> Element {
-    let user = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
-    match &*user.read() {
-        Some(Ok(user)) => rsx! {
-            ProfileForm { user: user.clone(), on_close }
-        },
-        Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))) => rsx! {
-            Dialog {
-                title: rsx! { "Profile" },
-                on_close,
-                NoConnection {}
-            }
-        },
-        Some(Err(err)) => {
-            log_failure("load profile", err);
-            rsx! {
-                Dialog {
-                    title: rsx! { "Profile" },
-                    on_close,
-                    Error { message: err }
-                }
-            }
-        }
-        None => rsx! {
-            Dialog {
-                title: rsx! { "Profile" },
-                on_close,
-                Loading {}
-            }
-        },
-    }
-}
-
-#[component]
-fn ProfileForm(user: domain::User, on_close: EventHandler<MouseEvent>) -> Element {
+    let user = consume_context::<Session>().user();
     let mut name = use_signal(|| FieldValue {
         input: user.name.to_string(),
         validated: Ok(user.name.clone()),

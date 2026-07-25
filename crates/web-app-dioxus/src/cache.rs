@@ -5,7 +5,7 @@
 //! after a mutation, which re-fetches the affected data from the local database via the domain
 //! service.
 //!
-//! The cache is initialized once at the app root via [`Cache::init`]. After the synchronization
+//! The cache is provided once at the session root via [`Cache::provide`]. After the synchronization
 //! layer has pulled remote changes into the local database, it triggers cache refreshes to keep
 //! the view up-to-date (see [`crate::synchronization`]).
 

@@ -767,6 +767,7 @@ pub fn Chart(
                         }
                     }
                     div {
+                        "data-testid": "chart",
                         style: "position: relative; display: inline-block; touch-action: pan-y;
                                 -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;",
                         div { dangerous_inner_html: svg }

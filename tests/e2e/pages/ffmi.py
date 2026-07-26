@@ -26,7 +26,13 @@ class FfmiPage(BasePage):
 
     @property
     def chart(self) -> Locator:
-        return self.page.locator("svg").first
+        return self.page.get_by_test_id("chart").first
+
+    def chart_width(self) -> str:
+        return str(self.chart.evaluate("element => getComputedStyle(element).width"))
+
+    def expect_chart_width_changed(self, width: str) -> None:
+        expect(self.chart).not_to_have_css("width", width)
 
     @property
     def chart_tooltip(self) -> Locator:

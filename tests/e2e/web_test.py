@@ -292,14 +292,13 @@ def test_chart_resized_on_window_resize(page: Page) -> None:
     ffmi_page.expect_page()
     ffmi_page.wait_until_idle()
 
-    width = ffmi_page.chart.get_attribute("width")
-    assert width
+    width = ffmi_page.chart_width()
 
     viewport = page.viewport_size
     assert viewport
     page.set_viewport_size({"width": viewport["width"] // 2, "height": viewport["height"]})
 
-    expect(ffmi_page.chart).not_to_have_attribute("width", width)
+    ffmi_page.expect_chart_width_changed(width)
 
 
 def test_add_user_with_height(page: Page) -> None:

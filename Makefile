@@ -22,17 +22,20 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check-project check-lockfile check-kacl check-frontend check-backend check-black check-ruff check-mypy
+.PHONY: check check-project check-lockfile check-kacl check-doc check-frontend check-backend check-black check-ruff check-mypy
 
 check: check-project check-frontend check-backend
 
-check-project: check-lockfile check-kacl
+check-project: check-lockfile check-kacl check-doc
 
 check-lockfile:
 	uv lock --locked
 
 check-kacl:
 	uv run -- kacl-cli verify
+
+check-doc:
+	uv run -- python tools/check_doc_links.py
 
 check-frontend:
 	cargo fmt -- --check

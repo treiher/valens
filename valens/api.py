@@ -41,6 +41,28 @@ from webauthn.helpers.structs import (
 
 from valens import database as db, login_link, version
 from valens.aaguid import AAGUID_NAMES
+from valens.limits import (
+    HEIGHT_MAX,
+    HEIGHT_MIN,
+    INTENSITY_MAX,
+    INTENSITY_MIN,
+    MUSCLE_IDS,
+    REPS_MAX,
+    ROUNDS_MAX,
+    ROUNDS_MIN,
+    RPE_MAX,
+    RPE_MIN,
+    RPE_RESOLUTION,
+    SKINFOLD_MAX,
+    SKINFOLD_MIN,
+    STIMULUS_MAX,
+    STIMULUS_MIN,
+    TIME_MAX,
+    WEEKDAY_MAX,
+    WEEKDAY_MIN,
+    WEIGHT_MAX,
+    WEIGHT_RESOLUTION,
+)
 from valens.models import (
     BodyFat,
     BodyWeight,
@@ -74,9 +96,6 @@ AUTHENTICATION_CHALLENGE_KEY = "webauthn_authentication_challenge"
 
 # Largest integer storable in an SQLite `INTEGER` column
 MAX_ID = 2**63 - 1
-
-# Valid muscle IDs, mirroring `MuscleID` in `crates/domain/src/exercise.rs`
-MUSCLE_IDS = frozenset({1, 11, 21, 22, 31, 32, 33, 41, 42, 51, 61, 62, 71, 72, 81, 82, 83, 91})
 
 
 class DeserializationError(Exception):
@@ -206,7 +225,7 @@ def to_routine_sections(json: list[dict[str, Any]]) -> list[RoutineSection]:  # 
 def to_routine_section(json: dict[str, Any], position: int) -> RoutineSection:  # type: ignore[explicit-any]
     return RoutineSection(
         position=position,
-        rounds=to_int(json["rounds"], "rounds", 1, 999),
+        rounds=to_int(json["rounds"], "rounds", ROUNDS_MIN, ROUNDS_MAX),
         parts=to_routine_parts(json["parts"]),
     )
 
@@ -217,8 +236,8 @@ def to_routine_activity(  # type: ignore[explicit-any]
     return RoutineActivity(
         position=position,
         exercise_id=to_optional_id(json["exercise_id"], "exercise_id"),
-        reps=to_int(json["reps"], "reps", 0, 999),
-        time=to_int(json["time"], "time", 0, 999),
+        reps=to_int(json["reps"], "reps", 0, REPS_MAX),
+        time=to_int(json["time"], "time", 0, TIME_MAX),
         weight=to_weight(json["weight"], "weight", 0.0),
         rpe=to_rpe(json["rpe"], "rpe"),
         automatic=to_bool(json["automatic"], "automatic"),
@@ -231,20 +250,22 @@ def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # 
             WorkoutSet(
                 position=position,
                 exercise_id=to_id(element["exercise_id"], "exercise_id"),
-                reps=to_optional_int(element["reps"], "reps", 1, 999),
-                time=to_optional_int(element["time"], "time", 1, 999),
-                weight=to_optional_weight(element["weight"], "weight", 0.01),
+                reps=to_optional_int(element["reps"], "reps", 1, REPS_MAX),
+                time=to_optional_int(element["time"], "time", 1, TIME_MAX),
+                weight=to_optional_weight(element["weight"], "weight", WEIGHT_RESOLUTION),
                 rpe=to_optional_rpe(element["rpe"], "rpe"),
-                target_reps=to_optional_int(element["target_reps"], "target_reps", 1, 999),
-                target_time=to_optional_int(element["target_time"], "target_time", 1, 999),
-                target_weight=to_optional_weight(element["target_weight"], "target_weight", 0.01),
+                target_reps=to_optional_int(element["target_reps"], "target_reps", 1, REPS_MAX),
+                target_time=to_optional_int(element["target_time"], "target_time", 1, TIME_MAX),
+                target_weight=to_optional_weight(
+                    element["target_weight"], "target_weight", WEIGHT_RESOLUTION
+                ),
                 target_rpe=to_optional_rpe(element["target_rpe"], "target_rpe"),
                 automatic=to_bool(element["automatic"], "automatic"),
             )
             if "exercise_id" in element
             else WorkoutRest(
                 position=position,
-                target_time=to_optional_int(element["target_time"], "target_time", 1, 999),
+                target_time=to_optional_int(element["target_time"], "target_time", 1, TIME_MAX),
                 automatic=to_bool(element["automatic"], "automatic"),
             )
         )
@@ -353,7 +374,7 @@ def to_schedule_slots(  # type: ignore[explicit-any]
 def to_schedule_slot(  # type: ignore[explicit-any]
     json: dict[str, Any], user_id: int, weekday: int, position: int
 ) -> ScheduleSlot:
-    weekday = to_int(weekday, "weekday", 1, 7)
+    weekday = to_int(weekday, "weekday", WEEKDAY_MIN, WEEKDAY_MAX)
     if set(json) == {"routine"}:
         return ScheduleSlot(
             user_id=user_id,
@@ -461,10 +482,11 @@ def to_optional_weight(json: object, what: str, minimum: float) -> float | None:
 
 def to_weight(json: object, what: str, minimum: float) -> float:
     value = to_number(json, what)
-    if not minimum <= value <= 999.99:
-        raise DeserializationError(f"{what} must be in the range {minimum} to 999.99")
-    if abs(value * 100 - round(value * 100)) > 1e-3:
-        raise DeserializationError(f"{what} must be a multiple of 0.01")
+    if not minimum <= value <= WEIGHT_MAX:
+        raise DeserializationError(f"{what} must be in the range {minimum} to {WEIGHT_MAX}")
+    steps = value / WEIGHT_RESOLUTION
+    if abs(steps - round(steps)) > 1e-3:
+        raise DeserializationError(f"{what} must be a multiple of {WEIGHT_RESOLUTION}")
     return value
 
 
@@ -474,10 +496,11 @@ def to_optional_rpe(json: object, what: str) -> float | None:
 
 def to_rpe(json: object, what: str) -> float:
     value = to_number(json, what)
-    if not 0 <= value <= 10:
-        raise DeserializationError(f"{what} must be in the range 0 to 10")
-    if abs(value * 2 - round(value * 2)) > 1e-3:
-        raise DeserializationError(f"{what} must be a multiple of 0.5")
+    if not RPE_MIN <= value <= RPE_MAX:
+        raise DeserializationError(f"{what} must be in the range {RPE_MIN} to {RPE_MAX}")
+    steps = value / RPE_RESOLUTION
+    if abs(steps - round(steps)) > 1e-3:
+        raise DeserializationError(f"{what} must be a multiple of {RPE_RESOLUTION}")
     return value
 
 
@@ -997,7 +1020,7 @@ def create_user() -> ResponseReturnValue:
         user = User(
             name=to_name(data["name"]),
             sex=to_sex(data["sex"]),
-            height=to_optional_int(data.get("height"), "height", 1, 255),
+            height=to_optional_int(data.get("height"), "height", HEIGHT_MIN, HEIGHT_MAX),
             role=to_role(data["role"]),
         )
     except (DeserializationError, KeyError, ValueError) as e:
@@ -1036,7 +1059,7 @@ def replace_user(user_id: int) -> ResponseReturnValue:
     try:
         name = to_name(data["name"])
         sex = to_sex(data["sex"])
-        height = to_optional_int(data.get("height"), "height", 1, 255)
+        height = to_optional_int(data.get("height"), "height", HEIGHT_MIN, HEIGHT_MAX)
         role = to_role(data["role"])
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -1085,7 +1108,7 @@ def update_user(user_id: int) -> ResponseReturnValue:
     try:
         name = to_name(data["name"]) if "name" in data else user.name
         sex = to_sex(data["sex"]) if "sex" in data else user.sex
-        height = to_optional_int(data.get("height", user.height), "height", 1, 255)
+        height = to_optional_int(data.get("height", user.height), "height", HEIGHT_MIN, HEIGHT_MAX)
         role = to_role(data["role"]) if "role" in data else user.role
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -1339,7 +1362,7 @@ def create_body_fat() -> ResponseReturnValue:
             user_id=int(session["user_id"]),
             date=to_date(data["date"]),
             **{
-                part: to_optional_int(data[part], part, 1, 255)
+                part: to_optional_int(data[part], part, SKINFOLD_MIN, SKINFOLD_MAX)
                 for part in [
                     "chest",
                     "abdominal",
@@ -1400,7 +1423,7 @@ def replace_body_fat(date_: str) -> ResponseReturnValue:
             "suprailiac",
             "midaxillary",
         ]:
-            setattr(body_fat, attr, to_optional_int(data[attr], attr, 1, 255))
+            setattr(body_fat, attr, to_optional_int(data[attr], attr, SKINFOLD_MIN, SKINFOLD_MAX))
     except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -1460,7 +1483,7 @@ def create_period() -> ResponseReturnValue:
         period = Period(
             user_id=session["user_id"],
             date=to_date(data["date"]),
-            intensity=to_int(data["intensity"], "intensity", 1, 4),
+            intensity=to_int(data["intensity"], "intensity", INTENSITY_MIN, INTENSITY_MAX),
         )
     except (DeserializationError, KeyError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
@@ -1502,7 +1525,7 @@ def replace_period(date_: str) -> ResponseReturnValue:
     assert isinstance(data, dict)
 
     try:
-        period.intensity = to_int(data["intensity"], "intensity", 1, 4)
+        period.intensity = to_int(data["intensity"], "intensity", INTENSITY_MIN, INTENSITY_MAX)
     except (DeserializationError, KeyError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -1570,7 +1593,7 @@ def create_exercise() -> ResponseReturnValue:
                 ExerciseMuscle(
                     user_id=session["user_id"],
                     muscle_id=to_muscle_id(muscle["muscle_id"]),
-                    stimulus=to_int(muscle["stimulus"], "stimulus", 1, 100),
+                    stimulus=to_int(muscle["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX),
                 )
                 for muscle in data["muscles"]
             ],
@@ -1617,7 +1640,9 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
     try:
         exercise.name = to_name(data["name"])
         muscle_stimulus = {
-            to_muscle_id(m["muscle_id"]): to_int(m["stimulus"], "stimulus", 1, 100)
+            to_muscle_id(m["muscle_id"]): to_int(
+                m["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX
+            )
             for m in data["muscles"]
         }
 

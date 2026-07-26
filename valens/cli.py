@@ -9,6 +9,7 @@ from tempfile import NamedTemporaryFile
 from sqlalchemy import select
 
 from valens import app, config, database as db, demo, login_link, version
+from valens.limits import HEIGHT_MAX, HEIGHT_MIN
 from valens.models import Role, Sex, User
 
 
@@ -98,7 +99,7 @@ def main() -> int:
         "--height",
         type=int,
         metavar="CM",
-        help="body height in cm (1-255)",
+        help=f"body height in cm ({HEIGHT_MIN}-{HEIGHT_MAX})",
     )
 
     parser_user_update = user_subparsers.add_parser("update", help="update a user")
@@ -124,7 +125,7 @@ def main() -> int:
         dest="new_height",
         type=int,
         metavar="CM",
-        help="new body height in cm (1-255, or 0 to clear)",
+        help=f"new body height in cm ({HEIGHT_MIN}-{HEIGHT_MAX}, or 0 to clear)",
     )
 
     parser_user_delete = user_subparsers.add_parser("delete", help="delete a user")
@@ -207,7 +208,10 @@ def create_user(args: argparse.Namespace) -> int:
     try:
         height = _resolve_height(args.height)
     except ValueError:
-        print("Height must be a whole number between 1 and 255", file=sys.stderr)
+        print(
+            f"Height must be a whole number between {HEIGHT_MIN} and {HEIGHT_MAX}",
+            file=sys.stderr,
+        )
         return 1
 
     with app.app_context():
@@ -243,7 +247,10 @@ def update_user(args: argparse.Namespace) -> int:
         try:
             new_height = _resolve_height(args.new_height)
         except ValueError:
-            print("Height must be a whole number between 1 and 255", file=sys.stderr)
+            print(
+                f"Height must be a whole number between {HEIGHT_MIN} and {HEIGHT_MAX}",
+                file=sys.stderr,
+            )
             return 1
 
     with app.app_context():
@@ -321,11 +328,11 @@ def _resolve_height(value: int | None) -> int | None:
     """
     Return the stored height for a `--height` value, treating `0` as unset.
 
-    Raises `ValueError` if `value` is outside the storable range of `1` to `255`.
+    Raises `ValueError` if `value` is outside the storable range.
     """
     if value is None or value == 0:
         return None
-    if not 0 < value <= 255:
+    if not HEIGHT_MIN <= value <= HEIGHT_MAX:
         raise ValueError
     return value
 

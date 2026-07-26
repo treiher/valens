@@ -40,6 +40,7 @@ When the same condition is checked in both the domain service and the backend, b
 
 - The DTOs in [`rest.rs`](../crates/storage/src/rest.rs) and [`indexed_db.rs`](../crates/storage/src/indexed_db.rs) are kept separate even where they currently coincide. Each adapter owns its serialization format (wire format of the REST API, persisted browser data) and must be able to evolve it independently, so the duplication is intentional and must not be removed.
 - The backend validates every constraint the domain validates, even though the frontend enforces them as well, so that clients bypassing the frontend cannot store invalid data. Where this requires mirrored constants or bounds, they are kept in sync by hand and carry a comment naming the domain definition they mirror. Where the backend is deliberately stricter than the domain, the comment states so. Changes to such domain definitions include the corresponding backend update.
+- The mirrored values are collected in [`limits.py`](../valens/limits.py). The check constraints in [`models.py`](../valens/models.py) are the exception: they are versioned schema and keep their literals.
 - The domain represents an unset numeric value as zero, the backend as `NULL`. Nullable columns therefore reject 0, while non-nullable columns store 0 as the unset value. This asymmetry follows from the column definition and needs no per-site comment.
 
 ## Changelog

@@ -317,9 +317,11 @@ fn view_drag_list(
             let (source, insert_target, drop_id) = targets(index);
             rsx! {
                 div {
-                    class: "box is-flex is-justify-content-space-between is-align-items-center px-4 py-3 mb-3",
-                    class: if target == Some(insert_target) { "is-insert-before" },
-                    class: if index + 1 == num_items && target == Some(end_target) { "is-insert-after" },
+                    class: "box schedule-tile is-flex is-justify-content-space-between is-align-items-center px-4 py-3",
+                    "data-drop-state": drag_and_drop::insertion_state(
+                        target == Some(insert_target),
+                        index + 1 == num_items && target == Some(end_target),
+                    ),
                     "data-testid": "{labels.item_testid}",
                     "data-drop": "{drop_id}",
                     {content}
@@ -341,6 +343,7 @@ fn view_drag_list(
                 class: "is-drop-zone schedule-tile is-size-7 has-text-centered px-4 py-3",
                 class: if target == Some(empty_target) { "has-text-primary" } else { "has-text-grey-light" },
                 class: if droppable { "is-active" },
+                "data-drop-state": drag_and_drop::drop_state(target == Some(empty_target)),
                 "data-testid": "{labels.empty_testid}",
                 {labels.empty_label}
             }

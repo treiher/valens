@@ -41,7 +41,7 @@ def start_drag(page: Page, handle: Locator) -> None:
 def drop_on_remove_zone(page: Page) -> None:
     remove_zone = page.get_by_test_id("remove-drop-zone")
     remove_zone.hover()
-    expect(remove_zone).not_to_have_class(re.compile("is-light"))
+    expect(remove_zone).to_have_attribute("data-drop-state", "hovered")
     page.mouse.up()
 
 
@@ -55,13 +55,13 @@ def hover_insertion_position(
     targets = elements if hover_elements is None else hover_elements
     if index == 0:
         hover_at_height(targets.nth(0), 0.25)
-        expect(elements.nth(0)).to_have_class(re.compile("is-insert-before"))
+        expect(elements.nth(0)).to_have_attribute("data-drop-state", "insert-before")
     elif index < elements.count():
         _hover_gap(elements, index)
-        expect(elements.nth(index)).to_have_class(re.compile("is-insert-before"))
+        expect(elements.nth(index)).to_have_attribute("data-drop-state", "insert-before")
     else:
         hover_at_height(targets.nth(index - 1), 0.75)
-        expect(elements.nth(index - 1)).to_have_class(re.compile("is-insert-after"))
+        expect(elements.nth(index - 1)).to_have_attribute("data-drop-state", "insert-after")
 
 
 # Hovering below the last element targets the insertion position at the end of the containing
@@ -72,7 +72,7 @@ def hover_after_last(elements: Locator) -> None:
     box = last.bounding_box()
     assert box
     elements.page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] + 4)
-    expect(last).to_have_class(re.compile("is-insert-after"))
+    expect(last).to_have_attribute("data-drop-state", "insert-after")
 
 
 def hover_at_height(locator: Locator, fraction: float) -> None:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
@@ -43,7 +42,7 @@ class SchedulePage(BasePage):
             day.hover()
             rest_day = day.get_by_test_id("rest-day")
             if rest_day.count() > 0:
-                expect(rest_day).to_have_class(re.compile("has-text-primary"))
+                expect(rest_day).to_have_attribute("data-drop-state", "hovered")
         else:
             hover_insertion_position(
                 self._day(target_weekday).get_by_test_id("schedule-slot"), target_index

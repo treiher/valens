@@ -3,6 +3,9 @@
 //! A drag starts on a drag handle rendered by [`view_drag_handle`] and is tracked in a
 //! [`Drag`] signal. Drop targets are identified by the `data-drop` attribute of the elements
 //! under the pointer and represented by a page-specific type implementing [`DropTarget`].
+//!
+//! Elements reflect their current drop state in a `data-drop-state` attribute, which is both the
+//! styling hook for the insertion markers and the handle for end-to-end tests.
 
 use dioxus::prelude::*;
 use web_sys::wasm_bindgen::JsCast;
@@ -80,6 +83,7 @@ pub fn view_drag_overlay(position: (f64, f64), label: &str, remove_hovered: bool
             style: "position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 40;",
             "data-testid": "remove-drop-zone",
             "data-drop": "remove",
+            "data-drop-state": drop_state(remove_hovered),
             Icon { name: "xmark" }
         }
         div {
@@ -87,6 +91,22 @@ pub fn view_drag_overlay(position: (f64, f64), label: &str, remove_hovered: bool
             style: "position: fixed; left: {x}px; top: {y}px; transform: translate(-50%, -125%); pointer-events: none; z-index: 40; opacity: 0.9;",
             "{label}"
         }
+    }
+}
+
+/// The `data-drop-state` of a drop zone that is hovered or not.
+pub fn drop_state(hovered: bool) -> Option<&'static str> {
+    hovered.then_some("hovered")
+}
+
+/// The `data-drop-state` of an element with an insertion marker above or below it.
+pub fn insertion_state(insert_before: bool, insert_after: bool) -> Option<&'static str> {
+    if insert_before {
+        Some("insert-before")
+    } else if insert_after {
+        Some("insert-after")
+    } else {
+        None
     }
 }
 

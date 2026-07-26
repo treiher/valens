@@ -32,6 +32,13 @@ impl Severity {
         }
     }
 
+    fn name(self) -> &'static str {
+        match self {
+            Severity::Warning => "warning",
+            Severity::Error => "error",
+        }
+    }
+
     fn icon(self) -> &'static str {
         match self {
             Severity::Warning => "triangle-exclamation",
@@ -129,6 +136,7 @@ fn CurrentNotification(notification: Notification, hidden: usize) -> Element {
             class: "notification is-{notification.severity.color()} is-flex is-align-items-center is-undecorated",
             role: "alert",
             "data-testid": "notification",
+            "data-severity": "{notification.severity.name()}",
             span {
                 class: "icon has-text-light mr-3",
                 i { class: "fas fa-{notification.severity.icon()}" }

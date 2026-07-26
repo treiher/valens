@@ -229,13 +229,13 @@ fn view_routine_part(
     let insert_before = target == Some(DropTarget::Gap(parent.clone(), index));
     let insert_after =
         index + 1 == num_siblings && target == Some(DropTarget::Gap(parent, num_siblings));
+    let drop_state = drag_and_drop::insertion_state(insert_before, insert_after);
     match part {
         domain::RoutinePart::RoutineSection { rounds, parts } => {
             rsx! {
                 div {
                     class: "message",
-                    class: if insert_before { "is-insert-before" },
-                    class: if insert_after { "is-insert-after" },
+                    "data-drop-state": drop_state,
                     "data-testid": "routine-part",
                     div {
                         class: "message-body p-3 mb-3",
@@ -293,8 +293,7 @@ fn view_routine_part(
                     } else {
                         "is-info"
                     },
-                    class: if insert_before { "is-insert-before" },
-                    class: if insert_after { "is-insert-after" },
+                    "data-drop-state": drop_state,
                     "data-testid": "routine-part",
                     "data-drop": "part-{path_attribute(path)}",
                     div {
@@ -491,6 +490,7 @@ fn view_empty_section_drop_zone(
         div {
             class: "is-drop-zone is-active has-text-centered px-4 py-3",
             class: if hovered { "has-text-primary" } else { "has-text-grey" },
+            "data-drop-state": drag_and_drop::drop_state(hovered),
             "data-testid": "empty-section-drop-zone",
             "Empty section"
         }

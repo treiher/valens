@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
@@ -174,10 +173,10 @@ class Notification(PageElement):
         expect(self.root).to_have_text(message)
 
     def expect_warning(self) -> None:
-        expect(self.root).to_have_class(re.compile(r"\bis-warning\b"))
+        expect(self.root).to_have_attribute("data-severity", "warning")
 
     def expect_error(self) -> None:
-        expect(self.root).to_have_class(re.compile(r"\bis-danger\b"))
+        expect(self.root).to_have_attribute("data-severity", "error")
 
     def expect_stacked(self, hidden: int) -> None:
         expect(self.count).to_have_text(f"+{hidden}")

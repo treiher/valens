@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
@@ -24,4 +23,4 @@ class AboutDialog(BaseDialog):
         return self.log.get_by_test_id("log-entry").filter(has_text=message)
 
     def expect_log_warning(self, message: str) -> None:
-        expect(self.log_entry(message)).to_have_class(re.compile(r"\bis-warning\b"))
+        expect(self.log_entry(message)).to_have_attribute("data-severity", "warning")

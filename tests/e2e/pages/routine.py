@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -129,7 +128,7 @@ class RoutinePage(BasePage):
             drop_zone = self._section(target_section_idx).get_by_test_id("empty-section-drop-zone")
             scroll_to_center(drop_zone)
             drop_zone.hover()
-            expect(drop_zone).to_have_class(re.compile("has-text-primary"))
+            expect(drop_zone).to_have_attribute("data-drop-state", "hovered")
         else:
             hover_insertion_position(
                 self._section(target_section_idx).locator('> [data-testid="routine-part"]'),
@@ -147,7 +146,7 @@ class RoutinePage(BasePage):
         )
         expect(
             self._section(target_section_idx).locator('> [data-testid="routine-part"]').first
-        ).to_have_class(re.compile("is-insert-before"))
+        ).to_have_attribute("data-drop-state", "insert-before")
         self.page.mouse.up()
         self.wait_until_idle()
 

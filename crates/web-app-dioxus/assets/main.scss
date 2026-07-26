@@ -446,13 +446,13 @@ div.is-calendar {
 
 // Insertion point between slots while dragging
 
-.is-insert-before,
-.is-insert-after {
+[data-drop-state="insert-before"],
+[data-drop-state="insert-after"] {
   position: relative;
 }
 
-.is-insert-before::before,
-.is-insert-after::after {
+[data-drop-state="insert-before"]::before,
+[data-drop-state="insert-after"]::after {
   content: "";
   position: absolute;
   left: 0;
@@ -462,12 +462,12 @@ div.is-calendar {
   background-color: var(--bulma-primary);
 }
 
-.is-insert-before::before {
-  top: calc(-0.375rem - 1px);
+[data-drop-state="insert-before"]::before {
+  top: calc(-0.5 * var(--schedule-tile-gap) - 1px);
 }
 
-.is-insert-after::after {
-  bottom: calc(-0.375rem - 1px);
+[data-drop-state="insert-after"]::after {
+  bottom: calc(-0.5 * var(--schedule-tile-gap) - 1px);
 }
 
 // Sizing

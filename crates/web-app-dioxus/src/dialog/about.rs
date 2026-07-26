@@ -56,17 +56,17 @@ fn Log() -> Element {
                     match entries {
                         Ok(entries) => rsx! {
                             for entry in entries {
-                                Message {
-                                    "data-testid": "log-entry",
-                                    color: match entry.level {
-                                        log::Level::Error => Color::Danger,
-                                        log::Level::Warn => Color::Warning,
-                                        log::Level::Info => Color::Primary,
-                                        log::Level::Debug => Color::Info,
-                                        log::Level::Trace => Color::Dark,
-                                    },
-                                    p { class: "is-size-7", {entry.time} }
-                                    p { "{entry.message}" }
+                                {
+                                    let (color, severity) = appearance(entry.level);
+                                    rsx! {
+                                        Message {
+                                            "data-testid": "log-entry",
+                                            "data-severity": severity,
+                                            color,
+                                            p { class: "is-size-7", {entry.time} }
+                                            p { "{entry.message}" }
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -77,5 +77,16 @@ fn Log() -> Element {
                 }
             }
         }
+    }
+}
+
+/// The color and `data-severity` of a log entry of `level`.
+fn appearance(level: log::Level) -> (Color, &'static str) {
+    match level {
+        log::Level::Error => (Color::Danger, "error"),
+        log::Level::Warn => (Color::Warning, "warning"),
+        log::Level::Info => (Color::Primary, "info"),
+        log::Level::Debug => (Color::Info, "debug"),
+        log::Level::Trace => (Color::Dark, "trace"),
     }
 }

@@ -1,6 +1,6 @@
 # Development
 
-This document explains how to set up, develop, and release Valens. For a high-level description of the architecture and components, see the [Architecture](doc/ARCHITECTURE.md) document.
+This document explains how to set up, develop, and release Valens. For a high-level description of the architecture and components, see the [Architecture](ARCHITECTURE.md) document.
 
 ## Setting up the development environment
 

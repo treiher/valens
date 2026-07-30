@@ -6,6 +6,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     current_date::current_date,
+    loading::LoadingFlag,
     page::training_sessions::start_training_session,
     session::Session,
     ui::element::{Block, Error, Icon, Loading, LoadingDialog, Title},
@@ -331,9 +332,8 @@ async fn start_pending_training_session(routine: domain::Routine, date: chrono::
     if IS_LOADING() {
         return;
     }
-    IS_LOADING.with_mut(|is_loading| *is_loading = true);
+    let _loading = LoadingFlag::set(&IS_LOADING);
     start_training_session(Some(&routine), date).await;
-    IS_LOADING.with_mut(|is_loading| *is_loading = false);
 }
 
 #[component]

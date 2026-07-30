@@ -21,6 +21,7 @@ mod cache;
 mod current_date;
 mod diagnostics;
 mod dialog;
+mod loading;
 mod navbar;
 mod notification;
 mod ongoing_training_session;

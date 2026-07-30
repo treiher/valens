@@ -13,6 +13,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
+    loading::LoadingFlag,
     notification::notify,
     page::{
         self,
@@ -1188,7 +1189,7 @@ async fn modify_routine_sections(
     cache: Cache,
     mut close_dialog: impl FnMut(),
 ) {
-    IS_LOADING.with_mut(|is_loading| *is_loading = true);
+    let _loading = LoadingFlag::set(&IS_LOADING);
     match DOMAIN_SERVICE()
         .modify_routine(routine.id, None, None, Some(routine.sections))
         .await
@@ -1200,7 +1201,6 @@ async fn modify_routine_sections(
             notify("Failed to modify routine", &err);
         }
     }
-    IS_LOADING.with_mut(|is_loading| *is_loading = false);
     close_dialog();
 }
 

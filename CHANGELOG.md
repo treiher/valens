@@ -99,8 +99,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Error being reported for a change that was successfully saved on the server when storing the change on the device failed
 - Sign-out being aborted instead of completed when the data on the device could not be removed
 - Incorrect background color in calendars
-- Training session page: Manual metronome adjustments being reset immediately instead of persisting until the current element changes
+- Home page: Loading indicator staying visible after leaving the page while a training session is being started, preventing the start of further training sessions
+- Training session page:
+    - Manual metronome adjustments being reset immediately instead of persisting until the current element changes
+    - Loading indicator staying visible after leaving the page while a change is being saved
 - Training sessions page: Incorrect chart legend label
+- Routine page: Loading indicator staying visible after leaving the page while a change is being saved
+- Schedule page: Loading indicator staying visible after leaving the page while a change is being saved
 - Exercise page: Changed muscles not being shown until the next synchronization
 - Body fat page: Missing and incorrect chart legend labels for body weight
 

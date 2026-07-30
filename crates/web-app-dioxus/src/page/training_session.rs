@@ -16,6 +16,7 @@ use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
     cache::{Cache, CacheState},
     eh,
+    loading::LoadingFlag,
     notification::notify,
     ongoing_training_session::OngoingTrainingSession,
     page::{
@@ -1803,7 +1804,7 @@ async fn save(
     cache: Cache,
     mut close_dialog: impl FnMut(),
 ) {
-    *IS_LOADING.write() = true;
+    let _loading = LoadingFlag::set(&IS_LOADING);
     match DOMAIN_SERVICE()
         .modify_training_session(
             training_session.id,
@@ -1820,7 +1821,6 @@ async fn save(
             notify("Failed to modify training session", &err);
         }
     }
-    *IS_LOADING.write() = false;
     close_dialog();
 }
 

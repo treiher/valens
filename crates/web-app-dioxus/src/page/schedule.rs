@@ -8,6 +8,7 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     eh,
+    loading::LoadingFlag,
     notification::{notify, notify_error},
     ui::{
         drag_and_drop,
@@ -942,8 +943,8 @@ fn spawn_save(schedule: domain::Schedule) {
 }
 
 async fn save_schedule(schedule: domain::Schedule) -> bool {
-    IS_LOADING.with_mut(|is_loading| *is_loading = true);
-    let saved = match DOMAIN_SERVICE().modify_schedule(schedule).await {
+    let _loading = LoadingFlag::set(&IS_LOADING);
+    match DOMAIN_SERVICE().modify_schedule(schedule).await {
         Ok(_) => {
             consume_context::<Cache>().refresh_schedule();
             true
@@ -952,9 +953,7 @@ async fn save_schedule(schedule: domain::Schedule) -> bool {
             notify("Failed to change schedule", &err);
             false
         }
-    };
-    IS_LOADING.with_mut(|is_loading| *is_loading = false);
-    saved
+    }
 }
 
 type Drag = drag_and_drop::Drag<DragSource, DropTarget>;

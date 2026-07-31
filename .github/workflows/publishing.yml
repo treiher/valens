@@ -33,7 +33,7 @@ jobs:
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
@@ -148,7 +148,7 @@ jobs:
             docker tag "$NAME:$VERSION" "$NAME:dev"
           fi
       - name: Log in to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4.5.2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

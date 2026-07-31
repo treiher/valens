@@ -54,7 +54,7 @@ jobs:
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Check
@@ -114,7 +114,7 @@ jobs:
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install Sass
@@ -141,7 +141,7 @@ jobs:
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-llvm-cov and Nextest
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }},nextest@${{ env.NEXTEST_VERSION }}
       - name: Install wasm-pack
@@ -198,7 +198,7 @@ jobs:
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install dependencies
@@ -252,7 +252,7 @@ jobs:
           echo ~/.cargo/bin >> $GITHUB_PATH
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-llvm-cov, Nextest and dioxus-cli
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.3
         with:
           tool: cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }},nextest@${{ env.NEXTEST_VERSION }},dioxus-cli
       - name: Install wasm-pack

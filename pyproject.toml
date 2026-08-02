@@ -236,10 +236,11 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 addopts = "--tb=short"
 filterwarnings = [
-    "ignore:Gdk.Cursor.new is deprecated",
-    "ignore:Gtk.Widget.set_double_buffered is deprecated",
-    "ignore:Gtk.Window.set_wmclass is deprecated",
-    "ignore:Gtk.Widget.size_request is deprecated",
+    "error",
+    # `routine_part` and `routine_section` are mutually dependent by design, as a self-referential
+    # tree using joined-table inheritance. SQLite cannot add the constraints afterwards, so the
+    # cycle cannot be broken by deferring one of them.
+    "default:Cannot correctly sort tables:sqlalchemy.exc.SAWarning",
 ]
 
 [tool.coverage.paths]

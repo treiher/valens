@@ -16,11 +16,15 @@ ENV GUNICORN_WORKERS=2
 ENV GUNICORN_THREADS=1
 ENV GUNICORN_TIMEOUT=120
 ENV PYTHONUNBUFFERED=1
+ENV VALENS_CONFIG=/app/config.py
+ENV ALEMBIC_CONFIG=/etc/valens/alembic.ini
 
 RUN pip install --no-cache-dir gunicorn
 
 COPY ${WHEEL} /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm -rf /tmp/*.whl
+
+COPY alembic.ini /etc/valens/
 
 RUN mkdir -p /app
 RUN useradd --create-home --shell /usr/sbin/nologin valens && chown -R valens:valens /app
@@ -31,10 +35,9 @@ USER valens
 EXPOSE 8000
 
 CMD sh -c '\
-  if [ ! -f "$PWD/config.py" ]; then \
-    valens config --database "$PWD/valens.db"; \
+  if [ ! -f "$VALENS_CONFIG" ]; then \
+    valens config -d "$(dirname "$VALENS_CONFIG")" --database "$PWD/valens.db"; \
   fi; \
-  export VALENS_CONFIG="$PWD/config.py"; \
   exec gunicorn valens:app \
     --bind 0.0.0.0:8000 \
     --workers ${GUNICORN_WORKERS} \

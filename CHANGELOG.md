@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Notice about unavailable passkey login and login links when no public URL is configured
 - Display of chart values at the hovered or touched date
 - Schedule page for planning routines on days of the week, including rotations of routines across training days
+- Alembic configuration file in the container, which enables the use of the Alembic CLI
 
 ### Changed
 

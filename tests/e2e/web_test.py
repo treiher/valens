@@ -2199,7 +2199,7 @@ def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None
         # Fail only the create request so the add dialog raises a notification and stays open
         page.route(
             "**/api/exercises",
-            lambda route: (route.abort() if route.request.method == "POST" else route.continue_()),
+            lambda route: route.abort() if route.request.method == "POST" else route.continue_(),
         )
 
         p.fab().click()

@@ -170,8 +170,7 @@ def build_svg(weight: float, reps_max: int, width: int = 900, height: int = 520)
             # Header row: current piecewise formula
             f'<line x1="{legend_x + 10}" y1="{legend_y}" x2="{legend_x + 52}" y2="{legend_y}" '
             'stroke="#222" stroke-width="3" />',
-            f'<text x="{legend_x + 58}" y="{legend_y + 4}" font-size="12">'
-            "Hybrid (current)</text>",
+            f'<text x="{legend_x + 58}" y="{legend_y + 4}" font-size="12">Hybrid (current)</text>',
             # Row 1: Brzycki (left) | Landers (right)
             f'<line x1="{legend_x + 10}" y1="{legend_y + 20}" x2="{legend_x + 40}" '
             f'y2="{legend_y + 20}" stroke="#4e79a7" stroke-width="2" stroke-dasharray="6,4" />',

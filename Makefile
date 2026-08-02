@@ -22,7 +22,7 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check-project check-lockfile check-kacl check-doc check-rustfmt check-frontend check-backend check-black check-ruff check-mypy
+.PHONY: check check-project check-lockfile check-kacl check-doc check-rustfmt check-frontend check-backend check-ruff-format check-ruff check-mypy
 
 check: check-project check-frontend check-backend
 
@@ -48,10 +48,10 @@ check-frontend: check-rustfmt
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
 	dx check -p valens-web-app-dioxus
 
-check-backend: check-black check-ruff check-mypy
+check-backend: check-ruff-format check-ruff check-mypy
 
-check-black:
-	uv run -- black --check --diff $(PYTHON_PACKAGES)
+check-ruff-format:
+	uv run -- ruff format --check --diff $(PYTHON_PACKAGES)
 
 check-ruff:
 	uv run -- ruff check $(PYTHON_PACKAGES)
@@ -64,7 +64,7 @@ check-mypy:
 format: check-rustfmt
 	cargo fmt
 	uv run -- ruff check --fix-only $(PYTHON_PACKAGES) | true
-	uv run -- black $(PYTHON_PACKAGES)
+	uv run -- ruff format $(PYTHON_PACKAGES)
 
 .PHONY: test test-frontend test-backend test-installation test-e2e test-venv
 

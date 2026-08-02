@@ -18,9 +18,9 @@ def test_data_integrity() -> None:  # noqa: C901
         for exercise in user.exercises:
             assert exercise.user_id == user.id, f"Exercise {exercise.id} has wrong user_id"
             for muscle in exercise.muscles:
-                assert (
-                    muscle.user_id == user.id
-                ), f"ExerciseMuscle on exercise {exercise.id} has wrong user_id"
+                assert muscle.user_id == user.id, (
+                    f"ExerciseMuscle on exercise {exercise.id} has wrong user_id"
+                )
 
         for routine in user.routines:
             assert routine.user_id == user.id, f"Routine {routine.id} has wrong user_id"

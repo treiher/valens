@@ -22,11 +22,11 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check-project check-lockfile check-kacl check-doc check-rustfmt check-frontend check-backend check-ruff-format check-ruff check-mypy
+.PHONY: check check-project check-lockfile check-kacl check-doc check-playwright check-rustfmt check-wasm-bindgen check-frontend check-backend check-ruff-format check-ruff check-mypy
 
 check: check-project check-frontend check-backend
 
-check-project: check-lockfile check-kacl check-doc
+check-project: check-lockfile check-kacl check-doc check-playwright
 
 check-lockfile:
 	uv lock --locked
@@ -37,12 +37,37 @@ check-kacl:
 check-doc:
 	uv run -- python tools/check_doc_links.py
 
+check-playwright:
+	@if [ -n "$$PLAYWRIGHT_BROWSERS_PATH" ]; then \
+		browsers=$$(uv run -- playwright install --dry-run chromium \
+			| sed -n 's/^ *Install location: *//p'); \
+		[ -n "$$browsers" ] \
+			|| { echo "Error: browsers expected by playwright could not be determined"; exit 1; }; \
+		for browser in $$browsers; do \
+			[ -e "$$browser" ] \
+				|| { echo "Error: $${browser##*/} is not provided by PLAYWRIGHT_BROWSERS_PATH"; exit 1; }; \
+		done; \
+	fi
+
 # Stable rustfmt ignores the unstable options in `rustfmt.toml` with a warning instead of failing.
 check-rustfmt:
 	@$${RUSTFMT:-rustfmt} --version | grep -q nightly \
 		|| { echo "Error: rustfmt is not the nightly build pinned in rustfmt-toolchain.toml, see doc/DEVELOPMENT.md"; exit 1; }
 
-check-frontend: check-rustfmt
+# The wasm-bindgen version of `dx` can only be determined for a Nix build.
+check-wasm-bindgen:
+	@dx=$$(readlink -f "$$(command -v dx)" 2>/dev/null); \
+	case "$$dx" in /nix/store/*) ;; *) exit 0;; esac; \
+	expected=$$(sed -n '/^name = "wasm-bindgen"$$/{n; s/^version = "\(.*\)"$$/\1/p;}' Cargo.lock); \
+	[ -n "$$expected" ] \
+		|| { echo "Error: wasm-bindgen version required by the project could not be determined"; exit 1; }; \
+	actual=$$(nix-store -q --references "$$dx" | sed -n 's|.*-wasm-bindgen-cli-\(.*\)|\1|p' | head -1); \
+	[ -n "$$actual" ] \
+		|| { echo "Error: wasm-bindgen version used by dx could not be determined"; exit 1; }; \
+	[ "$$actual" = "$$expected" ] \
+		|| { echo "Error: dx uses wasm-bindgen $$actual, but the project requires $$expected"; exit 1; }
+
+check-frontend: check-rustfmt check-wasm-bindgen
 	cargo fmt -- --check
 	cargo clippy --all-targets -- --warn clippy::pedantic --deny warnings
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
@@ -83,7 +108,7 @@ test-backend:
 test-installation: test-venv
 	$(BUILD_DIR)/venv/bin/valens --version
 
-test-e2e: test-venv
+test-e2e: check-playwright test-venv
 	@grep -qaF "$(VERSION)" $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm || { echo "ERROR: $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm does not contain current version string \"$(VERSION)\""; exit 1; }
 	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
 

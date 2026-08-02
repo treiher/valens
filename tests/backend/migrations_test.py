@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import sqlite3
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -29,16 +30,16 @@ def assert_db_equality(
     test_db = tmp_path / "test.db"
     app.config["DATABASE"] = f"sqlite:///{test_db}"
 
-    connection = sqlite3.connect(test_db)
-    connection.executescript((DATA_DIR / f"{source}.sql").read_text(encoding="utf-8"))
-    connection.commit()
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript((DATA_DIR / f"{source}.sql").read_text(encoding="utf-8"))
+        connection.commit()
 
-    with app.app_context():
-        migrate()
-        filename = f"{target}_{infix}_{source}.sql"
-        dump = dump_db(connection)
-        (tmp_path / filename).write_text(dump)
-        assert dump == (DATA_DIR / filename).read_text(encoding="utf-8")
+        with app.app_context():
+            migrate()
+            filename = f"{target}_{infix}_{source}.sql"
+            dump = dump_db(connection)
+            (tmp_path / filename).write_text(dump)
+            assert dump == (DATA_DIR / filename).read_text(encoding="utf-8")
 
 
 def test_completeness(tmp_path: Path) -> None:
@@ -50,9 +51,9 @@ def test_completeness(tmp_path: Path) -> None:
     test_db = f"/{tmp_path}/valens_test.db"
     app.config["DATABASE"] = f"sqlite://{test_db}"
 
-    connection = sqlite3.connect(test_db)
-    connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
-    connection.commit()
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+        connection.commit()
 
     revisions = []
 
@@ -92,20 +93,20 @@ def test_completeness_constraints(tmp_path: Path) -> None:
         migrations_db = f"{tmp_path}/migrations.db"
         app.config["DATABASE"] = f"sqlite:///{migrations_db}"
 
-        connection = sqlite3.connect(migrations_db)
-        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
-        connection.commit()
-        upgrade(Config("alembic.ini"), "head")
+        with closing(sqlite3.connect(migrations_db)) as connection:
+            connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+            connection.commit()
+            upgrade(Config("alembic.ini"), "head")
 
-        migrated_constraints = constraints(connection)
+            migrated_constraints = constraints(connection)
 
         models_db = f"{tmp_path}/models.db"
         app.config["DATABASE"] = f"sqlite:///{models_db}"
 
         db.init()
-        connection = sqlite3.connect(models_db)
 
-        model_constraints = constraints(connection)
+        with closing(sqlite3.connect(models_db)) as connection:
+            model_constraints = constraints(connection)
 
         assert migrated_constraints == model_constraints
 

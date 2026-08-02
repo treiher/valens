@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from contextlib import closing
 from http import HTTPStatus
 from pathlib import Path
 
@@ -20,10 +21,9 @@ def fixture_client(tmp_path: Path) -> Generator[Client, None, None]:
 
 @pytest.mark.parametrize("route", ["/", "/home"])
 def test_html_routes(client: Client, route: str) -> None:
-    resp = client.get(route)
-
-    assert resp.status_code == HTTPStatus.OK
-    assert "</html>" in resp.get_data().decode("utf-8"), resp.content_encoding
+    with closing(client.get(route)) as resp:
+        assert resp.status_code == HTTPStatus.OK
+        assert "</html>" in resp.get_data().decode("utf-8"), resp.content_encoding
 
 
 @pytest.mark.parametrize(
@@ -36,7 +36,6 @@ def test_html_routes(client: Client, route: str) -> None:
     ],
 )
 def test_static_files(client: Client, route: str) -> None:
-    resp = client.get(route)
-
-    assert resp.status_code == HTTPStatus.OK
-    assert "</html>" not in resp.get_data().decode("utf-8"), resp.content_encoding
+    with closing(client.get(route)) as resp:
+        assert resp.status_code == HTTPStatus.OK
+        assert "</html>" not in resp.get_data().decode("utf-8"), resp.content_encoding

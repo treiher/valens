@@ -52,6 +52,11 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
           echo ~/.cargo/bin >> $GITHUB_PATH
+      - name: Set up rustfmt
+        run: |
+          channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rustfmt-toolchain.toml)
+          rustup toolchain install "$channel" --profile minimal --component rustfmt
+          echo "RUSTFMT=$(rustup which --toolchain "$channel" rustfmt)" >> $GITHUB_ENV
       - uses: Swatinem/rust-cache@v2
       - name: Install dioxus-cli
         uses: taiki-e/install-action@v2.85.3

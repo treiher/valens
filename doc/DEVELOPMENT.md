@@ -34,6 +34,14 @@ Install the Rust toolchain.
 $ rustup show
 ```
 
+Install the nightly toolchain that is used for formatting and make it available to `cargo fmt`. The channel is pinned in `rustfmt-toolchain.toml`. The Nix development environment provides this automatically.
+
+```console
+$ channel=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rustfmt-toolchain.toml)
+$ rustup toolchain install "$channel" --profile minimal --component rustfmt
+$ export RUSTFMT=$(rustup which --toolchain "$channel" rustfmt)
+```
+
 Install the Rust-based command-line tools with Cargo or your system package manager.
 
 ```console

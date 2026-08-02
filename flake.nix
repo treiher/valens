@@ -11,6 +11,9 @@
       pkgs = import nixpkgs {
         inherit system overlays;
       };
+      rustfmtDate = nixpkgs.lib.removePrefix "nightly-"
+        (nixpkgs.lib.importTOML ./rustfmt-toolchain.toml).toolchain.channel;
+      nightlyRustfmt = pkgs.rust-bin.nightly.${rustfmtDate}.rustfmt;
     in {
       devShells.${system}.default = with pkgs; mkShell {
         packages = [
@@ -32,6 +35,7 @@
           LD_LIBRARY_PATH = lib.makeLibraryPath [ stdenv.cc.cc ];
           PLAYWRIGHT_BROWSERS_PATH = "${playwright-driver.browsers}";
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
+          RUSTFMT = "${nightlyRustfmt}/bin/rustfmt";
         };
         shellHook = ''
           uv sync

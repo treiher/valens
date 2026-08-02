@@ -22,7 +22,7 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check-project check-lockfile check-kacl check-doc check-frontend check-backend check-black check-ruff check-mypy
+.PHONY: check check-project check-lockfile check-kacl check-doc check-rustfmt check-frontend check-backend check-black check-ruff check-mypy
 
 check: check-project check-frontend check-backend
 
@@ -37,7 +37,12 @@ check-kacl:
 check-doc:
 	uv run -- python tools/check_doc_links.py
 
-check-frontend:
+# Stable rustfmt ignores the unstable options in `rustfmt.toml` with a warning instead of failing.
+check-rustfmt:
+	@$${RUSTFMT:-rustfmt} --version | grep -q nightly \
+		|| { echo "Error: rustfmt is not the nightly build pinned in rustfmt-toolchain.toml, see doc/DEVELOPMENT.md"; exit 1; }
+
+check-frontend: check-rustfmt
 	cargo fmt -- --check
 	cargo clippy --all-targets -- --warn clippy::pedantic --deny warnings
 	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
@@ -56,7 +61,7 @@ check-mypy:
 
 .PHONY: format
 
-format:
+format: check-rustfmt
 	cargo fmt
 	uv run -- ruff check --fix-only $(PYTHON_PACKAGES) | true
 	uv run -- black $(PYTHON_PACKAGES)

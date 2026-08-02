@@ -486,7 +486,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             }
         }
         (CacheState::Ready(_), None, _) => rsx! {
-            ErrorPage { message: "Training session not found" }
+            ErrorPage { "Training session not found" }
         },
         (
             CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)),
@@ -496,7 +496,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
-            rsx! { ErrorPage { message: err } }
+            rsx! { ErrorPage { "{err}" } }
         }
         (CacheState::Loading, _, _) | (_, _, CacheState::Loading) => {
             rsx! { LoadingPage {} }

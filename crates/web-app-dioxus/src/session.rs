@@ -149,7 +149,7 @@ fn PasskeyRegistrationRequired() -> Element {
                                 }
                                 is_loading.set(false);
                             },
-                            IconText { icon: "key", text: "Register passkey" }
+                            IconText { icon: "key", "Register passkey" }
                         }
                         button {
                             class: "button is-fullwidth mt-2",
@@ -160,7 +160,7 @@ fn PasskeyRegistrationRequired() -> Element {
                                     navigator().push(Route::Login {});
                                 }
                             },
-                            IconText { icon: "sign-out-alt", text: "Sign out" }
+                            IconText { icon: "sign-out-alt", "Sign out" }
                         }
                     }
                 }

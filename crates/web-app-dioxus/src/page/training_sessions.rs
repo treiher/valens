@@ -87,7 +87,7 @@ pub fn TrainingSessions(add: bool) -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorPage { message: err } }
+            rsx! { ErrorPage { "{err}" } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => {
             rsx! { LoadingPage {} }

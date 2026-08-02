@@ -44,7 +44,7 @@ pub fn Schedule() -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorPage { message: err } }
+            rsx! { ErrorPage { "{err}" } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => rsx! { LoadingPage {} },
     }

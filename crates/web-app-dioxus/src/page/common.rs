@@ -776,7 +776,7 @@ pub fn Chart(
                 }
             }
         }
-        Err(err) => rsx! { Error { message: err } },
+        Err(err) => rsx! { Error { "{err}" } },
     }
 }
 

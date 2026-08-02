@@ -194,7 +194,7 @@ fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool)
                                     "data-testid": "login-button",
                                     r#type: "submit",
                                     disabled: is_loading(),
-                                    IconText { icon: "sign-in-alt", text: "Sign in" }
+                                    IconText { icon: "sign-in-alt", "Sign in" }
                                 }
                             }
                         }
@@ -214,7 +214,7 @@ fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool)
                                 "data-testid": "login-passkey-button",
                                 disabled: is_loading(),
                                 onclick: move |_| login_with_passkey(),
-                                IconText { icon: "key", text: "Sign in with passkey" }
+                                IconText { icon: "key", "Sign in with passkey" }
                             }
                         }
                     }

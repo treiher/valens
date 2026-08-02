@@ -105,7 +105,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                             }
                         }
                         CacheState::Error(err) => {
-                            rsx! { Error { message: err } }
+                            rsx! { Error { "{err}" } }
                         }
                         CacheState::Loading => {
                             rsx! {
@@ -124,7 +124,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                 }
             } else {
                 rsx! {
-                    ErrorPage { message: "Routine not found" }
+                    ErrorPage { "Routine not found" }
                 }
             }
         }
@@ -136,7 +136,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
             rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
-            rsx! { ErrorPage { message: err } }
+            rsx! { ErrorPage { "{err}" } }
         }
         (CacheState::Loading, _, _) | (_, _, CacheState::Loading) => {
             rsx! { LoadingPage {} }
@@ -249,7 +249,6 @@ fn view_routine_part(
                             "data-drop": "header-{path_attribute(path)}",
                             IconText {
                                 icon: "repeat",
-                                text: "{rounds}",
                                 "data-testid": "section-rounds",
                                 on_click: eh!(mut edit_dialog; routine, path; {
                                     if let Some(domain::RoutinePart::RoutineSection {
@@ -259,7 +258,8 @@ fn view_routine_part(
                                         let rounds = FieldValue::new_with_empty_default(*rounds);
                                         *edit_dialog.write() = EditDialog::EditSection { routine, path, rounds };
                                     }
-                                })
+                                }),
+                                "{rounds}"
                             }
                             div {
                                 class: "is-flex is-align-items-center",
@@ -996,7 +996,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
                 _ => {
                     rsx! {
-                        Error { message: "Unexpected routine part type" }
+                        Error { "Unexpected routine part type" }
                     }
                 }
             }
@@ -1176,7 +1176,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
                 _ => {
                     rsx! {
-                        Error { message: "Unexpected routine part type" }
+                        Error { "Unexpected routine part type" }
                     }
                 }
             }

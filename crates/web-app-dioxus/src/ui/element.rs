@@ -157,15 +157,15 @@ pub fn ActivityBar(children: Element) -> Element {
 
 /// Compact inline error, framed by the surrounding content.
 #[component]
-pub fn Error(message: String) -> Element {
+pub fn Error(children: Element) -> Element {
     rsx! {
-        IconText { icon: "triangle-exclamation", text: message, color: Color::Danger }
+        IconText { icon: "triangle-exclamation", color: Color::Danger, {children} }
     }
 }
 
 /// Boxed error panel that replaces the entire content of a page.
 #[component]
-pub fn ErrorPage(message: String) -> Element {
+pub fn ErrorPage(children: Element) -> Element {
     rsx! {
         div {
             class: "message is-danger mx-2",
@@ -173,7 +173,7 @@ pub fn ErrorPage(message: String) -> Element {
                 class: "message-body has-text-dark",
                 div {
                     class: "title has-text-danger is-size-4",
-                    "{message}"
+                    {children}
                 }
             }
         }
@@ -183,8 +183,8 @@ pub fn ErrorPage(message: String) -> Element {
 /// Boxed info panel that replaces the entire content of a page.
 #[component]
 pub fn InfoPage(
-    message: String,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
 ) -> Element {
     rsx! {
         div {
@@ -194,7 +194,7 @@ pub fn InfoPage(
                 class: "message-body has-text-dark",
                 div {
                     class: "title has-text-info is-size-4",
-                    "{message}"
+                    {children}
                 }
             }
         }
@@ -204,7 +204,7 @@ pub fn InfoPage(
 #[component]
 pub fn NotFound(element: String) -> Element {
     rsx! {
-        ErrorPage { message: "{element} not found" }
+        ErrorPage { "{element} not found" }
     }
 }
 
@@ -227,7 +227,7 @@ pub fn NoConnection() -> Element {
     rsx! {
         div {
             class: "block has-text-centered has-text-grey-light mb-6",
-            IconText { icon: "plug-circle-xmark", text: "No connection to server" }
+            IconText { icon: "plug-circle-xmark", "No connection to server" }
         }
     }
 }
@@ -261,10 +261,10 @@ pub fn Icon(
 #[component]
 pub fn IconText(
     icon: String,
-    text: String,
     color: Option<Color>,
     on_click: Option<EventHandler<MouseEvent>>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
 ) -> Element {
     rsx! {
         span {
@@ -277,7 +277,7 @@ pub fn IconText(
             },
             ..attributes,
             Icon { name: icon }
-            span { {text} }
+            span { {children} }
         }
     }
 }
@@ -588,7 +588,7 @@ pub fn MenuOption(
                 class: "has-text-weight-bold",
                 onclick: on_click,
                 ..attributes,
-                IconText { icon, text }
+                IconText { icon, "{text}" }
             }
         }
     }

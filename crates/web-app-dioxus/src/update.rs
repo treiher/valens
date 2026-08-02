@@ -134,7 +134,7 @@ pub fn VersionInfo() -> Element {
                         }
                     }
                     ServerVersion::Error(err) => rsx! {
-                        Error { message: err }
+                        Error { "{err}" }
                     },
                 }
             }

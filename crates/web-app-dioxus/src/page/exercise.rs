@@ -102,7 +102,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                             }
                         }
                         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-                            rsx! { Error { message: err } }
+                            rsx! { Error { "{err}" } }
                         }
                         (CacheState::Loading, _) | (_, CacheState::Loading) => {
                             rsx! {
@@ -120,7 +120,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                 }
             } else {
                 rsx! {
-                    ErrorPage { message: "Exercise not found" }
+                    ErrorPage { "Exercise not found" }
                 }
             }
         }
@@ -128,7 +128,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
             rsx! { NoConnection {} }
         }
         CacheState::Error(err) => {
-            rsx! { ErrorPage { message: err } }
+            rsx! { ErrorPage { "{err}" } }
         }
         CacheState::Loading => {
             rsx! { LoadingPage {} }

@@ -49,7 +49,7 @@ pub fn Ffmi() -> Element {
         return rsx! {
             InfoPage {
                 "data-testid": "ffmi-height-missing",
-                message: "Set your height in the profile to calculate your FFMI.",
+                "Set your height in the profile to calculate your FFMI."
             }
         };
     }
@@ -65,7 +65,7 @@ pub fn Ffmi() -> Element {
             }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorPage { message: err } }
+            rsx! { ErrorPage { "{err}" } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => {
             rsx! { LoadingPage {} }

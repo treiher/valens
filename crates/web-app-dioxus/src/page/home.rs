@@ -94,7 +94,7 @@ pub fn Home() -> Element {
             domain::ReadError::NotFound
             | domain::ReadError::Storage(domain::StorageError::NoConnection),
         ) => None,
-        CacheState::Error(err) => Some(rsx! { Error { message: err } }),
+        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -104,7 +104,7 @@ pub fn Home() -> Element {
             domain::ReadError::NotFound
             | domain::ReadError::Storage(domain::StorageError::NoConnection),
         ) => None,
-        CacheState::Error(err) => Some(rsx! { Error { message: err } }),
+        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -114,7 +114,7 @@ pub fn Home() -> Element {
             domain::ReadError::NotFound
             | domain::ReadError::Storage(domain::StorageError::NoConnection),
         ) => None,
-        CacheState::Error(err) => Some(rsx! { Error { message: err } }),
+        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -128,7 +128,7 @@ pub fn Home() -> Element {
             domain::ReadError::NotFound
             | domain::ReadError::Storage(domain::StorageError::NoConnection),
         ) => None,
-        CacheState::Error(err) => Some(rsx! { Error { message: err } }),
+        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -145,7 +145,7 @@ pub fn Home() -> Element {
             domain::ReadError::NotFound
             | domain::ReadError::Storage(domain::StorageError::NoConnection),
         ) => None,
-        CacheState::Error(err) => Some(rsx! { Error { message: err } }),
+        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -168,7 +168,7 @@ pub fn Home() -> Element {
                 ),
             ) => None,
             (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-                Some(rsx! { Error { message: err } })
+                Some(rsx! { Error { "{err}" } })
             }
             (CacheState::Loading, _) | (_, CacheState::Loading) => Some(rsx! { Loading {} }),
         }
@@ -186,7 +186,7 @@ pub fn Home() -> Element {
                     domain::ReadError::NotFound
                     | domain::ReadError::Storage(domain::StorageError::NoConnection),
                 ) => None,
-                CacheState::Error(err) => Some(rsx! { Error { message: err } }),
+                CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
                 CacheState::Loading => Some(rsx! { Loading {} }),
             }
         } else {

@@ -263,7 +263,7 @@ fn Passkeys(user_id: domain::UserID) -> Element {
             Some(Err(err)) => {
                 log_failure("load passkeys", err);
                 rsx! {
-                    Error { message: err }
+                    Error { "{err}" }
                 }
             }
             None => rsx! {

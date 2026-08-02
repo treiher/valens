@@ -79,7 +79,7 @@ pub fn MenstrualCycle(add: bool) -> Element {
             rsx! { NoConnection {} }
         }
         CacheState::Error(err) => rsx! {
-            ErrorPage { message: err }
+            ErrorPage { "{err}" }
         },
         CacheState::Loading => rsx! {
             LoadingPage {}

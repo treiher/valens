@@ -1,15 +1,19 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
-  outputs = { self, nixpkgs, rust-overlay }:
+  outputs = { self, nixpkgs, nixpkgs-unstable, rust-overlay }:
     let
       system = "x86_64-linux";
       overlays = [ (import rust-overlay) ];
       pkgs = import nixpkgs {
         inherit system overlays;
+      };
+      unstable = import nixpkgs-unstable {
+        inherit system;
       };
       rustfmtDate = nixpkgs.lib.removePrefix "nightly-"
         (nixpkgs.lib.importTOML ./rustfmt-toolchain.toml).toolchain.channel;
@@ -23,7 +27,8 @@
           cargo-nextest
           chromedriver
           dart-sass
-          dioxus-cli
+          # `dx` must match the `dioxus` version in `Cargo.lock`, which the stable channel predates.
+          unstable.dioxus-cli
           imagemagick
           playwright-driver.browsers
           python314

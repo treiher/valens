@@ -94,18 +94,28 @@ def build_svg(weight: float, reps_max: int, width: int = 900, height: int = 520)
     y_step = (y_max - y_min) / y_ticks
 
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}" font-family="sans-serif">',
+        (
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+            f'viewBox="0 0 {width} {height}" font-family="sans-serif">'
+        ),
         '<rect width="100%" height="100%" fill="white" />',
-        f'<text x="{width / 2:.0f}" y="24" text-anchor="middle" font-size="18" font-weight="bold">'
-        "1RM estimation formula</text>",
-        f'<text x="{width / 2:.0f}" y="44" text-anchor="middle" font-size="13" fill="#444">'
-        f"weight = {weight:g} kg</text>",
+        (
+            f'<text x="{width / 2:.0f}" y="24" text-anchor="middle" font-size="18" '
+            f'font-weight="bold">1RM estimation formula</text>'
+        ),
+        (
+            f'<text x="{width / 2:.0f}" y="44" text-anchor="middle" font-size="13" fill="#444">'
+            f"weight = {weight:g} kg</text>"
+        ),
         # Axes
-        f'<line x1="{margin_left}" y1="{margin_top + plot_height}" x2="{margin_left + plot_width}" '
-        f'y2="{margin_top + plot_height}" stroke="#333" />',
-        f'<line x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" '
-        f'y2="{margin_top + plot_height}" stroke="#333" />',
+        (
+            f'<line x1="{margin_left}" y1="{margin_top + plot_height}" '
+            f'x2="{margin_left + plot_width}" y2="{margin_top + plot_height}" stroke="#333" />'
+        ),
+        (
+            f'<line x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" '
+            f'y2="{margin_top + plot_height}" stroke="#333" />'
+        ),
     ]
 
     for tick in x_ticks:
@@ -137,26 +147,44 @@ def build_svg(weight: float, reps_max: int, width: int = 900, height: int = 520)
 
     parts.extend(
         [
-            f'<text x="{margin_left + plot_width / 2:.2f}" y="{height - 12}" text-anchor="middle" '
-            'font-size="13">repetitions</text>',
-            f'<text x="18" y="{margin_top + plot_height / 2:.2f}" text-anchor="middle" '
-            f'font-size="13" transform="rotate(-90 18 {margin_top + plot_height / 2:.2f})">'
-            "estimated 1RM (kg)</text>",
+            (
+                f'<text x="{margin_left + plot_width / 2:.2f}" y="{height - 12}" '
+                f'text-anchor="middle" font-size="13">repetitions</text>'
+            ),
+            (
+                f'<text x="18" y="{margin_top + plot_height / 2:.2f}" text-anchor="middle" '
+                f'font-size="13" transform="rotate(-90 18 {margin_top + plot_height / 2:.2f})">'
+                f"estimated 1RM (kg)</text>"
+            ),
             # Curves
-            f'<polyline points="{polyline(brzycki_values)}" fill="none" stroke="#4e79a7" '
-            'stroke-width="2" stroke-dasharray="6,4" />',
-            f'<polyline points="{polyline(epley_values)}" fill="none" stroke="#e15759" '
-            'stroke-width="2" stroke-dasharray="6,4" />',
-            f'<polyline points="{polyline(mayhew_values)}" fill="none" stroke="#59a14f" '
-            'stroke-width="2" stroke-dasharray="6,4" />',
-            f'<polyline points="{polyline(wathan_values)}" fill="none" stroke="#b07aa1" '
-            'stroke-width="2" stroke-dasharray="6,4" />',
-            f'<polyline points="{polyline(landers_values)}" fill="none" stroke="#76b7b2" '
-            'stroke-width="2" stroke-dasharray="6,4" />',
-            f'<polyline points="{polyline(desgorces_values)}" fill="none" stroke="#f28e2b" '
-            'stroke-width="2" stroke-dasharray="2,4" />',
-            f'<polyline points="{polyline(current_values)}" fill="none" stroke="#222" '
-            'stroke-width="3" />',
+            (
+                f'<polyline points="{polyline(brzycki_values)}" fill="none" stroke="#4e79a7" '
+                f'stroke-width="2" stroke-dasharray="6,4" />'
+            ),
+            (
+                f'<polyline points="{polyline(epley_values)}" fill="none" stroke="#e15759" '
+                f'stroke-width="2" stroke-dasharray="6,4" />'
+            ),
+            (
+                f'<polyline points="{polyline(mayhew_values)}" fill="none" stroke="#59a14f" '
+                f'stroke-width="2" stroke-dasharray="6,4" />'
+            ),
+            (
+                f'<polyline points="{polyline(wathan_values)}" fill="none" stroke="#b07aa1" '
+                f'stroke-width="2" stroke-dasharray="6,4" />'
+            ),
+            (
+                f'<polyline points="{polyline(landers_values)}" fill="none" stroke="#76b7b2" '
+                f'stroke-width="2" stroke-dasharray="6,4" />'
+            ),
+            (
+                f'<polyline points="{polyline(desgorces_values)}" fill="none" stroke="#f28e2b" '
+                f'stroke-width="2" stroke-dasharray="2,4" />'
+            ),
+            (
+                f'<polyline points="{polyline(current_values)}" fill="none" stroke="#222" '
+                f'stroke-width="3" />'
+            ),
         ]
     )
 
@@ -165,32 +193,48 @@ def build_svg(weight: float, reps_max: int, width: int = 900, height: int = 520)
     legend_y = margin_top + 10 + 18
     parts.extend(
         [
-            f'<rect x="{legend_x}" y="{legend_y - 18}" width="260" height="{legend_box_h}" '
-            'fill="white" stroke="#ccc" />',
+            (
+                f'<rect x="{legend_x}" y="{legend_y - 18}" width="260" height="{legend_box_h}" '
+                f'fill="white" stroke="#ccc" />'
+            ),
             # Header row: current piecewise formula
-            f'<line x1="{legend_x + 10}" y1="{legend_y}" x2="{legend_x + 52}" y2="{legend_y}" '
-            'stroke="#222" stroke-width="3" />',
+            (
+                f'<line x1="{legend_x + 10}" y1="{legend_y}" x2="{legend_x + 52}" y2="{legend_y}" '
+                f'stroke="#222" stroke-width="3" />'
+            ),
             f'<text x="{legend_x + 58}" y="{legend_y + 4}" font-size="12">Hybrid (current)</text>',
             # Row 1: Brzycki (left) | Landers (right)
-            f'<line x1="{legend_x + 10}" y1="{legend_y + 20}" x2="{legend_x + 40}" '
-            f'y2="{legend_y + 20}" stroke="#4e79a7" stroke-width="2" stroke-dasharray="6,4" />',
+            (
+                f'<line x1="{legend_x + 10}" y1="{legend_y + 20}" x2="{legend_x + 40}" '
+                f'y2="{legend_y + 20}" stroke="#4e79a7" stroke-width="2" stroke-dasharray="6,4" />'
+            ),
             f'<text x="{legend_x + 46}" y="{legend_y + 24}" font-size="12">Brzycki</text>',
-            f'<line x1="{legend_x + 130}" y1="{legend_y + 20}" x2="{legend_x + 160}" '
-            f'y2="{legend_y + 20}" stroke="#76b7b2" stroke-width="2" stroke-dasharray="6,4" />',
+            (
+                f'<line x1="{legend_x + 130}" y1="{legend_y + 20}" x2="{legend_x + 160}" '
+                f'y2="{legend_y + 20}" stroke="#76b7b2" stroke-width="2" stroke-dasharray="6,4" />'
+            ),
             f'<text x="{legend_x + 166}" y="{legend_y + 24}" font-size="12">Landers</text>',
             # Row 2: Desgorces (left) | Mayhew (right)
-            f'<line x1="{legend_x + 10}" y1="{legend_y + 40}" x2="{legend_x + 40}" '
-            f'y2="{legend_y + 40}" stroke="#f28e2b" stroke-width="2" stroke-dasharray="2,4" />',
+            (
+                f'<line x1="{legend_x + 10}" y1="{legend_y + 40}" x2="{legend_x + 40}" '
+                f'y2="{legend_y + 40}" stroke="#f28e2b" stroke-width="2" stroke-dasharray="2,4" />'
+            ),
             f'<text x="{legend_x + 46}" y="{legend_y + 44}" font-size="12">Desgorces</text>',
-            f'<line x1="{legend_x + 130}" y1="{legend_y + 40}" x2="{legend_x + 160}" '
-            f'y2="{legend_y + 40}" stroke="#59a14f" stroke-width="2" stroke-dasharray="6,4" />',
+            (
+                f'<line x1="{legend_x + 130}" y1="{legend_y + 40}" x2="{legend_x + 160}" '
+                f'y2="{legend_y + 40}" stroke="#59a14f" stroke-width="2" stroke-dasharray="6,4" />'
+            ),
             f'<text x="{legend_x + 166}" y="{legend_y + 44}" font-size="12">Mayhew</text>',
             # Row 3: Epley (left) | Wathan (right)
-            f'<line x1="{legend_x + 10}" y1="{legend_y + 60}" x2="{legend_x + 40}" '
-            f'y2="{legend_y + 60}" stroke="#e15759" stroke-width="2" stroke-dasharray="6,4" />',
+            (
+                f'<line x1="{legend_x + 10}" y1="{legend_y + 60}" x2="{legend_x + 40}" '
+                f'y2="{legend_y + 60}" stroke="#e15759" stroke-width="2" stroke-dasharray="6,4" />'
+            ),
             f'<text x="{legend_x + 46}" y="{legend_y + 64}" font-size="12">Epley</text>',
-            f'<line x1="{legend_x + 130}" y1="{legend_y + 60}" x2="{legend_x + 160}" '
-            f'y2="{legend_y + 60}" stroke="#b07aa1" stroke-width="2" stroke-dasharray="6,4" />',
+            (
+                f'<line x1="{legend_x + 130}" y1="{legend_y + 60}" x2="{legend_x + 160}" '
+                f'y2="{legend_y + 60}" stroke="#b07aa1" stroke-width="2" stroke-dasharray="6,4" />'
+            ),
             f'<text x="{legend_x + 166}" y="{legend_y + 64}" font-size="12">Wathan</text>',
         ]
     )

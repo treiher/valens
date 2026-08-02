@@ -30,3 +30,10 @@ CURRENT_WORKOUT_EXERCISES = {
     for e in USER.exercises
     if e.name in EXERCISES_IN_CURRENT_WORKOUTS or e.name not in PREVIOUS_WORKOUT_EXERCISES
 }
+NETWORK_CONDITIONS_DEFAULT = {
+    "offline": False,
+    "latency": 0,
+    "downloadThroughput": -1,
+    "uploadThroughput": -1,
+}
+NETWORK_CONDITIONS_SLOW = {**NETWORK_CONDITIONS_DEFAULT, "latency": 2000}

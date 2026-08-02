@@ -257,6 +257,7 @@ pub fn Navbar() -> Element {
                         }
                         a {
                             class: "navbar-item",
+                            "data-testid": "navbar-refresh",
                             onclick: move |_| {
                                 synchronization.sync();
                                 menu_visible.set(false);

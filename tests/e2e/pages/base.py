@@ -225,6 +225,10 @@ class Navbar(PageElement):
         self._open_menu()
         expect(self.page.get_by_test_id("navbar-administration")).to_have_count(0)
 
+    def refresh_data(self) -> None:
+        self._open_menu()
+        self.page.get_by_test_id("navbar-refresh").click()
+
     def open_1rm_calculator(self) -> None:
         self._open_menu()
         self.page.get_by_test_id("navbar-1rm-calculator").click()
@@ -236,9 +240,11 @@ class Navbar(PageElement):
     def _open_menu(self) -> None:
         self.page.get_by_test_id("navbar-menu").click()
 
-    def expect_synchronization(self) -> None:
+    def expect_synchronization_in_progress(self) -> None:
         expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_visible()
-        expect(self.page.get_by_test_id("navbar-sync-indicator")).to_be_hidden()
+
+    def expect_synchronization_to_be_finished(self) -> None:
+        expect(self.page.get_by_test_id("navbar-sync-indicator")).to_have_count(0)
 
 
 class BaseDialog(PageElement):

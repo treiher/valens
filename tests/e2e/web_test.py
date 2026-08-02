@@ -18,6 +18,8 @@ from valens.config import create_config_file
 from .const import (
     BASE_URL,
     CURRENT_WORKOUT_EXERCISES,
+    NETWORK_CONDITIONS_DEFAULT,
+    NETWORK_CONDITIONS_SLOW,
     PORT,
     PREVIOUS_WORKOUT_EXERCISES,
     TODAY,
@@ -92,8 +94,29 @@ def test_login(page: Page) -> None:
 
     p = HomePage(page)
     p.expect_page()
-    p.navbar.expect_synchronization()
+    p.navbar.expect_synchronization_to_be_finished()
     p.expect_loading_to_be_finished()
+
+
+def test_synchronization_indicator(page: Page) -> None:
+    login(page)
+
+    p = HomePage(page)
+    p.expect_page()
+    p.navbar.expect_synchronization_to_be_finished()
+
+    # Slow down all requests to keep the indicator of the triggered synchronization visible
+    client = page.context.new_cdp_session(page)
+    client.send("Network.enable")
+    client.send("Network.emulateNetworkConditions", NETWORK_CONDITIONS_SLOW)
+
+    p.navbar.refresh_data()
+
+    p.navbar.expect_synchronization_in_progress()
+
+    client.send("Network.emulateNetworkConditions", NETWORK_CONDITIONS_DEFAULT)
+
+    p.navbar.expect_synchronization_to_be_finished()
 
 
 def test_logout(page: Page) -> None:

@@ -2,49 +2,37 @@ name: publishing
 
 on: push
 
-env:
-  PYTHON_VERSION: "3.14"
-  RUST_VERSION: "1.95"
-  DIOXUS_VERSION: "0.7"
-  UV_VERSION: "0.5.26"
-
 jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-24.04
+
+    env:
+      CARGO_INCREMENTAL: 0
 
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          version: ${{ env.UV_VERSION }}
-          enable-cache: true
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - name: Set up Rust
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+      - name: Add development environment to PATH
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }} --target wasm32-unknown-unknown --profile minimal
-          echo ~/.cargo/bin >> $GITHUB_PATH
-      - uses: Swatinem/rust-cache@v2
-      - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2.85.3
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
         with:
-          tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
-      - name: Install dependencies
-        run: uv sync
-      - name: Install Sass
-        run: npm install -g sass
-      - name: Build distribution
+          key: ${{ hashFiles('flake.lock') }}
+          cache-on-failure: true
+      - name: Determine version
         run: |
           # Use public version without local version label
-          export SETUPTOOLS_SCM_PRETEND_VERSION=$(make version-public)
-          make dist
+          version=$(nix develop --command make version-public | tail -1)
+          [ -n "$version" ] || { echo "Error: version could not be determined"; exit 1; }
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$version" >> $GITHUB_ENV
+      - name: Build distribution
+        run: nix develop --command make dist
       - name: Store distribution packages
         uses: actions/upload-artifact@v7
         with:
@@ -117,10 +105,11 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Determine Python version
+        run: python3 tools/python_versions.py >> $GITHUB_ENV
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: Set up Python
         uses: actions/setup-python@v7

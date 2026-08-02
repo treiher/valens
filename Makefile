@@ -138,8 +138,14 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	sass crates/web-app-dioxus/assets/main.scss $(GENERATED_DIR)/main.css
 	rm -rf $(DX_RELEASE_DIR)
 	VALENS_VERSION=$(VERSION) dx bundle --release --debug-symbols=false --package valens-web-app-dioxus
-	sed -e "s#/./assets/#/#" -e "s#-dx\w*##" $(DX_RELEASE_DIR)/assets/valens-web-app-dioxus-dx*.js > $(GENERATED_DIR)/valens-web-app-dioxus.js
-	cp $(DX_RELEASE_DIR)/assets/valens-web-app-dioxus_bg-dx*.wasm $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm
+	# `dx` hashes asset file names per build. Resolving them via `index.html` selects the assets of
+	# the current build even if files of older builds are present.
+	js=$$(grep -o 'assets/valens-web-app-dioxus-dx\w*\.js' $(DX_RELEASE_DIR)/index.html | head -1); \
+	[ -n "$$js" ] || { echo "Error: JS asset could not be determined"; exit 1; }; \
+	wasm=$$(grep -o 'valens-web-app-dioxus_bg-dx\w*\.wasm' $(DX_RELEASE_DIR)/$$js | head -1); \
+	[ -n "$$wasm" ] || { echo "Error: WASM asset could not be determined"; exit 1; }; \
+	sed -e "s#/./assets/#/#" -e "s#-dx\w*##" $(DX_RELEASE_DIR)/$$js > $(GENERATED_DIR)/valens-web-app-dioxus.js; \
+	cp $(DX_RELEASE_DIR)/assets/$$wasm $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm
 
 .PHONY: container container-script
 

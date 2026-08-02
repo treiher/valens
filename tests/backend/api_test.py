@@ -69,6 +69,12 @@ def delete_session(client: Client) -> Response:
     return client.delete("/api/session")
 
 
+def session_cookies(resp: Response) -> list[str]:
+    return [
+        cookie for cookie in resp.headers.getlist("Set-Cookie") if cookie.startswith("session=")
+    ]
+
+
 @pytest.mark.parametrize(
     ("method", "route"),
     [
@@ -480,6 +486,17 @@ def test_session(client: Client) -> None:
     resp = delete_session(client)
     assert resp.status_code == HTTPStatus.NO_CONTENT
     assert not resp.data
+
+
+def test_session_cookie_set_only_on_change(client: Client) -> None:
+    """A response must not restore the session it was requested with."""
+
+    tests.utils.init_db_data()
+
+    assert session_cookies(create_session(client))
+    assert not session_cookies(client.get("/api/version"))
+    assert not session_cookies(client.get("/api/session"))
+    assert session_cookies(delete_session(client))
 
 
 def test_read_session_not_found(client: Client) -> None:

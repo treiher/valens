@@ -87,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Administration from a page to a dialog, allowing user management without leaving the current page
 - Administration dialog: Restriction to admin users
 - Synchronization to include the data of the signed-in user, applying changes made outside the app without re-login and signing out if the session was ended on the server
+- Expiry of a sign-in to one year after signing in instead of one year after the last use
 - Presentation of error messages from a dialog to a notification below the navigation bar
 - Severity of recoverable notifications from error to warning
 - Routines page: Prevention of the deletion of routines that are used in the schedule
@@ -99,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Acceptance of invalid values by the server that could make the affected pages permanently unusable
 - Error being reported for a change that was successfully saved on the server when storing the change on the device failed
 - Sign-out being aborted instead of completed when the data on the device could not be removed
+- Sign-in and sign-out being undone by requests of the previous session that were still in progress
 - Incorrect background color in calendars
 - Home page: Loading indicator staying visible after leaving the page while a training session is being started, preventing the start of further training sessions
 - Training session page:

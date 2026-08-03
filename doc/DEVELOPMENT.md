@@ -127,8 +127,6 @@ $ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
 - [ ] Check project on PyPI
 - [ ] Test installation from PyPI
     - `pip3 install valens`
-- [ ] Publish release notes on GitHub
-    - Draft new release
-    - Select tag
-    - Add corresponding part of `CHANGELOG` as description
-    - Publish release
+- [ ] Check release on GitHub
+    - Note: The release is published automatically, using the corresponding part of `CHANGELOG` as description.
+    - `make release-notes` shows the description before the release.

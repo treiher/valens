@@ -230,10 +230,14 @@ clean:
 	rm -rf valens.egg-info
 	rm -rf valens/static/generated
 
-.PHONY: version version-public
+.PHONY: version version-public release-notes
 
 version:
 	@echo $(VERSION)
 
 version-public:
 	@echo $(VERSION_PUBLIC)
+
+release-notes: VERSION_TAG ?= $(shell uv run -- kacl-cli current)
+release-notes:
+	@uv run -- kacl-cli get $(VERSION_TAG) --no-header

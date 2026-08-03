@@ -65,6 +65,38 @@ jobs:
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  test-installation-from-pypi:
+    name: Test installation from PyPI
+    needs:
+      - publish-to-pypi
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Determine Python version
+        run: python3 tools/python_versions.py >> $GITHUB_ENV
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install from PyPI
+        run: |
+          # The new version may not be installable immediately after publishing
+          version=${GITHUB_REF_NAME#v}
+          attempt=0
+          until pip install --no-cache-dir "valens==$version"; do
+            attempt=$((attempt + 1))
+            [ "$attempt" -lt 40 ] \
+              || { echo "Error: valens $version is not installable" >&2; exit 1; }
+            sleep 15
+          done
+      - name: Test
+        run: |
+          installed_version=$(valens --version) \
+            || { echo "Error: valens could not be installed from PyPI" >&2; exit 1; }
+          [ "$installed_version" = "${GITHUB_REF_NAME#v}" ] \
+            || { echo "Error: installed version \"$installed_version\" does not match \"${GITHUB_REF_NAME#v}\"" >&2; exit 1; }
+
   publish-to-testpypi:
     name: Publish Python distribution to TestPyPI
     if: github.ref == 'refs/heads/main'
@@ -153,7 +185,7 @@ jobs:
     name: Publish release on GitHub
     if: startsWith(github.ref, 'refs/tags/')
     needs:
-      - publish-to-pypi
+      - test-installation-from-pypi
       - publish-to-ghcr
     runs-on: ubuntu-24.04
 

@@ -1,0 +1,8 @@
+kacl:
+  release:
+    add_unreleased: False
+  links:
+    auto_generate: True
+    compare_versions_template: 'https://github.com/treiher/valens/compare/v{previous_version}...v{version}'
+    unreleased_changes_template: 'https://github.com/treiher/valens/compare/v{latest_version}...HEAD'
+    initial_version_template: 'https://github.com/treiher/valens/tree/v{version}'

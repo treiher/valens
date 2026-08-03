@@ -241,3 +241,26 @@ version-public:
 release-notes: VERSION_TAG ?= $(shell uv run -- kacl-cli current)
 release-notes:
 	@uv run -- kacl-cli get $(VERSION_TAG) --no-header
+
+.PHONY: release tag
+
+release:
+	@echo "$(VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$' \
+		|| { echo "Error: VERSION must be a release version, e.g. make release VERSION=1.2.3"; exit 1; }
+	@git diff --quiet HEAD \
+		|| { echo "Error: repository contains uncommitted changes"; exit 1; }
+	sed -i -E '/^replacement = /s|(treiher/valens/(blob/)?)[^/]+/|\1v$(VERSION)/|' pyproject.toml
+	@! grep '^replacement = ' pyproject.toml | grep -qv '/valens/\(blob/\)\?v$(VERSION)/' \
+		|| { echo "Error: README links are not pinned to v$(VERSION)"; exit 1; }
+	uv run -- kacl-cli release $(VERSION) --modify
+	git add CHANGELOG.md pyproject.toml
+	git commit -m "Add $(VERSION) to changelog"
+
+# The version is taken from the changelog, as commit IDs and messages change when a PR is merged.
+tag: RELEASE_VERSION = $(shell uv run -- kacl-cli current)
+tag:
+	@echo "$(RELEASE_VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$' \
+		|| { echo "Error: no release version found in changelog"; exit 1; }
+	@[ "$$(git rev-parse --abbrev-ref HEAD)" = "main" ] \
+		|| { echo "Error: main branch is not checked out"; exit 1; }
+	git tag -a v$(RELEASE_VERSION) -m ""

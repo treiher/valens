@@ -42,17 +42,17 @@ check-playwright:
 		browsers=$$(uv run -- playwright install --dry-run chromium \
 			| sed -n 's/^ *Install location: *//p'); \
 		[ -n "$$browsers" ] \
-			|| { echo "Error: browsers expected by playwright could not be determined"; exit 1; }; \
+			|| { echo "Error: browsers expected by playwright could not be determined" >&2; exit 1; }; \
 		for browser in $$browsers; do \
 			[ -e "$$browser" ] \
-				|| { echo "Error: $${browser##*/} is not provided by PLAYWRIGHT_BROWSERS_PATH"; exit 1; }; \
+				|| { echo "Error: $${browser##*/} is not provided by PLAYWRIGHT_BROWSERS_PATH" >&2; exit 1; }; \
 		done; \
 	fi
 
 # Stable rustfmt ignores the unstable options in `rustfmt.toml` with a warning instead of failing.
 check-rustfmt:
 	@$${RUSTFMT:-rustfmt} --version | grep -q nightly \
-		|| { echo "Error: rustfmt is not the nightly build pinned in rustfmt-toolchain.toml, see doc/DEVELOPMENT.md"; exit 1; }
+		|| { echo "Error: rustfmt is not the nightly build pinned in rustfmt-toolchain.toml, see doc/DEVELOPMENT.md" >&2; exit 1; }
 
 # The wasm-bindgen version of `dx` can only be determined for a Nix build.
 check-wasm-bindgen:
@@ -60,12 +60,12 @@ check-wasm-bindgen:
 	case "$$dx" in /nix/store/*) ;; *) exit 0;; esac; \
 	expected=$$(sed -n '/^name = "wasm-bindgen"$$/{n; s/^version = "\(.*\)"$$/\1/p;}' Cargo.lock); \
 	[ -n "$$expected" ] \
-		|| { echo "Error: wasm-bindgen version required by the project could not be determined"; exit 1; }; \
+		|| { echo "Error: wasm-bindgen version required by the project could not be determined" >&2; exit 1; }; \
 	actual=$$(nix-store -q --references "$$dx" | sed -n 's|.*-wasm-bindgen-cli-\(.*\)|\1|p' | head -1); \
 	[ -n "$$actual" ] \
-		|| { echo "Error: wasm-bindgen version used by dx could not be determined"; exit 1; }; \
+		|| { echo "Error: wasm-bindgen version used by dx could not be determined" >&2; exit 1; }; \
 	[ "$$actual" = "$$expected" ] \
-		|| { echo "Error: dx uses wasm-bindgen $$actual, but the project requires $$expected"; exit 1; }
+		|| { echo "Error: dx uses wasm-bindgen $$actual, but the project requires $$expected" >&2; exit 1; }
 
 check-frontend: check-rustfmt check-wasm-bindgen
 	cargo fmt -- --check
@@ -109,7 +109,7 @@ test-installation: test-venv
 	$(BUILD_DIR)/venv/bin/valens --version
 
 test-e2e: check-playwright test-venv
-	@grep -qaF "$(VERSION)" $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm || { echo "ERROR: $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm does not contain current version string \"$(VERSION)\""; exit 1; }
+	@grep -qaF "$(VERSION)" $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm || { echo "Error: $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm does not contain current version string \"$(VERSION)\"" >&2; exit 1; }
 	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
 
 test-venv: $(BUILD_DIR)/venv/bin/valens
@@ -166,9 +166,9 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	# `dx` hashes asset file names per build. Resolving them via `index.html` selects the assets of
 	# the current build even if files of older builds are present.
 	js=$$(grep -o 'assets/valens-web-app-dioxus-dx\w*\.js' $(DX_RELEASE_DIR)/index.html | head -1); \
-	[ -n "$$js" ] || { echo "Error: JS asset could not be determined"; exit 1; }; \
+	[ -n "$$js" ] || { echo "Error: JS asset could not be determined" >&2; exit 1; }; \
 	wasm=$$(grep -o 'valens-web-app-dioxus_bg-dx\w*\.wasm' $(DX_RELEASE_DIR)/$$js | head -1); \
-	[ -n "$$wasm" ] || { echo "Error: WASM asset could not be determined"; exit 1; }; \
+	[ -n "$$wasm" ] || { echo "Error: WASM asset could not be determined" >&2; exit 1; }; \
 	sed -e "s#/./assets/#/#" -e "s#-dx\w*##" $(DX_RELEASE_DIR)/$$js > $(GENERATED_DIR)/valens-web-app-dioxus.js; \
 	cp $(DX_RELEASE_DIR)/assets/$$wasm $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm
 

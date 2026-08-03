@@ -111,7 +111,7 @@ jobs:
       - name: Determine dioxus-cli version
         run: |
           version=$(sed -n '/^name = "dioxus"$/{n; s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
-          [ -n "$version" ] || { echo "Error: dioxus version could not be determined"; exit 1; }
+          [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
           echo "DIOXUS_VERSION=$version" >> $GITHUB_ENV
       - name: Install dioxus-cli
         uses: taiki-e/install-action@v2.85.3

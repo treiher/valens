@@ -60,6 +60,8 @@ Activate the Python virtual environment.
 $ source .venv/bin/activate
 ```
 
+The screenshots in the documentation can only be created and checked in the Nix development environment. It pins the font rendering by setting `FONTCONFIG_FILE` to the configuration in `tools/fonts.conf`, which is required to get identical results on different systems.
+
 ## Running development servers
 
 The current codebase can be executed by running development servers for the frontend and the backend. The development servers will automatically reload when the codebase is changed.
@@ -115,10 +117,13 @@ $ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
 ## Release checklist
 
 - [ ] Update screenshots if necessary
+    - Note: `make check-screenshots` fails if the screenshots do not match the current app.
+    - `make screenshots`
 - [ ] Create release commit
     - Note: The release is added to `CHANGELOG` and the revision used for the PyPI README in `pyproject.toml` is set to the new tag.
     - `make release VERSION=X.Y.Z`
 - [ ] Merge changes into `main` branch
+    - Note: The screenshots are checked automatically on pull requests that add a release.
 - [ ] Add tag
     - Note: Commit IDs change when a PR is merged on GitHub, so the tag must be created on an up-to-date `main` branch.
     - `make tag`

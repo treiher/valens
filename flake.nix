@@ -18,6 +18,9 @@
       rustfmtDate = nixpkgs.lib.removePrefix "nightly-"
         (nixpkgs.lib.importTOML ./rustfmt-toolchain.toml).toolchain.channel;
       nightlyRustfmt = pkgs.rust-bin.nightly.${rustfmtDate}.rustfmt;
+      fontsConf = pkgs.replaceVars ./tools/fonts.conf {
+        fonts = "${pkgs.dejavu_fonts.minimal}/share/fonts";
+      };
     in {
       devShells.${system}.default = with pkgs; mkShell {
         packages = [
@@ -27,6 +30,7 @@
           cargo-nextest
           chromedriver
           dart-sass
+          dejavu_fonts.minimal
           # `dx` must match the `dioxus` version in `Cargo.lock`, which the stable channel predates.
           unstable.dioxus-cli
           imagemagick
@@ -37,6 +41,7 @@
           wasm-pack
         ];
         env = {
+          FONTCONFIG_FILE = "${fontsConf}";
           LD_LIBRARY_PATH = lib.makeLibraryPath [ stdenv.cc.cc ];
           PLAYWRIGHT_BROWSERS_PATH = "${playwright-driver.browsers}";
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";

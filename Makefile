@@ -144,10 +144,22 @@ third-party/fontawesome:
 	mv third-party/fontawesome-* third-party/fontawesome
 	rm -rf third-party/fontawesome/{css,js,less,metadata,sprites,sprites-full,svgs,svgs-full}
 
-.PHONY: screenshots
+.PHONY: screenshots check-screenshots check-fonts
 
-screenshots: test-venv
-	tools/create_screenshots.py
+CREATE_SCREENSHOTS_CMD = uv run -- python tools/create_screenshots.py \
+	--valens $(BUILD_DIR)/venv/bin/valens
+
+screenshots: check-playwright check-fonts test-venv
+	$(CREATE_SCREENSHOTS_CMD)
+
+check-screenshots: check-playwright check-fonts test-venv
+	$(CREATE_SCREENSHOTS_CMD) --check
+
+check-fonts:
+	@case "$$FONTCONFIG_FILE" in \
+		/nix/store/*) ;; \
+		*) echo "Error: fonts are not pinned by FONTCONFIG_FILE, see doc/DEVELOPMENT.md" >&2; exit 1;; \
+	esac
 
 .PHONY: dist
 

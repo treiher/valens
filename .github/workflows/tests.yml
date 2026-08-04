@@ -18,6 +18,37 @@ jobs:
       - id: versions
         run: python3 tools/python_versions.py >> $GITHUB_OUTPUT
 
+  detect_release:
+    name: Detect Release
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    needs: python_versions
+    outputs:
+      adds_release: ${{ steps.detect.outputs.ADDS_RELEASE }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ needs.python_versions.outputs.latest }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: |
+          uv sync
+      - id: detect
+        run: |
+          git show ${{ github.event.pull_request.base.sha }}:CHANGELOG.md > $RUNNER_TEMP/base_changelog.md
+          base=$(uv run -- kacl-cli -f $RUNNER_TEMP/base_changelog.md current)
+          head=$(uv run -- kacl-cli current)
+          [ -n "$base" ] && [ -n "$head" ] || { echo "Error: current version could not be determined" >&2; exit 1; }
+          echo "Current version: $base (base), $head (head)"
+          [ "$base" = "$head" ] || echo "ADDS_RELEASE=true" >> $GITHUB_OUTPUT
+
   check_project:
     name: Project Checks
     runs-on: ubuntu-24.04
@@ -86,6 +117,30 @@ jobs:
       - name: Check
         run: |
           make check-${{ matrix.target }}
+
+  check_screenshots:
+    name: Screenshot Checks
+    if: ${{ needs.detect_release.outputs.adds_release == 'true' }}
+    runs-on: ubuntu-24.04
+    needs: detect_release
+    env:
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+      - name: Add development environment to PATH
+        run: |
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('flake.lock') }}
+          cache-on-failure: true
+      - name: Check
+        run: nix develop --command make check-screenshots
 
   test_installation:
     name: Installation Test

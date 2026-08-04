@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - One-time login links for signing in without a passkey, usable once within 24 hours
 - CLI commands to list, create, update and delete users
 - CLI command to create a one-time login link for a user
+- CLI options for reproducing the example data of the demo command
 - Configuration options for setting the public URL and disabling the sign-in with username
 - Administration dialog:
     - Body height of users

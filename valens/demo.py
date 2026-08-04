@@ -25,25 +25,37 @@ from valens.models import (
 )
 
 
-def run(database: str, host: str = "127.0.0.1", port: int = 5000) -> None:
+def run(
+    database: str,
+    host: str = "127.0.0.1",
+    port: int = 5000,
+    today: datetime.date | None = None,
+    seed: int | None = None,
+) -> None:
     app.config["DATABASE"] = database
     app.config["SECRET_KEY"] = b"TEST_KEY"
     app.config["PUBLIC_URL"] = f"http://localhost:{port}"
     with app.app_context():
-        for user in users():
+        for user in users(today, seed):
             db.session.add(user)
         db.session.commit()
         app.run(host, port)
 
 
-def users() -> list[User]:
+def users(today: datetime.date | None = None, seed: int | None = None) -> list[User]:
+    """Create example data, which is reproducible for the same `today` and `seed`."""
+    if today is None:
+        today = datetime.date.today()
+
+    rng = random.Random(seed)
+
     result = []
     for user_id, name, sex, height, role in [
         (1, "Alice", Sex.FEMALE, 168, Role.ADMIN),
         (2, "Bob", Sex.MALE, 182, Role.USER),
     ]:
-        exercises, routines, workouts = _workouts(user_id)
-        body_weight = _body_weight(user_id)
+        exercises, routines, workouts = _workouts(rng, today, user_id)
+        body_weight = _body_weight(rng, today, user_id)
         schedule_rotations, schedule_slots = _schedule(routines, user_id)
         result.append(
             User(
@@ -53,8 +65,8 @@ def users() -> list[User]:
                 height=height,
                 role=role,
                 body_weight=body_weight,
-                body_fat=_body_fat(body_weight, user_id),
-                period=_period(user_id),
+                body_fat=_body_fat(rng, body_weight, user_id),
+                period=_period(rng, today, user_id),
                 exercises=exercises,
                 routines=routines,
                 workouts=workouts,
@@ -65,30 +77,29 @@ def users() -> list[User]:
     return result
 
 
-def _body_weight(user_id: int = 1) -> list[BodyWeight]:
-    day = datetime.date.today()
-    weight = random.uniform(50, 100)
-    values = [(day, weight)]
+def _body_weight(rng: random.Random, today: datetime.date, user_id: int = 1) -> list[BodyWeight]:
+    weight = rng.uniform(50, 100)
+    values = [(today, weight)]
 
     for i in range(1, 365):
-        weight += random.gauss(-0.1 if i % 2 == 0 else 0.2, 0.2)
-        if random.randint(0, 2) == 0:
+        weight += rng.gauss(-0.1 if i % 2 == 0 else 0.2, 0.2)
+        if rng.randint(0, 2) == 0:
             continue
-        values.append((datetime.date.today() - datetime.timedelta(days=i), weight))
+        values.append((today - datetime.timedelta(days=i), weight))
 
     return [BodyWeight(user_id=user_id, date=d, weight=w) for d, w in values]
 
 
-def _body_fat(body_weight: list[BodyWeight], user_id: int = 1) -> list[BodyFat]:
+def _body_fat(rng: random.Random, body_weight: list[BodyWeight], user_id: int = 1) -> list[BodyFat]:
     initial_bw = body_weight[-1].weight
     initial_bf: tuple[int, ...] = (
-        random.randint(5, 20),
-        random.randint(10, 30),
-        random.randint(10, 30),
-        random.randint(10, 30),
-        random.randint(5, 20),
-        random.randint(5, 20),
-        random.randint(5, 20),
+        rng.randint(5, 20),
+        rng.randint(10, 30),
+        rng.randint(10, 30),
+        rng.randint(10, 30),
+        rng.randint(5, 20),
+        rng.randint(5, 20),
+        rng.randint(5, 20),
     )
     bf = []
     i = 0
@@ -96,7 +107,7 @@ def _body_fat(body_weight: list[BodyWeight], user_id: int = 1) -> list[BodyFat]:
     while i < len(body_weight):
         date = body_weight[i].date
         factor = body_weight[i].weight / initial_bw
-        bf.append((date, tuple(int(e * factor) + random.randint(0, 1) for e in initial_bf)))
+        bf.append((date, tuple(int(e * factor) + rng.randint(0, 1) for e in initial_bf)))
         i += 7
 
     return [
@@ -115,14 +126,14 @@ def _body_fat(body_weight: list[BodyWeight], user_id: int = 1) -> list[BodyFat]:
     ]
 
 
-def _period(user_id: int = 1) -> list[Period]:
-    day = datetime.date.today() - datetime.timedelta(days=random.randint(7, 33))
+def _period(rng: random.Random, today: datetime.date, user_id: int = 1) -> list[Period]:
+    day = today - datetime.timedelta(days=rng.randint(7, 33))
     values = []
 
     for _ in range(13):
         previous = 4
         for d in range(7):
-            intensity = random.randint(max(0, 3 - d), min(4, previous))
+            intensity = rng.randint(max(0, 3 - d), min(4, previous))
             previous = intensity
 
             if intensity == 0:
@@ -130,7 +141,7 @@ def _period(user_id: int = 1) -> list[Period]:
 
             values.append((day + datetime.timedelta(days=d), intensity))
 
-        day -= datetime.timedelta(days=28 + int(random.gauss(0, 3)))
+        day -= datetime.timedelta(days=28 + int(rng.gauss(0, 3)))
 
     return [Period(user_id=user_id, date=d, intensity=i) for d, i in values]
 
@@ -143,7 +154,9 @@ class ExerciseType:
     rpe: bool
 
 
-def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Workout]]:
+def _workouts(
+    rng: random.Random, today: datetime.date, user_id: int = 1
+) -> tuple[list[Exercise], list[Routine], list[Workout]]:
     exercise_names = {
         "Barbell Back Squat": ExerciseType(reps=True, time=False, weight=True, rpe=True),
         "Barbell Bench Press": ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -166,7 +179,7 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
     }
     exercises = [
         Exercise(user_id=user_id, name=name)
-        for name in random.sample(sorted(exercise_names.keys()), k=len(exercise_names))
+        for name in rng.sample(sorted(exercise_names.keys()), k=len(exercise_names))
     ]
 
     routine_names = ["A", "B", "C", "D"]
@@ -178,7 +191,7 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
             sections=[
                 RoutineSection(
                     position=p,
-                    rounds=random.randint(2, 5),
+                    rounds=rng.randint(2, 5),
                     parts=[
                         RoutineActivity(
                             position=1,
@@ -199,7 +212,7 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
                         ),
                     ],
                 )
-                for p, e in enumerate(random.sample(exercises, random.randint(5, 8)), start=1)
+                for p, e in enumerate(rng.sample(exercises, rng.randint(5, 8)), start=1)
             ],
         )
         for i, t in enumerate(routine_names, start=1)
@@ -208,7 +221,7 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
     workouts = [
         Workout(
             user_id=user_id,
-            date=datetime.date.today()
+            date=today
             - datetime.timedelta(days=len(routines) * 13 * 7)
             + datetime.timedelta(days=(quarter * 13 * 7) + (week * 7) + day),
             elements=[
@@ -224,26 +237,26 @@ def _workouts(user_id: int = 1) -> tuple[list[Exercise], list[Routine], list[Wor
                             [
                                 (
                                     (
-                                        5 + week + random.randint(0, 1)
+                                        5 + week + rng.randint(0, 1)
                                         if exercise_names[routine_activity.exercise.name].reps
                                         else None
                                     ),
                                     (
                                         (
-                                            random.randint(3, 4)
+                                            rng.randint(3, 4)
                                             if exercise_names[routine_activity.exercise.name].reps
-                                            else 10 + 5 * week + 5 * random.randint(0, 2)
+                                            else 10 + 5 * week + 5 * rng.randint(0, 2)
                                         )
                                         if exercise_names[routine_activity.exercise.name].time
                                         else None
                                     ),
                                     (
-                                        5 + (week + random.randint(0, 1)) * 0.5
+                                        5 + (week + rng.randint(0, 1)) * 0.5
                                         if exercise_names[routine_activity.exercise.name].weight
                                         else None
                                     ),
                                     (
-                                        min(7 + (week % 4) + (random.randint(0, 1) * 0.5), 10)
+                                        min(7 + (week % 4) + (rng.randint(0, 1) * 0.5), 10)
                                         if exercise_names[routine_activity.exercise.name].rpe
                                         else None
                                     ),

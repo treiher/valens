@@ -1,6 +1,7 @@
 # ruff: noqa: T201
 
 import argparse
+import datetime
 import os
 import sys
 from pathlib import Path
@@ -73,6 +74,18 @@ def main() -> int:
         type=int,
         default=5000,
         help="port to bind to",
+    )
+    parser_demo.add_argument(
+        "--date",
+        metavar="DATE",
+        type=datetime.date.fromisoformat,
+        help="date to be used as current date when generating the example data",
+    )
+    parser_demo.add_argument(
+        "--seed",
+        metavar="NUMBER",
+        type=int,
+        help="seed for the random number generator used to generate the example data",
     )
 
     parser_user = subparsers.add_parser("user", help="manage users")
@@ -181,6 +194,8 @@ def run_demo(args: argparse.Namespace) -> int:
             f"sqlite:///{args.database or f.name}",
             "0.0.0.0" if args.public else "127.0.0.1",
             args.port,
+            args.date,
+            args.seed,
         )
     return 0
 

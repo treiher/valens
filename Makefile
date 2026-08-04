@@ -256,17 +256,19 @@ release-notes:
 
 .PHONY: release tag
 
-release:
-	@echo "$(VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$' \
-		|| { echo "Error: VERSION must be a release version, e.g. make release VERSION=1.2.3"; exit 1; }
+release: check-playwright check-fonts test-venv
+	@echo "$(RELEASE_VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$' \
+		|| { echo "Error: RELEASE_VERSION must be a release version, e.g. make release RELEASE_VERSION=1.2.3"; exit 1; }
 	@git diff --quiet HEAD \
 		|| { echo "Error: repository contains uncommitted changes"; exit 1; }
-	sed -i -E '/^replacement = /s|(treiher/valens/(blob/)?)[^/]+/|\1v$(VERSION)/|' pyproject.toml
-	@! grep '^replacement = ' pyproject.toml | grep -qv '/valens/\(blob/\)\?v$(VERSION)/' \
-		|| { echo "Error: README links are not pinned to v$(VERSION)"; exit 1; }
-	uv run -- kacl-cli release $(VERSION) --modify
+	$(CREATE_SCREENSHOTS_CMD) --check \
+		|| { $(CREATE_SCREENSHOTS_CMD) && git commit -m "Update screenshots" doc/screenshots.png; }
+	sed -i -E '/^replacement = /s|(treiher/valens/(blob/)?)[^/]+/|\1v$(RELEASE_VERSION)/|' pyproject.toml
+	@! grep '^replacement = ' pyproject.toml | grep -qv '/valens/\(blob/\)\?v$(RELEASE_VERSION)/' \
+		|| { echo "Error: README links are not pinned to v$(RELEASE_VERSION)"; exit 1; }
+	uv run -- kacl-cli release $(RELEASE_VERSION) --modify
 	git add CHANGELOG.md pyproject.toml
-	git commit -m "Add $(VERSION) to changelog"
+	git commit -m "Add $(RELEASE_VERSION) to changelog"
 
 # The version is taken from the changelog, as commit IDs and messages change when a PR is merged.
 tag: RELEASE_VERSION = $(shell uv run -- kacl-cli current)

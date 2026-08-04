@@ -116,12 +116,9 @@ $ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
 
 ## Release checklist
 
-- [ ] Update screenshots if necessary
-    - Note: `make check-screenshots` fails if the screenshots do not match the current app.
-    - `make screenshots`
 - [ ] Create release commit
-    - Note: The release is added to `CHANGELOG` and the revision used for the PyPI README in `pyproject.toml` is set to the new tag.
-    - `make release VERSION=X.Y.Z`
+    - Note: The release is added to `CHANGELOG` and the revision used for the PyPI README in `pyproject.toml` is set to the new tag. If the screenshots do not match the current app, they are updated in a separate commit.
+    - `make release RELEASE_VERSION=X.Y.Z`
 - [ ] Merge changes into `main` branch
     - Note: The screenshots are checked automatically on pull requests that add a release.
 - [ ] Add tag

@@ -116,17 +116,14 @@ $ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
 
 ## Release checklist
 
-- [ ] Create release commit
-    - Note: The release is added to `CHANGELOG` and the revision used for the PyPI README in `pyproject.toml` is set to the new tag. If the screenshots do not match the current app, they are updated in a separate commit.
-    - `make release RELEASE_VERSION=X.Y.Z`
-- [ ] Merge changes into `main` branch
+- [ ] Create release pull request
+    - Note: The release version is derived from the changelog by incrementing the current version. The release is added to `CHANGELOG` and the revision used for the PyPI README in `pyproject.toml` is set to the new tag. If the screenshots do not match the current app, they are updated in a separate commit.
+    - Note: `make release RELEASE_VERSION=X.Y.Z` creates the release commit locally, if the workflow is unavailable.
+    - `gh workflow run release-pr.yml -f increment=patch|minor|major`
+- [ ] Merge pull request into `main` branch
     - Note: The screenshots are checked automatically on pull requests that add a release.
-- [ ] Add tag
-    - Note: Commit IDs change when a PR is merged on GitHub, so the tag must be created on an up-to-date `main` branch.
-    - `make tag`
-- [ ] Push tag
-    - `git push --follow-tags`
 - [ ] Approve publishing to PyPI
+    - Note: The tag is added and pushed automatically after the release is merged. `make tag` and `git push --follow-tags` do the same on an up-to-date `main` branch.
 - [ ] Check project on PyPI
 - [ ] Check release on GitHub
     - Note: The release is published automatically, using the corresponding part of `CHANGELOG` as description.

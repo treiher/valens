@@ -256,9 +256,13 @@ release-notes:
 
 .PHONY: release tag
 
+release: CURRENT_VERSION = $(shell uv run -- kacl-cli current)
 release: check-playwright check-fonts test-venv
 	@echo "$(RELEASE_VERSION)" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$$' \
 		|| { echo "Error: RELEASE_VERSION must be a release version, e.g. make release RELEASE_VERSION=1.2.3"; exit 1; }
+	@[ "$(RELEASE_VERSION)" != "$(CURRENT_VERSION)" ] \
+		&& [ "$$(printf '%s\n%s\n' "$(CURRENT_VERSION)" "$(RELEASE_VERSION)" | sort -V | tail -1)" = "$(RELEASE_VERSION)" ] \
+		|| { echo "Error: release version $(RELEASE_VERSION) is not greater than current version $(CURRENT_VERSION)"; exit 1; }
 	@git diff --quiet HEAD \
 		|| { echo "Error: repository contains uncommitted changes"; exit 1; }
 	$(CREATE_SCREENSHOTS_CMD) --check \

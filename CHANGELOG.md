@@ -105,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Incorrect background color in calendars
 - Home page: Loading indicator staying visible after leaving the page while a training session is being started, preventing the start of further training sessions
 - Training session page:
+    - Missing numbering of exercises within compound sets for time-based sets
     - Manual metronome adjustments being reset immediately instead of persisting until the current element changes
     - Loading indicator staying visible after leaving the page while a change is being saved
 - Training sessions page: Incorrect chart legend label

@@ -1117,6 +1117,33 @@ def test_training_session_opened_while_other_in_progress_cannot_be_started(page:
     assert other_page.count_form_rows() > rows_with_timer
 
 
+def test_training_session_numbering_of_time_based_sets(page: Page) -> None:
+    routine = USER.routines[1]
+    assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
+    exercise = str(routine.sections[0].parts[0].exercise.name)
+    other_exercise = next(str(e.name) for e in USER.exercises if str(e.name) != exercise)
+
+    login(page)
+
+    # A second exercise in the same section turns it into a compound set, in which the
+    # exercises are numbered.
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.remove(0, 1)
+    r.add_exercise(0, other_exercise)
+    r.set_time(0, 1, "20")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    assert p.get_set_numbers(4) == ["①", "②", "①", "②"]
+
+
 def test_routines_add(page: Page) -> None:
     name = USER.routines[-1].name
     new_name = "New Routine"

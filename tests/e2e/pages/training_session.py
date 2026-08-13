@@ -90,6 +90,13 @@ class TrainingSessionPage(BasePage):
         for inp, val in zip(inputs_in_row, values, strict=False):
             inp.fill(str(val) if val is not None else "")
 
+    def get_set_numbers(self, count: int) -> list[str]:
+        expect(self.page.get_by_test_id("set-number").nth(count - 1)).to_be_visible()
+        return [
+            element.inner_text().strip()
+            for element in self.page.get_by_test_id("set-number").all()[:count]
+        ]
+
     def get_notes(self) -> str:
         self.expect_edit_mode()
         return self.page.get_by_test_id("session-notes").input_value()

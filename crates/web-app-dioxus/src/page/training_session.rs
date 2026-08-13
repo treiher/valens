@@ -790,12 +790,21 @@ fn view_form(
                         }
                     }
 
+                    let number = exercise_number(exercise_id, &exercise_ids);
+
                     let set = if set_field_values.is_empty() && !set_field_values.changed() && target_reps.is_none() && target_time.is_some() && !focus.other_session_running() {
                         if let Some(target_time) = target_time {
                             rsx! {
                                 tr {
                                     class: if is_current_section { "" } else { "is-semitransparent" },
-                                    td {}
+                                    td {
+                                        class: "p-1",
+                                        style: "vertical-align: middle",
+                                        "data-testid": "set-number",
+                                        if let Some(number) = number {
+                                            "{circled_number(number)}"
+                                        }
+                                    }
                                     td {
                                         class: "p-1",
                                         colspan: 4,
@@ -855,13 +864,13 @@ fn view_form(
                             rsx! {}
                         }
                     } else {
-                        let number = exercise_number(exercise_id, &exercise_ids);
                         rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
                                 td {
                                     class: "p-1",
                                     style: "vertical-align: middle",
+                                    "data-testid": "set-number",
                                     if let Some(number) = number {
                                         "{circled_number(number)}"
                                     }

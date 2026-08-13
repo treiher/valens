@@ -161,6 +161,11 @@ check-fonts:
 		*) echo "Error: fonts are not pinned by FONTCONFIG_FILE, see doc/DEVELOPMENT.md" >&2; exit 1;; \
 	esac
 
+.PHONY: check-readme
+
+check-readme: $(WHEEL)
+	uv run -- python tools/check_readme_links.py $(WHEEL)
+
 .PHONY: dist
 
 dist: $(WHEEL)

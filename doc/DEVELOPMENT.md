@@ -124,7 +124,3 @@ $ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
     - Note: The screenshots are checked automatically on pull requests that add a release.
 - [ ] Approve publishing to PyPI
     - Note: The tag is added and pushed automatically after the release is merged. `make tag` and `git push --follow-tags` do the same on an up-to-date `main` branch.
-- [ ] Check project on PyPI
-- [ ] Check release on GitHub
-    - Note: The release is published automatically, using the corresponding part of `CHANGELOG` as description.
-    - `make release-notes` shows the description before the release.

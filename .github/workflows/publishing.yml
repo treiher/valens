@@ -36,6 +36,15 @@ jobs:
         run: nix develop --command make release-notes VERSION_TAG=${GITHUB_REF_NAME#v} > /dev/null
       - name: Build distribution
         run: nix develop --command make dist
+      - name: Check README
+        run: |
+          # A release pins the README to its tag, which is pushed by a separate workflow.
+          if [[ "$GITHUB_REF" != refs/tags/* ]] \
+            && ! grep '^replacement = ' pyproject.toml | grep -qv '/valens/\(blob/\)\?v[0-9]'; then
+            echo "README is pinned to a release tag, checked when the tag is built"
+            exit 0
+          fi
+          nix develop --command make check-readme
       - name: Store distribution packages
         uses: actions/upload-artifact@v7
         with:
@@ -197,7 +206,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
       - name: Extract release notes
-        run: uvx --from python-kacl kacl-cli get ${GITHUB_REF_NAME#v} --no-header > release-notes.md
+        run: |
+          uvx --from python-kacl kacl-cli get ${GITHUB_REF_NAME#v} --no-header > release-notes.md
+          [ -s release-notes.md ] || { echo "Error: release notes are empty" >&2; exit 1; }
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

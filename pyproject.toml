@@ -83,11 +83,11 @@ path = "README.md"
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
-replacement = '[\1](https://github.com/treiher/valens/blob/9160d028eddf307dff2a5cd67033024b77e7858f/\g<2>)'
+replacement = '[\1](https://github.com/treiher/valens/blob/468532097ed24654b6cd39e77a7772882c53d4dd/\g<2>)'
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = '\[(.+?)\]\(((?!https?://)\S+?.\.(png|gif))'
-replacement = '[\1](https://raw.githubusercontent.com/treiher/valens/9160d028eddf307dff2a5cd67033024b77e7858f/\g<2>'
+replacement = '[\1](https://raw.githubusercontent.com/treiher/valens/468532097ed24654b6cd39e77a7772882c53d4dd/\g<2>'
 
 [tool.uv]
 required-version = ">=0.9"

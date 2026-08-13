@@ -114,13 +114,11 @@ Upgrade the database schema to the latest revision.
 $ VALENS_CONFIG=$PWD/build/config.py alembic upgrade head
 ```
 
-## Release checklist
+## Releasing a new version
 
-- [ ] Create release pull request
-    - Note: The release version is derived from the changelog by incrementing the current version. The release is added to `CHANGELOG` and the revision used for the PyPI README in `pyproject.toml` is set to the new tag. If the screenshots do not match the current app, they are updated in a separate commit.
-    - Note: `make release RELEASE_VERSION=X.Y.Z` creates the release commit locally, if the workflow is unavailable.
-    - `gh workflow run release-pr.yml -f increment=patch|minor|major`
-- [ ] Merge pull request into `main` branch
-    - Note: The screenshots are checked automatically on pull requests that add a release.
-- [ ] Approve publishing to PyPI
-    - Note: The tag is added and pushed automatically after the release is merged. `make tag` and `git push --follow-tags` do the same on an up-to-date `main` branch.
+1. Create the release pull request: `gh workflow run release-pr.yml -f increment=patch|minor|major`
+2. Merge the pull request into the `main` branch
+
+The workflow derives the release version from the changelog by incrementing the current version. It runs `make release`, which adds the release to `CHANGELOG.md`, sets the revision used for the PyPI README in `pyproject.toml` to the new tag, and updates the screenshots in a separate commit, if they do not match the current app. The screenshots are checked again on the pull request.
+
+Merging the pull request triggers a workflow that creates the tag with `make tag` and pushes it. Pushing the tag publishes the distribution to PyPI and the container registry, and the release on GitHub, using the corresponding part of `CHANGELOG.md` as description.

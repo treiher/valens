@@ -11,6 +11,7 @@ GENERATED_FILES := main.css valens-web-app-dioxus.js valens-web-app-dioxus_bg.wa
 PACKAGE_GENERATED_FILES := $(addprefix $(GENERATED_DIR)/,$(GENERATED_FILES))
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
+WEBDRIVER_CONFIG := $(BUILD_DIR)/webdriver.json
 VERSION := $(lastword $(shell env -u FORCE_COLOR uv run -- hatch version 2>/dev/null))
 VERSION_PUBLIC := $(firstword $(subst +, ,$(VERSION)))
 WHEEL := dist/valens-$(VERSION)-py3-none-any.whl
@@ -98,9 +99,14 @@ format: check-rustfmt
 
 test: test-frontend test-backend test-installation test-e2e
 
+# Without an explicit binary, ChromeDriver uses the first Chrome-like browser found in `PATH`, which
+# can be a browser with a version incompatible to the driver.
 test-frontend:
 	cargo llvm-cov nextest --no-fail-fast
-	wasm-pack test --headless --chrome crates/storage
+	@browser=$$(command -v chromium) \
+		|| { echo "Error: chromium could not be found" >&2; exit 1; }; \
+	printf '{"goog:chromeOptions": {"binary": "%s"}}\n' "$$browser" > $(WEBDRIVER_CONFIG)
+	WASM_BINDGEN_TEST_WEBDRIVER_JSON=$(WEBDRIVER_CONFIG) wasm-pack test --headless --chrome crates/storage
 
 test-backend:
 	mkdir -p $(GENERATED_DIR)

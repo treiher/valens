@@ -26,6 +26,8 @@ $blue: #3B8ED0;
 :root {
   --bulma-primary-invert-l: 100%;
   --bulma-link-text: #3B8ED0;
+  // Gap between draggable elements, in the middle of which insertion markers are drawn
+  --drop-marker-gap: 0.75rem;
 }
 
 @font-face {
@@ -386,6 +388,7 @@ div.is-calendar {
 
 .schedule-columns {
   --schedule-tile-gap: 0.75rem;
+  --drop-marker-gap: var(--schedule-tile-gap);
   margin-inline: 0.75rem;
 }
 
@@ -444,7 +447,27 @@ div.is-calendar {
   border-color: currentColor;
 }
 
-// Insertion point between slots while dragging
+// Grabbed element while dragging
+
+[data-drag-state="pressed"] {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.02);
+  // Shadow in the text color, which is dark on light surfaces and light on dark surfaces
+  box-shadow: 0 0.5rem 1rem
+    hsla(var(--bulma-text-h), var(--bulma-text-s), var(--bulma-text-strong-l), 0.25);
+  transition:
+    transform 100ms ease-out,
+    box-shadow 100ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-drag-state="pressed"] {
+    transition: none;
+  }
+}
+
+// Insertion point between elements while dragging
 
 [data-drop-state="insert-before"],
 [data-drop-state="insert-after"] {
@@ -457,17 +480,17 @@ div.is-calendar {
   position: absolute;
   left: 0;
   right: 0;
-  height: 2px;
-  border-radius: 1px;
-  background-color: var(--bulma-primary);
+  height: 3px;
+  border-radius: 1.5px;
+  background-color: var(--bulma-text-strong);
 }
 
 [data-drop-state="insert-before"]::before {
-  top: calc(-0.5 * var(--schedule-tile-gap) - 1px);
+  top: calc(-0.5 * var(--drop-marker-gap) - 1.5px);
 }
 
 [data-drop-state="insert-after"]::after {
-  bottom: calc(-0.5 * var(--schedule-tile-gap) - 1px);
+  bottom: calc(-0.5 * var(--drop-marker-gap) - 1.5px);
 }
 
 // Sizing

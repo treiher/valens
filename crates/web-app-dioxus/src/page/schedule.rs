@@ -319,6 +319,7 @@ fn view_drag_list(
             rsx! {
                 div {
                     class: "box schedule-tile is-flex is-justify-content-space-between is-align-items-center px-4 py-3",
+                    "data-drag-state": drag_and_drop::drag_state(drag, &source),
                     "data-drop-state": drag_and_drop::insertion_state(
                         target == Some(insert_target),
                         index + 1 == num_items && target == Some(end_target),
@@ -342,7 +343,7 @@ fn view_drag_list(
         if num_items == 0 {
             div {
                 class: "is-drop-zone schedule-tile is-size-7 has-text-centered px-4 py-3",
-                class: if target == Some(empty_target) { "has-text-primary" } else { "has-text-grey-light" },
+                class: if target == Some(empty_target) { "has-text-text-bold" } else { "has-text-grey-light" },
                 class: if droppable { "is-active" },
                 "data-drop-state": drag_and_drop::drop_state(target == Some(empty_target)),
                 "data-testid": "{labels.empty_testid}",

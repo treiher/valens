@@ -65,6 +65,7 @@ class SchedulePage(BasePage):
             "Input.dispatchTouchEvent",
             {"type": "touchStart", "touchPoints": [{"x": start[0], "y": start[1]}]},
         )
+        expect(self.page.locator("[data-drag-state='pressed']")).to_have_count(1)
         cdp.send(
             "Input.dispatchTouchEvent",
             {

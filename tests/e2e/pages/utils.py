@@ -31,6 +31,7 @@ def parse_numeric(text: str) -> str:
 def start_drag(page: Page, handle: Locator) -> None:
     handle.hover()
     page.mouse.down()
+    expect(page.locator("[data-drag-state='pressed']")).to_have_count(1)
     # An initial movement is required to activate the drag and show the drop targets. The center
     # of the viewport is outside of the edge zones in which dragging triggers auto-scrolling.
     viewport = page.viewport_size

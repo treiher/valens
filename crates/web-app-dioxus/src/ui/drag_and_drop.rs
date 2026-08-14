@@ -5,7 +5,8 @@
 //! under the pointer and represented by a page-specific type implementing [`DropTarget`].
 //!
 //! Elements reflect their current drop state in a `data-drop-state` attribute, which is both the
-//! styling hook for the insertion markers and the handle for end-to-end tests.
+//! styling hook for the insertion markers and the handle for end-to-end tests. The element a drag
+//! started from is marked by a `data-drag-state` attribute.
 
 use dioxus::prelude::*;
 use web_sys::wasm_bindgen::JsCast;
@@ -53,10 +54,12 @@ where
     S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
+    let pressed = drag_state(drag, &source).is_some();
+
     rsx! {
         span {
-            class: "ml-2 has-text-grey",
-            style: "touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none;",
+            class: "has-text-grey",
+            style: handle_style(pressed),
             "data-testid": "{data_testid}",
             oncontextmenu: |event| event.prevent_default(),
             onpointerdown: {
@@ -71,6 +74,19 @@ where
             Icon { name: "grip-vertical", is_small: true }
         }
     }
+}
+
+/// The style of a drag handle that is currently pressed or not.
+///
+/// The padding enlarges the touch target beyond the icon and is compensated by the negative
+/// margins to keep the layout unchanged.
+fn handle_style(pressed: bool) -> String {
+    let cursor = if pressed { "grabbing" } else { "grab" };
+    format!(
+        "touch-action: none; user-select: none; -webkit-user-select: none; \
+         padding: 0.75rem 0.75rem 0.75rem 0.5rem; margin: -0.75rem -0.75rem -0.75rem 0; \
+         cursor: {cursor};"
+    )
 }
 
 /// Render the remove drop zone and a floating label following the pointer at `position`.
@@ -92,6 +108,17 @@ pub fn view_drag_overlay(position: (f64, f64), label: &str, remove_hovered: bool
             "{label}"
         }
     }
+}
+
+/// The `data-drag-state` of the element `source` is dragged from.
+pub fn drag_state<S, T>(drag: Signal<Option<Drag<S, T>>>, source: &S) -> Option<&'static str>
+where
+    S: Clone + PartialEq + 'static,
+    T: DropTarget + 'static,
+{
+    drag()
+        .is_some_and(|drag| drag.source == *source)
+        .then_some("pressed")
 }
 
 /// The `data-drop-state` of a drop zone that is hovered or not.

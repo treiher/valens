@@ -236,6 +236,7 @@ fn view_routine_part(
             rsx! {
                 div {
                     class: "message",
+                    "data-drag-state": drag_and_drop::drag_state(drag, path),
                     "data-drop-state": drop_state,
                     "data-testid": "routine-part",
                     div {
@@ -294,6 +295,7 @@ fn view_routine_part(
                     } else {
                         "is-info"
                     },
+                    "data-drag-state": drag_and_drop::drag_state(drag, path),
                     "data-drop-state": drop_state,
                     "data-testid": "routine-part",
                     "data-drop": "part-{path_attribute(path)}",
@@ -490,7 +492,7 @@ fn view_empty_section_drop_zone(
     rsx! {
         div {
             class: "is-drop-zone is-active has-text-centered px-4 py-3",
-            class: if hovered { "has-text-primary" } else { "has-text-grey" },
+            class: if hovered { "has-text-text-bold" } else { "has-text-grey" },
             "data-drop-state": drag_and_drop::drop_state(hovered),
             "data-testid": "empty-section-drop-zone",
             "Empty section"

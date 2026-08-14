@@ -27,6 +27,7 @@ Install the following tools (with your system package manager):
 - [Python](https://www.python.org/downloads/) and [uv](https://github.com/astral-sh/uv)
 - [Dart Sass](https://sass-lang.com/dart-sass) (providing the `sass` command)
 - [Chromium](https://www.chromium.org/Home/), [ChromeDriver](https://sites.google.com/chromium.org/driver/) and [Playwright](https://playwright.dev/python/) for browser-based tests
+- [actionlint](https://github.com/rhysd/actionlint) and [ShellCheck](https://www.shellcheck.net/) for checking the workflows
 
 Install the Rust toolchain.
 

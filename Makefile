@@ -22,11 +22,11 @@ export SQLALCHEMY_WARN_20=1
 
 all: check test
 
-.PHONY: check check-project check-lockfile check-kacl check-doc check-playwright check-rustfmt check-wasm-bindgen check-frontend check-backend check-ruff-format check-ruff check-mypy
+.PHONY: check check-project check-lockfile check-kacl check-doc check-workflows check-playwright check-rustfmt check-wasm-bindgen check-frontend check-backend check-ruff-format check-ruff check-mypy
 
 check: check-project check-frontend check-backend
 
-check-project: check-lockfile check-kacl check-doc check-playwright
+check-project: check-lockfile check-kacl check-doc check-workflows check-playwright
 
 check-lockfile:
 	uv lock --locked
@@ -36,6 +36,9 @@ check-kacl:
 
 check-doc:
 	uv run -- python tools/check_doc_links.py
+
+check-workflows:
+	actionlint
 
 check-playwright:
 	@if [ -n "$$PLAYWRIGHT_BROWSERS_PATH" ]; then \

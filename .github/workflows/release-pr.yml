@@ -37,7 +37,8 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Add development environment to PATH
         run: |
-          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+          # shellcheck disable=SC2016
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> "$GITHUB_PATH"
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -48,7 +49,7 @@ jobs:
           version=$(nix develop --command uv run -- kacl-cli next "$INCREMENT" | tail -1)
           echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' \
             || { echo "Error: release version could not be determined: $version" >&2; exit 1; }
-          echo "VERSION=$version" >> $GITHUB_ENV
+          echo "VERSION=$version" >> "$GITHUB_ENV"
       - name: Create release commit
         run: |
           git config user.name "$GITHUB_ACTOR"

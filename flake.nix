@@ -25,6 +25,7 @@
       devShells.${system}.default = with pkgs; mkShell {
         packages = [
           (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+          actionlint
           binaryen
           cargo-llvm-cov
           cargo-nextest

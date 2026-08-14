@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AUTOMATION_TOKEN }}
       - name: Determine Python version
-        run: python3 tools/python_versions.py >> $GITHUB_ENV
+        run: python3 tools/python_versions.py >> "$GITHUB_ENV"
       - name: Set up Python
         uses: actions/setup-python@v7
         with:

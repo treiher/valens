@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: versions
-        run: python3 tools/python_versions.py >> $GITHUB_OUTPUT
+        run: python3 tools/python_versions.py >> "$GITHUB_OUTPUT"
 
   detect_release:
     name: Detect Release
@@ -42,12 +42,12 @@ jobs:
           uv sync
       - id: detect
         run: |
-          git show ${{ github.event.pull_request.base.sha }}:CHANGELOG.md > $RUNNER_TEMP/base_changelog.md
-          base=$(uv run -- kacl-cli -f $RUNNER_TEMP/base_changelog.md current)
+          git show ${{ github.event.pull_request.base.sha }}:CHANGELOG.md > "$RUNNER_TEMP/base_changelog.md"
+          base=$(uv run -- kacl-cli -f "$RUNNER_TEMP/base_changelog.md" current)
           head=$(uv run -- kacl-cli current)
-          [ -n "$base" ] && [ -n "$head" ] || { echo "Error: current version could not be determined" >&2; exit 1; }
+          { [ -n "$base" ] && [ -n "$head" ]; } || { echo "Error: current version could not be determined" >&2; exit 1; }
           echo "Current version: $base (base), $head (head)"
-          [ "$base" = "$head" ] || echo "ADDS_RELEASE=true" >> $GITHUB_OUTPUT
+          [ "$base" = "$head" ] || echo "ADDS_RELEASE=true" >> "$GITHUB_OUTPUT"
 
   check_project:
     name: Project Checks
@@ -55,6 +55,8 @@ jobs:
     needs: python_versions
     steps:
       - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -68,7 +70,7 @@ jobs:
           uv sync
       - name: Check
         run: |
-          make check-project
+          nix shell --inputs-from . nixpkgs#actionlint --command make check-project
 
   check_frontend:
     name: Frontend Checks
@@ -83,7 +85,8 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Add development environment to PATH
         run: |
-          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+          # shellcheck disable=SC2016
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> "$GITHUB_PATH"
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -133,7 +136,8 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Add development environment to PATH
         run: |
-          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+          # shellcheck disable=SC2016
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> "$GITHUB_PATH"
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -167,7 +171,7 @@ jobs:
         run: |
           version=$(sed -n '/^name = "dioxus"$/{n; s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
           [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
-          echo "DIOXUS_VERSION=$version" >> $GITHUB_ENV
+          echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install dioxus-cli
         uses: taiki-e/install-action@v2.85.8
         with:
@@ -191,7 +195,8 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Add development environment to PATH
         run: |
-          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+          # shellcheck disable=SC2016
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> "$GITHUB_PATH"
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -238,7 +243,8 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Add development environment to PATH
         run: |
-          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+          # shellcheck disable=SC2016
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> "$GITHUB_PATH"
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:

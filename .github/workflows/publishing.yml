@@ -19,7 +19,8 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v22
       - name: Add development environment to PATH
         run: |
-          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> $GITHUB_PATH
+          # shellcheck disable=SC2016
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> "$GITHUB_PATH"
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
@@ -30,10 +31,10 @@ jobs:
           # Use public version without local version label
           version=$(nix develop --command make version-public | tail -1)
           [ -n "$version" ] || { echo "Error: version could not be determined" >&2; exit 1; }
-          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$version" >> $GITHUB_ENV
+          echo "SETUPTOOLS_SCM_PRETEND_VERSION=$version" >> "$GITHUB_ENV"
       - name: Check changelog contains tagged version
         if: startsWith(github.ref, 'refs/tags/')
-        run: nix develop --command make release-notes VERSION_TAG=${GITHUB_REF_NAME#v} > /dev/null
+        run: nix develop --command make release-notes VERSION_TAG="${GITHUB_REF_NAME#v}" > /dev/null
       - name: Build distribution
         run: nix develop --command make dist
       - name: Check README
@@ -83,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Determine Python version
-        run: python3 tools/python_versions.py >> $GITHUB_ENV
+        run: python3 tools/python_versions.py >> "$GITHUB_ENV"
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -150,7 +151,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Determine Python version
-        run: python3 tools/python_versions.py >> $GITHUB_ENV
+        run: python3 tools/python_versions.py >> "$GITHUB_ENV"
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -170,8 +171,9 @@ jobs:
       - name: Build image
         run: |
           # Use public version without local version label
-          export SETUPTOOLS_SCM_PRETEND_VERSION=$(make version-public)
-          make -o dist/*.whl container TOOL=docker NAME=${NAME} REVISION=${GITHUB_SHA} SOURCE=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}
+          export SETUPTOOLS_SCM_PRETEND_VERSION
+          SETUPTOOLS_SCM_PRETEND_VERSION=$(make version-public)
+          make -o dist/*.whl container TOOL=docker NAME="$NAME" REVISION="$GITHUB_SHA" SOURCE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
       - name: Tag image
         run: |
           VERSION="$(make version-public)"
@@ -188,7 +190,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push image
         run: |
-          docker push --all-tags $NAME
+          docker push --all-tags "$NAME"
 
   publish-release:
     name: Publish release on GitHub
@@ -207,15 +209,15 @@ jobs:
         uses: astral-sh/setup-uv@v7
       - name: Extract release notes
         run: |
-          uvx --from python-kacl kacl-cli get ${GITHUB_REF_NAME#v} --no-header > release-notes.md
+          uvx --from python-kacl kacl-cli get "${GITHUB_REF_NAME#v}" --no-header > release-notes.md
           [ -s release-notes.md ] || { echo "Error: release notes are empty" >&2; exit 1; }
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # The release may already exist if the workflow is rerun.
-          if gh release view ${GITHUB_REF_NAME} > /dev/null 2>&1; then
-            gh release edit ${GITHUB_REF_NAME} --notes-file release-notes.md
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
           else
-            gh release create ${GITHUB_REF_NAME} --verify-tag --notes-file release-notes.md
+            gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file release-notes.md
           fi

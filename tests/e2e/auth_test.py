@@ -226,6 +226,8 @@ def test_login_link_login(page: Page) -> None:
 
     # The link is invalidated on use
     login_page = LoginPage(page, base_url=AUTH_BASE_URL)
+    # Signing out leads to the login page, so opening the link only changes the URL fragment
+    login_page.expect_page()
     page.goto(url)
     login_page.expect_page()
     expect(login_page.error_message).to_have_text("The login link is invalid or has expired")

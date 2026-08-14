@@ -4,7 +4,8 @@
 use std::sync::{Arc, Mutex};
 
 use dioxus::prelude::*;
-use log::error;
+use log::{error, warn};
+use web_sys::wasm_bindgen::{JsCast, closure::Closure};
 
 use valens_domain as domain;
 use valens_storage as storage;
@@ -65,11 +66,7 @@ fn main() {
 /// This runs before the router initializes, which strips the fragment. The token is passed
 /// in the fragment as fragments never reach the server or proxy logs.
 fn init_login_link_token() {
-    let token = web_sys::window()
-        .and_then(|window| window.location().hash().ok())
-        .and_then(|hash| hash.strip_prefix("#recover=").map(str::to_string))
-        .filter(|token| !token.is_empty());
-    if let Some(token) = token {
+    if let Some(token) = login_link_token() {
         *LOGIN_LINK_TOKEN.lock().unwrap() = Some(token);
         // `replaceState` removes the fragment without leaving a dangling `#` or keeping a
         // history entry containing the consumed token
@@ -84,6 +81,41 @@ fn init_login_link_token() {
             );
         }
     }
+    listen_for_login_link();
+}
+
+fn login_link_token() -> Option<String> {
+    web_sys::window()
+        .and_then(|window| window.location().hash().ok())
+        .and_then(|hash| hash.strip_prefix("#recover=").map(str::to_string))
+        .filter(|token| !token.is_empty())
+}
+
+/// Reload the app when a login link is opened while it is already running.
+///
+/// Opening a login link on the route it points to changes only the URL fragment. The document
+/// is not loaded again in that case, so the token is picked up by reloading it explicitly.
+fn listen_for_login_link() {
+    let Some(window) = web_sys::window() else {
+        warn!("failed to access window");
+        return;
+    };
+    let closure = Closure::wrap(Box::new(move |_: web_sys::Event| {
+        if login_link_token().is_none() {
+            return;
+        }
+        if let Some(window) = web_sys::window()
+            && let Err(err) = window.location().reload()
+        {
+            warn!("failed to reload app: {err:?}");
+        }
+    }) as Box<dyn FnMut(web_sys::Event)>);
+    if let Err(err) =
+        window.add_event_listener_with_callback("hashchange", closure.as_ref().unchecked_ref())
+    {
+        warn!("failed to listen for login links: {err:?}");
+    }
+    closure.forget();
 }
 
 fn init_logging() {

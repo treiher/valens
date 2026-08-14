@@ -324,6 +324,7 @@ fn Passkeys(user_id: domain::UserID) -> Element {
                         value: label.input.clone(),
                         error: if let Err(err) = &label.validated { err.clone() },
                         has_changed: label.changed(),
+                        autofocus: true,
                         on_input: move |event: FormEvent| {
                             if let PasskeyDialog::Rename { label, .. } = &mut *dialog.write() {
                                 label.input = event.value();

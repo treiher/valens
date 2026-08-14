@@ -9,6 +9,7 @@ from playwright.sync_api import expect
 from .base import BasePage
 from .utils import (
     drop_on_remove_zone,
+    get_focused_selection,
     hover_after_last,
     hover_at_height,
     hover_insertion_position,
@@ -90,6 +91,18 @@ class RoutinePage(BasePage):
         inp.fill(str(rounds))
         self.dialog.save()
         self.wait_until_idle()
+
+    def get_rounds_selection(self, section_idx: int) -> str:
+        dialog = self._open_edit_dialog(section_idx)
+        return get_focused_selection(dialog.get_by_test_id("rounds").first)
+
+    def get_reps_selection(self, section_idx: int, activity_idx: int) -> str:
+        dialog = self._open_edit_dialog(section_idx, activity_idx)
+        return get_focused_selection(dialog.get_by_test_id("input-reps"))
+
+    def get_rest_time_selection(self, section_idx: int, activity_idx: int) -> str:
+        dialog = self._open_edit_dialog(section_idx, activity_idx)
+        return get_focused_selection(dialog.get_by_test_id("input-time"))
 
     def move_up(self, section_idx: int, activity_idx: int | None = None) -> None:
         self._open_options_menu(section_idx, activity_idx)

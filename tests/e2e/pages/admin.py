@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from .base import BaseDialog, Dialog
+from .utils import get_focused_selection
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
@@ -43,6 +44,10 @@ class AdminDialog(BaseDialog):
             self.role_select.select_option(role)
         self.dialog.save()
         self.wait_until_idle()
+
+    def get_user_name_selection(self, name: str) -> str:
+        self.open_edit_user_dialog(name)
+        return get_focused_selection(self.dialog.root.get_by_test_id("user-name"))
 
     def edit_user_height(self, name: str, height: str) -> None:
         self.open_edit_user_dialog(name)

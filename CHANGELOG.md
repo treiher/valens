@@ -30,15 +30,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Routine page:
     - Option to show and copy routine as text
     - Rearrangement and removal of exercises, rests and sections by drag and drop
+    - Automatic focus of the first input field with its value selected in the dialogs for editing sections, exercises and rests
 - Routines page:
     - Option to show and copy routine as text
-    - Automatic focus of the first input field in the dialog for adding entries
+    - Automatic focus of the first input field with its value selected in the dialogs for adding, copying and renaming routines
 - Exercise page:
     - Estimated maximum reps to reps chart
     - Estimated 1RM to weight chart
-- Exercises page: Automatic focus of the first input field in the dialog for adding entries
-- Body weight page: Automatic focus of the first input field in the dialog for adding entries
-- Body fat page: Automatic focus of the first input field in the dialog for adding entries
+- Exercises page: Automatic focus of the first input field with its value selected in the dialogs for adding, copying and renaming exercises
+- Body weight page: Automatic focus of the first input field with its value selected in the dialogs for adding and editing entries
+- Body fat page: Automatic focus of the first input field with its value selected in the dialogs for adding and editing entries
 - FFMI (Fat-Free Mass Index) page with a chart and interval selection
 - Recording of notifications in the log
 - User roles (user and admin)
@@ -56,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Warning when demoting or deleting the last admin
     - Creation of one-time login links for users
     - Deletion of passkeys of users
+    - Automatic focus of the first input field with its value selected in the dialogs for adding and editing users
     - Notice about unavailable passkey login and login links when no public URL is configured
 - Display of chart values at the hovered or touched date
 - Schedule page for planning routines on days of the week, including rotations of routines across training days

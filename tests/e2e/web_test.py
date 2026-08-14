@@ -383,6 +383,15 @@ def test_administration_shown_for_admin(page: Page) -> None:
     admin.expect_open()
 
 
+def test_administration_edit_user_name_selection(page: Page) -> None:
+    login(page)
+
+    admin = AdminDialog(page)
+    admin.open()
+
+    assert admin.get_user_name_selection(USERNAMES[0]) == USERNAMES[0]
+
+
 def test_role_change_outside_app_without_relogin(page: Page, backend_server: Path) -> None:
     login(page)
 
@@ -1260,6 +1269,29 @@ def test_routine_edit(page: Page) -> None:
     assert section.rounds == 8
     assert section.get_set_at(0) == RoutineSet(exercise_1, None, 60.0, 5.5, 8.5)
     assert section.get_rest_at(1) == RoutineRest(30)
+
+
+def test_routine_edit_dialog_selection(page: Page) -> None:
+    routine = USER.routines[0]
+    assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
+    exercise_1 = str(routine.sections[0].parts[0].exercise.name)
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    p.wait_for_link(exercise_1)
+
+    p.set_rounds(0, 12)
+    p.set_reps(0, 0, "10")
+
+    assert p.get_rounds_selection(0) == "12"
+    p.dialog.cancel()
+
+    assert p.get_reps_selection(0, 0) == "10"
+    p.dialog.cancel()
+
+    assert p.get_rest_time_selection(0, 1) == "30"
 
 
 def test_routine_create_exercise(page: Page) -> None:

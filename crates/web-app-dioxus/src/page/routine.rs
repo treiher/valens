@@ -977,6 +977,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                 value: rounds_field.input.clone(),
                                 error: if let Err(err) = &rounds_field.validated { err.clone() },
                                 has_changed: rounds_field.changed(),
+                                autofocus: true,
                                 on_input: move |event: FormEvent| {
                                     async move {
                                         if let EditDialog::EditSection { rounds, .. } =  &mut *edit_dialog.write() {
@@ -1058,6 +1059,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                     value: reps_field.input.clone(),
                                     error: if let Err(err) = &reps_field.validated { err.clone() },
                                     has_changed: reps_field.changed(),
+                                    autofocus: true,
                                     on_input: move |event: FormEvent| {
                                         async move {
                                             if let EditDialog::EditActivity { reps, .. } =  &mut *edit_dialog.write() {
@@ -1081,6 +1083,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                 value: time_field.input.clone(),
                                 error: if let Err(err) = &time_field.validated { err.clone() },
                                 has_changed: time_field.changed(),
+                                autofocus: exercise_id.is_nil(),
                                 on_input: move |event: FormEvent| {
                                     async move {
                                         if let EditDialog::EditActivity { time, .. } =  &mut *edit_dialog.write() {

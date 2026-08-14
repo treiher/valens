@@ -1,6 +1,7 @@
 //! Generic, domain-agnostic form components.
 
-use dioxus::prelude::*;
+use dioxus::{prelude::*, web::WebEventExt};
+use web_sys::wasm_bindgen::JsCast;
 
 #[component]
 pub fn Field(children: Element, label: String) -> Element {
@@ -65,6 +66,11 @@ pub fn InputField(
                     onmounted: move |event| async move {
                         if autofocus {
                             let _ = event.set_focus(true).await;
+                            if let Some(element) = event.data().try_as_web_event()
+                                && let Some(input) = element.dyn_ref::<web_sys::HtmlInputElement>()
+                            {
+                                input.select();
+                            }
                         }
                     },
                     ..attributes,

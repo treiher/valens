@@ -94,6 +94,13 @@ def _hover_gap(elements: Locator, index: int) -> None:
     )
 
 
+def get_focused_selection(input_field: Locator) -> str:
+    expect(input_field).to_be_focused()
+    return input_field.evaluate(
+        "element => element.value.substring(element.selectionStart, element.selectionEnd)"
+    )
+
+
 # Keep the pointer away from the viewport edges where dragging triggers auto-scrolling
 def scroll_to_center(locator: Locator) -> None:
     locator.evaluate("element => element.scrollIntoView({block: 'center', behavior: 'instant'})")

@@ -1,7 +1,10 @@
 name: tests
 
 on:
+  # Only branches that are pushed to directly. All others are covered by
+  # `pull_request`, which would otherwise run a second time per push.
   push:
+    branches: [main, next]
   pull_request:
   schedule:
     - cron: '0 2 * * 6'

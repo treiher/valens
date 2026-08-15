@@ -254,7 +254,7 @@ jobs:
           key: ${{ hashFiles('flake.lock') }}
           cache-on-failure: true
       - name: Test
-        run: nix develop --command make test-e2e
+        run: nix develop --command make test-e2e DEVICE="Pixel 7"
       - name: Upload Playwright traces
         uses: actions/upload-artifact@v7
         if: failure()

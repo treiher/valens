@@ -144,6 +144,10 @@ $(BUILD_DIR)/venv:
 $(BUILD_DIR)/venv/bin/valens: $(BUILD_DIR)/venv $(WHEEL)
 	$(BUILD_DIR)/venv/bin/pip install --force-reinstall $(WHEEL)
 	test -f $(BUILD_DIR)/venv/bin/valens
+	@generated_dir=$$($(BUILD_DIR)/venv/bin/python -c "import pathlib, sysconfig; print(pathlib.Path(sysconfig.get_paths()['purelib']) / 'valens' / 'static' / 'generated')"); \
+	for f in $(GENERATED_FILES); do \
+		[ -s "$$generated_dir/$$f" ] || { echo "Error: $$f is missing or empty in the installed package" >&2; exit 1; }; \
+	done
 	# `-c` is the portable spelling of `--no-create`, which BSD `touch` does not support
 	touch -c $(BUILD_DIR)/venv/bin/valens
 
@@ -206,13 +210,16 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	rm -rf $(DX_RELEASE_DIR)
 	VALENS_VERSION=$(VERSION) dx bundle --release --debug-symbols=false --package valens-web-app-dioxus
 	# `dx` hashes asset file names per build. Resolving them via `index.html` selects the assets of
-	# the current build even if files of older builds are present.
-	js=$$(grep -o 'assets/valens-web-app-dioxus-dx\w*\.js' $(DX_RELEASE_DIR)/index.html | head -1); \
+	# the current build even if files of older builds are present. `\w` is avoided in the patterns,
+	# as it is a GNU extension which is unsupported by the BSD tools on macOS.
+	js=$$(grep -o 'assets/valens-web-app-dioxus-dx[[:alnum:]_]*\.js' $(DX_RELEASE_DIR)/index.html | head -1); \
 	[ -n "$$js" ] || { echo "Error: JS asset could not be determined" >&2; exit 1; }; \
-	wasm=$$(grep -o 'valens-web-app-dioxus_bg-dx\w*\.wasm' $(DX_RELEASE_DIR)/$$js | head -1); \
+	wasm=$$(grep -o 'valens-web-app-dioxus_bg-dx[[:alnum:]_]*\.wasm' $(DX_RELEASE_DIR)/$$js | head -1); \
 	[ -n "$$wasm" ] || { echo "Error: WASM asset could not be determined" >&2; exit 1; }; \
-	sed -e "s#/./assets/#/#" -e "s#-dx\w*##" $(DX_RELEASE_DIR)/$$js > $(GENERATED_DIR)/valens-web-app-dioxus.js; \
+	sed -e "s#/./assets/#/#" -e "s#-dx[[:alnum:]_]*##" $(DX_RELEASE_DIR)/$$js > $(GENERATED_DIR)/valens-web-app-dioxus.js; \
 	cp $(DX_RELEASE_DIR)/assets/$$wasm $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm
+	@refs=$$(grep -o 'valens-web-app-dioxus_bg[[:alnum:]_-]*\.wasm' $(GENERATED_DIR)/valens-web-app-dioxus.js | sort -u); \
+	[ "$$refs" = "valens-web-app-dioxus_bg.wasm" ] || { echo "Error: $(GENERATED_DIR)/valens-web-app-dioxus.js references unexpected WASM assets:" >&2; echo "$$refs" >&2; exit 1; }
 
 .PHONY: container container-script
 

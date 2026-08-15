@@ -69,9 +69,14 @@ def backend_server(request: pytest.FixtureRequest) -> Generator[Path, None, None
             p.terminate()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def virtual_authenticator(page: Page) -> tuple[CDPSession, str]:
-    """Add a virtual authenticator with a user-verifying platform authenticator."""
+    """
+    Add a virtual authenticator with a user-verifying platform authenticator.
+
+    The authenticator is set up via the Chrome DevTools Protocol, so tests using this fixture
+    must be marked as `chromium_only`.
+    """
 
     client = page.context.new_cdp_session(page)
     client.send("WebAuthn.enable")
@@ -97,6 +102,8 @@ def login(page: Page, username: str = USERNAMES[0]) -> None:
     login_page.login(username)
 
 
+@pytest.mark.chromium_only
+@pytest.mark.usefixtures("virtual_authenticator")
 def test_passkey_registration_and_login(page: Page) -> None:
     login(page)
 
@@ -118,6 +125,7 @@ def test_passkey_registration_and_login(page: Page) -> None:
     home_page.expect_page()
 
 
+@pytest.mark.chromium_only
 def test_passkey_login_with_unverifiable_signature(
     page: Page, virtual_authenticator: tuple[CDPSession, str]
 ) -> None:
@@ -168,6 +176,8 @@ def replace_credential_key_pair(client: CDPSession, authenticator_id: str) -> No
     )
 
 
+@pytest.mark.chromium_only
+@pytest.mark.usefixtures("virtual_authenticator")
 def test_passkey_rename_and_delete(page: Page) -> None:
     login(page)
 
@@ -182,6 +192,8 @@ def test_passkey_rename_and_delete(page: Page) -> None:
     profile_dialog.expect_passkeys([])
 
 
+@pytest.mark.chromium_only
+@pytest.mark.usefixtures("virtual_authenticator")
 def test_admin_passkey_deletion(page: Page) -> None:
     login(page, USERNAMES[1])
 
@@ -252,7 +264,9 @@ def test_passkey_login_and_login_link_unavailable_without_public_url(page: Page)
     admin_dialog.expect_no_login_link_option(USERNAMES[1])
 
 
+@pytest.mark.chromium_only
 @pytest.mark.parametrize("backend_server", [{"username_login_enabled": False}], indirect=True)
+@pytest.mark.usefixtures("virtual_authenticator")
 def test_forced_passkey_registration_with_disabled_username_login(
     backend_server: Path, page: Page
 ) -> None:

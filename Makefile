@@ -15,6 +15,14 @@ WEBDRIVER_CONFIG := $(BUILD_DIR)/webdriver.json
 VERSION := $(lastword $(shell env -u FORCE_COLOR uv run -- hatch version 2>/dev/null))
 VERSION_PUBLIC := $(firstword $(subst +, ,$(VERSION)))
 WHEEL := dist/valens-$(VERSION)-py3-none-any.whl
+# The browser used for the end-to-end tests. Only Chromium is selected by its channel, which
+# ensures that the browser provided by the development environment is used.
+BROWSER ?= chromium
+ifeq ($(BROWSER),chromium)
+PYTEST_BROWSER := --browser-channel chromium
+else
+PYTEST_BROWSER := --browser $(BROWSER)
+endif
 _ := $(shell mkdir -p $(BUILD_DIR) && { printf '%s' '$(VERSION)' | cmp -s - $(BUILD_DIR)/version 2>/dev/null || printf '%s' '$(VERSION)' > $(BUILD_DIR)/version; })
 
 export SQLALCHEMY_WARN_20=1
@@ -43,7 +51,7 @@ check-workflows:
 
 check-playwright:
 	@if [ -n "$$PLAYWRIGHT_BROWSERS_PATH" ]; then \
-		browsers=$$(uv run -- playwright install --dry-run chromium \
+		browsers=$$(uv run -- playwright install --dry-run $(BROWSER) \
 			| sed -n 's/^ *Install location: *//p'); \
 		[ -n "$$browsers" ] \
 			|| { echo "Error: browsers expected by playwright could not be determined" >&2; exit 1; }; \
@@ -119,7 +127,7 @@ test-installation: test-venv
 
 test-e2e: check-playwright test-venv
 	@grep -qaF "$(VERSION)" $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm || { echo "Error: $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm does not contain current version string \"$(VERSION)\"" >&2; exit 1; }
-	uv run -- pytest -n$(shell nproc) -vv --browser-channel chromium --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
+	uv run -- pytest -n$(shell nproc) -vv $(PYTEST_BROWSER) --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
 
 test-venv: $(BUILD_DIR)/venv/bin/valens
 

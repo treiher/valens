@@ -234,7 +234,7 @@ jobs:
           make test-backend
 
   test_e2e:
-    name: End-to-End Tests
+    name: End-to-End Tests (Chromium)
     runs-on: ubuntu-24.04
     env:
       CARGO_INCREMENTAL: 0
@@ -260,6 +260,35 @@ jobs:
         if: failure()
         with:
           name: playwright-traces
+          path: test-results/
+
+  test_e2e_firefox:
+    name: End-to-End Tests (Firefox)
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v22
+      - name: Add development environment to PATH
+        run: |
+          # shellcheck disable=SC2016
+          nix develop --command sh -c 'printf "%s\n" "$PATH"' | tr ':' '\n' | grep '^/nix/store/' >> "$GITHUB_PATH"
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ hashFiles('flake.lock') }}
+          cache-on-failure: true
+      - name: Test
+        run: nix develop --command make test-e2e BROWSER=firefox
+      - name: Upload Playwright traces
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces-firefox
           path: test-results/
 
   test_latest_dependencies:

@@ -44,6 +44,9 @@
         env = {
           FONTCONFIG_FILE = "${fontsConf}";
           LD_LIBRARY_PATH = lib.makeLibraryPath [ stdenv.cc.cc ];
+          # Containers that deny the `chroot` of the content sandbox let Firefox start, but its
+          # content processes die, which surfaces as a closed target when a page is opened.
+          MOZ_DISABLE_CONTENT_SANDBOX = "1";
           PLAYWRIGHT_BROWSERS_PATH = "${playwright-driver.browsers}";
           PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS = "true";
           RUSTFMT = "${nightlyRustfmt}/bin/rustfmt";

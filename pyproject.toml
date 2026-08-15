@@ -218,6 +218,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "--tb=short"
+markers = [
+    "chromium_only: test depends on the Chrome DevTools Protocol",
+]
 filterwarnings = [
     "error",
     # `routine_part` and `routine_section` are mutually dependent by design, as a self-referential

@@ -35,6 +35,7 @@ When the same condition is checked in both the domain service and the backend, b
 - End-to-end tests locate elements by test-id, not by styling. Test-ids are never used in tests directly; they are encapsulated in the page objects under [`tests/e2e/pages`](../tests/e2e/pages), which are introduced or extended as needed.
 - End-to-end tests assert element state through data attributes, not through CSS classes. A state that tests need to observe, such as the drop state during a drag or the severity of a log entry, is rendered as a `data-*` attribute, so that restyling does not break the tests.
 - End-to-end tests of drag & drop use `mouse.move` instead of `hover` during drags, start drags at the center of the viewport, and scroll targets to the center first, avoiding auto-scroll artifacts in Playwright.
+- End-to-end tests run against Chromium by default and additionally against Firefox in CI (`make test-e2e BROWSER=firefox`). Tests that depend on the Chrome DevTools Protocol, like touch input, network throttling and the virtual authenticator, are marked `chromium_only` and skipped on other browsers.
 
 ## Intentional duplication
 

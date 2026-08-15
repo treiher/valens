@@ -98,6 +98,7 @@ def test_login(page: Page) -> None:
     p.expect_loading_to_be_finished()
 
 
+@pytest.mark.chromium_only
 def test_synchronization_indicator(page: Page) -> None:
     login(page)
 
@@ -291,6 +292,7 @@ def test_chart_hover_shows_values(page: Page) -> None:
     expect(ffmi_page.chart_tooltip).to_be_hidden()
 
 
+@pytest.mark.chromium_only
 def test_chart_touch_shows_values(page: Page) -> None:
     login(page)
 
@@ -1817,6 +1819,7 @@ def test_schedule_move_slot_by_drag_and_drop(page: Page) -> None:
     p.expect_slots(next_weekday, [routine_1])
 
 
+@pytest.mark.chromium_only
 def test_schedule_move_slot_by_touch_drag_and_drop(page: Page) -> None:
     routine = str(USER.routines[-1].name)
     weekday = TODAY.isoweekday()
@@ -2295,6 +2298,7 @@ def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None
         context.close()
 
 
+@pytest.mark.chromium_only
 def test_cache(page: Page) -> None:
     page.goto(BASE_URL)
     page.wait_for_function("() => navigator.serviceWorker.ready.then(() => true)")

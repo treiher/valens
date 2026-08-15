@@ -1,5 +1,3 @@
-# ruff: noqa: T201
-
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -86,7 +84,7 @@ def remove_session(_exception: BaseException | None = None) -> None:
 
 
 def init() -> None:
-    print("Creating database")
+    print("Creating database")  # noqa: T201
 
     models.Base.query = get_scoped_session().query_property()
     models.Base.metadata.create_all(bind=get_engine())
@@ -107,7 +105,7 @@ def _upgrade(connection: Connection) -> None:
         try:
             upgrade_lock_file().touch(exist_ok=False)
 
-            print(f"Upgrading database from {current} to {head}")
+            print(f"Upgrading database from {current} to {head}")  # noqa: T201
 
             copy(
                 db_file(),
@@ -120,13 +118,13 @@ def _upgrade(connection: Connection) -> None:
             upgrade_lock_file().unlink()
 
         except FileExistsError:
-            print("Waiting for completion of database upgrade")
+            print("Waiting for completion of database upgrade")  # noqa: T201
 
             while upgrade_lock_file().exists():
                 sleep(1)
 
         except Exception as e:
-            print(f"Database upgrade failed: {e}")
+            print(f"Database upgrade failed: {e}")  # noqa: T201
 
             upgrade_lock_file().unlink()
 

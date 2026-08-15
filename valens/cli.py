@@ -1,5 +1,3 @@
-# ruff: noqa: T201
-
 import argparse
 import datetime
 import os
@@ -166,7 +164,7 @@ def main() -> int:
 
 def create_config(args: argparse.Namespace) -> int:
     config_file = config.create_config_file(args.directory, args.database)
-    print(f"Created {config_file}")
+    print(f"Created {config_file}")  # noqa: T201
     return 0
 
 
@@ -186,7 +184,7 @@ def run(args: argparse.Namespace) -> int:
 
 def run_demo(args: argparse.Namespace) -> int:
     if isinstance(args.database, Path) and args.database.exists():
-        print(f'Database "{args.database}" already exists, exiting.', file=sys.stderr)
+        print(f'Database "{args.database}" already exists, exiting.', file=sys.stderr)  # noqa: T201
         return 2
 
     with NamedTemporaryFile() as f:
@@ -206,7 +204,7 @@ def list_users(_: argparse.Namespace) -> int:
         users = db.session.execute(select(User)).scalars().all()
         for user in users:
             height = user.height if user.height is not None else ""
-            print(
+            print(  # noqa: T201
                 f"{user.id}\t{user.name}\t{user.sex.name.lower()}\t"
                 f"{user.role.name.lower()}\t{height}"
             )
@@ -217,13 +215,13 @@ def list_users(_: argparse.Namespace) -> int:
 def create_user(args: argparse.Namespace) -> int:
     name = args.name.strip()
     if not name:
-        print("Username must not be empty", file=sys.stderr)
+        print("Username must not be empty", file=sys.stderr)  # noqa: T201
         return 1
 
     try:
         height = _resolve_height(args.height)
     except ValueError:
-        print(
+        print(  # noqa: T201
             f"Height must be a whole number between {HEIGHT_MIN} and {HEIGHT_MAX}",
             file=sys.stderr,
         )
@@ -232,13 +230,13 @@ def create_user(args: argparse.Namespace) -> int:
     with app.app_context():
         config.check_config_file(os.environ.copy())
         if db.session.execute(select(User).where(User.name == name)).scalars().one_or_none():
-            print(f'User "{name}" already exists', file=sys.stderr)
+            print(f'User "{name}" already exists', file=sys.stderr)  # noqa: T201
             return 1
         sex = Sex.FEMALE if args.sex == "female" else Sex.MALE
         role = Role.ADMIN if args.role == "admin" else Role.USER
         db.session.add(User(name=name, sex=sex, role=role, height=height))
         db.session.commit()
-        print(f'Created user "{name}"')
+        print(f'Created user "{name}"')  # noqa: T201
 
     return 0
 
@@ -246,7 +244,7 @@ def create_user(args: argparse.Namespace) -> int:
 def update_user(args: argparse.Namespace) -> int:
     new_name = args.new_name.strip() if args.new_name is not None else None
     if new_name is not None and not new_name:
-        print("Username must not be empty", file=sys.stderr)
+        print("Username must not be empty", file=sys.stderr)  # noqa: T201
         return 1
     if (
         new_name is None
@@ -254,7 +252,9 @@ def update_user(args: argparse.Namespace) -> int:
         and args.new_role is None
         and args.new_height is None
     ):
-        print("At least one of --name, --sex, --role or --height must be provided", file=sys.stderr)
+        print(  # noqa: T201
+            "At least one of --name, --sex, --role or --height must be provided", file=sys.stderr
+        )
         return 1
 
     new_height: int | None = None
@@ -262,7 +262,7 @@ def update_user(args: argparse.Namespace) -> int:
         try:
             new_height = _resolve_height(args.new_height)
         except ValueError:
-            print(
+            print(  # noqa: T201
                 f"Height must be a whole number between {HEIGHT_MIN} and {HEIGHT_MAX}",
                 file=sys.stderr,
             )
@@ -274,7 +274,7 @@ def update_user(args: argparse.Namespace) -> int:
             db.session.execute(select(User).where(User.name == args.name)).scalars().one_or_none()
         )
         if user is None:
-            print(f'User "{args.name}" not found', file=sys.stderr)
+            print(f'User "{args.name}" not found', file=sys.stderr)  # noqa: T201
             return 1
         if new_name is not None:
             if new_name != user.name and (
@@ -282,12 +282,12 @@ def update_user(args: argparse.Namespace) -> int:
                 .scalars()
                 .one_or_none()
             ):
-                print(f'User "{new_name}" already exists', file=sys.stderr)
+                print(f'User "{new_name}" already exists', file=sys.stderr)  # noqa: T201
                 return 1
             user.name = new_name
         _apply_optional_attributes(user, args, new_height)
         db.session.commit()
-        print(f'Updated user "{args.name}"')
+        print(f'Updated user "{args.name}"')  # noqa: T201
         _warn_if_no_admin_exists()
 
     return 0
@@ -300,11 +300,11 @@ def delete_user(args: argparse.Namespace) -> int:
             db.session.execute(select(User).where(User.name == args.name)).scalars().one_or_none()
         )
         if user is None:
-            print(f'User "{args.name}" not found', file=sys.stderr)
+            print(f'User "{args.name}" not found', file=sys.stderr)  # noqa: T201
             return 1
         db.session.delete(user)
         db.session.commit()
-        print(f'Deleted user "{args.name}"')
+        print(f'Deleted user "{args.name}"')  # noqa: T201
         _warn_if_no_admin_exists()
 
     return 0
@@ -315,17 +315,17 @@ def create_login_link(args: argparse.Namespace) -> int:
         config.check_config_file(os.environ.copy())
         public_url = app.config.get("PUBLIC_URL")
         if public_url is None:
-            print("'PUBLIC_URL' is not set in the config file", file=sys.stderr)
+            print("'PUBLIC_URL' is not set in the config file", file=sys.stderr)  # noqa: T201
             return 1
         user = (
             db.session.execute(select(User).where(User.name == args.name)).scalars().one_or_none()
         )
         if user is None:
-            print(f'User "{args.name}" not found', file=sys.stderr)
+            print(f'User "{args.name}" not found', file=sys.stderr)  # noqa: T201
             return 1
         token = login_link.create(user.id)
         db.session.commit()
-        print(login_link.url(public_url, token))
+        print(login_link.url(public_url, token))  # noqa: T201
 
     return 0
 
@@ -354,7 +354,7 @@ def _resolve_height(value: int | None) -> int | None:
 
 def _warn_if_no_admin_exists() -> None:
     if db.session.execute(select(User).where(User.role == Role.ADMIN)).scalars().first() is None:
-        print(
+        print(  # noqa: T201
             "Warning: without an admin, users can no longer be managed in the app",
             file=sys.stderr,
         )

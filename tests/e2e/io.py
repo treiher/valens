@@ -1,11 +1,14 @@
+import os
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
+from pathlib import Path
 from queue import Empty, Queue
 from subprocess import PIPE, STDOUT, Popen, TimeoutExpired
 from threading import Thread
 from time import monotonic
 from typing import IO
 
+SITE_DIR = Path(__file__).parent / "fast_resolver"
 POLL_INTERVAL = 0.1
 
 
@@ -13,7 +16,11 @@ POLL_INTERVAL = 0.1
 def run_server(command: str, env: Mapping[str, str]) -> Generator[None, None, None]:
     """Run a server until the end of the context, terminating it in case of failure as well."""
 
-    with Popen(command.split(), stdout=PIPE, stderr=STDOUT, env=env) as p:
+    python_path = os.pathsep.join(filter(None, [str(SITE_DIR), env.get("PYTHONPATH", "")]))
+
+    with Popen(
+        command.split(), stdout=PIPE, stderr=STDOUT, env={**env, "PYTHONPATH": python_path}
+    ) as p:
         try:
             wait_for_output(p, "Running on")
             yield

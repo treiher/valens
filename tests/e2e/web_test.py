@@ -5,7 +5,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from itertools import pairwise
 from pathlib import Path
-from subprocess import PIPE, STDOUT, Popen, run
+from subprocess import PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -27,7 +27,7 @@ from .const import (
     USERNAMES,
     VALENS,
 )
-from .io import wait_for_output
+from .io import run_server
 from .pages import (
     AboutDialog,
     AdminDialog,
@@ -68,16 +68,10 @@ def backend_server() -> Generator[Path, None, None]:
             app.config["SECRET_KEY"] = b"TEST_KEY"
             tests.utils.init_db_data(today=TODAY)
 
-        with Popen(
-            f"{VALENS} run --port {PORT}".split(),
-            stdout=PIPE,
-            stderr=STDOUT,
-            env={"VALENS_CONFIG": str(config), **os.environ},
-        ) as p:
-            assert p.stdout
-            wait_for_output(p.stdout, "Running on")
+        with run_server(
+            f"{VALENS} run --port {PORT}", {"VALENS_CONFIG": str(config), **os.environ}
+        ):
             yield config
-            p.terminate()
 
 
 def login(page: Page) -> None:

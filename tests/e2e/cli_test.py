@@ -1,14 +1,14 @@
 import os
 import re
 from pathlib import Path
-from subprocess import PIPE, STDOUT, Popen, run
+from subprocess import PIPE, STDOUT, run
 
 from playwright.sync_api import Page, expect
 
 from valens.config import create_config_file
 
 from .const import BASE_URL, PORT, VALENS
-from .io import wait_for_output
+from .io import run_server
 
 
 def test_version() -> None:
@@ -39,32 +39,16 @@ def test_upgrade(tmp_path: Path) -> None:
 
 def test_run(tmp_path: Path, page: Page) -> None:
     config = create_config_file(tmp_path, tmp_path / "test.db")
-    with Popen(
-        f"{VALENS} run --port {PORT}".split(),
-        stdout=PIPE,
-        stderr=STDOUT,
-        env={"VALENS_CONFIG": str(config), **os.environ},
-    ) as p:
-        assert p.stdout
-        wait_for_output(p.stdout, "Running on")
+    with run_server(f"{VALENS} run --port {PORT}", {"VALENS_CONFIG": str(config), **os.environ}):
         page.goto(BASE_URL)
         expect(page.get_by_text("Valens")).to_be_visible()
-        p.terminate()
 
 
 def test_demo(tmp_path: Path, page: Page) -> None:
     config = create_config_file(tmp_path, tmp_path / "test.db")
-    with Popen(
-        f"{VALENS} demo --port {PORT}".split(),
-        stdout=PIPE,
-        stderr=STDOUT,
-        env={"VALENS_CONFIG": str(config), **os.environ},
-    ) as p:
-        assert p.stdout
-        wait_for_output(p.stdout, "Running on")
+    with run_server(f"{VALENS} demo --port {PORT}", {"VALENS_CONFIG": str(config), **os.environ}):
         page.goto(BASE_URL)
         expect(page.get_by_text("Valens")).to_be_visible()
-        p.terminate()
 
 
 def test_user_list(tmp_path: Path) -> None:

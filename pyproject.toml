@@ -218,6 +218,8 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 addopts = "--tb=short"
+# Dump the stacks of all threads if a test hangs, e.g. outside of any Playwright timeout.
+faulthandler_timeout = 120
 markers = [
     "chromium_only: test depends on the Chrome DevTools Protocol",
 ]

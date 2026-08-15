@@ -6,7 +6,7 @@ import os
 from base64 import b64encode
 from collections.abc import Generator
 from pathlib import Path
-from subprocess import PIPE, STDOUT, Popen, run
+from subprocess import PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -23,7 +23,7 @@ from valens import app
 from valens.config import create_config_file
 
 from .const import PORT, TODAY, USERNAMES, VALENS
-from .io import wait_for_output
+from .io import run_server
 from .pages import AdminDialog, HomePage, LoginPage, PasskeyRegistrationView, ProfileDialog
 
 # WebAuthn requires a valid relying party ID, which an IP address is not
@@ -57,16 +57,10 @@ def backend_server(request: pytest.FixtureRequest) -> Generator[Path, None, None
             app.config["SECRET_KEY"] = b"TEST_KEY"
             tests.utils.init_db_data(today=TODAY)
 
-        with Popen(
-            f"{VALENS} run --port {PORT}".split(),
-            stdout=PIPE,
-            stderr=STDOUT,
-            env={"VALENS_CONFIG": str(config), **os.environ},
-        ) as p:
-            assert p.stdout
-            wait_for_output(p.stdout, "Running on")
+        with run_server(
+            f"{VALENS} run --port {PORT}", {"VALENS_CONFIG": str(config), **os.environ}
+        ):
             yield config
-            p.terminate()
 
 
 @pytest.fixture

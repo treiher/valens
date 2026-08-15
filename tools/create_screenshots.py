@@ -101,8 +101,7 @@ def create_screenshots(valens: Path, screenshots: Path, today: datetime.date) ->
             stderr=STDOUT,
             env={**os.environ, "VALENS_CONFIG": str(config_file)},
         ) as p:
-            assert p.stdout
-            wait_for_output(p.stdout, "Running on")
+            wait_for_output(p, "Running on")
             try:
                 take_screenshots(screenshots, path, today)
             finally:

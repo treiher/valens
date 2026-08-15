@@ -236,6 +236,7 @@ jobs:
   test_e2e:
     name: End-to-End Tests (Chromium)
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     env:
       CARGO_INCREMENTAL: 0
     steps:
@@ -265,6 +266,7 @@ jobs:
   test_e2e_firefox:
     name: End-to-End Tests (Firefox)
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     env:
       CARGO_INCREMENTAL: 0
     steps:
@@ -296,6 +298,7 @@ jobs:
   test_e2e_webkit:
     name: End-to-End Tests (WebKit)
     runs-on: macos-15
+    timeout-minutes: 20
     needs: python_versions
     steps:
       - uses: actions/checkout@v7

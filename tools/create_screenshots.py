@@ -150,6 +150,8 @@ def take_screenshots(screenshots: Path, target_dir: Path, today: datetime.date) 
 
         training_page = TrainingSessionsPage(page, base_url)
         training_page.goto()
+        page.get_by_text("6M").first.click()
+        page.wait_for_timeout(400)
 
         save_screenshot("training")
 
@@ -159,14 +161,14 @@ def take_screenshots(screenshots: Path, target_dir: Path, today: datetime.date) 
 
         save_screenshot("training_session")
 
-        routine_page = RoutinePage(page, 4, base_url)
+        routine_page = RoutinePage(page, 101, base_url)
         routine_page.goto()
 
         save_screenshot("routine")
 
         body_fat_page = BodyFatPage(page, base_url)
         body_fat_page.goto()
-        page.get_by_text("6M").first.click()
+        page.get_by_text("1Y").first.click()
         page.wait_for_timeout(400)
 
         save_screenshot("body_fat")

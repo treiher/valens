@@ -37,6 +37,8 @@ def start_drag(page: Page, handle: Locator) -> None:
     viewport = page.viewport_size
     assert viewport
     page.mouse.move(viewport["width"] / 2, viewport["height"] / 2)
+    expect(page.locator("[data-drag-state='dragging']")).to_have_count(1)
+    expect(page.get_by_test_id("drag-ghost")).to_be_visible()
 
 
 def drop_on_remove_zone(page: Page) -> None:

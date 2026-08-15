@@ -163,6 +163,15 @@ class RoutinePage(BasePage):
         self.page.mouse.up()
         self.wait_until_idle()
 
+    def start_section_drag(self, section_idx: int) -> None:
+        start_drag(self.page, self._top_level_section_handle(section_idx))
+
+    def end_drag(self) -> None:
+        self.page.mouse.up()
+
+    def top_level_part(self, index: int) -> Locator:
+        return self._top_level_parts().nth(index)
+
     def remove_by_drag(self, section_idx: int, activity_idx: int | None = None) -> None:
         handle = (
             self._section_handle(section_idx)

@@ -447,7 +447,7 @@ div.is-calendar {
   border-color: currentColor;
 }
 
-// Grabbed element while dragging
+// Grabbed element before and while dragging
 
 [data-drag-state="pressed"] {
   position: relative;
@@ -461,8 +461,31 @@ div.is-calendar {
     box-shadow 100ms ease-out;
 }
 
+// The element keeps its place as a faded placeholder, while the ghost follows the pointer
+[data-drag-state="dragging"] {
+  opacity: 0.3;
+  transition: opacity 100ms ease-out;
+}
+
+.drag-ghost {
+  // Translucent, so that the insertion marker and the elements below it stay visible
+  opacity: 0.5;
+  // Shadow along the outline of the copied element instead of its rectangle
+  filter: drop-shadow(
+    0 0.5rem 0.75rem hsla(var(--bulma-text-h), var(--bulma-text-s), var(--bulma-text-strong-l), 0.3)
+  );
+
+  // Margins of the copied element and of its first child, which collapse out of the copy, would
+  // offset it from the point at which it was grabbed
+  > *,
+  > * > :first-child {
+    margin: 0 !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  [data-drag-state="pressed"] {
+  [data-drag-state="pressed"],
+  [data-drag-state="dragging"] {
     transition: none;
   }
 }

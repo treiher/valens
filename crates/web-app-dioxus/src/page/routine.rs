@@ -55,7 +55,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                     Title { "{routine.name}" }
                     {view_summary(routine)}
                     {view_routine(routine, exercises, edit_dialog, drag, cache)}
-                    {view_drag_overlay(routine, exercises, drag)}
+                    {drag_and_drop::view_drag_overlay(drag, &DropTarget::Remove)}
                     if let CacheState::Ready(training_sessions) = training_sessions {
                         {view_previous_exercises(routine, training_sessions, exercises)}
                     }
@@ -496,47 +496,6 @@ fn view_empty_section_drop_zone(
             "data-drop-state": drag_and_drop::drop_state(hovered),
             "data-testid": "empty-section-drop-zone",
             "Empty section"
-        }
-    }
-}
-
-fn view_drag_overlay(
-    routine: &domain::Routine,
-    exercises: &[domain::Exercise],
-    drag: Signal<Option<Drag>>,
-) -> Element {
-    let Some(drag) = drag() else {
-        return rsx! {};
-    };
-    if !drag.active {
-        return rsx! {};
-    }
-    let Some(label) = dragged_label(routine, exercises, &drag.source) else {
-        return rsx! {};
-    };
-    drag_and_drop::view_drag_overlay(
-        drag.position,
-        &label,
-        drag.target == Some(DropTarget::Remove),
-    )
-}
-
-fn dragged_label(
-    routine: &domain::Routine,
-    exercises: &[domain::Exercise],
-    source: &domain::RoutinePartPath,
-) -> Option<String> {
-    match routine.part(source)? {
-        domain::RoutinePart::RoutineSection { .. } => Some("Section".to_string()),
-        domain::RoutinePart::RoutineActivity { exercise_id, .. } => {
-            if exercise_id.is_nil() {
-                Some("Rest".to_string())
-            } else {
-                Some(exercises.iter().find(|e| e.id == *exercise_id).map_or_else(
-                    || format!("Exercise#{}", exercise_id.as_u128()),
-                    |exercise| exercise.name.to_string(),
-                ))
-            }
         }
     }
 }

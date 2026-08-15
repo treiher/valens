@@ -80,6 +80,15 @@ class SchedulePage(BasePage):
         cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
         cdp.detach()
 
+    def start_slot_drag(self, weekday: int, index: int) -> None:
+        start_drag(self.page, self._day(weekday).get_by_test_id("slot-handle").nth(index))
+
+    def end_drag(self) -> None:
+        self.page.mouse.up()
+
+    def slot(self, weekday: int, index: int) -> Locator:
+        return self._day(weekday).get_by_test_id("schedule-slot").nth(index)
+
     def remove_slot(self, weekday: int, index: int) -> None:
         start_drag(self.page, self._day(weekday).get_by_test_id("slot-handle").nth(index))
         drop_on_remove_zone(self.page)

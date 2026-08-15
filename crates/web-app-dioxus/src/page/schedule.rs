@@ -33,7 +33,7 @@ pub fn Schedule() -> Element {
             rsx! {
                 {view_week(schedule, routines, dialog, drag)}
                 {view_rotations(schedule, routines, dialog, drag)}
-                {view_drag_overlay(schedule, routines, drag)}
+                {drag_and_drop::view_drag_overlay(drag, &DropTarget::Remove)}
                 {view_dialog(dialog, schedule, routines)}
                 if IS_LOADING() && matches!(*dialog.read(), ScheduleDialog::None) {
                     LoadingDialog {}
@@ -85,51 +85,6 @@ fn view_week(
                 }
             }
         }
-    }
-}
-
-fn view_drag_overlay(
-    schedule: &domain::Schedule,
-    routines: &[domain::Routine],
-    drag: Signal<Option<Drag>>,
-) -> Element {
-    let Some(drag) = drag() else {
-        return rsx! {};
-    };
-    if !drag.active {
-        return rsx! {};
-    }
-    let Some(name) = dragged_name(schedule, routines, drag.source) else {
-        return rsx! {};
-    };
-    drag_and_drop::view_drag_overlay(
-        drag.position,
-        &name,
-        drag.target == Some(DropTarget::Remove),
-    )
-}
-
-fn dragged_name(
-    schedule: &domain::Schedule,
-    routines: &[domain::Routine],
-    source: DragSource,
-) -> Option<String> {
-    match source {
-        DragSource::Slot(weekday, index) => schedule
-            .entries()
-            .get(&weekday)
-            .and_then(|slots| slots.get(index))
-            .map(|slot| match slot {
-                domain::ScheduleSlot::Routine(routine_id) => routine_name(routines, *routine_id),
-                domain::ScheduleSlot::Rotation(rotation_id) => {
-                    rotation_name(schedule, *rotation_id)
-                }
-            }),
-        DragSource::RotationRoutine(rotation_id, index) => schedule
-            .rotations()
-            .get(&rotation_id)
-            .and_then(|rotation| rotation.routines().get(index))
-            .map(|routine_id| routine_name(routines, *routine_id)),
     }
 }
 

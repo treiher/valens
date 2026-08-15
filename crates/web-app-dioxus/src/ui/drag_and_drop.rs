@@ -6,12 +6,16 @@
 //!
 //! Elements reflect their current drop state in a `data-drop-state` attribute, which is both the
 //! styling hook for the insertion markers and the handle for end-to-end tests. The element a drag
-//! started from is marked by a `data-drag-state` attribute.
+//! started from is marked by a `data-drag-state` attribute and stays in place as a placeholder
+//! while a copy of it follows the pointer.
 
 use dioxus::prelude::*;
 use web_sys::wasm_bindgen::JsCast;
 
 use crate::ui::element::Icon;
+
+/// The `data-drag-state` of an element that is not being dragged.
+const DRAG_STATE_IDLE: &str = "idle";
 
 /// State of an ongoing drag, from pressing a drag handle until releasing the pointer.
 ///
@@ -23,6 +27,17 @@ pub struct Drag<S, T> {
     pub position: (f64, f64),
     pub target: Option<T>,
     pub active: bool,
+    ghost: Option<Ghost>,
+}
+
+/// A copy of the dragged element, taken when the drag starts.
+///
+/// `grab` is the position within the element at which it was grabbed.
+#[derive(Clone, PartialEq)]
+struct Ghost {
+    html: String,
+    size: (f64, f64),
+    grab: (f64, f64),
 }
 
 /// A position where a dragged element can be dropped.
@@ -54,7 +69,7 @@ where
     S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
-    let pressed = drag_state(drag, &source).is_some();
+    let pressed = drag_state(drag, &source) != DRAG_STATE_IDLE;
 
     rsx! {
         span {
@@ -89,9 +104,18 @@ fn handle_style(pressed: bool) -> String {
     )
 }
 
-/// Render the remove drop zone and a floating label following the pointer at `position`.
-pub fn view_drag_overlay(position: (f64, f64), label: &str, remove_hovered: bool) -> Element {
-    let (x, y) = position;
+/// Render the remove drop zone and the ghost of the dragged element while a drag is active.
+///
+/// Dropping on `remove_target` removes the dragged element.
+pub fn view_drag_overlay<S, T>(drag: Signal<Option<Drag<S, T>>>, remove_target: &T) -> Element
+where
+    S: Clone + PartialEq + 'static,
+    T: DropTarget + 'static,
+{
+    let Some(drag) = drag().filter(|drag| drag.active) else {
+        return rsx! {};
+    };
+    let remove_hovered = drag.target.as_ref() == Some(remove_target);
     rsx! {
         div {
             class: "notification is-danger has-text-centered py-4 px-6",
@@ -102,23 +126,78 @@ pub fn view_drag_overlay(position: (f64, f64), label: &str, remove_hovered: bool
             "data-drop-state": drop_state(remove_hovered),
             Icon { name: "xmark" }
         }
-        div {
-            class: "box px-4 py-3",
-            style: "position: fixed; left: {x}px; top: {y}px; transform: translate(-50%, -125%); pointer-events: none; z-index: 40; opacity: 0.9;",
-            "{label}"
+        if let Some(ghost) = &drag.ghost {
+            {view_ghost(ghost, drag.position)}
         }
     }
 }
 
+/// Render the ghost of the dragged element for a pointer at `position`.
+fn view_ghost(ghost: &Ghost, position: (f64, f64)) -> Element {
+    let (x, y) = ghost_position(ghost, position, viewport_size());
+    let (width, _) = ghost.size;
+    rsx! {
+        div {
+            class: "drag-ghost",
+            style: "position: fixed; left: 0; top: 0; width: {width}px; \
+                    transform: translate({x}px, {y}px); pointer-events: none; z-index: 30;",
+            "data-testid": "drag-ghost",
+            dangerous_inner_html: "{ghost.html}",
+        }
+    }
+}
+
+/// Determine the offset of the ghost from the top left corner of a viewport of size `viewport`.
+///
+/// The ghost keeps the point at which it was grabbed under the pointer, so that it does not jump
+/// when the drag starts and stays where the pointer moves it. Elements grabbed near one of their
+/// edges are kept within the viewport.
+fn ghost_position(ghost: &Ghost, position: (f64, f64), viewport: (f64, f64)) -> (f64, f64) {
+    let (x, y) = position;
+    let (grab_x, grab_y) = ghost.grab;
+    let (width, height) = ghost.size;
+    (
+        within(x - grab_x, width, viewport.0),
+        within(y - grab_y, height, viewport.1),
+    )
+}
+
+/// Move an element of size `size` at `position` into an axis of length `length`.
+///
+/// An element longer than the axis is aligned with its start.
+fn within(position: f64, size: f64, length: f64) -> f64 {
+    position.min(length - size).max(0.0)
+}
+
+/// The size of the viewport, or an unbounded size if it cannot be determined.
+///
+/// The size excludes scrollbars, matching the area a fixed element is positioned in.
+fn viewport_size() -> (f64, f64) {
+    let Some(element) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.document_element())
+    else {
+        return (f64::INFINITY, f64::INFINITY);
+    };
+    (
+        f64::from(element.client_width()),
+        f64::from(element.client_height()),
+    )
+}
+
 /// The `data-drag-state` of the element `source` is dragged from.
-pub fn drag_state<S, T>(drag: Signal<Option<Drag<S, T>>>, source: &S) -> Option<&'static str>
+///
+/// The attribute is present on all draggable elements, marking where the ghost is taken from.
+pub fn drag_state<S, T>(drag: Signal<Option<Drag<S, T>>>, source: &S) -> &'static str
 where
     S: Clone + PartialEq + 'static,
     T: DropTarget + 'static,
 {
     drag()
-        .is_some_and(|drag| drag.source == *source)
-        .then_some("pressed")
+        .filter(|drag| drag.source == *source)
+        .map_or(DRAG_STATE_IDLE, |drag| {
+            if drag.active { "dragging" } else { "pressed" }
+        })
 }
 
 /// The `data-drop-state` of a drop zone that is hovered or not.
@@ -164,8 +243,59 @@ fn start_drag<S, T>(
         position: client_position(event),
         target: None,
         active: false,
+        ghost: capture_ghost(event),
     }));
     spawn(auto_scroll(drag, is_valid_target));
+}
+
+/// Copy the element the drag handle belongs to, together with its geometry.
+fn capture_ghost(event: &PointerEvent) -> Option<Ghost> {
+    let data = event.data();
+    let raw_event = data.downcast::<web_sys::PointerEvent>()?;
+    let element = raw_event
+        .target()
+        .and_then(|target| target.dyn_into::<web_sys::Element>().ok())?
+        .closest("[data-drag-state]")
+        .ok()??;
+    let copy = element
+        .clone_node_with_deep(true)
+        .ok()?
+        .dyn_into::<web_sys::Element>()
+        .ok()?;
+    strip_state_attributes(&copy);
+    let rect = element.get_bounding_client_rect();
+    let (x, y) = client_position(event);
+    Some(Ghost {
+        html: copy.outer_html(),
+        size: (rect.width(), rect.height()),
+        grab: (x - rect.left(), y - rect.top()),
+    })
+}
+
+/// Remove the attributes that must not be duplicated from `element` and its descendants.
+///
+/// The copied element would otherwise be picked up by the drag state selectors and by the element
+/// lookups of the end-to-end tests.
+fn strip_state_attributes(element: &web_sys::Element) {
+    const ATTRIBUTES: [&str; 5] = [
+        "id",
+        "data-testid",
+        "data-drop",
+        "data-drop-state",
+        "data-drag-state",
+    ];
+    let descendants = element.query_selector_all("*").ok();
+    let elements = std::iter::once(element.clone()).chain(
+        descendants
+            .iter()
+            .flat_map(|nodes| (0..nodes.length()).filter_map(|index| nodes.get(index)))
+            .filter_map(|node| node.dyn_into::<web_sys::Element>().ok()),
+    );
+    for element in elements {
+        for attribute in ATTRIBUTES {
+            let _ = element.remove_attribute(attribute);
+        }
+    }
 }
 
 /// Scroll the page while the pointer is dragged near the top or bottom edge of the viewport.
@@ -326,6 +456,41 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use super::*;
+
+    fn ghost() -> Ghost {
+        Ghost {
+            html: String::new(),
+            size: (200.0, 50.0),
+            grab: (30.0, 20.0),
+        }
+    }
+
+    const VIEWPORT: (f64, f64) = (800.0, 600.0);
+
+    #[test]
+    fn test_ghost_position_follows_grab_point() {
+        let (x, y) = ghost_position(&ghost(), (100.0, 300.0), VIEWPORT);
+        assert_approx_eq!(x, 70.0);
+        assert_approx_eq!(y, 280.0);
+    }
+
+    #[test]
+    fn test_ghost_position_within_viewport() {
+        let ghost = ghost();
+        let (x, y) = ghost_position(&ghost, (10.0, 590.0), VIEWPORT);
+        assert_approx_eq!(x, 0.0);
+        assert_approx_eq!(y, VIEWPORT.1 - ghost.size.1);
+    }
+
+    #[test]
+    fn test_ghost_position_of_oversized_ghost() {
+        let ghost = Ghost {
+            size: (1000.0, 800.0),
+            ..ghost()
+        };
+        assert_approx_eq!(ghost_position(&ghost, (100.0, 300.0), VIEWPORT).0, 0.0);
+        assert_approx_eq!(ghost_position(&ghost, (100.0, 300.0), VIEWPORT).1, 0.0);
+    }
 
     #[test]
     fn test_scroll_velocity() {

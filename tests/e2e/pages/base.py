@@ -26,6 +26,7 @@ class BasePage:
         self.table = Table(page)
         self.activity_bar = ActivityBar(page)
         self.notification = Notification(page)
+        self.drag_ghost = DragGhost(page)
 
     @property
     @abstractmethod
@@ -133,6 +134,25 @@ class Dialog(PageElement):
     def close(self) -> None:
         self.page.get_by_test_id("dialog-close").click()
         self.wait_until_closed()
+
+
+class DragGhost(PageElement):
+    @property
+    def root(self) -> Locator:
+        return self.page.get_by_test_id("drag-ghost")
+
+    def expect_text(self, text: str) -> None:
+        expect(self.root).to_have_text(text)
+
+    def expect_contains_text(self, text: str) -> None:
+        expect(self.root).to_contain_text(text)
+
+    def expect_width_of(self, element: Locator) -> None:
+        ghost_box = self.root.bounding_box()
+        element_box = element.bounding_box()
+        assert ghost_box
+        assert element_box
+        assert ghost_box["width"] == element_box["width"], (ghost_box, element_box)
 
 
 class ActivityBar(PageElement):

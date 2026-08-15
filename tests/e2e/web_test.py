@@ -1622,6 +1622,28 @@ def test_routine_move_section_by_drag_and_drop(page: Page) -> None:
     assert [str(s.rounds) for s in p.get_sections()] == section_rounds
 
 
+def test_routine_dragged_section_is_shown_at_pointer(page: Page) -> None:
+    routine = USER.routines[0]
+    part = routine.sections[0].parts[0]
+    assert isinstance(part, models.RoutineActivity)
+    exercise = str(part.exercise.name)
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    section = p.top_level_part(0)
+    p.start_section_drag(0)
+
+    # The whole section is shown, not just its header
+    p.drag_ghost.expect_contains_text(exercise)
+    p.drag_ghost.expect_width_of(section)
+
+    p.end_drag()
+
+    assert [str(s.rounds) for s in p.get_sections()] == [str(s.rounds) for s in routine.sections]
+
+
 def test_routine_move_activity_by_drag_and_drop(page: Page) -> None:
     routine = USER.routines[0]
     assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
@@ -1860,6 +1882,30 @@ def test_schedule_remove_slot_by_drag_and_drop(page: Page) -> None:
     p.remove_slot(weekday, 0)
 
     p.expect_slots(weekday, [])
+
+
+def test_schedule_dragged_slot_is_shown_at_pointer(page: Page) -> None:
+    routine = str(USER.routines[-1].name)
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(weekday, routine)
+
+    slot = p.slot(weekday, 0)
+    p.start_slot_drag(weekday, 0)
+
+    p.drag_ghost.expect_text(routine)
+    p.drag_ghost.expect_width_of(slot)
+
+    # The copy following the pointer must not be mistaken for another slot
+    p.expect_slots(weekday, [routine])
+
+    p.end_drag()
+
+    p.expect_slots(weekday, [routine])
 
 
 def test_schedule_completed_training_session_removes_entry(page: Page) -> None:

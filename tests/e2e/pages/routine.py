@@ -37,7 +37,7 @@ class RoutinePage(BasePage):
         expect(self.page.get_by_test_id("page-title")).to_have_text("Routine")
 
     def get_title(self) -> str:
-        return self.page.get_by_test_id("page-title").inner_text()
+        return self.page.get_by_test_id("page-title").inner_text().strip()
 
     def get_sections(self) -> list[RoutineSection]:
         sections_data = []
@@ -205,7 +205,7 @@ class RoutinePage(BasePage):
         self.wait_until_idle()
         exercises = dialog.get_by_test_id("exercise-item").all()
         for exercise in exercises:
-            if name in exercise.inner_text():
+            if name in exercise.inner_text().strip():
                 exercise.click()
                 break
         self.wait_until_idle()
@@ -260,7 +260,7 @@ class RoutinePage(BasePage):
     def _select_exercise(self, name: str) -> None:
         exercises = self.page.get_by_test_id("dialog").get_by_test_id("exercise-item").all()
         for exercise in exercises:
-            if name in exercise.inner_text():
+            if name in exercise.inner_text().strip():
                 exercise.click()
                 break
         self.wait_until_idle()
@@ -269,7 +269,7 @@ class RoutinePage(BasePage):
         self.page.get_by_test_id("fab").click()
         self.page.get_by_test_id("options-show-as-text").click()
         self.dialog.wait_until_open()
-        return self.page.get_by_test_id("show-text-content").inner_text()
+        return self.page.get_by_test_id("show-text-content").inner_text().strip()
 
 
 @dataclass
@@ -288,22 +288,22 @@ class RoutineSet(RoutinePart):
     @classmethod
     def from_element(cls, element: Locator) -> RoutineSet:
         exercise_elem = element.locator('[data-testid="set-exercise"]').first
-        exercise_name = exercise_elem.inner_text() if exercise_elem.is_visible() else ""
+        exercise_name = exercise_elem.inner_text().strip() if exercise_elem.is_visible() else ""
 
         reps_elem = element.locator('[data-testid="set-reps"]').first
-        reps_text = reps_elem.inner_text() if reps_elem.is_visible() else ""
+        reps_text = reps_elem.inner_text().strip() if reps_elem.is_visible() else ""
         reps = int(reps_text) if reps_text else None
 
         time_elem = element.locator('[data-testid="set-time"]').first
-        time_text = time_elem.inner_text() if time_elem.is_visible() else ""
+        time_text = time_elem.inner_text().strip() if time_elem.is_visible() else ""
         time_val = parse_float(time_text)
 
         weight_elem = element.locator('[data-testid="set-weight"]').first
-        weight_text = weight_elem.inner_text() if weight_elem.is_visible() else ""
+        weight_text = weight_elem.inner_text().strip() if weight_elem.is_visible() else ""
         weight = parse_float(weight_text)
 
         rpe_elem = element.locator('[data-testid="set-rpe"]').first
-        rpe_text = rpe_elem.inner_text() if rpe_elem.is_visible() else ""
+        rpe_text = rpe_elem.inner_text().strip() if rpe_elem.is_visible() else ""
         rpe = parse_float(rpe_text)
 
         return cls(
@@ -322,7 +322,9 @@ class RoutineRest(RoutinePart):
     @classmethod
     def from_element(cls, element: Locator) -> RoutineRest:
         rest_time_elem = element.locator('[data-testid="rest-time"]').first
-        rest_time = parse_int(rest_time_elem.inner_text()) if rest_time_elem.is_visible() else None
+        rest_time = (
+            parse_int(rest_time_elem.inner_text().strip()) if rest_time_elem.is_visible() else None
+        )
         return cls(time=rest_time)
 
 

@@ -31,6 +31,6 @@ class MenstrualCycleDialog(Dialog):
     def set_intensity(self, value: str) -> None:
         buttons = self.page.get_by_test_id("intensity-option").all()
         for button in buttons:
-            if button.inner_text() == value:
+            if button.inner_text().strip() == value:
                 button.click()
                 return

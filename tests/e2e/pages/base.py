@@ -285,11 +285,11 @@ class Table(PageElement):
 
     def get_headers(self, table_idx: int = 1) -> dict[str, int]:
         headers = self.root(table_idx).locator("thead th").all()
-        return {th.inner_text(): idx for idx, th in enumerate(headers, start=1)}
+        return {th.inner_text().strip(): idx for idx, th in enumerate(headers, start=1)}
 
     def get_body(self, table_idx: int = 1) -> list[list[str]]:
         rows = self.root(table_idx).locator("tbody tr").all()
-        return [[cell.inner_text() for cell in row.locator("td").all()] for row in rows]
+        return [[cell.inner_text().strip() for cell in row.locator("td").all()] for row in rows]
 
     def expect_value(self, table_idx: int, row: int, col: int, text: str) -> None:
         expect(

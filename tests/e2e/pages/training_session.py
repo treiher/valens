@@ -59,7 +59,7 @@ class TrainingSessionPage(BasePage):
                 parse_float(tds[4]),
             )
             for row in self.page.locator("table tr").all()
-            for tds in [[td.inner_text() for td in row.locator("td").all()]]
+            for tds in [[td.inner_text().strip() for td in row.locator("td").all()]]
             if len(tds) == 5
         ]
 
@@ -199,7 +199,10 @@ class OneRepMaxCalculatorDialog(Dialog):
         for row in rows:
             cells = row.locator("td").all()
             if cells[0].inner_text().strip() == str(percentage):
-                return (cells[1].inner_text().strip(), cells[2].inner_text().strip())
+                return (
+                    cells[1].inner_text().strip(),
+                    cells[2].inner_text().strip(),
+                )
         msg = f"Row for {percentage}% not found"
         raise ValueError(msg)
 

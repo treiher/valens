@@ -18,6 +18,9 @@ class SettingsDialog(BaseDialog):
     def expect_open(self) -> None:
         expect(self.dialog.root.get_by_text("Beep volume")).to_be_visible()
 
+    def expect_notifications_unsupported(self) -> None:
+        expect(self.dialog.root.get_by_text("Not supported by this browser")).to_be_visible()
+
     def toggle_rpe(self) -> None:
         self.rpe_button.click()
 

@@ -6,7 +6,8 @@ pub mod log;
 pub mod service_worker;
 
 pub use notification::{
-    close_notifications, replace_notifications, request_notification_permission, show_notification,
+    close_notifications, notification_permission, replace_notifications,
+    request_notification_permission, show_notification,
 };
 pub use ongoing_training_session::{
     OngoingTrainingSession, OngoingTrainingSessionRepository, OngoingTrainingSessionService,

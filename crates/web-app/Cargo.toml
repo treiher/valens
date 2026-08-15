@@ -11,6 +11,7 @@ valens-domain = { path = "../domain" }
 chrono = { workspace = true, default-features = false, features = ["serde", "now"] }
 gloo-console = "0.4.0"
 gloo-utils = "0.3.0"
+js-sys = { workspace = true }
 log = { workspace = true }
 plotters = { workspace = true, default-features = false, features = ["svg_backend", "datetime", "line_series", "histogram", "point_series", "area_series"] }
 serde = { workspace = true, features = ["derive"] }

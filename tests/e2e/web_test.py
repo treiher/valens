@@ -503,6 +503,18 @@ def test_settings_dialog(page: Page) -> None:
     settings.expect_rpe("Disabled")
 
 
+def test_settings_dialog_without_notification_support(page: Page) -> None:
+    page.add_init_script("delete window.Notification")
+
+    login(page)
+
+    settings = SettingsDialog(page)
+    settings.open()
+    settings.expect_open()
+
+    settings.expect_notifications_unsupported()
+
+
 def test_body_weight_add(page: Page) -> None:
     login(page)
     p = BodyWeightPage(page)

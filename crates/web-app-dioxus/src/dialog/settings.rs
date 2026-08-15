@@ -11,10 +11,10 @@ use crate::{
 #[component]
 pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
     let settings = use_context::<Settings>();
-    let notification_permission = web_sys::Notification::permission();
+    let notification_permission = web_app::notification_permission();
     let notifications_color = match notification_permission {
-        web_sys::NotificationPermission::Granted if settings.notifications() => "is-link",
-        web_sys::NotificationPermission::Denied => "is-danger",
+        Some(web_sys::NotificationPermission::Granted) if settings.notifications() => "is-link",
+        Some(web_sys::NotificationPermission::Denied) => "is-danger",
         _ => "",
     };
     rsx! {
@@ -180,11 +180,11 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                         let mut settings = settings;
                         async move {
                             match notification_permission {
-                                web_sys::NotificationPermission::Granted => {
+                                Some(web_sys::NotificationPermission::Granted) => {
                                     settings.set_notifications(!settings.notifications());
                                     settings.save().await;
                                 }
-                                web_sys::NotificationPermission::Denied => {
+                                Some(web_sys::NotificationPermission::Denied) | None => {
                                 }
                                 _ => {
                                     match web_app::request_notification_permission().await {
@@ -203,30 +203,34 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                     }
                 },
                 h1 { class: "subtitle", "Notifications" }
-                button {
-                    class: "button",
-                    class: "{notifications_color}",
-                    match notification_permission {
-                        web_sys::NotificationPermission::Granted => {
-                            if settings.notifications() {
-                                "Enabled"
-                            } else {
-                                "Disabled"
+                if let Some(permission) = notification_permission {
+                    button {
+                        class: "button",
+                        class: "{notifications_color}",
+                        match permission {
+                            web_sys::NotificationPermission::Granted => {
+                                if settings.notifications() {
+                                    "Enabled"
+                                } else {
+                                    "Disabled"
+                                }
+                            }
+                            web_sys::NotificationPermission::Denied => {
+                                "Not allowed in browser settings"
+                            }
+                            _ => {
+                                "Enable"
                             }
                         }
-                        web_sys::NotificationPermission::Denied => {
-                            "Not allowed in browser settings"
-                        }
-                        _ => {
-                            "Enable"
+                    }
+                    if let web_sys::NotificationPermission::Denied = permission {
+                        p {
+                            class: "mt-3",
+                            "To enable notifications, open the site settings from the address bar and allow notifications. If the app is installed and no address bar is visible, open it in your browser instead. Notifications are blocked in incognito or private browsing mode."
                         }
                     }
-                }
-                if let web_sys::NotificationPermission::Denied = notification_permission {
-                    p {
-                        class: "mt-3",
-                        "To enable notifications, open the site settings from the address bar and allow notifications. If the app is installed and no address bar is visible, open it in your browser instead. Notifications are blocked in incognito or private browsing mode."
-                    }
+                } else {
+                    p { "Not supported by this browser" }
                 }
             }
         }

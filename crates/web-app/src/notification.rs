@@ -38,8 +38,17 @@
 //! the most reliable option across platforms.
 
 use log::warn;
+use wasm_bindgen::JsValue;
 
 use crate::service_worker;
+
+/// Returns the granted permission, or `None` if the Notifications API is unavailable.
+#[must_use]
+pub fn notification_permission() -> Option<web_sys::NotificationPermission> {
+    js_sys::Reflect::has(&js_sys::global(), &JsValue::from_str("Notification"))
+        .unwrap_or(false)
+        .then(web_sys::Notification::permission)
+}
 
 /// # Errors
 ///

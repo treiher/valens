@@ -105,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sign-out being aborted instead of completed when the data on the device could not be removed
 - Sign-in and sign-out being undone by requests of the previous session that were still in progress
 - Incorrect background color in calendars
+- Settings not being accessible in browsers without support for notifications
 - Home page: Loading indicator staying visible after leaving the page while a training session is being started, preventing the start of further training sessions
 - Training session page:
     - Missing numbering of exercises within compound sets for time-based sets

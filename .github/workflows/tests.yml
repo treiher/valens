@@ -291,6 +291,51 @@ jobs:
           name: playwright-traces-firefox
           path: test-results/
 
+  # The Nix development environment is defined for Linux only, so the dependencies are installed
+  # individually here. WebKit is only provided as the WPE port on Linux, which requires a display.
+  test_e2e_webkit:
+    name: End-to-End Tests (WebKit)
+    runs-on: macos-15
+    needs: python_versions
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ needs.python_versions.outputs.latest }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Determine dioxus-cli version
+        run: |
+          version=$(sed -n '/^name = "dioxus"$/{n; s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
+          [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
+          echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
+      - name: Install dioxus-cli
+        uses: taiki-e/install-action@v2.85.8
+        with:
+          tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
+      - name: Install Sass
+        run: npm install -g sass
+      - name: Install dependencies
+        run: |
+          uv sync
+      - name: Install Playwright browsers
+        run: uv run -- playwright install webkit
+      - name: Test
+        run: make test-e2e BROWSER=webkit DEVICE="iPhone 15"
+      - name: Upload Playwright traces
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces-webkit
+          path: test-results/
+
   test_latest_dependencies:
     name: Latest Dependencies
     if: ${{ github.event_name == 'schedule' }}

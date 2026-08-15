@@ -15,6 +15,8 @@ WEBDRIVER_CONFIG := $(BUILD_DIR)/webdriver.json
 VERSION := $(lastword $(shell env -u FORCE_COLOR uv run -- hatch version 2>/dev/null))
 VERSION_PUBLIC := $(firstword $(subst +, ,$(VERSION)))
 WHEEL := dist/valens-$(VERSION)-py3-none-any.whl
+# `nproc` is not available on macOS
+NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu)
 # The browser used for the end-to-end tests. Only Chromium is selected by its channel, which
 # ensures that the browser provided by the development environment is used.
 BROWSER ?= chromium
@@ -22,6 +24,11 @@ ifeq ($(BROWSER),chromium)
 PYTEST_BROWSER := --browser-channel chromium
 else
 PYTEST_BROWSER := --browser $(BROWSER)
+endif
+# An optional Playwright device profile, which emulates viewport, user agent and touch support
+DEVICE ?=
+ifneq ($(DEVICE),)
+PYTEST_DEVICE := --device "$(DEVICE)"
 endif
 _ := $(shell mkdir -p $(BUILD_DIR) && { printf '%s' '$(VERSION)' | cmp -s - $(BUILD_DIR)/version 2>/dev/null || printf '%s' '$(VERSION)' > $(BUILD_DIR)/version; })
 
@@ -119,7 +126,7 @@ test-frontend:
 test-backend:
 	mkdir -p $(GENERATED_DIR)
 	$(foreach f,$(PACKAGE_GENERATED_FILES),test -f $(f) || touch $(f);)
-	uv run -- pytest -n$(shell nproc) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
+	uv run -- pytest -n$(NPROC) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
 	find $(PACKAGE_GENERATED_FILES) -type f -empty -delete
 
 test-installation: test-venv
@@ -127,7 +134,7 @@ test-installation: test-venv
 
 test-e2e: check-playwright test-venv
 	@grep -qaF "$(VERSION)" $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm || { echo "Error: $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm does not contain current version string \"$(VERSION)\"" >&2; exit 1; }
-	uv run -- pytest -n$(shell nproc) -vv $(PYTEST_BROWSER) --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
+	uv run -- pytest -n$(NPROC) -vv $(PYTEST_BROWSER) $(PYTEST_DEVICE) --reruns 1 --maxfail 3 --tracing retain-on-failure tests/e2e
 
 test-venv: $(BUILD_DIR)/venv/bin/valens
 
@@ -137,7 +144,8 @@ $(BUILD_DIR)/venv:
 $(BUILD_DIR)/venv/bin/valens: $(BUILD_DIR)/venv $(WHEEL)
 	$(BUILD_DIR)/venv/bin/pip install --force-reinstall $(WHEEL)
 	test -f $(BUILD_DIR)/venv/bin/valens
-	touch --no-create $(BUILD_DIR)/venv/bin/valens
+	# `-c` is the portable spelling of `--no-create`, which BSD `touch` does not support
+	touch -c $(BUILD_DIR)/venv/bin/valens
 
 .PHONY: update update-fonts
 

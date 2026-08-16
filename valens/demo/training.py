@@ -485,6 +485,7 @@ def _set(
     rpe = min(rpe + (RPE_STEP if target == top else 0.0), 10.0)
     if deload:
         rpe -= 1.0
+    rpe = max(rpe, RPE_STEP)
 
     return _Set(
         exercise=config.name,
@@ -503,7 +504,7 @@ def _set(
 def _rated(performed: _Set, offset: float) -> _Set:
     """Shift the rating of a set by how the day went."""
     if performed.rpe is not None:
-        performed.rpe = min(max(performed.rpe + offset, 0.0), 10.0)
+        performed.rpe = min(max(performed.rpe + offset, RPE_STEP), 10.0)
     return performed
 
 

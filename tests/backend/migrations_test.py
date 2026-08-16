@@ -42,6 +42,40 @@ def assert_db_equality(
             assert dump == (DATA_DIR / filename).read_text(encoding="utf-8")
 
 
+ZERO_RPE_DATA = """
+INSERT INTO user (id, name, sex, role) VALUES (1, 'Alice', 'FEMALE', 'USER');
+INSERT INTO exercise (id, user_id, name) VALUES (1, 1, 'Squat');
+INSERT INTO workout (id, user_id, date) VALUES (1, 1, '2002-02-20');
+INSERT INTO workout_element (workout_id, position, type, automatic)
+    VALUES (1, 1, 'workout_set', 0), (1, 2, 'workout_set', 0);
+INSERT INTO workout_set (workout_id, position, exercise_id, reps, rpe, target_reps, target_rpe)
+    VALUES (1, 1, 1, 5, 0.0, 5, 0.0), (1, 2, 1, 5, 8.0, 5, 8.0);
+"""
+
+
+def test_upgrade_replaces_zero_rpe_by_null(tmp_path: Path) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "f3b9d17c5a2e")
+
+        connection.executescript(ZERO_RPE_DATA)
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "head")
+
+        assert connection.execute(
+            "SELECT position, rpe, target_rpe FROM workout_set ORDER BY position"
+        ).fetchall() == [(1, None, None), (2, 8.0, 8.0)]
+
+
 def test_completeness(tmp_path: Path) -> None:
     """Ensure that all constraints defined in the model are added during the upgrade."""
     # Based on alembic-autogen-check (https://github.com/4Catalyzer/alembic-autogen-check)

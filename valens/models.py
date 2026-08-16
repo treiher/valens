@@ -547,12 +547,12 @@ class WorkoutSet(WorkoutElement):
         CheckConstraint(column("time") > 0, name="time_gt_0"),
         CheckConstraint(column("weight") > 0, name="weight_gt_0"),
         # Bounds of `rpe` and `target_rpe` mirror `RPE` in `crates/domain/src/training.rs`
-        CheckConstraint(column("rpe") >= 0, name="rpe_ge_0"),
+        CheckConstraint(column("rpe") > 0, name="rpe_gt_0"),
         CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
         CheckConstraint(column("target_reps") > 0, name="target_reps_gt_0"),
         CheckConstraint(column("target_time") > 0, name="target_time_gt_0"),
         CheckConstraint(column("target_weight") > 0, name="target_weight_gt_0"),
-        CheckConstraint(column("target_rpe") >= 0, name="target_rpe_ge_0"),
+        CheckConstraint(column("target_rpe") > 0, name="target_rpe_gt_0"),
         CheckConstraint(column("target_rpe") <= 10, name="target_rpe_le_10"),
         ForeignKeyConstraint(
             ["workout_id", "position"],

@@ -47,7 +47,9 @@ INVALID_WORKOUT_SET_FIELDS: list[dict[str, object]] = [
     {"reps": 1000},
     {"weight": 0},
     {"rpe": 8.25},
+    {"rpe": 0},
     {"target_rpe": -1},
+    {"target_rpe": 0},
 ]
 
 

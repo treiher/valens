@@ -491,7 +491,12 @@ def to_weight(json: object, what: str, minimum: float) -> float:
 
 
 def to_optional_rpe(json: object, what: str) -> float | None:
-    return None if json is None else to_rpe(json, what)
+    if json is None:
+        return None
+    value = to_rpe(json, what)
+    if value == 0:
+        raise DeserializationError(f"{what} must be positive")
+    return value
 
 
 def to_rpe(json: object, what: str) -> float:

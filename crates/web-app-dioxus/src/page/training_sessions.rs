@@ -17,8 +17,8 @@ use crate::{
     settings::Settings,
     ui::{
         element::{
-            DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, LoadingPage,
-            NoConnection, NoWrap, SaveDialog, Table, value_or_dash,
+            DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, LoadingPage, NoWrap,
+            SaveDialog, Table, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -82,9 +82,6 @@ pub fn TrainingSessions(add: bool) -> Element {
                     on_click: move |_| { show_add_dialog() },
                 }
             }
-        }
-        (CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)), _) => {
-            rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
             rsx! { ErrorPage { "{err}" } }

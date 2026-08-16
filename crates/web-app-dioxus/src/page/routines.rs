@@ -12,8 +12,8 @@ use crate::{
     ui::{
         element::{
             Block, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
-            ItemOptionsButton, LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog,
-            SearchBox, Table, Title,
+            ItemOptionsButton, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
+            Title,
         },
         form::{FieldValue, FieldValueState, InputField},
     },
@@ -67,9 +67,6 @@ pub fn Routines(add: bool, search: String) -> Element {
                     on_click: move |_| { show_add_dialog() },
                 }
             }
-        }
-        (CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)), _) => {
-            rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
             rsx! { ErrorPage { "{err}" } }

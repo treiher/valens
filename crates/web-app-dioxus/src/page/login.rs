@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use valens_domain as domain;
-use valens_domain::{AuthService, SessionService};
+use valens_domain::{AuthService, SessionService, Unreachable};
 use valens_storage as storage;
 
 use crate::{
@@ -96,10 +96,8 @@ fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool)
                     log_failure("sign in with passkey", &err);
                     error.set(Some("Passkey could not be verified".to_string()));
                 }
-                Err(domain::ReadError::Storage(
-                    domain::StorageError::NoConnection | domain::StorageError::Timeout,
-                )) => {
-                    error.set(Some("No connection to server".to_string()));
+                Err(err) if err.unreachable() => {
+                    error.set(Some("Server unreachable".to_string()));
                 }
                 // Cancelling the ceremony is a normal user action, not a failure
                 Err(domain::ReadError::Other(err))
@@ -128,10 +126,8 @@ fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool)
                         Err(domain::ReadError::NotFound) => {
                             error.set(Some("User not found".to_string()));
                         }
-                        Err(domain::ReadError::Storage(
-                            domain::StorageError::NoConnection | domain::StorageError::Timeout,
-                        )) => {
-                            error.set(Some("No connection to server".to_string()));
+                        Err(err) if err.unreachable() => {
+                            error.set(Some("Server unreachable".to_string()));
                         }
                         Err(err) => {
                             log_failure("sign in", &err);

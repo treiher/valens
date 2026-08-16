@@ -13,8 +13,7 @@ use crate::{
     ui::{
         element::{
             DeleteConfirmationDialog, ErrorPage, FloatingActionButton, ItemOptionsButton,
-            LoadingPage, MenuOption, NoConnection, NoWrap, OptionsMenu, SaveDialog, Table,
-            value_or_dash,
+            LoadingPage, MenuOption, NoWrap, OptionsMenu, SaveDialog, Table, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField},
     },
@@ -72,9 +71,6 @@ pub fn BodyWeight(add: bool) -> Element {
                     on_click: move |_| { show_add_dialog() },
                 }
             }
-        }
-        CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)) => {
-            rsx! { NoConnection {} }
         }
         CacheState::Error(err) => rsx! {
             ErrorPage { "{err}" }

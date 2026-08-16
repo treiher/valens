@@ -14,7 +14,7 @@ use crate::{
         drag_and_drop,
         element::{
             Dialog, ErrorPage, Icon, ItemOptionsButton, LoadingDialog, LoadingPage, MenuOption,
-            NoConnection, OptionsMenu, SaveDialog, Table, Title,
+            OptionsMenu, SaveDialog, Table, Title,
         },
         form::{FieldValue, FieldValueState, InputField},
     },
@@ -39,9 +39,6 @@ pub fn Schedule() -> Element {
                     LoadingDialog {}
                 }
             }
-        }
-        (CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)), _) => {
-            rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
             rsx! { ErrorPage { "{err}" } }

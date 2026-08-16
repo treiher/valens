@@ -189,8 +189,8 @@ class Notification(PageElement):
     def expect_hidden(self) -> None:
         expect(self.root).to_be_hidden()
 
-    def expect_message(self, message: str) -> None:
-        expect(self.root).to_have_text(message)
+    def expect_message(self, message: str, timeout: float | None = None) -> None:
+        expect(self.root).to_have_text(message, timeout=timeout)
 
     def expect_warning(self) -> None:
         expect(self.root).to_have_attribute("data-severity", "warning")
@@ -289,6 +289,9 @@ class BaseDialog(PageElement):
 
     def wait_until_idle(self) -> None:
         wait_until_idle(self.page)
+
+    def expect_server_unreachable(self) -> None:
+        expect(self.page.get_by_test_id("server-unreachable")).to_be_visible()
 
 
 class Table(PageElement):

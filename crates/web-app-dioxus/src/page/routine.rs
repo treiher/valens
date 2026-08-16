@@ -24,8 +24,8 @@ use crate::{
         drag_and_drop,
         element::{
             Block, CenteredBlock, DataBox, Dialog, Error, ErrorPage, FloatingActionButton, Icon,
-            IconText, Loading, LoadingDialog, LoadingPage, MenuOption, NoConnection, NoData,
-            OptionsMenu, SaveDialog, Title,
+            IconText, Loading, LoadingDialog, LoadingPage, MenuOption, NoData, OptionsMenu,
+            SaveDialog, Title,
         },
         form::{ButtonSelectField, ButtonSelectOption, FieldValue, FieldValueState, InputField},
     },
@@ -127,13 +127,6 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                     ErrorPage { "Routine not found" }
                 }
             }
-        }
-        (
-            CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)),
-            _,
-            _,
-        ) => {
-            rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
             rsx! { ErrorPage { "{err}" } }

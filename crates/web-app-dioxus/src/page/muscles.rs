@@ -6,7 +6,7 @@ use valens_web_app as web_app;
 use crate::{
     DATA_CHANGED, DOMAIN_SERVICE,
     page::common::{Chart, IntervalControl},
-    ui::element::{ErrorPage, LoadingPage, NoConnection, Title},
+    ui::element::{ErrorPage, LoadingPage, Title},
 };
 
 #[component]
@@ -42,9 +42,6 @@ pub fn Muscles() -> Element {
                 IntervalControl { current_interval, all }
                 {charts(training_sessions, exercises, *current_interval.read())}
             }
-        }
-        (Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))), _) => {
-            rsx! { NoConnection {} }
         }
         (Some(Err(err)), _) | (_, Some(Err(err))) => {
             rsx! { ErrorPage { "{err}" } }

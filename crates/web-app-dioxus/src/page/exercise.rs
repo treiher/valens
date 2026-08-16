@@ -17,7 +17,7 @@ use crate::{
     settings::Settings,
     ui::element::{
         Block, CenteredTags, ElementWithDescription, Error, ErrorPage, FloatingActionButton,
-        Loading, LoadingPage, NoConnection, NoData, NoWrap, Title,
+        Loading, LoadingPage, NoData, NoWrap, Title,
     },
 };
 
@@ -123,9 +123,6 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                     ErrorPage { "Exercise not found" }
                 }
             }
-        }
-        CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)) => {
-            rsx! { NoConnection {} }
         }
         CacheState::Error(err) => {
             rsx! { ErrorPage { "{err}" } }

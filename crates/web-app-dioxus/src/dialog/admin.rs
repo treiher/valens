@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use valens_domain as domain;
-use valens_domain::{AuthService, UserService};
+use valens_domain::{AuthService, Unreachable, UserService};
 
 use crate::{
     DATA_CHANGED, DOMAIN_SERVICE,
@@ -13,7 +13,7 @@ use crate::{
     ui::{
         element::{
             CenteredBlock, Color, DeleteConfirmationDialog, Dialog, Error, Icon, ItemOptionsButton,
-            Loading, MenuOption, Message, NoConnection, OptionsMenu, SaveDialog, Table, Title,
+            Loading, MenuOption, Message, OptionsMenu, SaveDialog, ServerUnreachable, Table, Title,
             value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
@@ -175,9 +175,9 @@ fn Users() -> Element {
                     }
                 }
             }
-            Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))) => {
+            Some(Err(err)) if err.unreachable() => {
                 rsx! {
-                    NoConnection {}
+                    ServerUnreachable {}
                 }
             }
             Some(Err(err)) => {
@@ -457,8 +457,8 @@ fn UserPasskeysDialog(user: domain::User, on_close: EventHandler<MouseEvent>) ->
                         }
                     }
                 }
-                Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))) => rsx! {
-                    NoConnection {}
+                Some(Err(err)) if err.unreachable() => rsx! {
+                    ServerUnreachable {}
                 },
                 Some(Err(err)) => {
                     log_failure("load passkeys", err);
@@ -547,8 +547,8 @@ fn LoginLinkDialog(user: domain::User, on_close: EventHandler<MouseEvent>) -> El
                         }
                     }
                 }
-                Some(Err(domain::CreateError::Storage(domain::StorageError::NoConnection))) => rsx! {
-                    NoConnection {}
+                Some(Err(err)) if err.unreachable() => rsx! {
+                    ServerUnreachable {}
                 },
                 Some(Err(err)) => {
                     log_failure("create login link", err);

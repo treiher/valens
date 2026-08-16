@@ -95,6 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expiry of a sign-in to one year after signing in instead of one year after the last use
 - Presentation of error messages from a dialog to a notification below the navigation bar
 - Severity of recoverable notifications from error to warning
+- Wording of the message for a server that cannot be reached to "Server unreachable"
+- Reporting of a server that does not answer in time as unreachable instead of as an unspecific error
 - Routines page: Prevention of the deletion of routines that are used in the schedule
 - Server response times due to reduced overhead when accessing the database and serializing responses
 - Data transfer during synchronization by skipping the download of unchanged data

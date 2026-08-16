@@ -27,8 +27,7 @@ use crate::{
     ui::{
         element::{
             ActivityBar, Block, CenteredBlock, Color, Dialog, ErrorPage, FloatingActionButton,
-            Icon, Loading, LoadingDialog, LoadingPage, MenuOption, NoConnection, OptionsMenu,
-            SaveDialog, Title,
+            Icon, Loading, LoadingDialog, LoadingPage, MenuOption, OptionsMenu, SaveDialog, Title,
         },
         form::{Field, FieldValue, FieldValueState, InputField},
     },
@@ -477,13 +476,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         (CacheState::Ready(_), None, _) => rsx! {
             ErrorPage { "Training session not found" }
         },
-        (
-            CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)),
-            _,
-            _,
-        ) => {
-            rsx! { NoConnection {} }
-        }
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
             rsx! { ErrorPage { "{err}" } }
         }

@@ -8,12 +8,12 @@ use dioxus::prelude::*;
 
 use valens_domain as domain;
 
-use valens_domain::SessionService;
+use valens_domain::{SessionService, Unreachable};
 
 use crate::{
     DOMAIN_SERVICE,
     cache::{Cache, CacheState},
-    notification::{notify, notify_warning},
+    notification::notify,
     session::SessionRefresh,
 };
 
@@ -119,22 +119,15 @@ impl Synchronization {
 /// synchronization run so that the parallel syncs of the individual collections do not raise the
 /// same notification repeatedly.
 fn handle_sync_error(synchronization: &mut Synchronization, err: &domain::SyncError) {
-    let unreachable = match err {
-        domain::SyncError::Storage(domain::StorageError::NoConnection) => {
-            Some("No connection to server")
-        }
-        domain::SyncError::Storage(domain::StorageError::Timeout) => {
-            Some("Connection to server timed out")
-        }
-        _ => None,
+    // An unreachable server and other errors have separate flags, so that reporting one does not
+    // suppress the other.
+    let mut reported = if err.unreachable() {
+        synchronization.unreachable_reported
+    } else {
+        synchronization.error_reported
     };
-    if let Some(message) = unreachable {
-        if !*synchronization.unreachable_reported.peek() {
-            synchronization.unreachable_reported.set(true);
-            notify_warning(message);
-        }
-    } else if !*synchronization.error_reported.peek() {
-        synchronization.error_reported.set(true);
+    if !*reported.peek() {
+        reported.set(true);
         notify("Synchronization failed", err);
     }
 }

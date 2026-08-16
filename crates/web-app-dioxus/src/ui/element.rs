@@ -223,11 +223,12 @@ pub fn NoData(
 }
 
 #[component]
-pub fn NoConnection() -> Element {
+pub fn ServerUnreachable() -> Element {
     rsx! {
         div {
             class: "block has-text-centered has-text-grey-light mb-6",
-            IconText { icon: "plug-circle-xmark", "No connection to server" }
+            "data-testid": "server-unreachable",
+            IconText { icon: "plug-circle-xmark", "Server unreachable" }
         }
     }
 }

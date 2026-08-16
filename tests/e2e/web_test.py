@@ -10,7 +10,7 @@ from subprocess import PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
 
 import pytest
-from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import Browser, Page, Route, expect
 
 import tests.utils
 from valens import app, models
@@ -2302,7 +2302,7 @@ def test_navbar_drop_set_calculator(page: Page) -> None:
 
 def test_notification_shown_above_dialog(browser: Browser) -> None:
     with failed_exercise_add(browser) as p:
-        p.notification.expect_message("Failed to add exercise: no connection")
+        p.notification.expect_message("Failed to add exercise: server unreachable")
         # A missing connection is recoverable, so the failure is shown as a warning, not an error
         p.notification.expect_warning()
         # Dismissing requires the close button to receive the click, which only succeeds if the
@@ -2334,11 +2334,32 @@ def test_stacked_notifications_all_auto_dismiss(browser: Browser) -> None:
 
 def test_notification_recorded_in_log(browser: Browser) -> None:
     with failed_exercise_add(browser) as p:
-        p.notification.expect_message("Failed to add exercise: no connection")
+        p.notification.expect_message("Failed to add exercise: server unreachable")
         p.dialog.cancel()
         about = AboutDialog(p.page)
         about.open()
+        # The shown message generalizes the cause, the log keeps the original error
         about.expect_log_warning("Failed to add exercise: no connection")
+
+
+def test_unreachable_server_shown_instead_of_data(browser: Browser) -> None:
+    # Block the service worker so `page.route` can intercept the API request it would
+    # otherwise handle out of the page's reach
+    context = browser.new_context(service_workers="block")
+    try:
+        page = context.new_page()
+        login(page)
+
+        # Users are read from the server rather than from the local database, so blocking the
+        # request leaves the dialog without data to show
+        page.route("**/api/users", lambda route: route.abort())
+
+        admin = AdminDialog(page)
+        admin.open()
+
+        admin.expect_server_unreachable()
+    finally:
+        context.close()
 
 
 def test_failed_synchronization_reported_once(browser: Browser) -> None:
@@ -2361,11 +2382,39 @@ def test_failed_synchronization_reported_once(browser: Browser) -> None:
 
         p.navbar.refresh_data()
 
-        p.notification.expect_message("No connection to server")
+        p.notification.expect_message("Synchronization failed: server unreachable")
         # A missing connection is recoverable, so the failure is shown as a warning, not an error
         p.notification.expect_warning()
         # The collections are synchronized in parallel, but all their failures share one report
         p.notification.expect_not_stacked()
+    finally:
+        context.close()
+
+
+def test_timed_out_synchronization_reported_as_unreachable(browser: Browser) -> None:
+    # Block the service worker so `page.route` can intercept the API requests it would
+    # otherwise handle out of the page's reach
+    context = browser.new_context(service_workers="block")
+    try:
+        page = context.new_page()
+        login(page)
+        p = ExercisesPage(page)
+        p.goto()
+        # A synchronization still in progress would suppress the manually triggered one
+        p.navbar.expect_synchronization_to_be_finished()
+
+        def stall_reads(route: Route) -> None:
+            # Leave read requests unanswered so the synchronization runs into its timeout
+            if route.request.method != "GET":
+                route.continue_()
+
+        page.route("**/api/**", stall_reads)
+
+        p.navbar.refresh_data()
+
+        # Allow for the request timeout of the frontend plus margin
+        p.notification.expect_message("Synchronization failed: server unreachable", timeout=15_000)
+        p.notification.expect_warning()
     finally:
         context.close()
 

@@ -8,15 +8,14 @@ use dioxus::prelude::*;
 
 use log::info;
 
-use valens_domain as domain;
-use valens_domain::VersionService;
+use valens_domain::{Unreachable, VersionService};
 use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE,
     diagnostics::log_failure,
     notification::notify_warning,
-    ui::element::{Color, Dialog, Error, Icon, Loading, NoConnection},
+    ui::element::{Color, Dialog, Error, Icon, Loading, ServerUnreachable},
 };
 
 const APP_VERSION: &str = env!("VALENS_VERSION");
@@ -36,7 +35,7 @@ pub enum UpdateStatus {
 pub enum ServerVersion {
     Loading,
     Version(String),
-    NoConnection,
+    Unreachable,
     Error(String),
 }
 
@@ -128,9 +127,9 @@ pub fn VersionInfo() -> Element {
                     ServerVersion::Version(version) => rsx! {
                         {version.clone()}
                     },
-                    ServerVersion::NoConnection => {
+                    ServerVersion::Unreachable => {
                         rsx! {
-                            NoConnection {}
+                            ServerUnreachable {}
                         }
                     }
                     ServerVersion::Error(err) => rsx! {
@@ -161,8 +160,8 @@ pub async fn check_for_updates() {
             };
             *SERVER_VERSION.write() = ServerVersion::Version(version.clone());
         }
-        Err(domain::ReadError::Storage(domain::StorageError::NoConnection)) => {
-            *SERVER_VERSION.write() = ServerVersion::NoConnection;
+        Err(err) if err.unreachable() => {
+            *SERVER_VERSION.write() = ServerVersion::Unreachable;
         }
         Err(err) => {
             log_failure("fetch the server version", err);

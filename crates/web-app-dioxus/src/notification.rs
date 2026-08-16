@@ -6,12 +6,13 @@
 //! Every notification auto-dismisses after a per-severity timeout, visualized by a depleting
 //! progress bar that pauses while the notification is hovered or focused.
 //!
-//! Showing a notification also writes a log entry at the matching level.
+//! Showing a notification also writes a log entry at the matching level. Where the shown
+//! message generalizes the error, the log entry keeps the original.
 
 use std::fmt::Display;
 
 use dioxus::prelude::*;
-use valens_domain::Recoverable;
+use valens_domain::{Recoverable, Unreachable};
 
 use crate::ui::element::Color;
 
@@ -71,8 +72,18 @@ pub fn notify_warning(message: impl Into<String>) {
 
 /// Notify about a failed operation, choosing the severity from the error: recoverable (transient)
 /// errors become warnings, everything else an error.
-pub fn notify<E: Recoverable + Display>(context: impl Display, err: &E) {
-    push(severity_for(err.recoverable()), format!("{context}: {err}"));
+///
+/// A server that could not be reached is reported by its condition rather than by the error, which
+/// names a cause more precisely than the detection supports.
+pub fn notify<E: Recoverable + Unreachable + Display>(context: impl Display, err: &E) {
+    let severity = severity_for(err.recoverable());
+    let cause = format!("{context}: {err}");
+    log(severity, &cause);
+    if err.unreachable() {
+        show(severity, format!("{context}: server unreachable"));
+    } else {
+        show(severity, cause);
+    }
 }
 
 fn severity_for(recoverable: bool) -> Severity {
@@ -85,11 +96,18 @@ fn severity_for(recoverable: bool) -> Severity {
 
 fn push(severity: Severity, message: impl Into<String>) {
     let message = message.into();
-    // Mirror every notification into the log
+    log(severity, &message);
+    show(severity, message);
+}
+
+fn log(severity: Severity, message: &str) {
     match severity {
         Severity::Warning => log::warn!("{message}"),
         Severity::Error => log::error!("{message}"),
     }
+}
+
+fn show(severity: Severity, message: String) {
     let id = {
         let mut next = NEXT_ID.write();
         *next += 1;

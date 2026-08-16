@@ -17,8 +17,8 @@ use crate::{
     ui::{
         element::{
             Block, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
-            ItemOptionsButton, LoadingPage, MenuOption, NoConnection, OptionsMenu, SaveDialog,
-            SearchBox, Table, Title,
+            ItemOptionsButton, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
+            Title,
         },
         form::{FieldValue, FieldValueState, InputField, MultiToggle, MultiToggleTags},
     },
@@ -112,9 +112,6 @@ pub fn ExerciseList(
                     }
                 }
             }
-        }
-        (CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)), _) => {
-            rsx! { NoConnection {} }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
             rsx! { ErrorPage { "{err}" } }

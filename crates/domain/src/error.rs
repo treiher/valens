@@ -170,6 +170,48 @@ impl Recoverable for SyncError {
     }
 }
 
+/// Whether an error reflects a request that received no response, as opposed to one that was
+/// answered.
+pub trait Unreachable {
+    fn unreachable(&self) -> bool;
+}
+
+impl Unreachable for StorageError {
+    fn unreachable(&self) -> bool {
+        matches!(self, StorageError::NoConnection | StorageError::Timeout)
+    }
+}
+
+impl Unreachable for ReadError {
+    fn unreachable(&self) -> bool {
+        matches!(self, ReadError::Storage(err) if err.unreachable())
+    }
+}
+
+impl Unreachable for CreateError {
+    fn unreachable(&self) -> bool {
+        matches!(self, CreateError::Storage(err) if err.unreachable())
+    }
+}
+
+impl Unreachable for UpdateError {
+    fn unreachable(&self) -> bool {
+        matches!(self, UpdateError::Storage(err) if err.unreachable())
+    }
+}
+
+impl Unreachable for DeleteError {
+    fn unreachable(&self) -> bool {
+        matches!(self, DeleteError::Storage(err) if err.unreachable())
+    }
+}
+
+impl Unreachable for SyncError {
+    fn unreachable(&self) -> bool {
+        matches!(self, SyncError::Storage(err) if err.unreachable())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,5 +305,32 @@ mod tests {
 
         assert!(SyncError::Storage(StorageError::NoConnection).recoverable());
         assert!(!SyncError::Other("foo".into()).recoverable());
+    }
+
+    #[test]
+    fn test_storage_error_unreachable() {
+        assert!(StorageError::NoConnection.unreachable());
+        assert!(StorageError::Timeout.unreachable());
+        assert!(!StorageError::NoSession.unreachable());
+        assert!(!StorageError::Other("foo".into()).unreachable());
+    }
+
+    #[test]
+    fn test_error_unreachable_delegates_to_storage() {
+        assert!(ReadError::Storage(StorageError::NoConnection).unreachable());
+        assert!(!ReadError::Storage(StorageError::NoSession).unreachable());
+        assert!(!ReadError::NotFound.unreachable());
+
+        assert!(CreateError::Storage(StorageError::Timeout).unreachable());
+        assert!(!CreateError::Conflict("foo".to_string()).unreachable());
+
+        assert!(UpdateError::Storage(StorageError::Timeout).unreachable());
+        assert!(!UpdateError::Conflict("foo".to_string()).unreachable());
+
+        assert!(DeleteError::Storage(StorageError::NoConnection).unreachable());
+        assert!(!DeleteError::Other("foo".into()).unreachable());
+
+        assert!(SyncError::Storage(StorageError::NoConnection).unreachable());
+        assert!(!SyncError::Other("foo".into()).unreachable());
     }
 }

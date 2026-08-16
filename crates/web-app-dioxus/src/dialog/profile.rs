@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use valens_domain as domain;
-use valens_domain::{AuthService, UserService};
+use valens_domain::{AuthService, Unreachable, UserService};
 use valens_storage as storage;
 
 use crate::{
@@ -13,8 +13,8 @@ use crate::{
     signal_changed_data,
     ui::{
         element::{
-            DeleteConfirmationDialog, Error, Icon, ItemOptionsButton, Loading, MenuOption,
-            NoConnection, NoData, OptionsMenu, SaveDialog, Title,
+            DeleteConfirmationDialog, Error, Icon, ItemOptionsButton, Loading, MenuOption, NoData,
+            OptionsMenu, SaveDialog, ServerUnreachable, Title,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -255,9 +255,9 @@ fn Passkeys(user_id: domain::UserID) -> Element {
                     }
                 }
             }
-            Some(Err(domain::ReadError::Storage(domain::StorageError::NoConnection))) => {
+            Some(Err(err)) if err.unreachable() => {
                 rsx! {
-                    NoConnection {}
+                    ServerUnreachable {}
                 }
             }
             Some(Err(err)) => {

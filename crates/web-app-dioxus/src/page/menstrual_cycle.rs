@@ -14,7 +14,7 @@ use crate::{
     ui::{
         element::{
             DataBox, DeleteConfirmationDialog, ErrorPage, FloatingActionButton, ItemOptionsButton,
-            LoadingPage, MenuOption, NoConnection, NoWrap, OptionsMenu, SaveDialog, Table,
+            LoadingPage, MenuOption, NoWrap, OptionsMenu, SaveDialog, Table,
         },
         form::{Field, FieldValue, FieldValueState, InputField},
     },
@@ -74,9 +74,6 @@ pub fn MenstrualCycle(add: bool) -> Element {
                     on_click: move |_| { show_add_dialog() },
                 }
             }
-        }
-        CacheState::Error(domain::ReadError::Storage(domain::StorageError::NoConnection)) => {
-            rsx! { NoConnection {} }
         }
         CacheState::Error(err) => rsx! {
             ErrorPage { "{err}" }

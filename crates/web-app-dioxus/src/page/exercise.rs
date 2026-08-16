@@ -221,16 +221,16 @@ fn view_charts(
                 reps, weight, time, ..
             } = element
             {
-                if let Some(reps) = reps {
+                if let Some(reps) = reps.non_zero() {
                     #[allow(clippy::cast_precision_loss)]
-                    reps_values.push((training_session.date, u32::from(*reps) as f32));
+                    reps_values.push((training_session.date, u32::from(reps) as f32));
                 }
-                if let Some(weight) = weight {
-                    weight_values.push((training_session.date, f32::from(*weight)));
+                if let Some(weight) = weight.non_zero() {
+                    weight_values.push((training_session.date, f32::from(weight)));
                 }
-                if let Some(time) = time {
+                if let Some(time) = time.non_zero() {
                     #[allow(clippy::cast_precision_loss)]
-                    time_values.push((training_session.date, u32::from(*time) as f32));
+                    time_values.push((training_session.date, u32::from(time) as f32));
                 }
             }
         }

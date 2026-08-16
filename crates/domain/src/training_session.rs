@@ -62,15 +62,8 @@ pub trait TrainingSessionService {
     ) -> HashMap<ExerciseID, Vec<&'a TrainingSessionElement>> {
         let mut result: HashMap<ExerciseID, Vec<&'a TrainingSessionElement>> = HashMap::new();
         for element in &training_session.elements {
-            if let TrainingSessionElement::Set {
-                exercise_id,
-                reps,
-                time,
-                weight,
-                rpe,
-                ..
-            } = element
-                && (reps.is_some() || time.is_some() || weight.is_some() || rpe.is_some())
+            if let TrainingSessionElement::Set { exercise_id, .. } = element
+                && !element.is_empty()
             {
                 result.entry(*exercise_id).or_default().push(element);
             }
@@ -152,7 +145,7 @@ impl TrainingSession {
             .elements
             .iter()
             .filter_map(|e| match e {
-                TrainingSessionElement::Set { reps, .. } => *reps,
+                TrainingSessionElement::Set { reps, .. } => reps.non_zero(),
                 TrainingSessionElement::Rest { .. } => None,
             })
             .collect::<Vec<_>>();
@@ -170,7 +163,7 @@ impl TrainingSession {
             .elements
             .iter()
             .filter_map(|e| match e {
-                TrainingSessionElement::Set { time, .. } => *time,
+                TrainingSessionElement::Set { time, .. } => time.non_zero(),
                 TrainingSessionElement::Rest { .. } => None,
             })
             .collect::<Vec<_>>();
@@ -188,7 +181,7 @@ impl TrainingSession {
             .elements
             .iter()
             .filter_map(|e| match e {
-                TrainingSessionElement::Set { weight, .. } => *weight,
+                TrainingSessionElement::Set { weight, .. } => weight.non_zero(),
                 TrainingSessionElement::Rest { .. } => None,
             })
             .collect::<Vec<_>>();
@@ -206,7 +199,7 @@ impl TrainingSession {
             .elements
             .iter()
             .filter_map(|e| match e {
-                TrainingSessionElement::Set { rpe, .. } => *rpe,
+                TrainingSessionElement::Set { rpe, .. } => rpe.non_zero(),
                 TrainingSessionElement::Rest { .. } => None,
             })
             .collect::<Vec<_>>();
@@ -218,12 +211,10 @@ impl TrainingSession {
         self.elements
             .iter()
             .filter_map(|e| match e {
-                TrainingSessionElement::Set {
-                    reps: Some(reps),
-                    rpe: Some(rpe),
-                    ..
-                } => Some(reps.including_rir(*rpe)),
-                _ => None,
+                TrainingSessionElement::Set { reps, rpe, .. } => {
+                    Some(reps.non_zero()?.including_rir(rpe.non_zero()?))
+                }
+                TrainingSessionElement::Rest { .. } => None,
             })
             .fold(None, |acc, v| Some(acc.map_or(v, |m: f32| m.max(v))))
     }
@@ -236,7 +227,7 @@ impl TrainingSession {
             .filter_map(|e| match e {
                 TrainingSessionElement::Set {
                     reps, time, rpe, ..
-                } => Some(if let Some(rpe) = *rpe {
+                } => Some(if let Some(rpe) = rpe.non_zero() {
                     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                     if rpe > RPE::FIVE {
                         (2.0_f32).powf(f32::from(rpe) - 5.0).round() as u32
@@ -244,7 +235,7 @@ impl TrainingSession {
                         1
                     }
                 } else {
-                    u32::from(reps.is_some() || time.is_some())
+                    u32::from(reps.non_zero().is_some() || time.non_zero().is_some())
                 }),
                 TrainingSessionElement::Rest { .. } => None,
             })
@@ -261,8 +252,10 @@ impl TrainingSession {
                 TrainingSessionElement::Set {
                     reps, time, rpe, ..
                 } => {
-                    if rpe.unwrap_or(RPE::TEN) >= RPE::SEVEN {
-                        Some(u32::from(reps.is_some() || time.is_some()))
+                    if rpe.non_zero().unwrap_or(RPE::TEN) >= RPE::SEVEN {
+                        Some(u32::from(
+                            reps.non_zero().is_some() || time.non_zero().is_some(),
+                        ))
                     } else {
                         None
                     }
@@ -280,16 +273,16 @@ impl TrainingSession {
             .iter()
             .filter_map(|e| match e {
                 TrainingSessionElement::Set { reps, weight, .. } => {
-                    if let Some(reps) = reps {
+                    if let Some(reps) = reps.non_zero() {
                         #[allow(
                             clippy::cast_possible_truncation,
                             clippy::cast_precision_loss,
                             clippy::cast_sign_loss
                         )]
-                        if let Some(weight) = weight {
-                            Some((u32::from(*reps) as f32 * f32::from(*weight)).round() as u32)
+                        if let Some(weight) = weight.non_zero() {
+                            Some((u32::from(reps) as f32 * f32::from(weight)).round() as u32)
                         } else {
-                            Some(u32::from(*reps))
+                            Some(u32::from(reps))
                         }
                     } else {
                         None
@@ -307,8 +300,8 @@ impl TrainingSession {
             .iter()
             .map(|e| match e {
                 TrainingSessionElement::Set { reps, time, .. } => time
-                    .as_ref()
-                    .map(|v| reps.unwrap_or(Reps::new(1).unwrap()) * *v),
+                    .non_zero()
+                    .map(|v| reps.non_zero().unwrap_or(Reps::new(1).unwrap()) * v),
                 TrainingSessionElement::Rest { .. } => None,
             })
             .collect::<Vec<_>>();
@@ -347,19 +340,23 @@ impl TrainingSession {
             .filter_map(|element| match element {
                 TrainingSessionElement::Set {
                     exercise_id: id,
-                    reps: Some(reps),
-                    weight: Some(weight),
+                    reps,
+                    weight,
                     rpe,
                     ..
                 } if *id == exercise_id => {
+                    let reps = reps.non_zero()?;
+                    let weight = weight.non_zero()?;
                     let one_rep_max = element.one_rep_max()?;
                     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    let reps_including_rir =
-                        Reps::new(reps.including_rir(rpe.unwrap_or(RPE::TEN)).round() as u32)
-                            .ok()?;
-                    Some((one_rep_max, reps_including_rir, *weight))
+                    let reps_including_rir = Reps::new(
+                        reps.including_rir(rpe.non_zero().unwrap_or(RPE::TEN))
+                            .round() as u32,
+                    )
+                    .ok()?;
+                    Some((one_rep_max, reps_including_rir, weight))
                 }
-                _ => None,
+                TrainingSessionElement::Rest { .. } | TrainingSessionElement::Set { .. } => None,
             })
             .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(_, reps, weight)| (reps, weight))
@@ -377,11 +374,11 @@ impl TrainingSession {
                 ..
             } = element
             {
-                if reps.is_none() && time.is_none() {
+                if reps.non_zero().is_none() && time.non_zero().is_none() {
                     continue;
                 }
-                if let Some(rpe) = rpe
-                    && *rpe < RPE::SEVEN
+                if let Some(rpe) = rpe.non_zero()
+                    && rpe < RPE::SEVEN
                 {
                     continue;
                 }
@@ -476,7 +473,7 @@ impl TrainingSession {
             (*rest).clone()
         } else {
             TrainingSessionElement::Rest {
-                target_time: None,
+                target_time: Time::default(),
                 automatic: true,
             }
         };
@@ -494,10 +491,10 @@ impl TrainingSession {
                 } => {
                     sets.push(TrainingSessionElement::Set {
                         exercise_id: *exercise_id,
-                        reps: None,
-                        time: None,
-                        weight: None,
-                        rpe: None,
+                        reps: Reps::default(),
+                        time: Time::default(),
+                        weight: Weight::default(),
+                        rpe: RPE::default(),
                         target_reps: *target_reps,
                         target_time: *target_time,
                         target_weight: *target_weight,
@@ -537,7 +534,6 @@ impl TrainingSession {
     pub fn add_exercise(&mut self, section_idx: usize, exercise_id: ExerciseID) {
         let sections = &self.compute_sections();
         let section = &sections[section_idx];
-        println!("{section:?}");
 
         let mut elements = vec![];
         for element in section.elements() {
@@ -549,14 +545,14 @@ impl TrainingSession {
                 TrainingSessionElement::Rest { .. } => {
                     elements.push(TrainingSessionElement::Set {
                         exercise_id,
-                        reps: None,
-                        time: None,
-                        weight: None,
-                        rpe: None,
-                        target_reps: None,
-                        target_time: None,
-                        target_weight: None,
-                        target_rpe: None,
+                        reps: Reps::default(),
+                        time: Time::default(),
+                        weight: Weight::default(),
+                        rpe: RPE::default(),
+                        target_reps: Reps::default(),
+                        target_time: Time::default(),
+                        target_weight: Weight::default(),
+                        target_rpe: RPE::default(),
                         automatic: false,
                     });
                     elements.push(element);
@@ -567,14 +563,14 @@ impl TrainingSession {
         if let Some(TrainingSessionElement::Set { .. }) = section.elements().last() {
             elements.push(TrainingSessionElement::Set {
                 exercise_id,
-                reps: None,
-                time: None,
-                weight: None,
-                rpe: None,
-                target_reps: None,
-                target_time: None,
-                target_weight: None,
-                target_rpe: None,
+                reps: Reps::default(),
+                time: Time::default(),
+                weight: Weight::default(),
+                rpe: RPE::default(),
+                target_reps: Reps::default(),
+                target_time: Time::default(),
+                target_weight: Weight::default(),
+                target_rpe: RPE::default(),
                 automatic: false,
             });
         }
@@ -687,20 +683,20 @@ impl TrainingSession {
     pub fn append_exercise(&mut self, exercise_id: ExerciseID) {
         if let Some(TrainingSessionElement::Set { .. }) = self.elements.last() {
             self.elements.push(TrainingSessionElement::Rest {
-                target_time: None,
+                target_time: Time::default(),
                 automatic: true,
             });
         }
         self.elements.push(TrainingSessionElement::Set {
             exercise_id,
-            reps: None,
-            time: None,
-            weight: None,
-            rpe: None,
-            target_reps: None,
-            target_time: None,
-            target_weight: None,
-            target_rpe: None,
+            reps: Reps::default(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::default(),
+            target_reps: Reps::default(),
+            target_time: Time::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::default(),
             automatic: false,
         });
         self.ensure_sections_contain_set("appending exercise");
@@ -718,7 +714,7 @@ impl TrainingSession {
             && let Some(TrainingSessionElement::Set { .. }) = self.elements.last()
         {
             self.elements.push(TrainingSessionElement::Rest {
-                target_time: None,
+                target_time: Time::default(),
                 automatic: true,
             });
             trailing_rest += 1;
@@ -741,7 +737,7 @@ impl TrainingSession {
             && let Some(TrainingSessionElement::Set { .. }) = self.elements.last()
         {
             self.elements.push(TrainingSessionElement::Rest {
-                target_time: None,
+                target_time: Time::default(),
                 automatic: true,
             });
             trailing_rest += 1;
@@ -939,18 +935,18 @@ impl FromStr for TrainingSessionID {
 pub enum TrainingSessionElement {
     Set {
         exercise_id: ExerciseID,
-        reps: Option<Reps>,
-        time: Option<Time>,
-        weight: Option<Weight>,
-        rpe: Option<RPE>,
-        target_reps: Option<Reps>,
-        target_time: Option<Time>,
-        target_weight: Option<Weight>,
-        target_rpe: Option<RPE>,
+        reps: Reps,
+        time: Time,
+        weight: Weight,
+        rpe: RPE,
+        target_reps: Reps,
+        target_time: Time,
+        target_weight: Weight,
+        target_rpe: RPE,
         automatic: bool,
     },
     Rest {
-        target_time: Option<Time>,
+        target_time: Time,
         automatic: bool,
     },
 }
@@ -966,10 +962,10 @@ impl TrainingSessionElement {
                 rpe,
                 ..
             } => {
-                reps.is_none_or(|reps| reps == Reps::default())
-                    && time.is_none_or(|time| time == Time::default())
-                    && weight.is_none_or(|weight| weight == Weight::default())
-                    && rpe.is_none_or(|rpe| rpe == RPE::default())
+                *reps == Reps::default()
+                    && *time == Time::default()
+                    && *weight == Weight::default()
+                    && *rpe == RPE::default()
             }
             TrainingSessionElement::Rest { .. } => true,
         }
@@ -981,10 +977,10 @@ impl TrainingSessionElement {
             TrainingSessionElement::Set {
                 reps, weight, rpe, ..
             } => {
-                let reps = (*reps)?;
-                let weight = (*weight)?;
+                let reps = reps.non_zero()?;
+                let weight = weight.non_zero()?;
                 Some(one_rep_max(
-                    reps.including_rir(rpe.unwrap_or(RPE::TEN)),
+                    reps.including_rir(rpe.non_zero().unwrap_or(RPE::TEN)),
                     f32::from(weight),
                 ))
             }
@@ -1002,10 +998,10 @@ impl TrainingSessionElement {
                 rpe,
                 ..
             } => Set {
-                reps: reps.unwrap_or_default(),
-                time: time.unwrap_or_default(),
-                weight: weight.unwrap_or_default(),
-                rpe: rpe.unwrap_or_default(),
+                reps: *reps,
+                time: *time,
+                weight: *weight,
+                rpe: *rpe,
             }
             .to_string(show_tut, show_rpe),
             TrainingSessionElement::Rest { .. } => String::new(),
@@ -1022,10 +1018,10 @@ impl TrainingSessionElement {
                 target_rpe,
                 ..
             } => Set {
-                reps: target_reps.unwrap_or_default(),
-                time: target_time.unwrap_or_default(),
-                weight: target_weight.unwrap_or_default(),
-                rpe: target_rpe.unwrap_or_default(),
+                reps: *target_reps,
+                time: *target_time,
+                weight: *target_weight,
+                rpe: *target_rpe,
             }
             .to_string(show_tut, show_rpe),
             TrainingSessionElement::Rest { .. } => String::new(),
@@ -1146,50 +1142,50 @@ mod tests {
             elements: vec![
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
-                    reps: Some(Reps::new(10).unwrap()),
-                    time: Some(Time::new(3).unwrap()),
-                    weight: Some(Weight::new(30.0).unwrap()),
-                    rpe: Some(RPE::EIGHT),
-                    target_reps: Some(Reps::new(8).unwrap()),
-                    target_time: Some(Time::new(4).unwrap()),
-                    target_weight: Some(Weight::new(40.0).unwrap()),
-                    target_rpe: Some(RPE::NINE),
+                    reps: Reps::new(10).unwrap(),
+                    time: Time::new(3).unwrap(),
+                    weight: Weight::new(30.0).unwrap(),
+                    rpe: RPE::EIGHT,
+                    target_reps: Reps::new(8).unwrap(),
+                    target_time: Time::new(4).unwrap(),
+                    target_weight: Weight::new(40.0).unwrap(),
+                    target_rpe: RPE::NINE,
                     automatic: false,
                 },
                 TrainingSessionElement::Rest {
-                    target_time: Some(Time::new(60).unwrap()),
+                    target_time: Time::new(60).unwrap(),
                     automatic: true,
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 2.into(),
-                    reps: Some(Reps::new(5).unwrap()),
-                    time: Some(Time::new(4).unwrap()),
-                    weight: None,
-                    rpe: Some(RPE::FOUR),
-                    target_reps: None,
-                    target_time: None,
-                    target_weight: None,
-                    target_rpe: None,
+                    reps: Reps::new(5).unwrap(),
+                    time: Time::new(4).unwrap(),
+                    weight: Weight::default(),
+                    rpe: RPE::FOUR,
+                    target_reps: Reps::default(),
+                    target_time: Time::default(),
+                    target_weight: Weight::default(),
+                    target_rpe: RPE::default(),
                     automatic: false,
                 },
                 TrainingSessionElement::Rest {
-                    target_time: Some(Time::new(60).unwrap()),
+                    target_time: Time::new(60).unwrap(),
                     automatic: true,
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 2.into(),
-                    reps: None,
-                    time: Some(Time::new(60).unwrap()),
-                    weight: None,
-                    rpe: None,
-                    target_reps: None,
-                    target_time: None,
-                    target_weight: None,
-                    target_rpe: None,
+                    reps: Reps::default(),
+                    time: Time::new(60).unwrap(),
+                    weight: Weight::default(),
+                    rpe: RPE::default(),
+                    target_reps: Reps::default(),
+                    target_time: Time::default(),
+                    target_weight: Weight::default(),
+                    target_rpe: RPE::default(),
                     automatic: false,
                 },
                 TrainingSessionElement::Rest {
-                    target_time: Some(Time::new(60).unwrap()),
+                    target_time: Time::new(60).unwrap(),
                     automatic: true,
                 },
             ],
@@ -1213,10 +1209,10 @@ mod tests {
                         ..
                     } => TrainingSessionElement::Set {
                         exercise_id: *exercise_id,
-                        reps: None,
-                        time: None,
-                        weight: None,
-                        rpe: None,
+                        reps: Reps::default(),
+                        time: Time::default(),
+                        weight: Weight::default(),
+                        rpe: RPE::default(),
                         target_reps: *target_reps,
                         target_time: *target_time,
                         target_weight: *target_weight,
@@ -1277,6 +1273,13 @@ mod tests {
         assert_eq!(training_session.avg_rpe(), expected);
     }
 
+    #[test]
+    fn test_training_session_avg_rpe_excludes_unset_rpe() {
+        let training_session =
+            training_session(&[set(1, 5, 100.0, RPE::ZERO), set(1, 5, 100.0, RPE::EIGHT)]);
+        assert_eq!(training_session.avg_rpe(), Some(RPE::EIGHT));
+    }
+
     #[rstest]
     #[case(&*TRAINING_SESSION, Some(12.0))]
     #[case(&*EMPTY_TRAINING_SESSION, None)]
@@ -1305,6 +1308,13 @@ mod tests {
         #[case] expected: u32,
     ) {
         assert_eq!(training_session.set_volume(), expected);
+    }
+
+    #[test]
+    fn test_training_session_set_volume_treats_unset_rpe_as_maximum() {
+        let training_session =
+            training_session(&[set(1, 5, 100.0, RPE::ZERO), set(1, 5, 100.0, RPE::FOUR)]);
+        assert_eq!(training_session.set_volume(), 1);
     }
 
     #[rstest]
@@ -1356,14 +1366,14 @@ mod tests {
             notes: String::new(),
             elements: vec![TrainingSessionElement::Set {
                 exercise_id: 1.into(),
-                reps: Some(Reps::new(30).unwrap()),
-                time: None,
-                weight: Some(Weight::new(100.0).unwrap()),
-                rpe: None,
-                target_reps: None,
-                target_time: None,
-                target_weight: None,
-                target_rpe: None,
+                reps: Reps::new(30).unwrap(),
+                time: Time::default(),
+                weight: Weight::new(100.0).unwrap(),
+                rpe: RPE::default(),
+                target_reps: Reps::default(),
+                target_time: Time::default(),
+                target_weight: Weight::default(),
+                target_rpe: RPE::default(),
                 automatic: false,
             }],
             exercise_notes: BTreeMap::new(),
@@ -1386,26 +1396,26 @@ mod tests {
             elements: vec![
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
-                    reps: Some(Reps::new(10).unwrap()),
-                    time: None,
-                    weight: Some(Weight::new(100.0).unwrap()),
-                    rpe: None,
-                    target_reps: None,
-                    target_time: None,
-                    target_weight: None,
-                    target_rpe: None,
+                    reps: Reps::new(10).unwrap(),
+                    time: Time::default(),
+                    weight: Weight::new(100.0).unwrap(),
+                    rpe: RPE::default(),
+                    target_reps: Reps::default(),
+                    target_time: Time::default(),
+                    target_weight: Weight::default(),
+                    target_rpe: RPE::default(),
                     automatic: false,
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
-                    reps: Some(Reps::new(8).unwrap()),
-                    time: None,
-                    weight: Some(Weight::new(105.0).unwrap()),
-                    rpe: None,
-                    target_reps: None,
-                    target_time: None,
-                    target_weight: None,
-                    target_rpe: None,
+                    reps: Reps::new(8).unwrap(),
+                    time: Time::default(),
+                    weight: Weight::new(105.0).unwrap(),
+                    rpe: RPE::default(),
+                    target_reps: Reps::default(),
+                    target_time: Time::default(),
+                    target_weight: Weight::default(),
+                    target_rpe: RPE::default(),
                     automatic: false,
                 },
             ],
@@ -1421,10 +1431,8 @@ mod tests {
 
     #[test]
     fn test_training_session_best_set_for_one_rep_max_picks_highest_estimated() {
-        let training_session = training_session(&[
-            set(1, Some(10), Some(100.0), None),
-            set(1, Some(8), Some(105.0), None),
-        ]);
+        let training_session =
+            training_session(&[set(1, 10, 100.0, RPE::ZERO), set(1, 8, 105.0, RPE::ZERO)]);
         assert_eq!(
             training_session.best_set_for_one_rep_max(1.into()),
             Some((Reps::new(10).unwrap(), Weight::new(100.0).unwrap()))
@@ -1433,7 +1441,7 @@ mod tests {
 
     #[test]
     fn test_training_session_best_set_for_one_rep_max_includes_rir_in_reps() {
-        let training_session = training_session(&[set(1, Some(5), Some(100.0), Some(RPE::EIGHT))]);
+        let training_session = training_session(&[set(1, 5, 100.0, RPE::EIGHT)]);
         assert_eq!(
             training_session.best_set_for_one_rep_max(1.into()),
             Some((Reps::new(7).unwrap(), Weight::new(100.0).unwrap()))
@@ -1442,10 +1450,8 @@ mod tests {
 
     #[test]
     fn test_training_session_best_set_for_one_rep_max_ignores_other_exercises() {
-        let training_session = training_session(&[
-            set(2, Some(20), Some(200.0), None),
-            set(1, Some(5), Some(100.0), None),
-        ]);
+        let training_session =
+            training_session(&[set(2, 20, 200.0, RPE::ZERO), set(1, 5, 100.0, RPE::ZERO)]);
         assert_eq!(
             training_session.best_set_for_one_rep_max(1.into()),
             Some((Reps::new(5).unwrap(), Weight::new(100.0).unwrap()))
@@ -1455,13 +1461,13 @@ mod tests {
     #[test]
     fn test_training_session_best_set_for_one_rep_max_ignores_incomplete_sets() {
         let training_session =
-            training_session(&[set(1, None, Some(100.0), None), set(1, Some(5), None, None)]);
+            training_session(&[set(1, 0, 100.0, RPE::ZERO), set(1, 5, 0.0, RPE::ZERO)]);
         assert_eq!(training_session.best_set_for_one_rep_max(1.into()), None);
     }
 
     #[test]
     fn test_training_session_best_set_for_one_rep_max_no_set_for_exercise() {
-        let training_session = training_session(&[set(2, Some(5), Some(100.0), None)]);
+        let training_session = training_session(&[set(2, 5, 100.0, RPE::ZERO)]);
         assert_eq!(training_session.best_set_for_one_rep_max(1.into()), None);
     }
 
@@ -1487,6 +1493,36 @@ mod tests {
             ],
         }];
         assert_eq!(training_session.stimulus_per_muscle(&exercises), expected);
+    }
+
+    #[rstest]
+    #[case(RPE::ZERO, BTreeMap::from([(MuscleID::Pecs, Stimulus::PRIMARY)]))]
+    #[case(RPE::FOUR, BTreeMap::new())]
+    fn test_training_session_stimulus_per_muscle_with_unset_rpe(
+        #[case] rpe: RPE,
+        #[case] expected: BTreeMap<MuscleID, Stimulus>,
+    ) {
+        let training_session = training_session(&[set(1, 5, 100.0, rpe)]);
+        let exercises = [Exercise {
+            id: 1.into(),
+            name: Name::new("A").unwrap(),
+            muscles: vec![ExerciseMuscle {
+                muscle_id: MuscleID::Pecs,
+                stimulus: Stimulus::PRIMARY,
+            }],
+        }];
+        assert_eq!(training_session.stimulus_per_muscle(&exercises), expected);
+    }
+
+    #[rstest]
+    #[case(set(1, 0, 0.0, RPE::ZERO), true)]
+    #[case(set(1, 0, 0.0, RPE::FOUR), false)]
+    #[case(set(1, 5, 0.0, RPE::ZERO), false)]
+    fn test_training_session_element_is_empty(
+        #[case] element: TrainingSessionElement,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(element.is_empty(), expected);
     }
 
     #[test]
@@ -3257,9 +3293,9 @@ mod tests {
 
     #[test]
     fn test_most_recent_best_set_for_one_rep_max_picks_latest_session_by_date() {
-        let mut older = training_session(&[set(1, Some(3), Some(150.0), None)]);
+        let mut older = training_session(&[set(1, 3, 150.0, RPE::ZERO)]);
         older.date = *TODAY - Duration::days(7);
-        let mut newer = training_session(&[set(1, Some(8), Some(100.0), None)]);
+        let mut newer = training_session(&[set(1, 8, 100.0, RPE::ZERO)]);
         newer.date = *TODAY - Duration::days(1);
         assert_eq!(
             most_recent_best_set_for_one_rep_max(&[older, newer], 1.into()),
@@ -3269,8 +3305,8 @@ mod tests {
 
     #[test]
     fn test_most_recent_best_set_for_one_rep_max_breaks_ties_by_id() {
-        let a = training_session(&[set(1, Some(5), Some(100.0), None)]);
-        let mut b = training_session(&[set(1, Some(3), Some(120.0), None)]);
+        let a = training_session(&[set(1, 5, 100.0, RPE::ZERO)]);
+        let mut b = training_session(&[set(1, 3, 120.0, RPE::ZERO)]);
         b.id = 2.into();
         assert_eq!(
             most_recent_best_set_for_one_rep_max(&[a, b], 1.into()),
@@ -3280,9 +3316,9 @@ mod tests {
 
     #[test]
     fn test_most_recent_best_set_for_one_rep_max_skips_sessions_without_exercise() {
-        let mut with_other_exercise = training_session(&[set(2, Some(10), Some(200.0), None)]);
+        let mut with_other_exercise = training_session(&[set(2, 10, 200.0, RPE::ZERO)]);
         with_other_exercise.date = *TODAY;
-        let with_target_exercise = training_session(&[set(1, Some(5), Some(100.0), None)]);
+        let with_target_exercise = training_session(&[set(1, 5, 100.0, RPE::ZERO)]);
         assert_eq!(
             most_recent_best_set_for_one_rep_max(
                 &[with_other_exercise, with_target_exercise],
@@ -3307,11 +3343,11 @@ mod tests {
     #[test]
     fn test_section_idx_lookahead_matches_section_idx_within_section() {
         let ts = training_session(&[
-            set(1, Some(5), Some(100.0), None),
-            set(1, Some(5), Some(100.0), None),
+            set(1, 5, 100.0, RPE::ZERO),
+            set(1, 5, 100.0, RPE::ZERO),
             rest(60),
-            set(2, Some(8), Some(50.0), None),
-            set(2, Some(8), Some(50.0), None),
+            set(2, 8, 50.0, RPE::ZERO),
+            set(2, 8, 50.0, RPE::ZERO),
         ]);
         assert_eq!(ts.section_idx_lookahead(0), 0);
         assert_eq!(ts.section_idx_lookahead(3), 1);
@@ -3320,11 +3356,11 @@ mod tests {
     #[test]
     fn test_section_idx_lookahead_at_section_boundary_advances() {
         let ts = training_session(&[
-            set(1, Some(5), Some(100.0), None),
-            set(1, Some(5), Some(100.0), None),
+            set(1, 5, 100.0, RPE::ZERO),
+            set(1, 5, 100.0, RPE::ZERO),
             rest(60),
-            set(2, Some(8), Some(50.0), None),
-            set(2, Some(8), Some(50.0), None),
+            set(2, 8, 50.0, RPE::ZERO),
+            set(2, 8, 50.0, RPE::ZERO),
         ]);
         assert_eq!(ts.section_idx(2), 0);
         assert_eq!(ts.section_idx_lookahead(2), 1);
@@ -3333,9 +3369,9 @@ mod tests {
     #[test]
     fn test_section_idx_lookahead_past_end_returns_section_count() {
         let ts = training_session(&[
-            set(1, Some(5), Some(100.0), None),
+            set(1, 5, 100.0, RPE::ZERO),
             rest(60),
-            set(2, Some(8), Some(50.0), None),
+            set(2, 8, 50.0, RPE::ZERO),
         ]);
         assert_eq!(ts.section_idx_lookahead(2), 2);
         assert_eq!(ts.section_idx_lookahead(99), 2);
@@ -3343,11 +3379,9 @@ mod tests {
 
     #[test]
     fn test_training_session_all_sets_recorded() {
+        assert!(training_session(&[set(1, 5, 100.0, RPE::ZERO), rest(60)]).all_sets_recorded());
         assert!(
-            training_session(&[set(1, Some(5), Some(100.0), None), rest(60)]).all_sets_recorded()
-        );
-        assert!(
-            !training_session(&[set(1, Some(5), Some(100.0), None), set(2, None, None, None)])
+            !training_session(&[set(1, 5, 100.0, RPE::ZERO), set(2, 0, 0.0, RPE::ZERO)])
                 .all_sets_recorded()
         );
         assert!(training_session(&[rest(60)]).all_sets_recorded());
@@ -3387,49 +3421,36 @@ mod tests {
     fn exercise(entry_id: u32, exercise_id: u128) -> TrainingSessionElement {
         TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
-            reps: None,
-            time: None,
-            weight: None,
-            rpe: None,
-            target_reps: if entry_id > 0 {
-                Some(Reps::new(entry_id).unwrap())
-            } else {
-                None
-            },
-            target_time: None,
-            target_weight: None,
-            target_rpe: None,
+            reps: Reps::default(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::default(),
+            target_reps: Reps::new(entry_id).unwrap(),
+            target_time: Time::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::default(),
             automatic: false,
         }
     }
 
     fn rest(entry_id: u32) -> TrainingSessionElement {
         TrainingSessionElement::Rest {
-            target_time: if entry_id > 0 {
-                Some(Time::new(entry_id).unwrap())
-            } else {
-                None
-            },
+            target_time: Time::new(entry_id).unwrap(),
             automatic: true,
         }
     }
 
-    fn set(
-        exercise_id: u128,
-        reps: Option<u32>,
-        weight: Option<f32>,
-        rpe: Option<RPE>,
-    ) -> TrainingSessionElement {
+    fn set(exercise_id: u128, reps: u32, weight: f32, rpe: RPE) -> TrainingSessionElement {
         TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
-            reps: reps.map(|r| Reps::new(r).unwrap()),
-            time: None,
-            weight: weight.map(|w| Weight::new(w).unwrap()),
+            reps: Reps::new(reps).unwrap(),
+            time: Time::default(),
+            weight: Weight::new(weight).unwrap(),
             rpe,
-            target_reps: None,
-            target_time: None,
-            target_weight: None,
-            target_rpe: None,
+            target_reps: Reps::default(),
+            target_time: Time::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::default(),
             automatic: false,
         }
     }

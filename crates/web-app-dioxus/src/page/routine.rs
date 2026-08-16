@@ -650,8 +650,10 @@ fn view_charts(
             .and_modify(|e| *e += training_session.set_volume() as f32)
             .or_insert(training_session.set_volume() as f32);
         for element in &training_session.elements {
-            if let domain::TrainingSessionElement::Set { rpe: Some(rpe), .. } = element {
-                rpe_values.push((training_session.date, f32::from(*rpe)));
+            if let domain::TrainingSessionElement::Set { rpe, .. } = element
+                && let Some(rpe) = rpe.non_zero()
+            {
+                rpe_values.push((training_session.date, f32::from(rpe)));
             }
         }
     }
@@ -1345,14 +1347,14 @@ mod tests {
                 .iter()
                 .map(|exercise_id| domain::TrainingSessionElement::Set {
                     exercise_id: (*exercise_id).into(),
-                    reps: None,
-                    time: None,
-                    weight: None,
-                    rpe: None,
-                    target_reps: None,
-                    target_time: None,
-                    target_weight: None,
-                    target_rpe: None,
+                    reps: domain::Reps::default(),
+                    time: domain::Time::default(),
+                    weight: domain::Weight::default(),
+                    rpe: domain::RPE::default(),
+                    target_reps: domain::Reps::default(),
+                    target_time: domain::Time::default(),
+                    target_weight: domain::Weight::default(),
+                    target_rpe: domain::RPE::default(),
                     automatic: false,
                 })
                 .collect(),

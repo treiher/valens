@@ -138,7 +138,9 @@ fn view_charts(
             s.elements
                 .iter()
                 .filter_map(|e| match e {
-                    domain::TrainingSessionElement::Set { rpe, .. } => rpe.map(|v| (s.date, v)),
+                    domain::TrainingSessionElement::Set { rpe, .. } => {
+                        rpe.non_zero().map(|v| (s.date, v))
+                    }
                     domain::TrainingSessionElement::Rest { .. } => None,
                 })
                 .collect::<Vec<_>>()

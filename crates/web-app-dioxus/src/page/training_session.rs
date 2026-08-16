@@ -195,18 +195,10 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                             Some((
                                 idx,
                                 SetFieldValues {
-                                    reps: FieldValue::new_with_empty_default(
-                                        reps.unwrap_or_default(),
-                                    ),
-                                    time: FieldValue::new_with_empty_default(
-                                        time.unwrap_or_default(),
-                                    ),
-                                    weight: FieldValue::new_with_empty_default(
-                                        weight.unwrap_or_default(),
-                                    ),
-                                    rpe: FieldValue::new_with_empty_default(
-                                        rpe.unwrap_or_default(),
-                                    ),
+                                    reps: FieldValue::new_with_empty_default(reps),
+                                    time: FieldValue::new_with_empty_default(time),
+                                    weight: FieldValue::new_with_empty_default(weight),
+                                    rpe: FieldValue::new_with_empty_default(rpe),
                                 },
                             ))
                         } else {
@@ -240,11 +232,11 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     ..
                 } => {
                     METRONOME.write().pause();
-                    if let Some(target_time) = target_time
-                        && target_reps.is_some()
+                    if let Some(target_time) = target_time.non_zero()
+                        && target_reps.non_zero().is_some()
                     {
                         METRONOME.with_mut(|metronome| {
-                            metronome.set_interval((*target_time).into());
+                            metronome.set_interval(target_time.into());
                             metronome.set_stressed_beat(1);
                             metronome.start();
                         });
@@ -268,7 +260,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     automatic,
                     ..
                 } => {
-                    if let Some(target_time) = target_time {
+                    if let Some(target_time) = target_time.non_zero() {
                         if progress.timer_service().read().is_set() {
                             if progress.timer_service().read().seconds() <= 0 {
                                 progress.write().set_element_idx(element_idx + 1);
@@ -276,7 +268,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                                 if let Some(set_field_values) =
                                     field_values.write().get_mut(&element_idx)
                                 {
-                                    set_field_values.time.validated = Ok(*target_time);
+                                    set_field_values.time.validated = Ok(target_time);
                                 }
                                 spawn(async move {
                                     let mut training_session = training_session.clone();
@@ -288,10 +280,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                                 });
                             }
                         } else {
-                            progress
-                                .timer_service()
-                                .write()
-                                .set(i64::from(*target_time));
+                            progress.timer_service().write().set(i64::from(target_time));
                             if *automatic {
                                 progress.timer_service().write().start();
                             }
@@ -302,17 +291,14 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     target_time,
                     automatic,
                 } => {
-                    if let Some(target_time) = target_time {
+                    if let Some(target_time) = target_time.non_zero() {
                         if progress.timer_service().read().is_set() {
                             if *automatic && progress.timer_service().read().seconds() <= 0 {
                                 progress.write().set_element_idx(element_idx + 1);
                                 progress.timer_service().write().unset();
                             }
                         } else {
-                            progress
-                                .timer_service()
-                                .write()
-                                .set(i64::from(*target_time));
+                            progress.timer_service().write().set(i64::from(target_time));
                             progress.timer_service().write().start();
                         }
                     } else if *automatic {
@@ -357,7 +343,10 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 Some(domain::TrainingSessionElement::Rest { target_time, .. }) => {
-                    web_app::replace_notifications("Rest", target_time.map(|t| format!("{t} s")));
+                    web_app::replace_notifications(
+                        "Rest",
+                        target_time.non_zero().map(|t| format!("{t} s")),
+                    );
                 }
                 None => {}
             }
@@ -762,38 +751,28 @@ fn view_form(
 
                     let mut set_buttons: IndexMap<domain::Set, Vec<String>> = IndexMap::new();
                     if is_current_section && set_field_values.is_empty() || set_field_values.changed() {
-                        if target_reps.is_some() || target_time.is_some() || target_weight.is_some() || target_rpe.is_some() {
+                        if target_reps.non_zero().is_some() || target_time.non_zero().is_some() || target_weight.non_zero().is_some() || target_rpe.non_zero().is_some() {
                             set_buttons.entry(domain::Set {
-                                reps: target_reps.unwrap_or_default(),
-                                time: target_time.unwrap_or_default(),
-                                weight: target_weight.unwrap_or_default(),
-                                rpe: target_rpe.unwrap_or_default(),
+                                reps: *target_reps,
+                                time: *target_time,
+                                weight: *target_weight,
+                                rpe: *target_rpe,
                             }).or_default().push("bullseye".to_string());
                         }
                         let previous_set = set_index.checked_sub(*exercise_counts.get(exercise_id).unwrap_or(&1)).and_then(|previous_set_index| sets_by_exercise.get(exercise_id).and_then(|set| set.get(previous_set_index).map(|e| (**e).clone())));
                         if let Some(domain::TrainingSessionElement::Set { reps, time, weight, rpe, .. }) = previous_set {
-                            set_buttons.entry(domain::Set {
-                                reps: reps.unwrap_or_default(),
-                                time: time.unwrap_or_default(),
-                                weight: weight.unwrap_or_default(),
-                                rpe: rpe.unwrap_or_default(),
-                            }).or_default().push("arrow-turn-down".to_string());
+                            set_buttons.entry(domain::Set { reps, time, weight, rpe }).or_default().push("arrow-turn-down".to_string());
                         }
                         let previous_session_set = previous_session_sets_by_exercise.get(exercise_id).and_then(|set| set.get(set_index).map(|e| (**e).clone()));
                         if let Some(domain::TrainingSessionElement::Set { reps, time, weight, rpe, .. }) = previous_session_set {
-                            set_buttons.entry(domain::Set {
-                                reps: reps.unwrap_or_default(),
-                                time: time.unwrap_or_default(),
-                                weight: weight.unwrap_or_default(),
-                                rpe: rpe.unwrap_or_default(),
-                            }).or_default().push("calendar-minus".to_string());
+                            set_buttons.entry(domain::Set { reps, time, weight, rpe }).or_default().push("calendar-minus".to_string());
                         }
                     }
 
                     let number = exercise_number(exercise_id, &exercise_ids);
 
-                    let set = if set_field_values.is_empty() && !set_field_values.changed() && target_reps.is_none() && target_time.is_some() && !focus.other_session_running() {
-                        if let Some(target_time) = target_time {
+                    let set = if set_field_values.is_empty() && !set_field_values.changed() && target_reps.non_zero().is_none() && target_time.non_zero().is_some() && !focus.other_session_running() {
+                        if let Some(target_time) = target_time.non_zero() {
                             rsx! {
                                 tr {
                                     class: if is_current_section { "" } else { "is-semitransparent" },
@@ -1027,7 +1006,7 @@ fn view_form(
                                     colspan: 4,
                                     div {
                                         class: "notification is-success is-size-1 has-text-centered p-1",
-                                        if target_time.is_some() {
+                                        if target_time.non_zero().is_some() {
                                             Timer { timer: progress.timer_service() }
                                         } else {
                                             "Rest"
@@ -1061,7 +1040,7 @@ fn view_form(
                                             progress.write().set_element_idx(element_idx);
                                             progress.timer_service().write().unset();
                                         },
-                                        if let Some(target_time) = target_time {
+                                        if let Some(target_time) = target_time.non_zero() {
                                             "{target_time} s"
                                         } else {
                                             "Rest"
@@ -1268,7 +1247,7 @@ fn view_list(
                         let number = exercise_number(exercise_id, &exercise_ids);
                         rsx! {
                             tr {
-                                if reps.is_none() && (time.is_none() || !settings.show_tut()) && weight.is_none() && (rpe.is_none() || !settings.show_rpe()) {
+                                if *reps == domain::Reps::default() && (*time == domain::Time::default() || !settings.show_tut()) && *weight == domain::Weight::default() && (*rpe == domain::RPE::ZERO || !settings.show_rpe()) {
                                     td {
                                         class: "px-2 has-text-centered",
                                         colspan: 5,
@@ -1292,34 +1271,26 @@ fn view_list(
                                     }
                                     td {
                                         class: "px-2 has-text-right",
-                                        if let Some(reps) = reps {
-                                            if *reps > domain::Reps::default() {
-                                                "{reps} ×"
-                                            }
+                                        if *reps > domain::Reps::default() {
+                                            "{reps} ×"
                                         }
                                     }
                                     td {
                                         class: "px-2 has-text-right",
-                                        if let Some(time) = time {
-                                            if settings.show_tut() && *time > domain::Time::default() {
-                                                "{time} s"
-                                            }
+                                        if settings.show_tut() && *time > domain::Time::default() {
+                                            "{time} s"
                                         }
                                     }
                                     td {
                                         class: "px-2 has-text-right",
-                                        if let Some(weight) = weight {
-                                            if *weight > domain::Weight::default() {
-                                                "{weight} kg"
-                                            }
+                                        if *weight > domain::Weight::default() {
+                                            "{weight} kg"
                                         }
                                     }
                                     td {
                                         class: "px-2",
-                                        if let Some(rpe) = rpe {
-                                            if settings.show_rpe() && *rpe > domain::RPE::ZERO {
-                                                " @ {rpe}"
-                                            }
+                                        if settings.show_rpe() && *rpe > domain::RPE::ZERO {
+                                            " @ {rpe}"
                                         }
                                     }
                                 }
@@ -1780,30 +1751,14 @@ fn modify_training_session_elements(
         } = element
             && let Some(set_field_values) = field_values.get(&element_idx)
         {
-            *reps = set_field_values
-                .reps
-                .validated
-                .clone()
-                .ok()
-                .and_then(domain::Reps::non_zero);
-            *time = set_field_values
-                .time
-                .validated
-                .clone()
-                .ok()
-                .and_then(domain::Time::non_zero);
+            *reps = set_field_values.reps.validated.clone().unwrap_or_default();
+            *time = set_field_values.time.validated.clone().unwrap_or_default();
             *weight = set_field_values
                 .weight
                 .validated
                 .clone()
-                .ok()
-                .and_then(domain::Weight::non_zero);
-            *rpe = set_field_values
-                .rpe
-                .validated
-                .clone()
-                .ok()
-                .and_then(domain::RPE::non_zero);
+                .unwrap_or_default();
+            *rpe = set_field_values.rpe.validated.clone().unwrap_or_default();
         }
     }
 }

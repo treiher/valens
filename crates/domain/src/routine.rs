@@ -537,20 +537,20 @@ impl RoutinePart {
             } => {
                 result.push(if exercise_id.is_nil() {
                     TrainingSessionElement::Rest {
-                        target_time: time.non_zero(),
+                        target_time: *time,
                         automatic: *automatic,
                     }
                 } else {
                     TrainingSessionElement::Set {
                         exercise_id: *exercise_id,
-                        reps: None,
-                        time: None,
-                        weight: None,
-                        rpe: None,
-                        target_reps: reps.non_zero(),
-                        target_time: time.non_zero(),
-                        target_weight: weight.non_zero(),
-                        target_rpe: rpe.non_zero(),
+                        reps: Reps::default(),
+                        time: Time::default(),
+                        weight: Weight::default(),
+                        rpe: RPE::default(),
+                        target_reps: *reps,
+                        target_time: *time,
+                        target_weight: *weight,
+                        target_rpe: *rpe,
                         automatic: *automatic,
                     }
                 });

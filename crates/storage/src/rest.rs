@@ -1738,21 +1738,21 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
             } => TrainingSessionElement::Set {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: exercise_id.as_u128() as u64,
-                reps: reps.map(From::from),
-                time: time.map(From::from),
-                weight: weight.map(From::from),
-                rpe: rpe.map(From::from),
-                target_reps: target_reps.map(From::from),
-                target_time: target_time.map(From::from),
-                target_weight: target_weight.map(From::from),
-                target_rpe: target_rpe.map(From::from),
+                reps: reps.non_zero().map(From::from),
+                time: time.non_zero().map(From::from),
+                weight: weight.non_zero().map(From::from),
+                rpe: rpe.non_zero().map(From::from),
+                target_reps: target_reps.non_zero().map(From::from),
+                target_time: target_time.non_zero().map(From::from),
+                target_weight: target_weight.non_zero().map(From::from),
+                target_rpe: target_rpe.non_zero().map(From::from),
                 automatic,
             },
             domain::TrainingSessionElement::Rest {
                 target_time,
                 automatic,
             } => TrainingSessionElement::Rest {
-                target_time: target_time.map(From::from),
+                target_time: target_time.non_zero().map(From::from),
                 automatic,
             },
         }
@@ -1775,21 +1775,39 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 automatic,
             } => domain::TrainingSessionElement::Set {
                 exercise_id: u128::from(exercise_id).into(),
-                reps: reps.and_then(|r| domain::Reps::new(r).ok()),
-                time: time.and_then(|t| domain::Time::new(t).ok()),
-                weight: weight.and_then(|w| domain::Weight::new(w).ok()),
-                rpe: rpe.and_then(|rpe| domain::RPE::new(rpe).ok()),
-                target_reps: target_reps.and_then(|r| domain::Reps::new(r).ok()),
-                target_time: target_time.and_then(|t| domain::Time::new(t).ok()),
-                target_weight: target_weight.and_then(|w| domain::Weight::new(w).ok()),
-                target_rpe: target_rpe.and_then(|rpe| domain::RPE::new(rpe).ok()),
+                reps: reps
+                    .and_then(|r| domain::Reps::new(r).ok())
+                    .unwrap_or_default(),
+                time: time
+                    .and_then(|t| domain::Time::new(t).ok())
+                    .unwrap_or_default(),
+                weight: weight
+                    .and_then(|w| domain::Weight::new(w).ok())
+                    .unwrap_or_default(),
+                rpe: rpe
+                    .and_then(|rpe| domain::RPE::new(rpe).ok())
+                    .unwrap_or_default(),
+                target_reps: target_reps
+                    .and_then(|r| domain::Reps::new(r).ok())
+                    .unwrap_or_default(),
+                target_time: target_time
+                    .and_then(|t| domain::Time::new(t).ok())
+                    .unwrap_or_default(),
+                target_weight: target_weight
+                    .and_then(|w| domain::Weight::new(w).ok())
+                    .unwrap_or_default(),
+                target_rpe: target_rpe
+                    .and_then(|rpe| domain::RPE::new(rpe).ok())
+                    .unwrap_or_default(),
                 automatic,
             },
             TrainingSessionElement::Rest {
                 target_time,
                 automatic,
             } => domain::TrainingSessionElement::Rest {
-                target_time: target_time.and_then(|t| domain::Time::new(t).ok()),
+                target_time: target_time
+                    .and_then(|t| domain::Time::new(t).ok())
+                    .unwrap_or_default(),
                 automatic,
             },
         }
@@ -2205,6 +2223,36 @@ mod tests {
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                reps: domain::Reps::default(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::default(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_training_session_element_from_default_values() {
+        assert_eq!(
+            TrainingSessionElement::from(domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: domain::Reps::default(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::default(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            }),
+            TrainingSessionElement::Set {
+                exercise_id: 1,
                 reps: None,
                 time: None,
                 weight: None,
@@ -2214,6 +2262,56 @@ mod tests {
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
+            }
+        );
+        assert_eq!(
+            TrainingSessionElement::from(domain::TrainingSessionElement::Rest {
+                target_time: domain::Time::default(),
+                automatic: true,
+            }),
+            TrainingSessionElement::Rest {
+                target_time: None,
+                automatic: true,
+            }
+        );
+    }
+
+    #[test]
+    fn test_training_session_element_from_missing_values() {
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::Set {
+                exercise_id: 1,
+                reps: None,
+                time: None,
+                weight: None,
+                rpe: None,
+                target_reps: None,
+                target_time: None,
+                target_weight: None,
+                target_rpe: None,
+                automatic: false,
+            }),
+            domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: domain::Reps::default(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::default(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            }
+        );
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::Rest {
+                target_time: None,
+                automatic: true,
+            }),
+            domain::TrainingSessionElement::Rest {
+                target_time: domain::Time::default(),
+                automatic: true,
             }
         );
     }

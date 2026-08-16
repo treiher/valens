@@ -1396,21 +1396,21 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
             } => TrainingSessionElement::Set {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: *exercise_id,
-                reps: reps.map(From::from),
-                time: time.map(From::from),
-                weight: weight.map(From::from),
-                rpe: rpe.map(From::from),
-                target_reps: target_reps.map(From::from),
-                target_time: target_time.map(From::from),
-                target_weight: target_weight.map(From::from),
-                target_rpe: target_rpe.map(From::from),
+                reps: reps.non_zero().map(From::from),
+                time: time.non_zero().map(From::from),
+                weight: weight.non_zero().map(From::from),
+                rpe: rpe.non_zero().map(From::from),
+                target_reps: target_reps.non_zero().map(From::from),
+                target_time: target_time.non_zero().map(From::from),
+                target_weight: target_weight.non_zero().map(From::from),
+                target_rpe: target_rpe.non_zero().map(From::from),
                 automatic,
             },
             domain::TrainingSessionElement::Rest {
                 target_time,
                 automatic,
             } => TrainingSessionElement::Rest {
-                target_time: target_time.map(From::from),
+                target_time: target_time.non_zero().map(From::from),
                 automatic,
             },
         }
@@ -1434,40 +1434,54 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
             } => domain::TrainingSessionElement::Set {
                 exercise_id: exercise_id.into(),
                 reps: reps
-                    .and_then(|r| ok_warn(domain::Reps::new(r), "invalid reps in stored set")),
+                    .and_then(|r| ok_warn(domain::Reps::new(r), "invalid reps in stored set"))
+                    .unwrap_or_default(),
                 time: time
-                    .and_then(|t| ok_warn(domain::Time::new(t), "invalid time in stored set")),
+                    .and_then(|t| ok_warn(domain::Time::new(t), "invalid time in stored set"))
+                    .unwrap_or_default(),
                 weight: weight
-                    .and_then(|w| ok_warn(domain::Weight::new(w), "invalid weight in stored set")),
+                    .and_then(|w| ok_warn(domain::Weight::new(w), "invalid weight in stored set"))
+                    .unwrap_or_default(),
                 rpe: rpe
-                    .and_then(|rpe| ok_warn(domain::RPE::new(rpe), "invalid RPE in stored set")),
-                target_reps: target_reps.and_then(|r| {
-                    ok_warn(domain::Reps::new(r), "invalid target reps in stored set")
-                }),
-                target_time: target_time.and_then(|t| {
-                    ok_warn(domain::Time::new(t), "invalid target time in stored set")
-                }),
-                target_weight: target_weight.and_then(|w| {
-                    ok_warn(
-                        domain::Weight::new(w),
-                        "invalid target weight in stored set",
-                    )
-                }),
-                target_rpe: target_rpe.and_then(|rpe| {
-                    ok_warn(domain::RPE::new(rpe), "invalid target RPE in stored set")
-                }),
+                    .and_then(|rpe| ok_warn(domain::RPE::new(rpe), "invalid RPE in stored set"))
+                    .unwrap_or_default(),
+                target_reps: target_reps
+                    .and_then(|r| {
+                        ok_warn(domain::Reps::new(r), "invalid target reps in stored set")
+                    })
+                    .unwrap_or_default(),
+                target_time: target_time
+                    .and_then(|t| {
+                        ok_warn(domain::Time::new(t), "invalid target time in stored set")
+                    })
+                    .unwrap_or_default(),
+                target_weight: target_weight
+                    .and_then(|w| {
+                        ok_warn(
+                            domain::Weight::new(w),
+                            "invalid target weight in stored set",
+                        )
+                    })
+                    .unwrap_or_default(),
+                target_rpe: target_rpe
+                    .and_then(|rpe| {
+                        ok_warn(domain::RPE::new(rpe), "invalid target RPE in stored set")
+                    })
+                    .unwrap_or_default(),
                 automatic,
             },
             TrainingSessionElement::Rest {
                 target_time,
                 automatic,
             } => domain::TrainingSessionElement::Rest {
-                target_time: target_time.and_then(|t| {
-                    ok_warn(
-                        domain::Time::new(t),
-                        "invalid target time in stored rest element",
-                    )
-                }),
+                target_time: target_time
+                    .and_then(|t| {
+                        ok_warn(
+                            domain::Time::new(t),
+                            "invalid target time in stored rest element",
+                        )
+                    })
+                    .unwrap_or_default(),
                 automatic,
             },
         }
@@ -1722,6 +1736,126 @@ mod tests {
         assert_eq!(
             domain::TrainingSession::from(TrainingSession::from(TRAINING_SESSION.clone())),
             TRAINING_SESSION.clone()
+        );
+    }
+
+    #[test]
+    fn test_training_session_element_from_default_values() {
+        assert_eq!(
+            TrainingSessionElement::from(domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: domain::Reps::default(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::default(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            }),
+            TrainingSessionElement::Set {
+                exercise_id: Uuid::from_u128(1),
+                reps: None,
+                time: None,
+                weight: None,
+                rpe: None,
+                target_reps: None,
+                target_time: None,
+                target_weight: None,
+                target_rpe: None,
+                automatic: false,
+            }
+        );
+        assert_eq!(
+            TrainingSessionElement::from(domain::TrainingSessionElement::Rest {
+                target_time: domain::Time::default(),
+                automatic: true,
+            }),
+            TrainingSessionElement::Rest {
+                target_time: None,
+                automatic: true,
+            }
+        );
+    }
+
+    #[test]
+    fn test_training_session_element_from_missing_values() {
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::Set {
+                exercise_id: Uuid::from_u128(1),
+                reps: None,
+                time: None,
+                weight: None,
+                rpe: None,
+                target_reps: None,
+                target_time: None,
+                target_weight: None,
+                target_rpe: None,
+                automatic: false,
+            }),
+            domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: domain::Reps::default(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::default(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            }
+        );
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::Rest {
+                target_time: None,
+                automatic: true,
+            }),
+            domain::TrainingSessionElement::Rest {
+                target_time: domain::Time::default(),
+                automatic: true,
+            }
+        );
+    }
+
+    #[test]
+    fn test_training_session_element_from_out_of_range_values() {
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::Set {
+                exercise_id: Uuid::from_u128(1),
+                reps: Some(1000),
+                time: Some(1000),
+                weight: Some(1000.0),
+                rpe: Some(10.5),
+                target_reps: Some(1000),
+                target_time: Some(1000),
+                target_weight: Some(1000.0),
+                target_rpe: Some(10.5),
+                automatic: false,
+            }),
+            domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: domain::Reps::default(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::default(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            }
+        );
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::Rest {
+                target_time: Some(1000),
+                automatic: true,
+            }),
+            domain::TrainingSessionElement::Rest {
+                target_time: domain::Time::default(),
+                automatic: true,
+            }
         );
     }
 

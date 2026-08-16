@@ -23,6 +23,7 @@ def run(
         for user in users(today, seed):
             db.session.add(user)
         db.session.commit()
+        _print_users()
         app.run(host, port)
 
 
@@ -54,4 +55,21 @@ def _user(profile: Profile, today: datetime.date, rng: random.Random) -> User:
         workouts=data.workouts,
         schedule_rotations=data.schedule_rotations,
         schedule_slots=data.schedule_slots,
+    )
+
+
+def _print_users() -> None:
+    lines = ["Sign in as one of the following users:", *(f"  {p.name}" for p in PROFILES)]
+    width = max(len(line) for line in lines)
+    border = "─" * (width + 2)
+    print(  # noqa: T201
+        "\n".join(
+            [
+                "",
+                f"┌{border}┐",
+                *(f"│ {line.ljust(width)} │" for line in lines),
+                f"└{border}┘",
+                "",
+            ]
+        )
     )

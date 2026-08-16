@@ -58,7 +58,7 @@ To get a first impression of Valens, the app can be run in demo mode.
 valens demo
 ```
 
-The app can be accessed on `http://localhost:5000/`. A temporary database with random example data is used. All changes are non-persistent. Adding `--public` to the command line makes the app available to other devices on your network.
+The app can be accessed on `http://localhost:5000/`. The names of the example users to sign in with are printed on startup. A temporary database with random example data is used. All changes are non-persistent. Adding `--public` to the command line makes the app available to other devices on your network.
 
 #### Local Network
 

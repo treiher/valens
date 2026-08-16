@@ -10,9 +10,14 @@ from valens.models import RoutineActivity, Sex, User, Workout, WorkoutSet
 TODAY = datetime.date(2002, 3, 12)
 
 
-def test_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     monkeypatch.setattr(app, "run", lambda x, y: None)
     demo.run(f"sqlite:///{tmp_path}/db")
+
+    output = capsys.readouterr().out
+    assert all(profile.name in output for profile in PROFILES)
 
 
 def test_users_are_reproducible() -> None:

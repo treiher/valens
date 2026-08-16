@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -812,6 +813,24 @@ def test_training_sessions_add(page: Page) -> None:
     training_sessions_page.expect_page()
     assert training_sessions_page.table.get_value(1, 1, 1) == date
     assert training_sessions_page.table.get_value(1, 1, 2) == routine
+
+
+def test_training_sessions_order(page: Page) -> None:
+    routine = USER.routines[-1].name
+    latest_date = str(USER.workouts[-1].date)
+    date = str(USER.workouts[-1].date - datetime.timedelta(2))
+
+    login(page)
+    training_sessions_page = TrainingSessionsPage(page)
+    training_sessions_page.goto()
+    training_sessions_page.add_training_session(routine, date)
+
+    TrainingSessionPage(page, 0).navbar.go_back()
+
+    training_sessions_page.expect_page()
+    training_sessions_page.table.expect_value(1, 1, 1, latest_date)
+    training_sessions_page.table.expect_value(1, 2, 1, date)
+    training_sessions_page.table.expect_value(1, 2, 2, routine)
 
 
 def test_training_sessions_delete(page: Page) -> None:

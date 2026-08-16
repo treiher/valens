@@ -257,7 +257,9 @@ impl<R: ScheduleRepository + RoutineRepository> ScheduleService for Service<R> {
 
 impl<R: TrainingSessionRepository> TrainingSessionService for Service<R> {
     async fn get_training_sessions(&self) -> Result<Vec<TrainingSession>, ReadError> {
-        self.repository.read_training_sessions().await
+        let mut training_sessions = self.repository.read_training_sessions().await?;
+        training_sessions.sort_by_key(|t| (t.date, t.id));
+        Ok(training_sessions)
     }
 
     async fn create_training_session(

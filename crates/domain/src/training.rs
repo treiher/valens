@@ -322,7 +322,11 @@ fn weighted_sum_of_load(
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
 
     let today = Local::now().date_naive();
-    let mut day = training_sessions.first().map_or(today, |t| t.date);
+    let mut day = training_sessions
+        .iter()
+        .map(|t| t.date)
+        .min()
+        .unwrap_or(today);
     while day <= today {
         result.insert(day, 0.0);
         day += Duration::days(1);
@@ -780,6 +784,20 @@ mod tests {
                 short_term_load,
                 long_term_load
             }
+        );
+    }
+
+    #[test]
+    fn test_training_stats_independent_of_order() {
+        let later = TrainingSession {
+            id: 2.into(),
+            date: *TODAY - Duration::days(5),
+            ..TRAINING_SESSION.clone()
+        };
+
+        assert_eq!(
+            training_stats(&[&TRAINING_SESSION, &later]),
+            training_stats(&[&later, &TRAINING_SESSION])
         );
     }
 

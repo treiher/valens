@@ -23,8 +23,10 @@ class TrainingSessionsPage(BasePage):
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Training sessions")
 
-    def add_training_session(self, name: str) -> None:
+    def add_training_session(self, name: str, date: str | None = None) -> None:
         self.fab().click()
+        if date is not None:
+            self.dialog.set_date(date)
         self.dialog.set_routine(name)
         self.dialog.save()
 
@@ -36,6 +38,9 @@ class TrainingSessionsPage(BasePage):
 class TrainingDialog(Dialog):
     def get_date(self) -> str:
         return self.page.get_by_test_id("date").first.input_value()
+
+    def set_date(self, date: str) -> None:
+        self.page.get_by_test_id("date").first.fill(date)
 
     def set_routine(self, name: str) -> None:
         self.page.get_by_test_id("routine").first.select_option(label=name)

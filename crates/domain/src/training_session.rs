@@ -18,6 +18,7 @@ use crate::{
 
 #[allow(async_fn_in_trait)]
 pub trait TrainingSessionService {
+    /// Returns all training sessions sorted by date in ascending order (oldest first).
     async fn get_training_sessions(&self) -> Result<Vec<TrainingSession>, ReadError>;
     async fn create_training_session(
         &self,

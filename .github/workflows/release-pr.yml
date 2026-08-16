@@ -20,7 +20,7 @@ on:
 permissions: {}
 
 jobs:
-  create_release_pr:
+  create-release-pr:
     name: Create Release PR
     runs-on: ubuntu-24.04
     env:

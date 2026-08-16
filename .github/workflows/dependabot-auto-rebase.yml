@@ -16,6 +16,7 @@ permissions: {}
 
 jobs:
   rebase:
+    name: Rebase
     runs-on: ubuntu-latest
     steps:
       - run: |

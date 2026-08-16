@@ -1,4 +1,4 @@
-name: tests
+name: Tests
 
 on:
   # Only branches that are pushed to directly. All others are covered by
@@ -10,7 +10,7 @@ on:
     - cron: '0 2 * * 6'
 
 jobs:
-  python_versions:
+  python-versions:
     name: Python Versions
     runs-on: ubuntu-24.04
     outputs:
@@ -21,11 +21,11 @@ jobs:
       - id: versions
         run: python3 tools/python_versions.py >> "$GITHUB_OUTPUT"
 
-  detect_release:
+  detect-release:
     name: Detect Release
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
-    needs: python_versions
+    needs: python-versions
     outputs:
       adds_release: ${{ steps.detect.outputs.ADDS_RELEASE }}
     steps:
@@ -35,7 +35,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: ${{ needs.python_versions.outputs.latest }}
+          python-version: ${{ needs.python-versions.outputs.latest }}
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -52,10 +52,10 @@ jobs:
           echo "Current version: $base (base), $head (head)"
           [ "$base" = "$head" ] || echo "ADDS_RELEASE=true" >> "$GITHUB_OUTPUT"
 
-  check_project:
+  check-project:
     name: Project Checks
     runs-on: ubuntu-24.04
-    needs: python_versions
+    needs: python-versions
     steps:
       - uses: actions/checkout@v7
       - name: Install Nix
@@ -63,7 +63,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: ${{ needs.python_versions.outputs.latest }}
+          python-version: ${{ needs.python-versions.outputs.latest }}
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -75,7 +75,7 @@ jobs:
         run: |
           nix shell --inputs-from . nixpkgs#actionlint --command make check-project
 
-  check_frontend:
+  check-frontend:
     name: Frontend Checks
     runs-on: ubuntu-24.04
     env:
@@ -98,14 +98,14 @@ jobs:
       - name: Check
         run: nix develop --command make check-frontend
 
-  check_backend:
+  check-backend:
     name: Backend Checks
     runs-on: ubuntu-24.04
-    needs: python_versions
+    needs: python-versions
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ fromJSON(needs.python_versions.outputs.supported) }}
+        python-version: ${{ fromJSON(needs.python-versions.outputs.supported) }}
         target: [ruff-format, ruff, mypy]
     steps:
       - uses: actions/checkout@v7
@@ -124,11 +124,11 @@ jobs:
         run: |
           make check-${{ matrix.target }}
 
-  check_screenshots:
+  check-screenshots:
     name: Screenshot Checks
-    if: ${{ needs.detect_release.outputs.adds_release == 'true' }}
+    if: ${{ needs.detect-release.outputs.adds_release == 'true' }}
     runs-on: ubuntu-24.04
-    needs: detect_release
+    needs: detect-release
     env:
       CARGO_INCREMENTAL: 0
     steps:
@@ -149,13 +149,13 @@ jobs:
       - name: Check
         run: nix develop --command make check-screenshots
 
-  test_installation:
+  test-installation:
     name: Installation Test
     runs-on: ubuntu-24.04
-    needs: python_versions
+    needs: python-versions
     strategy:
       matrix:
-        python-version: ${{ fromJSON(needs.python_versions.outputs.supported) }}
+        python-version: ${{ fromJSON(needs.python-versions.outputs.supported) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -185,7 +185,7 @@ jobs:
         run: |
           make test-installation
 
-  test_frontend:
+  test-frontend:
     name: Frontend Tests
     runs-on: ubuntu-24.04
     env:
@@ -208,14 +208,14 @@ jobs:
       - name: Test
         run: nix develop --command make test-frontend
 
-  test_backend:
+  test-backend:
     name: Backend Tests
     runs-on: ubuntu-24.04
-    needs: python_versions
+    needs: python-versions
     strategy:
       fail-fast: false
       matrix:
-        python-version: ${{ fromJSON(needs.python_versions.outputs.supported) }}
+        python-version: ${{ fromJSON(needs.python-versions.outputs.supported) }}
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
@@ -233,7 +233,7 @@ jobs:
         run: |
           make test-backend
 
-  test_e2e:
+  test-e2e:
     name: End-to-End Tests (Chromium)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -260,10 +260,10 @@ jobs:
         uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-traces
+          name: playwright-traces-chromium
           path: test-results/
 
-  test_e2e_firefox:
+  test-e2e-firefox:
     name: End-to-End Tests (Firefox)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -295,11 +295,11 @@ jobs:
 
   # The Nix development environment is defined for Linux only, so the dependencies are installed
   # individually here. WebKit is only provided as the WPE port on Linux, which requires a display.
-  test_e2e_webkit:
+  test-e2e-webkit:
     name: End-to-End Tests (WebKit)
     runs-on: macos-15
     timeout-minutes: 20
-    needs: python_versions
+    needs: python-versions
     steps:
       - uses: actions/checkout@v7
         with:
@@ -307,7 +307,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: ${{ needs.python_versions.outputs.latest }}
+          python-version: ${{ needs.python-versions.outputs.latest }}
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -339,7 +339,7 @@ jobs:
           name: playwright-traces-webkit
           path: test-results/
 
-  test_latest_dependencies:
+  test-latest-dependencies:
     name: Latest Dependencies
     if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
@@ -398,17 +398,17 @@ jobs:
           name: playwright-traces-latest
           path: test-results/
 
-  test_latest_release:
+  test-latest-release:
     name: Latest Release
     if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
-    needs: python_versions
+    needs: python-versions
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: ${{ needs.python_versions.outputs.latest }}
+          python-version: ${{ needs.python-versions.outputs.latest }}
       - name: Install latest PyPI release
         run: |
           pip install valens

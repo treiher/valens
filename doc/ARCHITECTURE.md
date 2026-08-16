@@ -80,7 +80,7 @@ Synchronization assumes that the backend is at least as recent as the frontend. 
 
 Application state lives in two kinds of holders.
 
-- **Global singletons**: app-wide state that exists independently of any session, such as the service entry points, a connectivity flag, and a change counter that components use to trigger reloads.
+- **Global singletons**: app-wide state that exists independently of any session, such as the service entry points, a change counter that components use to trigger reloads, and the state of the tools reachable from the navigation menu.
 - **Session context**: per-session reactive state provided at the session root and consumed by components, such as the cache, the synchronization state, the current session, and the ongoing training session.
 
 Two service facades own different concerns.

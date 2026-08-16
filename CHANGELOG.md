@@ -86,6 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - "Log out" to "Sign out"
     - Opening of the menu via the menu button on all screen widths, keeping all menu entries reachable on wide screens
     - "Sign out" as the last menu entry
+    - Reporting of a missing connection to the server from an indicator to a notification
+    - Reporting of a failed synchronization from an indicator to a notification
 - Version information and the log from the administration page to the About dialog, accessible from the navigation menu
 - Administration from a page to a dialog, allowing user management without leaving the current page
 - Administration dialog: Restriction to admin users

@@ -11,7 +11,7 @@ use valens_domain as domain;
 use valens_domain::SessionService;
 
 use crate::{
-    DOMAIN_SERVICE, NO_CONNECTION,
+    DOMAIN_SERVICE,
     cache::{Cache, CacheState},
     notification::{notify, notify_warning},
     session::SessionRefresh,
@@ -28,11 +28,8 @@ macro_rules! sync {
             if matches!(&*cache.$entry.peek(), CacheState::Ready(value) if value.is_empty()) {
                 cache.$entry.set(CacheState::Loading);
             }
-            match DOMAIN_SERVICE().$sync_method().await {
-                Err(err) => handle_sync_error(&mut synchronization, &err),
-                Ok(_) => {
-                    *NO_CONNECTION.write() = false;
-                }
+            if let Err(err) = DOMAIN_SERVICE().$sync_method().await {
+                handle_sync_error(&mut synchronization, &err);
             }
             cache.$refresh_method();
             synchronization.finish_sync();
@@ -42,18 +39,21 @@ macro_rules! sync {
 
 #[derive(Clone, Copy)]
 pub struct Synchronization {
-    error: Signal<String>,
+    unreachable_reported: Signal<bool>,
+    error_reported: Signal<bool>,
     in_progress: Signal<bool>,
     pending_sync_count: Signal<u8>,
 }
 
 impl Synchronization {
     pub fn provide() {
-        let error = use_signal(String::new);
+        let unreachable_reported = use_signal(|| false);
+        let error_reported = use_signal(|| false);
         let in_progress = use_signal(|| false);
         let pending_sync_count = use_signal(|| 0);
         use_context_provider(move || Self {
-            error,
+            unreachable_reported,
+            error_reported,
             in_progress,
             pending_sync_count,
         });
@@ -61,7 +61,8 @@ impl Synchronization {
 
     pub fn sync(&mut self) {
         if !*self.in_progress.peek() {
-            self.error.set(String::new());
+            self.unreachable_reported.set(false);
+            self.error_reported.set(false);
             self.in_progress.set(true);
             self.sync_session();
             sync!(exercises, sync_exercises, refresh_exercises);
@@ -91,7 +92,6 @@ impl Synchronization {
             match DOMAIN_SERVICE().sync_session().await {
                 Err(err) => handle_sync_error(&mut synchronization, &err),
                 Ok(user) => {
-                    *NO_CONNECTION.write() = false;
                     if user != previous_user {
                         session_refresh.refresh();
                     }
@@ -113,30 +113,28 @@ impl Synchronization {
     pub fn in_progress(&self) -> bool {
         self.in_progress.cloned()
     }
-
-    pub fn has_error(&self) -> bool {
-        !self.error.read().is_empty()
-    }
-
-    pub fn error(&self) -> String {
-        self.error.cloned()
-    }
 }
 
+/// Notify about a failed synchronization, reporting each kind of failure at most once per
+/// synchronization run so that the parallel syncs of the individual collections do not raise the
+/// same notification repeatedly.
 fn handle_sync_error(synchronization: &mut Synchronization, err: &domain::SyncError) {
-    if matches!(
-        err,
-        domain::SyncError::Storage(domain::StorageError::NoConnection)
-    ) {
-        if !NO_CONNECTION() {
-            *NO_CONNECTION.write() = true;
-            notify_warning("No connection to server");
+    let unreachable = match err {
+        domain::SyncError::Storage(domain::StorageError::NoConnection) => {
+            Some("No connection to server")
         }
-    } else if !synchronization.has_error() {
-        synchronization
-            .error
-            .set(format!("Synchronization failed: {err}"));
+        domain::SyncError::Storage(domain::StorageError::Timeout) => {
+            Some("Connection to server timed out")
+        }
+        _ => None,
+    };
+    if let Some(message) = unreachable {
+        if !*synchronization.unreachable_reported.peek() {
+            synchronization.unreachable_reported.set(true);
+            notify_warning(message);
+        }
+    } else if !*synchronization.error_reported.peek() {
+        synchronization.error_reported.set(true);
         notify("Synchronization failed", err);
-        *NO_CONNECTION.write() = false;
     }
 }

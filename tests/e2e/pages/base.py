@@ -201,6 +201,9 @@ class Notification(PageElement):
     def expect_stacked(self, hidden: int) -> None:
         expect(self.count).to_have_text(f"+{hidden}")
 
+    def expect_not_stacked(self) -> None:
+        expect(self.count).to_have_count(0)
+
     def expect_auto_dismissed(self, timeout: float = 12_000) -> None:
         # Allow for the longest per-severity timeout plus margin
         expect(self.root).to_be_hidden(timeout=timeout)

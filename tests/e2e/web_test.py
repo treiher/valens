@@ -2341,6 +2341,35 @@ def test_notification_recorded_in_log(browser: Browser) -> None:
         about.expect_log_warning("Failed to add exercise: no connection")
 
 
+def test_failed_synchronization_reported_once(browser: Browser) -> None:
+    # Block the service worker so `page.route` can intercept the API requests it would
+    # otherwise handle out of the page's reach
+    context = browser.new_context(service_workers="block")
+    try:
+        page = context.new_page()
+        login(page)
+        p = ExercisesPage(page)
+        p.goto()
+        # A synchronization still in progress would suppress the manually triggered one
+        p.navbar.expect_synchronization_to_be_finished()
+
+        # Fail every read request so all collection synchronizations of the next run fail
+        page.route(
+            "**/api/**",
+            lambda route: route.abort() if route.request.method == "GET" else route.continue_(),
+        )
+
+        p.navbar.refresh_data()
+
+        p.notification.expect_message("No connection to server")
+        # A missing connection is recoverable, so the failure is shown as a warning, not an error
+        p.notification.expect_warning()
+        # The collections are synchronized in parallel, but all their failures share one report
+        p.notification.expect_not_stacked()
+    finally:
+        context.close()
+
+
 @contextmanager
 def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None]:
     # Block the service worker so `page.route` can intercept the API request it would

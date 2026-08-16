@@ -40,7 +40,6 @@ static DOMAIN_SERVICE: GlobalSignal<
 > = Signal::global(|| domain::Service::new(storage::cached_rest::CachedREST::new()));
 static WEB_APP_SERVICE: GlobalSignal<web_app::Service<storage::local_storage::LocalStorage>> =
     Signal::global(|| web_app::Service::new(storage::local_storage::LocalStorage));
-static NO_CONNECTION: GlobalSignal<bool> = Signal::global(|| false);
 /// Counter incremented after every mutation. Components that must reflect fresh data read it
 /// first in the closure of a `use_resource`, so the resource re-runs on every data change.
 static DATA_CHANGED: GlobalSignal<usize> = Signal::global(|| 0);

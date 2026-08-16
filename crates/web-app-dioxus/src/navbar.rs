@@ -9,7 +9,7 @@ use log::warn;
 use valens_domain as domain;
 
 use crate::{
-    DROP_SET_CALCULATOR, METRONOME, NO_CONNECTION, ONE_REP_MAX_CALCULATOR, Route,
+    DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
     dialog::{
         about::AboutDialog, admin::AdminDialog, profile::ProfileDialog, settings::SettingsDialog,
     },
@@ -142,26 +142,6 @@ pub fn Navbar() -> Element {
                                 description: "Synchronization in progress",
                                 right_aligned: true,
                                 Icon { name: "rotate fa-pulse" }
-                            }
-                        }
-                    }
-                    if synchronization.has_error() {
-                        a {
-                            class: "navbar-item is-size-5 mx-1",
-                            ElementWithDescription {
-                                description: synchronization.error(),
-                                right_aligned: true,
-                                Icon { name: "circle-xmark" }
-                            }
-                        }
-                    }
-                    if NO_CONNECTION() {
-                        a {
-                            class: "navbar-item is-size-5 mx-1",
-                            ElementWithDescription {
-                                description: "No connection to server",
-                                right_aligned: true,
-                                Icon { name: "plug-circle-xmark" }
                             }
                         }
                     }

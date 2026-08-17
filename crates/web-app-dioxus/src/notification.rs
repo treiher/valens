@@ -6,8 +6,12 @@
 //! Every notification auto-dismisses after a per-severity timeout, visualized by a depleting
 //! progress bar that pauses while the notification is hovered or focused.
 //!
-//! Showing a notification also writes a log entry at the matching level. Where the shown
-//! message generalizes the error, the log entry keeps the original.
+//! Every notification reports a failed operation as an `action`, an infinitive phrase such as
+//! `"add exercise"`, and a `reason`, a fragment such as `"server unreachable"`. They compose into
+//! one sentence in the log and are shown as two lines, the reason above the action.
+//!
+//! Showing a notification also writes a log entry at the matching level. Where the shown reason
+//! generalizes the error, the log entry keeps the original.
 
 use std::fmt::Display;
 
@@ -59,15 +63,8 @@ impl Severity {
 struct Notification {
     id: usize,
     severity: Severity,
-    message: String,
-}
-
-pub fn notify_error(message: impl Into<String>) {
-    push(Severity::Error, message);
-}
-
-pub fn notify_warning(message: impl Into<String>) {
-    push(Severity::Warning, message);
+    reason: String,
+    action: String,
 }
 
 /// Notify about a failed operation, choosing the severity from the error: recoverable (transient)
@@ -75,15 +72,27 @@ pub fn notify_warning(message: impl Into<String>) {
 ///
 /// A server that could not be reached is reported by its condition rather than by the error, which
 /// names a cause more precisely than the detection supports.
-pub fn notify<E: Recoverable + Unreachable + Display>(context: impl Display, err: &E) {
+pub fn notify<E: Recoverable + Unreachable + Display>(action: impl Display, err: &E) {
     let severity = severity_for(err.recoverable());
-    let cause = format!("{context}: {err}");
-    log(severity, &cause);
-    if err.unreachable() {
-        show(severity, format!("{context}: server unreachable"));
+    log(severity, &format!("failed to {action}: {err}"));
+    let reason = if err.unreachable() {
+        "server unreachable"
     } else {
-        show(severity, cause);
-    }
+        &err.to_string()
+    };
+    show(
+        severity,
+        capitalized(reason),
+        capitalized(&action.to_string()),
+    );
+}
+
+pub fn notify_error(action: impl Display, reason: impl Display) {
+    push(Severity::Error, action, reason);
+}
+
+pub fn notify_warning(action: impl Display, reason: impl Display) {
+    push(Severity::Warning, action, reason);
 }
 
 fn severity_for(recoverable: bool) -> Severity {
@@ -94,10 +103,20 @@ fn severity_for(recoverable: bool) -> Severity {
     }
 }
 
-fn push(severity: Severity, message: impl Into<String>) {
-    let message = message.into();
-    log(severity, &message);
-    show(severity, message);
+fn capitalized(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
+}
+
+fn push(severity: Severity, action: impl Display, reason: impl Display) {
+    log(severity, &format!("failed to {action}: {reason}"));
+    show(
+        severity,
+        capitalized(&reason.to_string()),
+        capitalized(&action.to_string()),
+    );
 }
 
 fn log(severity: Severity, message: &str) {
@@ -107,7 +126,7 @@ fn log(severity: Severity, message: &str) {
     }
 }
 
-fn show(severity: Severity, message: String) {
+fn show(severity: Severity, reason: String, action: String) {
     let id = {
         let mut next = NEXT_ID.write();
         *next += 1;
@@ -116,7 +135,8 @@ fn show(severity: Severity, message: String) {
     NOTIFICATIONS.write().push(Notification {
         id,
         severity,
-        message,
+        reason,
+        action,
     });
 }
 
@@ -161,7 +181,12 @@ fn CurrentNotification(notification: Notification, hidden: usize) -> Element {
             }
             div {
                 class: "is-flex-grow-1",
-                "{notification.message}"
+                div { "data-testid": "notification-reason", "{notification.reason}" }
+                div {
+                    class: "is-size-7 notification-action",
+                    "data-testid": "notification-action",
+                    "{notification.action}"
+                }
             }
             if hidden > 0 {
                 span {

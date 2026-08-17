@@ -183,14 +183,25 @@ class Notification(PageElement):
     def count(self) -> Locator:
         return self.root.get_by_test_id("notification-count")
 
+    @property
+    def reason(self) -> Locator:
+        return self.root.get_by_test_id("notification-reason")
+
+    @property
+    def action(self) -> Locator:
+        return self.root.get_by_test_id("notification-action")
+
     def expect_visible(self) -> None:
         expect(self.root).to_be_visible()
 
     def expect_hidden(self) -> None:
         expect(self.root).to_be_hidden()
 
-    def expect_message(self, message: str, timeout: float | None = None) -> None:
-        expect(self.root).to_have_text(message, timeout=timeout)
+    def expect_reason(self, reason: str, timeout: float | None = None) -> None:
+        expect(self.reason).to_have_text(reason, timeout=timeout)
+
+    def expect_action(self, action: str) -> None:
+        expect(self.action).to_have_text(action)
 
     def expect_warning(self) -> None:
         expect(self.root).to_have_attribute("data-severity", "warning")

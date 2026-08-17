@@ -203,7 +203,7 @@ pub fn view_dialog(
                                         consume_context::<Cache>().refresh_routines();
                                     }
                                     Err(err) => {
-                                        notify("Failed to add routine", &err);
+                                        notify("add routine", &err);
                                     }
                                 }
                             }
@@ -217,7 +217,7 @@ pub fn view_dialog(
                                         consume_context::<Cache>().refresh_routines();
                                     }
                                     Err(err) => {
-                                        notify("Failed to copy routine", &err);
+                                        notify("copy routine", &err);
                                     }
                                 }
                             }
@@ -231,7 +231,7 @@ pub fn view_dialog(
                                         consume_context::<Cache>().refresh_routines();
                                     }
                                     Err(err) => {
-                                        notify("Failed to rename routine", &err);
+                                        notify("rename routine", &err);
                                     }
                                 }
                             }
@@ -254,8 +254,8 @@ pub fn view_dialog(
                             deleted = true;
                             consume_context::<Cache>().refresh_routines();
                         },
-                        Err(domain::DeleteError::Conflict(reason)) => notify_error(format!("Failed to delete routine: {reason}")),
-                        Err(err) => notify("Failed to delete routine", &err)
+                        Err(domain::DeleteError::Conflict(reason)) => notify_error("delete routine", reason),
+                        Err(err) => notify("delete routine", &err)
                     }
                 }
             }
@@ -315,7 +315,7 @@ pub fn view_dialog(
                                                 consume_context::<Cache>().refresh_routines();
                                             }
                                             Err(err) => {
-                                                notify("Failed to modify routine", &err);
+                                                notify("modify routine", &err);
                                             }
                                         }
                                     }
@@ -459,7 +459,11 @@ pub fn view_dialog(
                                                 *copy_success.write() = false;
                                             }
                                             Err(e) => {
-                                                notify_error(format!("Failed to copy to clipboard: {e:?}"));
+                                                log::error!("failed to copy to clipboard: {e:?}");
+                                                notify_error(
+                                                    "copy to clipboard",
+                                                    "clipboard is not available",
+                                                );
                                             }
                                         }
                                     });

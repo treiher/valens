@@ -556,7 +556,7 @@ fn remove_rotation(
     match schedule.remove_rotation(rotation_id) {
         Ok(()) => Some(schedule),
         Err(err) => {
-            notify_error(format!("Failed to delete rotation: {err}"));
+            notify_error("delete rotation", err);
             None
         }
     }
@@ -607,7 +607,7 @@ fn add_slot(
     match schedule.add_slot(weekday, slot) {
         Ok(()) => Some(schedule),
         Err(err) => {
-            notify_error(format!("Failed to change schedule: {err}"));
+            notify_error("change schedule", err);
             None
         }
     }
@@ -763,7 +763,7 @@ fn drop_slot(
     match schedule.insert_slot(target_weekday, index, slot) {
         Ok(()) => Some(schedule),
         Err(err) => {
-            notify_error(format!("Failed to change schedule: {err}"));
+            notify_error("change schedule", err);
             None
         }
     }
@@ -845,7 +845,7 @@ fn add_rotation(schedule: &domain::Schedule, name: domain::Name) -> Option<domai
     match result {
         Ok(()) => Some(schedule),
         Err(err) => {
-            notify_error(format!("Failed to add rotation: {err}"));
+            notify_error("add rotation", err);
             None
         }
     }
@@ -860,7 +860,7 @@ fn rename_rotation(
     match schedule.rename_rotation(rotation_id, name) {
         Ok(()) => Some(schedule),
         Err(err) => {
-            notify_error(format!("Failed to rename rotation: {err}"));
+            notify_error("rename rotation", err);
             None
         }
     }
@@ -883,7 +883,7 @@ fn rotation_with_routines(
     match result {
         Ok(()) => Some(schedule),
         Err(err) => {
-            notify_error(format!("Failed to change rotation: {err}"));
+            notify_error("change rotation", err);
             None
         }
     }
@@ -903,7 +903,7 @@ async fn save_schedule(schedule: domain::Schedule) -> bool {
             true
         }
         Err(err) => {
-            notify("Failed to change schedule", &err);
+            notify("change schedule", &err);
             false
         }
     }

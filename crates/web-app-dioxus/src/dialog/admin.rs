@@ -71,7 +71,7 @@ fn Users() -> Element {
                                 signal_changed_data();
                             },
                             Err(err) => {
-                                notify("Failed to add user", &err);
+                                notify("add user", &err);
                             }
                         }
                     }
@@ -88,7 +88,7 @@ fn Users() -> Element {
                                 }
                             },
                             Err(err) => {
-                                notify("Failed to edit user", &err);
+                                notify("edit user", &err);
                             }
                         }
                     }
@@ -109,7 +109,7 @@ fn Users() -> Element {
                         deleted = true;
                         signal_changed_data();
                     },
-                    Err(err) => notify("Failed to delete user", &err)
+                    Err(err) => notify("delete user", &err)
 
                 }
             }
@@ -416,7 +416,7 @@ fn UserPasskeysDialog(user: domain::User, on_close: EventHandler<MouseEvent>) ->
                 Ok(()) => {
                     deleted = true;
                 }
-                Err(err) => notify("Failed to delete passkey", &err),
+                Err(err) => notify("delete passkey", &err),
             }
             is_loading.set(false);
         }
@@ -531,7 +531,11 @@ fn LoginLinkDialog(user: domain::User, on_close: EventHandler<MouseEvent>) -> El
                                                         *copy_success.write() = false;
                                                     }
                                                     Err(e) => {
-                                                        notify_error(format!("Failed to copy to clipboard: {e:?}"));
+                                                        log::error!("failed to copy to clipboard: {e:?}");
+                                                        notify_error(
+                                                            "copy to clipboard",
+                                                            "clipboard is not available",
+                                                        );
                                                     }
                                                 }
                                             });

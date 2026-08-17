@@ -55,7 +55,7 @@ pub fn ProfileDialog(on_close: EventHandler<MouseEvent>) -> Element {
                     consume_context::<SessionRefresh>().refresh();
                 }
                 Err(err) => {
-                    notify("Failed to edit profile", &err);
+                    notify("edit profile", &err);
                 }
             }
         }
@@ -174,7 +174,7 @@ fn Passkeys(user_id: domain::UserID) -> Element {
                     signal_changed_data();
                 }
                 Err(err) => {
-                    notify("Failed to rename passkey", &err);
+                    notify("rename passkey", &err);
                 }
             }
         }
@@ -192,7 +192,7 @@ fn Passkeys(user_id: domain::UserID) -> Element {
                     deleted = true;
                     signal_changed_data();
                 }
-                Err(err) => notify("Failed to delete passkey", &err),
+                Err(err) => notify("delete passkey", &err),
             }
             is_loading.set(false);
         }
@@ -222,7 +222,7 @@ fn Passkeys(user_id: domain::UserID) -> Element {
                                         if storage::webauthn::Error::is_cancellation(
                                             err.as_ref(),
                                         ) => {}
-                                    Err(err) => notify("Failed to register passkey", &err),
+                                    Err(err) => notify("register passkey", &err),
                                 }
                                 is_loading.set(false);
                             },

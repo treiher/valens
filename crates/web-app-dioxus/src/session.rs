@@ -145,7 +145,7 @@ fn PasskeyRegistrationRequired() -> Element {
                                         if storage::webauthn::Error::is_cancellation(
                                             err.as_ref(),
                                         ) => {}
-                                    Err(err) => notify("Failed to register passkey", &err),
+                                    Err(err) => notify("register passkey", &err),
                                 }
                                 is_loading.set(false);
                             },
@@ -176,11 +176,11 @@ pub async fn sign_out() -> bool {
     match DOMAIN_SERVICE().delete_session().await {
         Ok(domain::SignOut::Complete) => true,
         Ok(domain::SignOut::DataRetained) => {
-            notify_error("Failed to remove data from this device");
+            notify_error("sign out", "data on this device could not be removed");
             true
         }
         Err(err) => {
-            notify("Failed to sign out", &err);
+            notify("sign out", &err);
             false
         }
     }

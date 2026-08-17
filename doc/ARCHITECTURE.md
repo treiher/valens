@@ -94,7 +94,7 @@ The in-app log is captured by a custom logger that records every log entry into 
 
 Failures are surfaced through three mechanisms, chosen by audience.
 
-- **Notifications**: failures of user-initiated actions. They appear below the navigation bar and are mirrored to the log. The severity (warning or error) follows whether the underlying domain error is recoverable. Where the shown reason generalizes the error, the log keeps the original.
+- **Notifications**: failures of user-initiated actions. They appear below the navigation bar, naming the reason and the failed action, which the log records as a single entry. The severity (warning or error) follows whether the underlying domain error is recoverable. Where the shown reason generalizes the error, the log keeps the original.
 - **Component logging**: domain errors that surface in a component, such as a failed cache read, rather than a notification. They are logged only, at debug when the error is recoverable and at error otherwise.
 - **Direct logging**: everything else, such as platform and JavaScript interop failures, parsing fallbacks, and silent background work that has no recoverable domain error and is not surfaced to the user.
 

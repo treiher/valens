@@ -416,13 +416,13 @@ pub fn view_dialog(
                         Ok(routines) => {
                             let routine = routines.iter().find(|r| r.id == routine_id);
                             if routine.is_none() && !routine_id.is_nil() {
-                                notify_error("Failed to add training session: unknown routine");
+                                notify_error("add training session", "unknown routine");
                             } else {
                                 start_training_session(routine, date).await;
                             }
                         }
                         Err(err) => {
-                            notify("Failed to add training session", &err);
+                            notify("add training session", &err);
                         }
                     }
                 }
@@ -442,7 +442,7 @@ pub fn view_dialog(
                             }
                             consume_context::<Cache>().refresh_training_sessions();
                         },
-                        Err(err) => notify("Failed to delete training session", &err)
+                        Err(err) => notify("delete training session", &err)
                     }
                 }
             }
@@ -554,7 +554,7 @@ pub async fn start_training_session(routine: Option<&domain::Routine>, date: Nai
             navigator().push(Route::TrainingSession { id });
         }
         Err(err) => {
-            notify("Failed to add training session", &err);
+            notify("add training session", &err);
         }
     }
 }

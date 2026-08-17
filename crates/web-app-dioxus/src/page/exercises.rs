@@ -302,7 +302,8 @@ fn view_list(
         })
         .collect::<Vec<_>>();
 
-    let catalog_exercises_body = exercise_filter.read()
+    let catalog_exercises_body = exercise_filter
+        .read()
         .catalog()
         .values()
         .map(|e| {
@@ -340,7 +341,7 @@ fn view_list(
                                                     consume_context::<Cache>().refresh_exercises();
                                                 }
                                                 Err(err) => {
-                                                    notify("Failed to add exercise from catalog", &err);
+                                                    notify("add exercise from catalog", &err);
                                                 }
                                             }
                                     }
@@ -410,7 +411,7 @@ pub fn view_dialog(
                                             consume_context::<Cache>().refresh_exercises();
                                         }
                                         Err(err) => {
-                                            notify("Failed to add exercise", &err);
+                                            notify("add exercise", &err);
                                         }
                                     }
                                 }
@@ -424,7 +425,7 @@ pub fn view_dialog(
                                             consume_context::<Cache>().refresh_exercises();
                                         }
                                         Err(err) => {
-                                            notify("Failed to copy exercise", &err);
+                                            notify("copy exercise", &err);
                                         }
                                     }
                                 }
@@ -442,7 +443,7 @@ pub fn view_dialog(
                                             consume_context::<Cache>().refresh_exercises();
                                         }
                                         Err(err) => {
-                                            notify("Failed to rename exercise", &err);
+                                            notify("rename exercise", &err);
                                         }
                                     }
                                 }
@@ -469,7 +470,7 @@ pub fn view_dialog(
                                 deleted = true;
                                 consume_context::<Cache>().refresh_exercises();
                             },
-                            Err(err) => notify("Failed to delete exercise", &err)
+                            Err(err) => notify("delete exercise", &err)
                         }
                     }
                 }
@@ -717,7 +718,7 @@ fn ExercisePropertiesDialog(
                         consume_context::<Cache>().load_exercises().await;
                     }
                     Err(err) => {
-                        notify("Failed to change properties of exercise", &err);
+                        notify("change properties of exercise", &err);
                     }
                 }
             }

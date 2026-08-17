@@ -230,7 +230,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                                     consume_context::<Cache>().refresh_period();
                                 }
                                 Err(err) => {
-                                    notify("Failed to add period", &err);
+                                    notify("add period", &err);
                                     }
                             }
                     }
@@ -246,7 +246,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                                     consume_context::<Cache>().refresh_period();
                                 }
                                 Err(err) => {
-                                    notify("Failed to edit period", &err);
+                                    notify("edit period", &err);
                                     }
                             }
                     }
@@ -267,7 +267,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                         deleted = true;
                         consume_context::<Cache>().refresh_period();
                     },
-                    Err(err) => notify("Failed to delete period", &err)
+                    Err(err) => notify("delete period", &err)
                 }
             }
         }

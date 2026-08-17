@@ -435,7 +435,8 @@ def test_last_admin_role_change_rejected(page: Page) -> None:
     admin.dialog.click_save()
 
     admin.notification.expect_error()
-    admin.notification.expect_message("Failed to edit user: last administrator cannot be demoted")
+    admin.notification.expect_reason("Last administrator cannot be demoted")
+    admin.notification.expect_action("Edit user")
     admin.dialog.cancel()
 
     admin.expect_user_role(USERNAMES[0], "admin")
@@ -450,7 +451,8 @@ def test_last_admin_delete_rejected(page: Page) -> None:
     admin.dialog.click_delete()
 
     admin.notification.expect_error()
-    admin.notification.expect_message("Failed to delete user: last administrator cannot be deleted")
+    admin.notification.expect_reason("Last administrator cannot be deleted")
+    admin.notification.expect_action("Delete user")
     admin.dialog.no()
 
     admin.expect_user_role(USERNAMES[0], "admin")
@@ -2065,9 +2067,8 @@ def test_schedule_blocked_routine_deletion(page: Page) -> None:
     routines_page.dialog.click_delete()
 
     routines_page.notification.expect_error()
-    routines_page.notification.expect_message(
-        "Failed to delete routine: routine is used in the schedule"
-    )
+    routines_page.notification.expect_reason("Routine is used in the schedule")
+    routines_page.notification.expect_action("Delete routine")
     routines_page.dialog.no()
 
     routines_page.table.expect_value(1, 1, 1, routine)
@@ -2302,7 +2303,8 @@ def test_navbar_drop_set_calculator(page: Page) -> None:
 
 def test_notification_shown_above_dialog(browser: Browser) -> None:
     with failed_exercise_add(browser) as p:
-        p.notification.expect_message("Failed to add exercise: server unreachable")
+        p.notification.expect_reason("Server unreachable")
+        p.notification.expect_action("Add exercise")
         # A missing connection is recoverable, so the failure is shown as a warning, not an error
         p.notification.expect_warning()
         # Dismissing requires the close button to receive the click, which only succeeds if the
@@ -2334,12 +2336,12 @@ def test_stacked_notifications_all_auto_dismiss(browser: Browser) -> None:
 
 def test_notification_recorded_in_log(browser: Browser) -> None:
     with failed_exercise_add(browser) as p:
-        p.notification.expect_message("Failed to add exercise: server unreachable")
+        p.notification.expect_reason("Server unreachable")
         p.dialog.cancel()
         about = AboutDialog(p.page)
         about.open()
         # The shown message generalizes the cause, the log keeps the original error
-        about.expect_log_warning("Failed to add exercise: no connection")
+        about.expect_log_warning("failed to add exercise: no connection")
 
 
 def test_unreachable_server_shown_instead_of_data(browser: Browser) -> None:
@@ -2382,7 +2384,8 @@ def test_failed_synchronization_reported_once(browser: Browser) -> None:
 
         p.navbar.refresh_data()
 
-        p.notification.expect_message("Synchronization failed: server unreachable")
+        p.notification.expect_reason("Server unreachable")
+        p.notification.expect_action("Synchronize")
         # A missing connection is recoverable, so the failure is shown as a warning, not an error
         p.notification.expect_warning()
         # The collections are synchronized in parallel, but all their failures share one report
@@ -2413,7 +2416,8 @@ def test_timed_out_synchronization_reported_as_unreachable(browser: Browser) -> 
         p.navbar.refresh_data()
 
         # Allow for the request timeout of the frontend plus margin
-        p.notification.expect_message("Synchronization failed: server unreachable", timeout=15_000)
+        p.notification.expect_reason("Server unreachable", timeout=15_000)
+        p.notification.expect_action("Synchronize")
         p.notification.expect_warning()
     finally:
         context.close()

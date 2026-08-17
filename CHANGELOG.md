@@ -96,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Presentation of error messages from a dialog to a notification below the navigation bar
 - Severity of recoverable notifications from error to warning
 - Wording of the message for a server that cannot be reached to "Server unreachable"
+- Presentation of failure notifications to the reason with the affected action below it, keeping both on one line each on narrow screens
 - Reporting of a server that does not answer in time as unreachable instead of as an unspecific error
 - Routines page: Prevention of the deletion of routines that are used in the schedule
 - Server response times due to reduced overhead when accessing the database and serializing responses

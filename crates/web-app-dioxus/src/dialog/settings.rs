@@ -193,7 +193,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                                         }
                                         Ok(_) => {}
                                         Err(err) => {
-                                            notify_error(format!("Failed to enable notifications: {err}"));
+                                            notify_error("enable notifications", err);
                                         }
                                     }
                                     settings.save().await;

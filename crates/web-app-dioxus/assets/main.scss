@@ -139,6 +139,11 @@ $blue: #3B8ED0;
         animation: notification-countdown var(--dismiss-ms) linear forwards;
     }
 
+    // Dim against the colored background, where a grey text color would clash
+    .notification-action {
+        opacity: 0.8;
+    }
+
     // Pause the progress while the user interacts with the notification
     .notification:hover .notification-progress,
     .notification:focus-within .notification-progress {

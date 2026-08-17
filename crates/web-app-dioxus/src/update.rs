@@ -87,13 +87,13 @@ pub fn UpdateNotification() -> Element {
                                             gloo_timers::future::TimeoutFuture::new(10_000).await;
                                             if UPDATE_STATUS() == UpdateStatus::Updating {
                                                 *UPDATE_STATUS.write() = UpdateStatus::Available;
-                                                notify_warning("App update timed out");
+                                                notify_warning("update app", "timeout");
                                             }
                                         });
                                     }
                                     Err(err) => {
                                         *UPDATE_STATUS.write() = UpdateStatus::Available;
-                                        notify_warning(format!("App update failed: {err}"));
+                                        notify_warning("update app", err);
                                     }
                                 }
                             },

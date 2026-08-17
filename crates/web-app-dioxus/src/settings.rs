@@ -20,7 +20,7 @@ impl Settings {
                 settings.theme.apply();
             }
             Some(Err(err)) => {
-                notify_error(format!("Failed to load settings: {err}"));
+                notify_error("load settings", err);
             }
             None => {}
         });
@@ -92,7 +92,7 @@ impl Settings {
             .set_settings(self.settings.cloned())
             .await
         {
-            notify_error(format!("Failed to save settings: {err}"));
+            notify_error("save settings", err);
         }
     }
 }

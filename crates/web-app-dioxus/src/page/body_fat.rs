@@ -443,7 +443,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                 consume_context::<Cache>().refresh_body_fat();
                             }
                             Err(err) => {
-                                notify("Failed to add body fat", &err);
+                                notify("add body fat", &err);
                                 }
                         }
                     }
@@ -495,7 +495,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                                 consume_context::<Cache>().refresh_body_fat();
                             }
                             Err(err) => {
-                                notify("Failed to edit body fat", &err);
+                                notify("edit body fat", &err);
                                 }
                         }
                     }
@@ -516,7 +516,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                         deleted = true;
                         consume_context::<Cache>().refresh_body_fat();
                     }
-                    Err(err) => notify("Failed to delete body fat", &err),
+                    Err(err) => notify("delete body fat", &err),
                 }
             }
         }

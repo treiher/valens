@@ -1774,7 +1774,7 @@ async fn save(
             cache.refresh_training_sessions();
         }
         Err(err) => {
-            notify("Failed to modify training session", &err);
+            notify("modify training session", &err);
         }
     }
     close_dialog();

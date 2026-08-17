@@ -230,7 +230,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                                     consume_context::<Cache>().refresh_body_weight();
                                 }
                                 Err(err) => {
-                                    notify("Failed to add body weight", &err);
+                                    notify("add body weight", &err);
                                     }
                             }
                     }
@@ -246,7 +246,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                                     consume_context::<Cache>().refresh_body_weight();
                                 }
                                 Err(err) => {
-                                    notify("Failed to edit body weight", &err);
+                                    notify("edit body weight", &err);
                                     }
                             }
                     }
@@ -267,7 +267,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                         deleted = true;
                         consume_context::<Cache>().refresh_body_weight();
                     },
-                    Err(err) => notify("Failed to delete body weight", &err)
+                    Err(err) => notify("delete body weight", &err)
                 }
             }
         }

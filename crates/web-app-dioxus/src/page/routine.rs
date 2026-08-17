@@ -1165,7 +1165,7 @@ async fn modify_routine_sections(
             cache.refresh_routines();
         }
         Err(err) => {
-            notify("Failed to modify routine", &err);
+            notify("modify routine", &err);
         }
     }
     close_dialog();

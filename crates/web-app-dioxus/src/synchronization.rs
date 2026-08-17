@@ -128,6 +128,6 @@ fn handle_sync_error(synchronization: &mut Synchronization, err: &domain::SyncEr
     };
     if !*reported.peek() {
         reported.set(true);
-        notify("Synchronization failed", err);
+        notify("synchronize", err);
     }
 }

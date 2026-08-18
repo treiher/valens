@@ -159,7 +159,7 @@ impl Mul<u32> for Stimulus {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum StimulusError {
-    #[error("Stimulus must be 100 or less ({0} > 100)")]
+    #[error("stimulus must be 100 or less ({0} > 100)")]
     OutOfRange(u32),
 }
 
@@ -330,7 +330,7 @@ impl TryFrom<u8> for MuscleID {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum MuscleIDError {
-    #[error("Invalid muscle ID")]
+    #[error("invalid muscle ID")]
     Invalid,
 }
 

@@ -12,12 +12,13 @@ Cross-cutting decisions for changes to Valens that are not enforced by tooling. 
 
 ## Error messages
 
-The mechanisms by which errors are surfaced are described in the [error handling](ARCHITECTURE.md#error-handling) section of the Architecture document. The wording of error messages falls into two registers, depending on how they are displayed.
+The mechanisms by which errors are surfaced are described in the [error handling](ARCHITECTURE.md#error-handling) section of the Architecture document.
 
-- **Standalone sentences**: messages shown on their own, such as the `Display` strings of domain error enums. They are capitalized, start with the subject, and have no terminating period ("Rotation is used in the schedule", "Rotation must not contain duplicate routines").
-- **Sentence fragments**: messages rendered after a "Failed to ...: " prefix, such as the `details` strings of backend responses and the conflict reasons of the domain service. They are lowercase and have no leading article, so that they read naturally mid-sentence ("name is already used", "routine is used in the schedule").
+Error messages are written as sentence fragments: lowercase unless the first word is an acronym, no leading article, no terminating period, so that they read naturally after a prefix, as in "failed to delete rotation: rotation is used in the schedule". This covers the `Display` strings of domain error enums, the `details` strings of backend responses and the conflict reasons of the domain service.
 
-When the same condition is checked in both the domain service and the backend, both sides use the byte-identical fragment so the surfaced notification is the same regardless of which layer rejects the operation.
+The same message is also shown on its own, as in a field error, and is capitalized where it is displayed. Messages printed by the CLI are the exception, since nothing capitalizes them: they are written capitalized.
+
+When the same condition is checked in both the domain service and the backend, both sides use the byte-identical fragment so the surfaced message is the same regardless of which layer rejects the operation.
 
 ## Comments
 

@@ -44,7 +44,7 @@ pub fn Muscles() -> Element {
             }
         }
         (Some(Err(err)), _) | (_, Some(Err(err))) => {
-            rsx! { ErrorPage { "{err}" } }
+            rsx! { ErrorPage { message: "{err}" } }
         }
         (None, _) | (_, None) => rsx! { LoadingPage {} },
     }

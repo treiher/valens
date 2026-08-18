@@ -8,6 +8,7 @@ use crate::{
     DOMAIN_SERVICE, LOGIN_LINK_TOKEN, Route,
     diagnostics::log_failure,
     ui::{
+        capitalized,
         element::{IconText, LoadingPage},
         form::InputField,
     },
@@ -199,7 +200,7 @@ fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool)
                                 p {
                                     class: "help is-danger has-text-left mb-2",
                                     "data-testid": "login-error",
-                                    {error}
+                                    {capitalized(&error)}
                                 }
                             }
                         }

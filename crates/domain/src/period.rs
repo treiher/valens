@@ -30,11 +30,11 @@ pub trait PeriodService {
                     }
                 } else {
                     Err(ValidationError::Other(
-                        "Date must not be in the future".into(),
+                        "date must not be in the future".into(),
                     ))
                 }
             }
-            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+            Err(_) => Err(ValidationError::Other("invalid date".into())),
         }
     }
 
@@ -44,7 +44,7 @@ pub trait PeriodService {
                 Intensity::try_from(parsed_value).map_err(|err| ValidationError::Other(err.into()))
             }
             Err(_) => Err(ValidationError::Other(
-                "Intensity must be a positive whole number".into(),
+                "intensity must be a positive whole number".into(),
             )),
         }
     }
@@ -105,7 +105,7 @@ impl TryFrom<u8> for Intensity {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum IntensityError {
-    #[error("Intensity must be in the range 1 to 4")]
+    #[error("intensity must be in the range 1 to 4")]
     OutOfRange,
 }
 

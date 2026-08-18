@@ -1228,9 +1228,9 @@ impl TryFrom<Schedule> for domain::Schedule {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ScheduleError {
-    #[error("Schedule must not contain duplicate rotations")]
+    #[error("schedule must not contain duplicate rotations")]
     DuplicateRotation,
-    #[error("Schedule must not contain duplicate weekdays")]
+    #[error("schedule must not contain duplicate weekdays")]
     DuplicateWeekday,
     #[error(transparent)]
     InvalidName(#[from] domain::NameError),

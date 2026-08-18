@@ -183,7 +183,7 @@ fn Users() -> Element {
             Some(Err(err)) => {
                 log_failure("load users", err);
                 rsx! {
-                    Error { "{err}" }
+                    Error { message: "{err}" }
                 }
             }
             None => rsx! {
@@ -463,7 +463,7 @@ fn UserPasskeysDialog(user: domain::User, on_close: EventHandler<MouseEvent>) ->
                 Some(Err(err)) => {
                     log_failure("load passkeys", err);
                     rsx! {
-                        Error { "{err}" }
+                        Error { message: "{err}" }
                     }
                 }
                 None => rsx! {
@@ -557,7 +557,7 @@ fn LoginLinkDialog(user: domain::User, on_close: EventHandler<MouseEvent>) -> El
                 Some(Err(err)) => {
                     log_failure("create login link", err);
                     rsx! {
-                        Error { "{err}" }
+                        Error { message: "{err}" }
                     }
                 }
                 None => rsx! {

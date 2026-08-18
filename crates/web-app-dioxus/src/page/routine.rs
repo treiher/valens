@@ -105,7 +105,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                             }
                         }
                         CacheState::Error(err) => {
-                            rsx! { Error { "{err}" } }
+                            rsx! { Error { message: "{err}" } }
                         }
                         CacheState::Loading => {
                             rsx! {
@@ -124,12 +124,12 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                 }
             } else {
                 rsx! {
-                    ErrorPage { "Routine not found" }
+                    ErrorPage { message: "Routine not found" }
                 }
             }
         }
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
-            rsx! { ErrorPage { "{err}" } }
+            rsx! { ErrorPage { message: "{err}" } }
         }
         (CacheState::Loading, _, _) | (_, _, CacheState::Loading) => {
             rsx! { LoadingPage {} }
@@ -961,7 +961,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
                 _ => {
                     rsx! {
-                        Error { "Unexpected routine part type" }
+                        Error { message: "Unexpected routine part type" }
                     }
                 }
             }
@@ -984,11 +984,11 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 if !exercise_id.is_nil() && automatic {
                     if time.unwrap_or_default() == domain::Time::default() {
                         Err(
-                            "Time must be greater than 0 to enable automatic start of timer"
+                            "time must be greater than 0 to enable automatic start of timer"
                                 .to_string(),
                         )
                     } else if reps.unwrap_or_default() != domain::Reps::default() {
-                        Err("Reps must be undefined to enable automatic start of timer".to_string())
+                        Err("reps must be undefined to enable automatic start of timer".to_string())
                     } else {
                         Ok(automatic)
                     }
@@ -1143,7 +1143,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
                 _ => {
                     rsx! {
-                        Error { "Unexpected routine part type" }
+                        Error { message: "Unexpected routine part type" }
                     }
                 }
             }

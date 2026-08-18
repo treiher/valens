@@ -23,9 +23,9 @@ impl Name {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum NameError {
-    #[error("Name must not be empty")]
+    #[error("name must not be empty")]
     Empty,
-    #[error("Name must be 64 characters or fewer ({0} > 64)")]
+    #[error("name must be 64 characters or fewer ({0} > 64)")]
     TooLong(usize),
 }
 

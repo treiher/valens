@@ -69,7 +69,7 @@ pub fn Routines(add: bool, search: String) -> Element {
             }
         }
         (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-            rsx! { ErrorPage { "{err}" } }
+            rsx! { ErrorPage { message: "{err}" } }
         }
         (CacheState::Loading, _) | (_, CacheState::Loading) => rsx! { LoadingPage {} },
     }

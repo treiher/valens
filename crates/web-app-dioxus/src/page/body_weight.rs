@@ -73,7 +73,7 @@ pub fn BodyWeight(add: bool) -> Element {
             }
         }
         CacheState::Error(err) => rsx! {
-            ErrorPage { "{err}" }
+            ErrorPage { message: "{err}" }
         },
         CacheState::Loading => rsx! {
             LoadingPage {}

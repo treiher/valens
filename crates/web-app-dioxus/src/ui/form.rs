@@ -3,6 +3,8 @@
 use dioxus::{prelude::*, web::WebEventExt};
 use web_sys::wasm_bindgen::JsCast;
 
+use crate::ui::capitalized;
+
 #[component]
 pub fn Field(children: Element, label: String) -> Element {
     rsx! {
@@ -39,7 +41,13 @@ pub fn InputField(
     on_input: EventHandler<FormEvent>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
-    let error = error.and_then(|error| if error.is_empty() { None } else { Some(error) });
+    let error = error.and_then(|error| {
+        if error.is_empty() {
+            None
+        } else {
+            Some(capitalized(&error))
+        }
+    });
     let has_error = error.is_some();
     rsx! {
         div {
@@ -164,7 +172,13 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
     on_click: EventHandler<(MouseEvent, T)>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
-    let error = error.and_then(|error| if error.is_empty() { None } else { Some(error) });
+    let error = error.and_then(|error| {
+        if error.is_empty() {
+            None
+        } else {
+            Some(capitalized(&error))
+        }
+    });
     let has_error = error.is_some();
     rsx! {
         div {

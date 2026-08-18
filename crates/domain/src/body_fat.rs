@@ -25,11 +25,11 @@ pub trait BodyFatService {
                     }
                 } else {
                     Err(ValidationError::Other(
-                        "Date must not be in the future".into(),
+                        "date must not be in the future".into(),
                     ))
                 }
             }
-            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+            Err(_) => Err(ValidationError::Other("invalid date".into())),
         }
     }
 
@@ -40,7 +40,7 @@ pub trait BodyFatService {
             match value.trim().parse::<u8>() {
                 Ok(parsed_value) => Ok(Some(parsed_value)),
                 Err(_) => Err(ValidationError::Other(
-                    "Measurement must be a positive whole number".into(),
+                    "measurement must be a positive whole number".into(),
                 )),
             }
         }

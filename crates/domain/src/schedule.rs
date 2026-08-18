@@ -380,25 +380,25 @@ impl TryFrom<u8> for Weekday {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ScheduleError {
-    #[error("Schedule must not contain slots referencing unknown rotations")]
+    #[error("schedule must not contain slots referencing unknown rotations")]
     DanglingRotation,
-    #[error("Rotation is used in the schedule")]
+    #[error("rotation is used in the schedule")]
     RotationInUse,
-    #[error("Rotation with this name already exists")]
+    #[error("rotation with this name already exists")]
     DuplicateRotationName,
-    #[error("Unknown rotation")]
+    #[error("unknown rotation")]
     UnknownRotation,
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum RotationError {
-    #[error("Rotation must not contain duplicate routines")]
+    #[error("rotation must not contain duplicate routines")]
     DuplicateRoutine,
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum WeekdayError {
-    #[error("Weekday must be in the range 1 to 7")]
+    #[error("weekday must be in the range 1 to 7")]
     OutOfRange,
 }
 
@@ -600,7 +600,7 @@ mod tests {
                 .validate_rotation_name("PPL", None)
                 .unwrap_err()
                 .to_string(),
-            "Entry with this name already exists"
+            "entry with this name already exists"
         );
         assert_eq!(
             schedule

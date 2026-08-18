@@ -90,19 +90,19 @@ pub fn Home() -> Element {
                 }
             })
         }
-        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
+        CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
     let routines_subtitle = match &*cache.routines.read() {
         CacheState::Ready(_) => None,
-        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
+        CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
     let exercises_subtitle = match &*cache.exercises.read() {
         CacheState::Ready(_) => None,
-        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
+        CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -112,7 +112,7 @@ pub fn Home() -> Element {
             .filter(|bw| bw.date <= today)
             .max_by(|a, b| a.date.cmp(&b.date))
             .map(|bw| rsx! { strong { "{bw.weight:.1} kg" } " ({last(bw.date)})" }),
-        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
+        CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -125,7 +125,7 @@ pub fn Home() -> Element {
                 bf.jp3(sex())
                     .map(|jp3| rsx! { strong { "{jp3:.1} %" } " ({last(bf.date)})" })
             }),
-        CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
+        CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
 
@@ -134,7 +134,7 @@ pub fn Home() -> Element {
             (CacheState::Ready(_), CacheState::Ready(_)) => latest_ffmi()
                 .map(|(date, value)| rsx! { strong { "{value:.1}" } " ({last(date)})" }),
             (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-                Some(rsx! { Error { "{err}" } })
+                Some(rsx! { Error { message: "{err}" } })
             }
             (CacheState::Loading, _) | (_, CacheState::Loading) => Some(rsx! { Loading {} }),
         }
@@ -148,7 +148,7 @@ pub fn Home() -> Element {
                 CacheState::Ready(period) => domain::current_cycle(&domain::cycles(period)).map(|current_cycle| rsx! {
                     strong { "{current_cycle.time_left.num_days()} (±{current_cycle.time_left_variation.num_days()}) days left" } " (day {(today - current_cycle.begin).num_days()})"
                 }),
-                CacheState::Error(err) => Some(rsx! { Error { "{err}" } }),
+                CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
                 CacheState::Loading => Some(rsx! { Loading {} }),
             }
         } else {

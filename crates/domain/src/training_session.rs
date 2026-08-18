@@ -43,11 +43,11 @@ pub trait TrainingSessionService {
                     Ok(parsed_date)
                 } else {
                     Err(ValidationError::Other(
-                        "Date must not be in the future".into(),
+                        "date must not be in the future".into(),
                     ))
                 }
             }
-            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+            Err(_) => Err(ValidationError::Other("invalid date".into())),
         }
     }
 

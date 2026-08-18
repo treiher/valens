@@ -118,7 +118,7 @@ pub enum StorageError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ValidationError {
-    #[error("Entry with this {0} already exists")]
+    #[error("entry with this {0} already exists")]
     Conflict(String),
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error>),

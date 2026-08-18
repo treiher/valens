@@ -474,10 +474,10 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             }
         }
         (CacheState::Ready(_), None, _) => rsx! {
-            ErrorPage { "Training session not found" }
+            ErrorPage { message: "Training session not found" }
         },
         (CacheState::Error(err), _, _) | (_, _, CacheState::Error(err)) => {
-            rsx! { ErrorPage { "{err}" } }
+            rsx! { ErrorPage { message: "{err}" } }
         }
         (CacheState::Loading, _, _) | (_, _, CacheState::Loading) => {
             rsx! { LoadingPage {} }

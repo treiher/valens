@@ -27,10 +27,10 @@ pub fn Catalog(name: String) -> Element {
                 }
             }
         } else {
-            rsx! { ErrorPage { "Exercise not found" } }
+            rsx! { ErrorPage { message: "Exercise not found" } }
         }
     } else {
-        rsx! { ErrorPage { "Exercise not found" } }
+        rsx! { ErrorPage { message: "Exercise not found" } }
     }
 }
 

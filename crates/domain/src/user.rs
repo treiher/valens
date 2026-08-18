@@ -48,7 +48,7 @@ pub trait UserService: Send + Sync + 'static {
         match height.trim().parse::<u8>() {
             Ok(parsed_height) if parsed_height > 0 => Ok(Some(parsed_height)),
             _ => Err(ValidationError::Other(
-                "Height must be a whole number between 1 and 255".into(),
+                "height must be a whole number between 1 and 255".into(),
             )),
         }
     }
@@ -240,11 +240,11 @@ mod tests {
     #[case("  ", Ok(None))]
     #[case("180", Ok(Some(180)))]
     #[case(" 175 ", Ok(Some(175)))]
-    #[case("0", Err("Height must be a whole number between 1 and 255"))]
-    #[case("-180", Err("Height must be a whole number between 1 and 255"))]
-    #[case("175.5", Err("Height must be a whole number between 1 and 255"))]
-    #[case("1000", Err("Height must be a whole number between 1 and 255"))]
-    #[case("abc", Err("Height must be a whole number between 1 and 255"))]
+    #[case("0", Err("height must be a whole number between 1 and 255"))]
+    #[case("-180", Err("height must be a whole number between 1 and 255"))]
+    #[case("175.5", Err("height must be a whole number between 1 and 255"))]
+    #[case("1000", Err("height must be a whole number between 1 and 255"))]
+    #[case("abc", Err("height must be a whole number between 1 and 255"))]
     fn test_validate_user_height(#[case] input: &str, #[case] expected: Result<Option<u8>, &str>) {
         assert_eq!(
             TestService

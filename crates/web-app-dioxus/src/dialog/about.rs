@@ -71,7 +71,7 @@ fn Log() -> Element {
                             }
                         },
                         Err(err) => rsx! {
-                            Error { "{err}" }
+                            Error { message: "{err}" }
                         },
                     }
                 }

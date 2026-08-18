@@ -57,9 +57,9 @@ impl Mul<Time> for Reps {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum RepsError {
-    #[error("Reps must be in the range 0 to 999")]
+    #[error("reps must be in the range 0 to 999")]
     OutOfRange,
-    #[error("Reps must be an integer")]
+    #[error("reps must be an integer")]
     ParseError,
 }
 
@@ -109,9 +109,9 @@ impl Mul<Reps> for Time {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum TimeError {
-    #[error("Time must be in the range 0 to 999 s")]
+    #[error("time must be in the range 0 to 999 s")]
     OutOfRange,
-    #[error("Time must be an integer")]
+    #[error("time must be an integer")]
     ParseError,
 }
 
@@ -166,11 +166,11 @@ impl TryFrom<&str> for Weight {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum WeightError {
-    #[error("Weight must be a multiple of 0.01 kg")]
+    #[error("weight must be a multiple of 0.01 kg")]
     InvalidResolution,
-    #[error("Weight must be in the range 0.0 to 999.99 kg")]
+    #[error("weight must be in the range 0.0 to 999.99 kg")]
     OutOfRange,
-    #[error("Weight must be a decimal")]
+    #[error("weight must be a decimal")]
     ParseError,
 }
 

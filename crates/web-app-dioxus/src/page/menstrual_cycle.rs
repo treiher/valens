@@ -76,7 +76,7 @@ pub fn MenstrualCycle(add: bool) -> Element {
             }
         }
         CacheState::Error(err) => rsx! {
-            ErrorPage { "{err}" }
+            ErrorPage { message: "{err}" }
         },
         CacheState::Loading => rsx! {
             LoadingPage {}

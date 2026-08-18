@@ -776,7 +776,7 @@ pub fn Chart(
                 }
             }
         }
-        Err(err) => rsx! { Error { "{err}" } },
+        Err(err) => rsx! { Error { message: "{err}" } },
     }
 }
 
@@ -1327,9 +1327,9 @@ fn parse_drop_percentage(input: &str) -> Result<f32, String> {
     let value: f32 = input
         .replace(',', ".")
         .parse()
-        .map_err(|_| "Drop must be a decimal".to_string())?;
+        .map_err(|_| "drop must be a decimal".to_string())?;
     if !value.is_finite() || value <= 0.0 || value >= 100.0 {
-        return Err("Drop must be greater than 0 and less than 100 %".to_string());
+        return Err("drop must be greater than 0 and less than 100 %".to_string());
     }
     Ok(value)
 }

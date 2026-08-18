@@ -18,7 +18,7 @@ use std::fmt::Display;
 use dioxus::prelude::*;
 use valens_domain::{Recoverable, Unreachable};
 
-use crate::ui::element::Color;
+use crate::ui::{capitalized, element::Color};
 
 static NOTIFICATIONS: GlobalSignal<Vec<Notification>> = Signal::global(Vec::new);
 static NEXT_ID: GlobalSignal<usize> = Signal::global(|| 0);
@@ -101,13 +101,6 @@ fn severity_for(recoverable: bool) -> Severity {
     } else {
         Severity::Error
     }
-}
-
-fn capitalized(text: &str) -> String {
-    let mut chars = text.chars();
-    chars.next().map_or_else(String::new, |first| {
-        first.to_uppercase().chain(chars).collect()
-    })
 }
 
 fn push(severity: Severity, action: impl Display, reason: impl Display) {

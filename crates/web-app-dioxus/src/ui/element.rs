@@ -3,6 +3,8 @@
 use dioxus::prelude::*;
 use strum::Display;
 
+use crate::ui::capitalized;
+
 #[allow(dead_code)]
 #[derive(Display, Clone, Copy, PartialEq)]
 pub enum Color {
@@ -157,15 +159,15 @@ pub fn ActivityBar(children: Element) -> Element {
 
 /// Compact inline error, framed by the surrounding content.
 #[component]
-pub fn Error(children: Element) -> Element {
+pub fn Error(message: String) -> Element {
     rsx! {
-        IconText { icon: "triangle-exclamation", color: Color::Danger, {children} }
+        IconText { icon: "triangle-exclamation", color: Color::Danger, {capitalized(&message)} }
     }
 }
 
 /// Boxed error panel that replaces the entire content of a page.
 #[component]
-pub fn ErrorPage(children: Element) -> Element {
+pub fn ErrorPage(message: String) -> Element {
     rsx! {
         div {
             class: "message is-danger mx-2",
@@ -173,7 +175,7 @@ pub fn ErrorPage(children: Element) -> Element {
                 class: "message-body has-text-dark",
                 div {
                     class: "title has-text-danger is-size-4",
-                    {children}
+                    {capitalized(&message)}
                 }
             }
         }
@@ -204,7 +206,7 @@ pub fn InfoPage(
 #[component]
 pub fn NotFound(element: String) -> Element {
     rsx! {
-        ErrorPage { "{element} not found" }
+        ErrorPage { message: "{element} not found" }
     }
 }
 

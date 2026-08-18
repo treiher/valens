@@ -708,9 +708,9 @@ impl TryFrom<&str> for Rounds {
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum RoundsError {
-    #[error("Rounds must be in the range 1 to 999")]
+    #[error("rounds must be in the range 1 to 999")]
     OutOfRange,
-    #[error("Rounds must be an integer")]
+    #[error("rounds must be an integer")]
     ParseError,
 }
 

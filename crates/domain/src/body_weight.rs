@@ -31,11 +31,11 @@ pub trait BodyWeightService {
                     }
                 } else {
                     Err(ValidationError::Other(
-                        "Date must not be in the future".into(),
+                        "date must not be in the future".into(),
                     ))
                 }
             }
-            Err(_) => Err(ValidationError::Other("Invalid date".into())),
+            Err(_) => Err(ValidationError::Other("invalid date".into())),
         }
     }
 
@@ -46,12 +46,12 @@ pub trait BodyWeightService {
                     Ok(parsed_weight)
                 } else {
                     Err(ValidationError::Other(
-                        "Weight must be a positive decimal number".into(),
+                        "weight must be a positive decimal number".into(),
                     ))
                 }
             }
             Err(_) => Err(ValidationError::Other(
-                "Weight must be a decimal number".into(),
+                "weight must be a decimal number".into(),
             )),
         }
     }

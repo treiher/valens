@@ -144,6 +144,16 @@ def test_login_invalid_username(page: Page) -> None:
     expect(login_page.error_message).to_have_text("User not found")
 
 
+def test_login_username_too_long(page: Page) -> None:
+    login_page = LoginPage(page)
+    login_page.goto()
+
+    login_page.submit_username("a" * 65)
+
+    # Error messages are written as fragments and capitalized where shown on their own
+    expect(login_page.error_message).to_have_text("Name must be 64 characters or fewer (65 > 64)")
+
+
 def test_login_error_reset_on_input(page: Page) -> None:
     login_page = LoginPage(page)
     login_page.goto()

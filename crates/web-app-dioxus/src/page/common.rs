@@ -97,6 +97,15 @@ pub fn Metronome() -> Element {
     }
 }
 
+/// How far ahead metronome beats are handed to the audio graph.
+///
+/// Must exceed the interval between two updates by a margin, so that a beat is always scheduled
+/// before it is due.
+const METRONOME_LOOKAHEAD: f64 = 0.5;
+
+/// Delay between starting the metronome and its first beat.
+const METRONOME_START_DELAY: f64 = 0.5;
+
 #[derive(Clone)]
 pub struct MetronomeService {
     interval: u32,
@@ -128,7 +137,7 @@ impl MetronomeService {
         self.is_active = true;
         if let Some(now) = audio_context_time() {
             self.beat_number = 0;
-            self.next_beat_time = now + 0.5;
+            self.next_beat_time = now + METRONOME_START_DELAY;
         }
     }
 
@@ -157,29 +166,51 @@ impl MetronomeService {
     }
 
     pub fn update(&mut self) {
-        if !self.is_active() {
+        // The loop below would never terminate at an interval of zero.
+        if !self.is_active() || self.interval == 0 {
             return;
         }
 
-        if let Some(now) = audio_context_time() {
-            while self.next_beat_time < now + 0.5 {
-                if let Err(err) = play_beep(
-                    if self.beat_number.is_multiple_of(self.stressed_beat) {
-                        1000.
-                    } else {
-                        500.
-                    },
-                    self.next_beat_time,
-                    0.05,
-                    self.beep_volume,
-                ) {
-                    warn!("failed to play beep: {err:?}");
-                }
-                self.next_beat_time += f64::from(self.interval);
-                self.beat_number += 1;
+        let Some(now) = audio_context_time() else {
+            return;
+        };
+        (self.next_beat_time, self.beat_number) =
+            resync(self.next_beat_time, now, self.interval, self.beat_number);
+        while self.next_beat_time < now + METRONOME_LOOKAHEAD {
+            if let Err(err) = play_beep(
+                if self.beat_number.is_multiple_of(self.stressed_beat) {
+                    1000.
+                } else {
+                    500.
+                },
+                self.next_beat_time,
+                0.05,
+                self.beep_volume,
+            ) {
+                warn!("failed to play beep: {err:?}");
             }
+            self.next_beat_time += f64::from(self.interval);
+            self.beat_number += 1;
         }
     }
+}
+
+/// Skips the beats missed while the main thread was stalled.
+///
+/// Returns the next beat at or after `now` and the number of the beat sounding then, so that the
+/// stress pattern is preserved.
+fn resync(next_beat_time: f64, now: f64, interval: u32, beat_number: u32) -> (f64, u32) {
+    if next_beat_time >= now || interval == 0 {
+        return (next_beat_time, beat_number);
+    }
+    let interval = f64::from(interval);
+    let missed_beats = ((now - next_beat_time) / interval).ceil();
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let missed_beat_count = missed_beats.min(f64::from(u32::MAX)) as u32;
+    (
+        next_beat_time + missed_beats * interval,
+        beat_number.saturating_add(missed_beat_count),
+    )
 }
 
 #[component]
@@ -1443,7 +1474,17 @@ fn decimal_places(increment: f32) -> usize {
 mod tests {
     use chrono::NaiveDate;
 
-    use super::{decimal_places, format_value, nearest_mark, parse_drop_percentage};
+    use super::{decimal_places, format_value, nearest_mark, parse_drop_percentage, resync};
+
+    #[test]
+    fn resync_skips_missed_beats() {
+        assert_eq!(resync(10., 25.5, 2, 3), (26., 11));
+    }
+
+    #[test]
+    fn resync_keeps_upcoming_beat() {
+        assert_eq!(resync(10., 9.5, 2, 3), (10., 3));
+    }
 
     fn date(day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 1, day).unwrap()

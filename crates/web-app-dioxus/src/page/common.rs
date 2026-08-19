@@ -491,24 +491,55 @@ impl From<TimerService> for web_app::TimerState {
     }
 }
 
+/// Duration of the fade at each edge of a beep.
+const BEEP_RAMP: f64 = 0.005;
+
+/// Schedules a beep and returns its oscillator, or nothing if the beep would already be over.
 fn play_beep(
     frequency: f32,
     start: f64,
     length: f64,
     volume: u8,
-) -> Result<(), web_sys::wasm_bindgen::JsValue> {
+) -> Result<Option<web_sys::OscillatorNode>, web_sys::wasm_bindgen::JsValue> {
     with_audio_context(|audio_context| {
+        let now = audio_context.current_time();
+        if start + length <= now {
+            return Ok(None);
+        }
+        let start = start.max(now);
+        let end = start + length;
+        // The ramps soften the edges that would otherwise click, and may not invert for a short
+        // beep.
+        let attack_end = (start + BEEP_RAMP).min(end);
+        let release_start = (end - BEEP_RAMP).max(attack_end);
+        let peak = f32::from(volume) / 100.;
+
         let oscillator = audio_context.create_oscillator()?;
         let gain = audio_context.create_gain()?;
-        gain.gain().set_value(f32::from(volume) / 100.);
+        gain.gain().set_value_at_time(0., start)?;
+        gain.gain().linear_ramp_to_value_at_time(peak, attack_end)?;
+        gain.gain().set_value_at_time(peak, release_start)?;
+        gain.gain().linear_ramp_to_value_at_time(0., end)?;
         gain.connect_with_audio_node(&audio_context.destination())?;
         oscillator.connect_with_audio_node(&gain)?;
         oscillator.frequency().set_value(frequency);
         oscillator.start_with_when(start)?;
-        oscillator.stop_with_when(start + length)?;
-        Ok(())
+        oscillator.stop_with_when(end)?;
+
+        let played_oscillator = oscillator.clone();
+        let disconnect = Closure::once_into_js(move |_: web_sys::Event| {
+            if let Err(err) = played_oscillator
+                .disconnect()
+                .and_then(|()| gain.disconnect())
+            {
+                warn!("failed to disconnect beep: {err:?}");
+            }
+        });
+        oscillator.set_onended(Some(disconnect.unchecked_ref()));
+
+        Ok(Some(oscillator))
     })
-    .unwrap_or(Ok(()))
+    .unwrap_or(Ok(None))
 }
 
 thread_local! {

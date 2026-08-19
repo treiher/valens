@@ -60,6 +60,7 @@ pub fn Navbar() -> Element {
         while interval.next().await.is_some() {
             METRONOME.write().update();
             stopwatch.write().update();
+            timer.peek().sync();
             timer.write().update();
         }
     });

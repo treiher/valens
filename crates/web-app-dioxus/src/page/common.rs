@@ -1,8 +1,9 @@
 //! Shared, domain-aware UI components used across multiple pages.
 
 use std::{
-    cell::{Cell, OnceCell},
+    cell::{Cell, OnceCell, RefCell},
     collections::BTreeMap,
+    rc::Rc,
 };
 
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc, Weekday};
@@ -290,6 +291,7 @@ pub fn Timer(timer: Store<TimerService>) -> Element {
         let mut interval = IntervalStream::new(1000);
         loop {
             interval.next().await;
+            timer.peek().sync();
             timer.write().update();
         }
     });
@@ -348,12 +350,28 @@ pub fn MutableTimer(timer: Signal<TimerService>) -> Element {
     }
 }
 
+/// How far ahead timer beeps are handed to the audio graph.
+///
+/// A beep inside the window survives a main thread stall of any length, but a suspended audio
+/// context pins it, so that it fires on resumption rather than at its wall-clock moment. The
+/// window is therefore also the upper bound on such a burst.
+const SCHEDULE_LOOKAHEAD: f64 = 15.;
+
+/// Time by which the rounded countdown display reaches zero before the countdown expires.
+const DISPLAY_ROUNDING: f64 = 0.5;
+
+/// Deviation between the audio clock and the wall clock above which the schedule is anchored anew.
+///
+/// Nothing corrects a smaller deviation, so this is also the accuracy of a beep.
+const DRIFT_THRESHOLD: f64 = 0.15;
+
 #[derive(Clone)]
 pub struct TimerService {
     reset_seconds: i64,
     remaining_seconds: i64,
     target_time: Option<DateTime<Utc>>,
-    beep_time: f64,
+    // Shared between clones so that a stale clone cannot cancel the beeps of the live instance.
+    schedule: Rc<RefCell<Schedule>>,
     beep_volume: u8,
 }
 
@@ -379,10 +397,12 @@ impl TimerService {
     pub fn start(&mut self) {
         resume_audio_context();
         self.target_time = Some(Utc::now() + Duration::seconds(self.remaining_seconds));
+        self.reschedule();
     }
 
     pub fn pause(&mut self) {
         self.target_time = None;
+        self.clear_schedule();
     }
 
     pub fn start_pause(&mut self) {
@@ -399,13 +419,14 @@ impl TimerService {
         self.remaining_seconds = seconds;
         if self.target_time.is_some() {
             self.target_time = Some(Utc::now() + Duration::seconds(seconds));
+            self.reschedule();
         }
     }
 
     pub fn unset(&mut self) {
         self.reset_seconds = i64::MAX;
         self.target_time = None;
-        self.beep_time = 0.;
+        self.clear_schedule();
     }
 
     pub fn reset(&mut self) {
@@ -424,53 +445,60 @@ impl TimerService {
                 .num_milliseconds() as f64
                 / 1000.)
                 .round() as i64;
-            if let Some(now) = audio_context_time() {
-                // Only schedule beeps once per second
-                if self.beep_time < now - 0.98 {
-                    if remaining_seconds == 10 {
-                        if let Err(err) = play_beep(
-                            2000.,
-                            {
-                                self.beep_time = now + 0.01;
-                                self.beep_time
-                            },
-                            0.1,
-                            self.beep_volume,
-                        ) {
-                            warn!("failed to play beep: {err:?}");
-                        }
-                        if let Err(err) = play_beep(
-                            2000.,
-                            {
-                                self.beep_time = now + 0.18;
-                                self.beep_time
-                            },
-                            0.1,
-                            self.beep_volume,
-                        ) {
-                            warn!("failed to play beep: {err:?}");
-                        }
-                    }
-                    if (0..=2).contains(&remaining_seconds)
-                        && let Err(err) = play_beep(
-                            2000.,
-                            if remaining_seconds == 2 {
-                                self.beep_time = now + 0.01;
-                                self.beep_time
-                            } else {
-                                self.beep_time += 1.;
-                                self.beep_time
-                            },
-                            if remaining_seconds == 0 { 0.5 } else { 0.15 },
-                            self.beep_volume,
-                        )
-                    {
-                        warn!("failed to play beep: {err:?}");
-                    }
-                }
-            }
             self.remaining_seconds = remaining_seconds;
         }
+    }
+
+    /// Keeps the scheduled beeps in step with the countdown.
+    ///
+    /// Extends the lookahead window by the beeps that entered it since the last call. A deviation
+    /// between the audio clock and the wall clock beyond `DRIFT_THRESHOLD` means the audio context
+    /// was suspended or the countdown was changed, so the schedule is anchored anew.
+    pub fn sync(&self) {
+        // Building nodes against the frozen clock of a suspended context would schedule beeps that
+        // never fire and are therefore never reclaimed.
+        if !audio_context_is_running() {
+            return;
+        }
+        let (Some(now), Some(target_time)) = (audio_context_time(), self.target_time) else {
+            return;
+        };
+        #[allow(clippy::cast_precision_loss)]
+        let remaining_seconds = target_time
+            .signed_duration_since(Utc::now())
+            .num_milliseconds() as f64
+            / 1000.;
+        let expiry = now + remaining_seconds;
+        let mut schedule = self.schedule.borrow_mut();
+        if !matches!(schedule.expiry, Some(scheduled) if (scheduled - expiry).abs() <= DRIFT_THRESHOLD)
+        {
+            schedule.anchor(now, remaining_seconds);
+        }
+        schedule.extend(now, self.beep_volume);
+    }
+
+    fn reschedule(&self) {
+        let Some(now) = audio_context_time() else {
+            return;
+        };
+        #[allow(clippy::cast_precision_loss)]
+        let remaining_seconds = self.remaining_seconds as f64;
+        let mut schedule = self.schedule.borrow_mut();
+        schedule.anchor(now, remaining_seconds);
+        // Anchoring a countdown restored outside a user gesture must happen even though no node can
+        // be built yet, so that the first tick with a running context schedules the whole window.
+        if audio_context_is_running() {
+            schedule.extend(now, self.beep_volume);
+        }
+    }
+
+    fn clear_schedule(&self) {
+        let Some(now) = audio_context_time() else {
+            return;
+        };
+        let mut schedule = self.schedule.borrow_mut();
+        schedule.cancel_pending(now);
+        schedule.expiry = None;
     }
 }
 
@@ -480,7 +508,7 @@ impl Default for TimerService {
             reset_seconds: i64::MAX,
             remaining_seconds: i64::MAX,
             target_time: None,
-            beep_time: 0.,
+            schedule: Rc::default(),
             beep_volume: 100,
         }
     }
@@ -520,6 +548,152 @@ impl From<TimerService> for web_app::TimerState {
             web_app::TimerState::Unset
         }
     }
+}
+
+/// Beeps handed to the audio graph ahead of time, and the moment the countdown they belong to
+/// expires, in audio-clock terms.
+#[derive(Default)]
+struct Schedule {
+    expiry: Option<f64>,
+    scheduled_until: f64,
+    pending: Vec<(f64, web_sys::OscillatorNode)>,
+}
+
+impl Schedule {
+    fn anchor(&mut self, now: f64, remaining_seconds: f64) {
+        self.cancel_pending(now);
+        self.expiry = if remaining_seconds > 0. {
+            Some(now + remaining_seconds)
+        } else {
+            None
+        };
+        self.scheduled_until = now;
+    }
+
+    /// Hands the audio graph the beeps starting within the lookahead window and not yet scheduled.
+    fn extend(&mut self, now: f64, volume: u8) {
+        let Some(expiry) = self.expiry else {
+            return;
+        };
+        let from = self.scheduled_until.max(now);
+        let to = now + SCHEDULE_LOOKAHEAD;
+        if to <= from {
+            return;
+        }
+        for beep in scheduled_beeps(expiry, from, to) {
+            match play_beep(beep.frequency, beep.start, beep.length, volume) {
+                Ok(Some(oscillator)) => self.pending.push((beep.start, oscillator)),
+                Ok(None) => {}
+                Err(err) => warn!("failed to play beep: {err:?}"),
+            }
+        }
+        self.scheduled_until = to;
+    }
+
+    /// Stops the beeps that have not started yet and forgets all of them.
+    ///
+    /// A beep already sounding is left to finish, since stopping it would cut it mid-envelope. The
+    /// beeps of a countdown that has reached zero are kept as well, so that the final beep sounds
+    /// even when the countdown is replaced at that moment.
+    fn cancel_pending(&mut self, now: f64) {
+        let completed = matches!(self.expiry, Some(expiry) if now >= expiry - DISPLAY_ROUNDING);
+        for (start, oscillator) in self.pending.drain(..) {
+            if !completed
+                && start > now
+                && let Err(err) = oscillator.stop()
+            {
+                warn!("failed to stop beep: {err:?}");
+            }
+        }
+    }
+}
+
+impl Drop for Schedule {
+    fn drop(&mut self) {
+        for (_, oscillator) in &self.pending {
+            let _ = oscillator.stop();
+        }
+    }
+}
+
+/// A beep of a countdown, as part of the cue starting at `remaining`.
+struct Beep {
+    remaining: f64,
+    offset: f64,
+    frequency: f32,
+    length: f64,
+}
+
+struct ScheduledBeep {
+    start: f64,
+    frequency: f32,
+    length: f64,
+}
+
+/// The beeps of a countdown, by the remaining time at which their cue starts.
+///
+/// The cue at ten seconds consists of two beeps, so that it is not mistaken for the single beep at
+/// two seconds.
+fn beeps() -> [Beep; 5] {
+    [
+        Beep {
+            remaining: 10.,
+            offset: 0.,
+            frequency: 2000.,
+            length: 0.1,
+        },
+        Beep {
+            remaining: 10.,
+            offset: 0.18,
+            frequency: 2000.,
+            length: 0.1,
+        },
+        Beep {
+            remaining: 2.,
+            offset: 0.,
+            frequency: 2000.,
+            length: 0.15,
+        },
+        Beep {
+            remaining: 1.,
+            offset: 0.,
+            frequency: 2000.,
+            length: 0.15,
+        },
+        Beep {
+            remaining: 0.,
+            offset: 0.,
+            frequency: 2000.,
+            length: 0.5,
+        },
+    ]
+}
+
+/// Tolerance of the window bounds against floating-point error.
+///
+/// `expiry` is obtained by adding the remaining time to the current time, so subtracting it again
+/// need not reproduce the current time exactly. Without the tolerance, the cue at the very moment
+/// a countdown starts could land just inside the window and beep at once.
+const SCHEDULE_TOLERANCE: f64 = 1e-6;
+
+/// Beeps of a countdown expiring at `expiry` whose cue starts in `(from, to]`, in audio-clock
+/// terms.
+///
+/// The exclusive lower bound is what lets consecutive windows partition the beeps of a countdown.
+/// A cue is scheduled as a whole, so that none of its beeps sounds on its own.
+fn scheduled_beeps(expiry: f64, from: f64, to: f64) -> Vec<ScheduledBeep> {
+    beeps()
+        .into_iter()
+        .filter(|beep| {
+            let cue = expiry - beep.remaining;
+            cue > from + SCHEDULE_TOLERANCE && cue <= to + SCHEDULE_TOLERANCE
+        })
+        .map(|beep| ScheduledBeep {
+            start: expiry - beep.remaining + beep.offset,
+            frequency: beep.frequency,
+            length: beep.length,
+        })
+        .collect()
 }
 
 /// Duration of the fade at each edge of a beep.
@@ -580,6 +754,11 @@ thread_local! {
 
 fn audio_context_time() -> Option<f64> {
     with_audio_context(web_sys::AudioContext::current_time)
+}
+
+fn audio_context_is_running() -> bool {
+    with_audio_context(|audio_context| audio_context.state() == web_sys::AudioContextState::Running)
+        .unwrap_or(false)
 }
 
 fn resume_audio_context() {
@@ -1474,7 +1653,77 @@ fn decimal_places(increment: f32) -> usize {
 mod tests {
     use chrono::NaiveDate;
 
-    use super::{decimal_places, format_value, nearest_mark, parse_drop_percentage, resync};
+    use assert_approx_eq::assert_approx_eq;
+
+    use super::{
+        SCHEDULE_LOOKAHEAD, decimal_places, format_value, nearest_mark, parse_drop_percentage,
+        resync, scheduled_beeps,
+    };
+
+    fn beep_starts(expiry: f64, from: f64, to: f64) -> Vec<f64> {
+        scheduled_beeps(expiry, from, to)
+            .into_iter()
+            .map(|beep| beep.start)
+            .collect()
+    }
+
+    #[test]
+    fn scheduled_beeps_are_ordered_and_relative_to_expiry() {
+        let starts = beep_starts(100., 0., 100.);
+        assert_eq!(starts.len(), 5);
+        for (start, expected) in starts.iter().zip([90., 90.18, 98., 99., 100.]) {
+            assert_approx_eq!(start, expected, 1e-9);
+        }
+        assert!(starts.windows(2).all(|pair| pair[0] < pair[1]));
+    }
+
+    #[test]
+    fn scheduled_beeps_omits_passed_moments() {
+        let starts = beep_starts(5., 0., 5.);
+        assert_eq!(starts.len(), 3);
+        assert_approx_eq!(starts[0], 3., 1e-9);
+        assert!(beep_starts(0., 0., SCHEDULE_LOOKAHEAD).is_empty());
+    }
+
+    #[test]
+    fn scheduled_beeps_stays_within_window() {
+        assert!(beep_starts(90., 0., SCHEDULE_LOOKAHEAD).is_empty());
+    }
+
+    #[test]
+    fn scheduled_beeps_excludes_lower_and_includes_upper_bound() {
+        assert!(beep_starts(100., 90., 90.1).is_empty());
+        assert_eq!(beep_starts(100., 89.9, 90.).len(), 2);
+    }
+
+    #[test]
+    fn scheduled_beeps_omits_a_cue_starting_with_the_countdown() {
+        let start_time = 1234.5678;
+        let starts = beep_starts(
+            start_time + 10.,
+            start_time,
+            start_time + SCHEDULE_LOOKAHEAD,
+        );
+        assert_eq!(starts.len(), 3);
+        assert_approx_eq!(starts[0], start_time + 8., 1e-9);
+    }
+
+    #[test]
+    fn consecutive_windows_partition_beeps() {
+        let expiry = 100.;
+        let mut scheduled_until: f64 = 0.;
+        let mut starts = vec![];
+        for tick in 0..=1010 {
+            let now = f64::from(tick) / 10.;
+            let from = scheduled_until.max(now);
+            let to = now + SCHEDULE_LOOKAHEAD;
+            if to > from {
+                starts.extend(beep_starts(expiry, from, to));
+                scheduled_until = to;
+            }
+        }
+        assert_eq!(starts.len(), 5);
+    }
 
     #[test]
     fn resync_skips_missed_beats() {

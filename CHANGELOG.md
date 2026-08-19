@@ -111,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sign-out being aborted instead of completed when the data on the device could not be removed
 - Sign-in and sign-out being undone by requests of the previous session that were still in progress
 - Incorrect background color in calendars
+- Missing and distorted beeps of the timer
 - Distorted beeps of the metronome
 - Repetition of metronome beeps after the app was in the background
 - Settings not being accessible in browsers without support for notifications

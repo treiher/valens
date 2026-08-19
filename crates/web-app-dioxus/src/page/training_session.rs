@@ -21,7 +21,7 @@ use crate::{
     ongoing_training_session::OngoingTrainingSession,
     page::{
         self,
-        common::{OneRepMaxCalculatorState, SetsPerMuscle, Timer, TimerService},
+        common::{OneRepMaxCalculatorState, SetsPerMuscle, TICK_INTERVAL_MS, Timer, TimerService},
     },
     settings::Settings,
     ui::{
@@ -171,6 +171,18 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             .timer_service()
             .write()
             .set_beep_volume(settings.beep_volume());
+    });
+
+    use_coroutine(move |_: UnboundedReceiver<()>| async move {
+        let mut interval = IntervalStream::new(TICK_INTERVAL_MS);
+        while interval.next().await.is_some() {
+            let mut timer = progress.timer_service();
+            timer.peek().sync();
+            // Writing on every tick would re-run the effects reading the timer ten times a second.
+            if timer.peek().needs_update() {
+                timer.write().update();
+            }
+        }
     });
 
     let mut field_values = use_signal(HashMap::new);

@@ -16,7 +16,7 @@ use crate::{
     ongoing_training_session::OngoingTrainingSession,
     page::common::{
         DropSetCalculator, Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch,
-        StopwatchService, TimerService,
+        StopwatchService, TICK_INTERVAL_MS, TimerService,
     },
     session::{Session, sign_out},
     settings::Settings,
@@ -56,12 +56,19 @@ pub fn Navbar() -> Element {
         timer.write().set_beep_volume(settings.beep_volume());
     });
     use_coroutine(move |_: UnboundedReceiver<()>| async move {
-        let mut interval = IntervalStream::new(100);
+        let mut interval = IntervalStream::new(TICK_INTERVAL_MS);
         while interval.next().await.is_some() {
-            METRONOME.write().update();
-            stopwatch.write().update();
+            // Writing on every tick would re-render the navigation bar ten times a second.
+            if METRONOME.peek().is_active() {
+                METRONOME.write().update();
+            }
+            if stopwatch.peek().is_active() {
+                stopwatch.write().update();
+            }
             timer.peek().sync();
-            timer.write().update();
+            if timer.peek().needs_update() {
+                timer.write().update();
+            }
         }
     });
 

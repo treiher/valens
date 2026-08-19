@@ -8,8 +8,6 @@ use std::{
 
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc, Weekday};
 use dioxus::prelude::*;
-use futures_util::StreamExt;
-use gloo_timers::future::IntervalStream;
 use log::{error, warn};
 use web_sys::{
     self,
@@ -98,10 +96,12 @@ pub fn Metronome() -> Element {
     }
 }
 
+/// Interval at which the timer, the stopwatch and the metronome are advanced.
+pub const TICK_INTERVAL_MS: u32 = 100;
+
 /// How far ahead metronome beats are handed to the audio graph.
 ///
-/// Must exceed the interval between two updates by a margin, so that a beat is always scheduled
-/// before it is due.
+/// Must exceed `TICK_INTERVAL_MS` by a margin, so that a beat is always scheduled before it is due.
 const METRONOME_LOOKAHEAD: f64 = 0.5;
 
 /// Delay between starting the metronome and its first beat.
@@ -287,15 +287,6 @@ impl StopwatchService {
 
 #[component]
 pub fn Timer(timer: Store<TimerService>) -> Element {
-    use_coroutine(move |_: UnboundedReceiver<()>| async move {
-        let mut interval = IntervalStream::new(1000);
-        loop {
-            interval.next().await;
-            timer.peek().sync();
-            timer.write().update();
-        }
-    });
-
     rsx! {
         div {
             class: if timer.read().is_active() { "" } else { "is-blinking" },
@@ -438,13 +429,7 @@ impl TimerService {
     }
 
     pub fn update(&mut self) {
-        if let Some(target_time) = self.target_time {
-            #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-            let remaining_seconds = (target_time
-                .signed_duration_since(Utc::now())
-                .num_milliseconds() as f64
-                / 1000.)
-                .round() as i64;
+        if let Some(remaining_seconds) = self.remaining() {
             self.remaining_seconds = remaining_seconds;
         }
     }
@@ -475,6 +460,23 @@ impl TimerService {
             schedule.anchor(now, remaining_seconds);
         }
         schedule.extend(now, self.beep_volume);
+    }
+
+    /// Whether the remaining time has moved on to a different second.
+    pub fn needs_update(&self) -> bool {
+        matches!(self.remaining(), Some(seconds) if seconds != self.remaining_seconds)
+    }
+
+    fn remaining(&self) -> Option<i64> {
+        self.target_time.map(|target_time| {
+            #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
+            let remaining_seconds = (target_time
+                .signed_duration_since(Utc::now())
+                .num_milliseconds() as f64
+                / 1000.)
+                .round() as i64;
+            remaining_seconds
+        })
     }
 
     fn reschedule(&self) {

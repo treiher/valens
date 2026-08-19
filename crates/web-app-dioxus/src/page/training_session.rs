@@ -87,7 +87,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         edit.set(false);
         owns_progress.set(false);
         progress.write().set_element_idx(element_count);
-        progress.timer_service().write().unset();
         spawn(async move {
             ongoing.clear().await;
         });
@@ -275,7 +274,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                         if progress.timer_service().read().is_set() {
                             if progress.timer_service().read().seconds() <= 0 {
                                 progress.write().set_element_idx(element_idx + 1);
-                                progress.timer_service().write().unset();
                                 if let Some(set_field_values) =
                                     field_values.write().get_mut(&element_idx)
                                 {
@@ -306,7 +304,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                         if progress.timer_service().read().is_set() {
                             if *automatic && progress.timer_service().read().seconds() <= 0 {
                                 progress.write().set_element_idx(element_idx + 1);
-                                progress.timer_service().write().unset();
                             }
                         } else {
                             progress.timer_service().write().set(i64::from(target_time));
@@ -804,7 +801,6 @@ fn view_form(
                                                         }
                                                         focus.take_ownership();
                                                         progress.write().set_element_idx(element_idx);
-                                                        progress.timer_service().write().unset();
                                                     },
                                                     "{target_time} s"
                                                 }
@@ -821,7 +817,6 @@ fn view_form(
                                             onclick: eh!(mut training_session; target_time; {
                                                 if focus.is_focused(element_idx) {
                                                     progress.write().set_element_idx(element_idx + 1);
-                                                    progress.timer_service().write().unset();
                                                     if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
                                                         set_field_values.time.validated = Ok(target_time);
                                                     }
@@ -832,7 +827,6 @@ fn view_form(
                                                 } else {
                                                     focus.take_ownership();
                                                     progress.write().set_element_idx(element_idx);
-                                                    progress.timer_service().write().unset();
                                                 }
                                             }),
                                             Icon { name: if focus.is_focused(element_idx) { "check" } else { "angles-left" } }
@@ -979,7 +973,6 @@ fn view_form(
                                                     progress.write().set_element_idx(element_idx);
                                                 } else {
                                                     progress.write().set_element_idx(element_idx + 1);
-                                                    progress.timer_service().write().unset();
                                                     modify_training_session_elements(&mut training_session, field_values);
                                                     spawn(async move {
                                                         save(training_session.clone(), cache, || {}).await;
@@ -1024,7 +1017,6 @@ fn view_form(
                                         class: "button is-small",
                                         onclick: move |_| {
                                             progress.write().set_element_idx(element_idx + 1);
-                                            progress.timer_service().write().unset();
                                         },
                                         Icon { name: "check" }
                                     }
@@ -1042,7 +1034,6 @@ fn view_form(
                                             }
                                             focus.take_ownership();
                                             progress.write().set_element_idx(element_idx);
-                                            progress.timer_service().write().unset();
                                         },
                                         if let Some(target_time) = target_time.non_zero() {
                                             "{target_time} s"
@@ -1822,6 +1813,7 @@ impl Progress {
         }
         self.element_idx = element_idx;
         self.element_start_time = chrono::Utc::now();
+        self.timer_service.unset();
     }
 
     fn reset(&mut self) {

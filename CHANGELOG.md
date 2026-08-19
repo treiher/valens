@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 1RM calculator accessible from the navigation menu
 - Drop set calculator accessible from the navigation menu
 - Activity bar at the bottom of the screen for returning to an in-progress training session, shown on every page except the matching training session page
+- Prevention of the screen turning off while a timer is running
 - Home page:
     - Most recent FFMI
     - Planned routines for the current day with buttons to start the corresponding training sessions

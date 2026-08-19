@@ -25,6 +25,7 @@ use crate::{
         element::{Dialog, Error, Icon, NoData, TagsWithAddon},
         form::{FieldValue, InputField, SelectField, SelectOption},
     },
+    wake_lock::{self, WakeLock},
 };
 
 #[component]
@@ -351,6 +352,9 @@ const SCHEDULE_LOOKAHEAD: f64 = 15.;
 /// Time by which the rounded countdown display reaches zero before the countdown expires.
 const DISPLAY_ROUNDING: f64 = 0.5;
 
+/// How long the screen is kept on after a countdown has reached zero.
+const WAKE_LOCK_GRACE_PERIOD: i64 = 60;
+
 /// Deviation between the audio clock and the wall clock above which the schedule is anchored anew.
 ///
 /// Nothing corrects a smaller deviation, so this is also the accuracy of a beep.
@@ -363,6 +367,7 @@ pub struct TimerService {
     target_time: Option<DateTime<Utc>>,
     // Shared between clones so that a stale clone cannot cancel the beeps of the live instance.
     schedule: Rc<RefCell<Schedule>>,
+    wake_lock: Option<Rc<WakeLock>>,
     beep_volume: u8,
 }
 
@@ -388,11 +393,13 @@ impl TimerService {
     pub fn start(&mut self) {
         resume_audio_context();
         self.target_time = Some(Utc::now() + Duration::seconds(self.remaining_seconds));
+        self.wake_lock = Some(wake_lock::hold());
         self.reschedule();
     }
 
     pub fn pause(&mut self) {
         self.target_time = None;
+        self.wake_lock = None;
         self.clear_schedule();
     }
 
@@ -410,6 +417,7 @@ impl TimerService {
         self.remaining_seconds = seconds;
         if self.target_time.is_some() {
             self.target_time = Some(Utc::now() + Duration::seconds(seconds));
+            self.wake_lock = Some(wake_lock::hold());
             self.reschedule();
         }
     }
@@ -417,6 +425,7 @@ impl TimerService {
     pub fn unset(&mut self) {
         self.reset_seconds = i64::MAX;
         self.target_time = None;
+        self.wake_lock = None;
         self.clear_schedule();
     }
 
@@ -431,6 +440,11 @@ impl TimerService {
     pub fn update(&mut self) {
         if let Some(remaining_seconds) = self.remaining() {
             self.remaining_seconds = remaining_seconds;
+            // The countdown keeps running past zero, but the screen is only kept on for as long
+            // as the elapsed time is likely to be read off it.
+            if remaining_seconds <= -WAKE_LOCK_GRACE_PERIOD {
+                self.wake_lock = None;
+            }
         }
     }
 
@@ -511,6 +525,7 @@ impl Default for TimerService {
             remaining_seconds: i64::MAX,
             target_time: None,
             schedule: Rc::default(),
+            wake_lock: None,
             beep_volume: 100,
         }
     }

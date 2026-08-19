@@ -34,6 +34,7 @@ mod synchronization;
 mod ui;
 mod unsaved_changes;
 mod update;
+mod wake_lock;
 
 static DOMAIN_SERVICE: GlobalSignal<
     domain::Service<storage::cached_rest::CachedREST<storage::rest::GlooNetSendRequest>>,

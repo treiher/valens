@@ -1,6 +1,9 @@
 //! Shared, domain-aware UI components used across multiple pages.
 
-use std::collections::BTreeMap;
+use std::{
+    cell::{Cell, OnceCell},
+    collections::BTreeMap,
+};
 
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc, Weekday};
 use dioxus::prelude::*;
@@ -101,7 +104,6 @@ pub struct MetronomeService {
     beat_number: u32,
     next_beat_time: f64,
     is_active: bool,
-    audio_context: Option<web_sys::AudioContext>,
     beep_volume: u8,
 }
 
@@ -113,13 +115,6 @@ impl MetronomeService {
             beat_number: 0,
             next_beat_time: 0.,
             is_active: false,
-            audio_context: match web_sys::AudioContext::new() {
-                Ok(audio_context) => Some(audio_context),
-                Err(err) => {
-                    warn!("failed to create audio context: {err:?}");
-                    None
-                }
-            },
             beep_volume: 100,
         }
     }
@@ -129,11 +124,11 @@ impl MetronomeService {
     }
 
     pub fn start(&mut self) {
-        resume_audio_context(self.audio_context.as_ref());
+        resume_audio_context();
         self.is_active = true;
-        if let Some(audio_context) = &self.audio_context {
+        if let Some(now) = audio_context_time() {
             self.beat_number = 0;
-            self.next_beat_time = audio_context.current_time() + 0.5;
+            self.next_beat_time = now + 0.5;
         }
     }
 
@@ -166,10 +161,9 @@ impl MetronomeService {
             return;
         }
 
-        if let Some(audio_context) = &self.audio_context {
-            while self.next_beat_time < audio_context.current_time() + 0.5 {
+        if let Some(now) = audio_context_time() {
+            while self.next_beat_time < now + 0.5 {
                 if let Err(err) = play_beep(
-                    audio_context,
                     if self.beat_number.is_multiple_of(self.stressed_beat) {
                         1000.
                     } else {
@@ -328,7 +322,6 @@ pub struct TimerService {
     reset_seconds: i64,
     remaining_seconds: i64,
     target_time: Option<DateTime<Utc>>,
-    audio_context: Option<web_sys::AudioContext>,
     beep_time: f64,
     beep_volume: u8,
 }
@@ -353,7 +346,7 @@ impl TimerService {
     }
 
     pub fn start(&mut self) {
-        resume_audio_context(self.audio_context.as_ref());
+        resume_audio_context();
         self.target_time = Some(Utc::now() + Duration::seconds(self.remaining_seconds));
     }
 
@@ -370,7 +363,7 @@ impl TimerService {
     }
 
     pub fn set(&mut self, seconds: i64) {
-        resume_audio_context(self.audio_context.as_ref());
+        resume_audio_context();
         self.reset_seconds = seconds;
         self.remaining_seconds = seconds;
         if self.target_time.is_some() {
@@ -400,15 +393,14 @@ impl TimerService {
                 .num_milliseconds() as f64
                 / 1000.)
                 .round() as i64;
-            if let Some(audio_context) = &self.audio_context {
+            if let Some(now) = audio_context_time() {
                 // Only schedule beeps once per second
-                if self.beep_time < audio_context.current_time() - 0.98 {
+                if self.beep_time < now - 0.98 {
                     if remaining_seconds == 10 {
                         if let Err(err) = play_beep(
-                            audio_context,
                             2000.,
                             {
-                                self.beep_time = audio_context.current_time() + 0.01;
+                                self.beep_time = now + 0.01;
                                 self.beep_time
                             },
                             0.1,
@@ -417,10 +409,9 @@ impl TimerService {
                             warn!("failed to play beep: {err:?}");
                         }
                         if let Err(err) = play_beep(
-                            audio_context,
                             2000.,
                             {
-                                self.beep_time = audio_context.current_time() + 0.18;
+                                self.beep_time = now + 0.18;
                                 self.beep_time
                             },
                             0.1,
@@ -431,10 +422,9 @@ impl TimerService {
                     }
                     if (0..=2).contains(&remaining_seconds)
                         && let Err(err) = play_beep(
-                            audio_context,
                             2000.,
                             if remaining_seconds == 2 {
-                                self.beep_time = audio_context.current_time() + 0.01;
+                                self.beep_time = now + 0.01;
                                 self.beep_time
                             } else {
                                 self.beep_time += 1.;
@@ -459,13 +449,6 @@ impl Default for TimerService {
             reset_seconds: i64::MAX,
             remaining_seconds: i64::MAX,
             target_time: None,
-            audio_context: match web_sys::AudioContext::new() {
-                Ok(audio_context) => Some(audio_context),
-                Err(err) => {
-                    warn!("failed to create audio context: {err:?}");
-                    None
-                }
-            },
             beep_time: 0.,
             beep_volume: 100,
         }
@@ -509,29 +492,86 @@ impl From<TimerService> for web_app::TimerState {
 }
 
 fn play_beep(
-    audio_context: &web_sys::AudioContext,
     frequency: f32,
     start: f64,
     length: f64,
     volume: u8,
 ) -> Result<(), web_sys::wasm_bindgen::JsValue> {
-    let oscillator = audio_context.create_oscillator()?;
-    let gain = audio_context.create_gain()?;
-    gain.gain().set_value(f32::from(volume) / 100.);
-    gain.connect_with_audio_node(&audio_context.destination())?;
-    oscillator.connect_with_audio_node(&gain)?;
-    oscillator.frequency().set_value(frequency);
-    oscillator.start_with_when(start)?;
-    oscillator.stop_with_when(start + length)?;
-    Ok(())
+    with_audio_context(|audio_context| {
+        let oscillator = audio_context.create_oscillator()?;
+        let gain = audio_context.create_gain()?;
+        gain.gain().set_value(f32::from(volume) / 100.);
+        gain.connect_with_audio_node(&audio_context.destination())?;
+        oscillator.connect_with_audio_node(&gain)?;
+        oscillator.frequency().set_value(frequency);
+        oscillator.start_with_when(start)?;
+        oscillator.stop_with_when(start + length)?;
+        Ok(())
+    })
+    .unwrap_or(Ok(()))
 }
 
-fn resume_audio_context(audio_context: Option<&web_sys::AudioContext>) {
-    if let Some(audio_context) = &audio_context
-        && let Err(err) = audio_context.resume()
+thread_local! {
+    static AUDIO_CONTEXT: OnceCell<Option<web_sys::AudioContext>> = const { OnceCell::new() };
+    static RESUME_FAILURE_LOGGED: Cell<bool> = const { Cell::new(false) };
+}
+
+fn audio_context_time() -> Option<f64> {
+    with_audio_context(web_sys::AudioContext::current_time)
+}
+
+fn resume_audio_context() {
+    with_audio_context(|audio_context| {
+        if audio_context.state() == web_sys::AudioContextState::Running {
+            RESUME_FAILURE_LOGGED.set(false);
+            return;
+        }
+        if let Err(err) = audio_context.resume()
+            && !RESUME_FAILURE_LOGGED.replace(true)
+        {
+            warn!("failed to resume audio context: {err:?}");
+        }
+    });
+}
+
+/// Runs `f` on the audio context shared by all timers and metronomes, creating it on first use.
+fn with_audio_context<R>(f: impl FnOnce(&web_sys::AudioContext) -> R) -> Option<R> {
+    AUDIO_CONTEXT.with(|audio_context| {
+        audio_context
+            .get_or_init(|| match web_sys::AudioContext::new() {
+                Ok(audio_context) => {
+                    listen_for_user_gestures();
+                    Some(audio_context)
+                }
+                Err(err) => {
+                    warn!("failed to create audio context: {err:?}");
+                    None
+                }
+            })
+            .as_ref()
+            .map(f)
+    })
+}
+
+/// Resumes the audio context on the next user interaction.
+///
+/// A context created outside a user gesture starts suspended under the autoplay policy and stays
+/// silent until a gesture allows it to run.
+fn listen_for_user_gestures() {
+    let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        warn!("failed to access document");
+        return;
+    };
+    let closure = Closure::wrap(Box::new(move |_: web_sys::Event| {
+        resume_audio_context();
+    }) as Box<dyn FnMut(web_sys::Event)>);
+    if let Err(err) =
+        document.add_event_listener_with_callback("pointerdown", closure.as_ref().unchecked_ref())
     {
-        warn!("failed to resume audio context: {err:?}");
+        warn!("failed to listen for user gestures: {err:?}");
+        return;
     }
+    closure.forget();
 }
 
 #[component]

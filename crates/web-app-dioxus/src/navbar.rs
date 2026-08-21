@@ -10,14 +10,12 @@ use valens_domain as domain;
 
 use crate::{
     DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
+    audio::{Metronome, MutableTimer, Stopwatch, StopwatchService, TICK_INTERVAL_MS, TimerService},
     dialog::{
-        about::AboutDialog, admin::AdminDialog, profile::ProfileDialog, settings::SettingsDialog,
+        about::AboutDialog, admin::AdminDialog, drop_set::DropSetCalculator,
+        one_rep_max::OneRepMaxCalculator, profile::ProfileDialog, settings::SettingsDialog,
     },
     ongoing_training_session::OngoingTrainingSession,
-    page::common::{
-        DropSetCalculator, Metronome, MutableTimer, OneRepMaxCalculator, Stopwatch,
-        StopwatchService, TICK_INTERVAL_MS, TimerService,
-    },
     session::{Session, sign_out},
     settings::Settings,
     synchronization::Synchronization,

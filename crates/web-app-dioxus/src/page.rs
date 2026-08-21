@@ -3,7 +3,6 @@
 pub mod body_fat;
 pub mod body_weight;
 pub mod catalog;
-pub mod common;
 pub mod exercise;
 pub mod exercises;
 pub mod ffmi;

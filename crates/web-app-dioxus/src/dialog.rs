@@ -2,6 +2,8 @@
 
 pub mod about;
 pub mod admin;
+pub mod drop_set;
+pub mod one_rep_max;
 pub mod profile;
 pub mod settings;
 

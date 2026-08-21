@@ -14,15 +14,15 @@ use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
+    audio::{TICK_INTERVAL_MS, Timer, TimerService},
     cache::{Cache, CacheState},
+    dialog::one_rep_max::OneRepMaxCalculatorState,
     eh,
     loading::LoadingFlag,
+    muscle::SetsPerMuscle,
     notification::notify,
     ongoing_training_session::OngoingTrainingSession,
-    page::{
-        self,
-        common::{OneRepMaxCalculatorState, SetsPerMuscle, TICK_INTERVAL_MS, Timer, TimerService},
-    },
+    page,
     settings::Settings,
     ui::{
         element::{

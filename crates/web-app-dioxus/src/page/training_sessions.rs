@@ -9,9 +9,9 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    chart::{Calendar, Chart, IntervalControl},
     eh,
     notification::{notify, notify_error},
-    page::common::{Calendar, Chart, IntervalControl},
     routing::NavigatorScrollExt,
     settings::Settings,
     ui::{

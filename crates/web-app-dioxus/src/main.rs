@@ -11,18 +11,22 @@ use valens_domain as domain;
 use valens_storage as storage;
 use valens_web_app as web_app;
 
+use audio::MetronomeService;
+use dialog::{drop_set::DropSetCalculatorState, one_rep_max::OneRepMaxCalculatorState};
 use notification::NotificationBar;
-use page::common::{DropSetCalculatorState, MetronomeService, OneRepMaxCalculatorState};
 use routing::Route;
 use settings::Settings;
 use unsaved_changes::router_config;
 use update::UpdateNotification;
 
+mod audio;
 mod cache;
+mod chart;
 mod current_date;
 mod diagnostics;
 mod dialog;
 mod loading;
+mod muscle;
 mod navbar;
 mod notification;
 mod ongoing_training_session;

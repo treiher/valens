@@ -9,11 +9,8 @@ use valens_web_app as web_app;
 use crate::{
     Route,
     cache::{Cache, CacheState},
-    eh,
-    page::{
-        self,
-        common::{Calendar, Chart, IntervalControl},
-    },
+    chart::{Calendar, Chart, IntervalControl},
+    eh, page,
     settings::Settings,
     ui::element::{
         Block, CenteredTags, ElementWithDescription, Error, ErrorPage, FloatingActionButton,

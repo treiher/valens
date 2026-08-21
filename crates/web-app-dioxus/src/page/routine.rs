@@ -12,13 +12,12 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    chart::{Chart, IntervalControl},
     eh,
     loading::LoadingFlag,
+    muscle::SetsPerMuscle,
     notification::notify,
-    page::{
-        self,
-        common::{Chart, IntervalControl, SetsPerMuscle},
-    },
+    page,
     settings::Settings,
     ui::{
         drag_and_drop,

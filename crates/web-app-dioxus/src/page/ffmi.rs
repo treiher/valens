@@ -7,7 +7,7 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE,
     cache::{Cache, CacheState},
-    page::common::{Calendar, Chart, IntervalControl},
+    chart::{Calendar, Chart, IntervalControl},
     session::Session,
     ui::element::{ErrorPage, InfoPage, LoadingPage, NoWrap, Table},
 };

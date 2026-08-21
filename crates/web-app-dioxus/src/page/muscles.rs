@@ -5,7 +5,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DATA_CHANGED, DOMAIN_SERVICE,
-    page::common::{Chart, IntervalControl},
+    chart::{Chart, IntervalControl},
     ui::element::{ErrorPage, LoadingPage, Title},
 };
 

@@ -431,7 +431,13 @@ impl TimerService {
     }
 
     pub fn set_beep_volume(&mut self, beep_volume: u8) {
+        if beep_volume == self.beep_volume {
+            return;
+        }
         self.beep_volume = beep_volume;
+        // The volume is baked into the pre-rendered beeps, so the scheduled ones would keep the
+        // previous volume.
+        self.requeue();
     }
 
     pub fn update(&mut self) {
@@ -508,6 +514,14 @@ impl TimerService {
         }
     }
 
+    /// Rebuilds the beeps of the lookahead window without moving the countdown.
+    fn requeue(&self) {
+        let Some(now) = audio_context_time() else {
+            return;
+        };
+        self.schedule.borrow_mut().requeue(now, self.beep_volume);
+    }
+
     fn clear_schedule(&self) {
         let Some(now) = audio_context_time() else {
             return;
@@ -573,7 +587,7 @@ impl From<TimerService> for web_app::TimerState {
 struct Schedule {
     expiry: Option<f64>,
     scheduled_until: f64,
-    pending: Vec<(f64, web_sys::OscillatorNode)>,
+    pending: Vec<(f64, web_sys::AudioBufferSourceNode)>,
 }
 
 impl Schedule {
@@ -599,12 +613,18 @@ impl Schedule {
         }
         for beep in scheduled_beeps(expiry, from, to) {
             match play_beep(beep.frequency, beep.start, beep.length, volume) {
-                Ok(Some(oscillator)) => self.pending.push((beep.start, oscillator)),
+                Ok(Some(source)) => self.pending.push((beep.start, source)),
                 Ok(None) => {}
                 Err(err) => warn!("failed to play beep: {err:?}"),
             }
         }
         self.scheduled_until = to;
+    }
+
+    fn requeue(&mut self, now: f64, volume: u8) {
+        self.cancel_pending(now);
+        self.scheduled_until = now;
+        self.extend(now, volume);
     }
 
     /// Stops the beeps that have not started yet and forgets all of them.
@@ -614,10 +634,10 @@ impl Schedule {
     /// when the countdown is replaced at that moment.
     fn cancel_pending(&mut self, now: f64) {
         let expired = matches!(self.expiry, Some(expiry) if now >= expiry - DRIFT_THRESHOLD);
-        for (start, oscillator) in self.pending.drain(..) {
+        for (start, source) in self.pending.drain(..) {
             if !expired
                 && start > now
-                && let Err(err) = oscillator.stop()
+                && let Err(err) = scheduled(&source).stop()
             {
                 warn!("failed to stop beep: {err:?}");
             }
@@ -627,8 +647,8 @@ impl Schedule {
 
 impl Drop for Schedule {
     fn drop(&mut self) {
-        for (_, oscillator) in &self.pending {
-            let _ = oscillator.stop();
+        if let Some(now) = audio_context_time() {
+            self.cancel_pending(now);
         }
     }
 }
@@ -716,52 +736,75 @@ fn scheduled_beeps(expiry: f64, from: f64, to: f64) -> Vec<ScheduledBeep> {
 /// Duration of the fade at each edge of a beep.
 const BEEP_RAMP: f64 = 0.005;
 
-/// Schedules a beep and returns its oscillator, or nothing if the beep would already be over.
+/// Schedules a beep and returns its source, or nothing if the beep would already be over.
+///
+/// The waveform is computed up front and played from a buffer rather than synthesized while it
+/// sounds, so that the thread rendering the audio only has to copy it.
 fn play_beep(
     frequency: f32,
     start: f64,
     length: f64,
     volume: u8,
-) -> Result<Option<web_sys::OscillatorNode>, web_sys::wasm_bindgen::JsValue> {
+) -> Result<Option<web_sys::AudioBufferSourceNode>, web_sys::wasm_bindgen::JsValue> {
     with_audio_context(|audio_context| {
         let now = audio_context.current_time();
         if start + length <= now {
             return Ok(None);
         }
         let start = start.max(now);
-        let end = start + length;
-        // The ramps soften the edges that would otherwise click, and may not invert for a short
-        // beep.
-        let attack_end = (start + BEEP_RAMP).min(end);
-        let release_start = (end - BEEP_RAMP).max(attack_end);
-        let peak = f32::from(volume) / 100.;
+        let sample_rate = audio_context.sample_rate();
+        let samples = beep_samples(frequency, length, volume, sample_rate);
 
-        let oscillator = audio_context.create_oscillator()?;
-        let gain = audio_context.create_gain()?;
-        gain.gain().set_value_at_time(0., start)?;
-        gain.gain().linear_ramp_to_value_at_time(peak, attack_end)?;
-        gain.gain().set_value_at_time(peak, release_start)?;
-        gain.gain().linear_ramp_to_value_at_time(0., end)?;
-        gain.connect_with_audio_node(&audio_context.destination())?;
-        oscillator.connect_with_audio_node(&gain)?;
-        oscillator.frequency().set_value(frequency);
-        oscillator.start_with_when(start)?;
-        oscillator.stop_with_when(end)?;
+        #[allow(clippy::cast_possible_truncation)]
+        let buffer = audio_context.create_buffer(1, samples.len() as u32, sample_rate)?;
+        buffer.copy_to_channel(&samples, 0)?;
+        let source = audio_context.create_buffer_source()?;
+        source.set_buffer(Some(&buffer));
+        source.connect_with_audio_node(&audio_context.destination())?;
+        scheduled(&source).start_with_when(start)?;
 
-        let played_oscillator = oscillator.clone();
+        let played_source = source.clone();
         let disconnect = Closure::once_into_js(move |_: web_sys::Event| {
-            if let Err(err) = played_oscillator
-                .disconnect()
-                .and_then(|()| gain.disconnect())
-            {
+            if let Err(err) = played_source.disconnect() {
                 warn!("failed to disconnect beep: {err:?}");
             }
         });
-        oscillator.set_onended(Some(disconnect.unchecked_ref()));
+        scheduled(&source).set_onended(Some(disconnect.unchecked_ref()));
 
-        Ok(Some(oscillator))
+        Ok(Some(source))
     })
     .unwrap_or(Ok(None))
+}
+
+/// The waveform of a beep, a sine faded in and out to avoid the clicks of a hard edge.
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
+fn beep_samples(frequency: f32, length: f64, volume: u8, sample_rate: f32) -> Vec<f32> {
+    let count = ((length * f64::from(sample_rate)).round() as usize).max(1);
+    let peak = f64::from(volume) / 100.;
+    let ramp = BEEP_RAMP.min(length / 2.);
+    (0..count)
+        .map(|sample| {
+            let time = sample as f64 / f64::from(sample_rate);
+            let envelope = if ramp <= 0. {
+                1.
+            } else if time < ramp {
+                time / ramp
+            } else if time > length - ramp {
+                (length - time) / ramp
+            } else {
+                1.
+            };
+            ((time * f64::from(frequency) * std::f64::consts::TAU).sin() * peak * envelope) as f32
+        })
+        .collect()
+}
+
+fn scheduled(source: &web_sys::AudioBufferSourceNode) -> &web_sys::AudioScheduledSourceNode {
+    source.as_ref()
 }
 
 thread_local! {
@@ -1673,9 +1716,33 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
 
     use super::{
-        SCHEDULE_LOOKAHEAD, decimal_places, format_value, nearest_mark, parse_drop_percentage,
-        resync, scheduled_beeps,
+        SCHEDULE_LOOKAHEAD, beep_samples, decimal_places, format_value, nearest_mark,
+        parse_drop_percentage, resync, scheduled_beeps,
     };
+
+    #[test]
+    fn beep_samples_are_faded_in_and_out() {
+        let samples = beep_samples(1000., 0.1, 100, 48000.);
+        assert_eq!(samples.len(), 4800);
+        assert_approx_eq!(samples[0], 0., 1e-6);
+        assert_approx_eq!(samples[samples.len() - 1], 0., 1e-3);
+        assert!(samples.iter().all(|sample| sample.abs() <= 1.));
+        assert!(samples.iter().any(|sample| sample.abs() > 0.99));
+    }
+
+    #[test]
+    fn beep_samples_scale_with_the_volume() {
+        let samples = beep_samples(1000., 0.1, 50, 48000.);
+        assert!(samples.iter().all(|sample| sample.abs() <= 0.5));
+        assert!(samples.iter().any(|sample| sample.abs() > 0.49));
+    }
+
+    #[test]
+    fn beep_samples_of_a_beep_shorter_than_its_fades_stay_bounded() {
+        let samples = beep_samples(1000., 0.002, 100, 48000.);
+        assert_eq!(samples.len(), 96);
+        assert!(samples.iter().all(|sample| sample.abs() <= 1.));
+    }
 
     fn beep_starts(expiry: f64, from: f64, to: f64) -> Vec<f64> {
         scheduled_beeps(expiry, from, to)

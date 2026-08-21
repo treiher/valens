@@ -1108,6 +1108,68 @@ def test_delete_in_progress_training_session_clears_activity_bar(page: Page) -> 
     home.activity_bar.expect_hidden()
 
 
+def test_remotely_deleted_training_session_clears_activity_bar(page: Page) -> None:
+    routine = USER.routines[-1].name
+
+    login(page)
+    home = HomePage(page)
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_end_training_session_visible()
+
+    home.goto()
+    home.navbar.expect_synchronization_to_be_finished()
+    home.activity_bar.expect_visible()
+
+    # Delete the in-progress session through the API, as another device would.
+    session_id = max(w["id"] for w in page.request.get(f"{BASE_URL}/api/workouts").json())
+    assert page.request.delete(f"{BASE_URL}/api/workouts/{session_id}").ok
+
+    home.navbar.refresh_data()
+    home.activity_bar.expect_hidden()
+
+    # Another training session can be started again.
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+    p.expect_page()
+    p.expect_end_training_session_visible()
+
+
+def test_ended_session_clears_activity_bar(page: Page) -> None:
+    routine = USER.routines[-1].name
+
+    login(page)
+    home = HomePage(page)
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_end_training_session_visible()
+
+    home.goto()
+    home.navbar.expect_synchronization_to_be_finished()
+    home.activity_bar.expect_visible()
+
+    # Discard the session cookie, as its expiration would.
+    page.context.clear_cookies()
+    home.navbar.refresh_data()
+
+    login_page = LoginPage(page)
+    login_page.expect_page()
+    login_page.login(USERNAMES[0])
+
+    home.expect_page()
+    home.activity_bar.expect_hidden()
+
+
 def test_training_session_in_progress_while_editing_other(page: Page) -> None:
     routine = USER.routines[-1].name
     other = USER.workouts[-1]

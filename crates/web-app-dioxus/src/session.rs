@@ -50,7 +50,17 @@ pub fn SessionProvider() -> Element {
     Cache::provide();
     Synchronization::provide();
     OngoingTrainingSession::provide();
-    let session = use_resource(|| async { DOMAIN_SERVICE().get_session().await });
+    let ongoing = consume_context::<OngoingTrainingSession>();
+    // An in-progress training session must not outlive the session it belongs to. Discarding it
+    // here instead of in the failure branch below keeps the navigation to the login page from
+    // cancelling the task before the change is persisted.
+    let session = use_resource(move || async move {
+        let session = DOMAIN_SERVICE().get_session().await;
+        if session.is_err() {
+            ongoing.clear().await;
+        }
+        session
+    });
     use_context_provider(|| SessionRefresh(session));
     match &*session.read() {
         Some(Ok(user)) => {
@@ -77,10 +87,15 @@ fn AuthenticatedSession(user: domain::User) -> Element {
     use_context_provider(|| Session {
         user: ReadSignal::from(user_signal),
     });
+    // Must not subscribe to the cache, because it refreshes the cache itself.
     use_effect(move || {
         consume_context::<Cache>().refresh();
         consume_context::<Synchronization>().sync();
         consume_context::<OngoingTrainingSession>().load();
+    });
+    // Subscribes to the cache and re-runs once the training sessions are available.
+    use_effect(move || {
+        consume_context::<OngoingTrainingSession>().discard_if_missing(consume_context::<Cache>());
     });
     let user_id = user.id;
     let auth_methods = use_resource(|| async { DOMAIN_SERVICE().get_auth_methods().await });

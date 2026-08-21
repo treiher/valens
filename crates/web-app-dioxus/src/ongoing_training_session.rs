@@ -1,15 +1,19 @@
 //! State of the training session that is currently in progress.
 //!
 //! [`OngoingTrainingSession`] is a Dioxus context that holds the single in-progress training
-//! session, if any. It is scoped to one user session rather than shared globally, so that an
-//! in-progress session cannot leak to the next user.
+//! session, if any. It is persisted across reloads of the app, and discarded when the user
+//! session ends or the referenced training session no longer exists.
 
 use dioxus::prelude::*;
 use log::warn;
 
+use valens_domain as domain;
 use valens_web_app::{self as web_app, OngoingTrainingSessionService};
 
-use crate::WEB_APP_SERVICE;
+use crate::{
+    WEB_APP_SERVICE,
+    cache::{Cache, CacheState},
+};
 
 #[derive(Clone, Copy)]
 pub struct OngoingTrainingSession {
@@ -49,6 +53,25 @@ impl OngoingTrainingSession {
                 self.state.set(loaded);
             }
         });
+    }
+
+    pub fn discard_if_missing(self, cache: Cache) {
+        let missing = {
+            let (CacheState::Ready(training_sessions), State::InProgress(ongoing)) =
+                (&*cache.training_sessions.read(), &*self.state.read())
+            else {
+                return;
+            };
+            let id = domain::TrainingSessionID::from(ongoing.training_session_id);
+            !training_sessions
+                .iter()
+                .any(|training_session| training_session.id == id)
+        };
+        if missing {
+            spawn(async move {
+                self.clear().await;
+            });
+        }
     }
 
     pub async fn set(mut self, ongoing: web_app::OngoingTrainingSession) {

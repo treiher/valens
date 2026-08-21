@@ -20,6 +20,7 @@ Plan your training, follow it and see what it does to your body. A web app you h
 - Calculate and log your body fat based on the 3-site or 7-site caliper method
 - Follow your fat-free mass index (FFMI)
 - Monitor your menstrual cycle
+- Choose a light or dark theme, following your system by default
 - Install the app on your device and browse your data without a connection to the server
 - Share the app with several users, each with their own data
 - Protect accounts with passkeys, with one-time login links for recovery

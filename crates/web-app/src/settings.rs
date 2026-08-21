@@ -25,44 +25,11 @@ pub struct Settings {
     pub scroll_snapping: bool,
 }
 
-impl Settings {
-    #[must_use]
-    pub fn current_theme(&self) -> Theme {
-        match self.theme {
-            Theme::System => {
-                if let Some(window) = web_sys::window() {
-                    if let Ok(prefers_dark_scheme) =
-                        window.match_media("(prefers-color-scheme: dark)")
-                    {
-                        if let Some(media_query_list) = prefers_dark_scheme {
-                            if media_query_list.matches() {
-                                Theme::Dark
-                            } else {
-                                Theme::Light
-                            }
-                        } else {
-                            warn!("failed to determine preferred color scheme");
-                            Theme::Light
-                        }
-                    } else {
-                        warn!("failed to match media to determine preferred color scheme");
-                        Theme::Light
-                    }
-                } else {
-                    warn!("failed to access window to determine preferred color scheme");
-                    Theme::Light
-                }
-            }
-            Theme::Light | Theme::Dark => self.theme,
-        }
-    }
-}
-
 impl Default for Settings {
     fn default() -> Self {
         Self {
             beep_volume: 80,
-            theme: Theme::Light,
+            theme: Theme::System,
             automatic_metronome: false,
             notifications: false,
             show_rpe: true,
@@ -80,6 +47,21 @@ pub enum Theme {
 }
 
 impl Theme {
+    /// The theme to render, with `System` resolved to the system color scheme.
+    #[must_use]
+    pub fn resolve(self, prefers_dark_scheme: bool) -> Theme {
+        match self {
+            Theme::System => {
+                if prefers_dark_scheme {
+                    Theme::Dark
+                } else {
+                    Theme::Light
+                }
+            }
+            Theme::Light | Theme::Dark => self,
+        }
+    }
+
     pub fn apply(self) {
         if let Some(html) = web_sys::window()
             .and_then(|w| w.document())

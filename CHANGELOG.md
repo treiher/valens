@@ -104,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Server response times due to reduced overhead when accessing the database and serializing responses
 - Data transfer during synchronization by skipping the download of unchanged data
 - Example data of the demo mode to two realistic training logs that cover all pages
+- Default theme to follow the theme of the system
 
 ### Fixed
 

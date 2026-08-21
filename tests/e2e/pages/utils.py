@@ -29,14 +29,16 @@ def parse_numeric(text: str) -> str:
 
 
 def start_drag(page: Page, handle: Locator) -> None:
+    scroll_to_center(handle)
     handle.hover()
     page.mouse.down()
     expect(page.locator("[data-drag-state='pressed']")).to_have_count(1)
-    # An initial movement is required to activate the drag and show the drop targets. The center
-    # of the viewport is outside of the edge zones in which dragging triggers auto-scrolling.
-    viewport = page.viewport_size
-    assert viewport
-    page.mouse.move(viewport["width"] / 2, viewport["height"] / 2)
+    # An initial movement is required to activate the drag and show the drop targets. Staying on
+    # the handle keeps the pointer over the dragged element, so that releasing it without moving
+    # to another target does not change anything.
+    box = handle.bounding_box()
+    assert box
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2 + 1)
     expect(page.locator("[data-drag-state='dragging']")).to_have_count(1)
     expect(page.get_by_test_id("drag-ghost")).to_be_visible()
 

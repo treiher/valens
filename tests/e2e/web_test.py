@@ -19,8 +19,6 @@ from valens.config import create_config_file
 from .const import (
     BASE_URL,
     CURRENT_WORKOUT_EXERCISES,
-    NETWORK_CONDITIONS_DEFAULT,
-    NETWORK_CONDITIONS_SLOW,
     PORT,
     PREVIOUS_WORKOUT_EXERCISES,
     TODAY,
@@ -93,26 +91,41 @@ def test_login(page: Page) -> None:
     p.expect_loading_to_be_finished()
 
 
-@pytest.mark.chromium_only
-def test_synchronization_indicator(page: Page) -> None:
-    login(page)
+def test_synchronization_indicator(browser: Browser) -> None:
+    # Block the service worker so `page.route` can intercept the API requests it would
+    # otherwise handle out of the page's reach
+    context = browser.new_context(service_workers="block")
+    try:
+        page = context.new_page()
+        login(page)
 
-    p = HomePage(page)
-    p.expect_page()
-    p.navbar.expect_synchronization_to_be_finished()
+        p = HomePage(page)
+        p.expect_page()
+        p.navbar.expect_synchronization_to_be_finished()
 
-    # Slow down all requests to keep the indicator of the triggered synchronization visible
-    client = page.context.new_cdp_session(page)
-    client.send("Network.enable")
-    client.send("Network.emulateNetworkConditions", NETWORK_CONDITIONS_SLOW)
+        held: list[Route] = []
+        released = False
 
-    p.navbar.refresh_data()
+        def hold_reads(route: Route) -> None:
+            # Hold the read requests to keep the triggered synchronization in progress
+            if route.request.method == "GET" and not released:
+                held.append(route)
+            else:
+                route.continue_()
 
-    p.navbar.expect_synchronization_in_progress()
+        page.route("**/api/**", hold_reads)
 
-    client.send("Network.emulateNetworkConditions", NETWORK_CONDITIONS_DEFAULT)
+        p.navbar.refresh_data()
 
-    p.navbar.expect_synchronization_to_be_finished()
+        p.navbar.expect_synchronization_in_progress()
+
+        released = True
+        for route in held:
+            route.continue_()
+
+        p.navbar.expect_synchronization_to_be_finished()
+    finally:
+        context.close()
 
 
 def test_logout(page: Page) -> None:
@@ -2171,6 +2184,9 @@ def test_exercises_add(page: Page) -> None:
     expected_current = {e.name for e in USER.exercises if e.name in CURRENT_WORKOUT_EXERCISES}
     expected_previous = {e.name for e in USER.exercises if e.name in PREVIOUS_WORKOUT_EXERCISES}
 
+    p.table.expect_rows(1, len(expected_current))
+    p.table.expect_rows(2, len(expected_previous))
+
     assert {e[0] for e in p.table.get_body(1)} == expected_current
     assert {e[0] for e in p.table.get_body(2)} == expected_previous
 
@@ -2179,6 +2195,8 @@ def test_exercises_add(page: Page) -> None:
     p.add_exercise(new_name)
 
     p.table.expect_value(1, 1, 1, new_name)
+
+    p.table.expect_rows(1, len(expected_current) + 1)
 
     assert {e[0] for e in p.table.get_body(1)} == {new_name, *expected_current}
     assert {e[0] for e in p.table.get_body(2)} == expected_previous
@@ -2191,10 +2209,14 @@ def test_exercises_copy(page: Page) -> None:
     p = ExercisesPage(page)
     p.goto()
 
+    p.table.expect_rows(1, len(CURRENT_WORKOUT_EXERCISES))
+
     current = {e[0] for e in p.table.get_body(1)}
     assert new_name not in current
 
     p.copy_exercise(0, new_name)
+
+    p.table.expect_rows(1, len(CURRENT_WORKOUT_EXERCISES) + 1)
 
     assert new_name in {e[0] for e in p.table.get_body(1)}
 
@@ -2262,6 +2284,8 @@ def test_exercises_delete(page: Page) -> None:
 
     p.delete_item(0)
     p.dialog.delete()
+
+    p.table.expect_rows(1, 1)
 
     assert p.table.get_body(1) == [[previous_name, ""]]
 

@@ -6,7 +6,9 @@ from valens import models
 
 VALENS = "build/venv/bin/valens"
 HOST = "127.0.0.1"
-PORT = 53535 + int(os.getenv("PYTEST_XDIST_WORKER", "gw0")[2:])
+# The port must be outside the ephemeral port range, in which the local port of an outgoing
+# connection can occupy the port of a server that is started later.
+PORT = 5100 + int(os.getenv("PYTEST_XDIST_WORKER", "gw0")[2:])
 BASE_URL = f"http://{HOST}:{PORT}"
 
 TODAY = datetime.date.today()
@@ -30,10 +32,3 @@ CURRENT_WORKOUT_EXERCISES = {
     for e in USER.exercises
     if e.name in EXERCISES_IN_CURRENT_WORKOUTS or e.name not in PREVIOUS_WORKOUT_EXERCISES
 }
-NETWORK_CONDITIONS_DEFAULT = {
-    "offline": False,
-    "latency": 0,
-    "downloadThroughput": -1,
-    "uploadThroughput": -1,
-}
-NETWORK_CONDITIONS_SLOW = {**NETWORK_CONDITIONS_DEFAULT, "latency": 2000}

@@ -325,8 +325,16 @@ class Table(PageElement):
         return {th.inner_text().strip(): idx for idx, th in enumerate(headers, start=1)}
 
     def get_body(self, table_idx: int = 1) -> list[list[str]]:
-        rows = self.root(table_idx).locator("tbody tr").all()
-        return [[cell.inner_text().strip() for cell in row.locator("td").all()] for row in rows]
+        # A re-render between reading the rows and reading their cells would yield rows without
+        # cells, so both are read in a single evaluation.
+        return self.root(table_idx).evaluate(
+            """table => [...table.querySelectorAll("tbody tr")].map(
+                row => [...row.querySelectorAll("td")].map(cell => cell.innerText.trim())
+            )"""
+        )
+
+    def expect_rows(self, table_idx: int, count: int) -> None:
+        expect(self.root(table_idx).locator("tbody tr")).to_have_count(count)
 
     def expect_value(self, table_idx: int, row: int, col: int, text: str) -> None:
         expect(

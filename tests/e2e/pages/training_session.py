@@ -77,6 +77,16 @@ class TrainingSessionPage(BasePage):
             if len(tds) == 4
         ]
 
+    def get_form_input_modes(self) -> list[str | None]:
+        self.expect_edit_mode()
+        return [
+            inp.get_attribute("inputmode")
+            for row in self.page.locator("table tr").all()
+            for inputs_in_row in [row.locator("input").all()]
+            if len(inputs_in_row) == 4
+            for inp in inputs_in_row
+        ][:4]
+
     def set_form(
         self, index: int, values: tuple[int | None, int | None, float | None, float | None]
     ) -> None:

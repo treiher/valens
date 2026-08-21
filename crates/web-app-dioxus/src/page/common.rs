@@ -308,11 +308,8 @@ pub fn MutableTimer(timer: Signal<TimerService>) -> Element {
                 class: "control",
                 input {
                     class: "input title is-size-1 has-text-centered",
-                    max: "9999",
-                    min: "0",
-                    r#type: "number",
+                    inputmode: "numeric",
                     size: "4",
-                    step: "1",
                     style: "height:auto; width:auto; padding:0",
                     value: "{timer.read().seconds()}",
                     oninput: move |event| {
@@ -1445,10 +1442,7 @@ pub fn OneRepMaxCalculator() -> Element {
                     class: "column",
                     InputField {
                         label: "Reps".to_string(),
-                        r#type: "number",
-                        min: "0",
-                        max: "999",
-                        step: 1,
+                        inputmode: "numeric",
                         value: reps_input.read().input.clone(),
                         error: if let Err(err) = &reps_input.read().validated { err.clone() },
                         has_changed: false,
@@ -1472,7 +1466,7 @@ pub fn OneRepMaxCalculator() -> Element {
                     InputField {
                         label: "Weight".to_string(),
                         right_icon: rsx! { "kg" },
-                        inputmode: "numeric",
+                        inputmode: "decimal",
                         value: weight_input.read().input.clone(),
                         error: if let Err(err) = &weight_input.read().validated { err.clone() },
                         has_changed: false,
@@ -1558,7 +1552,7 @@ pub fn DropSetCalculator() -> Element {
                     InputField {
                         label: "Start".to_string(),
                         right_icon: rsx! { "kg" },
-                        inputmode: "numeric",
+                        inputmode: "decimal",
                         value: start_weight_input.read().input.clone(),
                         error: if let Err(err) = &start_weight_input.read().validated { err.clone() },
                         has_changed: false,
@@ -1582,7 +1576,7 @@ pub fn DropSetCalculator() -> Element {
                     InputField {
                         label: "Drop".to_string(),
                         right_icon: rsx! { "%" },
-                        inputmode: "numeric",
+                        inputmode: "decimal",
                         value: drop_percentage_input.read().input.clone(),
                         error: if let Err(err) = &drop_percentage_input.read().validated { err.clone() },
                         has_changed: false,

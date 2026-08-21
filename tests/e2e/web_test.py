@@ -936,6 +936,17 @@ def test_training_session_change_entries(page: Page) -> None:
     assert p.get_form() == [new_values, *sets[1:]]
 
 
+def test_training_session_input_modes(page: Page) -> None:
+    workout = USER.workouts[-1]
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    assert p.get_form_input_modes() == ["numeric", "numeric", "decimal", "decimal"]
+
+
 def test_training_session_change_notes(page: Page) -> None:
     workout = USER.workouts[0]
     sets = [

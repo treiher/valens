@@ -1067,7 +1067,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                 InputField {
                                     label: "Weight",
                                     right_icon: rsx! { "kg" },
-                                    inputmode: "numeric",
+                                    inputmode: "decimal",
                                     value: weight_field.input.clone(),
                                     error: if let Err(err) = &weight_field.validated { err.clone() },
                                     has_changed: weight_field.changed(),
@@ -1091,7 +1091,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                 InputField {
                                     label: "RPE",
                                     left_icon: rsx! { "@" },
-                                    inputmode: "numeric",
+                                    inputmode: "decimal",
                                     value: rpe_field.input.clone(),
                                     error: if let Err(err) = &rpe_field.validated { err.clone() },
                                     has_changed: rpe_field.changed(),

@@ -356,7 +356,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
                         label: "Weight".to_string(),
                         "data-testid": "weight",
                         right_icon: rsx! { "kg" },
-                        inputmode: "numeric".to_string(),
+                        inputmode: "decimal".to_string(),
                         value: weight.input.clone(),
                         error: if let Err(err) = &weight.validated { err.clone() },
                         has_changed: weight.changed(),

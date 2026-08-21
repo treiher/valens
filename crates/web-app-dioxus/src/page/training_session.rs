@@ -856,10 +856,7 @@ fn view_form(
                                     class: "p-1 has-text-right",
                                     InputField {
                                         right_icon: rsx! { "✕" },
-                                        r#type: "number",
-                                        min: "0",
-                                        max: "999",
-                                        step: 1,
+                                        inputmode: "numeric",
                                         size: 2,
                                         value: set_field_values.reps.input.clone(),
                                         error: if let Err(err) = &set_field_values.reps.validated { err.clone() },
@@ -884,10 +881,7 @@ fn view_form(
                                     if settings.show_tut() {
                                         InputField {
                                             right_icon: rsx! { "s" },
-                                            r#type: "number",
-                                            min: "0",
-                                            max: "999",
-                                            step: 1,
+                                            inputmode: "numeric",
                                             size: 2,
                                             value: set_field_values.time.input.clone(),
                                             error: if let Err(err) = &set_field_values.time.validated { err.clone() },
@@ -912,7 +906,7 @@ fn view_form(
                                     class: "p-1 has-text-right",
                                     InputField {
                                         right_icon: rsx! { "kg" },
-                                        inputmode: "numeric",
+                                        inputmode: "decimal",
                                         size: 3,
                                         value: set_field_values.weight.input.clone(),
                                         error: if let Err(err) = &set_field_values.weight.validated { err.clone() },
@@ -937,7 +931,7 @@ fn view_form(
                                     if settings.show_rpe() {
                                         InputField {
                                             left_icon: rsx! { "@" },
-                                            inputmode: "numeric",
+                                            inputmode: "decimal",
                                             size: 2,
                                             value: set_field_values.rpe.input.clone(),
                                             error: if let Err(err) = &set_field_values.rpe.validated { err.clone() },

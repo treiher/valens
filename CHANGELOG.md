@@ -118,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Distorted beeps of the metronome
 - Repetition of metronome beeps after the app was in the background
 - Settings not being accessible in browsers without support for notifications
+- Unnecessary symbols on the on-screen keyboard of some devices for the timer
 - Home page:
     - Loading indicator staying visible after leaving the page while a training session is being started, preventing the start of further training sessions
     - Incorrect load when the oldest training session was not the first one added
@@ -125,6 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Missing numbering of exercises within compound sets for time-based sets
     - Manual metronome adjustments being reset immediately instead of persisting until the current element changes
     - Loading indicator staying visible after leaving the page while a change is being saved
+    - Missing decimal separator on the on-screen keyboard of some devices for weight and RPE, and unnecessary symbols for reps and time
 - Training sessions page:
     - Incorrect chart legend label
     - Ordering of training sessions in the table by creation instead of by date
@@ -133,11 +135,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Loading indicator staying visible after leaving the page while a change is being saved
     - Ordering of training sessions in the table by creation instead of by date
     - Ordering of previously used exercises by creation instead of by name
+    - Missing decimal separator on the on-screen keyboard of some devices for weight and RPE
 - Schedule page: Loading indicator staying visible after leaving the page while a change is being saved
 - Exercise page:
     - Changed muscles not being shown until the next synchronization
     - Ordering of training sessions in the table by creation instead of by date
     - Ordering of recorded sets by training session creation instead of by date
+- Body weight page: Missing decimal separator on the on-screen keyboard of some devices for the weight
 - Body fat page: Missing and incorrect chart legend labels for body weight
 
 ## [0.7.0] - 2026-05-10

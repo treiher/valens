@@ -176,7 +176,7 @@ jobs:
           [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
           echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2.85.11
+        uses: taiki-e/install-action@v2.86.3
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install Sass
@@ -320,7 +320,7 @@ jobs:
           [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
           echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2.85.8
+        uses: taiki-e/install-action@v2.86.3
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install Sass
@@ -364,7 +364,7 @@ jobs:
           target: wasm32-unknown-unknown
           components: llvm-tools-preview
       - name: Install cargo-llvm-cov, Nextest and dioxus-cli
-        uses: taiki-e/install-action@v2.85.11
+        uses: taiki-e/install-action@v2.86.3
         with:
           tool: cargo-llvm-cov,nextest,dioxus-cli
       - name: Install wasm-pack

@@ -53,7 +53,7 @@ def main() -> int:
     )
 
     parser_demo = subparsers.add_parser(
-        "demo", help="run app with random example data (all changes are non-persistent)"
+        "demo", help="run app with generated example data (all changes are non-persistent)"
     )
     parser_demo.set_defaults(func=run_demo)
     parser_demo.add_argument(

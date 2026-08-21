@@ -349,9 +349,6 @@ pub fn MutableTimer(timer: Signal<TimerService>) -> Element {
 /// window is therefore also the upper bound on such a burst.
 const SCHEDULE_LOOKAHEAD: f64 = 15.;
 
-/// Time by which the rounded countdown display reaches zero before the countdown expires.
-const DISPLAY_ROUNDING: f64 = 0.5;
-
 /// How long the screen is kept on after a countdown has reached zero.
 const WAKE_LOCK_GRACE_PERIOD: i64 = 60;
 
@@ -481,6 +478,9 @@ impl TimerService {
         matches!(self.remaining(), Some(seconds) if seconds != self.remaining_seconds)
     }
 
+    /// The remaining time, rounded up so that a second is shown until the moment it is reached.
+    ///
+    /// Rounding up is what lets the beep of a second sound when its number appears.
     fn remaining(&self) -> Option<i64> {
         self.target_time.map(|target_time| {
             #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
@@ -488,7 +488,7 @@ impl TimerService {
                 .signed_duration_since(Utc::now())
                 .num_milliseconds() as f64
                 / 1000.)
-                .round() as i64;
+                .ceil() as i64;
             remaining_seconds
         })
     }
@@ -610,12 +610,12 @@ impl Schedule {
     /// Stops the beeps that have not started yet and forgets all of them.
     ///
     /// A beep already sounding is left to finish, since stopping it would cut it mid-envelope. The
-    /// beeps of a countdown that has reached zero are kept as well, so that the final beep sounds
-    /// even when the countdown is replaced at that moment.
+    /// beeps of a countdown that has expired are kept as well, so that the final beep sounds even
+    /// when the countdown is replaced at that moment.
     fn cancel_pending(&mut self, now: f64) {
-        let completed = matches!(self.expiry, Some(expiry) if now >= expiry - DISPLAY_ROUNDING);
+        let expired = matches!(self.expiry, Some(expiry) if now >= expiry - DRIFT_THRESHOLD);
         for (start, oscillator) in self.pending.drain(..) {
-            if !completed
+            if !expired
                 && start > now
                 && let Err(err) = oscillator.stop()
             {

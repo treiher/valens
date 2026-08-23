@@ -6,6 +6,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from itertools import pairwise
 from pathlib import Path
+from shutil import copytree
 from subprocess import PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
 
@@ -22,6 +23,8 @@ from .const import (
     PORT,
     PREVIOUS_WORKOUT_EXERCISES,
     TODAY,
+    UPDATE_BASE_URL,
+    UPDATE_PORT,
     USER,
     USERNAMES,
     VALENS,
@@ -50,6 +53,7 @@ from .pages import (
     SettingsDialog,
     TrainingSessionPage,
     TrainingSessionsPage,
+    UpdateDialog,
 )
 
 
@@ -73,8 +77,8 @@ def backend_server() -> Generator[Path, None, None]:
             yield config
 
 
-def login(page: Page) -> None:
-    login_page = LoginPage(page)
+def login(page: Page, base_url: str | None = None) -> None:
+    login_page = LoginPage(page, base_url)
     login_page.goto()
     login_page.login(USERNAMES[0])
 
@@ -2558,39 +2562,118 @@ def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None
         context.close()
 
 
-@pytest.mark.chromium_only
-def test_cache(page: Page) -> None:
-    page.goto(BASE_URL)
+NEW_VERSION = "99.0.0"
+
+CACHED_FILES = [
+    "",
+    "Roboto-Bold.woff",
+    "Roboto-BoldItalic.woff",
+    "Roboto-Italic.woff",
+    "Roboto-Regular.woff",
+    "fa-solid-900.woff2",
+    "android-chrome-192x192.png",
+    "android-chrome-512x512.png",
+    "apple-touch-icon.png",
+    "favicon-16x16.png",
+    "favicon-32x32.png",
+    "main.css",
+    "manifest.json",
+    "valens-web-app-dioxus.js",
+    "valens-web-app-dioxus_bg.wasm",
+]
+
+
+def server_version(page: Page, base_url: str = BASE_URL) -> str:
+    return str(page.request.get(f"{base_url}/api/version").json())
+
+
+def caches(page: Page, base_url: str = BASE_URL) -> dict[str, list[str]]:
+    """Return the cached files per cache of the app."""
+
+    client = page.context.new_cdp_session(page)
+    return {
+        cache["cacheName"]: [
+            entry["requestURL"].split("/")[-1]
+            for entry in client.send(
+                "CacheStorage.requestEntries",
+                {"cacheId": cache["cacheId"]},
+            )["cacheDataEntries"]
+        ]
+        for cache in client.send("CacheStorage.requestCacheNames", {"securityOrigin": base_url})[
+            "caches"
+        ]
+    }
+
+
+def activate_service_worker(page: Page, base_url: str = BASE_URL) -> None:
+    page.goto(base_url)
     page.wait_for_function("() => navigator.serviceWorker.ready.then(() => true)")
     page.reload()
     page.wait_for_function("() => navigator.serviceWorker.controller !== null")
 
-    client = page.context.new_cdp_session(page)
-    caches = client.send("CacheStorage.requestCacheNames", {"securityOrigin": BASE_URL})["caches"]
-    cached_files = [
-        entry["requestURL"].split("/")[-1]
-        for cache in caches
-        for entry in client.send(
-            "CacheStorage.requestEntries",
-            {"cacheId": cache["cacheId"]},
-        )["cacheDataEntries"]
-    ]
-    expected_files = [
-        "",
-        "Roboto-Bold.woff",
-        "Roboto-BoldItalic.woff",
-        "Roboto-Italic.woff",
-        "Roboto-Regular.woff",
-        "fa-solid-900.woff2",
-        "android-chrome-192x192.png",
-        "android-chrome-512x512.png",
-        "apple-touch-icon.png",
-        "favicon-16x16.png",
-        "favicon-32x32.png",
-        "main.css",
-        "manifest.json",
-        "sw.js",
-        "valens-web-app-dioxus.js",
-        "valens-web-app-dioxus_bg.wasm",
-    ]
-    assert cached_files == expected_files
+
+@pytest.mark.chromium_only
+def test_cache(page: Page) -> None:
+    version = server_version(page)
+
+    activate_service_worker(page)
+
+    assert caches(page) == {f"valens-{version}": CACHED_FILES}
+
+
+@pytest.fixture
+def replaceable_frontend(backend_server: Path) -> Generator[Path, None, None]:
+    """Serve a copy of the frontend files that can be replaced while the server is running."""
+
+    package = run(
+        [
+            f"{VALENS.removesuffix('valens')}python",
+            "-c",
+            "import valens; print(valens.__path__[0])",
+        ],
+        check=True,
+        stdout=PIPE,
+    ).stdout.decode("utf-8")
+
+    with TemporaryDirectory() as tmp_dir:
+        copytree(package.strip(), Path(tmp_dir) / "valens")
+        with run_server(
+            f"{VALENS} run --port {UPDATE_PORT}",
+            {**os.environ, "VALENS_CONFIG": str(backend_server), "PYTHONPATH": tmp_dir},
+        ):
+            yield Path(tmp_dir) / "valens" / "static" / "generated"
+
+
+@pytest.mark.chromium_only
+def test_update(browser: Browser, replaceable_frontend: Path) -> None:
+    context = browser.new_context()
+    try:
+        page = context.new_page()
+        version = server_version(page, UPDATE_BASE_URL)
+
+        activate_service_worker(page, UPDATE_BASE_URL)
+        login(page, UPDATE_BASE_URL)
+        assert caches(page, UPDATE_BASE_URL) == {f"valens-{version}": CACHED_FILES}
+
+        # Deploy a new release, which replaces the service worker and the server version
+        service_worker = replaceable_frontend / "sw.js"
+        service_worker.write_text(service_worker.read_text().replace(version, NEW_VERSION))
+        context.route("**/api/version", lambda route: route.fulfill(json=NEW_VERSION))
+        page.reload()
+
+        update_dialog = UpdateDialog(page)
+        update_dialog.wait_until_open()
+        with page.expect_event("load"):
+            update_dialog.update()
+
+        # The dialog is shown again, as the frontend files of the new release are identical
+        update_dialog.wait_until_open()
+        update_dialog.defer()
+
+        p = HomePage(page)
+        p.expect_page()
+        p.expect_loading_to_be_finished()
+
+        assert caches(page, UPDATE_BASE_URL) == {f"valens-{NEW_VERSION}": CACHED_FILES}
+    finally:
+        context.close()

@@ -127,7 +127,7 @@ fn init_logging() {
 }
 
 fn init_service_worker() {
-    web_app::service_worker::listen_for_reload();
+    web_app::service_worker::listen_for_controller_change();
 }
 
 #[component]

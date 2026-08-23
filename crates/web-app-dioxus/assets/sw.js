@@ -1,9 +1,7 @@
-const CACHE_NAME = "valens";
+const CACHE_NAME = "valens-{{VERSION}}";
 
-self.addEventListener("install", function (event) {
-    event.waitUntil(
-        addResourcesToCache().then(() => self.skipWaiting())
-    );
+self.addEventListener("install", (event) => {
+    event.waitUntil(addResourcesToCache());
 });
 
 self.addEventListener("activate", (event) => {
@@ -16,14 +14,22 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+    const request = event.request;
+    if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) {
+        return;
+    }
     event.respondWith(
         (async () => {
-            const cachedResponse = await caches.match(event.request);
-            if (cachedResponse) {
-                return cachedResponse;
+            try {
+                const cachedResponse = await caches.match(request, { cacheName: CACHE_NAME });
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+            } catch (error) {
+                console.error(error);
             }
 
-            return fetch(event.request);
+            return fetch(request);
         })(),
     );
 });
@@ -32,15 +38,8 @@ self.addEventListener("message", (event) => {
     if (event.data) {
         let task = event.data.task;
         let content = event.data.content;
-        if (task === "UpdateCache") {
-            event.waitUntil((async () => {
-                await deleteCache();
-                await addResourcesToCache();
-                const clients = await self.clients.matchAll({ includeUncontrolled: true, type: "window" });
-                for (const client of clients) {
-                    client.postMessage({ task: "Reload" });
-                }
-            })());
+        if (task === "SkipWaiting") {
+            event.waitUntil(self.skipWaiting());
         }
         if (task === "ShowNotification") {
             event.waitUntil(
@@ -73,15 +72,10 @@ function addResourcesToCache() {
             "images/favicon-32x32.png",
             "main.css",
             "manifest.json",
-            "sw.js",
             "valens-web-app-dioxus.js",
             "valens-web-app-dioxus_bg.wasm",
         ]);
     })
-};
-
-function deleteCache() {
-    return caches.delete(CACHE_NAME);
 };
 
 function deleteDeprecatedCaches() {

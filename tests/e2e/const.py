@@ -8,8 +8,11 @@ VALENS = "build/venv/bin/valens"
 HOST = "127.0.0.1"
 # The port must be outside the ephemeral port range, in which the local port of an outgoing
 # connection can occupy the port of a server that is started later.
-PORT = 5100 + int(os.getenv("PYTEST_XDIST_WORKER", "gw0")[2:])
+PORT = 5100 + 2 * int(os.getenv("PYTEST_XDIST_WORKER", "gw0")[2:])
 BASE_URL = f"http://{HOST}:{PORT}"
+# The port of the server serving the frontend files that are replaced by the update test
+UPDATE_PORT = PORT + 1
+UPDATE_BASE_URL = f"http://{HOST}:{UPDATE_PORT}"
 
 TODAY = datetime.date.today()
 USERS = tests.data.users(today=TODAY)

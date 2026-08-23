@@ -1,11 +1,12 @@
 //! App update detection and installation.
 //!
 //! [`UpdateNotification`] checks for a new server version on startup and shows a dialog
-//! when one is available. The update is applied by instructing the service worker to
-//! refresh the cache, after which all clients are reloaded automatically.
+//! when one is available. The update is applied by activating the service worker of the new
+//! version, after which the app is reloaded automatically.
 
 use dioxus::prelude::*;
 
+use futures_util::future::{Either, select};
 use log::info;
 
 use valens_domain::{Unreachable, VersionService};
@@ -19,6 +20,7 @@ use crate::{
 };
 
 const APP_VERSION: &str = env!("VALENS_VERSION");
+const UPDATE_TIMEOUT: u32 = 10_000;
 
 pub static UPDATE_STATUS: GlobalSignal<UpdateStatus> = Signal::global(|| UpdateStatus::UpToDate);
 pub static SERVER_VERSION: GlobalSignal<ServerVersion> = Signal::global(|| ServerVersion::Loading);
@@ -65,6 +67,7 @@ pub fn UpdateNotification() -> Element {
                         class: "control",
                         button {
                             class: "button is-light is-soft",
+                            "data-testid": "update-later",
                             disabled: UPDATE_STATUS() == UpdateStatus::Updating,
                             onclick: move |_| *UPDATE_STATUS.write() = UpdateStatus::Deferred,
                             "Later"
@@ -75,27 +78,14 @@ pub fn UpdateNotification() -> Element {
                         button {
                             class: "button is-info",
                             class: if UPDATE_STATUS() == UpdateStatus::Updating { "is-loading" },
+                            "data-testid": "update-now",
                             disabled: UPDATE_STATUS() == UpdateStatus::Updating,
                             onclick: move |_| {
                                 if let ServerVersion::Version(version) = SERVER_VERSION() {
                                     info!("updating app to version {version}");
                                 }
                                 *UPDATE_STATUS.write() = UpdateStatus::Updating;
-                                match web_app::service_worker::post(&web_app::service_worker::OutboundMessage::UpdateCache) {
-                                    Ok(()) => {
-                                        spawn(async move {
-                                            gloo_timers::future::TimeoutFuture::new(10_000).await;
-                                            if UPDATE_STATUS() == UpdateStatus::Updating {
-                                                *UPDATE_STATUS.write() = UpdateStatus::Available;
-                                                notify_warning("update app", "timeout");
-                                            }
-                                        });
-                                    }
-                                    Err(err) => {
-                                        *UPDATE_STATUS.write() = UpdateStatus::Available;
-                                        notify_warning("update app", err);
-                                    }
-                                }
+                                spawn(update_app());
                             },
                             "Update"
                         }
@@ -103,6 +93,42 @@ pub fn UpdateNotification() -> Element {
                 }
             }
         }
+    }
+}
+
+/// Activate the service worker of the new version.
+///
+/// The app is reloaded by the listener of the `controllerchange` event once the new service
+/// worker has taken control. An update that is not completed by a reload within the timeout is
+/// reported as failed.
+async fn update_app() {
+    let timeout = gloo_timers::future::TimeoutFuture::new(UPDATE_TIMEOUT);
+    let reason = match select(Box::pin(activate_update()), timeout).await {
+        Either::Left((Ok(()), timeout)) => {
+            timeout.await;
+            if UPDATE_STATUS() != UpdateStatus::Updating {
+                return;
+            }
+            "timeout".to_string()
+        }
+        Either::Left((Err(err), _)) => err,
+        Either::Right(((), _)) => "timeout".to_string(),
+    };
+    web_app::service_worker::cancel_reload_on_controller_change();
+    *UPDATE_STATUS.write() = UpdateStatus::Available;
+    notify_warning("update app", reason);
+}
+
+/// Trigger the activation of the service worker of the new version.
+async fn activate_update() -> Result<(), String> {
+    match web_app::service_worker::request_update().await? {
+        web_app::service_worker::Update::Waiting(service_worker) => {
+            web_app::service_worker::post_to(
+                &service_worker,
+                &web_app::service_worker::OutboundMessage::SkipWaiting,
+            )
+        }
+        web_app::service_worker::Update::Activating => Ok(()),
     }
 }
 

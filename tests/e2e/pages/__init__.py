@@ -28,3 +28,4 @@ from .training_session import (
     TrainingSessionPage as TrainingSessionPage,
 )
 from .training_sessions import TrainingSessionsPage as TrainingSessionsPage
+from .update import UpdateDialog as UpdateDialog

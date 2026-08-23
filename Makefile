@@ -7,7 +7,7 @@ FONTAWESOME_VERSION := 7.2.0
 PYTHON_PACKAGES := valens tests tools fabfile.py
 ASSETS_DIR := valens/static/assets
 GENERATED_DIR := valens/static/generated
-GENERATED_FILES := main.css valens-web-app-dioxus.js valens-web-app-dioxus_bg.wasm
+GENERATED_FILES := main.css sw.js valens-web-app-dioxus.js valens-web-app-dioxus_bg.wasm
 PACKAGE_GENERATED_FILES := $(addprefix $(GENERATED_DIR)/,$(GENERATED_FILES))
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
@@ -207,6 +207,7 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	mkdir -p $(GENERATED_DIR)
 	rm -rf $(GENERATED_DIR)/*
 	sass crates/web-app-dioxus/assets/main.scss $(GENERATED_DIR)/main.css
+	sed -e "s#{{VERSION}}#$(VERSION)#" crates/web-app-dioxus/assets/sw.js > $(GENERATED_DIR)/sw.js
 	rm -rf $(DX_RELEASE_DIR)
 	VALENS_VERSION=$(VERSION) dx bundle --release --debug-symbols=false --package valens-web-app-dioxus
 	# `dx` hashes asset file names per build. Resolving them via `index.html` selects the assets of
@@ -255,7 +256,8 @@ DETECT_HOST := if [ -f /run/.containerenv ] || [ -f /.dockerenv ]; then echo "0.
 
 run-frontend:
 	mkdir -p target/dx/valens-web-app-dioxus/debug/web/public/
-	cp -r valens/static/assets/{fonts,images,favicon.ico,manifest.json,sw.js} target/dx/valens-web-app-dioxus/debug/web/public/
+	cp -r valens/static/assets/{fonts,images,favicon.ico,manifest.json} target/dx/valens-web-app-dioxus/debug/web/public/
+	sed -e "s#{{VERSION}}#dev#" crates/web-app-dioxus/assets/sw.js > target/dx/valens-web-app-dioxus/debug/web/public/sw.js
 	sass --update crates/web-app-dioxus/assets/main.scss target/dx/valens-web-app-dioxus/debug/web/public/main.css
 	dx serve --package valens-web-app-dioxus --addr $$($(DETECT_HOST))
 

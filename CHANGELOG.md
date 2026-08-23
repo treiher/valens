@@ -119,6 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Repetition of metronome beeps after the app was in the background
 - Settings not being accessible in browsers without support for notifications
 - Unnecessary symbols on the on-screen keyboard of some devices for the timer
+- App not starting after an update was confirmed
 - Home page:
     - Loading indicator staying visible after leaving the page while a training session is being started, preventing the start of further training sessions
     - Incorrect load when the oldest training session was not the first one added

@@ -49,4 +49,7 @@ When the same condition is checked in both the domain service and the backend, b
 
 - Entries are written for users: user-facing language ("screen" rather than "viewport") and one noun phrase per bullet that reads as the object of the section verb ("Added ...", "Changed ...").
 - Changes affecting several pages get one bullet per page, even if the text repeats. A change to a shared element that behaves identically wherever it appears gets a single bullet naming that element instead, with a page-specific bullet added only where the behavior differs.
+- A page or dialog with a single entry is written as `Page: Entry` on one line. Several entries are collected under a `Page:` bullet with one nested bullet each.
+- Within a section, entries are ordered by scope: entries affecting the whole app, followed by the navigation bar, the pages, and the dialogs. The pages follow the order of the navigation menu, with the login and home page first and each list page before the page of a single entry, as in training sessions page before training session page.
+- The entries affecting the whole app are ordered by audience: entries about the app, the CLI, and the configuration and deployment. A new page is an entry about the app and is listed there, not among the pages.
 - The "Unreleased" section describes the net change since the last release. Intermediate states that are added and reworked within the same cycle are not mentioned.

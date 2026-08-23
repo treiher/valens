@@ -10,13 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Training session-specific exercise notes
-- 1RM calculator accessible from the navigation menu
+- 1RM (one-repetition maximum) calculator accessible from the navigation menu
 - Drop set calculator accessible from the navigation menu
 - Activity bar at the bottom of the screen for returning to an in-progress training session, shown on every page except the matching training session page
 - Prevention of the screen turning off while a timer is running
+- Automatic focus of the first input field in dialogs, with its value selected
+- FFMI (Fat-Free Mass Index) page with a chart and interval selection
+- Recording of notifications in the log
+- User roles (user and admin)
+- One-time login links for signing in without a passkey, valid for 24 hours
+- Display of chart values at the hovered or touched date
+- Schedule page for planning routines on days of the week, including rotations of routines across training days
+- CLI commands to list, create, update and delete users
+- CLI command to create a one-time login link for a user
+- CLI options for reproducing the example data of the demo command
+- Output of the user names when starting the demo
+- Configuration option for setting the public URL
+- Configuration option for disabling the username login
+- Alembic configuration file in the container for using the Alembic CLI
+- Login page: Sign-in with a passkey
 - Home page:
     - Most recent FFMI
     - Planned routines for the current day with buttons to start the corresponding training sessions
+- Training sessions page: 7-day min./max. RPE to RPE chart
 - Training session page:
     - Option to open the 1RM calculator from the exercise options
     - Option to open the drop set calculator from the exercise options
@@ -25,55 +41,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Buttons for target and previous values for time-based sets
     - Activity bar at the bottom of the screen showing the elapsed time with a button to end the current training session
     - Automatic start of an in-progress training session when a session without recorded sets is opened
-    - Automatic end of the in-progress training session when all sets are recorded or its end is reached
-    - Input fields for time-based sets while another training session is in progress
-- Training sessions page: 7-day min./max. RPE to RPE chart
+    - Automatic end of the in-progress training session when all sets are recorded or the end of the session is reached
+- Routines page: Option to show and copy routine as text
 - Routine page:
     - Option to show and copy routine as text
     - Rearrangement and removal of exercises, rests and sections by drag and drop
-    - Automatic focus of the first input field with its value selected in the dialogs for editing sections, exercises and rests
-- Routines page:
-    - Option to show and copy routine as text
-    - Automatic focus of the first input field with its value selected in the dialogs for adding, copying and renaming routines
 - Exercise page:
     - Estimated maximum reps to reps chart
     - Estimated 1RM to weight chart
-- Exercises page: Automatic focus of the first input field with its value selected in the dialogs for adding, copying and renaming exercises
-- Body weight page: Automatic focus of the first input field with its value selected in the dialogs for adding and editing entries
-- Body fat page: Automatic focus of the first input field with its value selected in the dialogs for adding and editing entries
-- FFMI (Fat-Free Mass Index) page with a chart and interval selection
-- Recording of notifications in the log
-- User roles (user and admin)
-- Profile dialog for editing the own user data, accessible from the navigation menu
-- Profile dialog: Management of the own passkeys (registration, renaming, deletion)
-- Login page: Sign-in with a passkey
-- One-time login links for signing in without a passkey, usable once within 24 hours
-- CLI commands to list, create, update and delete users
-- CLI command to create a one-time login link for a user
-- CLI options for reproducing the example data of the demo command
-- Configuration options for setting the public URL and disabling the sign-in with username
+- Profile dialog, accessible from the navigation menu:
+    - Editing of the user's own data
+    - Management of the user's own passkeys (registration, renaming, deletion)
 - Administration dialog:
     - Body height of users
     - Role of users
     - Warning when demoting or deleting the last admin
     - Creation of one-time login links for users
     - Deletion of passkeys of users
-    - Automatic focus of the first input field with its value selected in the dialogs for adding and editing users
     - Notice about unavailable passkey login and login links when no public URL is configured
-- Display of chart values at the hovered or touched date
-- Schedule page for planning routines on days of the week, including rotations of routines across training days
-- Alembic configuration file in the container, which enables the use of the Alembic CLI
 
 ### Changed
 
-- Login page: Login flow to require entering a known username
-- Training session page:
-    - Weight input resolution from 0.1 to 0.01 kg
-    - Preservation of an in-progress training session when editing a different one
-    - Dimming of inactive exercise sections only while a training session is in progress
+- Administration from a page to a dialog, allowing user management without leaving the current page
+- Version information and the log from the administration page to the About dialog, accessible from the navigation menu
+- Synchronization to include the data of the signed-in user, applying changes made outside the app without signing in again and signing out if the session was ended on the server
+- Expiry of a sign-in to one year after signing in instead of one year after the last use
+- Presentation of error messages from a dialog to a notification below the navigation bar, showing the reason with the affected action below it
+- Severity of recoverable notifications from error to warning
+- Wording of the message for a server that cannot be reached to "Server unreachable"
+- Rounding of the timer countdown up to the next full second, so that each number is shown for a whole second
+- Reporting of a server that does not answer in time as unreachable instead of as an unspecific error
+- Server response times to be shorter
+- Synchronization to skip the download of unchanged data
+- Default theme to follow the theme of the system
+- Example data of the demo mode to two realistic training logs
+- Navigation bar:
+    - "Log out" to "Sign out"
+    - Opening of the menu via the menu button on all screen widths, keeping all menu entries reachable on wide screens
+    - "Sign out" as the last menu entry
+    - Reporting of a missing connection to the server from an indicator to a notification
+    - Reporting of a failed synchronization from an indicator to a notification
+- Login page: Sign-in flow to require entering the username instead of selecting a user
 - Training sessions page:
     - RPE chart to average per-set RPE values instead of per-session averages
     - Wording of chart legend labels for set volume to be consistent with other pages
+- Training session page:
+    - Weight input resolution from 0.1 to 0.01 kg
+    - Preservation of an in-progress training session when editing a different one
+    - Dimming of inactive exercise sections to occur only while a training session is in progress
+- Routines page: Prevention of the deletion of routines that are used in the schedule
 - Routine page:
     - Weight input resolution from 0.1 to 0.01 kg
     - Order and wording of chart legend labels
@@ -81,30 +97,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Order of charts to show performance metrics before volume metrics
     - Order and wording of chart legend labels
 - Muscles page: Wording of chart legend labels for set volume to be consistent with other pages
-- Body weight page: Order of chart legend entries
-- Body fat page: Order of chart legend entries
-- Navigation bar:
-    - "Log out" to "Sign out"
-    - Opening of the menu via the menu button on all screen widths, keeping all menu entries reachable on wide screens
-    - "Sign out" as the last menu entry
-    - Reporting of a missing connection to the server from an indicator to a notification
-    - Reporting of a failed synchronization from an indicator to a notification
-- Version information and the log from the administration page to the About dialog, accessible from the navigation menu
-- Administration from a page to a dialog, allowing user management without leaving the current page
+- Body weight page: Order of chart legend labels
+- Body fat page: Order of chart legend labels
 - Administration dialog: Restriction to admin users
-- Synchronization to include the data of the signed-in user, applying changes made outside the app without re-login and signing out if the session was ended on the server
-- Expiry of a sign-in to one year after signing in instead of one year after the last use
-- Presentation of error messages from a dialog to a notification below the navigation bar
-- Severity of recoverable notifications from error to warning
-- Wording of the message for a server that cannot be reached to "Server unreachable"
-- Rounding of the timer countdown up to the next full second, so that each number is shown for a whole second
-- Presentation of failure notifications to the reason with the affected action below it, keeping both on one line each on narrow screens
-- Reporting of a server that does not answer in time as unreachable instead of as an unspecific error
-- Routines page: Prevention of the deletion of routines that are used in the schedule
-- Server response times due to reduced overhead when accessing the database and serializing responses
-- Data transfer during synchronization by skipping the download of unchanged data
-- Example data of the demo mode to two realistic training logs that cover all pages
-- Default theme to follow the theme of the system
 
 ### Fixed
 
@@ -121,24 +116,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enlarged text in some places on iOS devices
 - Unnecessary symbols on the on-screen keyboard of some devices for the timer
 - App not starting after an update was confirmed
-- Home page:
-    - Loading indicator staying visible after leaving the page while a training session is being started, preventing the start of further training sessions
-    - Incorrect load when the oldest training session was not the first one added
+- Home page: Incorrect load value when the oldest training session was not the first one added
+- Training sessions page:
+    - Incorrect chart legend label
+    - Ordering of training sessions in the table by creation instead of by date
+    - Incorrect load chart when the oldest training session was not the first one added
 - Training session page:
     - Missing numbering of exercises within compound sets for time-based sets
     - Manual metronome adjustments being reset immediately instead of persisting until the current element changes
     - Loading indicator staying visible after leaving the page while a change is being saved
     - Missing decimal separator on the on-screen keyboard of some devices for weight and RPE, and unnecessary symbols for reps and time
-- Training sessions page:
-    - Incorrect chart legend label
-    - Ordering of training sessions in the table by creation instead of by date
-    - Incorrect load charts when the oldest training session was not the first one added
 - Routine page:
     - Loading indicator staying visible after leaving the page while a change is being saved
     - Ordering of training sessions in the table by creation instead of by date
     - Ordering of previously used exercises by creation instead of by name
     - Missing decimal separator on the on-screen keyboard of some devices for weight and RPE
-- Schedule page: Loading indicator staying visible after leaving the page while a change is being saved
 - Exercise page:
     - Changed muscles not being shown until the next synchronization
     - Ordering of training sessions in the table by creation instead of by date

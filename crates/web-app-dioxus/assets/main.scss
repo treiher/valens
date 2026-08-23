@@ -55,6 +55,12 @@ $blue: #3B8ED0;
     font-style: normal;
 }
 
+// Prevent WebKit from enlarging the text of wide blocks. Safari ignores the unprefixed
+// `text-size-adjust` set by Bulma.
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
 // Hamburger menu without JavaScript
 
 // Fix hamburger button position

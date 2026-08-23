@@ -82,12 +82,16 @@ content-type = "text/markdown"
 path = "README.md"
 
 [[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
-pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
-replacement = '[\1](https://github.com/treiher/valens/blob/468532097ed24654b6cd39e77a7772882c53d4dd/\g<2>)'
-
-[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
 pattern = '\[(.+?)\]\(((?!https?://)\S+?.\.(png|gif))'
 replacement = '[\1](https://raw.githubusercontent.com/treiher/valens/468532097ed24654b6cd39e77a7772882c53d4dd/\g<2>'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[(.+?)\]\((#[^)\s]+)\)'
+replacement = '[\1](https://github.com/treiher/valens/blob/468532097ed24654b6cd39e77a7772882c53d4dd/README.md\g<2>)'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[(.+?)\]\(((?!https?://)\S+?)\)'
+replacement = '[\1](https://github.com/treiher/valens/blob/468532097ed24654b6cd39e77a7772882c53d4dd/\g<2>)'
 
 [tool.uv]
 required-version = ">=0.9"

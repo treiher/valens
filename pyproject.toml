@@ -1,6 +1,6 @@
 [project]
 name = "valens"
-description = "An app for tracking your health and training progress."
+description = "A self-hosted web app for planning your training and tracking your progress."
 license = {text = "AGPL-3.0"}
 authors = [
     {name = "Tobias Reiher", email = "valens@ardeidae.de"},

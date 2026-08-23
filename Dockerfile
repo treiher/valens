@@ -6,7 +6,7 @@ ARG REVISION
 ARG SOURCE
 
 LABEL org.opencontainers.image.title="valens"
-LABEL org.opencontainers.image.description="An app for tracking your health and training progress."
+LABEL org.opencontainers.image.description="A self-hosted web app for planning your training and tracking your progress."
 LABEL org.opencontainers.image.licenses=AGPL-3.0-only
 LABEL org.opencontainers.image.version=$VERSION
 LABEL org.opencontainers.image.revision=$REVISION

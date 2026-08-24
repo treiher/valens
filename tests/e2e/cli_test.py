@@ -9,6 +9,7 @@ from valens.config import create_config_file
 
 from .const import BASE_URL, PORT, VALENS
 from .io import run_server
+from .pages import LoginPage
 
 
 def test_version() -> None:
@@ -41,6 +42,7 @@ def test_run(tmp_path: Path, page: Page) -> None:
     config = create_config_file(tmp_path, tmp_path / "test.db")
     with run_server(f"{VALENS} run --port {PORT}", {"VALENS_CONFIG": str(config), **os.environ}):
         page.goto(BASE_URL)
+        LoginPage(page).expect_no_splash_screen()
         expect(page.get_by_text("Valens")).to_be_visible()
 
 
@@ -48,6 +50,7 @@ def test_demo(tmp_path: Path, page: Page) -> None:
     config = create_config_file(tmp_path, tmp_path / "test.db")
     with run_server(f"{VALENS} demo --port {PORT}", {"VALENS_CONFIG": str(config), **os.environ}):
         page.goto(BASE_URL)
+        LoginPage(page).expect_no_splash_screen()
         expect(page.get_by_text("Valens")).to_be_visible()
 
 

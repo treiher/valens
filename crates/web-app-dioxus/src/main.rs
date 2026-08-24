@@ -4,6 +4,7 @@
 use std::sync::{Arc, Mutex};
 
 use dioxus::prelude::*;
+use gloo_timers::future::TimeoutFuture;
 use log::{error, warn};
 use web_sys::wasm_bindgen::{JsCast, closure::Closure};
 
@@ -39,6 +40,9 @@ mod ui;
 mod unsaved_changes;
 mod update;
 mod wake_lock;
+
+/// Duration of the splash screen fade-out, matching the transition defined in `main.scss`.
+const SPLASH_SCREEN_FADE_OUT_MS: u32 = 200;
 
 static DOMAIN_SERVICE: GlobalSignal<
     domain::Service<storage::cached_rest::CachedREST<storage::rest::GlooNetSendRequest>>,
@@ -175,12 +179,7 @@ fn App() -> Element {
             });
     }));
 
-    if let Some(el) = web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.get_element_by_id("loading"))
-    {
-        el.set_outer_html("");
-    }
+    use_hook(hide_splash_screen);
 
     Settings::provide();
 
@@ -193,6 +192,25 @@ fn App() -> Element {
         UpdateNotification {}
         NotificationBar {}
     }
+}
+
+/// Fade out the splash screen shown while the app is starting and remove it afterwards.
+fn hide_splash_screen() {
+    let Some(element) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id("loading"))
+    else {
+        return;
+    };
+    if let Err(err) = element.class_list().add_1("is-fading-out") {
+        warn!("failed to hide splash screen: {err:?}");
+        element.remove();
+        return;
+    }
+    spawn(async move {
+        TimeoutFuture::new(SPLASH_SCREEN_FADE_OUT_MS).await;
+        element.remove();
+    });
 }
 
 fn signal_changed_data() {

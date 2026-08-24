@@ -16,27 +16,41 @@
         <meta name="theme-color" content="#48C774" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <script>
+            // Apply the configured theme before the first paint, so that the splash screen is
+            // not shown in the system color scheme when a different theme is configured
+            try {
+                const theme = JSON.parse(localStorage.getItem("settings") || "{}").theme;
+                if (theme === "Light" || theme === "Dark") {
+                    document.documentElement.setAttribute("data-theme", theme.toLowerCase());
+                }
+            } catch (error) {
+                // Without the theme, the splash screen is shown in the system color scheme
+            }
+        </script>
+        <script>
             if ("serviceWorker" in navigator) {
                 navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
             }
         </script>
     </head>
     <body>
-        <div id="loading">
+        <div id="loading" data-testid="splash">
             <section class="hero is-fullheight">
                 <div class="hero-body">
                     <div class="container has-text-centered">
-                        <div class="block">
-                            <progress class="progress is-primary" max="100">
-                                Loading app...
-                            </progress>
-                        </div>
-                        <div class="block is-visible-with-delay has-text-grey py-5">
-                            If the application does not start, WebAssembly may be disabled or not supported by your browser.
+                        <figure class="image is-128x128 is-inline-block mb-4">
+                            <img src="/images/android-chrome-512x512.png" alt="Valens" />
+                        </figure>
+                        <p class="title is-1 mb-5">Valens</p>
+                        <div class="splash-indicator is-visible-with-short-delay">
+                            <span class="splash-spinner" role="status" aria-label="Loading app"></span>
                         </div>
                     </div>
                 </div>
             </section>
+            <div class="splash-hint is-visible-with-delay has-text-centered has-text-grey px-4">
+                If the application does not start, WebAssembly may be disabled or not supported by your browser.
+            </div>
         </div>
         <div id="main">
             <script type="module" async src="/valens-web-app-dioxus.js"></script>

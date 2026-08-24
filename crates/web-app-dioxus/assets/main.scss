@@ -32,24 +32,28 @@ $blue: #3B8ED0;
 
 @font-face {
     font-family: "Roboto";
+    font-display: swap;
     src: url("#{$font-path}/Roboto-BoldItalic.woff") format("woff");
     font-weight: bold;
     font-style: italic;
 }
 @font-face {
     font-family: "Roboto";
+    font-display: swap;
     src: url("#{$font-path}/Roboto-Bold.woff") format("woff");
     font-weight: bold;
     font-style: normal;
 }
 @font-face {
     font-family: "Roboto";
+    font-display: swap;
     src: url("#{$font-path}/Roboto-Italic.woff") format("woff");
     font-weight: normal;
     font-style: italic;
 }
 @font-face {
     font-family: "Roboto";
+    font-display: swap;
     src: url("#{$font-path}/Roboto-Regular.woff") format("woff");
     font-weight: normal;
     font-style: normal;
@@ -366,6 +370,65 @@ div.is-calendar {
 .message.is-dialog a:not(.button):not(.tag):not(.dropdown-item) {
     color: var(--bulma-link-text);
     text-decoration: none;
+}
+
+// Splash screen shown until the app has started
+
+#loading {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background-color: var(--bulma-scheme-main);
+    transition: opacity 200ms ease-out;
+}
+
+#loading.is-fading-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+// Reserve the space taken up by the login form, so that the icon and the title are shown at the
+// same position on the splash screen and on the login screen
+.splash-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 13.125rem;
+}
+
+// Pinned to the bottom edge, so that the hint does not displace the content above it
+.splash-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 2rem;
+}
+
+.splash-spinner {
+    display: inline-block;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 3px solid var(--bulma-border);
+    border-top-color: var(--bulma-primary);
+    border-radius: 50%;
+    animation: splash-spin 1s linear infinite;
+}
+
+@keyframes splash-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    // Pulse instead of rotate, so that the app is still indicated to be starting
+    .splash-spinner {
+        animation: splash-pulse 1.5s ease-in-out infinite alternate;
+    }
+}
+
+@keyframes splash-pulse {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
 }
 
 // Visibility

@@ -82,6 +82,15 @@ class BasePage:
         expect(self.page.get_by_test_id("loading")).to_have_count(0)
         expect(self.page.locator(".is-loading")).to_have_count(0)
 
+    def expect_splash_screen(self) -> None:
+        expect(self.page.get_by_test_id("splash")).to_be_visible()
+
+    def expect_no_splash_screen(self) -> None:
+        expect(self.page.get_by_test_id("splash")).to_have_count(0)
+
+    def expect_dark_theme(self) -> None:
+        expect(self.page.locator("html")).to_have_attribute("data-theme", "dark")
+
     def expect_fab(self, icon: str) -> None:
         expect(self.fab().get_by_test_id(f"icon-{icon}")).to_be_visible()
 

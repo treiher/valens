@@ -95,6 +95,41 @@ def test_login(page: Page) -> None:
     p.expect_loading_to_be_finished()
 
 
+def test_splash_screen(browser: Browser) -> None:
+    # Block the service worker so that the aborted WebAssembly module is not served from its cache
+    context = browser.new_context(service_workers="block")
+    try:
+        page = context.new_page()
+        p = LoginPage(page)
+
+        page.route("**/*.wasm", lambda route: route.abort())
+        page.goto(BASE_URL, wait_until="commit")
+        p.expect_splash_screen()
+
+        page.unroute("**/*.wasm")
+        page.reload()
+        p.expect_page()
+        p.expect_no_splash_screen()
+    finally:
+        context.close()
+
+
+def test_splash_screen_theme(browser: Browser) -> None:
+    # Block the service worker so that the aborted WebAssembly module is not served from its cache
+    context = browser.new_context(service_workers="block", color_scheme="light")
+    try:
+        page = context.new_page()
+        p = LoginPage(page)
+        page.add_init_script('localStorage.setItem("settings", \'{"theme":"Dark"}\')')
+
+        page.route("**/*.wasm", lambda route: route.abort())
+        page.goto(BASE_URL, wait_until="commit")
+        p.expect_splash_screen()
+        p.expect_dark_theme()
+    finally:
+        context.close()
+
+
 def test_synchronization_indicator(browser: Browser) -> None:
     # Block the service worker so `page.route` can intercept the API requests it would
     # otherwise handle out of the page's reach

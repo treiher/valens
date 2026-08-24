@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Settings dialog: Beep at the selected volume when the beep volume is changed
 
+### Changed
+
+- Loading screen shown while the app is starting
+
 ### Fixed
 
 - App not starting when it is reloaded while offline

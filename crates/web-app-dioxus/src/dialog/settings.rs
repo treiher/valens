@@ -3,6 +3,7 @@ use dioxus::prelude::*;
 use valens_web_app as web_app;
 
 use crate::{
+    audio,
     notification::notify_error,
     settings::Settings,
     ui::element::{Dialog, Icon},
@@ -38,6 +39,11 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                         }
                         async move {
                             settings.save().await;
+                        }
+                    },
+                    onchange: move |event| {
+                        if let Ok(value) = event.value().parse() {
+                            audio::play_volume_preview(value);
                         }
                     },
                 }

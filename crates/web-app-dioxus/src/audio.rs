@@ -726,6 +726,17 @@ fn scheduled_beeps(expiry: f64, from: f64, to: f64) -> Vec<ScheduledBeep> {
         .collect()
 }
 
+/// Plays a beep at `volume`, matching the tone and length of the beeps of an expiring countdown.
+pub fn play_volume_preview(volume: u8) {
+    resume_audio_context();
+    let Some(now) = audio_context_time() else {
+        return;
+    };
+    if let Err(err) = play_beep(2000., now, 0.15, volume) {
+        warn!("failed to play beep: {err:?}");
+    }
+}
+
 /// Duration of the fade at each edge of a beep.
 const BEEP_RAMP: f64 = 0.005;
 

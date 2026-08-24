@@ -16,6 +16,12 @@ def skip_without_devtools_protocol(request: pytest.FixtureRequest, browser_name:
         pytest.skip("test requires the Chrome DevTools Protocol")
 
 
+@pytest.fixture(autouse=True)
+def skip_incompatible_webkit(request: pytest.FixtureRequest, browser_name: str) -> None:
+    if browser_name == "webkit" and request.node.get_closest_marker("webkit_incompatible"):
+        pytest.skip("test requires behavior which WebKit does not provide")
+
+
 @pytest.fixture
 def page(context: BrowserContext) -> Generator[Page, None, None]:
     page = context.new_page()

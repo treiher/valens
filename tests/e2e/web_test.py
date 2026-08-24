@@ -2621,6 +2621,24 @@ def test_cache(page: Page) -> None:
     assert caches(page) == {f"valens-{version}": CACHED_FILES}
 
 
+# The offline emulation of WebKit does not cover the service worker, so the navigation fails
+# before the service worker can serve the app shell.
+@pytest.mark.webkit_incompatible
+def test_offline_reload(page: Page) -> None:
+    activate_service_worker(page)
+    login(page)
+
+    p = RoutinesPage(page)
+    p.goto()
+
+    page.context.set_offline(True)
+    try:
+        page.reload()
+        p.expect_page()
+    finally:
+        page.context.set_offline(False)
+
+
 @pytest.fixture
 def replaceable_frontend(backend_server: Path) -> Generator[Path, None, None]:
     """Serve a copy of the frontend files that can be replaced while the server is running."""

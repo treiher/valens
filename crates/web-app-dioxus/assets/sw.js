@@ -29,7 +29,17 @@ self.addEventListener("fetch", (event) => {
                 console.error(error);
             }
 
-            return fetch(request);
+            try {
+                return await fetch(request);
+            } catch (error) {
+                if (request.mode === "navigate") {
+                    const appShell = await caches.match("/", { cacheName: CACHE_NAME });
+                    if (appShell) {
+                        return appShell;
+                    }
+                }
+                throw error;
+            }
         })(),
     );
 });

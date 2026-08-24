@@ -10,6 +10,9 @@ jobs:
     env:
       CARGO_INCREMENTAL: 0
 
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,11 +30,13 @@ jobs:
           key: ${{ hashFiles('flake.lock') }}
           cache-on-failure: true
       - name: Determine version
+        id: version
         run: |
           # Use public version without local version label
           version=$(nix develop --command make version-public | tail -1)
           [ -n "$version" ] || { echo "Error: version could not be determined" >&2; exit 1; }
           echo "SETUPTOOLS_SCM_PRETEND_VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Check changelog contains tagged version
         if: startsWith(github.ref, 'refs/tags/')
         run: nix develop --command make release-notes VERSION_TAG="${GITHUB_REF_NAME#v}" > /dev/null
@@ -144,6 +149,9 @@ jobs:
 
     env:
       NAME: ghcr.io/${{ github.repository }}
+      # The version must be determined by the build job. A tag pushed after the checkout of the
+      # build job would otherwise lead to a different version.
+      SETUPTOOLS_SCM_PRETEND_VERSION: ${{ needs.build.outputs.version }}
 
     steps:
       - uses: actions/checkout@v7
@@ -170,13 +178,11 @@ jobs:
           path: dist/
       - name: Build image
         run: |
-          # Use public version without local version label
-          export SETUPTOOLS_SCM_PRETEND_VERSION
-          SETUPTOOLS_SCM_PRETEND_VERSION=$(make version-public)
+          # Skip the rebuild of the downloaded wheel and its prerequisites
           make -o dist/*.whl container TOOL=docker NAME="$NAME" REVISION="$GITHUB_SHA" SOURCE="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
       - name: Tag image
         run: |
-          VERSION="$(make version-public)"
+          VERSION="$SETUPTOOLS_SCM_PRETEND_VERSION"
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             docker tag "$NAME:$VERSION" "$NAME:latest"
           else

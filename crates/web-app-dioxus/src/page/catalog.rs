@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
 
-use valens_domain::{self as domain, Property};
+use valens_domain as domain;
 
 use crate::{
     page,
-    ui::element::{Block, CenteredTags, ErrorPage, Title},
+    ui::element::{Block, ErrorPage, Title},
 };
 
 #[component]
@@ -15,14 +15,14 @@ pub fn Catalog(name: String) -> Element {
             rsx! {
                 Title { "{exercise.name}" }
                 Block {
-                    {view_exercise_properties(
-                        exercise.force,
-                        exercise.mechanic,
-                        exercise.laterality,
-                        exercise.assistance,
+                    {page::exercise::view_exercise_properties(
+                        Some(exercise.force),
+                        Some(exercise.mechanic),
+                        Some(exercise.laterality),
+                        Some(exercise.assistance),
                         exercise.equipment,
                         exercise.muscles,
-                        exercise.category,
+                        Some(exercise.category),
                     )}
                 }
             }
@@ -31,29 +31,5 @@ pub fn Catalog(name: String) -> Element {
         }
     } else {
         rsx! { ErrorPage { message: "Exercise not found" } }
-    }
-}
-
-fn view_exercise_properties(
-    force: domain::Force,
-    mechanic: domain::Mechanic,
-    laterality: domain::Laterality,
-    assistance: domain::Assistance,
-    equipment: &[domain::Equipment],
-    muscles: &[(domain::MuscleID, domain::Stimulus)],
-    category: domain::Category,
-) -> Element {
-    rsx! {
-        CenteredTags {
-            for p in [force.name(), mechanic.name(), laterality.name(), assistance.name(), category.name()] {
-                span { class: "tag", {p} }
-            }
-        }
-        {page::exercise::view_muscles(muscles.iter().map(|(k, v)| (k, v)))}
-        CenteredTags {
-            for e in equipment {
-                span { class: "tag", {e.name()} }
-            }
-        }
     }
 }

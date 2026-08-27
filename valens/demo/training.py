@@ -10,6 +10,7 @@ from valens.demo.events import event_indices
 from valens.demo.profiles import ExerciseConfig, Profile, RoutinePlan
 from valens.models import (
     Exercise,
+    ExerciseEquipment,
     ExerciseMuscle,
     Routine,
     RoutineActivity,
@@ -42,6 +43,35 @@ QUADS = 81
 HAMSTRINGS = 82
 ADDUCTORS = 83
 CALVES = 91
+
+# Force values mirror `Force` in `crates/domain/src/exercise.rs`
+PUSH = 1
+PULL = 2
+STATIC = 3
+
+# Mechanic values mirror `Mechanic` in `crates/domain/src/exercise.rs`
+COMPOUND = 1
+ISOLATION = 2
+
+# Laterality values mirror `Laterality` in `crates/domain/src/exercise.rs`
+BILATERAL = 1
+UNILATERAL = 2
+
+# Assistance values mirror `Assistance` in `crates/domain/src/exercise.rs`
+UNASSISTED = 1
+ASSISTED = 2
+
+# Equipment values mirror `Equipment` in `crates/domain/src/exercise.rs`
+BARBELL = 1
+CABLE = 3
+DUMBBELL = 4
+KETTLEBELL = 7
+MACHINE = 8
+PARALLEL_BARS = 9
+
+# Category values mirror `Category` in `crates/domain/src/exercise.rs`
+STRENGTH = 1
+PLYOMETRICS = 2
 
 # Stimulus values mirror `Stimulus` in `crates/domain/src/exercise.rs`
 PRIMARY = 100
@@ -91,6 +121,12 @@ class ExerciseDefinition:
     type: ExerciseType
     muscles: tuple[tuple[int, int], ...]
     rest: int
+    force: int
+    mechanic: int
+    laterality: int
+    assistance: int
+    equipment: tuple[int, ...]
+    category: int
 
 
 @dataclass
@@ -102,7 +138,8 @@ class Training:
     schedule_slots: list[ScheduleSlot]
 
 
-# Names and muscles are taken from `crates/domain/src/catalog.rs` and kept in sync by hand
+# Names, muscles and properties are taken from `crates/domain/src/catalog.rs` and kept in sync
+# by hand
 EXERCISES = {
     "Barbell Squat": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -114,6 +151,12 @@ EXERCISES = {
             (CALVES, SECONDARY),
         ),
         LONG_REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(BARBELL,),
+        category=STRENGTH,
     ),
     "Goblet Squat": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -125,11 +168,23 @@ EXERCISES = {
             (CALVES, SECONDARY),
         ),
         REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(KETTLEBELL,),
+        category=STRENGTH,
     ),
     "Leg Press": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((QUADS, PRIMARY), (GLUTES, PRIMARY), (ADDUCTORS, PRIMARY), (HAMSTRINGS, SECONDARY)),
         REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(MACHINE,),
+        category=STRENGTH,
     ),
     "Barbell Deadlift": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -143,6 +198,12 @@ EXERCISES = {
             (FOREARMS, SECONDARY),
         ),
         LONG_REST,
+        force=PULL,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(BARBELL,),
+        category=STRENGTH,
     ),
     "Barbell Romanian Deadlift": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -156,71 +217,155 @@ EXERCISES = {
             (FOREARMS, SECONDARY),
         ),
         REST,
+        force=PULL,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(BARBELL,),
+        category=STRENGTH,
     ),
     "Barbell Hip Thrust": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((GLUTES, PRIMARY), (QUADS, SECONDARY), (ADDUCTORS, SECONDARY)),
         REST,
+        force=PUSH,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(BARBELL,),
+        category=STRENGTH,
     ),
     "Seated Leg Curl": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((HAMSTRINGS, PRIMARY),),
         SHORT_REST,
+        force=PULL,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(MACHINE,),
+        category=STRENGTH,
     ),
     "Leg Extension": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((QUADS, PRIMARY),),
         SHORT_REST,
+        force=PUSH,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(MACHINE,),
+        category=STRENGTH,
     ),
     "Machine Hip Abduction": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((ABDUCTORS, PRIMARY), (GLUTES, SECONDARY)),
         SHORT_REST,
+        force=PULL,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(MACHINE,),
+        category=STRENGTH,
     ),
     "Machine Standing Calf Raise": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((CALVES, PRIMARY),),
         SHORT_REST,
+        force=PUSH,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(MACHINE,),
+        category=STRENGTH,
     ),
     "Barbell Bench Press": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, SECONDARY)),
         LONG_REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(BARBELL,),
+        category=STRENGTH,
     ),
     "Machine Chest Press": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, SECONDARY)),
         REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(MACHINE,),
+        category=STRENGTH,
     ),
     "Push Up": ExerciseDefinition(
         ExerciseType(reps=True, time=True, weight=False, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, SECONDARY), (ABS, SECONDARY)),
         SHORT_REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(),
+        category=STRENGTH,
     ),
     "Dip": ExerciseDefinition(
         ExerciseType(reps=True, time=True, weight=False, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, PRIMARY)),
         REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(PARALLEL_BARS,),
+        category=STRENGTH,
     ),
     "Barbell Shoulder Press": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((FRONT_DELTS, PRIMARY), (SIDE_DELTS, SECONDARY), (TRICEPS, SECONDARY)),
         LONG_REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(BARBELL,),
+        category=STRENGTH,
     ),
     "Dumbbell Shoulder Press": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=False),
         ((FRONT_DELTS, PRIMARY), (SIDE_DELTS, SECONDARY), (TRICEPS, SECONDARY)),
         REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(DUMBBELL,),
+        category=STRENGTH,
     ),
     "Dumbbell Lateral Raise": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((SIDE_DELTS, PRIMARY), (FRONT_DELTS, SECONDARY)),
         SHORT_REST,
+        force=PULL,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(DUMBBELL,),
+        category=STRENGTH,
     ),
     "Cable Rope Face Pull": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((REAR_DELTS, PRIMARY), (SIDE_DELTS, SECONDARY), (TRAPS, SECONDARY)),
         SHORT_REST,
+        force=PULL,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(CABLE,),
+        category=STRENGTH,
     ),
     "Cable Row": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -232,6 +377,12 @@ EXERCISES = {
             (FOREARMS, SECONDARY),
         ),
         REST,
+        force=PULL,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(CABLE,),
+        category=STRENGTH,
     ),
     "Lat Pulldown": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
@@ -242,26 +393,56 @@ EXERCISES = {
             (FOREARMS, SECONDARY),
         ),
         REST,
+        force=PULL,
+        mechanic=COMPOUND,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(MACHINE,),
+        category=STRENGTH,
     ),
     "Dumbbell Curl": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((BICEPS, PRIMARY),),
         SHORT_REST,
+        force=PULL,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(DUMBBELL,),
+        category=STRENGTH,
     ),
     "Barbell Skull Crusher": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=True, rpe=True),
         ((TRICEPS, PRIMARY),),
         SHORT_REST,
+        force=PUSH,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(BARBELL,),
+        category=STRENGTH,
     ),
     "Crunch": ExerciseDefinition(
         ExerciseType(reps=True, time=False, weight=False, rpe=False),
         ((ABS, PRIMARY),),
         SHORT_REST,
+        force=PULL,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(),
+        category=STRENGTH,
     ),
     "Plank": ExerciseDefinition(
         ExerciseType(reps=False, time=True, weight=False, rpe=False),
         ((ABS, PRIMARY),),
         SHORT_REST,
+        force=STATIC,
+        mechanic=ISOLATION,
+        laterality=BILATERAL,
+        assistance=UNASSISTED,
+        equipment=(),
+        category=STRENGTH,
     ),
 }
 
@@ -316,9 +497,18 @@ def training(profile: Profile, today: datetime.date, rng: random.Random) -> Trai
         name: Exercise(
             user_id=profile.id,
             name=name,
+            force=EXERCISES[name].force,
+            mechanic=EXERCISES[name].mechanic,
+            laterality=EXERCISES[name].laterality,
+            assistance=EXERCISES[name].assistance,
+            category=EXERCISES[name].category,
             muscles=[
                 ExerciseMuscle(user_id=profile.id, muscle_id=muscle, stimulus=stimulus)
                 for muscle, stimulus in EXERCISES[name].muscles
+            ],
+            equipment=[
+                ExerciseEquipment(user_id=profile.id, equipment=equipment)
+                for equipment in EXERCISES[name].equipment
             ],
         )
         for name in config

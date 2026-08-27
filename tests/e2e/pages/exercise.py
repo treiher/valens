@@ -12,17 +12,24 @@ if TYPE_CHECKING:
 
 
 class ExercisePage(BasePage):
-    def __init__(self, page: Page, exercise_id: int) -> None:
+    def __init__(self, page: Page, exercise_id: int | None = None) -> None:
         super().__init__(page)
 
         self.exercise_id = exercise_id
 
     @property
     def path(self) -> str:
+        assert self.exercise_id is not None
         return f"/exercise/{uuid.UUID(int=self.exercise_id)}"
 
     def exercise_note(self) -> Locator:
         return self.page.get_by_test_id("exercise-note")
+
+    def get_properties(self) -> list[str]:
+        return self.page.get_by_test_id("property-tag").all_inner_texts()
+
+    def get_muscles(self) -> list[str]:
+        return self.page.get_by_test_id("muscle-tag").all_inner_texts()
 
     def muscle_tag(self, name: str) -> Locator:
         return self.page.get_by_test_id("muscle-tag").filter(has_text=name)

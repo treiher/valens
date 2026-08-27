@@ -30,12 +30,26 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
         CacheState::Ready(exercises) => {
             let exercise = exercises.iter().find(|e| e.id == id);
             if let Some(exercise) = exercise {
-                let muscle_stimulus = exercise.muscle_stimulus();
+                let muscles = exercise.muscle_stimulus().into_iter().collect::<Vec<_>>();
+                let has_properties = exercise.force.is_some()
+                    || exercise.mechanic.is_some()
+                    || exercise.laterality.is_some()
+                    || exercise.assistance.is_some()
+                    || exercise.category.is_some()
+                    || !exercise.equipment.is_empty();
                 rsx! {
                     Title { "{exercise.name}" },
-                    if !muscle_stimulus.is_empty() {
+                    if has_properties || !muscles.is_empty() {
                         Block {
-                            {view_muscles(muscle_stimulus.iter())},
+                            {view_exercise_properties(
+                                exercise.force,
+                                exercise.mechanic,
+                                exercise.laterality,
+                                exercise.assistance,
+                                &exercise.equipment,
+                                &muscles,
+                                exercise.category,
+                            )},
                         }
                     }
                     match (&*cache.training_sessions.read(), &*cache.routines.read()) {
@@ -126,6 +140,45 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
         }
         CacheState::Loading => {
             rsx! { LoadingPage {} }
+        }
+    }
+}
+
+pub fn view_exercise_properties(
+    force: Option<domain::Force>,
+    mechanic: Option<domain::Mechanic>,
+    laterality: Option<domain::Laterality>,
+    assistance: Option<domain::Assistance>,
+    equipment: &[domain::Equipment],
+    muscles: &[(domain::MuscleID, domain::Stimulus)],
+    category: Option<domain::Category>,
+) -> Element {
+    let names = [
+        force.map(domain::Force::name),
+        mechanic.map(domain::Mechanic::name),
+        laterality.map(domain::Laterality::name),
+        assistance.map(domain::Assistance::name),
+        category.map(domain::Category::name),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
+    let equipment = equipment.to_vec();
+    rsx! {
+        if !names.is_empty() {
+            CenteredTags {
+                for name in names {
+                    span { class: "tag", "data-testid": "property-tag", {name} }
+                }
+            }
+        }
+        {view_muscles(muscles.iter().map(|(k, v)| (k, v)))}
+        if !equipment.is_empty() {
+            CenteredTags {
+                for e in equipment {
+                    span { class: "tag", "data-testid": "property-tag", {e.name()} }
+                }
+            }
         }
     }
 }

@@ -98,6 +98,29 @@ impl Exercise {
     }
 }
 
+/// The properties of an exercise, in the order in which they are passed to `create_exercise`.
+pub type ExerciseProperties = (
+    Option<Force>,
+    Option<Mechanic>,
+    Option<Laterality>,
+    Option<Assistance>,
+    Vec<Equipment>,
+    Option<Category>,
+);
+
+impl From<&catalog::Exercise> for ExerciseProperties {
+    fn from(value: &catalog::Exercise) -> Self {
+        (
+            Some(value.force),
+            Some(value.mechanic),
+            Some(value.laterality),
+            Some(value.assistance),
+            value.equipment.to_vec(),
+            Some(value.category),
+        )
+    }
+}
+
 #[derive(Deref, Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ExerciseID(Uuid);
 
@@ -844,6 +867,23 @@ mod tests {
             assert!(!name.is_empty());
             assert!(names.insert(name));
         }
+    }
+
+    #[test]
+    fn test_exercise_properties_from_catalog_exercise() {
+        assert_eq!(
+            ExerciseProperties::from(
+                &catalog::EXERCISES[&Name::new("Barbell Bench Press").unwrap()]
+            ),
+            (
+                Some(Force::Push),
+                Some(Mechanic::Compound),
+                Some(Laterality::Bilateral),
+                Some(Assistance::Unassisted),
+                vec![Equipment::Barbell],
+                Some(Category::Strength),
+            )
+        );
     }
 
     #[test]

@@ -35,6 +35,7 @@ from .pages import (
     AdminDialog,
     BodyFatPage,
     BodyWeightPage,
+    CatalogPage,
     DropSetCalculatorDialog,
     ExercisePage,
     ExercisesPage,
@@ -2239,6 +2240,31 @@ def test_exercises_add(page: Page) -> None:
 
     assert {e[0] for e in p.table.get_body(1)} == {new_name, *expected_current}
     assert {e[0] for e in p.table.get_body(2)} == expected_previous
+
+
+def test_exercises_add_from_catalog(page: Page) -> None:
+    name = "Barbell Bench Press"
+
+    login(page)
+    catalog_page = CatalogPage(page, name)
+    catalog_page.goto()
+    properties = catalog_page.get_properties()
+    muscles = catalog_page.get_muscles()
+
+    assert properties
+    assert muscles
+
+    p = ExercisesPage(page)
+    p.goto()
+    p.search(name)
+    p.add_catalog_exercise(0)
+    p.open_exercise(name)
+
+    exercise_page = ExercisePage(page)
+    exercise_page.expect_page()
+
+    assert exercise_page.get_properties() == properties
+    assert exercise_page.get_muscles() == muscles
 
 
 def test_exercises_copy(page: Page) -> None:

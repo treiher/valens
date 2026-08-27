@@ -4,6 +4,7 @@ from .about import AboutDialog as AboutDialog
 from .admin import AdminDialog as AdminDialog
 from .body_fat import BodyFatPage as BodyFatPage
 from .body_weight import BodyWeightPage as BodyWeightPage
+from .catalog import CatalogPage as CatalogPage
 from .exercise import ExercisePage as ExercisePage
 from .exercises import ExercisesPage as ExercisesPage
 from .ffmi import FfmiPage as FfmiPage

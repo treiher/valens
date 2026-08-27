@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Exercises page: Properties of custom exercises, copied from the catalog when an exercise is added from it
+- Exercise page: Tags showing the properties of the exercise
 - Settings dialog: Beep at the selected volume when the beep volume is changed
 
 ### Changed
 
 - Loading screen shown while the app is starting
+- Catalog exercise page: Order of the properties of an exercise, showing the muscles first
 
 ### Fixed
 

@@ -313,6 +313,7 @@ fn view_list(
                 rsx! {
                     span {
                         class: "has-text-link",
+                        "data-testid": "catalog-item",
                         onclick: move |event| on_catalog_click((event, name.clone())),
                         "{e.name}"
                     }
@@ -323,6 +324,7 @@ fn view_list(
                             class: "has-text-link has-text-right",
                             a {
                                 class: "mx-2",
+                                "data-testid": "add-catalog-exercise",
                                 onclick: move |_| {
                                     let name = e.name.clone();
                                     let mut muscles = vec![];
@@ -332,17 +334,19 @@ fn view_list(
                                             stimulus: *s,
                                         });
                                     }
+                                    let (force, mechanic, laterality, assistance, equipment, category) =
+                                        domain::ExerciseProperties::from(&e);
                                     async move {
                                             match DOMAIN_SERVICE()
                                                 .create_exercise(
                                                     name,
                                                     muscles,
-                                                    None,
-                                                    None,
-                                                    None,
-                                                    None,
-                                                    vec![],
-                                                    None,
+                                                    force,
+                                                    mechanic,
+                                                    laterality,
+                                                    assistance,
+                                                    equipment,
+                                                    category,
                                                 )
                                                 .await
                                             {
@@ -433,17 +437,17 @@ pub fn view_dialog(
                                         }
                                     }
                                 }
-                                ExerciseDialog::Copy { muscles, .. } => {
+                                ExerciseDialog::Copy { exercise, .. } => {
                                     match DOMAIN_SERVICE()
                                         .create_exercise(
                                             name,
-                                            muscles.clone(),
-                                            None,
-                                            None,
-                                            None,
-                                            None,
-                                            vec![],
-                                            None,
+                                            exercise.muscles.clone(),
+                                            exercise.force,
+                                            exercise.mechanic,
+                                            exercise.laterality,
+                                            exercise.assistance,
+                                            exercise.equipment.clone(),
+                                            exercise.category,
                                         )
                                         .await
                                     {
@@ -512,7 +516,6 @@ pub fn view_dialog(
         ExerciseDialog::Options(exercise) => {
             let exercise = exercise.clone();
             let exercise_name = exercise.name.clone();
-            let exercise_muscles = exercise.muscles.clone();
             rsx! {
                 OptionsMenu {
                     options: vec![
@@ -521,7 +524,7 @@ pub fn view_dialog(
                                 icon: "copy".to_string(),
                                 text: "Copy exercise".to_string(),
                                 "data-testid": "options-copy",
-                                on_click: eh!(exercise_name, exercise_muscles; {
+                                on_click: eh!(exercise_name, exercise; {
                                     async move {
                                         let validated_name = DOMAIN_SERVICE().validate_exercise_name(&exercise_name.to_string(), domain::ExerciseID::nil()).await.map_err(|err| err.to_string());
                                         *dialog.write() = ExerciseDialog::Copy {
@@ -530,7 +533,7 @@ pub fn view_dialog(
                                                 validated: validated_name,
                                                 orig: exercise_name.to_string(),
                                             },
-                                            muscles: exercise_muscles,
+                                            exercise,
                                         };
                                     }
                                 })
@@ -859,7 +862,7 @@ pub enum ExerciseDialog {
     },
     Copy {
         name: FieldValue<domain::Name>,
-        muscles: Vec<domain::ExerciseMuscle>,
+        exercise: domain::Exercise,
     },
     Rename {
         name: FieldValue<domain::Name>,

@@ -14,9 +14,9 @@ pub use error::{
 };
 pub use exercise::{
     Assistance, AssistanceError, Category, CategoryError, Equipment, EquipmentError, Exercise,
-    ExerciseFilter, ExerciseID, ExerciseMuscle, ExerciseRepository, ExerciseService, Force,
-    ForceError, Laterality, LateralityError, Mechanic, MechanicError, MuscleID, MuscleIDError,
-    Property, Stimulus, StimulusError, name_or_none,
+    ExerciseFilter, ExerciseID, ExerciseMuscle, ExerciseProperties, ExerciseRepository,
+    ExerciseService, Force, ForceError, Laterality, LateralityError, Mechanic, MechanicError,
+    MuscleID, MuscleIDError, Property, Stimulus, StimulusError, name_or_none,
 };
 pub use ffmi::ffmi;
 pub use name::{Name, NameError};

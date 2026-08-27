@@ -13,9 +13,10 @@ pub use error::{
     UpdateError, ValidationError,
 };
 pub use exercise::{
-    Assistance, Category, Equipment, Exercise, ExerciseFilter, ExerciseID, ExerciseMuscle,
-    ExerciseRepository, ExerciseService, Force, Laterality, Mechanic, MuscleID, MuscleIDError,
-    Property, Stimulus, StimulusError,
+    Assistance, AssistanceError, Category, CategoryError, Equipment, EquipmentError, Exercise,
+    ExerciseFilter, ExerciseID, ExerciseMuscle, ExerciseRepository, ExerciseService, Force,
+    ForceError, Laterality, LateralityError, Mechanic, MechanicError, MuscleID, MuscleIDError,
+    Property, Stimulus, StimulusError, name_or_none,
 };
 pub use ffmi::ffmi;
 pub use name::{Name, NameError};

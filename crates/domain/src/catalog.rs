@@ -1623,32 +1623,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn test_exercise_variants_invalid_muscles() {
-        for exercise in EXERCISE_VARIANTS {
-            for (muscle, _) in exercise
-                .muscles
-                .iter()
-                .chain(exercise.variants.iter().filter_map(|v| v.muscles).flatten())
-            {
-                assert_ne!(*muscle, MuscleID::None);
-            }
-        }
-    }
-
-    #[test]
-    fn test_exercise_variants_invalid_equipment() {
-        for exercise in EXERCISE_VARIANTS {
-            for equipment in exercise.equipment.iter().chain(
-                exercise
-                    .variants
-                    .iter()
-                    .filter_map(|v| v.equipment)
-                    .flatten(),
-            ) {
-                assert_ne!(*equipment, Equipment::None);
-            }
-        }
-    }
 }

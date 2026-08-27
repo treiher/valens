@@ -128,7 +128,7 @@ macro_rules! view_filter_tags {
             .filter(|(_, enabled)| !$show_enabled_only || *enabled)
             .map(|(element, enabled)| {
                 let e = *element;
-                let n = (*element).name();
+                let n = domain::name_or_none(*element);
                 rsx! {
                     span {
                         class: "tag is-hoverable",
@@ -891,17 +891,48 @@ impl ExerciseFilter {
     }
 }
 
+/// Encoding of a filter value that stands for the absence of the property.
+const NONE: u8 = 255;
+
 impl From<domain::ExerciseFilter> for ExerciseFilter {
     fn from(value: domain::ExerciseFilter) -> Self {
         Self {
             name: value.name.clone(),
-            muscles: value.muscles.iter().map(|v| *v as u8).collect(),
-            force: value.force.iter().map(|v| *v as u8).collect(),
-            mechanic: value.mechanic.iter().map(|v| *v as u8).collect(),
-            laterality: value.laterality.iter().map(|v| *v as u8).collect(),
-            assistance: value.assistance.iter().map(|v| *v as u8).collect(),
-            equipment: value.equipment.iter().map(|v| *v as u8).collect(),
-            category: value.category.iter().map(|v| *v as u8).collect(),
+            muscles: value
+                .muscles
+                .iter()
+                .map(|v| v.map_or(NONE, |v| v as u8))
+                .collect(),
+            force: value
+                .force
+                .iter()
+                .map(|v| v.map_or(NONE, |v| v as u8))
+                .collect(),
+            mechanic: value
+                .mechanic
+                .iter()
+                .map(|v| v.map_or(NONE, |v| v as u8))
+                .collect(),
+            laterality: value
+                .laterality
+                .iter()
+                .map(|v| v.map_or(NONE, |v| v as u8))
+                .collect(),
+            assistance: value
+                .assistance
+                .iter()
+                .map(|v| v.map_or(NONE, |v| v as u8))
+                .collect(),
+            equipment: value
+                .equipment
+                .iter()
+                .map(|v| v.map_or(NONE, |v| v as u8))
+                .collect(),
+            category: value
+                .category
+                .iter()
+                .map(|v| v.map_or(NONE, |v| v as u8))
+                .collect(),
         }
     }
 }
@@ -915,106 +946,29 @@ impl TryFrom<ExerciseFilter> for domain::ExerciseFilter {
     fn try_from(value: ExerciseFilter) -> Result<Self, Self::Error> {
         Ok(domain::ExerciseFilter {
             name: value.name,
-            muscles: value
-                .muscles
-                .into_iter()
-                .filter_map(|v| domain::MuscleID::try_from(v).ok())
-                .collect::<HashSet<_>>(),
-            force: value
-                .force
-                .into_iter()
-                .filter_map(|v| match v {
-                    x if x == domain::Force::Push as u8 => Some(domain::Force::Push),
-                    x if x == domain::Force::Pull as u8 => Some(domain::Force::Pull),
-                    x if x == domain::Force::Static as u8 => Some(domain::Force::Static),
-                    _ => None,
-                })
-                .collect::<HashSet<_>>(),
-            mechanic: value
-                .mechanic
-                .into_iter()
-                .filter_map(|v| match v {
-                    x if x == domain::Mechanic::Compound as u8 => Some(domain::Mechanic::Compound),
-                    x if x == domain::Mechanic::Isolation as u8 => {
-                        Some(domain::Mechanic::Isolation)
-                    }
-                    _ => None,
-                })
-                .collect::<HashSet<_>>(),
-            laterality: value
-                .laterality
-                .into_iter()
-                .filter_map(|v| match v {
-                    x if x == domain::Laterality::Bilateral as u8 => {
-                        Some(domain::Laterality::Bilateral)
-                    }
-                    x if x == domain::Laterality::Unilateral as u8 => {
-                        Some(domain::Laterality::Unilateral)
-                    }
-                    _ => None,
-                })
-                .collect::<HashSet<_>>(),
-            assistance: value
-                .assistance
-                .into_iter()
-                .filter_map(|v| match v {
-                    x if x == domain::Assistance::Unassisted as u8 => {
-                        Some(domain::Assistance::Unassisted)
-                    }
-                    x if x == domain::Assistance::Assisted as u8 => {
-                        Some(domain::Assistance::Assisted)
-                    }
-                    _ => None,
-                })
-                .collect::<HashSet<_>>(),
-            equipment: value
-                .equipment
-                .into_iter()
-                .filter_map(|v| match v {
-                    x if x == domain::Equipment::None as u8 => Some(domain::Equipment::None),
-                    x if x == domain::Equipment::Barbell as u8 => Some(domain::Equipment::Barbell),
-                    x if x == domain::Equipment::Box as u8 => Some(domain::Equipment::Box),
-                    x if x == domain::Equipment::Cable as u8 => Some(domain::Equipment::Cable),
-                    x if x == domain::Equipment::Dumbbell as u8 => {
-                        Some(domain::Equipment::Dumbbell)
-                    }
-                    x if x == domain::Equipment::ExerciseBall as u8 => {
-                        Some(domain::Equipment::ExerciseBall)
-                    }
-                    x if x == domain::Equipment::GymnasticRings as u8 => {
-                        Some(domain::Equipment::GymnasticRings)
-                    }
-                    x if x == domain::Equipment::Kettlebell as u8 => {
-                        Some(domain::Equipment::Kettlebell)
-                    }
-                    x if x == domain::Equipment::Machine as u8 => Some(domain::Equipment::Machine),
-                    x if x == domain::Equipment::ParallelBars as u8 => {
-                        Some(domain::Equipment::ParallelBars)
-                    }
-                    x if x == domain::Equipment::PullUpBar as u8 => {
-                        Some(domain::Equipment::PullUpBar)
-                    }
-                    x if x == domain::Equipment::ResistanceBand as u8 => {
-                        Some(domain::Equipment::ResistanceBand)
-                    }
-                    x if x == domain::Equipment::Sliders as u8 => Some(domain::Equipment::Sliders),
-                    x if x == domain::Equipment::TrapBar as u8 => Some(domain::Equipment::TrapBar),
-                    _ => None,
-                })
-                .collect::<HashSet<_>>(),
-            category: value
-                .category
-                .into_iter()
-                .filter_map(|v| match v {
-                    x if x == domain::Category::Strength as u8 => Some(domain::Category::Strength),
-                    x if x == domain::Category::Plyometrics as u8 => {
-                        Some(domain::Category::Plyometrics)
-                    }
-                    _ => None,
-                })
-                .collect::<HashSet<_>>(),
+            muscles: decode_values(value.muscles),
+            force: decode_values(value.force),
+            mechanic: decode_values(value.mechanic),
+            laterality: decode_values(value.laterality),
+            assistance: decode_values(value.assistance),
+            equipment: decode_values(value.equipment),
+            category: decode_values(value.category),
         })
     }
+}
+
+/// Decode a filter section, dropping values that are not valid for the property.
+fn decode_values<T: TryFrom<u8> + Eq + std::hash::Hash>(values: HashSet<u8>) -> HashSet<Option<T>> {
+    values
+        .into_iter()
+        .filter_map(|value| {
+            if value == NONE {
+                Some(None)
+            } else {
+                T::try_from(value).ok().map(Some)
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -1022,25 +976,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn foo() {
+    fn test_exercise_filter_base64_round_trip() {
         let exercise_filter = domain::ExerciseFilter {
             name: "Exercise Name".to_string(),
-            muscles: [domain::MuscleID::Lats, domain::MuscleID::Traps].into(),
-            force: [domain::Force::Pull].into(),
-            mechanic: [domain::Mechanic::Isolation].into(),
-            laterality: [domain::Laterality::Unilateral].into(),
-            assistance: [domain::Assistance::Assisted].into(),
+            muscles: [Some(domain::MuscleID::Lats), Some(domain::MuscleID::Traps)].into(),
+            force: [Some(domain::Force::Pull)].into(),
+            mechanic: [Some(domain::Mechanic::Isolation)].into(),
+            laterality: [Some(domain::Laterality::Unilateral)].into(),
+            assistance: [Some(domain::Assistance::Assisted)].into(),
             equipment: [
-                domain::Equipment::GymnasticRings,
-                domain::Equipment::ResistanceBand,
+                Some(domain::Equipment::GymnasticRings),
+                Some(domain::Equipment::ResistanceBand),
+                None,
             ]
             .into(),
-            category: [domain::Category::Plyometrics].into(),
+            category: [Some(domain::Category::Plyometrics), None].into(),
         };
         let dto = ExerciseFilter::from(exercise_filter.clone());
+
         assert_eq!(
             domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&dto.to_base64())),
             Ok(exercise_filter)
+        );
+    }
+
+    #[test]
+    fn test_exercise_filter_invalid_values_dropped() {
+        let dto = ExerciseFilter {
+            muscles: [0, domain::MuscleID::Lats as u8].into(),
+            equipment: [0, domain::Equipment::Cable as u8].into(),
+            ..ExerciseFilter::default()
+        };
+
+        assert_eq!(
+            domain::ExerciseFilter::try_from(dto),
+            Ok(domain::ExerciseFilter {
+                muscles: [Some(domain::MuscleID::Lats)].into(),
+                equipment: [Some(domain::Equipment::Cable)].into(),
+                ..domain::ExerciseFilter::default()
+            })
         );
     }
 }

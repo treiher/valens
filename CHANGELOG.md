@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Exercises page: Properties of custom exercises, copied from the catalog when an exercise is added from it
-- Exercise page: Tags showing the properties of the exercise
+- Exercises page:
+    - Properties of custom exercises, copied from the catalog when an exercise is added from it
+    - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
+- Exercise page:
+    - Tags showing the properties of the exercise
+    - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
 - Settings dialog: Beep at the selected volume when the beep volume is changed
 
 ### Changed

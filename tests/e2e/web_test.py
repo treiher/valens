@@ -2393,6 +2393,32 @@ def test_exercise_change_muscles(page: Page) -> None:
     p.expect_muscle("Neck")
 
 
+def test_exercise_change_properties(page: Page) -> None:
+    exercise = next((e for e in USER.exercises if not e.equipment), None)
+    assert exercise is not None, "test data must contain an exercise without properties"
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+
+    assert p.get_properties() == []
+
+    p.toggle_properties("Push", "Compound", "Barbell", "Dumbbell")
+    p.reload()
+
+    assert p.get_properties() == ["Push", "Compound", "Barbell", "Dumbbell"]
+
+    p.toggle_properties("Pull", "Dumbbell")
+    p.reload()
+
+    assert p.get_properties() == ["Pull", "Compound", "Barbell"]
+
+    p.toggle_properties("Pull", "Compound", "Barbell")
+    p.reload()
+
+    assert p.get_properties() == []
+
+
 def test_muscles(page: Page) -> None:
     login(page)
     p = MusclesPage(page)

@@ -665,6 +665,80 @@ macro_rules! view_filter_section {
     }};
 }
 
+/// Show the values of a property as chips, of which at most one is selected.
+///
+/// Clicking the selected chip clears the property.
+fn view_property_section<T: Property + PartialEq + 'static>(
+    title: &str,
+    mut selected: Signal<Option<T>>,
+) -> Element {
+    let chips = T::iter()
+        .map(|value| {
+            let value = *value;
+            let enabled = *selected.read() == Some(value);
+            rsx! {
+                span {
+                    class: "tag is-hoverable",
+                    class: if enabled { "is-link" },
+                    "data-testid": "property-chip",
+                    onclick: move |_| selected.set(if enabled { None } else { Some(value) }),
+                    {value.name()}
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    view_dialog_section(title, chips)
+}
+
+/// Show the equipment as chips, of which any number is selected.
+fn view_equipment_section(mut selected: Signal<Vec<domain::Equipment>>) -> Element {
+    let chips = domain::Equipment::iter()
+        .map(|value| {
+            let value = *value;
+            let enabled = selected.read().contains(&value);
+            rsx! {
+                span {
+                    class: "tag is-hoverable",
+                    class: if enabled { "is-link" },
+                    "data-testid": "property-chip",
+                    onclick: move |_| {
+                        if enabled {
+                            selected.write().retain(|e| *e != value);
+                        } else {
+                            let mut selected = selected.write();
+                            selected.push(value);
+                            selected.sort_by_key(|e| {
+                                domain::Equipment::iter().position(|v| v == e)
+                            });
+                        }
+                    },
+                    {value.name()}
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    view_dialog_section("Equipment", chips)
+}
+
+fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
+    let title = title.to_string();
+    rsx! {
+        label {
+            class: "subtitle",
+            {title}
+        }
+        div {
+            class: "container py-3",
+            div {
+                class: "tags",
+                for chip in chips {
+                    {chip}
+                }
+            }
+        }
+    }
+}
+
 #[component]
 fn ExercisePropertiesDialog(
     exercise: domain::Exercise,
@@ -693,6 +767,12 @@ fn ExercisePropertiesDialog(
             .collect::<Vec<_>>(),
         num_states: 3,
     });
+    let force = use_signal(|| exercise.force);
+    let mechanic = use_signal(|| exercise.mechanic);
+    let laterality = use_signal(|| exercise.laterality);
+    let assistance = use_signal(|| exercise.assistance);
+    let equipment = use_signal(|| exercise.equipment.clone());
+    let category = use_signal(|| exercise.category);
     let mut is_loading = use_signal(|| false);
 
     macro_rules! is_loading {
@@ -735,6 +815,12 @@ fn ExercisePropertiesDialog(
                 match DOMAIN_SERVICE()
                     .replace_exercise(domain::Exercise {
                         muscles,
+                        force: force(),
+                        mechanic: mechanic(),
+                        laterality: laterality(),
+                        assistance: assistance(),
+                        equipment: equipment(),
+                        category: category(),
                         ..exercise
                     })
                     .await
@@ -761,6 +847,12 @@ fn ExercisePropertiesDialog(
             on_save: save,
             is_loading: is_loading(),
             disabled: false,
+            {view_property_section("Force", force)},
+            {view_property_section("Mechanic", mechanic)},
+            {view_property_section("Laterality", laterality)},
+            {view_property_section("Assistance", assistance)},
+            {view_equipment_section(equipment)},
+            {view_property_section("Category", category)},
             label {
                 class: "subtitle",
                 "Muscles ("

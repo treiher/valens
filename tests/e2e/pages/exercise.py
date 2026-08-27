@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from typing import TYPE_CHECKING
 
@@ -41,13 +42,25 @@ class ExercisePage(BasePage):
         expect(self.muscle_tag(name)).to_have_count(0)
 
     def cycle_muscle(self, name: str) -> None:
+        self._open_properties_dialog()
+        self.dialog.root.get_by_test_id("multi-toggle-tag").get_by_text(name, exact=True).click()
+        self.dialog.save()
+        self.wait_until_idle()
+
+    def toggle_properties(self, *names: str) -> None:
+        self._open_properties_dialog()
+        for name in names:
+            self.dialog.root.get_by_test_id("property-chip").filter(
+                has_text=re.compile(f"^{re.escape(name)}$")
+            ).click()
+        self.dialog.save()
+        self.wait_until_idle()
+
+    def _open_properties_dialog(self) -> None:
         self.fab().click()
         self.page.get_by_test_id("options-menu").wait_for(state="visible")
         self.page.get_by_test_id("options-properties").click()
         self.dialog.wait_until_open()
-        self.dialog.root.get_by_test_id("multi-toggle-tag").get_by_text(name, exact=True).click()
-        self.dialog.save()
-        self.wait_until_idle()
 
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Exercise")

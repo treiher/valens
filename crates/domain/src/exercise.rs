@@ -15,10 +15,17 @@ use crate::{
 #[allow(async_fn_in_trait)]
 pub trait ExerciseService {
     async fn get_exercises(&self) -> Result<Vec<Exercise>, ReadError>;
+    #[allow(clippy::too_many_arguments)]
     async fn create_exercise(
         &self,
         name: Name,
         muscles: Vec<ExerciseMuscle>,
+        force: Option<Force>,
+        mechanic: Option<Mechanic>,
+        laterality: Option<Laterality>,
+        assistance: Option<Assistance>,
+        equipment: Vec<Equipment>,
+        category: Option<Category>,
     ) -> Result<Exercise, CreateError>;
     async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, UpdateError>;
     async fn delete_exercise(&self, id: ExerciseID) -> Result<(), DeleteError>;
@@ -52,10 +59,17 @@ pub trait ExerciseService {
 pub trait ExerciseRepository {
     async fn sync_exercises(&self) -> Result<Vec<Exercise>, SyncError>;
     async fn read_exercises(&self) -> Result<Vec<Exercise>, ReadError>;
+    #[allow(clippy::too_many_arguments)]
     async fn create_exercise(
         &self,
         name: Name,
         muscles: Vec<ExerciseMuscle>,
+        force: Option<Force>,
+        mechanic: Option<Mechanic>,
+        laterality: Option<Laterality>,
+        assistance: Option<Assistance>,
+        equipment: Vec<Equipment>,
+        category: Option<Category>,
     ) -> Result<Exercise, CreateError>;
     async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, UpdateError>;
     async fn delete_exercise(&self, id: ExerciseID) -> Result<(), DeleteError>;
@@ -66,6 +80,12 @@ pub struct Exercise {
     pub id: ExerciseID,
     pub name: Name,
     pub muscles: Vec<ExerciseMuscle>,
+    pub force: Option<Force>,
+    pub mechanic: Option<Mechanic>,
+    pub laterality: Option<Laterality>,
+    pub assistance: Option<Assistance>,
+    pub equipment: Vec<Equipment>,
+    pub category: Option<Category>,
 }
 
 impl Exercise {
@@ -759,13 +779,27 @@ mod tests {
 
     use super::*;
 
+    fn exercise(id: u128, name: &str, muscles: Vec<ExerciseMuscle>) -> Exercise {
+        Exercise {
+            id: id.into(),
+            name: Name::new(name).unwrap(),
+            muscles,
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
     #[test]
     fn test_exercise_muscle_stimulus() {
         assert_eq!(
-            Exercise {
-                id: 1.into(),
-                name: Name::new("A").unwrap(),
-                muscles: vec![
+            exercise(
+                1,
+                "A",
+                vec![
                     ExerciseMuscle {
                         muscle_id: MuscleID::Lats,
                         stimulus: Stimulus::PRIMARY,
@@ -774,8 +808,8 @@ mod tests {
                         muscle_id: MuscleID::Traps,
                         stimulus: Stimulus::SECONDARY,
                     }
-                ],
-            }
+                ]
+            )
             .muscle_stimulus(),
             BTreeMap::from([
                 (MuscleID::Lats, Stimulus::PRIMARY),
@@ -915,32 +949,32 @@ mod tests {
     #[case::name_lower_case(
         ExerciseFilter { name: "push".into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] },
+            exercise(0, "Handstand Push Up", vec![]),
         ],
-        &[Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] }]
+        &[exercise(0, "Handstand Push Up", vec![])]
     )]
     #[case::name_upper_case(
         ExerciseFilter { name: "PUSH".into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] },
+            exercise(0, "Handstand Push Up", vec![]),
         ],
-        &[Exercise { id: 0.into(), name: Name::new("Handstand Push Up").unwrap(), muscles: vec![] }]
+        &[exercise(0, "Handstand Push Up", vec![])]
     )]
     #[case::no_muscles(
         ExerciseFilter { muscles: [None].into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0.into(), name: Name::new("Squat").unwrap(), muscles: vec![] },
-            Exercise { id: 1.into(), name: Name::new("Squat").unwrap(), muscles: vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }] },
+            exercise(0, "Squat", vec![]),
+            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }]),
         ],
-        &[Exercise { id: 0.into(), name: Name::new("Squat").unwrap(), muscles: vec![] }]
+        &[exercise(0, "Squat", vec![])]
     )]
     #[case::muscles(
         ExerciseFilter { muscles: [Some(MuscleID::Pecs), Some(MuscleID::FrontDelts)].into(), ..ExerciseFilter::default() },
         &[
-            Exercise { id: 0.into(), name: Name::new("Squat").unwrap(), muscles: vec![] },
-            Exercise { id: 1.into(), name: Name::new("Squat").unwrap(), muscles: vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }] },
+            exercise(0, "Squat", vec![]),
+            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }]),
         ],
-        &[Exercise { id: 1.into(), name: Name::new("Squat").unwrap(), muscles: vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }] }]
+        &[exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }])]
     )]
     fn test_exercise_filter_exercises(
         #[case] filter: ExerciseFilter,

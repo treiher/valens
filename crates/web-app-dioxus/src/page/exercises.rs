@@ -334,7 +334,16 @@ fn view_list(
                                     }
                                     async move {
                                             match DOMAIN_SERVICE()
-                                                .create_exercise(name, muscles)
+                                                .create_exercise(
+                                                    name,
+                                                    muscles,
+                                                    None,
+                                                    None,
+                                                    None,
+                                                    None,
+                                                    vec![],
+                                                    None,
+                                                )
                                                 .await
                                             {
                                                 Ok(_) => {
@@ -403,7 +412,16 @@ pub fn view_dialog(
                             match &*dialog.read() {
                                 ExerciseDialog::Add { .. } => {
                                     match DOMAIN_SERVICE()
-                                        .create_exercise(name, vec![])
+                                        .create_exercise(
+                                            name,
+                                            vec![],
+                                            None,
+                                            None,
+                                            None,
+                                            None,
+                                            vec![],
+                                            None,
+                                        )
                                         .await
                                     {
                                         Ok(_) => {
@@ -417,7 +435,16 @@ pub fn view_dialog(
                                 }
                                 ExerciseDialog::Copy { muscles, .. } => {
                                     match DOMAIN_SERVICE()
-                                        .create_exercise(name, muscles.clone())
+                                        .create_exercise(
+                                            name,
+                                            muscles.clone(),
+                                            None,
+                                            None,
+                                            None,
+                                            None,
+                                            vec![],
+                                            None,
+                                        )
                                         .await
                                     {
                                         Ok(_) => {
@@ -432,9 +459,8 @@ pub fn view_dialog(
                                 ExerciseDialog::Rename { exercise, .. } => {
                                     match DOMAIN_SERVICE()
                                         .replace_exercise(domain::Exercise {
-                                            id: exercise.id,
                                             name,
-                                            muscles: exercise.muscles.clone(),
+                                            ..exercise.clone()
                                         })
                                         .await
                                     {
@@ -674,10 +700,8 @@ fn ExercisePropertiesDialog(
         };
     }
 
-    let exercise_name = exercise.name.clone();
-
     let save = move |_| {
-        let exercise_name = exercise_name.clone();
+        let exercise = exercise.clone();
         async move {
             let muscles = multi_toggle
                 .read()
@@ -707,9 +731,8 @@ fn ExercisePropertiesDialog(
             is_loading! {
                 match DOMAIN_SERVICE()
                     .replace_exercise(domain::Exercise {
-                        id: exercise.id,
-                        name: exercise_name,
                         muscles,
+                        ..exercise
                     })
                     .await
                 {

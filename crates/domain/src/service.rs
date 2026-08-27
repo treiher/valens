@@ -3,10 +3,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use chrono::NaiveDate;
 
 use crate::{
-    AuthMethod, AuthRepository, AuthService, BodyFat, BodyFatRepository, BodyFatService,
-    BodyWeight, BodyWeightRepository, CreateError, CurrentCycle, Cycle, DeleteError, Exercise,
-    ExerciseID, ExerciseMuscle, ExerciseRepository, ExerciseService, Name, Passkey, PasskeyID,
-    Period, PeriodRepository, PeriodService, ReadError, Role, Routine, RoutineID, RoutinePart,
+    Assistance, AuthMethod, AuthRepository, AuthService, BodyFat, BodyFatRepository,
+    BodyFatService, BodyWeight, BodyWeightRepository, Category, CreateError, CurrentCycle, Cycle,
+    DeleteError, Equipment, Exercise, ExerciseID, ExerciseMuscle, ExerciseRepository,
+    ExerciseService, Force, Laterality, Mechanic, Name, Passkey, PasskeyID, Period,
+    PeriodRepository, PeriodService, ReadError, Role, Routine, RoutineID, RoutinePart,
     RoutineRepository, RoutineService, Schedule, ScheduleRepository, ScheduleService,
     SessionRepository, SessionService, Sex, SignOut, SyncError, TrainingSession,
     TrainingSessionElement, TrainingSessionID, TrainingSessionRepository, TrainingSessionService,
@@ -179,8 +180,18 @@ impl<R: ExerciseRepository> ExerciseService for Service<R> {
         &self,
         name: Name,
         muscles: Vec<ExerciseMuscle>,
+        force: Option<Force>,
+        mechanic: Option<Mechanic>,
+        laterality: Option<Laterality>,
+        assistance: Option<Assistance>,
+        equipment: Vec<Equipment>,
+        category: Option<Category>,
     ) -> Result<Exercise, CreateError> {
-        self.repository.create_exercise(name, muscles).await
+        self.repository
+            .create_exercise(
+                name, muscles, force, mechanic, laterality, assistance, equipment, category,
+            )
+            .await
     }
 
     async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, UpdateError> {

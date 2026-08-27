@@ -42,10 +42,16 @@ from webauthn.helpers.structs import (
 from valens import database as db, login_link, version
 from valens.aaguid import AAGUID_NAMES
 from valens.limits import (
+    ASSISTANCE_IDS,
+    CATEGORY_IDS,
+    EQUIPMENT_IDS,
+    FORCE_IDS,
     HEIGHT_MAX,
     HEIGHT_MIN,
     INTENSITY_MAX,
     INTENSITY_MIN,
+    LATERALITY_IDS,
+    MECHANIC_IDS,
     MUSCLE_IDS,
     REPS_MAX,
     ROUNDS_MAX,
@@ -68,6 +74,7 @@ from valens.models import (
     BodyWeight,
     DataVersion,
     Exercise,
+    ExerciseEquipment,
     ExerciseMuscle,
     LoginLink,
     Passkey,
@@ -117,6 +124,7 @@ def _(model: Exercise) -> dict[str, object]:
             to_dict(m, exclude=["user_id", "exercise_id"])
             for m in sorted(model.muscles, key=lambda x: x.muscle_id)
         ],
+        "equipment": sorted(e.equipment for e in model.equipment),
     }
 
 
@@ -448,11 +456,15 @@ def to_role(json: object) -> Role:
     return Role(json)
 
 
-def to_muscle_id(json: object) -> int:
+def to_optional_property_id(json: object, what: str, valid_ids: frozenset[int]) -> int | None:
+    return None if json is None else to_property_id(json, what, valid_ids)
+
+
+def to_property_id(json: object, what: str, valid_ids: frozenset[int]) -> int:
     if isinstance(json, bool) or not isinstance(json, int):
-        raise DeserializationError("muscle_id must be an integer")
-    if json not in MUSCLE_IDS:
-        raise DeserializationError(f"{json} is not a valid muscle id")
+        raise DeserializationError(f"{what} must be an integer")
+    if json not in valid_ids:
+        raise DeserializationError(f"{json} is not a valid {what}")
     return json
 
 
@@ -1574,7 +1586,7 @@ def read_exercises() -> ResponseReturnValue:
         db.session.execute(
             select(Exercise)
             .where(Exercise.user_id == session["user_id"])
-            .options(selectinload(Exercise.muscles))
+            .options(selectinload(Exercise.muscles), selectinload(Exercise.equipment))
         )
         .scalars()
         .all()
@@ -1594,13 +1606,24 @@ def create_exercise() -> ResponseReturnValue:
         exercise = Exercise(
             user_id=session["user_id"],
             name=to_name(data["name"]),
+            force=to_optional_property_id(data["force"], "force", FORCE_IDS),
+            mechanic=to_optional_property_id(data["mechanic"], "mechanic", MECHANIC_IDS),
+            laterality=to_optional_property_id(data["laterality"], "laterality", LATERALITY_IDS),
+            assistance=to_optional_property_id(data["assistance"], "assistance", ASSISTANCE_IDS),
+            category=to_optional_property_id(data["category"], "category", CATEGORY_IDS),
             muscles=[
                 ExerciseMuscle(
                     user_id=session["user_id"],
-                    muscle_id=to_muscle_id(muscle["muscle_id"]),
+                    muscle_id=to_property_id(muscle["muscle_id"], "muscle_id", MUSCLE_IDS),
                     stimulus=to_int(muscle["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX),
                 )
                 for muscle in data["muscles"]
+            ],
+            equipment=[
+                ExerciseEquipment(user_id=session["user_id"], equipment=equipment)
+                for equipment in sorted(
+                    {to_property_id(e, "equipment", EQUIPMENT_IDS) for e in data["equipment"]}
+                )
             ],
         )
     except (DeserializationError, KeyError, TypeError) as e:
@@ -1644,25 +1667,17 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
 
     try:
         exercise.name = to_name(data["name"])
-        muscle_stimulus = {
-            to_muscle_id(m["muscle_id"]): to_int(
-                m["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX
-            )
-            for m in data["muscles"]
-        }
-
-        for m in exercise.muscles:
-            if m.muscle_id in muscle_stimulus:
-                m.stimulus = muscle_stimulus[m.muscle_id]
-            else:
-                db.session.delete(m)
-
-        for muscle_id, stimulus in muscle_stimulus.items():
-            if any(m.muscle_id == muscle_id for m in exercise.muscles):
-                continue
-            exercise.muscles.append(
-                ExerciseMuscle(user_id=session["user_id"], muscle_id=muscle_id, stimulus=stimulus)
-            )
+        exercise.force = to_optional_property_id(data["force"], "force", FORCE_IDS)
+        exercise.mechanic = to_optional_property_id(data["mechanic"], "mechanic", MECHANIC_IDS)
+        exercise.laterality = to_optional_property_id(
+            data["laterality"], "laterality", LATERALITY_IDS
+        )
+        exercise.assistance = to_optional_property_id(
+            data["assistance"], "assistance", ASSISTANCE_IDS
+        )
+        exercise.category = to_optional_property_id(data["category"], "category", CATEGORY_IDS)
+        _replace_exercise_muscles(exercise, data["muscles"])
+        _replace_exercise_equipment(exercise, data["equipment"])
     except (DeserializationError, KeyError, TypeError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -1677,6 +1692,41 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
         jsonify(to_dict(exercise)),
         HTTPStatus.OK,
     )
+
+
+def _replace_exercise_muscles(exercise: Exercise, json: list[dict[str, Any]]) -> None:  # type: ignore[explicit-any]
+    muscle_stimulus = {
+        to_property_id(m["muscle_id"], "muscle_id", MUSCLE_IDS): to_int(
+            m["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX
+        )
+        for m in json
+    }
+
+    for m in exercise.muscles:
+        if m.muscle_id in muscle_stimulus:
+            m.stimulus = muscle_stimulus[m.muscle_id]
+        else:
+            db.session.delete(m)
+
+    for muscle_id, stimulus in muscle_stimulus.items():
+        if any(m.muscle_id == muscle_id for m in exercise.muscles):
+            continue
+        exercise.muscles.append(
+            ExerciseMuscle(user_id=exercise.user_id, muscle_id=muscle_id, stimulus=stimulus)
+        )
+
+
+def _replace_exercise_equipment(exercise: Exercise, json: list[object]) -> None:
+    equipment = {to_property_id(e, "equipment", EQUIPMENT_IDS) for e in json}
+
+    for e in exercise.equipment:
+        if e.equipment not in equipment:
+            db.session.delete(e)
+
+    for value in sorted(equipment):
+        if any(e.equipment == value for e in exercise.equipment):
+            continue
+        exercise.equipment.append(ExerciseEquipment(user_id=exercise.user_id, equipment=value))
 
 
 @bp.route("/exercises/<int:id_>", methods=["DELETE"])

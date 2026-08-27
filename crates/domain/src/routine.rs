@@ -817,6 +817,12 @@ mod tests {
                     stimulus: Stimulus::SECONDARY,
                 },
             ],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
         }]
     });
 

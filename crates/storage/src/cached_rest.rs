@@ -376,6 +376,12 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
         &self,
         name: domain::Name,
         muscles: Vec<domain::ExerciseMuscle>,
+        force: Option<domain::Force>,
+        mechanic: Option<domain::Mechanic>,
+        laterality: Option<domain::Laterality>,
+        assistance: Option<domain::Assistance>,
+        equipment: Vec<domain::Equipment>,
+        category: Option<domain::Category>,
     ) -> Result<domain::Exercise, domain::CreateError> {
         create!(
             self,
@@ -383,7 +389,13 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
             replace_exercise,
             "exercise",
             name,
-            muscles
+            muscles,
+            force,
+            mechanic,
+            laterality,
+            assistance,
+            equipment,
+            category
         )
     }
 
@@ -1846,7 +1858,16 @@ mod tests {
 
             assert!(matches!(
                 cached_rest_with_response(None)
-                    .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
+                    .create_exercise(
+                        EXERCISE.name.clone(),
+                        EXERCISE.muscles.clone(),
+                        EXERCISE.force,
+                        EXERCISE.mechanic,
+                        EXERCISE.laterality,
+                        EXERCISE.assistance,
+                        EXERCISE.equipment.clone(),
+                        EXERCISE.category,
+                    )
                     .await,
                 Err(domain::CreateError::Storage(
                     domain::StorageError::NoConnection
@@ -1859,7 +1880,16 @@ mod tests {
                         .status(200)
                         .json(&rest::Exercise::from(EXERCISE.clone())),
                 ))
-                .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
+                .create_exercise(
+                    EXERCISE.name.clone(),
+                    EXERCISE.muscles.clone(),
+                    EXERCISE.force,
+                    EXERCISE.mechanic,
+                    EXERCISE.laterality,
+                    EXERCISE.assistance,
+                    EXERCISE.equipment.clone(),
+                    EXERCISE.category,
+                )
                 .await
                 .unwrap(),
                 EXERCISE.clone()

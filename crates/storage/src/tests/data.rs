@@ -81,6 +81,12 @@ pub static EXERCISE: std::sync::LazyLock<domain::Exercise> =
             muscle_id: domain::MuscleID::Abs,
             stimulus: domain::Stimulus::PRIMARY,
         }],
+        force: Some(domain::Force::Pull),
+        mechanic: Some(domain::Mechanic::Isolation),
+        laterality: Some(domain::Laterality::Unilateral),
+        assistance: Some(domain::Assistance::Assisted),
+        equipment: vec![domain::Equipment::Cable, domain::Equipment::Dumbbell],
+        category: Some(domain::Category::Strength),
     });
 
 pub static EXERCISE_2: std::sync::LazyLock<domain::Exercise> =
@@ -91,6 +97,12 @@ pub static EXERCISE_2: std::sync::LazyLock<domain::Exercise> =
             muscle_id: domain::MuscleID::Pecs,
             stimulus: domain::Stimulus::PRIMARY,
         }],
+        force: None,
+        mechanic: None,
+        laterality: None,
+        assistance: None,
+        equipment: vec![],
+        category: None,
     });
 
 pub static ROUTINES: std::sync::LazyLock<Vec<domain::Routine>> =

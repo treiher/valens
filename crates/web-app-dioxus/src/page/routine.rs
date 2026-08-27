@@ -1326,6 +1326,12 @@ mod tests {
             id: id.into(),
             name: domain::Name::new(name).unwrap(),
             muscles: vec![],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
         }
     }
 

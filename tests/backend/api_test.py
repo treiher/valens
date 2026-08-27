@@ -21,6 +21,35 @@ CONFLICT_DETAILS = {
     "routines": "name is already used",
 }
 
+UNSET_EXERCISE_PROPERTIES: dict[str, object] = {
+    "force": None,
+    "mechanic": None,
+    "laterality": None,
+    "assistance": None,
+    "equipment": [],
+    "category": None,
+}
+
+EXERCISE_1_PROPERTIES: dict[str, object] = {
+    "force": 1,
+    "mechanic": 1,
+    "laterality": 2,
+    "assistance": 1,
+    "equipment": [1, 4],
+    "category": 1,
+}
+
+INVALID_EXERCISE_PROPERTIES: list[dict[str, object]] = [
+    {"force": 0},
+    {"force": "1"},
+    {"mechanic": 3},
+    {"laterality": 3},
+    {"assistance": 3},
+    {"equipment": [14]},
+    {"equipment": [True]},
+    {"category": 0},
+]
+
 INVALID_ROUTINE_ACTIVITY_FIELDS: list[dict[str, object]] = [
     {"exercise_id": 0},
     {"reps": 1000},
@@ -244,19 +273,85 @@ def test_json_required(client: Client, method: str, route: str) -> None:
         ("put", "/api/period/2002-02-22", {"invalid": "data"}),
         ("put", "/api/period/2002-02-22", {"intensity": 0}),
         ("post", "/api/exercises", {"invalid": "data"}),
-        ("post", "/api/exercises", {"name": "data", "muscles": [{"invalid": "data"}]}),
-        ("post", "/api/exercises", {"name": "", "muscles": []}),
-        ("post", "/api/exercises", {"name": "A", "muscles": 1}),
-        ("post", "/api/exercises", {"name": "A", "muscles": [{"muscle_id": 12, "stimulus": 100}]}),
         (
             "post",
             "/api/exercises",
-            {"name": "A", "muscles": [{"muscle_id": "11", "stimulus": 100}]},
+            {"name": "data", "muscles": [{"invalid": "data"}], **UNSET_EXERCISE_PROPERTIES},
         ),
-        ("post", "/api/exercises", {"name": "A", "muscles": [{"muscle_id": 11, "stimulus": 0}]}),
-        ("post", "/api/exercises", {"name": "A", "muscles": [{"muscle_id": 11, "stimulus": 101}]}),
+        ("post", "/api/exercises", {"name": "", "muscles": [], **UNSET_EXERCISE_PROPERTIES}),
+        ("post", "/api/exercises", {"name": "A", "muscles": 1, **UNSET_EXERCISE_PROPERTIES}),
+        (
+            "post",
+            "/api/exercises",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": 12, "stimulus": 100}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        (
+            "post",
+            "/api/exercises",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": "11", "stimulus": 100}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        (
+            "post",
+            "/api/exercises",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": 11, "stimulus": 0}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        (
+            "post",
+            "/api/exercises",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": 11, "stimulus": 101}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        *[
+            (
+                "post",
+                "/api/exercises",
+                {
+                    "name": "A",
+                    "muscles": [],
+                    **UNSET_EXERCISE_PROPERTIES,
+                    **invalid_property,
+                },
+            )
+            for invalid_property in INVALID_EXERCISE_PROPERTIES
+        ],
         ("put", "/api/exercises/1", {"invalid": "data"}),
-        ("put", "/api/exercises/1", {"name": "A", "muscles": [{"muscle_id": 12, "stimulus": 100}]}),
+        (
+            "put",
+            "/api/exercises/1",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": 12, "stimulus": 100}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        *[
+            (
+                "put",
+                "/api/exercises/1",
+                {
+                    "name": "A",
+                    "muscles": [],
+                    **UNSET_EXERCISE_PROPERTIES,
+                    **invalid_property,
+                },
+            )
+            for invalid_property in INVALID_EXERCISE_PROPERTIES
+        ],
         ("post", "/api/routines", {"invalid": "data"}),
         ("post", "/api/routines", {"name": "", "notes": None, "archived": False, "sections": []}),
         ("post", "/api/routines", {"name": "R", "notes": 1, "archived": False, "sections": []}),
@@ -963,10 +1058,15 @@ def test_delete_user_last_admin(client: Client) -> None:
             1,
             "/api/exercises",
             [
-                {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
-                {"id": 3, "name": "Exercise 3", "muscles": []},
-                {"id": 6, "name": "Exercise 6", "muscles": []},
-                {"id": 5, "name": "Unused Exercise", "muscles": []},
+                {
+                    "id": 1,
+                    "name": "Exercise 1",
+                    "muscles": [{"muscle_id": 11, "stimulus": 100}],
+                    **EXERCISE_1_PROPERTIES,
+                },
+                {"id": 3, "name": "Exercise 3", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
             ],
         ),
         (
@@ -1368,11 +1468,22 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                 "id": 7,
                 "name": "New Exercise",
                 "muscles": [{"muscle_id": 11, "stimulus": 100}, {"muscle_id": 21, "stimulus": 50}],
+                "force": 2,
+                "mechanic": 2,
+                "laterality": 1,
+                "assistance": 2,
+                "equipment": [3],
+                "category": 2,
             },
             [
-                {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
-                {"id": 3, "name": "Exercise 3", "muscles": []},
-                {"id": 6, "name": "Exercise 6", "muscles": []},
+                {
+                    "id": 1,
+                    "name": "Exercise 1",
+                    "muscles": [{"muscle_id": 11, "stimulus": 100}],
+                    **EXERCISE_1_PROPERTIES,
+                },
+                {"id": 3, "name": "Exercise 3", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
                 {
                     "id": 7,
                     "name": "New Exercise",
@@ -1380,8 +1491,14 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                         {"muscle_id": 11, "stimulus": 100},
                         {"muscle_id": 21, "stimulus": 50},
                     ],
+                    "force": 2,
+                    "mechanic": 2,
+                    "laterality": 1,
+                    "assistance": 2,
+                    "equipment": [3],
+                    "category": 2,
                 },
-                {"id": 5, "name": "Unused Exercise", "muscles": []},
+                {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
             ],
         ),
         (
@@ -2151,11 +2268,23 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
             {
                 "name": "Changed Exercise",
                 "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
+                "force": None,
+                "mechanic": 2,
+                "laterality": 2,
+                "assistance": None,
+                "equipment": [4, 5],
+                "category": 1,
             },
             {
                 "id": 1,
                 "name": "Changed Exercise",
                 "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
+                "force": None,
+                "mechanic": 2,
+                "laterality": 2,
+                "assistance": None,
+                "equipment": [4, 5],
+                "category": 1,
             },
             [
                 {
@@ -2165,12 +2294,18 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         {"muscle_id": 11, "stimulus": 50},
                         {"muscle_id": 21, "stimulus": 100},
                     ],
+                    "force": None,
+                    "mechanic": 2,
+                    "laterality": 2,
+                    "assistance": None,
+                    "equipment": [4, 5],
+                    "category": 1,
                 },
-                {"id": 3, "name": "Exercise 3", "muscles": []},
-                {"id": 6, "name": "Exercise 6", "muscles": []},
-                {"id": 5, "name": "Unused Exercise", "muscles": []},
+                {"id": 3, "name": "Exercise 3", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
             ],
-            {"name": "Exercise 3", "muscles": []},
+            {"name": "Exercise 3", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
         ),
         (
             "/api/routines/1",
@@ -4967,9 +5102,14 @@ def test_modify(
         (
             "/api/exercises/3",
             [
-                {"id": 1, "name": "Exercise 1", "muscles": [{"muscle_id": 11, "stimulus": 100}]},
-                {"id": 6, "name": "Exercise 6", "muscles": []},
-                {"id": 5, "name": "Unused Exercise", "muscles": []},
+                {
+                    "id": 1,
+                    "name": "Exercise 1",
+                    "muscles": [{"muscle_id": 11, "stimulus": 100}],
+                    **EXERCISE_1_PROPERTIES,
+                },
+                {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
             ],
         ),
         (

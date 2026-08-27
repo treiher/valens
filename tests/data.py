@@ -6,6 +6,7 @@ from valens.models import (
     BodyFat,
     BodyWeight,
     Exercise,
+    ExerciseEquipment,
     ExerciseMuscle,
     Period,
     Role,
@@ -39,7 +40,16 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
         id=1,
         user_id=1,
         name="Exercise 1",
+        force=1,
+        mechanic=1,
+        laterality=2,
+        assistance=1,
+        category=1,
         muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=100)],
+        equipment=[
+            ExerciseEquipment(user_id=1, equipment=1),
+            ExerciseEquipment(user_id=1, equipment=4),
+        ],
     )
     exercise_2 = Exercise(id=2, user_id=2, name="Exercise 2")
     exercise_3 = Exercise(id=3, user_id=1, name="Exercise 3")

@@ -1491,6 +1491,12 @@ mod tests {
                     stimulus: Stimulus::SECONDARY,
                 },
             ],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
         }];
         assert_eq!(training_session.stimulus_per_muscle(&exercises), expected);
     }
@@ -1510,6 +1516,12 @@ mod tests {
                 muscle_id: MuscleID::Pecs,
                 stimulus: Stimulus::PRIMARY,
             }],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
         }];
         assert_eq!(training_session.stimulus_per_muscle(&exercises), expected);
     }

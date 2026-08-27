@@ -3,6 +3,24 @@
 # Mirrors `MuscleID` in `crates/domain/src/exercise.rs`
 MUSCLE_IDS = frozenset({1, 11, 21, 22, 31, 32, 33, 41, 42, 51, 61, 62, 71, 72, 81, 82, 83, 91})
 
+# Mirrors `Force` in `crates/domain/src/exercise.rs`
+FORCE_IDS = frozenset({1, 2, 3})
+
+# Mirrors `Mechanic` in `crates/domain/src/exercise.rs`
+MECHANIC_IDS = frozenset({1, 2})
+
+# Mirrors `Laterality` in `crates/domain/src/exercise.rs`
+LATERALITY_IDS = frozenset({1, 2})
+
+# Mirrors `Assistance` in `crates/domain/src/exercise.rs`
+ASSISTANCE_IDS = frozenset({1, 2})
+
+# Mirrors `Equipment` in `crates/domain/src/exercise.rs`
+EQUIPMENT_IDS = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13})
+
+# Mirrors `Category` in `crates/domain/src/exercise.rs`
+CATEGORY_IDS = frozenset({1, 2})
+
 # Mirrors `height` in `crates/domain/src/user.rs`
 HEIGHT_MIN = 1
 HEIGHT_MAX = 255

@@ -226,14 +226,55 @@ class Period(Base):
 
 class Exercise(Base):
     __tablename__ = "exercise"
-    __table_args__ = (UniqueConstraint("user_id", "name"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "name"),
+        CheckConstraint(
+            "typeof(force) = 'integer' or typeof(force) = 'null'",
+            name="force_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(mechanic) = 'integer' or typeof(mechanic) = 'null'",
+            name="mechanic_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(laterality) = 'integer' or typeof(laterality) = 'null'",
+            name="laterality_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(assistance) = 'integer' or typeof(assistance) = 'null'",
+            name="assistance_type_integer_or_null",
+        ),
+        CheckConstraint(
+            "typeof(category) = 'integer' or typeof(category) = 'null'",
+            name="category_type_integer_or_null",
+        ),
+        # Bounds mirror the exercise properties in `crates/domain/src/exercise.rs`
+        CheckConstraint(column("force") >= 1, name="force_ge_1"),
+        CheckConstraint(column("force") <= 3, name="force_le_3"),
+        CheckConstraint(column("mechanic") >= 1, name="mechanic_ge_1"),
+        CheckConstraint(column("mechanic") <= 2, name="mechanic_le_2"),
+        CheckConstraint(column("laterality") >= 1, name="laterality_ge_1"),
+        CheckConstraint(column("laterality") <= 2, name="laterality_le_2"),
+        CheckConstraint(column("assistance") >= 1, name="assistance_ge_1"),
+        CheckConstraint(column("assistance") <= 2, name="assistance_le_2"),
+        CheckConstraint(column("category") >= 1, name="category_ge_1"),
+        CheckConstraint(column("category") <= 2, name="category_le_2"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    force: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mechanic: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    laterality: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    assistance: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    category: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     muscles: Mapped[list[ExerciseMuscle]] = relationship(
         "ExerciseMuscle", backref="exercise", cascade="all, delete-orphan"
+    )
+    equipment: Mapped[list[ExerciseEquipment]] = relationship(
+        "ExerciseEquipment", backref="exercise", cascade="all, delete-orphan"
     )
     sets: Mapped[list[WorkoutSet]] = relationship(
         "WorkoutSet", back_populates="exercise", cascade="all, delete-orphan"
@@ -266,6 +307,25 @@ class ExerciseMuscle(Base):
     )
     muscle_id: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
     stimulus: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ExerciseEquipment(Base):
+    __tablename__ = "exercise_equipment"
+    __table_args__ = (
+        UniqueConstraint("user_id", "exercise_id", "equipment"),
+        CheckConstraint("typeof(equipment) = 'integer'", name="equipment_integer"),
+        # Bounds mirror `Equipment` in `crates/domain/src/exercise.rs`
+        CheckConstraint(column("equipment") >= 1, name="equipment_ge_1"),
+        CheckConstraint(column("equipment") <= 13, name="equipment_le_13"),
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"), nullable=False, primary_key=True
+    )
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE"), nullable=False, primary_key=True
+    )
+    equipment: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
 
 
 class Routine(Base):

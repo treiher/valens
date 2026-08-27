@@ -771,13 +771,25 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
         &self,
         name: domain::Name,
         muscles: Vec<domain::ExerciseMuscle>,
+        force: Option<domain::Force>,
+        mechanic: Option<domain::Mechanic>,
+        laterality: Option<domain::Laterality>,
+        assistance: Option<domain::Assistance>,
+        equipment: Vec<domain::Equipment>,
+        category: Option<domain::Category>,
     ) -> Result<domain::Exercise, domain::CreateError> {
         let r: Exercise = self
             .fetch(
                 gloo_net::http::Request::post("/api/exercises"),
                 Some(&json!(&ExerciseData {
                     name: name.to_string(),
-                    muscles: muscles.into_iter().map(ExerciseMuscle::from).collect()
+                    muscles: muscles.into_iter().map(ExerciseMuscle::from).collect(),
+                    force: force.map(|v| v as u8),
+                    mechanic: mechanic.map(|v| v as u8),
+                    laterality: laterality.map(|v| v as u8),
+                    assistance: assistance.map(|v| v as u8),
+                    equipment: equipment.into_iter().map(|v| v as u8).collect(),
+                    category: category.map(|v| v as u8),
                 })),
             )
             .await?;
@@ -1254,6 +1266,12 @@ pub struct Exercise {
     pub id: u128,
     pub name: String,
     pub muscles: Vec<ExerciseMuscle>,
+    pub force: Option<u8>,
+    pub mechanic: Option<u8>,
+    pub laterality: Option<u8>,
+    pub assistance: Option<u8>,
+    pub equipment: Vec<u8>,
+    pub category: Option<u8>,
 }
 
 impl From<domain::Exercise> for Exercise {
@@ -1266,6 +1284,12 @@ impl From<domain::Exercise> for Exercise {
                 .into_iter()
                 .map(ExerciseMuscle::from)
                 .collect(),
+            force: value.force.map(|v| v as u8),
+            mechanic: value.mechanic.map(|v| v as u8),
+            laterality: value.laterality.map(|v| v as u8),
+            assistance: value.assistance.map(|v| v as u8),
+            equipment: value.equipment.into_iter().map(|v| v as u8).collect(),
+            category: value.category.map(|v| v as u8),
         }
     }
 }
@@ -1282,6 +1306,16 @@ impl TryFrom<Exercise> for domain::Exercise {
                 .into_iter()
                 .map(|m| domain::ExerciseMuscle::try_from(m).map_err(From::from))
                 .collect::<Result<Vec<domain::ExerciseMuscle>, ExerciseError>>()?,
+            force: decode_property(value.force)?,
+            mechanic: decode_property(value.mechanic)?,
+            laterality: decode_property(value.laterality)?,
+            assistance: decode_property(value.assistance)?,
+            equipment: value
+                .equipment
+                .into_iter()
+                .map(|e| domain::Equipment::try_from(e).map_err(From::from))
+                .collect::<Result<Vec<domain::Equipment>, ExerciseError>>()?,
+            category: decode_property(value.category)?,
         })
     }
 }
@@ -1292,12 +1326,34 @@ pub enum ExerciseError {
     InvalidName(#[from] domain::NameError),
     #[error(transparent)]
     InvalidMuscle(#[from] domain::MuscleIDError),
+    #[error(transparent)]
+    InvalidForce(#[from] domain::ForceError),
+    #[error(transparent)]
+    InvalidMechanic(#[from] domain::MechanicError),
+    #[error(transparent)]
+    InvalidLaterality(#[from] domain::LateralityError),
+    #[error(transparent)]
+    InvalidAssistance(#[from] domain::AssistanceError),
+    #[error(transparent)]
+    InvalidEquipment(#[from] domain::EquipmentError),
+    #[error(transparent)]
+    InvalidCategory(#[from] domain::CategoryError),
+}
+
+fn decode_property<T: TryFrom<u8>>(value: Option<u8>) -> Result<Option<T>, T::Error> {
+    value.map(T::try_from).transpose()
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ExerciseData {
     pub name: String,
     pub muscles: Vec<ExerciseMuscle>,
+    pub force: Option<u8>,
+    pub mechanic: Option<u8>,
+    pub laterality: Option<u8>,
+    pub assistance: Option<u8>,
+    pub equipment: Vec<u8>,
+    pub category: Option<u8>,
 }
 
 impl From<domain::Exercise> for ExerciseData {
@@ -1309,6 +1365,12 @@ impl From<domain::Exercise> for ExerciseData {
                 .into_iter()
                 .map(ExerciseMuscle::from)
                 .collect(),
+            force: value.force.map(|v| v as u8),
+            mechanic: value.mechanic.map(|v| v as u8),
+            laterality: value.laterality.map(|v| v as u8),
+            assistance: value.assistance.map(|v| v as u8),
+            equipment: value.equipment.into_iter().map(|v| v as u8).collect(),
+            category: value.category.map(|v| v as u8),
         }
     }
 }
@@ -2166,17 +2228,41 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::force(
+        Exercise { force: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidForce(domain::ForceError::Invalid)
+    )]
+    #[case::mechanic(
+        Exercise { mechanic: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidMechanic(domain::MechanicError::Invalid)
+    )]
+    #[case::laterality(
+        Exercise { laterality: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidLaterality(domain::LateralityError::Invalid)
+    )]
+    #[case::assistance(
+        Exercise { assistance: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidAssistance(domain::AssistanceError::Invalid)
+    )]
+    #[case::equipment(
+        Exercise { equipment: vec![0], ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidEquipment(domain::EquipmentError::Invalid)
+    )]
+    #[case::category(
+        Exercise { category: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidCategory(domain::CategoryError::Invalid)
+    )]
+    fn test_exercise_try_from_invalid_property(
+        #[case] exercise: Exercise,
+        #[case] expected: ExerciseError,
+    ) {
+        assert_eq!(domain::Exercise::try_from(exercise), Err(expected));
+    }
+
     #[test]
     fn test_exercise_serde() {
-        let obj = domain::Exercise {
-            id: 1.into(),
-            name: domain::Name::new("A").unwrap(),
-            muscles: vec![domain::ExerciseMuscle {
-                muscle_id: domain::MuscleID::Abs,
-                stimulus: domain::Stimulus::PRIMARY,
-            }],
-        }
-        .into();
+        let obj = Exercise::from(EXERCISE.clone());
         let serialized = json!(obj);
         let deserialized: Exercise = serde_json::from_value(serialized).unwrap();
         assert_eq!(deserialized, obj);
@@ -2759,7 +2845,16 @@ mod tests {
                         .status(200)
                         .json(&Exercise::from(EXERCISE.clone())),
                 ))
-                .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
+                .create_exercise(
+                    EXERCISE.name.clone(),
+                    EXERCISE.muscles.clone(),
+                    EXERCISE.force,
+                    EXERCISE.mechanic,
+                    EXERCISE.laterality,
+                    EXERCISE.assistance,
+                    EXERCISE.equipment.clone(),
+                    EXERCISE.category,
+                )
                 .await
                 .unwrap(),
                 EXERCISE.clone()

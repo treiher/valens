@@ -19,7 +19,7 @@ pub struct IndexedDB;
 impl IndexedDB {
     async fn open(&self) -> Result<Database, OpenDbError> {
         Database::open("valens")
-            .with_version(3u8)
+            .with_version(4u8)
             .with_on_blocked(|event| {
                 debug!("upgrade of database blocked: {event:?}");
                 Ok(())
@@ -50,6 +50,12 @@ impl IndexedDB {
                     db.create_object_store(Store::Schedule).build()?;
                 }
                 if event.old_version() < 3.0 {
+                    db.create_object_store(Store::ETags).build()?;
+                }
+                if event.old_version() >= 3.0 && event.old_version() < 4.0 {
+                    // Discard the ETags, so that the next sync returns the full data instead of a
+                    // 304 for data whose format has changed.
+                    db.delete_object_store(Store::ETags.as_ref())?;
                     db.create_object_store(Store::ETags).build()?;
                 }
                 Ok(())
@@ -561,6 +567,12 @@ impl domain::ExerciseRepository for IndexedDB {
         &self,
         _name: domain::Name,
         _muscles: Vec<domain::ExerciseMuscle>,
+        _force: Option<domain::Force>,
+        _mechanic: Option<domain::Mechanic>,
+        _laterality: Option<domain::Laterality>,
+        _assistance: Option<domain::Assistance>,
+        _equipment: Vec<domain::Equipment>,
+        _category: Option<domain::Category>,
     ) -> Result<domain::Exercise, domain::CreateError> {
         panic!("unsupported")
     }
@@ -928,6 +940,18 @@ pub struct Exercise {
     pub id: Uuid,
     pub name: String,
     pub muscles: Vec<ExerciseMuscle>,
+    #[serde(default)]
+    pub force: Option<u8>,
+    #[serde(default)]
+    pub mechanic: Option<u8>,
+    #[serde(default)]
+    pub laterality: Option<u8>,
+    #[serde(default)]
+    pub assistance: Option<u8>,
+    #[serde(default)]
+    pub equipment: Vec<u8>,
+    #[serde(default)]
+    pub category: Option<u8>,
 }
 
 impl From<domain::Exercise> for Exercise {
@@ -940,6 +964,12 @@ impl From<domain::Exercise> for Exercise {
                 .into_iter()
                 .map(ExerciseMuscle::from)
                 .collect(),
+            force: value.force.map(|v| v as u8),
+            mechanic: value.mechanic.map(|v| v as u8),
+            laterality: value.laterality.map(|v| v as u8),
+            assistance: value.assistance.map(|v| v as u8),
+            equipment: value.equipment.into_iter().map(|v| v as u8).collect(),
+            category: value.category.map(|v| v as u8),
         }
     }
 }
@@ -955,6 +985,12 @@ impl From<&domain::Exercise> for Exercise {
                 .cloned()
                 .map(ExerciseMuscle::from)
                 .collect(),
+            force: value.force.map(|v| v as u8),
+            mechanic: value.mechanic.map(|v| v as u8),
+            laterality: value.laterality.map(|v| v as u8),
+            assistance: value.assistance.map(|v| v as u8),
+            equipment: value.equipment.iter().map(|v| *v as u8).collect(),
+            category: value.category.map(|v| v as u8),
         }
     }
 }
@@ -971,6 +1007,16 @@ impl TryFrom<Exercise> for domain::Exercise {
                 .into_iter()
                 .map(|m| domain::ExerciseMuscle::try_from(m).map_err(From::from))
                 .collect::<Result<Vec<domain::ExerciseMuscle>, ExerciseError>>()?,
+            force: decode_property(value.force)?,
+            mechanic: decode_property(value.mechanic)?,
+            laterality: decode_property(value.laterality)?,
+            assistance: decode_property(value.assistance)?,
+            equipment: value
+                .equipment
+                .into_iter()
+                .map(|e| domain::Equipment::try_from(e).map_err(From::from))
+                .collect::<Result<Vec<domain::Equipment>, ExerciseError>>()?,
+            category: decode_property(value.category)?,
         })
     }
 }
@@ -981,6 +1027,22 @@ pub enum ExerciseError {
     InvalidName(#[from] domain::NameError),
     #[error(transparent)]
     InvalidMuscle(#[from] domain::MuscleIDError),
+    #[error(transparent)]
+    InvalidForce(#[from] domain::ForceError),
+    #[error(transparent)]
+    InvalidMechanic(#[from] domain::MechanicError),
+    #[error(transparent)]
+    InvalidLaterality(#[from] domain::LateralityError),
+    #[error(transparent)]
+    InvalidAssistance(#[from] domain::AssistanceError),
+    #[error(transparent)]
+    InvalidEquipment(#[from] domain::EquipmentError),
+    #[error(transparent)]
+    InvalidCategory(#[from] domain::CategoryError),
+}
+
+fn decode_property<T: TryFrom<u8>>(value: Option<u8>) -> Result<Option<T>, T::Error> {
+    value.map(T::try_from).transpose()
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -1699,17 +1761,41 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::force(
+        Exercise { force: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidForce(domain::ForceError::Invalid)
+    )]
+    #[case::mechanic(
+        Exercise { mechanic: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidMechanic(domain::MechanicError::Invalid)
+    )]
+    #[case::laterality(
+        Exercise { laterality: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidLaterality(domain::LateralityError::Invalid)
+    )]
+    #[case::assistance(
+        Exercise { assistance: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidAssistance(domain::AssistanceError::Invalid)
+    )]
+    #[case::equipment(
+        Exercise { equipment: vec![0], ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidEquipment(domain::EquipmentError::Invalid)
+    )]
+    #[case::category(
+        Exercise { category: Some(0), ..Exercise::from(EXERCISE.clone()) },
+        ExerciseError::InvalidCategory(domain::CategoryError::Invalid)
+    )]
+    fn test_exercise_try_from_invalid_property(
+        #[case] exercise: Exercise,
+        #[case] expected: ExerciseError,
+    ) {
+        assert_eq!(domain::Exercise::try_from(exercise), Err(expected));
+    }
+
     #[test]
     fn test_exercise_serde() {
-        let obj = domain::Exercise {
-            id: 1.into(),
-            name: domain::Name::new("A").unwrap(),
-            muscles: vec![domain::ExerciseMuscle {
-                muscle_id: domain::MuscleID::Abs,
-                stimulus: domain::Stimulus::PRIMARY,
-            }],
-        }
-        .into();
+        let obj = Exercise::from(EXERCISE.clone());
         let serialized = json!(obj);
         let deserialized: Exercise = serde_json::from_value(serialized).unwrap();
         assert_eq!(deserialized, obj);
@@ -2339,7 +2425,16 @@ mod tests {
 
             assert_eq!(
                 IndexedDB
-                    .create_exercise(EXERCISE.name.clone(), EXERCISE.muscles.clone())
+                    .create_exercise(
+                        EXERCISE.name.clone(),
+                        EXERCISE.muscles.clone(),
+                        EXERCISE.force,
+                        EXERCISE.mechanic,
+                        EXERCISE.laterality,
+                        EXERCISE.assistance,
+                        EXERCISE.equipment.clone(),
+                        EXERCISE.category,
+                    )
                     .await
                     .unwrap(),
                 EXERCISE.clone()
@@ -2623,6 +2718,68 @@ mod tests {
                     .await
                     .unwrap(),
                 ()
+            );
+        }
+
+        /// Create a database as version 3 created it, with an `ETag` and an exercise in it.
+        async fn create_database_version_3() {
+            Database::delete_by_name("valens").unwrap().await.unwrap();
+
+            let db = Database::open("valens")
+                .with_version(3u8)
+                .with_on_upgrade_needed(|_, db| {
+                    db.create_object_store(Store::App).build()?;
+                    for store in [Store::BodyWeight, Store::BodyFat, Store::Period] {
+                        db.create_object_store(store)
+                            .with_key_path(KeyPath::One("date"))
+                            .build()?;
+                    }
+                    for store in [Store::Exercises, Store::Routines, Store::TrainingSessions] {
+                        db.create_object_store(store)
+                            .with_key_path(KeyPath::One("id"))
+                            .build()?;
+                    }
+                    db.create_object_store(Store::Schedule).build()?;
+                    db.create_object_store(Store::ETags).build()?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+
+            let transaction = db
+                .transaction([Store::ETags.as_ref(), Store::Exercises.as_ref()].as_slice())
+                .with_mode(TransactionMode::Readwrite)
+                .build()
+                .unwrap();
+            transaction
+                .object_store(Store::ETags.as_ref())
+                .unwrap()
+                .put("42".to_string())
+                .with_key("exercises".to_string())
+                .serde()
+                .unwrap()
+                .await
+                .unwrap();
+            transaction
+                .object_store(Store::Exercises.as_ref())
+                .unwrap()
+                .put(Exercise::from(&*EXERCISE))
+                .serde()
+                .unwrap()
+                .await
+                .unwrap();
+            transaction.commit().await.unwrap();
+            db.close();
+        }
+
+        #[wasm_bindgen_test]
+        async fn test_upgrade_from_version_3_discards_etags() {
+            create_database_version_3().await;
+
+            assert_eq!(IndexedDB.read_etag("exercises").await.unwrap(), None);
+            assert_eq!(
+                IndexedDB.read_exercises().await.unwrap(),
+                vec![EXERCISE.clone()]
             );
         }
 

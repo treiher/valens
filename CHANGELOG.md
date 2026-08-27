@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exercises page:
     - Properties of custom exercises, copied from the catalog when an exercise is added from it
     - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
+    - Filtering of custom exercises by their properties, including a "Not Set" option
 - Exercise page:
     - Tags showing the properties of the exercise
     - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise

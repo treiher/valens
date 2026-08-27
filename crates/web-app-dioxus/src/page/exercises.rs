@@ -133,6 +133,7 @@ macro_rules! view_filter_tags {
                     span {
                         class: "tag is-hoverable",
                         class: if *enabled { "is-link" },
+                        "data-testid": "filter-tag",
                         onclick: move |_| $exercise_filter.write().$toggle(e),
                         {n}
                     }
@@ -655,6 +656,7 @@ macro_rules! view_filter_section {
                 }
                 div {
                     class: "container py-3",
+                    "data-testid": format!("filter-section-{}", $title.to_lowercase()),
                     div {
                         class: "tags",
                         {tags}
@@ -939,6 +941,7 @@ fn view_filter_dialog(
                 onclick: move |_| *filter_dialog_shown.write() = false,
                 button {
                     class: "button is-primary",
+                    "data-testid": "filter-show",
                     "Show {exercise_count} custom and {catalog_count} catalog exercises"
                 }
             }

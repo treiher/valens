@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from playwright.sync_api import expect
 
 from .base import BasePage
@@ -29,6 +31,19 @@ class ExercisesPage(BasePage):
     def open_exercise(self, name: str) -> None:
         self.page.get_by_test_id("exercise-item").filter(has_text=name).click()
         self.wait_until_idle()
+
+    def open_filter(self) -> None:
+        self.page.get_by_test_id("filter-exercises").click()
+        self.dialog.wait_until_open()
+
+    def toggle_filter(self, section: str, name: str) -> None:
+        self.dialog.root.get_by_test_id(f"filter-section-{section}").get_by_test_id(
+            "filter-tag"
+        ).filter(has_text=re.compile(f"^{re.escape(name)}$")).click()
+
+    def apply_filter(self) -> None:
+        self.page.get_by_test_id("filter-show").click()
+        self.dialog.wait_until_closed()
 
     def copy_exercise(self, index: int, name: str) -> None:
         self._open_item_options(index)

@@ -628,11 +628,16 @@ impl ExerciseFilter {
                             Some(m) => e.muscle_stimulus().contains_key(m),
                             None => e.muscles.is_empty(),
                         }))
-                    && self.force.is_empty()
-                    && self.mechanic.is_empty()
-                    && self.laterality.is_empty()
-                    && self.equipment.is_empty()
-                    && self.category.is_empty()
+                    && (self.force.is_empty() || self.force.contains(&e.force))
+                    && (self.mechanic.is_empty() || self.mechanic.contains(&e.mechanic))
+                    && (self.laterality.is_empty() || self.laterality.contains(&e.laterality))
+                    && (self.assistance.is_empty() || self.assistance.contains(&e.assistance))
+                    && (self.equipment.is_empty()
+                        || self.equipment.iter().any(|equipment| match equipment {
+                            Some(equipment) => e.equipment.contains(equipment),
+                            None => e.equipment.is_empty(),
+                        }))
+                    && (self.category.is_empty() || self.category.contains(&e.category))
             })
             .collect()
     }
@@ -680,7 +685,7 @@ impl ExerciseFilter {
 
     #[must_use]
     pub fn muscle_list(&self) -> Vec<(Option<MuscleID>, bool)> {
-        filter_list_with_none(&self.muscles)
+        filter_list(&self.muscles)
     }
 
     #[must_use]
@@ -705,7 +710,7 @@ impl ExerciseFilter {
 
     #[must_use]
     pub fn equipment_list(&self) -> Vec<(Option<Equipment>, bool)> {
-        filter_list_with_none(&self.equipment)
+        filter_list(&self.equipment)
     }
 
     #[must_use]
@@ -752,15 +757,6 @@ impl ExerciseFilter {
 }
 
 fn filter_list<T: Property + Eq + std::hash::Hash + 'static>(
-    selected: &HashSet<Option<T>>,
-) -> Vec<(Option<T>, bool)> {
-    T::iter()
-        .map(|value| Some(*value))
-        .map(|value| (value, selected.contains(&value)))
-        .collect()
-}
-
-fn filter_list_with_none<T: Property + Eq + std::hash::Hash + 'static>(
     selected: &HashSet<Option<T>>,
 ) -> Vec<(Option<T>, bool)> {
     T::iter()
@@ -1024,6 +1020,45 @@ mod tests {
         assert_eq!(
             filter.exercises(exercises.iter()),
             expected.iter().collect::<Vec<_>>(),
+        );
+    }
+
+    #[rstest]
+    #[case::force(ExerciseFilter { force: [Some(Force::Push)].into(), ..ExerciseFilter::default() }, true)]
+    #[case::force_not_set(ExerciseFilter { force: [None].into(), ..ExerciseFilter::default() }, false)]
+    #[case::mechanic(ExerciseFilter { mechanic: [Some(Mechanic::Compound)].into(), ..ExerciseFilter::default() }, true)]
+    #[case::mechanic_not_set(ExerciseFilter { mechanic: [None].into(), ..ExerciseFilter::default() }, false)]
+    #[case::laterality(ExerciseFilter { laterality: [Some(Laterality::Bilateral)].into(), ..ExerciseFilter::default() }, true)]
+    #[case::laterality_not_set(ExerciseFilter { laterality: [None].into(), ..ExerciseFilter::default() }, false)]
+    #[case::assistance(ExerciseFilter { assistance: [Some(Assistance::Assisted)].into(), ..ExerciseFilter::default() }, true)]
+    #[case::assistance_not_set(ExerciseFilter { assistance: [None].into(), ..ExerciseFilter::default() }, false)]
+    #[case::equipment(ExerciseFilter { equipment: [Some(Equipment::Barbell)].into(), ..ExerciseFilter::default() }, true)]
+    #[case::equipment_not_set(ExerciseFilter { equipment: [None].into(), ..ExerciseFilter::default() }, false)]
+    #[case::category(ExerciseFilter { category: [Some(Category::Strength)].into(), ..ExerciseFilter::default() }, true)]
+    #[case::category_not_set(ExerciseFilter { category: [None].into(), ..ExerciseFilter::default() }, false)]
+    fn test_exercise_filter_exercises_by_property(
+        #[case] filter: ExerciseFilter,
+        #[case] matches_exercise_with_properties: bool,
+    ) {
+        let without_properties = exercise(0, "A", vec![]);
+        let with_properties = Exercise {
+            force: Some(Force::Push),
+            mechanic: Some(Mechanic::Compound),
+            laterality: Some(Laterality::Bilateral),
+            assistance: Some(Assistance::Assisted),
+            equipment: vec![Equipment::Barbell],
+            category: Some(Category::Strength),
+            ..exercise(1, "B", vec![])
+        };
+        let exercises = [without_properties.clone(), with_properties.clone()];
+
+        assert_eq!(
+            filter.exercises(exercises.iter()),
+            vec![if matches_exercise_with_properties {
+                &with_properties
+            } else {
+                &without_properties
+            }],
         );
     }
 

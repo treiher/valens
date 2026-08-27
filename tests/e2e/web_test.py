@@ -2267,6 +2267,31 @@ def test_exercises_add_from_catalog(page: Page) -> None:
     assert exercise_page.get_muscles() == muscles
 
 
+def test_exercises_filter_by_property(page: Page) -> None:
+    exercise = USER.exercises[0]
+
+    assert exercise.force == 1, "test data must contain an exercise with the force Push"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+
+    p.open_filter()
+    p.toggle_filter("force", "Push")
+    p.apply_filter()
+
+    assert {e[0] for e in p.table.get_body(1)} == {exercise.name}
+
+    p.open_filter()
+    p.toggle_filter("force", "Push")
+    p.toggle_filter("force", "Not Set")
+    p.apply_filter()
+
+    assert {e[0] for e in p.table.get_body(1)} == {
+        e.name for e in USER.exercises if e.name in CURRENT_WORKOUT_EXERCISES and not e.force
+    }
+
+
 def test_exercises_copy(page: Page) -> None:
     new_name = "Copied Exercise"
 

@@ -305,8 +305,19 @@ impl<T> FieldValueState for FieldValue<T> {
 }
 
 pub struct MultiToggle {
-    pub states: Vec<(String, u8)>,
-    pub num_states: u8,
+    pub states: Vec<(String, usize)>,
+    /// Tag class of every state but the zeroth, in the order the states are cycled through.
+    pub classes: Vec<&'static str>,
+}
+
+impl MultiToggle {
+    fn class(&self, state: usize) -> &'static str {
+        state
+            .checked_sub(1)
+            .and_then(|i| self.classes.get(i))
+            .copied()
+            .unwrap_or_default()
+    }
 }
 
 #[component]
@@ -317,16 +328,15 @@ pub fn MultiToggleTags(multi_toggle: Signal<MultiToggle>) -> Element {
         .iter()
         .enumerate()
         .map(|(i, (name, state))| {
+            let class = multi_toggle.read().class(*state);
             rsx! {
                 span {
-                    class: "tag is-hoverable",
-                    class: if *state == 1 { "is-link" },
-                    class: if *state == 2 { "is-dark" },
+                    class: "tag is-hoverable {class}",
                     "data-testid": "multi-toggle-tag",
                     onclick: move |_| {
-                        let m = multi_toggle.read().num_states;
+                        let num_states = multi_toggle.read().classes.len() + 1;
                         let s = multi_toggle.read().states[i].1;
-                        multi_toggle.write().states[i].1 = (s + 1) % m;
+                        multi_toggle.write().states[i].1 = (s + 1) % num_states;
                     },
                     "{name}"
                 }

@@ -1034,7 +1034,7 @@ impl ExerciseFilter {
         filter_list(&self.category)
     }
 
-    /// Cycle a muscle through no level, secondary and primary, or toggle "Not Set".
+    /// Cycle a muscle through no level, primary and secondary, or toggle "Not Set".
     ///
     /// "Not Set" and the muscles are mutually exclusive.
     pub fn toggle_muscle(&mut self, muscle: Option<MuscleID>) {
@@ -1046,9 +1046,9 @@ impl ExerciseFilter {
             return;
         };
         let level = match self.muscle_level(muscle) {
-            None => Some(StimulusLevel::Secondary),
-            Some(StimulusLevel::Secondary) => Some(StimulusLevel::Primary),
-            Some(StimulusLevel::Primary) => None,
+            None => Some(StimulusLevel::Primary),
+            Some(StimulusLevel::Primary) => Some(StimulusLevel::Secondary),
+            Some(StimulusLevel::Secondary) => None,
         };
         self.clear_muscle(Some(muscle));
         if let Some(level) = level {
@@ -1687,7 +1687,7 @@ mod tests {
         assert!(
             filter
                 .muscle_list()
-                .contains(&(MuscleID::Abs, Some(StimulusLevel::Secondary)))
+                .contains(&(MuscleID::Abs, Some(StimulusLevel::Primary)))
         );
 
         filter.toggle_muscle(Some(MuscleID::Abs));
@@ -1695,7 +1695,7 @@ mod tests {
         assert!(
             filter
                 .muscle_list()
-                .contains(&(MuscleID::Abs, Some(StimulusLevel::Primary)))
+                .contains(&(MuscleID::Abs, Some(StimulusLevel::Secondary)))
         );
 
         filter.toggle_muscle(None);

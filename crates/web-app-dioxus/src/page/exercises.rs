@@ -757,20 +757,34 @@ fn view_filter_block(label: Element, name: &str, tags: Element) -> Element {
     }
 }
 
+/// The stimulus levels in the order in which the muscle toggles cycle through them.
+const STIMULUS_LEVELS: [domain::StimulusLevel; 2] = [
+    domain::StimulusLevel::Primary,
+    domain::StimulusLevel::Secondary,
+];
+
 /// Show the stimulus levels with the colors used for the muscle tags.
 fn view_stimulus_level_legend() -> Element {
-    let primary = page::exercise::stimulus_level_class(domain::StimulusLevel::Primary);
-    let secondary = page::exercise::stimulus_level_class(domain::StimulusLevel::Secondary);
+    let tags = STIMULUS_LEVELS
+        .into_iter()
+        .enumerate()
+        .map(|(i, level)| {
+            let class = page::exercise::stimulus_level_class(level);
+            rsx! {
+                if i > 0 {
+                    " "
+                }
+                span {
+                    class: "tag {class}",
+                    {level.name()}
+                }
+            }
+        })
+        .collect::<Vec<_>>();
     rsx! {
         " ("
-        span {
-            class: "tag {primary}",
-            {domain::StimulusLevel::Primary.name()}
-        }
-        " "
-        span {
-            class: "tag {secondary}",
-            {domain::StimulusLevel::Secondary.name()}
+        for tag in tags {
+            {tag}
         }
         ")"
     }
@@ -869,13 +883,20 @@ fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
     }
 }
 
-/// Map the stimulus level of a muscle to the state of its toggle.
-fn multi_toggle_state(level: Option<domain::StimulusLevel>) -> u8 {
-    match level {
-        None => 0,
-        Some(domain::StimulusLevel::Secondary) => 1,
-        Some(domain::StimulusLevel::Primary) => 2,
-    }
+fn multi_toggle_state(level: Option<domain::StimulusLevel>) -> usize {
+    level.map_or(0, |level| {
+        STIMULUS_LEVELS
+            .into_iter()
+            .position(|l| l == level)
+            .map_or(0, |i| i + 1)
+    })
+}
+
+fn stimulus_level(state: usize) -> Option<domain::StimulusLevel> {
+    state
+        .checked_sub(1)
+        .and_then(|i| STIMULUS_LEVELS.get(i))
+        .copied()
 }
 
 #[component]
@@ -900,7 +921,10 @@ fn ExercisePropertiesDialog(
                 )
             })
             .collect::<Vec<_>>(),
-        num_states: 3,
+        classes: STIMULUS_LEVELS
+            .into_iter()
+            .map(page::exercise::stimulus_level_class)
+            .collect(),
     });
     let force = use_signal(|| exercise.force);
     let mechanic = use_signal(|| exercise.mechanic);
@@ -926,23 +950,17 @@ fn ExercisePropertiesDialog(
                 .states
                 .iter()
                 .enumerate()
-                .filter_map(|(i, (_, value))| {
-                    if *value > 0 {
-                        domain::MuscleID::iter()
-                            .nth(i)
-                            .map(|muscle_id| domain::ExerciseMuscle {
-                                muscle_id: *muscle_id,
-                                stimulus: if *value == 1 {
-                                    domain::Stimulus::SECONDARY
-                                } else if *value == 2 {
-                                    domain::Stimulus::PRIMARY
-                                } else {
-                                    domain::Stimulus::NONE
-                                },
-                            })
-                    } else {
-                        None
-                    }
+                .filter_map(|(i, (_, state))| {
+                    let level = stimulus_level(*state)?;
+                    domain::MuscleID::iter()
+                        .nth(i)
+                        .map(|muscle_id| domain::ExerciseMuscle {
+                            muscle_id: *muscle_id,
+                            stimulus: match level {
+                                domain::StimulusLevel::Primary => domain::Stimulus::PRIMARY,
+                                domain::StimulusLevel::Secondary => domain::Stimulus::SECONDARY,
+                            },
+                        })
                 })
                 .collect::<Vec<_>>();
             let mut saved = false;

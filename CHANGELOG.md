@@ -22,7 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Loading screen shown while the app is starting
-- Exercises page: Filtering by muscles differentiating between primary and secondary muscles
+- Exercises page:
+    - Filtering by muscles differentiating between primary and secondary muscles
+    - Muscles of an exercise cycling through primary before secondary
+- Exercise page: Muscles of an exercise cycling through primary before secondary
 - Catalog exercise page: Order of the properties of an exercise, showing the muscles first
 
 ### Fixed

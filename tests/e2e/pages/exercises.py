@@ -53,7 +53,7 @@ class ExercisesPage(BasePage):
         ).filter(has_text=re.compile(f"^{re.escape(name)}$")).click()
 
     def filter_muscle(self, name: str, level: str) -> None:
-        for _ in range(1 if level == "Secondary" else 2):
+        for _ in range(1 if level == "Primary" else 2):
             self.toggle_filter("muscles", name)
 
     def apply_filter(self) -> None:

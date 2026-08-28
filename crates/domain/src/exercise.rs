@@ -3,6 +3,7 @@ use std::{
     ops::{Add, AddAssign, Mul},
     slice::Iter,
     str::FromStr,
+    sync::LazyLock,
 };
 
 use derive_more::Deref;
@@ -157,6 +158,265 @@ impl From<&catalog::Exercise> for CatalogProperties {
             value.equipment.to_vec(),
             Some(value.category),
         )
+    }
+}
+
+/// How the name of an exercise matched the name of a catalog exercise.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CatalogMatch {
+    Exact,
+    Prefix,
+}
+
+/// Which values of an exercise an update from the catalog writes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CatalogUpdateMode {
+    /// Set only values that are unset or empty.
+    FillMissing,
+    /// Set all values, including clearing values the catalog exercise does not have.
+    ReplaceAll,
+}
+
+/// A single value of a property, or the absence of any value.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PropertyValue {
+    pub name: &'static str,
+    pub stimulus: Option<Stimulus>,
+}
+
+/// The values of a property before and after an update.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PropertyChange {
+    pub property: ExerciseProperty,
+    pub before: Vec<PropertyValue>,
+    pub after: Vec<PropertyValue>,
+}
+
+/// An exercise updated from the catalog exercise its name matched.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CatalogUpdate {
+    pub exercise: Exercise,
+    pub catalog_name: &'static Name,
+    pub catalog_match: CatalogMatch,
+    pub changes: Vec<PropertyChange>,
+}
+
+/// Determine the updates from the catalog for all given exercises, sorted by exercise name.
+#[must_use]
+pub fn catalog_updates(exercises: &[Exercise], mode: CatalogUpdateMode) -> Vec<CatalogUpdate> {
+    let mut updates = exercises
+        .iter()
+        .filter_map(|exercise| catalog_update(exercise, mode))
+        .collect::<Vec<_>>();
+    updates.sort_by(|a, b| a.exercise.name.cmp(&b.exercise.name));
+    updates
+}
+
+/// Determine the update from the catalog for an exercise.
+///
+/// Returns `None` if the name of the exercise matches no catalog exercise or if the update would
+/// change nothing.
+#[must_use]
+pub fn catalog_update(exercise: &Exercise, mode: CatalogUpdateMode) -> Option<CatalogUpdate> {
+    let (catalog_name, catalog_exercise, catalog_match) = match_catalog(&exercise.name)?;
+    let updated_exercise = updated_exercise(exercise, catalog_exercise, mode);
+    let changes = changes(exercise, &updated_exercise);
+
+    if changes.is_empty() {
+        return None;
+    }
+
+    Some(CatalogUpdate {
+        exercise: updated_exercise,
+        catalog_name,
+        catalog_match,
+        changes,
+    })
+}
+
+/// Find the catalog exercise a name matches, preferring the exact name over the longest name the
+/// name starts with, followed by a space.
+fn match_catalog(name: &Name) -> Option<(&'static Name, &'static catalog::Exercise, CatalogMatch)> {
+    let name = name.as_ref().to_lowercase();
+    let mut prefix_match: Option<(usize, &'static Name, &'static catalog::Exercise)> = None;
+
+    for (candidate, catalog_name, catalog_exercise) in CATALOG_NAMES.iter() {
+        if name == *candidate {
+            return Some((catalog_name, catalog_exercise, CatalogMatch::Exact));
+        }
+
+        if name
+            .strip_prefix(candidate.as_str())
+            .is_some_and(|rest| rest.starts_with(' '))
+            && prefix_match.is_none_or(|(len, _, _)| len < candidate.len())
+        {
+            prefix_match = Some((candidate.len(), catalog_name, catalog_exercise));
+        }
+    }
+
+    prefix_match.map(|(_, name, exercise)| (name, exercise, CatalogMatch::Prefix))
+}
+
+/// Catalog names in lowercase, paired with the entry they belong to.
+static CATALOG_NAMES: LazyLock<Vec<(String, &'static Name, &'static catalog::Exercise)>> =
+    LazyLock::new(|| {
+        let exercises: &'static BTreeMap<Name, catalog::Exercise> = &catalog::EXERCISES;
+        exercises
+            .iter()
+            .map(|(name, exercise)| (name.as_ref().to_lowercase(), name, exercise))
+            .collect()
+    });
+
+fn updated_exercise(
+    exercise: &Exercise,
+    catalog_exercise: &catalog::Exercise,
+    mode: CatalogUpdateMode,
+) -> Exercise {
+    let (force, mechanic, laterality, assistance, equipment, category) =
+        CatalogProperties::from(catalog_exercise);
+    let muscles = catalog_exercise
+        .muscles
+        .iter()
+        .map(|(muscle_id, stimulus)| ExerciseMuscle {
+            muscle_id: *muscle_id,
+            stimulus: *stimulus,
+        })
+        .collect::<Vec<_>>();
+
+    match mode {
+        CatalogUpdateMode::FillMissing => Exercise {
+            muscles: if exercise.muscles.is_empty() {
+                muscles
+            } else {
+                exercise.muscles.clone()
+            },
+            force: exercise.force.or(force),
+            mechanic: exercise.mechanic.or(mechanic),
+            laterality: exercise.laterality.or(laterality),
+            assistance: exercise.assistance.or(assistance),
+            equipment: if exercise.equipment.is_empty() {
+                equipment
+            } else {
+                exercise.equipment.clone()
+            },
+            category: exercise.category.or(category),
+            ..exercise.clone()
+        },
+        CatalogUpdateMode::ReplaceAll => Exercise {
+            muscles,
+            force,
+            mechanic,
+            laterality,
+            assistance,
+            equipment,
+            category,
+            ..exercise.clone()
+        },
+    }
+}
+
+fn changes(before: &Exercise, after: &Exercise) -> Vec<PropertyChange> {
+    [
+        change(
+            ExerciseProperty::Force,
+            scalar_values(before.force),
+            scalar_values(after.force),
+        ),
+        change(
+            ExerciseProperty::Mechanic,
+            scalar_values(before.mechanic),
+            scalar_values(after.mechanic),
+        ),
+        change(
+            ExerciseProperty::Laterality,
+            scalar_values(before.laterality),
+            scalar_values(after.laterality),
+        ),
+        change(
+            ExerciseProperty::Assistance,
+            scalar_values(before.assistance),
+            scalar_values(after.assistance),
+        ),
+        change(
+            ExerciseProperty::Equipment,
+            equipment_values(&before.equipment),
+            equipment_values(&after.equipment),
+        ),
+        change(
+            ExerciseProperty::Category,
+            scalar_values(before.category),
+            scalar_values(after.category),
+        ),
+        change(
+            ExerciseProperty::Muscles,
+            muscle_values(&before.muscles),
+            muscle_values(&after.muscles),
+        ),
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
+
+fn change(
+    property: ExerciseProperty,
+    before: Vec<PropertyValue>,
+    after: Vec<PropertyValue>,
+) -> Option<PropertyChange> {
+    if before == after {
+        None
+    } else {
+        Some(PropertyChange {
+            property,
+            before,
+            after,
+        })
+    }
+}
+
+fn scalar_values<T: Property>(value: Option<T>) -> Vec<PropertyValue> {
+    vec![PropertyValue {
+        name: name_or_none(value),
+        stimulus: None,
+    }]
+}
+
+/// Determine the values of a set of equipment, ordered by `Equipment::iter`.
+fn equipment_values(equipment: &[Equipment]) -> Vec<PropertyValue> {
+    values(
+        Equipment::iter()
+            .filter(|value| equipment.contains(value))
+            .map(|value| PropertyValue {
+                name: value.name(),
+                stimulus: None,
+            })
+            .collect(),
+        Equipment::none_name(),
+    )
+}
+
+/// Determine the values of a set of muscles, ordered by `MuscleID::iter`.
+fn muscle_values(muscles: &[ExerciseMuscle]) -> Vec<PropertyValue> {
+    values(
+        MuscleID::iter()
+            .filter_map(|muscle_id| muscles.iter().find(|m| m.muscle_id == *muscle_id))
+            .map(|muscle| PropertyValue {
+                name: muscle.muscle_id.name(),
+                stimulus: Some(muscle.stimulus),
+            })
+            .collect(),
+        MuscleID::none_name(),
+    )
+}
+
+fn values(values: Vec<PropertyValue>, none_name: &'static str) -> Vec<PropertyValue> {
+    if values.is_empty() {
+        vec![PropertyValue {
+            name: none_name,
+            stimulus: None,
+        }]
+    } else {
+        values
     }
 }
 
@@ -837,20 +1097,6 @@ mod tests {
 
     use super::*;
 
-    fn exercise(id: u128, name: &str, muscles: Vec<ExerciseMuscle>) -> Exercise {
-        Exercise {
-            id: id.into(),
-            name: Name::new(name).unwrap(),
-            muscles,
-            force: None,
-            mechanic: None,
-            laterality: None,
-            assistance: None,
-            equipment: vec![],
-            category: None,
-        }
-    }
-
     #[test]
     fn test_exercise_muscle_stimulus() {
         assert_eq!(
@@ -893,27 +1139,6 @@ mod tests {
         );
     }
 
-    fn assert_distinct_names<T: Property + 'static>() {
-        assert_distinct(
-            T::iter()
-                .map(|value| name_or_none(Some(*value)))
-                .chain([T::none_name()]),
-        );
-    }
-
-    fn assert_distinct_value_names<T: Property + 'static>() {
-        assert_distinct(T::iter().map(|value| value.name()));
-    }
-
-    fn assert_distinct(names: impl Iterator<Item = &'static str>) {
-        let mut distinct_names = HashSet::new();
-
-        for name in names {
-            assert!(!name.is_empty());
-            assert!(distinct_names.insert(name));
-        }
-    }
-
     #[test]
     fn test_catalog_properties_from_catalog_exercise() {
         assert_eq!(
@@ -928,6 +1153,217 @@ mod tests {
                 vec![Equipment::Barbell],
                 Some(Category::Strength),
             )
+        );
+    }
+
+    #[rstest]
+    #[case("Dip", Some(("Dip", CatalogMatch::Exact)))]
+    #[case("dIP", Some(("Dip", CatalogMatch::Exact)))]
+    #[case("Dip (weighted)", Some(("Dip", CatalogMatch::Prefix)))]
+    #[case("Dipping", None)]
+    #[case("Squat Jump", Some(("Squat Jump", CatalogMatch::Exact)))]
+    #[case("Squat Jump (weighted)", Some(("Squat Jump", CatalogMatch::Prefix)))]
+    #[case("Squat Twist", Some(("Squat", CatalogMatch::Prefix)))]
+    #[case("Sit Up", None)]
+    fn test_catalog_update_match(
+        #[case] name: &str,
+        #[case] expected: Option<(&str, CatalogMatch)>,
+    ) {
+        let update = catalog_update(&exercise(1, name, vec![]), CatalogUpdateMode::FillMissing);
+
+        assert_eq!(
+            update
+                .as_ref()
+                .map(|update| (update.catalog_name.as_ref().as_str(), update.catalog_match)),
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case(CatalogUpdateMode::FillMissing)]
+    #[case(CatalogUpdateMode::ReplaceAll)]
+    fn test_catalog_update_of_exercise_without_properties(#[case] mode: CatalogUpdateMode) {
+        let update = catalog_update(&exercise(1, "Dip", vec![]), mode).unwrap();
+
+        assert_eq!(update.exercise, catalog_exercise("Dip", 1));
+        assert_eq!(
+            update
+                .changes
+                .iter()
+                .map(|change| change.property)
+                .collect::<Vec<_>>(),
+            vec![
+                ExerciseProperty::Force,
+                ExerciseProperty::Mechanic,
+                ExerciseProperty::Laterality,
+                ExerciseProperty::Assistance,
+                ExerciseProperty::Equipment,
+                ExerciseProperty::Category,
+                ExerciseProperty::Muscles,
+            ]
+        );
+        assert_eq!(
+            update.changes[0],
+            PropertyChange {
+                property: ExerciseProperty::Force,
+                before: vec![value(Force::none_name())],
+                after: vec![value(Force::Push.name())],
+            }
+        );
+        assert_eq!(
+            update.changes[6],
+            PropertyChange {
+                property: ExerciseProperty::Muscles,
+                before: vec![value(MuscleID::none_name())],
+                after: vec![
+                    muscle_value(MuscleID::Pecs, Stimulus::PRIMARY),
+                    muscle_value(MuscleID::FrontDelts, Stimulus::PRIMARY),
+                    muscle_value(MuscleID::Triceps, Stimulus::PRIMARY),
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn test_catalog_update_fill_missing_keeps_existing_values() {
+        let exercise = Exercise {
+            force: Some(Force::Pull),
+            equipment: vec![Equipment::Dumbbell],
+            ..exercise(
+                1,
+                "Dip",
+                vec![ExerciseMuscle {
+                    muscle_id: MuscleID::Biceps,
+                    stimulus: Stimulus::PRIMARY,
+                }],
+            )
+        };
+
+        let update = catalog_update(&exercise, CatalogUpdateMode::FillMissing).unwrap();
+
+        assert_eq!(
+            update.exercise,
+            Exercise {
+                mechanic: Some(Mechanic::Compound),
+                laterality: Some(Laterality::Bilateral),
+                assistance: Some(Assistance::Unassisted),
+                category: Some(Category::Strength),
+                ..exercise
+            }
+        );
+        assert_eq!(
+            update
+                .changes
+                .iter()
+                .map(|change| change.property)
+                .collect::<Vec<_>>(),
+            vec![
+                ExerciseProperty::Mechanic,
+                ExerciseProperty::Laterality,
+                ExerciseProperty::Assistance,
+                ExerciseProperty::Category,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_catalog_update_replace_all_clears_values_absent_from_catalog() {
+        let exercise = Exercise {
+            equipment: vec![Equipment::Barbell],
+            ..catalog_exercise("Squat", 1)
+        };
+
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+
+        assert_eq!(update.exercise, catalog_exercise("Squat", 1));
+        assert_eq!(
+            update.changes,
+            vec![PropertyChange {
+                property: ExerciseProperty::Equipment,
+                before: vec![value(Equipment::Barbell.name())],
+                after: vec![value(Equipment::none_name())],
+            }]
+        );
+    }
+
+    #[test]
+    fn test_catalog_update_ignores_order_of_equipment() {
+        let exercise = Exercise {
+            equipment: vec![Equipment::PullUpBar, Equipment::ResistanceBand],
+            ..catalog_exercise("Band-Assisted Dip", 1)
+        };
+
+        assert_eq!(
+            catalog_update(&exercise, CatalogUpdateMode::ReplaceAll),
+            None
+        );
+    }
+
+    #[test]
+    fn test_catalog_update_detects_changed_stimulus() {
+        let exercise = Exercise {
+            muscles: vec![
+                ExerciseMuscle {
+                    muscle_id: MuscleID::Pecs,
+                    stimulus: Stimulus::SECONDARY,
+                },
+                ExerciseMuscle {
+                    muscle_id: MuscleID::FrontDelts,
+                    stimulus: Stimulus::PRIMARY,
+                },
+                ExerciseMuscle {
+                    muscle_id: MuscleID::Triceps,
+                    stimulus: Stimulus::PRIMARY,
+                },
+            ],
+            ..catalog_exercise("Dip", 1)
+        };
+
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+
+        assert_eq!(update.exercise, catalog_exercise("Dip", 1));
+        assert_eq!(
+            update.changes,
+            vec![PropertyChange {
+                property: ExerciseProperty::Muscles,
+                before: vec![
+                    muscle_value(MuscleID::Pecs, Stimulus::SECONDARY),
+                    muscle_value(MuscleID::FrontDelts, Stimulus::PRIMARY),
+                    muscle_value(MuscleID::Triceps, Stimulus::PRIMARY),
+                ],
+                after: vec![
+                    muscle_value(MuscleID::Pecs, Stimulus::PRIMARY),
+                    muscle_value(MuscleID::FrontDelts, Stimulus::PRIMARY),
+                    muscle_value(MuscleID::Triceps, Stimulus::PRIMARY),
+                ],
+            }]
+        );
+    }
+
+    #[rstest]
+    #[case(CatalogUpdateMode::FillMissing)]
+    #[case(CatalogUpdateMode::ReplaceAll)]
+    fn test_catalog_update_of_unchanged_exercise(#[case] mode: CatalogUpdateMode) {
+        assert_eq!(catalog_update(&catalog_exercise("Dip", 1), mode), None);
+    }
+
+    #[test]
+    fn test_catalog_updates_sorted_by_name() {
+        let updates = catalog_updates(
+            &[
+                exercise(1, "Squat", vec![]),
+                catalog_exercise("Dip", 2),
+                exercise(3, "Lunge", vec![]),
+            ],
+            CatalogUpdateMode::FillMissing,
+        );
+
+        assert_eq!(
+            updates
+                .iter()
+                .map(|update| update.exercise.name.as_ref().as_str())
+                .collect::<Vec<_>>(),
+            vec!["Lunge", "Squat"]
         );
     }
 
@@ -952,22 +1388,6 @@ mod tests {
 
             descriptions.insert(description);
         }
-    }
-
-    fn assert_try_from_u8<T>()
-    where
-        T: Property + TryFrom<u8> + Eq + std::hash::Hash + std::fmt::Debug + 'static,
-    {
-        let decoded = (0..=u8::MAX)
-            .filter_map(|value| T::try_from(value).ok())
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            decoded.iter().copied().collect::<HashSet<_>>(),
-            T::iter().copied().collect::<HashSet<_>>()
-        );
-        assert_eq!(decoded.len(), T::iter().count());
-        assert!(T::try_from(0).is_err());
     }
 
     #[test]
@@ -1344,5 +1764,94 @@ mod tests {
         filter.toggle_category(Some(Category::Strength));
 
         assert!(filter.category_list().iter().map(|(_, b)| b).all(|b| !b));
+    }
+
+    fn exercise(id: u128, name: &str, muscles: Vec<ExerciseMuscle>) -> Exercise {
+        Exercise {
+            id: id.into(),
+            name: Name::new(name).unwrap(),
+            muscles,
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
+    fn assert_distinct_names<T: Property + 'static>() {
+        assert_distinct(
+            T::iter()
+                .map(|value| name_or_none(Some(*value)))
+                .chain([T::none_name()]),
+        );
+    }
+
+    fn assert_distinct_value_names<T: Property + 'static>() {
+        assert_distinct(T::iter().map(|value| value.name()));
+    }
+
+    fn assert_distinct(names: impl Iterator<Item = &'static str>) {
+        let mut distinct_names = HashSet::new();
+
+        for name in names {
+            assert!(!name.is_empty());
+            assert!(distinct_names.insert(name));
+        }
+    }
+
+    fn catalog_exercise(name: &str, id: u128) -> Exercise {
+        let catalog_exercise = &catalog::EXERCISES[&Name::new(name).unwrap()];
+        let (force, mechanic, laterality, assistance, equipment, category) =
+            CatalogProperties::from(catalog_exercise);
+        Exercise {
+            id: id.into(),
+            name: Name::new(name).unwrap(),
+            muscles: catalog_exercise
+                .muscles
+                .iter()
+                .map(|(muscle_id, stimulus)| ExerciseMuscle {
+                    muscle_id: *muscle_id,
+                    stimulus: *stimulus,
+                })
+                .collect(),
+            force,
+            mechanic,
+            laterality,
+            assistance,
+            equipment,
+            category,
+        }
+    }
+
+    fn value(name: &'static str) -> PropertyValue {
+        PropertyValue {
+            name,
+            stimulus: None,
+        }
+    }
+
+    fn muscle_value(muscle_id: MuscleID, stimulus: Stimulus) -> PropertyValue {
+        PropertyValue {
+            name: muscle_id.name(),
+            stimulus: Some(stimulus),
+        }
+    }
+
+    fn assert_try_from_u8<T>()
+    where
+        T: Property + TryFrom<u8> + Eq + std::hash::Hash + std::fmt::Debug + 'static,
+    {
+        let decoded = (0..=u8::MAX)
+            .filter_map(|value| T::try_from(value).ok())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            decoded.iter().copied().collect::<HashSet<_>>(),
+            T::iter().copied().collect::<HashSet<_>>()
+        );
+        assert_eq!(decoded.len(), T::iter().count());
+        assert!(T::try_from(0).is_err());
     }
 }

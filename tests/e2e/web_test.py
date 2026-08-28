@@ -2267,6 +2267,68 @@ def test_exercises_add_from_catalog(page: Page) -> None:
     assert exercise_page.get_muscles() == muscles
 
 
+def test_exercises_update_from_catalog(page: Page) -> None:
+    name = "Dip"
+    variation = "Dip (weighted)"
+
+    login(page)
+    catalog_page = CatalogPage(page, name)
+    catalog_page.goto()
+    properties = catalog_page.get_properties()
+    muscles = catalog_page.get_muscles()
+
+    assert properties
+    assert muscles
+
+    p = ExercisesPage(page)
+    p.goto()
+    p.add_exercise(name)
+    p.add_exercise(variation)
+
+    p.open_catalog_update()
+    p.expect_catalog_updates(name, variation)
+    p.expect_catalog_update_selected(name, selected=True)
+    p.expect_catalog_update_selected(variation, selected=False)
+    p.expect_catalog_update_source(variation, name)
+    p.apply_catalog_updates()
+    p.expect_catalog_updates(variation)
+    p.toggle_catalog_update(variation)
+    p.apply_catalog_updates()
+    p.expect_catalog_update_dialog_closed()
+
+    exercise_page = ExercisePage(page)
+
+    for exercise in [name, variation]:
+        p.goto()
+        p.search(exercise)
+        p.open_exercise(exercise)
+        exercise_page.expect_page()
+
+        assert exercise_page.get_properties() == properties
+        assert exercise_page.get_muscles() == muscles
+
+    exercise_page.toggle_properties("Trap Bar")
+
+    assert exercise_page.get_properties() == [*properties, "Trap Bar"]
+
+    p.goto()
+    p.open_catalog_update()
+    p.expect_catalog_updates()
+    p.select_catalog_update_mode("Replace all values")
+    p.expect_catalog_updates(variation)
+    p.expect_catalog_update_selected(variation, selected=False)
+    p.toggle_catalog_update(variation)
+    p.apply_catalog_updates()
+    p.confirm_catalog_updates()
+    p.expect_catalog_update_dialog_closed()
+
+    p.search(variation)
+    p.open_exercise(variation)
+    exercise_page.expect_page()
+
+    assert exercise_page.get_properties() == properties
+
+
 def test_exercises_filter_by_property(page: Page) -> None:
     exercise = USER.exercises[0]
 

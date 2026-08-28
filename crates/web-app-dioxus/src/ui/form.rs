@@ -165,6 +165,9 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
     selected: T,
     error: Option<String>,
     has_changed: bool,
+    /// Distribute the options over the full width, wrapping labels that do not fit.
+    #[props(default)]
+    is_expanded: bool,
     on_click: EventHandler<(MouseEvent, T)>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
@@ -186,8 +189,10 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
                 for option in options {
                     div {
                         class: "control",
+                        class: if is_expanded { "is-expanded" },
                         div {
                             class: "button",
+                            class: if is_expanded { "is-fullwidth is-wrapping" },
                             class: if option.value == selected && has_error { "is-danger" },
                             class: if option.value == selected && !has_error { "is-link" },
                             class: if option.value != selected && has_changed { "is-link is-outlined" },

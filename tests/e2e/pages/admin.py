@@ -4,19 +4,11 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
-from .base import BaseDialog, Dialog
+from .base import BaseDialog, NestedDialog
 from .utils import get_focused_selection
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
-
-
-class NestedDialog(Dialog):
-    """Dialog stacked on top of another dialog."""
-
-    @property
-    def root(self) -> Locator:
-        return self.page.get_by_test_id("dialog").nth(1)
 
 
 class AdminDialog(BaseDialog):

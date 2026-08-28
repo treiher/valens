@@ -16,11 +16,14 @@ use crate::{
     routing::NavigatorScrollExt,
     ui::{
         element::{
-            Block, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
+            Block, Color, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
             ItemOptionsButton, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
             Title,
         },
-        form::{FieldValue, FieldValueState, InputField, MultiToggle, MultiToggleTags},
+        form::{
+            ButtonSelectField, ButtonSelectOption, FieldValue, FieldValueState, InputField,
+            MultiToggle, MultiToggleTags,
+        },
     },
 };
 
@@ -75,6 +78,7 @@ pub fn ExerciseList(
     let cache = consume_context::<Cache>();
     let mut dialog = use_signal(|| ExerciseDialog::None);
     let filter_dialog_shown = use_signal(|| false);
+    let mut catalog_update_dialog_shown = use_signal(|| false);
 
     let exercise_filter = use_signal(|| {
         domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&filter)).unwrap_or_default()
@@ -99,10 +103,13 @@ pub fn ExerciseList(
         (CacheState::Ready(exercises), CacheState::Ready(training_sessions)) => {
             let filtered_exercises = exercise_filter.read().exercises(exercises.iter());
             rsx! {
-                {view_search_box(exercise_filter, dialog, filter_dialog_shown, &filter, exercises_page)},
+                {view_search_box(exercise_filter, dialog, filter_dialog_shown, catalog_update_dialog_shown, &filter, exercises_page)},
                 {view_list(&filtered_exercises, training_sessions, exercise_filter, dialog, on_exercise_click, on_catalog_click)}
                 {view_dialog(dialog, if exercises_page { Some(Route::Exercises { add: false, filter: filter.clone() }) } else { None })}
                 {view_filter_dialog(exercise_filter, filter_dialog_shown, filtered_exercises.len())}
+                if catalog_update_dialog_shown() {
+                    CatalogUpdateDialog { on_close: move |()| catalog_update_dialog_shown.set(false) }
+                }
                 if exercises_page {
                     FloatingActionButton {
                         icon: "plus".to_string(),
@@ -152,6 +159,7 @@ fn view_search_box(
     mut exercise_filter: Signal<domain::ExerciseFilter>,
     mut filter_dialog: Signal<ExerciseDialog>,
     mut filter_dialog_shown: Signal<bool>,
+    mut catalog_update_dialog_shown: Signal<bool>,
     filter_string: &str,
     exercises_page: bool,
 ) -> Element {
@@ -191,7 +199,14 @@ fn view_search_box(
                     onclick: move |_| *filter_dialog_shown.write() = true,
                     Icon { name: "filter" }
                 }
-                if !exercises_page {
+                if exercises_page {
+                    button {
+                        class: "button",
+                        "data-testid": "update-exercises-from-catalog",
+                        onclick: move |_| *catalog_update_dialog_shown.write() = true,
+                        Icon { name: "book-open" }
+                    }
+                } else {
                     button {
                         class: "button is-link",
                         "data-testid": "create-exercise",
@@ -948,6 +963,305 @@ fn view_filter_dialog(
             }
         }
     }
+}
+
+#[component]
+fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
+    let cache = consume_context::<Cache>();
+    let mode = use_signal(|| domain::CatalogUpdateMode::FillMissing);
+    let updates = use_memo(move || match &*cache.exercises.read() {
+        CacheState::Ready(exercises) => domain::catalog_updates(exercises, mode()),
+        CacheState::Loading | CacheState::Error(_) => vec![],
+    });
+    let mut selected = use_signal(|| default_selection(&updates.read()));
+    // A manually changed selection must survive a refresh of the exercises.
+    let touched = use_signal(|| false);
+    let mut confirmation_shown = use_signal(|| false);
+    let mut is_updating = use_signal(|| false);
+    let mut updated = use_signal(|| 0_usize);
+
+    use_effect(move || {
+        let selection = default_selection(&updates.read());
+        if !*touched.peek() {
+            selected.set(selection);
+        }
+    });
+
+    let update = move || async move {
+        confirmation_shown.set(false);
+        is_updating.set(true);
+        updated.set(0);
+        let exercises = updates
+            .read()
+            .iter()
+            .filter(|update| selected.read().contains(&update.exercise.id))
+            .map(|update| update.exercise.clone())
+            .collect::<Vec<_>>();
+        let attempted = exercises.len();
+        let mut errors = vec![];
+        for exercise in exercises {
+            if let Err(err) = DOMAIN_SERVICE().replace_exercise(exercise).await {
+                errors.push(err);
+            }
+            *updated.write() += 1;
+        }
+        consume_context::<Cache>().load_exercises().await;
+        is_updating.set(false);
+        if let Some(err) = errors.first() {
+            notify(
+                format!(
+                    "update {} of {attempted} exercises from catalog",
+                    errors.len()
+                ),
+                err,
+            );
+        }
+        if updates.read().is_empty() {
+            on_close(());
+        }
+    };
+
+    let rows = updates
+        .read()
+        .iter()
+        .map(|update| view_catalog_update(update, selected, touched, is_updating))
+        .collect::<Vec<_>>();
+    let selected_count = updates
+        .read()
+        .iter()
+        .filter(|update| selected.read().contains(&update.exercise.id))
+        .count();
+
+    rsx! {
+        Dialog {
+            title: rsx! { "Update from catalog" },
+            on_close: move |_| {
+                if !is_updating() {
+                    on_close(());
+                }
+            },
+            {view_mode_selection(mode, touched, is_updating)},
+            if rows.is_empty() {
+                div {
+                    class: "block has-text-centered",
+                    "data-testid": "no-catalog-updates",
+                    "No exercise matches a catalog exercise with different properties."
+                }
+            } else {
+                for row in rows {
+                    {row}
+                }
+                div {
+                    class: "field is-grouped is-grouped-centered",
+                    div {
+                        class: "control",
+                        button {
+                            class: "button is-primary",
+                            "data-testid": "update-from-catalog",
+                            disabled: selected_count == 0 || is_updating(),
+                            onclick: move |_| async move {
+                                if mode() == domain::CatalogUpdateMode::ReplaceAll {
+                                    confirmation_shown.set(true);
+                                } else {
+                                    update().await;
+                                }
+                            },
+                            if is_updating() {
+                                "Update {updated} of {selected_count} exercises"
+                            } else {
+                                "Update {selected_count} exercises"
+                            }
+                        }
+                    }
+                }
+            }
+            if confirmation_shown() {
+                Dialog {
+                    title: rsx! { "Replace all values of {selected_count} exercises?" },
+                    on_close: move |_| confirmation_shown.set(false),
+                    color: Color::Danger,
+                    div {
+                        class: "block",
+                        "Values that the catalog exercises do not have will be cleared."
+                    }
+                    div {
+                        class: "field is-grouped is-grouped-centered",
+                        div {
+                            class: "control",
+                            onclick: move |_| confirmation_shown.set(false),
+                            button {
+                                class: "button is-light is-soft",
+                                "data-testid": "dialog-no",
+                                "No"
+                            }
+                        }
+                        div {
+                            class: "control",
+                            button {
+                                class: "button is-danger",
+                                "data-testid": "dialog-yes",
+                                onclick: move |_| update(),
+                                "Yes, replace all values"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Show the update modes as a group of buttons, of which exactly one is selected.
+fn view_mode_selection(
+    mut mode: Signal<domain::CatalogUpdateMode>,
+    mut touched: Signal<bool>,
+    is_updating: Signal<bool>,
+) -> Element {
+    rsx! {
+        Block {
+            ButtonSelectField {
+                label: "Mode".to_string(),
+                options: vec![
+                    ButtonSelectOption {
+                        text: "Fill in missing values".to_string(),
+                        value: domain::CatalogUpdateMode::FillMissing,
+                    },
+                    ButtonSelectOption {
+                        text: "Replace all values".to_string(),
+                        value: domain::CatalogUpdateMode::ReplaceAll,
+                    },
+                ],
+                selected: mode(),
+                has_changed: false,
+                is_expanded: true,
+                "data-testid": "mode-selection",
+                on_click: move |(_, value)| {
+                    if !is_updating() {
+                        mode.set(value);
+                        touched.set(false);
+                    }
+                },
+            }
+        }
+    }
+}
+
+fn view_catalog_update(
+    update: &domain::CatalogUpdate,
+    mut selected: Signal<HashSet<domain::ExerciseID>>,
+    mut touched: Signal<bool>,
+    is_updating: Signal<bool>,
+) -> Element {
+    let id = update.exercise.id;
+    let name = update.exercise.name.to_string();
+    let is_selected = selected.read().contains(&id);
+    let catalog_name = match update.catalog_match {
+        domain::CatalogMatch::Exact => None,
+        domain::CatalogMatch::Prefix => Some(update.catalog_name.to_string()),
+    };
+    let changes = update
+        .changes
+        .iter()
+        .map(view_property_change)
+        .collect::<Vec<_>>();
+    rsx! {
+        div {
+            class: "block",
+            "data-testid": "catalog-update",
+            div {
+                class: "is-flex is-align-items-center is-clickable",
+                "data-testid": "catalog-update-toggle",
+                "data-selected": "{is_selected}",
+                onclick: move |_| {
+                    if !is_updating() {
+                        touched.set(true);
+                        let mut selection = selected.write();
+                        if !selection.remove(&id) {
+                            selection.insert(id);
+                        }
+                    }
+                },
+                Icon {
+                    name: if is_selected { "square-check".to_string() } else { "square".to_string() },
+                    class: if is_selected { "has-text-link".to_string() } else { "has-text-muted".to_string() },
+                }
+                span { class: "has-text-weight-bold", {name} }
+            }
+            div {
+                class: "ml-5",
+                if let Some(catalog_name) = catalog_name {
+                    div {
+                        class: "is-italic",
+                        "data-testid": "catalog-update-source",
+                        "from {catalog_name}"
+                    }
+                }
+                for change in changes {
+                    {change}
+                }
+            }
+        }
+    }
+}
+
+fn view_property_change(change: &domain::PropertyChange) -> Element {
+    let property = change.property.name();
+    let before = change
+        .before
+        .iter()
+        .map(view_property_value)
+        .collect::<Vec<_>>();
+    let after = change
+        .after
+        .iter()
+        .map(view_property_value)
+        .collect::<Vec<_>>();
+    rsx! {
+        div {
+            class: "mb-2",
+            "data-testid": "catalog-update-change",
+            div { class: "is-size-7", {property} }
+            div {
+                class: "is-flex is-align-items-center",
+                div {
+                    class: "tags mb-0",
+                    for tag in before {
+                        {tag}
+                    }
+                }
+                Icon { name: "arrow-right", is_small: true, px: 3 }
+                div {
+                    class: "tags mb-0",
+                    for tag in after {
+                        {tag}
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn view_property_value(value: &domain::PropertyValue) -> Element {
+    let name = value.name;
+    let stimulus_class = match value.stimulus {
+        Some(stimulus) if *stimulus >= *domain::Stimulus::PRIMARY => "is-dark",
+        Some(_) => "is-link",
+        None => "",
+    };
+    rsx! {
+        span {
+            class: "tag {stimulus_class}",
+            {name}
+        }
+    }
+}
+
+fn default_selection(updates: &[domain::CatalogUpdate]) -> HashSet<domain::ExerciseID> {
+    updates
+        .iter()
+        .filter(|update| update.catalog_match == domain::CatalogMatch::Exact)
+        .map(|update| update.exercise.id)
+        .collect()
 }
 
 pub enum ExerciseDialog {

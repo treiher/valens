@@ -145,6 +145,14 @@ class Dialog(PageElement):
         self.wait_until_closed()
 
 
+class NestedDialog(Dialog):
+    """Dialog stacked on top of another dialog."""
+
+    @property
+    def root(self) -> Locator:
+        return self.page.get_by_test_id("dialog").nth(1)
+
+
 class DragGhost(PageElement):
     @property
     def root(self) -> Locator:

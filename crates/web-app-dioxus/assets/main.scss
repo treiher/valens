@@ -211,6 +211,13 @@ body.has-activity-bar {
     }
 }
 
+// Let a button grow vertically to fit a label wrapped over several lines
+
+.button.is-wrapping {
+    height: auto;
+    white-space: normal;
+}
+
 // Flex row gap helper (based on https://github.com/jgthms/bulma/pull/3542)
 
 @each $name, $value in bulma.$spacing-values {
@@ -324,6 +331,13 @@ div.is-calendar {
 
 .dropdown-menu.has-no-min-width {
     min-width: auto;
+}
+
+// Text colors
+
+// Muted in both themes, where the fixed Bulma greys are legible in only one of them
+.has-text-muted {
+    color: var(--bulma-border);
 }
 
 // Background colors

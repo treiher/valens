@@ -543,10 +543,6 @@ impl Property for MuscleID {
         MUSCLES.iter()
     }
 
-    fn none_name() -> &'static str {
-        "No Muscle"
-    }
-
     fn name(self) -> &'static str {
         match self {
             MuscleID::Neck => "Neck",

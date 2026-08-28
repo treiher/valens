@@ -153,18 +153,19 @@ pub fn view_exercise_properties(
     muscles: &[(domain::MuscleID, domain::Stimulus)],
     category: Option<domain::Category>,
 ) -> Element {
-    let names = [
-        force.map(domain::Force::name),
-        mechanic.map(domain::Mechanic::name),
-        laterality.map(domain::Laterality::name),
-        assistance.map(domain::Assistance::name),
-        category.map(domain::Category::name),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>();
+    let names = domain::ExerciseProperty::iter()
+        .filter_map(|property| match property {
+            domain::ExerciseProperty::Force => force.map(domain::Force::name),
+            domain::ExerciseProperty::Mechanic => mechanic.map(domain::Mechanic::name),
+            domain::ExerciseProperty::Laterality => laterality.map(domain::Laterality::name),
+            domain::ExerciseProperty::Assistance => assistance.map(domain::Assistance::name),
+            domain::ExerciseProperty::Category => category.map(domain::Category::name),
+            domain::ExerciseProperty::Muscles | domain::ExerciseProperty::Equipment => None,
+        })
+        .collect::<Vec<_>>();
     let equipment = equipment.to_vec();
     rsx! {
+        {view_muscles(muscles.iter().map(|(k, v)| (k, v)))}
         if !names.is_empty() {
             CenteredTags {
                 for name in names {
@@ -172,7 +173,6 @@ pub fn view_exercise_properties(
                 }
             }
         }
-        {view_muscles(muscles.iter().map(|(k, v)| (k, v)))}
         if !equipment.is_empty() {
             CenteredTags {
                 for e in equipment {

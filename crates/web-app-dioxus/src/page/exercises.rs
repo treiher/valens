@@ -165,15 +165,31 @@ fn view_search_box(
 ) -> Element {
     let filter_string = filter_string.to_string();
     let name = exercise_filter.read().name.clone();
-    let muscle_tags = view_filter_tags!(muscle_list, toggle_muscle, exercise_filter, true);
-    let force_tags = view_filter_tags!(force_list, toggle_force, exercise_filter, true);
-    let mechanic_tags = view_filter_tags!(mechanic_list, toggle_mechanic, exercise_filter, true);
-    let laterality_tags =
-        view_filter_tags!(laterality_list, toggle_laterality, exercise_filter, true);
-    let assistance_tags =
-        view_filter_tags!(assistance_list, toggle_assistance, exercise_filter, true);
-    let equipment_tags = view_filter_tags!(equipment_list, toggle_equipment, exercise_filter, true);
-    let category_tags = view_filter_tags!(category_list, toggle_category, exercise_filter, true);
+    let tags = domain::ExerciseProperty::iter()
+        .map(|property| match property {
+            domain::ExerciseProperty::Muscles => {
+                view_filter_tags!(muscle_list, toggle_muscle, exercise_filter, true)
+            }
+            domain::ExerciseProperty::Force => {
+                view_filter_tags!(force_list, toggle_force, exercise_filter, true)
+            }
+            domain::ExerciseProperty::Mechanic => {
+                view_filter_tags!(mechanic_list, toggle_mechanic, exercise_filter, true)
+            }
+            domain::ExerciseProperty::Laterality => {
+                view_filter_tags!(laterality_list, toggle_laterality, exercise_filter, true)
+            }
+            domain::ExerciseProperty::Assistance => {
+                view_filter_tags!(assistance_list, toggle_assistance, exercise_filter, true)
+            }
+            domain::ExerciseProperty::Category => {
+                view_filter_tags!(category_list, toggle_category, exercise_filter, true)
+            }
+            domain::ExerciseProperty::Equipment => {
+                view_filter_tags!(equipment_list, toggle_equipment, exercise_filter, true)
+            }
+        })
+        .collect::<Vec<_>>();
     rsx! {
         Block {
             div {
@@ -221,13 +237,9 @@ fn view_search_box(
                 class: "is-flex px-4",
                 div {
                     class: "tags is-flex-wrap-nowrap is-overflow-scroll is-scrollbar-width-none",
-                    {muscle_tags}
-                    {force_tags}
-                    {mechanic_tags}
-                    {laterality_tags}
-                    {assistance_tags}
-                    {equipment_tags}
-                    {category_tags}
+                    for tags in tags {
+                        {tags}
+                    }
                 }
             }
         }
@@ -661,17 +673,18 @@ pub fn view_dialog(
 }
 
 macro_rules! view_filter_section {
-    ($title:expr, $list:ident, $toggle:ident, $exercise_filter:ident, $show_enabled_only:expr) => {{
+    ($property:expr, $list:ident, $toggle:ident, $exercise_filter:ident) => {{
         let tags = view_filter_tags!($list, $toggle, $exercise_filter, false);
+        let name = $property.name();
         rsx! {
             Block {
                 label {
                     class: "subtitle",
-                    $title
+                    {name}
                 }
                 div {
                     class: "container py-3",
-                    "data-testid": format!("filter-section-{}", $title.to_lowercase()),
+                    "data-testid": format!("filter-section-{}", name.to_lowercase()),
                     div {
                         class: "tags",
                         {tags}
@@ -686,7 +699,7 @@ macro_rules! view_filter_section {
 ///
 /// Clicking the selected chip clears the property.
 fn view_property_section<T: Property + PartialEq + 'static>(
-    title: &str,
+    property: domain::ExerciseProperty,
     mut selected: Signal<Option<T>>,
 ) -> Element {
     let chips = T::iter()
@@ -704,7 +717,7 @@ fn view_property_section<T: Property + PartialEq + 'static>(
             }
         })
         .collect::<Vec<_>>();
-    view_dialog_section(title, chips)
+    view_dialog_section(property.name(), chips)
 }
 
 /// Show the equipment as chips, of which any number is selected.
@@ -735,6 +748,31 @@ fn view_equipment_section(mut selected: Signal<Vec<domain::Equipment>>) -> Eleme
         })
         .collect::<Vec<_>>();
     view_dialog_section(domain::ExerciseProperty::Equipment.name(), chips)
+}
+
+/// Show the muscles as toggles that cycle through the stimulus.
+fn view_muscles_section(multi_toggle: Signal<MultiToggle>) -> Element {
+    rsx! {
+        label {
+            class: "subtitle",
+            {domain::ExerciseProperty::Muscles.name()}
+            " ("
+                span {
+                    class: "tag is-dark",
+                    "Primary"
+                }
+            " "
+                span {
+                    class: "tag is-link",
+                    "Secondary"
+                }
+            ")"
+        }
+        div {
+            class: "container py-3",
+            MultiToggleTags { multi_toggle }
+        }
+    }
 }
 
 fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
@@ -857,6 +895,18 @@ fn ExercisePropertiesDialog(
         }
     };
 
+    let sections = domain::ExerciseProperty::iter()
+        .map(|property| match property {
+            domain::ExerciseProperty::Muscles => view_muscles_section(multi_toggle),
+            domain::ExerciseProperty::Force => view_property_section(*property, force),
+            domain::ExerciseProperty::Mechanic => view_property_section(*property, mechanic),
+            domain::ExerciseProperty::Laterality => view_property_section(*property, laterality),
+            domain::ExerciseProperty::Assistance => view_property_section(*property, assistance),
+            domain::ExerciseProperty::Category => view_property_section(*property, category),
+            domain::ExerciseProperty::Equipment => view_equipment_section(equipment),
+        })
+        .collect::<Vec<_>>();
+
     rsx! {
         SaveDialog {
             title: rsx! { "Change properties" },
@@ -864,30 +914,8 @@ fn ExercisePropertiesDialog(
             on_save: save,
             is_loading: is_loading(),
             disabled: false,
-            {view_property_section(domain::ExerciseProperty::Force.name(), force)},
-            {view_property_section(domain::ExerciseProperty::Mechanic.name(), mechanic)},
-            {view_property_section(domain::ExerciseProperty::Laterality.name(), laterality)},
-            {view_property_section(domain::ExerciseProperty::Assistance.name(), assistance)},
-            {view_equipment_section(equipment)},
-            {view_property_section(domain::ExerciseProperty::Category.name(), category)},
-            label {
-                class: "subtitle",
-                {domain::ExerciseProperty::Muscles.name()}
-                " ("
-                    span {
-                        class: "tag is-dark",
-                        "Primary"
-                    }
-                " "
-                    span {
-                        class: "tag is-link",
-                        "Secondary"
-                    }
-                ")"
-            }
-            div {
-                class: "container py-3",
-                MultiToggleTags { multi_toggle }
+            for section in sections {
+                {section}
             }
         }
     }
@@ -902,56 +930,49 @@ fn view_filter_dialog(
         return rsx! {};
     }
 
-    let muscles =
-        view_filter_section!("Muscles", muscle_list, toggle_muscle, exercise_filter, true);
-    let force = view_filter_section!("Force", force_list, toggle_force, exercise_filter, true);
-    let mechanic = view_filter_section!(
-        "Mechanic",
-        mechanic_list,
-        toggle_mechanic,
-        exercise_filter,
-        true
-    );
-    let laterality = view_filter_section!(
-        "Laterality",
-        laterality_list,
-        toggle_laterality,
-        exercise_filter,
-        true
-    );
-    let assistance = view_filter_section!(
-        "Assistance",
-        assistance_list,
-        toggle_assistance,
-        exercise_filter,
-        true
-    );
-    let equipment = view_filter_section!(
-        "Equipment",
-        equipment_list,
-        toggle_equipment,
-        exercise_filter,
-        true
-    );
-    let category = view_filter_section!(
-        "Category",
-        category_list,
-        toggle_category,
-        exercise_filter,
-        true
-    );
+    let sections = domain::ExerciseProperty::iter()
+        .map(|property| match property {
+            domain::ExerciseProperty::Muscles => {
+                view_filter_section!(property, muscle_list, toggle_muscle, exercise_filter)
+            }
+            domain::ExerciseProperty::Force => {
+                view_filter_section!(property, force_list, toggle_force, exercise_filter)
+            }
+            domain::ExerciseProperty::Mechanic => {
+                view_filter_section!(property, mechanic_list, toggle_mechanic, exercise_filter)
+            }
+            domain::ExerciseProperty::Laterality => {
+                view_filter_section!(
+                    property,
+                    laterality_list,
+                    toggle_laterality,
+                    exercise_filter
+                )
+            }
+            domain::ExerciseProperty::Assistance => {
+                view_filter_section!(
+                    property,
+                    assistance_list,
+                    toggle_assistance,
+                    exercise_filter
+                )
+            }
+            domain::ExerciseProperty::Category => {
+                view_filter_section!(property, category_list, toggle_category, exercise_filter)
+            }
+            domain::ExerciseProperty::Equipment => {
+                view_filter_section!(property, equipment_list, toggle_equipment, exercise_filter)
+            }
+        })
+        .collect::<Vec<_>>();
     let catalog_count = exercise_filter.read().catalog().len();
     rsx! {
         Dialog {
             title: rsx! { "Filter exercises" },
             on_close: move |_| *filter_dialog_shown.write() = false,
-            {muscles},
-            {force},
-            {mechanic},
-            {laterality},
-            {assistance},
-            {equipment},
-            {category},
+            for section in sections {
+                {section}
+            }
             div {
                 class: "control",
                 onclick: move |_| *filter_dialog_shown.write() = false,

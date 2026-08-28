@@ -102,38 +102,38 @@ impl Exercise {
 /// A property of an exercise.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ExerciseProperty {
+    Muscles,
     Force,
     Mechanic,
     Laterality,
     Assistance,
-    Equipment,
     Category,
-    Muscles,
+    Equipment,
 }
 
 impl Property for ExerciseProperty {
     fn iter() -> Iter<'static, ExerciseProperty> {
         static PROPERTIES: [ExerciseProperty; 7] = [
+            ExerciseProperty::Muscles,
             ExerciseProperty::Force,
             ExerciseProperty::Mechanic,
             ExerciseProperty::Laterality,
             ExerciseProperty::Assistance,
-            ExerciseProperty::Equipment,
             ExerciseProperty::Category,
-            ExerciseProperty::Muscles,
+            ExerciseProperty::Equipment,
         ];
         PROPERTIES.iter()
     }
 
     fn name(self) -> &'static str {
         match self {
+            ExerciseProperty::Muscles => "Muscles",
             ExerciseProperty::Force => "Force",
             ExerciseProperty::Mechanic => "Mechanic",
             ExerciseProperty::Laterality => "Laterality",
             ExerciseProperty::Assistance => "Assistance",
-            ExerciseProperty::Equipment => "Equipment",
             ExerciseProperty::Category => "Category",
-            ExerciseProperty::Muscles => "Muscles",
+            ExerciseProperty::Equipment => "Equipment",
         }
     }
 }
@@ -316,46 +316,15 @@ fn updated_exercise(
 }
 
 fn changes(before: &Exercise, after: &Exercise) -> Vec<PropertyChange> {
-    [
-        change(
-            ExerciseProperty::Force,
-            scalar_values(before.force),
-            scalar_values(after.force),
-        ),
-        change(
-            ExerciseProperty::Mechanic,
-            scalar_values(before.mechanic),
-            scalar_values(after.mechanic),
-        ),
-        change(
-            ExerciseProperty::Laterality,
-            scalar_values(before.laterality),
-            scalar_values(after.laterality),
-        ),
-        change(
-            ExerciseProperty::Assistance,
-            scalar_values(before.assistance),
-            scalar_values(after.assistance),
-        ),
-        change(
-            ExerciseProperty::Equipment,
-            equipment_values(&before.equipment),
-            equipment_values(&after.equipment),
-        ),
-        change(
-            ExerciseProperty::Category,
-            scalar_values(before.category),
-            scalar_values(after.category),
-        ),
-        change(
-            ExerciseProperty::Muscles,
-            muscle_values(&before.muscles),
-            muscle_values(&after.muscles),
-        ),
-    ]
-    .into_iter()
-    .flatten()
-    .collect()
+    ExerciseProperty::iter()
+        .filter_map(|property| {
+            change(
+                *property,
+                property_values(before, *property),
+                property_values(after, *property),
+            )
+        })
+        .collect()
 }
 
 fn change(
@@ -371,6 +340,18 @@ fn change(
             before,
             after,
         })
+    }
+}
+
+fn property_values(exercise: &Exercise, property: ExerciseProperty) -> Vec<PropertyValue> {
+    match property {
+        ExerciseProperty::Muscles => muscle_values(&exercise.muscles),
+        ExerciseProperty::Force => scalar_values(exercise.force),
+        ExerciseProperty::Mechanic => scalar_values(exercise.mechanic),
+        ExerciseProperty::Laterality => scalar_values(exercise.laterality),
+        ExerciseProperty::Assistance => scalar_values(exercise.assistance),
+        ExerciseProperty::Category => scalar_values(exercise.category),
+        ExerciseProperty::Equipment => equipment_values(&exercise.equipment),
     }
 }
 
@@ -1193,17 +1174,17 @@ mod tests {
                 .map(|change| change.property)
                 .collect::<Vec<_>>(),
             vec![
+                ExerciseProperty::Muscles,
                 ExerciseProperty::Force,
                 ExerciseProperty::Mechanic,
                 ExerciseProperty::Laterality,
                 ExerciseProperty::Assistance,
-                ExerciseProperty::Equipment,
                 ExerciseProperty::Category,
-                ExerciseProperty::Muscles,
+                ExerciseProperty::Equipment,
             ]
         );
         assert_eq!(
-            update.changes[0],
+            update.changes[1],
             PropertyChange {
                 property: ExerciseProperty::Force,
                 before: vec![value(Force::none_name())],
@@ -1211,7 +1192,7 @@ mod tests {
             }
         );
         assert_eq!(
-            update.changes[6],
+            update.changes[0],
             PropertyChange {
                 property: ExerciseProperty::Muscles,
                 before: vec![value(MuscleID::none_name())],

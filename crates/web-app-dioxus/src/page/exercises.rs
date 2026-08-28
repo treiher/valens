@@ -13,6 +13,7 @@ use crate::{
     current_date::current_date,
     eh,
     notification::notify,
+    page,
     routing::NavigatorScrollExt,
     ui::{
         element::{
@@ -155,6 +156,64 @@ macro_rules! view_filter_tags {
     }};
 }
 
+/// Show the muscles as chips colored by the level at which they are filtered.
+///
+/// With `selected_only`, only the selected muscles are shown and clicking a chip clears the muscle.
+/// Otherwise all muscles are shown and clicking a chip cycles the level.
+fn view_muscle_filter_tags(
+    mut exercise_filter: Signal<domain::ExerciseFilter>,
+    selected_only: bool,
+) -> Element {
+    let mut chips = exercise_filter
+        .read()
+        .muscle_list()
+        .into_iter()
+        .filter(|(_, level)| !selected_only || level.is_some())
+        .map(|(muscle, level)| {
+            let class = match level {
+                Some(level) => {
+                    format!(
+                        "tag is-hoverable {}",
+                        page::exercise::stimulus_level_class(level)
+                    )
+                }
+                None => "tag is-hoverable".to_string(),
+            };
+            rsx! {
+                span {
+                    class: "{class}",
+                    "data-testid": "filter-tag",
+                    onclick: move |_| {
+                        if selected_only {
+                            exercise_filter.write().clear_muscle(Some(muscle));
+                        } else {
+                            exercise_filter.write().toggle_muscle(Some(muscle));
+                        }
+                    },
+                    {muscle.name()}
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    let not_set = exercise_filter.read().muscles_not_set();
+    if !selected_only || not_set {
+        chips.push(rsx! {
+            span {
+                class: "tag is-hoverable",
+                class: if not_set { "is-link" },
+                "data-testid": "filter-tag",
+                onclick: move |_| exercise_filter.write().toggle_muscle(None),
+                {domain::MuscleID::none_name()}
+            }
+        });
+    }
+    rsx! {
+        for chip in chips {
+            {chip}
+        }
+    }
+}
+
 fn view_search_box(
     mut exercise_filter: Signal<domain::ExerciseFilter>,
     mut filter_dialog: Signal<ExerciseDialog>,
@@ -167,9 +226,7 @@ fn view_search_box(
     let name = exercise_filter.read().name.clone();
     let tags = domain::ExerciseProperty::iter()
         .map(|property| match property {
-            domain::ExerciseProperty::Muscles => {
-                view_filter_tags!(muscle_list, toggle_muscle, exercise_filter, true)
-            }
+            domain::ExerciseProperty::Muscles => view_muscle_filter_tags(exercise_filter, true),
             domain::ExerciseProperty::Force => {
                 view_filter_tags!(force_list, toggle_force, exercise_filter, true)
             }
@@ -676,23 +733,47 @@ macro_rules! view_filter_section {
     ($property:expr, $list:ident, $toggle:ident, $exercise_filter:ident) => {{
         let tags = view_filter_tags!($list, $toggle, $exercise_filter, false);
         let name = $property.name();
-        rsx! {
-            Block {
-                label {
-                    class: "subtitle",
-                    {name}
-                }
+        view_filter_block(rsx! { {name} }, name, tags)
+    }};
+}
+
+fn view_filter_block(label: Element, name: &str, tags: Element) -> Element {
+    let test_id = format!("filter-section-{}", name.to_lowercase());
+    rsx! {
+        Block {
+            label {
+                class: "subtitle",
+                {label}
+            }
+            div {
+                class: "container py-3",
+                "data-testid": test_id,
                 div {
-                    class: "container py-3",
-                    "data-testid": format!("filter-section-{}", name.to_lowercase()),
-                    div {
-                        class: "tags",
-                        {tags}
-                    }
+                    class: "tags",
+                    {tags}
                 }
             }
         }
-    }};
+    }
+}
+
+/// Show the stimulus levels with the colors used for the muscle tags.
+fn view_stimulus_level_legend() -> Element {
+    let primary = page::exercise::stimulus_level_class(domain::StimulusLevel::Primary);
+    let secondary = page::exercise::stimulus_level_class(domain::StimulusLevel::Secondary);
+    rsx! {
+        " ("
+        span {
+            class: "tag {primary}",
+            {domain::StimulusLevel::Primary.name()}
+        }
+        " "
+        span {
+            class: "tag {secondary}",
+            {domain::StimulusLevel::Secondary.name()}
+        }
+        ")"
+    }
 }
 
 /// Show the values of a property as chips, of which at most one is selected.
@@ -757,17 +838,7 @@ fn view_muscles_section(multi_toggle: Signal<MultiToggle>) -> Element {
             label {
                 class: "subtitle",
                 {domain::ExerciseProperty::Muscles.name()}
-                " ("
-                    span {
-                        class: "tag is-dark",
-                        "Primary"
-                    }
-                " "
-                    span {
-                        class: "tag is-link",
-                        "Secondary"
-                    }
-                ")"
+                {view_stimulus_level_legend()}
             }
             div {
                 class: "container py-3",
@@ -798,6 +869,15 @@ fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
     }
 }
 
+/// Map the stimulus level of a muscle to the state of its toggle.
+fn multi_toggle_state(level: Option<domain::StimulusLevel>) -> u8 {
+    match level {
+        None => 0,
+        Some(domain::StimulusLevel::Secondary) => 1,
+        Some(domain::StimulusLevel::Primary) => 2,
+    }
+}
+
 #[component]
 fn ExercisePropertiesDialog(
     exercise: domain::Exercise,
@@ -814,11 +894,7 @@ fn ExercisePropertiesDialog(
                         .iter()
                         .find(|em| em.muscle_id == *m)
                         .map(|em| {
-                            if em.stimulus == domain::Stimulus::PRIMARY {
-                                2
-                            } else {
-                                1
-                            }
+                            multi_toggle_state(domain::StimulusLevel::from_stimulus(em.stimulus))
                         })
                         .unwrap_or_default(),
                 )
@@ -937,7 +1013,12 @@ fn view_filter_dialog(
     let sections = domain::ExerciseProperty::iter()
         .map(|property| match property {
             domain::ExerciseProperty::Muscles => {
-                view_filter_section!(property, muscle_list, toggle_muscle, exercise_filter)
+                let name = property.name();
+                view_filter_block(
+                    rsx! { {name} {view_stimulus_level_legend()} },
+                    name,
+                    view_muscle_filter_tags(exercise_filter, false),
+                )
             }
             domain::ExerciseProperty::Force => {
                 view_filter_section!(property, force_list, toggle_force, exercise_filter)
@@ -1268,11 +1349,10 @@ fn view_property_change(change: &domain::PropertyChange) -> Element {
 
 fn view_property_value(value: &domain::PropertyValue) -> Element {
     let name = value.name;
-    let stimulus_class = match value.stimulus {
-        Some(stimulus) if *stimulus >= *domain::Stimulus::PRIMARY => "is-dark",
-        Some(_) => "is-link",
-        None => "",
-    };
+    let stimulus_class = value
+        .stimulus
+        .and_then(domain::StimulusLevel::from_stimulus)
+        .map_or("", page::exercise::stimulus_level_class);
     rsx! {
         span {
             class: "tag {stimulus_class}",
@@ -1312,7 +1392,7 @@ pub enum ExerciseDialog {
 #[derive(serde::Serialize, serde::Deserialize, Debug, Default, Clone, PartialEq)]
 struct ExerciseFilter {
     pub name: String,
-    pub muscles: HashSet<u8>,
+    pub muscles: HashSet<(u8, u8)>,
     pub force: HashSet<u8>,
     pub mechanic: HashSet<u8>,
     pub laterality: HashSet<u8>,
@@ -1355,6 +1435,10 @@ impl ExerciseFilter {
 /// Encoding of a filter value that stands for the absence of the property.
 const NONE: u8 = 255;
 
+/// Encoding of the stimulus levels of the muscles filter.
+const SECONDARY: u8 = 1;
+const PRIMARY: u8 = 2;
+
 impl From<domain::ExerciseFilter> for ExerciseFilter {
     fn from(value: domain::ExerciseFilter) -> Self {
         Self {
@@ -1362,7 +1446,11 @@ impl From<domain::ExerciseFilter> for ExerciseFilter {
             muscles: value
                 .muscles
                 .iter()
-                .map(|v| v.map_or(NONE, |v| v as u8))
+                .map(|v| match v {
+                    Some((muscle, domain::StimulusLevel::Secondary)) => (*muscle as u8, SECONDARY),
+                    Some((muscle, domain::StimulusLevel::Primary)) => (*muscle as u8, PRIMARY),
+                    None => (NONE, 0),
+                })
                 .collect(),
             force: value
                 .force
@@ -1407,7 +1495,7 @@ impl TryFrom<ExerciseFilter> for domain::ExerciseFilter {
     fn try_from(value: ExerciseFilter) -> Result<Self, Self::Error> {
         Ok(domain::ExerciseFilter {
             name: value.name,
-            muscles: decode_values(value.muscles),
+            muscles: decode_muscles(value.muscles),
             force: decode_values(value.force),
             mechanic: decode_values(value.mechanic),
             laterality: decode_values(value.laterality),
@@ -1416,6 +1504,27 @@ impl TryFrom<ExerciseFilter> for domain::ExerciseFilter {
             category: decode_values(value.category),
         })
     }
+}
+
+/// Decode the muscles filter, dropping pairs with an unknown muscle or level.
+fn decode_muscles(
+    values: HashSet<(u8, u8)>,
+) -> HashSet<Option<(domain::MuscleID, domain::StimulusLevel)>> {
+    values
+        .into_iter()
+        .filter_map(|(muscle, level)| {
+            if (muscle, level) == (NONE, 0) {
+                return Some(None);
+            }
+            let muscle = domain::MuscleID::try_from(muscle).ok()?;
+            let level = match level {
+                SECONDARY => domain::StimulusLevel::Secondary,
+                PRIMARY => domain::StimulusLevel::Primary,
+                _ => return None,
+            };
+            Some(Some((muscle, level)))
+        })
+        .collect()
 }
 
 /// Decode a filter section, dropping values that are not valid for the property.
@@ -1440,7 +1549,12 @@ mod tests {
     fn test_exercise_filter_base64_round_trip() {
         let exercise_filter = domain::ExerciseFilter {
             name: "Exercise Name".to_string(),
-            muscles: [Some(domain::MuscleID::Lats), Some(domain::MuscleID::Traps)].into(),
+            muscles: [
+                Some((domain::MuscleID::Lats, domain::StimulusLevel::Primary)),
+                Some((domain::MuscleID::Traps, domain::StimulusLevel::Secondary)),
+                None,
+            ]
+            .into(),
             force: [Some(domain::Force::Pull)].into(),
             mechanic: [Some(domain::Mechanic::Isolation)].into(),
             laterality: [Some(domain::Laterality::Unilateral)].into(),
@@ -1464,7 +1578,12 @@ mod tests {
     #[test]
     fn test_exercise_filter_invalid_values_dropped() {
         let dto = ExerciseFilter {
-            muscles: [0, domain::MuscleID::Lats as u8].into(),
+            muscles: [
+                (0, PRIMARY),
+                (domain::MuscleID::Lats as u8, 3),
+                (domain::MuscleID::Traps as u8, SECONDARY),
+            ]
+            .into(),
             equipment: [0, domain::Equipment::Cable as u8].into(),
             ..ExerciseFilter::default()
         };
@@ -1472,7 +1591,11 @@ mod tests {
         assert_eq!(
             domain::ExerciseFilter::try_from(dto),
             Ok(domain::ExerciseFilter {
-                muscles: [Some(domain::MuscleID::Lats)].into(),
+                muscles: [Some((
+                    domain::MuscleID::Traps,
+                    domain::StimulusLevel::Secondary
+                ))]
+                .into(),
                 equipment: [Some(domain::Equipment::Cable)].into(),
                 ..domain::ExerciseFilter::default()
             })

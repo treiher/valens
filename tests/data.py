@@ -52,7 +52,12 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
         ],
     )
     exercise_2 = Exercise(id=2, user_id=2, name="Exercise 2")
-    exercise_3 = Exercise(id=3, user_id=1, name="Exercise 3")
+    exercise_3 = Exercise(
+        id=3,
+        user_id=1,
+        name="Exercise 3",
+        muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=50)],
+    )
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 4")
     exercise_5 = Exercise(id=5, user_id=1, name="Unused Exercise")
     exercise_6 = Exercise(id=6, user_id=1, name="Exercise 6")

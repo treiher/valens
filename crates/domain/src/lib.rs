@@ -17,8 +17,8 @@ pub use exercise::{
     Category, CategoryError, Equipment, EquipmentError, Exercise, ExerciseFilter, ExerciseID,
     ExerciseMuscle, ExerciseProperty, ExerciseRepository, ExerciseService, Force, ForceError,
     Laterality, LateralityError, Mechanic, MechanicError, MuscleID, MuscleIDError, Property,
-    PropertyChange, PropertyValue, Stimulus, StimulusError, catalog_update, catalog_updates,
-    name_or_none,
+    PropertyChange, PropertyValue, Stimulus, StimulusError, StimulusLevel, catalog_update,
+    catalog_updates, name_or_none,
 };
 pub use ffmi::ffmi;
 pub use name::{Name, NameError};

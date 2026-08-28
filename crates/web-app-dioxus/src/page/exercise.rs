@@ -191,24 +191,35 @@ where
 {
     let mut muscles = muscles
         .into_iter()
-        .map(|(k, v)| (*k.borrow(), *v.borrow()))
-        .filter(|(_, stimulus)| **stimulus > *domain::Stimulus::NONE)
+        .filter_map(|(k, v)| {
+            domain::StimulusLevel::from_stimulus(*v.borrow()).map(|level| (*k.borrow(), level))
+        })
         .collect::<Vec<_>>();
     muscles.sort_by_key(|b| std::cmp::Reverse(b.1));
+    let muscles = muscles
+        .into_iter()
+        .map(|(m, level)| (m, stimulus_level_class(level)))
+        .collect::<Vec<_>>();
     rsx! {
         CenteredTags {
-            for (m, stimulus) in muscles {
+            for (m, class) in muscles {
                 ElementWithDescription {
                     description: m.description(),
                     span {
-                        class: "tag",
-                        class: if *stimulus >= *domain::Stimulus::PRIMARY { "is-dark" } else { "is-link" },
+                        class: "tag {class}",
                         "data-testid": "muscle-tag",
                         {m.name()}
                     }
                 }
             }
         }
+    }
+}
+
+pub fn stimulus_level_class(level: domain::StimulusLevel) -> &'static str {
+    match level {
+        domain::StimulusLevel::Primary => "is-dark",
+        domain::StimulusLevel::Secondary => "is-link",
     }
 }
 

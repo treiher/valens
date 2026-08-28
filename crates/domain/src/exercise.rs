@@ -487,6 +487,33 @@ pub enum StimulusError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+pub enum StimulusLevel {
+    Secondary,
+    Primary,
+}
+
+impl StimulusLevel {
+    #[must_use]
+    pub fn from_stimulus(stimulus: Stimulus) -> Option<Self> {
+        if stimulus == Stimulus::NONE {
+            None
+        } else if stimulus >= Stimulus::PRIMARY {
+            Some(StimulusLevel::Primary)
+        } else {
+            Some(StimulusLevel::Secondary)
+        }
+    }
+
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            StimulusLevel::Secondary => "Secondary",
+            StimulusLevel::Primary => "Primary",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum MuscleID {
     // Neck
     Neck = 1,
@@ -878,7 +905,7 @@ pub enum CategoryError {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ExerciseFilter {
     pub name: String,
-    pub muscles: HashSet<Option<MuscleID>>,
+    pub muscles: HashSet<Option<(MuscleID, StimulusLevel)>>,
     pub force: HashSet<Option<Force>>,
     pub mechanic: HashSet<Option<Mechanic>>,
     pub laterality: HashSet<Option<Laterality>>,
@@ -901,7 +928,10 @@ impl ExerciseFilter {
                     .contains(self.name.to_lowercase().trim())
                     && (self.muscles.is_empty()
                         || self.muscles.iter().all(|m| match m {
-                            Some(m) => e.muscle_stimulus().contains_key(m),
+                            Some((muscle, level)) => e.muscles.iter().any(|em| {
+                                em.muscle_id == *muscle
+                                    && StimulusLevel::from_stimulus(em.stimulus) == Some(*level)
+                            }),
                             None => e.muscles.is_empty(),
                         }))
                     && (self.force.is_empty() || self.force.contains(&e.force))
@@ -928,8 +958,11 @@ impl ExerciseFilter {
                     .to_lowercase()
                     .contains(self.name.to_lowercase().trim())
                     && (self.muscles.is_empty()
-                        || self.muscles.iter().all(|muscle| match muscle {
-                            Some(muscle) => e.muscles.iter().any(|(m, _)| muscle == m),
+                        || self.muscles.iter().all(|m| match m {
+                            Some((muscle, level)) => e.muscles.iter().any(|(m, stimulus)| {
+                                m == muscle
+                                    && StimulusLevel::from_stimulus(*stimulus) == Some(*level)
+                            }),
                             None => e.muscles.is_empty(),
                         }))
                     && (self.force.is_empty() || self.force.contains(&Some(e.force)))
@@ -960,8 +993,15 @@ impl ExerciseFilter {
     }
 
     #[must_use]
-    pub fn muscle_list(&self) -> Vec<(Option<MuscleID>, bool)> {
-        filter_list(&self.muscles)
+    pub fn muscle_list(&self) -> Vec<(MuscleID, Option<StimulusLevel>)> {
+        MuscleID::iter()
+            .map(|muscle| (*muscle, self.muscle_level(*muscle)))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn muscles_not_set(&self) -> bool {
+        self.muscles.contains(&None)
     }
 
     #[must_use]
@@ -994,16 +1034,38 @@ impl ExerciseFilter {
         filter_list(&self.category)
     }
 
+    /// Cycle a muscle through no level, secondary and primary, or toggle "Not Set".
+    ///
+    /// "Not Set" and the muscles are mutually exclusive.
     pub fn toggle_muscle(&mut self, muscle: Option<MuscleID>) {
-        if self.muscles.contains(&muscle) {
-            self.muscles.remove(&muscle);
-        } else {
-            if muscle.is_none() {
+        let Some(muscle) = muscle else {
+            if !self.muscles.remove(&None) {
                 self.muscles.clear();
-            } else {
+                self.muscles.insert(None);
+            }
+            return;
+        };
+        let level = match self.muscle_level(muscle) {
+            None => Some(StimulusLevel::Secondary),
+            Some(StimulusLevel::Secondary) => Some(StimulusLevel::Primary),
+            Some(StimulusLevel::Primary) => None,
+        };
+        self.clear_muscle(Some(muscle));
+        if let Some(level) = level {
+            self.clear_muscle(None);
+            self.muscles.insert(Some((muscle, level)));
+        }
+    }
+
+    /// Remove a muscle or "Not Set" from the selection.
+    pub fn clear_muscle(&mut self, muscle: Option<MuscleID>) {
+        match muscle {
+            Some(muscle) => self
+                .muscles
+                .retain(|m| !matches!(m, Some((m, _)) if *m == muscle)),
+            None => {
                 self.muscles.remove(&None);
             }
-            self.muscles.insert(muscle);
         }
     }
 
@@ -1029,6 +1091,13 @@ impl ExerciseFilter {
 
     pub fn toggle_category(&mut self, category: Option<Category>) {
         toggle(&mut self.category, category);
+    }
+
+    fn muscle_level(&self, muscle: MuscleID) -> Option<StimulusLevel> {
+        self.muscles.iter().find_map(|m| match m {
+            Some((m, level)) if *m == muscle => Some(*level),
+            _ => None,
+        })
     }
 }
 
@@ -1106,6 +1175,29 @@ mod tests {
     #[case(101, Err(StimulusError::OutOfRange(101)))]
     fn test_stimulus_new(#[case] value: u32, #[case] expected: Result<Stimulus, StimulusError>) {
         assert_eq!(Stimulus::new(value), expected);
+    }
+
+    #[rstest]
+    #[case(0, None)]
+    #[case(1, Some(StimulusLevel::Secondary))]
+    #[case(99, Some(StimulusLevel::Secondary))]
+    #[case(100, Some(StimulusLevel::Primary))]
+    fn test_stimulus_level_from_stimulus(
+        #[case] value: u32,
+        #[case] expected: Option<StimulusLevel>,
+    ) {
+        assert_eq!(
+            StimulusLevel::from_stimulus(Stimulus::new(value).unwrap()),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_stimulus_level_name() {
+        assert_ne!(
+            StimulusLevel::Primary.name(),
+            StimulusLevel::Secondary.name()
+        );
     }
 
     #[test]
@@ -1456,12 +1548,20 @@ mod tests {
         &[exercise(0, "Squat", vec![])]
     )]
     #[case::muscles(
-        ExerciseFilter { muscles: [Some(MuscleID::Pecs), Some(MuscleID::FrontDelts)].into(), ..ExerciseFilter::default() },
+        ExerciseFilter { muscles: [Some((MuscleID::Pecs, StimulusLevel::Primary)), Some((MuscleID::FrontDelts, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
         &[
             exercise(0, "Squat", vec![]),
             exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }]),
         ],
         &[exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }])]
+    )]
+    #[case::muscle_at_other_level(
+        ExerciseFilter { muscles: [Some((MuscleID::Pecs, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
+        &[
+            exercise(0, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }]),
+            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY }]),
+        ],
+        &[exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY }])]
     )]
     fn test_exercise_filter_exercises(
         #[case] filter: ExerciseFilter,
@@ -1527,8 +1627,20 @@ mod tests {
         None
     )]
     #[case::muscles(
-        ExerciseFilter { muscles: [Some(MuscleID::Lats), Some(MuscleID::Traps)].into(), ..ExerciseFilter::default() },
+        ExerciseFilter { muscles: [Some((MuscleID::Lats, StimulusLevel::Secondary)), Some((MuscleID::Traps, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
         Some("Band Pull Apart")
+    )]
+    #[case::muscles_at_different_levels(
+        ExerciseFilter { muscles: [Some((MuscleID::RearDelts, StimulusLevel::Primary)), Some((MuscleID::Lats, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
+        Some("Band Pull Apart")
+    )]
+    #[case::muscle_at_other_level(
+        ExerciseFilter { muscles: [Some((MuscleID::Lats, StimulusLevel::Primary)), Some((MuscleID::Traps, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
+        Some("Band-Assisted Pull Up")
+    )]
+    #[case::muscle_at_both_levels(
+        ExerciseFilter { muscles: [Some((MuscleID::Lats, StimulusLevel::Primary)), Some((MuscleID::Lats, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
+        None
     )]
     #[case::equipment(
         ExerciseFilter { equipment: [Some(Equipment::Barbell)].into(), ..ExerciseFilter::default() },
@@ -1561,28 +1673,45 @@ mod tests {
     fn test_exercise_filter_toggle_muscle() {
         let mut filter = ExerciseFilter::default();
 
-        assert!(filter.muscle_list().iter().map(|(_, b)| b).all(|b| !b));
+        assert!(!filter.muscles_not_set());
+        assert!(filter.muscle_list().iter().all(|(_, l)| l.is_none()));
 
         filter.toggle_muscle(None);
 
-        assert!(filter.muscle_list().contains(&(None, true)));
+        assert!(filter.muscles_not_set());
+        assert!(filter.muscle_list().iter().all(|(_, l)| l.is_none()));
+
+        filter.toggle_muscle(Some(MuscleID::Abs));
+
+        assert!(!filter.muscles_not_set());
         assert!(
             filter
                 .muscle_list()
-                .into_iter()
-                .filter(|(m, _)| m.is_some())
-                .map(|(_, b)| b)
-                .all(|b| !b)
+                .contains(&(MuscleID::Abs, Some(StimulusLevel::Secondary)))
         );
 
         filter.toggle_muscle(Some(MuscleID::Abs));
 
-        assert!(filter.muscle_list().contains(&(Some(MuscleID::Abs), true)));
-        assert!(!filter.muscle_list().contains(&(None, true)));
+        assert!(
+            filter
+                .muscle_list()
+                .contains(&(MuscleID::Abs, Some(StimulusLevel::Primary)))
+        );
+
+        filter.toggle_muscle(None);
+
+        assert!(filter.muscles_not_set());
+        assert!(filter.muscle_list().iter().all(|(_, l)| l.is_none()));
+
+        filter.toggle_muscle(None);
+
+        assert!(!filter.muscles_not_set());
 
         filter.toggle_muscle(Some(MuscleID::Abs));
+        filter.toggle_muscle(Some(MuscleID::Abs));
+        filter.toggle_muscle(Some(MuscleID::Abs));
 
-        assert!(filter.muscle_list().iter().map(|(_, b)| b).all(|b| !b));
+        assert!(filter.muscle_list().iter().all(|(_, l)| l.is_none()));
     }
 
     #[test]

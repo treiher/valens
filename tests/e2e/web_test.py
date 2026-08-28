@@ -2354,6 +2354,39 @@ def test_exercises_filter_by_property(page: Page) -> None:
     }
 
 
+def test_exercises_filter_by_muscle(page: Page) -> None:
+    muscle = "Pecs"
+    primary = USER.exercises[0]
+    secondary = USER.exercises[1]
+
+    assert primary.muscles[0].stimulus == 100, (
+        f"test data must contain an exercise with {muscle} as primary muscle"
+    )
+    assert secondary.muscles[0].stimulus == 50, (
+        f"test data must contain an exercise with {muscle} as secondary muscle"
+    )
+    assert primary.name in PREVIOUS_WORKOUT_EXERCISES
+    assert secondary.name in CURRENT_WORKOUT_EXERCISES
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+
+    p.open_filter()
+    p.filter_muscle(muscle, "Primary")
+    p.apply_filter()
+
+    assert {e[0] for e in p.table.get_body(1)} == {primary.name}
+
+    p.goto()
+
+    p.open_filter()
+    p.filter_muscle(muscle, "Secondary")
+    p.apply_filter()
+
+    assert {e[0] for e in p.table.get_body(1)} == {secondary.name}
+
+
 def test_exercises_copy(page: Page) -> None:
     new_name = "Copied Exercise"
 

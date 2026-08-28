@@ -336,7 +336,7 @@ fn view_list(
                                         });
                                     }
                                     let (force, mechanic, laterality, assistance, equipment, category) =
-                                        domain::ExerciseProperties::from(&e);
+                                        domain::CatalogProperties::from(&e);
                                     async move {
                                             match DOMAIN_SERVICE()
                                                 .create_exercise(
@@ -719,7 +719,7 @@ fn view_equipment_section(mut selected: Signal<Vec<domain::Equipment>>) -> Eleme
             }
         })
         .collect::<Vec<_>>();
-    view_dialog_section("Equipment", chips)
+    view_dialog_section(domain::ExerciseProperty::Equipment.name(), chips)
 }
 
 fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
@@ -849,15 +849,16 @@ fn ExercisePropertiesDialog(
             on_save: save,
             is_loading: is_loading(),
             disabled: false,
-            {view_property_section("Force", force)},
-            {view_property_section("Mechanic", mechanic)},
-            {view_property_section("Laterality", laterality)},
-            {view_property_section("Assistance", assistance)},
+            {view_property_section(domain::ExerciseProperty::Force.name(), force)},
+            {view_property_section(domain::ExerciseProperty::Mechanic.name(), mechanic)},
+            {view_property_section(domain::ExerciseProperty::Laterality.name(), laterality)},
+            {view_property_section(domain::ExerciseProperty::Assistance.name(), assistance)},
             {view_equipment_section(equipment)},
-            {view_property_section("Category", category)},
+            {view_property_section(domain::ExerciseProperty::Category.name(), category)},
             label {
                 class: "subtitle",
-                "Muscles ("
+                {domain::ExerciseProperty::Muscles.name()}
+                " ("
                     span {
                         class: "tag is-dark",
                         "Primary"

@@ -98,8 +98,47 @@ impl Exercise {
     }
 }
 
+/// A property of an exercise.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ExerciseProperty {
+    Force,
+    Mechanic,
+    Laterality,
+    Assistance,
+    Equipment,
+    Category,
+    Muscles,
+}
+
+impl Property for ExerciseProperty {
+    fn iter() -> Iter<'static, ExerciseProperty> {
+        static PROPERTIES: [ExerciseProperty; 7] = [
+            ExerciseProperty::Force,
+            ExerciseProperty::Mechanic,
+            ExerciseProperty::Laterality,
+            ExerciseProperty::Assistance,
+            ExerciseProperty::Equipment,
+            ExerciseProperty::Category,
+            ExerciseProperty::Muscles,
+        ];
+        PROPERTIES.iter()
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            ExerciseProperty::Force => "Force",
+            ExerciseProperty::Mechanic => "Mechanic",
+            ExerciseProperty::Laterality => "Laterality",
+            ExerciseProperty::Assistance => "Assistance",
+            ExerciseProperty::Equipment => "Equipment",
+            ExerciseProperty::Category => "Category",
+            ExerciseProperty::Muscles => "Muscles",
+        }
+    }
+}
+
 /// The properties of an exercise, in the order in which they are passed to `create_exercise`.
-pub type ExerciseProperties = (
+pub type CatalogProperties = (
     Option<Force>,
     Option<Mechanic>,
     Option<Laterality>,
@@ -108,7 +147,7 @@ pub type ExerciseProperties = (
     Option<Category>,
 );
 
-impl From<&catalog::Exercise> for ExerciseProperties {
+impl From<&catalog::Exercise> for CatalogProperties {
     fn from(value: &catalog::Exercise) -> Self {
         (
             Some(value.force),
@@ -855,20 +894,30 @@ mod tests {
     }
 
     fn assert_distinct_names<T: Property + 'static>() {
-        let mut names = HashSet::new();
+        assert_distinct(
+            T::iter()
+                .map(|value| name_or_none(Some(*value)))
+                .chain([T::none_name()]),
+        );
+    }
 
-        for value in T::iter().map(|value| Some(*value)).chain([None]) {
-            let name = name_or_none(value);
+    fn assert_distinct_value_names<T: Property + 'static>() {
+        assert_distinct(T::iter().map(|value| value.name()));
+    }
 
+    fn assert_distinct(names: impl Iterator<Item = &'static str>) {
+        let mut distinct_names = HashSet::new();
+
+        for name in names {
             assert!(!name.is_empty());
-            assert!(names.insert(name));
+            assert!(distinct_names.insert(name));
         }
     }
 
     #[test]
-    fn test_exercise_properties_from_catalog_exercise() {
+    fn test_catalog_properties_from_catalog_exercise() {
         assert_eq!(
-            ExerciseProperties::from(
+            CatalogProperties::from(
                 &catalog::EXERCISES[&Name::new("Barbell Bench Press").unwrap()]
             ),
             (
@@ -880,6 +929,11 @@ mod tests {
                 Some(Category::Strength),
             )
         );
+    }
+
+    #[test]
+    fn test_exercise_property_name() {
+        assert_distinct_value_names::<ExerciseProperty>();
     }
 
     #[test]

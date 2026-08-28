@@ -753,24 +753,26 @@ fn view_equipment_section(mut selected: Signal<Vec<domain::Equipment>>) -> Eleme
 /// Show the muscles as toggles that cycle through the stimulus.
 fn view_muscles_section(multi_toggle: Signal<MultiToggle>) -> Element {
     rsx! {
-        label {
-            class: "subtitle",
-            {domain::ExerciseProperty::Muscles.name()}
-            " ("
-                span {
-                    class: "tag is-dark",
-                    "Primary"
-                }
-            " "
-                span {
-                    class: "tag is-link",
-                    "Secondary"
-                }
-            ")"
-        }
-        div {
-            class: "container py-3",
-            MultiToggleTags { multi_toggle }
+        Block {
+            label {
+                class: "subtitle",
+                {domain::ExerciseProperty::Muscles.name()}
+                " ("
+                    span {
+                        class: "tag is-dark",
+                        "Primary"
+                    }
+                " "
+                    span {
+                        class: "tag is-link",
+                        "Secondary"
+                    }
+                ")"
+            }
+            div {
+                class: "container py-3",
+                MultiToggleTags { multi_toggle }
+            }
         }
     }
 }
@@ -778,16 +780,18 @@ fn view_muscles_section(multi_toggle: Signal<MultiToggle>) -> Element {
 fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
     let title = title.to_string();
     rsx! {
-        label {
-            class: "subtitle",
-            {title}
-        }
-        div {
-            class: "container py-3",
+        Block {
+            label {
+                class: "subtitle",
+                {title}
+            }
             div {
-                class: "tags",
-                for chip in chips {
-                    {chip}
+                class: "container py-3",
+                div {
+                    class: "tags",
+                    for chip in chips {
+                        {chip}
+                    }
                 }
             }
         }
@@ -1066,7 +1070,7 @@ fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
                 div {
                     class: "block has-text-centered",
                     "data-testid": "no-catalog-updates",
-                    "No exercise matches a catalog exercise with different properties."
+                    "No exercise can be updated from a catalog exercise with a matching name."
                 }
             } else {
                 for row in rows {

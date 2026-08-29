@@ -24,14 +24,28 @@ class ExercisesPage(BasePage):
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Exercises")
 
-    def add_exercise(self, name: str) -> None:
+    def add_exercise(self, name: str, *properties: str) -> None:
         self.fab().click()
         self.dialog.set_name(name)
+        for property_name in properties:
+            self.dialog.root.get_by_test_id("property-chip").filter(
+                has_text=re.compile(f"^{re.escape(property_name)}$")
+            ).click()
         self.dialog.save()
         self.wait_until_idle()
 
     def search(self, name: str) -> None:
         self.page.get_by_test_id("search").fill(name)
+
+    def expect_catalog_exercise(self, name: str) -> None:
+        expect(
+            self.page.get_by_test_id("catalog-item").filter(
+                has_text=re.compile(f"^{re.escape(name)}$")
+            )
+        ).to_be_visible()
+
+    def expect_no_catalog_exercise_creation(self) -> None:
+        expect(self.page.get_by_test_id("add-catalog-exercise")).to_have_count(0)
 
     def add_catalog_exercise(self, index: int) -> None:
         self.page.get_by_test_id("add-catalog-exercise").nth(index).click()

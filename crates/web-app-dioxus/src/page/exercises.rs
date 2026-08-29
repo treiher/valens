@@ -29,9 +29,10 @@ use crate::{
 };
 
 macro_rules! show_add_dialog {
-    ($dialog:ident, $name:ident, $filter_string:ident, $exercises_page:ident) => {{
+    ($dialog:ident, $name:ident, $properties:ident $(, $filter_string:ident, $exercises_page:ident)?) => {{
         let name = $name.clone();
-        let filter_string = $filter_string.clone();
+        let properties = $properties.clone();
+        $(let $filter_string = $filter_string.clone();)?
         move || async move {
             let validated_name = DOMAIN_SERVICE()
                 .validate_exercise_name(&name, domain::ExerciseID::nil())
@@ -43,13 +44,16 @@ macro_rules! show_add_dialog {
                     validated: validated_name,
                     orig: name.clone(),
                 },
+                properties,
             };
-            if $exercises_page {
-                navigator().replace_preserving_scroll(Route::Exercises {
-                    add: true,
-                    filter: filter_string,
-                });
-            }
+            $(
+                if $exercises_page {
+                    navigator().replace_preserving_scroll(Route::Exercises {
+                        add: true,
+                        filter: $filter_string,
+                    });
+                }
+            )?
         }
     }
     ()};
@@ -85,16 +89,19 @@ pub fn ExerciseList(
         domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&filter)).unwrap_or_default()
     });
     let name = exercise_filter.read().name.clone();
+    let properties = exercise_filter.read().exercise_properties();
 
     use_future({
         let name = name.clone();
+        let properties = properties.clone();
         let filter = filter.clone();
         move || {
             let name = name.clone();
+            let properties = properties.clone();
             let filter = filter.clone();
             async move {
                 if add {
-                    show_add_dialog!(dialog, name, filter, exercises_page).await;
+                    show_add_dialog!(dialog, name, properties, filter, exercises_page).await;
                 }
             }
         }
@@ -104,8 +111,8 @@ pub fn ExerciseList(
         (CacheState::Ready(exercises), CacheState::Ready(training_sessions)) => {
             let filtered_exercises = exercise_filter.read().exercises(exercises.iter());
             rsx! {
-                {view_search_box(exercise_filter, dialog, filter_dialog_shown, catalog_update_dialog_shown, &filter, exercises_page)},
-                {view_list(&filtered_exercises, training_sessions, exercise_filter, dialog, on_exercise_click, on_catalog_click)}
+                {view_search_box(exercise_filter, dialog, filter_dialog_shown, catalog_update_dialog_shown, properties.clone(), exercises_page)},
+                {view_list(&filtered_exercises, exercises, training_sessions, exercise_filter, dialog, on_exercise_click, on_catalog_click)}
                 {view_dialog(dialog, if exercises_page { Some(Route::Exercises { add: false, filter: filter.clone() }) } else { None })}
                 {view_filter_dialog(exercise_filter, filter_dialog_shown, filtered_exercises.len())}
                 if catalog_update_dialog_shown() {
@@ -115,7 +122,7 @@ pub fn ExerciseList(
                     FloatingActionButton {
                         icon: "plus".to_string(),
                         on_click: move |_| {
-                            show_add_dialog!(dialog, name, filter, exercises_page)
+                            show_add_dialog!(dialog, name, properties, filter, exercises_page)
                         },
                     }
                 }
@@ -219,10 +226,9 @@ fn view_search_box(
     mut filter_dialog: Signal<ExerciseDialog>,
     mut filter_dialog_shown: Signal<bool>,
     mut catalog_update_dialog_shown: Signal<bool>,
-    filter_string: &str,
+    properties: domain::ExerciseProperties,
     exercises_page: bool,
 ) -> Element {
-    let filter_string = filter_string.to_string();
     let name = exercise_filter.read().name.clone();
     let tags = domain::ExerciseProperty::iter()
         .map(|property| match property {
@@ -284,7 +290,7 @@ fn view_search_box(
                         class: "button is-link",
                         "data-testid": "create-exercise",
                         onclick: move |_| {
-                            show_add_dialog!(filter_dialog, name, filter_string, exercises_page)
+                            show_add_dialog!(filter_dialog, name, properties)
                         },
                         Icon { name: "plus" }
                     }
@@ -305,6 +311,7 @@ fn view_search_box(
 
 fn view_list(
     exercises: &[&domain::Exercise],
+    all_exercises: &[domain::Exercise],
     training_sessions: &[domain::TrainingSession],
     exercise_filter: Signal<domain::ExerciseFilter>,
     mut dialog: Signal<ExerciseDialog>,
@@ -387,6 +394,11 @@ fn view_list(
         })
         .collect::<Vec<_>>();
 
+    let existing_names = all_exercises
+        .iter()
+        .map(|e| &e.name)
+        .collect::<BTreeSet<_>>();
+
     let catalog_exercises_body = exercise_filter
         .read()
         .catalog()
@@ -404,7 +416,7 @@ fn view_list(
                     }
                 },
                 rsx! {
-                    if exercises.iter().all(|x| x.name != e.name) {
+                    if !existing_names.contains(&e.name) {
                         div {
                             class: "has-text-link has-text-right",
                             a {
@@ -412,15 +424,15 @@ fn view_list(
                                 "data-testid": "add-catalog-exercise",
                                 onclick: move |_| {
                                     let name = e.name.clone();
-                                    let mut muscles = vec![];
-                                    for (m, s) in e.muscles {
-                                        muscles.push(domain::ExerciseMuscle {
-                                            muscle_id: *m,
-                                            stimulus: *s,
-                                        });
-                                    }
-                                    let (force, mechanic, laterality, assistance, equipment, category) =
-                                        domain::CatalogProperties::from(&e);
+                                    let domain::ExerciseProperties {
+                                        muscles,
+                                        force,
+                                        mechanic,
+                                        laterality,
+                                        assistance,
+                                        equipment,
+                                        category,
+                                    } = domain::ExerciseProperties::from(&e);
                                     async move {
                                             match DOMAIN_SERVICE()
                                                 .create_exercise(
@@ -496,32 +508,9 @@ pub fn view_dialog(
             async move {
                 let mut saved = false;
                 is_loading! {
-                    if let ExerciseDialog::Add { name } | ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. } = &*dialog.read()
+                    if let ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. } = &*dialog.read()
                         && let Ok(name) = name.validated.clone() {
                             match &*dialog.read() {
-                                ExerciseDialog::Add { .. } => {
-                                    match DOMAIN_SERVICE()
-                                        .create_exercise(
-                                            name,
-                                            vec![],
-                                            None,
-                                            None,
-                                            None,
-                                            None,
-                                            vec![],
-                                            None,
-                                        )
-                                        .await
-                                    {
-                                        Ok(_) => {
-                                            saved = true;
-                                            consume_context::<Cache>().refresh_exercises();
-                                        }
-                                        Err(err) => {
-                                            notify("add exercise", &err);
-                                        }
-                                    }
-                                }
                                 ExerciseDialog::Copy { exercise, .. } => {
                                     match DOMAIN_SERVICE()
                                         .create_exercise(
@@ -656,62 +645,22 @@ pub fn view_dialog(
                 }
             }
         }
-        ExerciseDialog::Add { name }
-        | ExerciseDialog::Copy { name, .. }
-        | ExerciseDialog::Rename { name, .. } => rsx! {
+        ExerciseDialog::Add { name, properties } => rsx! {
+            AddExerciseDialog {
+                dialog,
+                disabled: !name.valid(),
+                properties: properties.clone(),
+                on_close: eh!(close_dialog; { close_dialog(); }),
+            }
+        },
+        ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. } => rsx! {
             SaveDialog {
-                title: rsx! { match &*dialog.read() { ExerciseDialog::Add { .. } => { "Add exercise" }, ExerciseDialog::Copy { .. } =>  { "Copy exercise" }, ExerciseDialog::Rename { .. } =>  { "Rename exercise" }, _ => "" } },
+                title: rsx! { match &*dialog.read() { ExerciseDialog::Copy { .. } =>  { "Copy exercise" }, ExerciseDialog::Rename { .. } =>  { "Rename exercise" }, _ => "" } },
                 on_close: eh!(close_dialog; { close_dialog(); }),
                 on_save: save,
                 is_loading: is_loading(),
                 disabled: !name.valid(),
-                InputField {
-                    label: "Name".to_string(),
-                    "data-testid": "dialog-name",
-                    value: name.input.clone(),
-                    error: if let Err(err) = &name.validated { err.clone() },
-                    has_changed: name.changed(),
-                    autofocus: true,
-                    on_input: move |event: FormEvent| {
-                        let input = event.value();
-                        match &mut *dialog.write() {
-                            ExerciseDialog::Add { name, .. }
-                            | ExerciseDialog::Copy { name, .. }
-                            | ExerciseDialog::Rename { name, .. } => {
-                                name.input.clone_from(&input);
-                            }
-                            _ => {}
-                        }
-                        let exercise_id = {
-                            match &*dialog.read() {
-                                ExerciseDialog::Rename { exercise, .. } => exercise.id,
-                                _ => domain::ExerciseID::nil()
-                            }
-                        };
-                        async move {
-                            // Debounce the validation to prevent unexpected input field updates
-                            // caused by rapid inputs
-                            gloo_timers::future::sleep(std::time::Duration::from_millis(10)).await;
-                            {
-                                match &*dialog.read() {
-                                    ExerciseDialog::Add { name, .. } | ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. }
-                                        if name.input != input => {
-                                            return;
-                                        }
-                                    _ => {}
-                                }
-                            }
-                            let validated_name = DOMAIN_SERVICE().validate_exercise_name(&input, exercise_id).await.map_err(|err| err.to_string());
-                            match &mut *dialog.write() {
-                                ExerciseDialog::Add { name, .. } | ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. }
-                                    if name.input == input => {
-                                        name.validated = validated_name;
-                                    }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
+                {view_name_field(dialog)}
             }
         },
         ExerciseDialog::ChangeProperties { exercise } => rsx! {
@@ -726,6 +675,133 @@ pub fn view_dialog(
                 is_loading: is_loading(),
             }
         },
+    }
+}
+
+#[component]
+fn AddExerciseDialog(
+    dialog: Signal<ExerciseDialog>,
+    disabled: bool,
+    properties: domain::ExerciseProperties,
+    on_close: EventHandler<()>,
+) -> Element {
+    let fields = PropertyFields::new(&properties);
+    let mut is_loading = use_signal(|| false);
+
+    let save = move |_| async move {
+        let name = match &*dialog.read() {
+            ExerciseDialog::Add { name, .. } => name.validated.clone(),
+            _ => return,
+        };
+        let Ok(name) = name else {
+            return;
+        };
+        let domain::ExerciseProperties {
+            muscles,
+            force,
+            mechanic,
+            laterality,
+            assistance,
+            equipment,
+            category,
+        } = fields.properties();
+        let mut saved = false;
+        is_loading.set(true);
+        match DOMAIN_SERVICE()
+            .create_exercise(
+                name, muscles, force, mechanic, laterality, assistance, equipment, category,
+            )
+            .await
+        {
+            Ok(_) => {
+                saved = true;
+                consume_context::<Cache>().load_exercises().await;
+            }
+            Err(err) => {
+                notify("add exercise", &err);
+            }
+        }
+        is_loading.set(false);
+        if saved {
+            on_close(());
+        }
+    };
+
+    let sections = fields.sections();
+
+    rsx! {
+        SaveDialog {
+            title: rsx! { "Add exercise" },
+            on_close: eh!(on_close; { on_close(()); }),
+            on_save: save,
+            is_loading: is_loading(),
+            disabled,
+            {view_name_field(dialog)}
+            for section in sections {
+                {section}
+            }
+        }
+    }
+}
+
+/// Show the name of an exercise, validated while it is entered.
+fn view_name_field(mut dialog: Signal<ExerciseDialog>) -> Element {
+    let (input, validated, changed) = match &*dialog.read() {
+        ExerciseDialog::Add { name, .. }
+        | ExerciseDialog::Copy { name, .. }
+        | ExerciseDialog::Rename { name, .. } => {
+            (name.input.clone(), name.validated.clone(), name.changed())
+        }
+        _ => return rsx! {},
+    };
+    rsx! {
+        InputField {
+            label: "Name".to_string(),
+            "data-testid": "dialog-name",
+            value: input,
+            error: if let Err(err) = &validated { err.clone() },
+            has_changed: changed,
+            autofocus: true,
+            on_input: move |event: FormEvent| {
+                let input = event.value();
+                match &mut *dialog.write() {
+                    ExerciseDialog::Add { name, .. }
+                    | ExerciseDialog::Copy { name, .. }
+                    | ExerciseDialog::Rename { name, .. } => {
+                        name.input.clone_from(&input);
+                    }
+                    _ => {}
+                }
+                let exercise_id = {
+                    match &*dialog.read() {
+                        ExerciseDialog::Rename { exercise, .. } => exercise.id,
+                        _ => domain::ExerciseID::nil()
+                    }
+                };
+                async move {
+                    // Debounce the validation to prevent unexpected input field updates
+                    // caused by rapid inputs
+                    gloo_timers::future::sleep(std::time::Duration::from_millis(10)).await;
+                    {
+                        match &*dialog.read() {
+                            ExerciseDialog::Add { name, .. } | ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. }
+                                if name.input != input => {
+                                    return;
+                                }
+                            _ => {}
+                        }
+                    }
+                    let validated_name = DOMAIN_SERVICE().validate_exercise_name(&input, exercise_id).await.map_err(|err| err.to_string());
+                    match &mut *dialog.write() {
+                        ExerciseDialog::Add { name, .. } | ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. }
+                            if name.input == input => {
+                                name.validated = validated_name;
+                            }
+                        _ => {}
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -899,39 +975,110 @@ fn stimulus_level(state: usize) -> Option<domain::StimulusLevel> {
         .copied()
 }
 
+/// The editable state of the properties of an exercise.
+#[derive(Clone, Copy)]
+struct PropertyFields {
+    muscles: Signal<MultiToggle>,
+    force: Signal<Option<domain::Force>>,
+    mechanic: Signal<Option<domain::Mechanic>>,
+    laterality: Signal<Option<domain::Laterality>>,
+    assistance: Signal<Option<domain::Assistance>>,
+    equipment: Signal<Vec<domain::Equipment>>,
+    category: Signal<Option<domain::Category>>,
+}
+
+impl PropertyFields {
+    fn new(properties: &domain::ExerciseProperties) -> Self {
+        PropertyFields {
+            muscles: use_signal(|| MultiToggle {
+                states: domain::MuscleID::iter()
+                    .map(|m| {
+                        (
+                            m.name().to_string(),
+                            properties
+                                .muscles
+                                .iter()
+                                .find(|em| em.muscle_id == *m)
+                                .map(|em| {
+                                    multi_toggle_state(domain::StimulusLevel::from_stimulus(
+                                        em.stimulus,
+                                    ))
+                                })
+                                .unwrap_or_default(),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                classes: STIMULUS_LEVELS
+                    .into_iter()
+                    .map(page::exercise::stimulus_level_class)
+                    .collect(),
+            }),
+            force: use_signal(|| properties.force),
+            mechanic: use_signal(|| properties.mechanic),
+            laterality: use_signal(|| properties.laterality),
+            assistance: use_signal(|| properties.assistance),
+            equipment: use_signal(|| properties.equipment.clone()),
+            category: use_signal(|| properties.category),
+        }
+    }
+
+    fn properties(&self) -> domain::ExerciseProperties {
+        domain::ExerciseProperties {
+            muscles: self
+                .muscles
+                .read()
+                .states
+                .iter()
+                .enumerate()
+                .filter_map(|(i, (_, state))| {
+                    let level = stimulus_level(*state)?;
+                    domain::MuscleID::iter()
+                        .nth(i)
+                        .map(|muscle_id| domain::ExerciseMuscle {
+                            muscle_id: *muscle_id,
+                            stimulus: level.stimulus(),
+                        })
+                })
+                .collect(),
+            force: (self.force)(),
+            mechanic: (self.mechanic)(),
+            laterality: (self.laterality)(),
+            assistance: (self.assistance)(),
+            equipment: (self.equipment)(),
+            category: (self.category)(),
+        }
+    }
+
+    fn sections(&self) -> Vec<Element> {
+        domain::ExerciseProperty::iter()
+            .map(|property| match property {
+                domain::ExerciseProperty::Muscles => view_muscles_section(self.muscles),
+                domain::ExerciseProperty::Force => view_property_section(*property, self.force),
+                domain::ExerciseProperty::Mechanic => {
+                    view_property_section(*property, self.mechanic)
+                }
+                domain::ExerciseProperty::Laterality => {
+                    view_property_section(*property, self.laterality)
+                }
+                domain::ExerciseProperty::Assistance => {
+                    view_property_section(*property, self.assistance)
+                }
+                domain::ExerciseProperty::Category => {
+                    view_property_section(*property, self.category)
+                }
+                domain::ExerciseProperty::Equipment => view_equipment_section(self.equipment),
+            })
+            .collect()
+    }
+}
+
 #[component]
 fn ExercisePropertiesDialog(
     exercise: domain::Exercise,
     on_save: EventHandler<MouseEvent>,
     on_close: EventHandler<()>,
 ) -> Element {
-    let multi_toggle = use_signal(|| MultiToggle {
-        states: domain::MuscleID::iter()
-            .map(|m| {
-                (
-                    m.name().to_string(),
-                    exercise
-                        .muscles
-                        .iter()
-                        .find(|em| em.muscle_id == *m)
-                        .map(|em| {
-                            multi_toggle_state(domain::StimulusLevel::from_stimulus(em.stimulus))
-                        })
-                        .unwrap_or_default(),
-                )
-            })
-            .collect::<Vec<_>>(),
-        classes: STIMULUS_LEVELS
-            .into_iter()
-            .map(page::exercise::stimulus_level_class)
-            .collect(),
-    });
-    let force = use_signal(|| exercise.force);
-    let mechanic = use_signal(|| exercise.mechanic);
-    let laterality = use_signal(|| exercise.laterality);
-    let assistance = use_signal(|| exercise.assistance);
-    let equipment = use_signal(|| exercise.equipment.clone());
-    let category = use_signal(|| exercise.category);
+    let fields = PropertyFields::new(&domain::ExerciseProperties::from(&exercise));
     let mut is_loading = use_signal(|| false);
 
     macro_rules! is_loading {
@@ -945,35 +1092,26 @@ fn ExercisePropertiesDialog(
     let save = move |_| {
         let exercise = exercise.clone();
         async move {
-            let muscles = multi_toggle
-                .read()
-                .states
-                .iter()
-                .enumerate()
-                .filter_map(|(i, (_, state))| {
-                    let level = stimulus_level(*state)?;
-                    domain::MuscleID::iter()
-                        .nth(i)
-                        .map(|muscle_id| domain::ExerciseMuscle {
-                            muscle_id: *muscle_id,
-                            stimulus: match level {
-                                domain::StimulusLevel::Primary => domain::Stimulus::PRIMARY,
-                                domain::StimulusLevel::Secondary => domain::Stimulus::SECONDARY,
-                            },
-                        })
-                })
-                .collect::<Vec<_>>();
+            let domain::ExerciseProperties {
+                muscles,
+                force,
+                mechanic,
+                laterality,
+                assistance,
+                equipment,
+                category,
+            } = fields.properties();
             let mut saved = false;
             is_loading! {
                 match DOMAIN_SERVICE()
                     .replace_exercise(domain::Exercise {
                         muscles,
-                        force: force(),
-                        mechanic: mechanic(),
-                        laterality: laterality(),
-                        assistance: assistance(),
-                        equipment: equipment(),
-                        category: category(),
+                        force,
+                        mechanic,
+                        laterality,
+                        assistance,
+                        equipment,
+                        category,
                         ..exercise
                     })
                     .await
@@ -993,17 +1131,7 @@ fn ExercisePropertiesDialog(
         }
     };
 
-    let sections = domain::ExerciseProperty::iter()
-        .map(|property| match property {
-            domain::ExerciseProperty::Muscles => view_muscles_section(multi_toggle),
-            domain::ExerciseProperty::Force => view_property_section(*property, force),
-            domain::ExerciseProperty::Mechanic => view_property_section(*property, mechanic),
-            domain::ExerciseProperty::Laterality => view_property_section(*property, laterality),
-            domain::ExerciseProperty::Assistance => view_property_section(*property, assistance),
-            domain::ExerciseProperty::Category => view_property_section(*property, category),
-            domain::ExerciseProperty::Equipment => view_equipment_section(equipment),
-        })
-        .collect::<Vec<_>>();
+    let sections = fields.sections();
 
     rsx! {
         SaveDialog {
@@ -1392,6 +1520,7 @@ pub enum ExerciseDialog {
     Options(domain::Exercise),
     Add {
         name: FieldValue<domain::Name>,
+        properties: domain::ExerciseProperties,
     },
     Copy {
         name: FieldValue<domain::Name>,

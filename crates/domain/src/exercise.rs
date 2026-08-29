@@ -138,26 +138,50 @@ impl Property for ExerciseProperty {
     }
 }
 
-/// The properties of an exercise, in the order in which they are passed to `create_exercise`.
-pub type CatalogProperties = (
-    Option<Force>,
-    Option<Mechanic>,
-    Option<Laterality>,
-    Option<Assistance>,
-    Vec<Equipment>,
-    Option<Category>,
-);
+/// The properties of an exercise apart from its name.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct ExerciseProperties {
+    pub muscles: Vec<ExerciseMuscle>,
+    pub force: Option<Force>,
+    pub mechanic: Option<Mechanic>,
+    pub laterality: Option<Laterality>,
+    pub assistance: Option<Assistance>,
+    pub equipment: Vec<Equipment>,
+    pub category: Option<Category>,
+}
 
-impl From<&catalog::Exercise> for CatalogProperties {
+impl From<&Exercise> for ExerciseProperties {
+    fn from(value: &Exercise) -> Self {
+        ExerciseProperties {
+            muscles: value.muscles.clone(),
+            force: value.force,
+            mechanic: value.mechanic,
+            laterality: value.laterality,
+            assistance: value.assistance,
+            equipment: value.equipment.clone(),
+            category: value.category,
+        }
+    }
+}
+
+impl From<&catalog::Exercise> for ExerciseProperties {
     fn from(value: &catalog::Exercise) -> Self {
-        (
-            Some(value.force),
-            Some(value.mechanic),
-            Some(value.laterality),
-            Some(value.assistance),
-            value.equipment.to_vec(),
-            Some(value.category),
-        )
+        ExerciseProperties {
+            muscles: value
+                .muscles
+                .iter()
+                .map(|(muscle_id, stimulus)| ExerciseMuscle {
+                    muscle_id: *muscle_id,
+                    stimulus: *stimulus,
+                })
+                .collect(),
+            force: Some(value.force),
+            mechanic: Some(value.mechanic),
+            laterality: Some(value.laterality),
+            assistance: Some(value.assistance),
+            equipment: value.equipment.to_vec(),
+            category: Some(value.category),
+        }
     }
 }
 
@@ -272,16 +296,15 @@ fn updated_exercise(
     catalog_exercise: &catalog::Exercise,
     mode: CatalogUpdateMode,
 ) -> Exercise {
-    let (force, mechanic, laterality, assistance, equipment, category) =
-        CatalogProperties::from(catalog_exercise);
-    let muscles = catalog_exercise
-        .muscles
-        .iter()
-        .map(|(muscle_id, stimulus)| ExerciseMuscle {
-            muscle_id: *muscle_id,
-            stimulus: *stimulus,
-        })
-        .collect::<Vec<_>>();
+    let ExerciseProperties {
+        muscles,
+        force,
+        mechanic,
+        laterality,
+        assistance,
+        equipment,
+        category,
+    } = ExerciseProperties::from(catalog_exercise);
 
     match mode {
         CatalogUpdateMode::FillMissing => Exercise {
@@ -501,6 +524,14 @@ impl StimulusLevel {
             Some(StimulusLevel::Primary)
         } else {
             Some(StimulusLevel::Secondary)
+        }
+    }
+
+    #[must_use]
+    pub fn stimulus(self) -> Stimulus {
+        match self {
+            StimulusLevel::Secondary => Stimulus::SECONDARY,
+            StimulusLevel::Primary => Stimulus::PRIMARY,
         }
     }
 
@@ -980,6 +1011,36 @@ impl ExerciseFilter {
             .collect()
     }
 
+    /// The property values an exercise needs to have to match the filter.
+    ///
+    /// A property with several selected values yields the first value in the order of the property.
+    /// Equipment yields a single value, which suffices because an exercise matches the filter if it
+    /// has any of the selected equipment.
+    #[must_use]
+    pub fn exercise_properties(&self) -> ExerciseProperties {
+        let mut muscles = self
+            .muscles
+            .iter()
+            .filter_map(|m| {
+                m.map(|(muscle_id, level)| ExerciseMuscle {
+                    muscle_id,
+                    stimulus: level.stimulus(),
+                })
+            })
+            .collect::<Vec<_>>();
+        muscles.sort_by_key(|m| m.muscle_id);
+
+        ExerciseProperties {
+            muscles,
+            force: first_selected(&self.force),
+            mechanic: first_selected(&self.mechanic),
+            laterality: first_selected(&self.laterality),
+            assistance: first_selected(&self.assistance),
+            equipment: first_selected(&self.equipment).into_iter().collect(),
+            category: first_selected(&self.category),
+        }
+    }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.name.trim().is_empty()
@@ -1101,6 +1162,14 @@ impl ExerciseFilter {
     }
 }
 
+fn first_selected<T: Property + Eq + std::hash::Hash + 'static>(
+    selected: &HashSet<Option<T>>,
+) -> Option<T> {
+    T::iter()
+        .find(|value| selected.contains(&Some(**value)))
+        .copied()
+}
+
 fn filter_list<T: Property + Eq + std::hash::Hash + 'static>(
     selected: &HashSet<Option<T>>,
 ) -> Vec<(Option<T>, bool)> {
@@ -1192,6 +1261,14 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case(StimulusLevel::Secondary, Stimulus::SECONDARY)]
+    #[case(StimulusLevel::Primary, Stimulus::PRIMARY)]
+    fn test_stimulus_level_stimulus(#[case] level: StimulusLevel, #[case] expected: Stimulus) {
+        assert_eq!(level.stimulus(), expected);
+        assert_eq!(StimulusLevel::from_stimulus(level.stimulus()), Some(level));
+    }
+
     #[test]
     fn test_stimulus_level_name() {
         assert_ne!(
@@ -1209,19 +1286,39 @@ mod tests {
     }
 
     #[test]
-    fn test_catalog_properties_from_catalog_exercise() {
+    fn test_exercise_properties_from_exercise() {
+        let exercise = catalog_exercise("Barbell Bench Press", 1);
+
         assert_eq!(
-            CatalogProperties::from(
+            ExerciseProperties::from(&exercise),
+            ExerciseProperties::from(
                 &catalog::EXERCISES[&Name::new("Barbell Bench Press").unwrap()]
-            ),
-            (
-                Some(Force::Push),
-                Some(Mechanic::Compound),
-                Some(Laterality::Bilateral),
-                Some(Assistance::Unassisted),
-                vec![Equipment::Barbell],
-                Some(Category::Strength),
             )
+        );
+    }
+
+    #[test]
+    fn test_exercise_properties_from_catalog_exercise() {
+        let catalog_exercise = &catalog::EXERCISES[&Name::new("Barbell Bench Press").unwrap()];
+
+        assert_eq!(
+            ExerciseProperties::from(catalog_exercise),
+            ExerciseProperties {
+                muscles: catalog_exercise
+                    .muscles
+                    .iter()
+                    .map(|(muscle_id, stimulus)| ExerciseMuscle {
+                        muscle_id: *muscle_id,
+                        stimulus: *stimulus,
+                    })
+                    .collect(),
+                force: Some(Force::Push),
+                mechanic: Some(Mechanic::Compound),
+                laterality: Some(Laterality::Bilateral),
+                assistance: Some(Assistance::Unassisted),
+                equipment: vec![Equipment::Barbell],
+                category: Some(Category::Strength),
+            }
         );
     }
 
@@ -1664,6 +1761,94 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::empty(ExerciseFilter::default(), ExerciseProperties::default())]
+    #[case::not_set(
+        ExerciseFilter {
+            muscles: [None].into(),
+            force: [None].into(),
+            equipment: [None].into(),
+            ..ExerciseFilter::default()
+        },
+        ExerciseProperties::default()
+    )]
+    #[case::muscles(
+        ExerciseFilter {
+            muscles: [
+                Some((MuscleID::Pecs, StimulusLevel::Primary)),
+                Some((MuscleID::Triceps, StimulusLevel::Secondary)),
+            ].into(),
+            ..ExerciseFilter::default()
+        },
+        ExerciseProperties {
+            muscles: vec![
+                ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY },
+                ExerciseMuscle { muscle_id: MuscleID::Triceps, stimulus: Stimulus::SECONDARY },
+            ],
+            ..ExerciseProperties::default()
+        }
+    )]
+    #[case::properties(
+        ExerciseFilter {
+            force: [Some(Force::Push)].into(),
+            mechanic: [Some(Mechanic::Compound)].into(),
+            laterality: [Some(Laterality::Bilateral)].into(),
+            assistance: [Some(Assistance::Unassisted)].into(),
+            equipment: [Some(Equipment::Barbell)].into(),
+            category: [Some(Category::Strength)].into(),
+            ..ExerciseFilter::default()
+        },
+        ExerciseProperties {
+            force: Some(Force::Push),
+            mechanic: Some(Mechanic::Compound),
+            laterality: Some(Laterality::Bilateral),
+            assistance: Some(Assistance::Unassisted),
+            equipment: vec![Equipment::Barbell],
+            category: Some(Category::Strength),
+            ..ExerciseProperties::default()
+        }
+    )]
+    #[case::several_values_per_property(
+        ExerciseFilter {
+            force: [Some(Force::Pull), Some(Force::Push), None].into(),
+            equipment: [Some(Equipment::Dumbbell), Some(Equipment::Barbell), None].into(),
+            ..ExerciseFilter::default()
+        },
+        ExerciseProperties {
+            force: Some(Force::Push),
+            equipment: vec![Equipment::Barbell],
+            ..ExerciseProperties::default()
+        }
+    )]
+    fn test_exercise_filter_exercise_properties(
+        #[case] filter: ExerciseFilter,
+        #[case] expected: ExerciseProperties,
+    ) {
+        assert_eq!(filter.exercise_properties(), expected);
+
+        let ExerciseProperties {
+            muscles,
+            force,
+            mechanic,
+            laterality,
+            assistance,
+            equipment,
+            category,
+        } = expected;
+        let exercise = Exercise {
+            muscles,
+            force,
+            mechanic,
+            laterality,
+            assistance,
+            equipment,
+            category,
+            ..exercise(0, "Exercise", vec![])
+        };
+
+        assert_eq!(filter.exercises([&exercise].into_iter()), vec![&exercise]);
+    }
+
     #[test]
     fn test_exercise_filter_is_empty() {
         assert!(ExerciseFilter::default().is_empty());
@@ -1908,20 +2093,19 @@ mod tests {
     }
 
     fn catalog_exercise(name: &str, id: u128) -> Exercise {
-        let catalog_exercise = &catalog::EXERCISES[&Name::new(name).unwrap()];
-        let (force, mechanic, laterality, assistance, equipment, category) =
-            CatalogProperties::from(catalog_exercise);
+        let ExerciseProperties {
+            muscles,
+            force,
+            mechanic,
+            laterality,
+            assistance,
+            equipment,
+            category,
+        } = ExerciseProperties::from(&catalog::EXERCISES[&Name::new(name).unwrap()]);
         Exercise {
             id: id.into(),
             name: Name::new(name).unwrap(),
-            muscles: catalog_exercise
-                .muscles
-                .iter()
-                .map(|(muscle_id, stimulus)| ExerciseMuscle {
-                    muscle_id: *muscle_id,
-                    stimulus: *stimulus,
-                })
-                .collect(),
+            muscles,
             force,
             mechanic,
             laterality,

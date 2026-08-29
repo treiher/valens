@@ -13,9 +13,9 @@ pub use error::{
     UpdateError, ValidationError,
 };
 pub use exercise::{
-    Assistance, AssistanceError, CatalogMatch, CatalogProperties, CatalogUpdate, CatalogUpdateMode,
-    Category, CategoryError, Equipment, EquipmentError, Exercise, ExerciseFilter, ExerciseID,
-    ExerciseMuscle, ExerciseProperty, ExerciseRepository, ExerciseService, Force, ForceError,
+    Assistance, AssistanceError, CatalogMatch, CatalogUpdate, CatalogUpdateMode, Category,
+    CategoryError, Equipment, EquipmentError, Exercise, ExerciseFilter, ExerciseID, ExerciseMuscle,
+    ExerciseProperties, ExerciseProperty, ExerciseRepository, ExerciseService, Force, ForceError,
     Laterality, LateralityError, Mechanic, MechanicError, MuscleID, MuscleIDError, Property,
     PropertyChange, PropertyValue, Stimulus, StimulusError, StimulusLevel, catalog_update,
     catalog_updates, name_or_none,

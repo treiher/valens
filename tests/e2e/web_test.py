@@ -2267,6 +2267,49 @@ def test_exercises_add_from_catalog(page: Page) -> None:
     assert exercise_page.get_muscles() == muscles
 
 
+def test_exercises_add_with_filter(page: Page) -> None:
+    name = "Filtered Exercise"
+    muscle = "Pecs"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+
+    p.open_filter()
+    p.toggle_filter("force", "Push")
+    p.filter_muscle(muscle, "Primary")
+    p.apply_filter()
+
+    p.add_exercise(name, "Compound")
+
+    assert {e[0] for e in p.table.get_body(1)} == {name}
+
+    p.open_exercise(name)
+
+    exercise_page = ExercisePage(page)
+    exercise_page.expect_page()
+
+    assert exercise_page.get_properties() == ["Push", "Compound"]
+    exercise_page.expect_muscle(muscle)
+
+
+def test_exercises_add_from_catalog_with_filtered_out_exercise(page: Page) -> None:
+    name = "Barbell Bench Press"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+    p.add_exercise(name)
+
+    p.open_filter()
+    p.toggle_filter("force", "Push")
+    p.apply_filter()
+    p.search(name)
+
+    p.expect_catalog_exercise(name)
+    p.expect_no_catalog_exercise_creation()
+
+
 def test_exercises_update_from_catalog(page: Page) -> None:
     name = "Dip"
     variation = "Dip (weighted)"

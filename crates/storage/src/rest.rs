@@ -836,6 +836,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
     async fn create_routine(
         &self,
         name: domain::Name,
+        notes: String,
         sections: Vec<domain::RoutinePart>,
     ) -> Result<domain::Routine, domain::CreateError> {
         let r: Routine = self
@@ -843,7 +844,7 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
                 gloo_net::http::Request::post("/api/routines"),
                 Some(&RoutineData {
                     name: name.to_string(),
-                    notes: None,
+                    notes: Some(notes),
                     archived: false,
                     sections: sections.into_iter().map(RoutinePart::from).collect(),
                 }),
@@ -856,12 +857,16 @@ impl<S: SendRequest> domain::RoutineRepository for REST<S> {
         &self,
         id: domain::RoutineID,
         name: Option<domain::Name>,
+        notes: Option<String>,
         archived: Option<bool>,
         sections: Option<Vec<domain::RoutinePart>>,
     ) -> Result<domain::Routine, domain::UpdateError> {
         let mut content = Map::new();
         if let Some(name) = name {
             content.insert("name".into(), json!(name.to_string()));
+        }
+        if let Some(notes) = notes {
+            content.insert("notes".into(), json!(notes));
         }
         if let Some(archived) = archived {
             content.insert("archived".into(), json!(archived));
@@ -2916,7 +2921,11 @@ mod tests {
                         .status(200)
                         .json(&Routine::from(ROUTINE.clone())),
                 ))
-                .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
+                .create_routine(
+                    ROUTINE.name.clone(),
+                    ROUTINE.notes.clone(),
+                    ROUTINE.sections.clone(),
+                )
                 .await
                 .unwrap(),
                 ROUTINE.clone()
@@ -2934,6 +2943,7 @@ mod tests {
                 .modify_routine(
                     ROUTINE.id,
                     Some(ROUTINE.name.clone()),
+                    Some(ROUTINE.notes.clone()),
                     Some(ROUTINE.archived),
                     Some(ROUTINE.sections.clone())
                 )

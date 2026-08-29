@@ -429,9 +429,10 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
     async fn create_routine(
         &self,
         name: domain::Name,
+        notes: String,
         sections: Vec<domain::RoutinePart>,
     ) -> Result<domain::Routine, domain::CreateError> {
-        let routine = self.rest.create_routine(name, sections).await?;
+        let routine = self.rest.create_routine(name, notes, sections).await?;
         if let Err(err) = IndexedDB
             .put(
                 Store::Routines,
@@ -449,6 +450,7 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
         &self,
         id: domain::RoutineID,
         name: Option<domain::Name>,
+        notes: Option<String>,
         archived: Option<bool>,
         sections: Option<Vec<domain::RoutinePart>>,
     ) -> Result<domain::Routine, domain::UpdateError> {
@@ -458,6 +460,7 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
             "routine",
             id,
             name,
+            notes,
             archived,
             sections
         )
@@ -2118,7 +2121,11 @@ mod tests {
 
             assert!(matches!(
                 cached_rest_with_response(None)
-                    .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
+                    .create_routine(
+                        ROUTINE.name.clone(),
+                        ROUTINE.notes.clone(),
+                        ROUTINE.sections.clone()
+                    )
                     .await,
                 Err(domain::CreateError::Storage(
                     domain::StorageError::NoConnection
@@ -2131,7 +2138,11 @@ mod tests {
                         .status(200)
                         .json(&rest::Routine::from(ROUTINE.clone())),
                 ))
-                .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
+                .create_routine(
+                    ROUTINE.name.clone(),
+                    ROUTINE.notes.clone(),
+                    ROUTINE.sections.clone()
+                )
                 .await
                 .unwrap(),
                 ROUTINE.clone()
@@ -2158,6 +2169,7 @@ mod tests {
 
             let mut routine = ROUTINE.clone();
             routine.name = domain::Name::new("C").unwrap();
+            routine.notes = String::from("D");
             routine.archived = true;
             routine.sections = vec![];
 
@@ -2166,6 +2178,7 @@ mod tests {
                     .modify_routine(
                         routine.id,
                         Some(routine.name.clone()),
+                        Some(routine.notes.clone()),
                         Some(routine.archived),
                         Some(routine.sections.clone())
                     )
@@ -2192,6 +2205,7 @@ mod tests {
                 .modify_routine(
                     routine.id,
                     Some(routine.name.clone()),
+                    Some(routine.notes.clone()),
                     Some(routine.archived),
                     Some(routine.sections.clone())
                 )

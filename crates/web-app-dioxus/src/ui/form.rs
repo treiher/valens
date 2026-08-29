@@ -106,6 +106,51 @@ pub fn InputField(
 }
 
 #[component]
+pub fn TextAreaField(
+    value: String,
+    has_changed: bool,
+    /// Focus the text area on mount and place the caret at the end of the text.
+    #[props(default)]
+    autofocus: bool,
+    on_input: EventHandler<FormEvent>,
+    on_mounted: Option<EventHandler<web_sys::HtmlTextAreaElement>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    rsx! {
+        div {
+            class: "field",
+            div {
+                class: "control",
+                textarea {
+                    class: "textarea",
+                    class: if has_changed { "is-info" },
+                    oninput: on_input,
+                    onmounted: move |event: MountedEvent| async move {
+                        if autofocus {
+                            let _ = event.set_focus(true).await;
+                        }
+                        if let Some(element) = event.data().try_as_web_event()
+                            && let Some(textarea) = element.dyn_ref::<web_sys::HtmlTextAreaElement>()
+                        {
+                            if autofocus
+                                && let Ok(len) = u32::try_from(textarea.value().encode_utf16().count())
+                            {
+                                let _ = textarea.set_selection_range(len, len);
+                            }
+                            if let Some(on_mounted) = on_mounted {
+                                on_mounted.call(textarea.clone());
+                            }
+                        }
+                    },
+                    ..attributes,
+                    { value }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 pub fn FieldSet(children: Element, legend: String) -> Element {
     rsx! {
         fieldset { class: "fieldset mb-4",

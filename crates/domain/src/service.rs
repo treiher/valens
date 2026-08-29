@@ -211,20 +211,22 @@ impl<R: RoutineRepository + ScheduleRepository> RoutineService for Service<R> {
     async fn create_routine(
         &self,
         name: Name,
+        notes: String,
         sections: Vec<RoutinePart>,
     ) -> Result<Routine, CreateError> {
-        self.repository.create_routine(name, sections).await
+        self.repository.create_routine(name, notes, sections).await
     }
 
     async fn modify_routine(
         &self,
         id: RoutineID,
         name: Option<Name>,
+        notes: Option<String>,
         archived: Option<bool>,
         sections: Option<Vec<RoutinePart>>,
     ) -> Result<Routine, UpdateError> {
         self.repository
-            .modify_routine(id, name, archived, sections)
+            .modify_routine(id, name, notes, archived, sections)
             .await
     }
 

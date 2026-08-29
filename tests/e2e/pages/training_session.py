@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from .base import BasePage, Dialog
-from .utils import parse_float, parse_int
+from .utils import get_text, parse_float, parse_int
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -114,6 +114,10 @@ class TrainingSessionPage(BasePage):
     def set_notes(self, text: str) -> None:
         self.expect_edit_mode()
         self.page.get_by_test_id("session-notes").fill(text)
+
+    def get_displayed_notes(self) -> str:
+        self.expect_view_mode()
+        return get_text(self.page.get_by_test_id("session-notes-text"))
 
     def expect_set_action_button_disabled(self, index: int = 0) -> None:
         self.expect_edit_mode()

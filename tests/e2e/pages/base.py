@@ -68,6 +68,11 @@ class BasePage:
         self.page.get_by_test_id("options-rename").click()
         self.wait_until_idle()
 
+    def copy_item(self, index: int) -> None:
+        self._open_item_options(index)
+        self.page.get_by_test_id("options-copy").click()
+        self.wait_until_idle()
+
     @property
     def page_title(self) -> Locator:
         return self.page.get_by_test_id("page-title")

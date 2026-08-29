@@ -99,6 +99,14 @@ def _hover_gap(elements: Locator, index: int) -> None:
     )
 
 
+# The text content is read instead of the rendered text, because WebKit ignores
+# `white-space: pre-line` when determining the rendered text and drops the line breaks.
+def get_text(locator: Locator) -> str:
+    text = locator.text_content()
+    assert text is not None
+    return text.strip()
+
+
 def get_focused_selection(input_field: Locator) -> str:
     expect(input_field).to_be_focused()
     return input_field.evaluate(

@@ -605,6 +605,7 @@ impl domain::RoutineRepository for IndexedDB {
     async fn create_routine(
         &self,
         _name: domain::Name,
+        _notes: String,
         _sections: Vec<domain::RoutinePart>,
     ) -> Result<domain::Routine, domain::CreateError> {
         panic!("unsupported")
@@ -614,6 +615,7 @@ impl domain::RoutineRepository for IndexedDB {
         &self,
         id: domain::RoutineID,
         name: Option<domain::Name>,
+        notes: Option<String>,
         archived: Option<bool>,
         sections: Option<Vec<domain::RoutinePart>>,
     ) -> Result<domain::Routine, domain::UpdateError> {
@@ -624,6 +626,9 @@ impl domain::RoutineRepository for IndexedDB {
 
         if let Some(name) = name {
             routine.name = name;
+        }
+        if let Some(notes) = notes {
+            routine.notes = notes;
         }
         if let Some(archived) = archived {
             routine.archived = archived;
@@ -2522,7 +2527,11 @@ mod tests {
 
             assert_eq!(
                 IndexedDB
-                    .create_routine(ROUTINE.name.clone(), ROUTINE.sections.clone())
+                    .create_routine(
+                        ROUTINE.name.clone(),
+                        ROUTINE.notes.clone(),
+                        ROUTINE.sections.clone(),
+                    )
                     .await
                     .unwrap(),
                 ROUTINE.clone()
@@ -2551,6 +2560,7 @@ mod tests {
 
             let mut routine = ROUTINE.clone();
             routine.name = domain::Name::new("C").unwrap();
+            routine.notes = String::from("D");
             routine.archived = true;
             routine.sections = vec![];
 
@@ -2559,6 +2569,7 @@ mod tests {
                     .modify_routine(
                         routine.id,
                         Some(routine.name.clone()),
+                        Some(routine.notes.clone()),
                         Some(routine.archived),
                         Some(routine.sections.clone())
                     )

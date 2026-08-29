@@ -15,7 +15,7 @@ use crate::{
             ItemOptionsButton, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
             Title,
         },
-        form::{FieldValue, FieldValueState, InputField},
+        form::{FieldValue, FieldValueState, InputField, TextAreaField},
     },
 };
 
@@ -190,12 +190,25 @@ pub fn view_dialog(
         async move {
             let mut saved = false;
             is_loading! {
-                if let RoutineDialog::Add { name } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. } = &*dialog.read()
+                if let RoutineDialog::EditNotes { notes, routine_id } = &*dialog.read() {
+                    match DOMAIN_SERVICE()
+                        .modify_routine(*routine_id, None, Some(notes.input.trim().to_string()), None, None)
+                        .await
+                    {
+                        Ok(_) => {
+                            saved = true;
+                            consume_context::<Cache>().refresh_routines();
+                        }
+                        Err(err) => {
+                            notify("modify routine", &err);
+                        }
+                    }
+                } else if let RoutineDialog::Add { name } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. } = &*dialog.read()
                     && let Ok(name) = name.validated.clone() {
                         match &*dialog.read() {
                             RoutineDialog::Add { .. } => {
                                 match DOMAIN_SERVICE()
-                                    .create_routine(name, vec![])
+                                    .create_routine(name, String::new(), vec![])
                                     .await
                                 {
                                     Ok(_) => {
@@ -207,9 +220,9 @@ pub fn view_dialog(
                                     }
                                 }
                             }
-                            RoutineDialog::Copy { sections, .. } => {
+                            RoutineDialog::Copy { notes, sections, .. } => {
                                 match DOMAIN_SERVICE()
-                                    .create_routine(name, sections.clone())
+                                    .create_routine(name, notes.clone(), sections.clone())
                                     .await
                                 {
                                     Ok(_) => {
@@ -223,7 +236,7 @@ pub fn view_dialog(
                             }
                             RoutineDialog::Rename { routine_id, .. } => {
                                 match DOMAIN_SERVICE()
-                                    .modify_routine(*routine_id, Some(name), None, None)
+                                    .modify_routine(*routine_id, Some(name), None, None, None)
                                     .await
                                 {
                                     Ok(_) => {
@@ -272,7 +285,9 @@ pub fn view_dialog(
             let routine_sections = routine.sections.clone();
             let routine_for_text = routine.clone();
             let routine_name_copy = routine.name.clone();
+            let routine_notes_copy = routine.notes.clone();
             let routine_name_edit = routine.name.clone();
+            let routine_notes_edit = routine.notes.clone();
             rsx! {
                 OptionsMenu {
                     options: vec![
@@ -301,13 +316,24 @@ pub fn view_dialog(
                                 }
                             },
                             MenuOption {
+                                icon: "note-sticky".to_string(),
+                                text: "Edit notes".to_string(),
+                                "data-testid": "options-edit-notes",
+                                on_click: move |_| {
+                                    *dialog.write() = RoutineDialog::EditNotes {
+                                        notes: FieldValue::new(routine_notes_edit.clone()),
+                                        routine_id: routine.id,
+                                    };
+                                }
+                            },
+                            MenuOption {
                                 icon: (if routine.archived { "box-open" } else { "box-archive" }).to_string(),
                                 text: (if routine.archived { "Unarchive routine" } else { "Archive routine" }).to_string(),
                                 "data-testid": "options-archive",
                                 on_click: eh!(close_dialog; {
                                     async move {
                                         match DOMAIN_SERVICE()
-                                            .modify_routine(routine.id, None, Some(!routine.archived), None)
+                                            .modify_routine(routine.id, None, None, Some(!routine.archived), None)
                                             .await
                                         {
                                             Ok(_) => {
@@ -327,6 +353,7 @@ pub fn view_dialog(
                                 "data-testid": "options-copy",
                                 on_click: move |_| {
                                     let routine_name = routine_name_copy.clone();
+                                    let routine_notes = routine_notes_copy.clone();
                                     let routine_sections = routine_sections.clone();
                                     async move {
                                         let validated_name = DOMAIN_SERVICE().validate_routine_name(&routine_name.to_string(), domain::RoutineID::nil()).await.map_err(|err| err.to_string());
@@ -336,6 +363,7 @@ pub fn view_dialog(
                                                 validated: validated_name,
                                                 orig: routine_name.to_string(),
                                             },
+                                            notes: routine_notes,
                                             sections: routine_sections,
                                         };
                                     }
@@ -423,6 +451,27 @@ pub fn view_dialog(
                 }
             }
         },
+        RoutineDialog::EditNotes { notes, .. } => rsx! {
+            SaveDialog {
+                title: rsx! { "Routine notes" },
+                on_close: eh!(close_dialog; { close_dialog(); }),
+                on_save: save,
+                is_loading: is_loading(),
+                disabled: !notes.changed(),
+                TextAreaField {
+                    value: notes.orig.clone(),
+                    has_changed: notes.changed(),
+                    autofocus: true,
+                    "data-testid": "routine-notes-input",
+                    on_input: move |event: FormEvent| {
+                        if let RoutineDialog::EditNotes { notes, .. } = &mut *dialog.write() {
+                            notes.input = event.value();
+                            notes.validated = Ok(event.value());
+                        }
+                    }
+                }
+            }
+        },
         RoutineDialog::Delete(routine) => rsx! {
             DeleteConfirmationDialog {
                 element_type: "routine".to_string(),
@@ -490,10 +539,15 @@ pub enum RoutineDialog {
     },
     Copy {
         name: FieldValue<domain::Name>,
+        notes: String,
         sections: Vec<domain::RoutinePart>,
     },
     Rename {
         name: FieldValue<domain::Name>,
+        routine_id: domain::RoutineID,
+    },
+    EditNotes {
+        notes: FieldValue<String>,
         routine_id: domain::RoutineID,
     },
     Delete(domain::Routine),

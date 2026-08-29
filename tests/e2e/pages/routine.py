@@ -6,10 +6,11 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
-from .base import BasePage
+from .base import BasePage, Dialog
 from .utils import (
     drop_on_remove_zone,
     get_focused_selection,
+    get_text,
     hover_after_last,
     hover_at_height,
     hover_insertion_position,
@@ -28,6 +29,7 @@ class RoutinePage(BasePage):
         super().__init__(page, base_url)
 
         self.routine_id = routine_id
+        self.notes_dialog: RoutineNotesDialog = RoutineNotesDialog(page)
 
     @property
     def path(self) -> str:
@@ -274,11 +276,39 @@ class RoutinePage(BasePage):
                 break
         self.wait_until_idle()
 
+    def get_notes(self) -> str:
+        return get_text(self.page.get_by_test_id("routine-notes"))
+
+    def expect_no_notes(self) -> None:
+        expect(self.page.get_by_test_id("routine-notes")).to_have_count(0)
+
+    def click_notes(self) -> None:
+        self.page.get_by_test_id("routine-notes").click()
+        self.notes_dialog.wait_until_open()
+
+    def open_notes_dialog(self) -> None:
+        self.page.get_by_test_id("fab").click()
+        self.page.get_by_test_id("options-edit-notes").click()
+        self.notes_dialog.wait_until_open()
+
+    def set_notes(self, notes: str) -> None:
+        self.notes_dialog.set_notes(notes)
+        self.notes_dialog.save()
+        self.wait_until_idle()
+
     def show_as_text(self) -> str:
         self.page.get_by_test_id("fab").click()
         self.page.get_by_test_id("options-show-as-text").click()
         self.dialog.wait_until_open()
         return self.page.get_by_test_id("show-text-content").inner_text().strip()
+
+
+class RoutineNotesDialog(Dialog):
+    def get_notes(self) -> str:
+        return self.root.get_by_test_id("routine-notes-input").input_value()
+
+    def set_notes(self, notes: str) -> None:
+        self.root.get_by_test_id("routine-notes-input").fill(notes)
 
 
 @dataclass

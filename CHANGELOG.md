@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Routines page: Editing of the notes of a routine
+- Routine page: Notes of a routine
 - Exercises page:
     - Properties of custom exercises, copied from the catalog when an exercise is added from it
     - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Loading screen shown while the app is starting
+- Training session page: Notes preserving line breaks
 - Exercises page:
     - Filtering by muscles differentiating between primary and secondary muscles
     - Muscles of an exercise cycling through primary before secondary

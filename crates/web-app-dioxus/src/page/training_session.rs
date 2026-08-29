@@ -7,7 +7,6 @@ use dioxus::{prelude::*, web::WebEventExt};
 use futures_util::StreamExt;
 use gloo_timers::future::IntervalStream;
 use indexmap::IndexMap;
-use web_sys::wasm_bindgen::JsCast;
 
 use valens_domain::{self as domain, TrainingSessionService};
 use valens_web_app as web_app;
@@ -29,7 +28,7 @@ use crate::{
             ActivityBar, Block, CenteredBlock, Color, Dialog, ErrorPage, FloatingActionButton,
             Icon, Loading, LoadingDialog, LoadingPage, MenuOption, OptionsMenu, SaveDialog, Title,
         },
-        form::{Field, FieldValue, FieldValueState, InputField},
+        form::{FieldValue, FieldValueState, InputField, TextAreaField},
     },
     unsaved_changes::{UnsavedChangesDialog, use_unsaved_changes},
 };
@@ -1147,22 +1146,16 @@ fn Notes(notes: Signal<Option<FieldValue<String>>>, edit: ReadSignal<bool>) -> E
             CenteredBlock {
                 class: "px-2",
                 Title { "Notes" },
-                Field {
-                    label: "",
-                    textarea {
-                        class: "textarea",
-                        class: if changed { "is-info" },
-                        "data-testid": "session-notes",
-                        oninput: {
-                            move |event| {
-                                if let Some(n) = notes.write().as_mut() {
-                                    n.input = event.value();
-                                    n.validated = Ok(event.value());
-                                }
-                            }
-                        },
-                        { input },
-                    }
+                TextAreaField {
+                    value: input,
+                    has_changed: changed,
+                    "data-testid": "session-notes",
+                    on_input: move |event: FormEvent| {
+                        if let Some(n) = notes.write().as_mut() {
+                            n.input = event.value();
+                            n.validated = Ok(event.value());
+                        }
+                    },
                 }
             }
         }
@@ -1171,7 +1164,11 @@ fn Notes(notes: Signal<Option<FieldValue<String>>>, edit: ReadSignal<bool>) -> E
             if !orig.is_empty() {
                 CenteredBlock {
                     Title { "Notes" },
-                    p { { orig } }
+                    p {
+                        class: "is-preserving-line-breaks",
+                        "data-testid": "session-notes-text",
+                        { orig }
+                    }
                 }
             }
         }
@@ -1637,31 +1634,17 @@ fn ExerciseNoteDialog(
             }),
             is_loading: IS_LOADING(),
             disabled: IS_LOADING() || !changed,
-            div {
-                class: "field",
-                div {
-                    class: "control",
-                    textarea {
-                        class: "textarea",
-                        class: if changed { "is-info" },
-                        "data-testid": "exercise-note-input",
-                        oninput: move |event| {
-                            *note_input.write() = event.value();
-                        },
-                        onmounted: move |event| async move {
-                            let _ = event.set_focus(true).await;
-                            if let Some(element) = event.data().try_as_web_event()
-                                && let Some(textarea) = element.dyn_ref::<web_sys::HtmlTextAreaElement>()
-                            {
-                                if let Ok(len) = u32::try_from(textarea.value().encode_utf16().count()) {
-                                    let _ = textarea.set_selection_range(len, len);
-                                }
-                                textarea_element.set(Some(textarea.clone()));
-                            }
-                        },
-                        { note.clone() }
-                    }
-                }
+            TextAreaField {
+                value: note.clone(),
+                has_changed: changed,
+                autofocus: true,
+                "data-testid": "exercise-note-input",
+                on_input: move |event: FormEvent| {
+                    *note_input.write() = event.value();
+                },
+                on_mounted: move |textarea: web_sys::HtmlTextAreaElement| {
+                    textarea_element.set(Some(textarea));
+                },
             }
             if !previous_notes.is_empty() {
                 for (date, routine_name, note) in previous_notes {

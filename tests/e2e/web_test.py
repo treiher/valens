@@ -1043,6 +1043,22 @@ def test_training_session_change_notes(page: Page) -> None:
     assert p.get_notes() == new_notes
 
 
+def test_training_session_notes_line_breaks(page: Page) -> None:
+    workout = USER.workouts[0]
+    notes = "First line\nSecond line"
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.set_notes(notes)
+    p.save()
+    p.view()
+
+    assert p.get_displayed_notes() == notes
+
+
 def test_training_session_exercise_notes(page: Page) -> None:
     workout = USER.workouts[-2]
     exercise = next(e.exercise for e in workout.elements if isinstance(e, models.WorkoutSet))
@@ -1905,6 +1921,69 @@ def test_routine_remove_activity(page: Page) -> None:
 
     sections = p.get_sections()
     assert len(sections[0].parts) == 0
+
+
+def test_routine_notes(page: Page) -> None:
+    routine = USER.routines[0]
+    assert routine.notes is not None
+    notes = "First line\nSecond line"
+    updated_notes = "Updated notes"
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    assert p.get_notes() == routine.notes
+
+    p.open_notes_dialog()
+    assert p.notes_dialog.get_notes() == routine.notes
+    p.set_notes(notes)
+
+    assert p.get_notes() == notes
+
+    p.click_notes()
+    p.set_notes(updated_notes)
+
+    p.reload()
+    p.expect_page()
+
+    assert p.get_notes() == updated_notes
+
+
+def test_routine_without_notes(page: Page) -> None:
+    routine = USER.routines[1]
+    assert routine.notes is None
+    notes = "New notes"
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    p.expect_no_notes()
+
+    p.open_notes_dialog()
+    p.set_notes(notes)
+
+    assert p.get_notes() == notes
+
+
+def test_routine_copy_keeps_notes(page: Page) -> None:
+    routine = USER.routines[0]
+    assert routine.notes is not None
+    name = "Copied Routine"
+
+    login(page)
+    routines_page = RoutinesPage(page)
+    routines_page.goto()
+
+    routines_page.copy_item(0)
+    routines_page.dialog.set_name(name)
+    routines_page.dialog.save()
+
+    p = RoutinePage(page, routines_page.get_routine_id(name))
+    p.goto()
+
+    assert p.get_notes() == routine.notes
 
 
 def test_routine_show_as_text(page: Page) -> None:

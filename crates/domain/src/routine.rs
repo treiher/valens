@@ -19,12 +19,14 @@ pub trait RoutineService {
     async fn create_routine(
         &self,
         name: Name,
+        notes: String,
         sections: Vec<RoutinePart>,
     ) -> Result<Routine, CreateError>;
     async fn modify_routine(
         &self,
         id: RoutineID,
         name: Option<Name>,
+        notes: Option<String>,
         archived: Option<bool>,
         sections: Option<Vec<RoutinePart>>,
     ) -> Result<Routine, UpdateError>;
@@ -62,12 +64,14 @@ pub trait RoutineRepository {
     async fn create_routine(
         &self,
         name: Name,
+        notes: String,
         sections: Vec<RoutinePart>,
     ) -> Result<Routine, CreateError>;
     async fn modify_routine(
         &self,
         id: RoutineID,
         name: Option<Name>,
+        notes: Option<String>,
         archived: Option<bool>,
         sections: Option<Vec<RoutinePart>>,
     ) -> Result<Routine, UpdateError>;

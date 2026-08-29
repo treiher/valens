@@ -53,6 +53,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                 rsx! {
                     Title { "{routine.name}" }
                     {view_summary(routine)}
+                    {view_notes(routine, routine_dialog)}
                     {view_routine(routine, exercises, edit_dialog, drag, cache)}
                     {drag_and_drop::view_drag_overlay(drag, &DropTarget::Remove)}
                     if let CacheState::Ready(training_sessions) = training_sessions {
@@ -155,6 +156,32 @@ fn view_summary(routine: &domain::Routine) -> Element {
                         strong { "{routine.num_sets()}" }
                     }
                 }
+            }
+        }
+    }
+}
+
+fn view_notes(
+    routine: &domain::Routine,
+    mut routine_dialog: Signal<page::routines::RoutineDialog>,
+) -> Element {
+    if routine.notes.is_empty() {
+        return rsx! {};
+    }
+    let notes = routine.notes.clone();
+    let routine_id = routine.id;
+    rsx! {
+        CenteredBlock {
+            div {
+                class: "is-clickable is-italic has-text-centered is-preserving-line-breaks",
+                "data-testid": "routine-notes",
+                onclick: eh!(notes; {
+                    *routine_dialog.write() = page::routines::RoutineDialog::EditNotes {
+                        notes: FieldValue::new(notes.clone()),
+                        routine_id,
+                    };
+                }),
+                { notes.clone() }
             }
         }
     }
@@ -1157,7 +1184,7 @@ async fn modify_routine_sections(
 ) {
     let _loading = LoadingFlag::set(&IS_LOADING);
     match DOMAIN_SERVICE()
-        .modify_routine(routine.id, None, None, Some(routine.sections))
+        .modify_routine(routine.id, None, None, None, Some(routine.sections))
         .await
     {
         Ok(_) => {

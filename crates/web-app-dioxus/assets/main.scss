@@ -618,6 +618,10 @@ div.is-calendar {
   word-break: normal;
 }
 
+.is-preserving-line-breaks {
+  white-space: pre-line;
+}
+
 // Text decoration
 
 .is-undecorated {

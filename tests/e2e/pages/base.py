@@ -23,6 +23,7 @@ class BasePage:
 
         self.navbar = Navbar(page)
         self.dialog = Dialog(page)
+        self.unsaved_changes_dialog = UnsavedChangesDialog(page)
         self.table = Table(page)
         self.activity_bar = ActivityBar(page)
         self.notification = Notification(page)
@@ -148,6 +149,21 @@ class Dialog(PageElement):
     def close(self) -> None:
         self.page.get_by_test_id("dialog-close").click()
         self.wait_until_closed()
+
+
+class UnsavedChangesDialog(Dialog):
+    """Warning shown when leaving a page with unsaved changes."""
+
+    def stay(self) -> None:
+        self.root.get_by_test_id("dialog-stay").click()
+        self.wait_until_closed()
+
+    def leave(self) -> None:
+        self.root.get_by_test_id("dialog-leave").click()
+        self.wait_until_closed()
+
+    def expect_closed(self) -> None:
+        expect(self.root).to_have_count(0)
 
 
 class NestedDialog(Dialog):
@@ -310,6 +326,7 @@ class BaseDialog(PageElement):
         super().__init__(page)
         self.navbar = Navbar(page)
         self.dialog = Dialog(page)
+        self.unsaved_changes_dialog = UnsavedChangesDialog(page)
         self.notification = Notification(page)
 
     @abstractmethod

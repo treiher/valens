@@ -17,6 +17,12 @@ def skip_without_devtools_protocol(request: pytest.FixtureRequest, browser_name:
 
 
 @pytest.fixture(autouse=True)
+def skip_incompatible_firefox(request: pytest.FixtureRequest, browser_name: str) -> None:
+    if browser_name == "firefox" and request.node.get_closest_marker("firefox_incompatible"):
+        pytest.skip("test requires behavior which Firefox does not provide")
+
+
+@pytest.fixture(autouse=True)
 def skip_incompatible_webkit(request: pytest.FixtureRequest, browser_name: str) -> None:
     if browser_name == "webkit" and request.node.get_closest_marker("webkit_incompatible"):
         pytest.skip("test requires behavior which WebKit does not provide")

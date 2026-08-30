@@ -11,7 +11,7 @@ from subprocess import PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
 
 import pytest
-from playwright.sync_api import Browser, Page, Route, expect
+from playwright.sync_api import Browser, Dialog, Page, Route, expect
 
 import tests.utils
 from valens import app, models
@@ -987,6 +987,113 @@ def test_training_session_change_entries(page: Page) -> None:
     p.edit()
 
     assert p.get_form() == [new_values, *sets[1:]]
+
+
+def test_training_session_unsaved_changes_stay(page: Page) -> None:
+    workout = USER.workouts[-1]
+    new_values = (1, 2, 3, 4)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+    sets = p.get_form()
+    p.set_form(0, new_values)
+
+    p.navbar.go_back()
+
+    p.unsaved_changes_dialog.wait_until_open()
+    p.unsaved_changes_dialog.stay()
+
+    p.expect_page()
+    assert p.get_form() == [new_values, *sets[1:]]
+
+
+def test_training_session_unsaved_changes_leave(page: Page) -> None:
+    workout = USER.workouts[-1]
+    new_values = (1, 2, 3, 4)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+    sets = p.get_form()
+    p.set_form(0, new_values)
+
+    p.navbar.go_back()
+
+    p.unsaved_changes_dialog.wait_until_open()
+    p.unsaved_changes_dialog.leave()
+
+    TrainingSessionsPage(page).expect_page()
+
+    p.goto()
+    p.edit()
+    assert p.get_form() == sets
+
+
+def test_training_session_no_unsaved_changes_warning(page: Page) -> None:
+    workout = USER.workouts[-1]
+    new_values = (1, 2, 3, 4)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.navbar.go_back()
+    TrainingSessionsPage(page).expect_page()
+    p.unsaved_changes_dialog.expect_closed()
+
+    p.goto()
+    p.edit()
+    p.set_form(0, new_values)
+    p.save()
+
+    p.navbar.go_back()
+    TrainingSessionsPage(page).expect_page()
+    p.unsaved_changes_dialog.expect_closed()
+
+    p.goto()
+    p.edit()
+    original = p.get_form_text(0)
+    p.set_form(0, (5, 6, 7, 8))
+    p.set_form_text(0, original)
+
+    p.navbar.go_back()
+    TrainingSessionsPage(page).expect_page()
+    p.unsaved_changes_dialog.expect_closed()
+
+
+# Firefox does not surface `beforeunload` dialogs when driven by Playwright.
+@pytest.mark.firefox_incompatible
+def test_training_session_unsaved_changes_before_unload(page: Page) -> None:
+    workout = USER.workouts[-1]
+    new_values = (1, 2, 3, 4)
+    dialogs: list[str] = []
+
+    def handle_dialog(dialog: Dialog) -> None:
+        dialogs.append(dialog.type)
+        dialog.accept()
+
+    # The handler is registered on the page instead of the fixture, because the default handling of
+    # Playwright is required by tests which reload a page with unsaved changes.
+    page.on("dialog", handle_dialog)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.reload()
+    p.expect_page()
+    assert dialogs == []
+
+    p.edit()
+    p.set_form(0, new_values)
+
+    p.reload()
+    assert dialogs == ["beforeunload"]
 
 
 def test_training_session_input_modes(page: Page) -> None:

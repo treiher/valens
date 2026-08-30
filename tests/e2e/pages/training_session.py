@@ -9,7 +9,7 @@ from .base import BasePage, Dialog
 from .utils import get_text, parse_float, parse_int
 
 if TYPE_CHECKING:
-    from playwright.sync_api import Page
+    from playwright.sync_api import Locator, Page
 
 
 class TrainingSessionPage(BasePage):
@@ -90,15 +90,24 @@ class TrainingSessionPage(BasePage):
     def set_form(
         self, index: int, values: tuple[int | None, int | None, float | None, float | None]
     ) -> None:
+        self.set_form_text(index, tuple(str(v) if v is not None else "" for v in values))
+
+    def get_form_text(self, index: int) -> tuple[str, ...]:
         self.expect_edit_mode()
-        inputs_in_row = [
+        return tuple(inp.input_value() for inp in self._form_inputs(index))
+
+    def set_form_text(self, index: int, values: tuple[str, ...]) -> None:
+        self.expect_edit_mode()
+        for inp, val in zip(self._form_inputs(index), values, strict=False):
+            inp.fill(val)
+
+    def _form_inputs(self, index: int) -> list[Locator]:
+        return [
             inputs_in_row
             for row in self.page.locator("table tr").all()
             for inputs_in_row in [row.locator("input").all()]
             if len(inputs_in_row) == 4
         ][index]
-        for inp, val in zip(inputs_in_row, values, strict=False):
-            inp.fill(str(val) if val is not None else "")
 
     def get_set_numbers(self, count: int) -> list[str]:
         expect(self.page.get_by_test_id("set-number").nth(count - 1)).to_be_visible()

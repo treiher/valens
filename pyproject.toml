@@ -226,6 +226,7 @@ addopts = "--tb=short"
 faulthandler_timeout = 120
 markers = [
     "chromium_only: test depends on the Chrome DevTools Protocol",
+    "firefox_incompatible: test depends on behavior which Firefox does not provide",
     "webkit_incompatible: test depends on behavior which WebKit does not provide",
 ]
 filterwarnings = [

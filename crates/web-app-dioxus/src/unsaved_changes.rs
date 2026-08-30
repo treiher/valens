@@ -87,6 +87,7 @@ pub fn UnsavedChangesDialog() -> Element {
                     onclick: close,
                     button {
                         class: "button is-light is-soft",
+                        "data-testid": "dialog-stay",
                         "Stay"
                     }
                 }
@@ -101,6 +102,7 @@ pub fn UnsavedChangesDialog() -> Element {
                     },
                     button {
                         class: "button is-danger",
+                        "data-testid": "dialog-leave",
                         "Leave"
                     }
                 }

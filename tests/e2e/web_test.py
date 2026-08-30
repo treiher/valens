@@ -1166,7 +1166,7 @@ def test_training_session_notes_line_breaks(page: Page) -> None:
     assert p.get_displayed_notes() == notes
 
 
-def test_training_session_exercise_notes(page: Page) -> None:
+def test_training_session_session_exercise_notes(page: Page) -> None:
     workout = USER.workouts[-2]
     exercise = next(e.exercise for e in workout.elements if isinstance(e, models.WorkoutSet))
     earlier_note = next(
@@ -1180,26 +1180,53 @@ def test_training_session_exercise_notes(page: Page) -> None:
     p.goto()
     p.edit()
 
-    p.edit_exercise_note(note)
-    assert p.get_exercise_note() == note
+    p.edit_session_exercise_notes(note)
+    assert p.get_session_exercise_notes() == note
 
-    p.click_exercise_note()
-    assert p.exercise_note_dialog.get_note() == note
+    p.click_session_exercise_notes()
+    assert p.session_exercise_notes_dialog.get_note() == note
 
-    p.exercise_note_dialog.set_note(updated_note)
-    p.exercise_note_dialog.save()
-    assert p.get_exercise_note() == updated_note
+    p.session_exercise_notes_dialog.set_note(updated_note)
+    p.session_exercise_notes_dialog.save()
+    assert p.get_session_exercise_notes() == updated_note
 
-    p.click_exercise_note()
-    assert any(earlier_note in n for n in p.exercise_note_dialog.get_previous_notes())
-    p.exercise_note_dialog.reuse_previous_note()
-    assert p.exercise_note_dialog.get_note() == earlier_note
-    p.exercise_note_dialog.save()
-    assert p.get_exercise_note() == earlier_note
+    p.click_session_exercise_notes()
+    assert any(earlier_note in n for n in p.session_exercise_notes_dialog.get_previous_notes())
+    p.session_exercise_notes_dialog.reuse_previous_note()
+    assert p.session_exercise_notes_dialog.get_note() == earlier_note
+    p.session_exercise_notes_dialog.save()
+    assert p.get_session_exercise_notes() == earlier_note
 
     exercise_page = ExercisePage(page, exercise.id)
     exercise_page.goto()
-    expect(exercise_page.exercise_note().filter(has_text=earlier_note)).to_have_count(2)
+    expect(exercise_page.session_exercise_notes().filter(has_text=earlier_note)).to_have_count(2)
+
+
+def test_training_session_exercise_notes(page: Page) -> None:
+    workout = USER.workouts[0]
+    exercise = next(e.exercise for e in workout.elements if isinstance(e, models.WorkoutSet))
+    assert exercise.notes is not None
+    session_note = next(n.notes for n in workout.exercise_notes if n.exercise_id == exercise.id)
+    notes = "Updated exercise notes"
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    assert p.get_exercise_notes() == exercise.notes
+    assert p.get_session_exercise_notes() == session_note
+
+    p.click_exercise_notes()
+    p.set_exercise_notes(notes)
+
+    assert p.get_exercise_notes() == notes
+    assert p.get_session_exercise_notes() == session_note
+
+    exercise_page = ExercisePage(page, exercise.id)
+    exercise_page.goto()
+
+    assert exercise_page.get_notes() == notes
 
 
 def test_training_session_1rm_calculator(page: Page) -> None:
@@ -2635,6 +2662,20 @@ def test_exercises_copy(page: Page) -> None:
     assert new_name in {e[0] for e in p.table.get_body(1)}
 
 
+def test_exercises_copy_keeps_notes(page: Page) -> None:
+    exercise = next(e for e in USER.exercises if e.notes)
+    new_name = "Copied Exercise"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+
+    p.copy_exercise(sorted(CURRENT_WORKOUT_EXERCISES).index(exercise.name), new_name)
+    p.open_exercise(new_name)
+
+    assert ExercisePage(page).get_notes() == exercise.notes
+
+
 def test_exercises_rename(page: Page) -> None:
     current_name = sorted(CURRENT_WORKOUT_EXERCISES)[0]
     new_name = "Changed Exercise"
@@ -2766,6 +2807,48 @@ def test_exercise_change_properties(page: Page) -> None:
     p.reload()
 
     assert p.get_properties() == []
+
+
+def test_exercise_notes(page: Page) -> None:
+    exercise = next(e for e in USER.exercises if e.notes)
+    notes = "First line\nSecond line"
+    updated_notes = "Updated notes"
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+
+    assert p.get_notes() == exercise.notes
+
+    p.open_notes_dialog()
+    assert p.notes_dialog.get_notes() == exercise.notes
+    p.set_notes(notes)
+
+    assert p.get_notes() == notes
+
+    p.click_notes()
+    p.set_notes(updated_notes)
+
+    p.reload()
+    p.expect_page()
+
+    assert p.get_notes() == updated_notes
+
+
+def test_exercise_without_notes(page: Page) -> None:
+    exercise = next(e for e in USER.exercises if not e.notes)
+    notes = "New notes"
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+
+    p.expect_no_notes()
+
+    p.open_notes_dialog()
+    p.set_notes(notes)
+
+    assert p.get_notes() == notes
 
 
 def test_muscles(page: Page) -> None:

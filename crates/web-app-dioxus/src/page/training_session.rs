@@ -364,6 +364,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     });
 
     let edit_dialog = use_signal(|| EditDialog::None);
+    let exercise_dialog = use_signal(|| page::exercises::ExerciseDialog::None);
     let mut notes =
         use_signal(move || training_session().map(|ts| FieldValue::new(ts.notes.clone())));
     use_effect(move || {
@@ -447,13 +448,14 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, training_session, exercises, settings, cache, element_elements)},
+                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, exercises, settings, cache, element_elements)},
                 } else {
                     {view_list(training_session, exercises, settings)},
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
-                {view_edit_dialog(edit_dialog, field_values, training_sessions, cache)}
+                {view_edit_dialog(edit_dialog, exercise_dialog, field_values, training_sessions, cache)}
+                {page::exercises::view_dialog(exercise_dialog, None)}
                 if let Some(ongoing) = ongoing.get().filter(|o| o.training_session_id == id.as_u128()) {
                     OngoingSessionBar {
                         start_time: ongoing.start_time,
@@ -646,6 +648,7 @@ fn view_form(
     mut progress: Store<Progress>,
     focus: SetFocus,
     mut edit_dialog: Signal<EditDialog>,
+    exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     training_session: &domain::TrainingSession,
     exercises: &[domain::Exercise],
     settings: Settings,
@@ -679,16 +682,23 @@ fn view_form(
         let exercise_names = exercise_ids.iter().enumerate().map(|(i, id)| {
             let name = exercise_name(*id, exercises);
             let number = exercise_number(id, &exercise_ids);
+            let notes = exercises
+                .iter()
+                .find(|e| e.id == *id)
+                .map(|e| e.notes.clone())
+                .unwrap_or_default();
+            let notes_are_empty = notes.is_empty();
             let note = training_session.exercise_notes.get(id).cloned().unwrap_or_default();
             let note_is_empty = note.is_empty();
             let exercise_id = *id;
+            let is_last_exercise = i == exercise_ids_len - 1;
             rsx! {
                 tr {
                     class: if is_current_section { "" } else { "is-semitransparent" },
                     td {
                         class: "has-text-centered has-text-weight-bold",
                         class: if i == 0 { "pt-2" },
-                        class: if i == exercise_ids_len - 1 && note_is_empty { "pb-1" },
+                        class: if is_last_exercise && notes_are_empty && note_is_empty { "pb-1" },
                         colspan: 6,
                         if let Some(number) = number {
                             span{
@@ -716,18 +726,42 @@ fn view_form(
                         }
                     }
                 }
+                if !notes_are_empty {
+                    tr {
+                        class: if is_current_section { "" } else { "is-semitransparent" },
+                        td {
+                            class: "px-2",
+                            class: if is_last_exercise && note_is_empty { "pb-1" },
+                            colspan: 6,
+                            div {
+                                class: "is-clickable is-italic is-size-7 has-text-grey has-text-centered is-preserving-line-breaks",
+                                "data-testid": "exercise-notes",
+                                onclick: eh!(mut exercise_dialog; {
+                                    if let CacheState::Ready(exercises) = &*cache.exercises.read()
+                                        && let Some(exercise) = exercises.iter().find(|e| e.id == exercise_id).cloned()
+                                    {
+                                        *exercise_dialog.write() = page::exercises::ExerciseDialog::EditNotes {
+                                            exercise,
+                                        };
+                                    }
+                                }),
+                                { notes.clone() }
+                            }
+                        }
+                    }
+                }
                 if !note_is_empty {
                     tr {
                         class: if is_current_section { "" } else { "is-semitransparent" },
                         td {
                             class: "px-2",
-                            class: if i == exercise_ids_len - 1 { "pb-1" },
+                            class: if is_last_exercise { "pb-1" },
                             colspan: 6,
                             div {
                                 class: "is-clickable is-italic has-text-centered",
-                                "data-testid": "exercise-note",
+                                "data-testid": "session-exercise-notes",
                                 onclick: eh!(mut edit_dialog; training_session; {
-                                    *edit_dialog.write() = EditDialog::ExerciseNote {
+                                    *edit_dialog.write() = EditDialog::SessionExerciseNotes {
                                         training_session,
                                         exercise_id,
                                     };
@@ -1217,7 +1251,7 @@ fn view_list(
                             colspan: 5,
                             div {
                                 class: "is-italic has-text-centered",
-                                "data-testid": "exercise-note",
+                                "data-testid": "session-exercise-notes",
                                 { note }
                             }
                         }
@@ -1336,6 +1370,7 @@ fn view_muscles(
 
 fn view_edit_dialog(
     mut edit_dialog: Signal<EditDialog>,
+    exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
     training_sessions: &[domain::TrainingSession],
     cache: Cache,
@@ -1359,15 +1394,38 @@ fn view_edit_dialog(
                     OptionsMenu {
                         options: vec![
                             rsx! {
+                                {
+                                    let sections = training_session.compute_sections();
+                                    let exercise_ids = unique(sections[*section_idx].exercise_ids());
+                                    let exercise_id = exercise_ids[*exercise_idx];
+                                    let exercise = if let CacheState::Ready(exercises) = &*cache.exercises.read() {
+                                        exercises.iter().find(|e| e.id == exercise_id).cloned()
+                                    } else {
+                                        None
+                                    };
+                                    rsx! {
+                                        if let Some(exercise) = exercise {
+                                            MenuOption {
+                                                icon: "note-sticky".to_string(),
+                                                text: "Edit exercise notes".to_string(),
+                                                "data-testid": "options-edit-exercise-notes",
+                                                on_click: eh!(mut edit_dialog, exercise_dialog; exercise; {
+                                                    *edit_dialog.write() = EditDialog::None;
+                                                    *exercise_dialog.write() = page::exercises::ExerciseDialog::EditNotes { exercise };
+                                                })
+                                            }
+                                        }
+                                    }
+                                },
                                 MenuOption {
                                     icon: "file-lines".to_string(),
-                                    text: "Show exercise notes".to_string(),
-                                    "data-testid": "options-show-exercise-notes",
+                                    text: "Show notes for this session".to_string(),
+                                    "data-testid": "options-show-session-notes",
                                     on_click: eh!(mut edit_dialog; training_session, section_idx, exercise_idx; {
                                         let sections = training_session.compute_sections();
                                         let exercise_ids = unique(sections[section_idx].exercise_ids());
                                         let exercise_id = exercise_ids[exercise_idx];
-                                        *edit_dialog.write() = EditDialog::ExerciseNote { training_session, exercise_id };
+                                        *edit_dialog.write() = EditDialog::SessionExerciseNotes { training_session, exercise_id };
                                     })
                                 },
                                 {
@@ -1569,12 +1627,12 @@ fn view_edit_dialog(
                 }
             }
         }
-        EditDialog::ExerciseNote {
+        EditDialog::SessionExerciseNotes {
             training_session,
             exercise_id,
         } => {
             rsx! {
-                ExerciseNoteDialog {
+                SessionExerciseNotesDialog {
                     training_session: training_session.clone(),
                     exercise_id: *exercise_id,
                     on_save: move |ts| save(ts, cache, close_dialog),
@@ -1586,7 +1644,7 @@ fn view_edit_dialog(
 }
 
 #[component]
-fn ExerciseNoteDialog(
+fn SessionExerciseNotesDialog(
     training_session: domain::TrainingSession,
     exercise_id: domain::ExerciseID,
     on_save: EventHandler<domain::TrainingSession>,
@@ -1621,7 +1679,7 @@ fn ExerciseNoteDialog(
         };
     rsx! {
         SaveDialog {
-            title: rsx! { "Exercise notes" },
+            title: rsx! { "Notes for this session" },
             on_close,
             on_save: eh!(mut training_session; exercise_id; {
                 let note = note_input.read().trim().to_string();
@@ -1638,7 +1696,7 @@ fn ExerciseNoteDialog(
                 value: note.clone(),
                 has_changed: changed,
                 autofocus: true,
-                "data-testid": "exercise-note-input",
+                "data-testid": "session-exercise-notes-input",
                 on_input: move |event: FormEvent| {
                     *note_input.write() = event.value();
                 },
@@ -1655,12 +1713,12 @@ fn ExerciseNoteDialog(
                         }
                         div {
                             class: "is-relative is-italic has-text-centered mb-2",
-                            "data-testid": "previous-exercise-note",
+                            "data-testid": "previous-session-exercise-note",
                             {note.clone()}
                             button {
                                 class: "button is-overlay-top-right p-0 mr-2",
                                 r#type: "button",
-                                "data-testid": "exercise-note-reuse",
+                                "data-testid": "session-exercise-notes-reuse",
                                 onclick: move |_| {
                                     note_input.write().clone_from(&note);
                                     if let Some(textarea) = textarea_element.read().as_ref() {
@@ -1843,7 +1901,7 @@ pub enum EditDialog {
     AppendExercise {
         training_session: domain::TrainingSession,
     },
-    ExerciseNote {
+    SessionExerciseNotes {
         training_session: domain::TrainingSession,
         exercise_id: domain::ExerciseID,
     },

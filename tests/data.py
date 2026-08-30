@@ -56,6 +56,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
         id=3,
         user_id=1,
         name="Exercise 3",
+        notes="Exercise 3 Notes\nSecond line",
         muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=50)],
     )
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 4")

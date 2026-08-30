@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Training session page: Notes of an exercise
 - Routines page: Editing of the notes of a routine
 - Routine page: Notes of a routine
 - Exercises page:
@@ -17,15 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Filtering of custom exercises by their properties, including a "Not Set" option
     - Filling of properties and muscles of custom exercises from catalog exercises with a matching name, filling only missing values or replacing all values
     - Editing of muscles, force, mechanic, laterality, assistance, equipment and category while an exercise is added, prefilled with the values selected in the filter
+    - Editing of the notes of an exercise
 - Exercise page:
     - Tags showing the properties of the exercise
     - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
+    - Notes of an exercise
 - Settings dialog: Beep at the selected volume when the beep volume is changed
 
 ### Changed
 
 - Loading screen shown while the app is starting
-- Training session page: Notes preserving line breaks
+- Training session page:
+    - Notes preserving line breaks
+    - Name of the session-specific notes of an exercise to "Notes for this session"
 - Exercises page:
     - Filtering by muscles differentiating between primary and secondary muscles
     - Muscles of an exercise cycling through primary before secondary

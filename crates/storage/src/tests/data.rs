@@ -77,6 +77,7 @@ pub static EXERCISE: std::sync::LazyLock<domain::Exercise> =
     std::sync::LazyLock::new(|| domain::Exercise {
         id: 1.into(),
         name: domain::Name::new("A").unwrap(),
+        notes: String::from("C"),
         muscles: vec![domain::ExerciseMuscle {
             muscle_id: domain::MuscleID::Abs,
             stimulus: domain::Stimulus::PRIMARY,
@@ -93,6 +94,7 @@ pub static EXERCISE_2: std::sync::LazyLock<domain::Exercise> =
     std::sync::LazyLock::new(|| domain::Exercise {
         id: 2.into(),
         name: domain::Name::new("B").unwrap(),
+        notes: String::new(),
         muscles: vec![domain::ExerciseMuscle {
             muscle_id: domain::MuscleID::Pecs,
             stimulus: domain::Stimulus::PRIMARY,

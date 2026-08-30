@@ -566,6 +566,7 @@ impl domain::ExerciseRepository for IndexedDB {
     async fn create_exercise(
         &self,
         _name: domain::Name,
+        _notes: String,
         _muscles: Vec<domain::ExerciseMuscle>,
         _force: Option<domain::Force>,
         _mechanic: Option<domain::Mechanic>,
@@ -944,6 +945,8 @@ impl TryFrom<Period> for domain::Period {
 pub struct Exercise {
     pub id: Uuid,
     pub name: String,
+    #[serde(default)]
+    pub notes: Option<String>,
     pub muscles: Vec<ExerciseMuscle>,
     #[serde(default)]
     pub force: Option<u8>,
@@ -964,6 +967,7 @@ impl From<domain::Exercise> for Exercise {
         Self {
             id: *value.id,
             name: value.name.to_string(),
+            notes: Some(value.notes),
             muscles: value
                 .muscles
                 .into_iter()
@@ -984,6 +988,7 @@ impl From<&domain::Exercise> for Exercise {
         Self {
             id: *value.id,
             name: value.name.to_string(),
+            notes: Some(value.notes.clone()),
             muscles: value
                 .muscles
                 .iter()
@@ -1007,6 +1012,7 @@ impl TryFrom<Exercise> for domain::Exercise {
         Ok(Self {
             id: value.id.into(),
             name: domain::Name::new(&value.name)?,
+            notes: value.notes.unwrap_or_default(),
             muscles: value
                 .muscles
                 .into_iter()
@@ -2432,6 +2438,7 @@ mod tests {
                 IndexedDB
                     .create_exercise(
                         EXERCISE.name.clone(),
+                        EXERCISE.notes.clone(),
                         EXERCISE.muscles.clone(),
                         EXERCISE.force,
                         EXERCISE.mechanic,

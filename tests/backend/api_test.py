@@ -22,6 +22,7 @@ CONFLICT_DETAILS = {
 }
 
 UNSET_EXERCISE_PROPERTIES: dict[str, object] = {
+    "notes": None,
     "force": None,
     "mechanic": None,
     "laterality": None,
@@ -31,6 +32,7 @@ UNSET_EXERCISE_PROPERTIES: dict[str, object] = {
 }
 
 EXERCISE_1_PROPERTIES: dict[str, object] = {
+    "notes": None,
     "force": 1,
     "mechanic": 1,
     "laterality": 2,
@@ -329,7 +331,17 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             )
             for invalid_property in INVALID_EXERCISE_PROPERTIES
         ],
+        (
+            "post",
+            "/api/exercises",
+            {"name": "A", "muscles": [], **UNSET_EXERCISE_PROPERTIES, "notes": 1},
+        ),
         ("put", "/api/exercises/1", {"invalid": "data"}),
+        (
+            "put",
+            "/api/exercises/1",
+            {"name": "A", "muscles": [], **UNSET_EXERCISE_PROPERTIES, "notes": 1},
+        ),
         (
             "put",
             "/api/exercises/1",
@@ -1069,6 +1081,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                     "name": "Exercise 3",
                     "muscles": [{"muscle_id": 11, "stimulus": 50}],
                     **UNSET_EXERCISE_PROPERTIES,
+                    "notes": "Exercise 3 Notes\nSecond line",
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
                 {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
@@ -1472,6 +1485,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
             {
                 "id": 7,
                 "name": "New Exercise",
+                "notes": "New Notes",
                 "muscles": [{"muscle_id": 11, "stimulus": 100}, {"muscle_id": 21, "stimulus": 50}],
                 "force": 2,
                 "mechanic": 2,
@@ -1492,11 +1506,13 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "name": "Exercise 3",
                     "muscles": [{"muscle_id": 11, "stimulus": 50}],
                     **UNSET_EXERCISE_PROPERTIES,
+                    "notes": "Exercise 3 Notes\nSecond line",
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
                 {
                     "id": 7,
                     "name": "New Exercise",
+                    "notes": "New Notes",
                     "muscles": [
                         {"muscle_id": 11, "stimulus": 100},
                         {"muscle_id": 21, "stimulus": 50},
@@ -2193,6 +2209,31 @@ def test_update_routine_rejects_unknown_exercise(client: Client, exercise_id: in
     assert resp.json == {"details": "routine references an unknown exercise"}
 
 
+@pytest.mark.parametrize("notes", [None, ""])
+def test_replace_exercise_clears_notes(client: Client, notes: str | None) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.put(
+        "/api/exercises/3",
+        json={
+            "name": "Exercise 3",
+            "muscles": [{"muscle_id": 11, "stimulus": 50}],
+            **UNSET_EXERCISE_PROPERTIES,
+            "notes": notes,
+        },
+    )
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json == {
+        "id": 3,
+        "name": "Exercise 3",
+        "muscles": [{"muscle_id": 11, "stimulus": 50}],
+        **UNSET_EXERCISE_PROPERTIES,
+        "notes": notes,
+    }
+
+
 def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
     tests.utils.init_db_data()
     assert create_session(client).status_code == HTTPStatus.OK
@@ -2277,6 +2318,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
             "/api/exercises/1",
             {
                 "name": "Changed Exercise",
+                "notes": "Changed Notes",
                 "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
                 "force": None,
                 "mechanic": 2,
@@ -2288,6 +2330,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
             {
                 "id": 1,
                 "name": "Changed Exercise",
+                "notes": "Changed Notes",
                 "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
                 "force": None,
                 "mechanic": 2,
@@ -2300,6 +2343,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                 {
                     "id": 1,
                     "name": "Changed Exercise",
+                    "notes": "Changed Notes",
                     "muscles": [
                         {"muscle_id": 11, "stimulus": 50},
                         {"muscle_id": 21, "stimulus": 100},
@@ -2316,6 +2360,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     "name": "Exercise 3",
                     "muscles": [{"muscle_id": 11, "stimulus": 50}],
                     **UNSET_EXERCISE_PROPERTIES,
+                    "notes": "Exercise 3 Notes\nSecond line",
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
                 {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},

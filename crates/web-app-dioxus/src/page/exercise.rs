@@ -13,8 +13,8 @@ use crate::{
     eh, page,
     settings::Settings,
     ui::element::{
-        Block, CenteredTags, ElementWithDescription, Error, ErrorPage, FloatingActionButton,
-        Loading, LoadingPage, NoData, NoWrap, Title,
+        Block, CenteredBlock, CenteredTags, ElementWithDescription, Error, ErrorPage,
+        FloatingActionButton, Loading, LoadingPage, NoData, NoWrap, Title,
     },
 };
 
@@ -52,6 +52,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                             )},
                         }
                     }
+                    {view_notes(exercise, exercise_dialog)}
                     match (&*cache.training_sessions.read(), &*cache.routines.read()) {
                         (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => {
                             let training_sessions = training_sessions
@@ -457,6 +458,30 @@ fn view_calendar(
     }
 }
 
+fn view_notes(
+    exercise: &domain::Exercise,
+    mut exercise_dialog: Signal<page::exercises::ExerciseDialog>,
+) -> Element {
+    if exercise.notes.is_empty() {
+        return rsx! {};
+    }
+    let notes = exercise.notes.clone();
+    rsx! {
+        CenteredBlock {
+            div {
+                class: "is-clickable is-italic has-text-centered is-preserving-line-breaks",
+                "data-testid": "exercise-notes",
+                onclick: eh!(exercise; {
+                    *exercise_dialog.write() = page::exercises::ExerciseDialog::EditNotes {
+                        exercise: exercise.clone(),
+                    };
+                }),
+                { notes.clone() }
+            }
+        }
+    }
+}
+
 fn view_sets(
     exercise_id: domain::ExerciseID,
     training_sessions: &[domain::TrainingSession],
@@ -506,7 +531,7 @@ fn view_sets(
                 if !note.is_empty() {
                     div {
                         class: "is-italic has-text-centered mb-2",
-                        "data-testid": "exercise-note",
+                        "data-testid": "session-exercise-notes",
                         { note.clone() }
                     }
                 }

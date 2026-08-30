@@ -1352,6 +1352,7 @@ mod tests {
         domain::Exercise {
             id: id.into(),
             name: domain::Name::new(name).unwrap(),
+            notes: String::new(),
             muscles: vec![],
             force: None,
             mechanic: None,

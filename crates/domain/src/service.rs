@@ -179,6 +179,7 @@ impl<R: ExerciseRepository> ExerciseService for Service<R> {
     async fn create_exercise(
         &self,
         name: Name,
+        notes: String,
         muscles: Vec<ExerciseMuscle>,
         force: Option<Force>,
         mechanic: Option<Mechanic>,
@@ -189,7 +190,7 @@ impl<R: ExerciseRepository> ExerciseService for Service<R> {
     ) -> Result<Exercise, CreateError> {
         self.repository
             .create_exercise(
-                name, muscles, force, mechanic, laterality, assistance, equipment, category,
+                name, notes, muscles, force, mechanic, laterality, assistance, equipment, category,
             )
             .await
     }

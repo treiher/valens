@@ -1481,6 +1481,7 @@ mod tests {
         let exercises = [Exercise {
             id: 1.into(),
             name: Name::new("A").unwrap(),
+            notes: String::new(),
             muscles: vec![
                 ExerciseMuscle {
                     muscle_id: MuscleID::Pecs,
@@ -1512,6 +1513,7 @@ mod tests {
         let exercises = [Exercise {
             id: 1.into(),
             name: Name::new("A").unwrap(),
+            notes: String::new(),
             muscles: vec![ExerciseMuscle {
                 muscle_id: MuscleID::Pecs,
                 stimulus: Stimulus::PRIMARY,

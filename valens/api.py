@@ -1606,6 +1606,7 @@ def create_exercise() -> ResponseReturnValue:
         exercise = Exercise(
             user_id=session["user_id"],
             name=to_name(data["name"]),
+            notes=to_notes(data["notes"]),
             force=to_optional_property_id(data["force"], "force", FORCE_IDS),
             mechanic=to_optional_property_id(data["mechanic"], "mechanic", MECHANIC_IDS),
             laterality=to_optional_property_id(data["laterality"], "laterality", LATERALITY_IDS),
@@ -1667,6 +1668,7 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
 
     try:
         exercise.name = to_name(data["name"])
+        exercise.notes = to_notes(data["notes"])
         exercise.force = to_optional_property_id(data["force"], "force", FORCE_IDS)
         exercise.mechanic = to_optional_property_id(data["mechanic"], "mechanic", MECHANIC_IDS)
         exercise.laterality = to_optional_property_id(

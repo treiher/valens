@@ -6,7 +6,8 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, expect
 
-from .base import BasePage
+from .base import BasePage, Dialog
+from .utils import get_text
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -17,14 +18,36 @@ class ExercisePage(BasePage):
         super().__init__(page)
 
         self.exercise_id = exercise_id
+        self.notes_dialog: ExerciseNotesDialog = ExerciseNotesDialog(page)
 
     @property
     def path(self) -> str:
         assert self.exercise_id is not None
         return f"/exercise/{uuid.UUID(int=self.exercise_id)}"
 
-    def exercise_note(self) -> Locator:
-        return self.page.get_by_test_id("exercise-note")
+    def session_exercise_notes(self) -> Locator:
+        return self.page.get_by_test_id("session-exercise-notes")
+
+    def get_notes(self) -> str:
+        return get_text(self.page.get_by_test_id("exercise-notes"))
+
+    def expect_no_notes(self) -> None:
+        expect(self.page.get_by_test_id("exercise-notes")).to_have_count(0)
+
+    def click_notes(self) -> None:
+        self.page.get_by_test_id("exercise-notes").click()
+        self.notes_dialog.wait_until_open()
+
+    def open_notes_dialog(self) -> None:
+        self.fab().click()
+        self.page.get_by_test_id("options-menu").wait_for(state="visible")
+        self.page.get_by_test_id("options-edit-exercise-notes").click()
+        self.notes_dialog.wait_until_open()
+
+    def set_notes(self, notes: str) -> None:
+        self.notes_dialog.set_notes(notes)
+        self.notes_dialog.save()
+        self.wait_until_idle()
 
     def get_properties(self) -> list[str]:
         return self.page.get_by_test_id("property-tag").all_inner_texts()
@@ -64,3 +87,11 @@ class ExercisePage(BasePage):
 
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Exercise")
+
+
+class ExerciseNotesDialog(Dialog):
+    def get_notes(self) -> str:
+        return self.root.get_by_test_id("exercise-notes-input").input_value()
+
+    def set_notes(self, notes: str) -> None:
+        self.root.get_by_test_id("exercise-notes-input").fill(notes)

@@ -375,6 +375,7 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
     async fn create_exercise(
         &self,
         name: domain::Name,
+        notes: String,
         muscles: Vec<domain::ExerciseMuscle>,
         force: Option<domain::Force>,
         mechanic: Option<domain::Mechanic>,
@@ -389,6 +390,7 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
             replace_exercise,
             "exercise",
             name,
+            notes,
             muscles,
             force,
             mechanic,
@@ -1863,6 +1865,7 @@ mod tests {
                 cached_rest_with_response(None)
                     .create_exercise(
                         EXERCISE.name.clone(),
+                        EXERCISE.notes.clone(),
                         EXERCISE.muscles.clone(),
                         EXERCISE.force,
                         EXERCISE.mechanic,
@@ -1885,6 +1888,7 @@ mod tests {
                 ))
                 .create_exercise(
                     EXERCISE.name.clone(),
+                    EXERCISE.notes.clone(),
                     EXERCISE.muscles.clone(),
                     EXERCISE.force,
                     EXERCISE.mechanic,

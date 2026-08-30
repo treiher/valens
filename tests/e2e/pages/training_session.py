@@ -17,7 +17,10 @@ class TrainingSessionPage(BasePage):
         super().__init__(page, base_url)
 
         self.session_id = session_id
-        self.exercise_note_dialog: ExerciseNoteDialog = ExerciseNoteDialog(page)
+        self.session_exercise_notes_dialog: SessionExerciseNotesDialog = SessionExerciseNotesDialog(
+            page
+        )
+        self.exercise_notes_dialog: ExerciseNotesDialog = ExerciseNotesDialog(page)
         self.one_rep_max_dialog: OneRepMaxCalculatorDialog = OneRepMaxCalculatorDialog(page)
         self.drop_set_dialog: DropSetCalculatorDialog = DropSetCalculatorDialog(page)
 
@@ -167,40 +170,73 @@ class TrainingSessionPage(BasePage):
         self.page.get_by_test_id("options-drop-set").click()
         self.drop_set_dialog.wait_until_open()
 
-    def edit_exercise_note(self, note: str, exercise_idx: int = 0) -> None:
-        self.open_exercise_note_dialog(exercise_idx)
-        self.exercise_note_dialog.set_note(note)
-        self.exercise_note_dialog.save()
+    def edit_session_exercise_notes(self, note: str, exercise_idx: int = 0) -> None:
+        self.open_session_exercise_notes_dialog(exercise_idx)
+        self.session_exercise_notes_dialog.set_note(note)
+        self.session_exercise_notes_dialog.save()
         self.wait_until_idle()
 
-    def open_exercise_note_dialog(self, exercise_idx: int = 0) -> None:
+    def open_session_exercise_notes_dialog(self, exercise_idx: int = 0) -> None:
         self.open_exercise_options(exercise_idx)
-        self.page.get_by_test_id("options-show-exercise-notes").click()
-        self.exercise_note_dialog.wait_until_open()
+        self.page.get_by_test_id("options-show-session-notes").click()
+        self.session_exercise_notes_dialog.wait_until_open()
 
-    def get_exercise_note(self, exercise_idx: int = 0) -> str:
-        return self.page.get_by_test_id("exercise-note").nth(exercise_idx).inner_text().strip()
+    def get_session_exercise_notes(self, exercise_idx: int = 0) -> str:
+        return (
+            self.page.get_by_test_id("session-exercise-notes")
+            .nth(exercise_idx)
+            .inner_text()
+            .strip()
+        )
 
-    def click_exercise_note(self, exercise_idx: int = 0) -> None:
-        self.page.get_by_test_id("exercise-note").nth(exercise_idx).click()
-        self.exercise_note_dialog.wait_until_open()
+    def click_session_exercise_notes(self, exercise_idx: int = 0) -> None:
+        self.page.get_by_test_id("session-exercise-notes").nth(exercise_idx).click()
+        self.session_exercise_notes_dialog.wait_until_open()
+
+    def get_exercise_notes(self, exercise_idx: int = 0) -> str:
+        return get_text(self.page.get_by_test_id("exercise-notes").nth(exercise_idx))
+
+    def expect_no_exercise_notes(self) -> None:
+        expect(self.page.get_by_test_id("exercise-notes")).to_have_count(0)
+
+    def click_exercise_notes(self, exercise_idx: int = 0) -> None:
+        self.page.get_by_test_id("exercise-notes").nth(exercise_idx).click()
+        self.exercise_notes_dialog.wait_until_open()
+
+    def open_exercise_notes_dialog(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        self.page.get_by_test_id("options-edit-exercise-notes").click()
+        self.exercise_notes_dialog.wait_until_open()
+
+    def set_exercise_notes(self, notes: str) -> None:
+        self.exercise_notes_dialog.set_notes(notes)
+        self.exercise_notes_dialog.save()
+        self.wait_until_idle()
 
 
-class ExerciseNoteDialog(Dialog):
+class SessionExerciseNotesDialog(Dialog):
     def get_note(self) -> str:
-        return self.root.get_by_test_id("exercise-note-input").input_value()
+        return self.root.get_by_test_id("session-exercise-notes-input").input_value()
 
     def set_note(self, note: str) -> None:
-        self.root.get_by_test_id("exercise-note-input").fill(note)
+        self.root.get_by_test_id("session-exercise-notes-input").fill(note)
 
     def get_previous_notes(self) -> list[str]:
         return [
             element.inner_text().strip()
-            for element in self.root.get_by_test_id("previous-exercise-note").all()
+            for element in self.root.get_by_test_id("previous-session-exercise-note").all()
         ]
 
     def reuse_previous_note(self, idx: int = 0) -> None:
-        self.root.get_by_test_id("exercise-note-reuse").nth(idx).click()
+        self.root.get_by_test_id("session-exercise-notes-reuse").nth(idx).click()
+
+
+class ExerciseNotesDialog(Dialog):
+    def get_notes(self) -> str:
+        return self.root.get_by_test_id("exercise-notes-input").input_value()
+
+    def set_notes(self, notes: str) -> None:
+        self.root.get_by_test_id("exercise-notes-input").fill(notes)
 
 
 class OneRepMaxCalculatorDialog(Dialog):

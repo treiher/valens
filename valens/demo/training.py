@@ -101,11 +101,18 @@ SESSION_NOTES = (
     "Gym was crowded, longer rests than planned.",
 )
 
-EXERCISE_NOTES = (
+SESSION_EXERCISE_NOTES = (
     "Left knee felt off, stayed with the same load.",
     "Grip gave out before the last reps.",
     "Bar path drifted forward on the last round.",
 )
+
+EXERCISE_NOTES = {
+    "Barbell Squat": "High bar, feet shoulder width.\nBelt from the third set on.",
+    "Lat Pulldown": "Wide grip, thumbs over the bar.\nSeat pad at 4, knees locked in.",
+    "Machine Chest Press": "Seat at 3, handles at nipple height.\nElbows at 45 degrees.",
+    "Plank": "Forearms parallel, hips level with the shoulders.",
+}
 
 
 @dataclass(frozen=True)
@@ -497,6 +504,7 @@ def training(profile: Profile, today: datetime.date, rng: random.Random) -> Trai
         name: Exercise(
             user_id=profile.id,
             name=name,
+            notes=EXERCISE_NOTES.get(name),
             force=EXERCISES[name].force,
             mechanic=EXERCISES[name].mechanic,
             laterality=EXERCISES[name].laterality,
@@ -626,7 +634,7 @@ def _history(
         if index in session_notes:
             record.notes = SESSION_NOTES[session_notes.index(index) % len(SESSION_NOTES)]
         if index in exercise_notes:
-            note = EXERCISE_NOTES[exercise_notes.index(index) % len(EXERCISE_NOTES)]
+            note = SESSION_EXERCISE_NOTES[exercise_notes.index(index) % len(SESSION_EXERCISE_NOTES)]
             record.exercise_notes = [(sets[0].exercise, note)]
         records.append(record)
 

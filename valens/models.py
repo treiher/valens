@@ -264,6 +264,7 @@ class Exercise(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    notes: Mapped[str | None] = mapped_column(String)
     force: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mechanic: Mapped[int | None] = mapped_column(Integer, nullable=True)
     laterality: Mapped[int | None] = mapped_column(Integer, nullable=True)

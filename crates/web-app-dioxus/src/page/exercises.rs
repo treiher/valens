@@ -23,7 +23,7 @@ use crate::{
         },
         form::{
             ButtonSelectField, ButtonSelectOption, FieldValue, FieldValueState, InputField,
-            MultiToggle, MultiToggleTags,
+            MultiToggle, MultiToggleTags, TextAreaField,
         },
     },
 };
@@ -437,6 +437,7 @@ fn view_list(
                                             match DOMAIN_SERVICE()
                                                 .create_exercise(
                                                     name,
+                                                    String::new(),
                                                     muscles,
                                                     force,
                                                     mechanic,
@@ -515,6 +516,7 @@ pub fn view_dialog(
                                     match DOMAIN_SERVICE()
                                         .create_exercise(
                                             name,
+                                            exercise.notes.clone(),
                                             exercise.muscles.clone(),
                                             exercise.force,
                                             exercise.mechanic,
@@ -624,6 +626,16 @@ pub fn view_dialog(
                                 })
                             },
                             MenuOption {
+                                icon: "note-sticky".to_string(),
+                                text: "Edit exercise notes".to_string(),
+                                "data-testid": "options-edit-exercise-notes",
+                                on_click: eh!(exercise; {
+                                    *dialog.write() = ExerciseDialog::EditNotes {
+                                        exercise,
+                                    };
+                                })
+                            },
+                            MenuOption {
                                 icon: "tags".to_string(),
                                 text: "Change properties".to_string(),
                                 "data-testid": "options-properties",
@@ -662,6 +674,9 @@ pub fn view_dialog(
                 disabled: !name.valid(),
                 {view_name_field(dialog)}
             }
+        },
+        ExerciseDialog::EditNotes { exercise } => rsx! {
+            ExerciseNotesDialog { exercise: exercise.clone(), on_close: eh!(close_dialog; { close_dialog(); }) }
         },
         ExerciseDialog::ChangeProperties { exercise } => rsx! {
             ExercisePropertiesDialog { exercise: exercise.clone(), on_save: save, on_close: eh!(close_dialog; { close_dialog(); }) }
@@ -709,7 +724,15 @@ fn AddExerciseDialog(
         is_loading.set(true);
         match DOMAIN_SERVICE()
             .create_exercise(
-                name, muscles, force, mechanic, laterality, assistance, equipment, category,
+                name,
+                String::new(),
+                muscles,
+                force,
+                mechanic,
+                laterality,
+                assistance,
+                equipment,
+                category,
             )
             .await
         {
@@ -1069,6 +1092,60 @@ impl PropertyFields {
                 domain::ExerciseProperty::Equipment => view_equipment_section(self.equipment),
             })
             .collect()
+    }
+}
+
+#[component]
+fn ExerciseNotesDialog(exercise: domain::Exercise, on_close: EventHandler<()>) -> Element {
+    let orig_notes = exercise.notes.clone();
+    let mut notes = use_signal(|| orig_notes.clone());
+    let mut is_loading = use_signal(|| false);
+    let changed = notes().trim() != orig_notes.trim();
+
+    let save = move |_| {
+        let exercise = exercise.clone();
+        async move {
+            let mut saved = false;
+            is_loading.set(true);
+            match DOMAIN_SERVICE()
+                .replace_exercise(domain::Exercise {
+                    notes: notes().trim().to_string(),
+                    ..exercise
+                })
+                .await
+            {
+                Ok(_) => {
+                    saved = true;
+                    consume_context::<Cache>().load_exercises().await;
+                }
+                Err(err) => {
+                    notify("edit notes of exercise", &err);
+                }
+            }
+            is_loading.set(false);
+            if saved {
+                on_close(());
+            }
+        }
+    };
+
+    rsx! {
+        SaveDialog {
+            title: rsx! { "Exercise notes" },
+            on_close: eh!(on_close; { on_close(()); }),
+            on_save: save,
+            is_loading: is_loading(),
+            disabled: !changed,
+            TextAreaField {
+                value: orig_notes.clone(),
+                has_changed: changed,
+                autofocus: true,
+                "data-testid": "exercise-notes-input",
+                on_input: move |event: FormEvent| {
+                    notes.set(event.value());
+                },
+            }
+        }
     }
 }
 
@@ -1528,6 +1605,9 @@ pub enum ExerciseDialog {
     },
     Rename {
         name: FieldValue<domain::Name>,
+        exercise: domain::Exercise,
+    },
+    EditNotes {
         exercise: domain::Exercise,
     },
     ChangeProperties {

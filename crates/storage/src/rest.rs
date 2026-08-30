@@ -770,6 +770,7 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
     async fn create_exercise(
         &self,
         name: domain::Name,
+        notes: String,
         muscles: Vec<domain::ExerciseMuscle>,
         force: Option<domain::Force>,
         mechanic: Option<domain::Mechanic>,
@@ -783,6 +784,7 @@ impl<S: SendRequest> domain::ExerciseRepository for REST<S> {
                 gloo_net::http::Request::post("/api/exercises"),
                 Some(&json!(&ExerciseData {
                     name: name.to_string(),
+                    notes: Some(notes),
                     muscles: muscles.into_iter().map(ExerciseMuscle::from).collect(),
                     force: force.map(|v| v as u8),
                     mechanic: mechanic.map(|v| v as u8),
@@ -1270,6 +1272,7 @@ impl From<domain::Period> for PeriodData {
 pub struct Exercise {
     pub id: u128,
     pub name: String,
+    pub notes: Option<String>,
     pub muscles: Vec<ExerciseMuscle>,
     pub force: Option<u8>,
     pub mechanic: Option<u8>,
@@ -1284,6 +1287,7 @@ impl From<domain::Exercise> for Exercise {
         Self {
             id: value.id.as_u128(),
             name: value.name.to_string(),
+            notes: Some(value.notes),
             muscles: value
                 .muscles
                 .into_iter()
@@ -1306,6 +1310,7 @@ impl TryFrom<Exercise> for domain::Exercise {
         Ok(Self {
             id: value.id.into(),
             name: domain::Name::new(&value.name)?,
+            notes: value.notes.unwrap_or_default(),
             muscles: value
                 .muscles
                 .into_iter()
@@ -1352,6 +1357,7 @@ fn decode_property<T: TryFrom<u8>>(value: Option<u8>) -> Result<Option<T>, T::Er
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ExerciseData {
     pub name: String,
+    pub notes: Option<String>,
     pub muscles: Vec<ExerciseMuscle>,
     pub force: Option<u8>,
     pub mechanic: Option<u8>,
@@ -1365,6 +1371,7 @@ impl From<domain::Exercise> for ExerciseData {
     fn from(value: domain::Exercise) -> Self {
         Self {
             name: value.name.to_string(),
+            notes: Some(value.notes),
             muscles: value
                 .muscles
                 .into_iter()
@@ -2852,6 +2859,7 @@ mod tests {
                 ))
                 .create_exercise(
                     EXERCISE.name.clone(),
+                    EXERCISE.notes.clone(),
                     EXERCISE.muscles.clone(),
                     EXERCISE.force,
                     EXERCISE.mechanic,

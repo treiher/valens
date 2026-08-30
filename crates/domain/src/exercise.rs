@@ -20,6 +20,7 @@ pub trait ExerciseService {
     async fn create_exercise(
         &self,
         name: Name,
+        notes: String,
         muscles: Vec<ExerciseMuscle>,
         force: Option<Force>,
         mechanic: Option<Mechanic>,
@@ -64,6 +65,7 @@ pub trait ExerciseRepository {
     async fn create_exercise(
         &self,
         name: Name,
+        notes: String,
         muscles: Vec<ExerciseMuscle>,
         force: Option<Force>,
         mechanic: Option<Mechanic>,
@@ -80,6 +82,7 @@ pub trait ExerciseRepository {
 pub struct Exercise {
     pub id: ExerciseID,
     pub name: Name,
+    pub notes: String,
     pub muscles: Vec<ExerciseMuscle>,
     pub force: Option<Force>,
     pub mechanic: Option<Mechanic>,
@@ -2061,6 +2064,7 @@ mod tests {
         Exercise {
             id: id.into(),
             name: Name::new(name).unwrap(),
+            notes: String::new(),
             muscles,
             force: None,
             mechanic: None,
@@ -2105,6 +2109,7 @@ mod tests {
         Exercise {
             id: id.into(),
             name: Name::new(name).unwrap(),
+            notes: String::new(),
             muscles,
             force,
             mechanic,

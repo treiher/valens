@@ -45,6 +45,14 @@ When the same condition is checked in both the domain service and the backend, b
 - The mirrored values are collected in [`limits.py`](../valens/limits.py). The check constraints in [`models.py`](../valens/models.py) are the exception: they are versioned schema and keep their literals.
 - The domain represents an unset numeric value as zero, the backend as `NULL`. Nullable columns therefore reject 0, while non-nullable columns store 0 as the unset value. This asymmetry follows from the column definition and needs no per-site comment.
 
+## Commits
+
+- The title states what the commit does to the codebase, not what the app does at runtime: "Add a property filter to the exercises page" rather than "Filter custom exercises by their properties". The verb states what happens to the code, the object names where the change lands, so that the log can be skimmed without opening the diffs.
+- The title is capitalized, carries no scope prefix and no terminating period, and fits within 72 characters.
+- The behavior a change produces for users is described in the changelog, not in the title.
+- The body is added only where the *why* is not evident from the diff, such as a browser behavior or a constraint that ruled out the obvious approach. It gives the reason, not a summary of the changes.
+- Trailers close the message: `Assisted-by: <assistant>` where an assistant contributed, as in `Assisted-by: Claude Opus 5`, followed by `Refs: #<issue>` for the issue a change belongs to.
+
 ## Changelog
 
 - Entries are written for users: user-facing language ("screen" rather than "viewport") and one noun phrase per bullet that reads as the object of the section verb ("Added ...", "Changed ...").

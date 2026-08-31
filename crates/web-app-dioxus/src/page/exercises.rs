@@ -1281,7 +1281,7 @@ fn view_filter_dialog(
                 class: "control",
                 onclick: move |_| *filter_dialog_shown.write() = false,
                 button {
-                    class: "button is-primary",
+                    class: "button is-primary is-wrapping",
                     "data-testid": "filter-show",
                     "Show {exercise_count} custom and {catalog_count} catalog exercises"
                 }

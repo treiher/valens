@@ -679,7 +679,7 @@ pub fn view_dialog(
             ExerciseNotesDialog { exercise: exercise.clone(), on_close: eh!(close_dialog; { close_dialog(); }) }
         },
         ExerciseDialog::ChangeProperties { exercise } => rsx! {
-            ExercisePropertiesDialog { exercise: exercise.clone(), on_save: save, on_close: eh!(close_dialog; { close_dialog(); }) }
+            ExercisePropertiesDialog { exercise: exercise.clone(), on_close: eh!(close_dialog; { close_dialog(); }) }
         },
         ExerciseDialog::Delete(exercise) => rsx! {
             DeleteConfirmationDialog {
@@ -1150,11 +1150,7 @@ fn ExerciseNotesDialog(exercise: domain::Exercise, on_close: EventHandler<()>) -
 }
 
 #[component]
-fn ExercisePropertiesDialog(
-    exercise: domain::Exercise,
-    on_save: EventHandler<MouseEvent>,
-    on_close: EventHandler<()>,
-) -> Element {
+fn ExercisePropertiesDialog(exercise: domain::Exercise, on_close: EventHandler<()>) -> Element {
     let fields = PropertyFields::new(&domain::ExerciseProperties::from(&exercise));
     let mut is_loading = use_signal(|| false);
 

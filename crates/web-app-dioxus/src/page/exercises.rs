@@ -73,6 +73,22 @@ pub fn Exercises(add: bool, filter: String) -> Element {
     }
 }
 
+/// A filter which restricts the exercises offered as a replacement to similar ones.
+#[must_use]
+pub fn replacement_filter(
+    exercise_id: domain::ExerciseID,
+    cache: &Cache,
+) -> domain::ExerciseFilter {
+    let CacheState::Ready(exercises) = &*cache.exercises.read() else {
+        return domain::ExerciseFilter::default();
+    };
+    exercises
+        .iter()
+        .find(|exercise| exercise.id == exercise_id)
+        .map(domain::ExerciseFilter::primary_muscles_of)
+        .unwrap_or_default()
+}
+
 #[component]
 pub fn ExerciseList(
     add: bool,

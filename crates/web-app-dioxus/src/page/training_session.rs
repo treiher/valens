@@ -1584,7 +1584,7 @@ fn view_edit_dialog(
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: replacement_filter(training_session, *section_idx, *exercise_idx, &cache),
+                            filter: page::exercises::replacement_filter(exercise_id_at(training_session, *section_idx, *exercise_idx), &cache),
                             on_exercise_click: {
                                 let training_session = training_session.clone();
                                 let section_idx = *section_idx;
@@ -1644,23 +1644,16 @@ fn view_edit_dialog(
     }
 }
 
-/// A filter which restricts the exercises offered as a replacement to similar ones.
-fn replacement_filter(
+fn exercise_id_at(
     training_session: &domain::TrainingSession,
     section_idx: usize,
     exercise_idx: usize,
-    cache: &Cache,
-) -> domain::ExerciseFilter {
-    let CacheState::Ready(exercises) = &*cache.exercises.read() else {
-        return domain::ExerciseFilter::default();
-    };
+) -> domain::ExerciseID {
     training_session
         .compute_sections()
         .get(section_idx)
         .and_then(|section| section.exercise_ids().get(exercise_idx).copied())
-        .and_then(|exercise_id| exercises.iter().find(|e| e.id == exercise_id))
-        .map(domain::ExerciseFilter::primary_muscles_of)
-        .unwrap_or_default()
+        .unwrap_or_else(domain::ExerciseID::nil)
 }
 
 #[component]

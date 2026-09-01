@@ -5,10 +5,31 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
-from .base import BasePage, NestedDialog
+from .base import BasePage, Dialog, NestedDialog
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
+
+
+class ExerciseListDialog(Dialog):
+    """The dialog which shows the exercise list when an exercise is selected."""
+
+    def get_exercises(self) -> list[str]:
+        return [
+            item.inner_text().strip() for item in self.root.get_by_test_id("exercise-item").all()
+        ]
+
+    def get_filter_tags(self) -> list[str]:
+        return [tag.inner_text().strip() for tag in self.root.get_by_test_id("filter-tag").all()]
+
+    def clear_filter(self) -> None:
+        for tag in self.get_filter_tags():
+            self.remove_filter_tag(tag)
+
+    def remove_filter_tag(self, name: str) -> None:
+        self.root.get_by_test_id("filter-tag").filter(
+            has_text=re.compile(f"^{re.escape(name)}$")
+        ).click()
 
 
 class ExercisesPage(BasePage):

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 import uuid
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
 from .base import BasePage, Dialog
+from .exercises import ExerciseListDialog
 from .utils import get_text, parse_float, parse_int
 
 if TYPE_CHECKING:
@@ -18,6 +18,7 @@ class TrainingSessionPage(BasePage):
         super().__init__(page, base_url)
 
         self.session_id = session_id
+        self.replace_exercise_dialog: ExerciseListDialog = ExerciseListDialog(page)
         self.session_exercise_notes_dialog: SessionExerciseNotesDialog = SessionExerciseNotesDialog(
             page
         )
@@ -174,23 +175,7 @@ class TrainingSessionPage(BasePage):
     def open_replace_exercise_dialog(self, exercise_idx: int = 0) -> None:
         self.open_exercise_options(exercise_idx)
         self.page.get_by_test_id("options-replace-exercise").click()
-        self.dialog.wait_until_open()
-
-    def get_replacement_exercises(self) -> list[str]:
-        return [
-            item.inner_text().strip()
-            for item in self.dialog.root.get_by_test_id("exercise-item").all()
-        ]
-
-    def get_replacement_filter_tags(self) -> list[str]:
-        return [
-            tag.inner_text().strip() for tag in self.dialog.root.get_by_test_id("filter-tag").all()
-        ]
-
-    def remove_replacement_filter_tag(self, name: str) -> None:
-        self.dialog.root.get_by_test_id("filter-tag").filter(
-            has_text=re.compile(f"^{re.escape(name)}$")
-        ).click()
+        self.replace_exercise_dialog.wait_until_open()
 
     def edit_session_exercise_notes(self, note: str, exercise_idx: int = 0) -> None:
         self.open_session_exercise_notes_dialog(exercise_idx)

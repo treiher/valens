@@ -1241,20 +1241,21 @@ def test_training_session_replace_exercise_filter(page: Page) -> None:
     p.edit()
 
     p.open_replace_exercise_dialog(1)
+    dialog = p.replace_exercise_dialog
 
-    assert p.get_replacement_filter_tags() == ["Pecs"]
-    assert p.get_replacement_exercises() == [exercise_with_primary_muscle]
+    assert dialog.get_filter_tags() == ["Pecs"]
+    assert dialog.get_exercises() == [exercise_with_primary_muscle]
 
-    p.remove_replacement_filter_tag("Pecs")
+    dialog.remove_filter_tag("Pecs")
 
-    assert p.get_replacement_filter_tags() == []
-    assert set(p.get_replacement_exercises()) == all_exercises
+    assert dialog.get_filter_tags() == []
+    assert set(dialog.get_exercises()) == all_exercises
 
-    p.dialog.close()
+    dialog.close()
     p.open_replace_exercise_dialog(0)
 
-    assert p.get_replacement_filter_tags() == []
-    assert set(p.get_replacement_exercises()) == all_exercises
+    assert dialog.get_filter_tags() == []
+    assert set(dialog.get_exercises()) == all_exercises
 
 
 def test_training_session_1rm_calculator(page: Page) -> None:
@@ -1655,6 +1656,36 @@ def test_routine_create_exercise(page: Page) -> None:
 
     sections = p.get_sections()
     assert sections[0].get_set_at(0).exercise_name == new_exercise
+
+
+def test_routine_replace_exercise_filter(page: Page) -> None:
+    routine = USER.routines[0]
+    assert isinstance(routine.sections[1].parts[0], models.RoutineActivity)
+    exercise_with_primary_muscle = str(routine.sections[1].parts[0].exercise.name)
+    all_exercises = {str(e.name) for e in USER.exercises}
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    p.wait_for_link(exercise_with_primary_muscle)
+
+    p.open_replace_exercise_dialog(1, 0)
+    dialog = p.replace_exercise_dialog
+
+    assert dialog.get_filter_tags() == ["Pecs"]
+    assert dialog.get_exercises() == [exercise_with_primary_muscle]
+
+    dialog.remove_filter_tag("Pecs")
+
+    assert dialog.get_filter_tags() == []
+    assert set(dialog.get_exercises()) == all_exercises
+
+    dialog.close()
+    p.open_replace_exercise_dialog(0, 0)
+
+    assert dialog.get_filter_tags() == []
+    assert set(dialog.get_exercises()) == all_exercises
 
 
 def test_routine_add_section(page: Page) -> None:

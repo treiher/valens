@@ -925,7 +925,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: domain::ExerciseFilter::default(),
+                            filter: page::exercises::replacement_filter(exercise_id_at(routine, path), &cache),
                             on_exercise_click: {
                                 let routine = routine.clone();
                                 let path = path.clone();
@@ -1174,6 +1174,13 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
             }
         }
+    }
+}
+
+fn exercise_id_at(routine: &domain::Routine, path: &domain::RoutinePartPath) -> domain::ExerciseID {
+    match routine.part(path) {
+        Some(domain::RoutinePart::RoutineActivity { exercise_id, .. }) => *exercise_id,
+        _ => domain::ExerciseID::nil(),
     }
 }
 

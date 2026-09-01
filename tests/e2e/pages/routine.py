@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from .base import BasePage, Dialog
+from .exercises import ExerciseListDialog
 from .utils import (
     drop_on_remove_zone,
     get_focused_selection,
@@ -30,6 +31,7 @@ class RoutinePage(BasePage):
 
         self.routine_id = routine_id
         self.notes_dialog: RoutineNotesDialog = RoutineNotesDialog(page)
+        self.replace_exercise_dialog: ExerciseListDialog = ExerciseListDialog(page)
 
     @property
     def path(self) -> str:
@@ -204,12 +206,17 @@ class RoutinePage(BasePage):
     def _top_level_section_handle(self, section_idx: int) -> Locator:
         return self._top_level_section_headers().nth(section_idx).get_by_test_id("section-handle")
 
+    def open_replace_exercise_dialog(self, section_idx: int, activity_idx: int) -> None:
+        self._open_replace_dialog(section_idx, activity_idx)
+
     def replace_exercise(self, section_idx: int, activity_idx: int, name: str) -> None:
         self._open_replace_dialog(section_idx, activity_idx)
+        self.replace_exercise_dialog.clear_filter()
         self._select_exercise(name)
 
     def replace_with_new_exercise(self, section_idx: int, activity_idx: int, name: str) -> None:
         dialog = self._open_replace_dialog(section_idx, activity_idx)
+        self.replace_exercise_dialog.clear_filter()
         dialog.get_by_test_id("search").fill(name)
         dialog.get_by_test_id("create-exercise").click()
         dialog.get_by_test_id("dialog-save").click()

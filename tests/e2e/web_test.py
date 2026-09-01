@@ -2610,6 +2610,32 @@ def test_exercises_filter_by_property(page: Page) -> None:
     }
 
 
+def test_exercises_filter_persisting(page: Page) -> None:
+    exercise = USER.exercises[0]
+
+    assert exercise.force == 1, "test data must contain an exercise with the force Push"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+
+    p.open_filter()
+    p.toggle_filter("force", "Push")
+    p.apply_filter()
+
+    p.reload()
+
+    assert {e[0] for e in p.table.get_body(1)} == {exercise.name}
+
+    p.open_exercise(exercise.name)
+    ExercisePage(page, exercise.id).expect_page()
+    page.go_back()
+    p.expect_page()
+    p.wait_until_idle()
+
+    assert {e[0] for e in p.table.get_body(1)} == {exercise.name}
+
+
 def test_exercises_filter_by_muscle(page: Page) -> None:
     muscle = "Pecs"
     primary = USER.exercises[0]

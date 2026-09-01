@@ -88,6 +88,20 @@ pub fn ExerciseList(
     let exercise_filter = use_signal(|| {
         domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&filter)).unwrap_or_default()
     });
+    let mut last_filter = use_signal(|| exercise_filter.peek().clone());
+
+    use_effect(move || {
+        let current = exercise_filter.read().clone();
+        if !exercises_page || current == *last_filter.peek() {
+            return;
+        }
+        last_filter.set(current.clone());
+        navigator().replace_preserving_scroll(Route::Exercises {
+            add: false,
+            filter: ExerciseFilter::from(current).to_base64(),
+        });
+    });
+
     let name = exercise_filter.read().name.clone();
     let properties = exercise_filter.read().exercise_properties();
 
@@ -261,14 +275,6 @@ fn view_search_box(
                     search_term: &name,
                     on_input: move |event: FormEvent| {
                         exercise_filter.write().name = event.value();
-                        let filter_string = ExerciseFilter::from(exercise_filter.read().clone()).to_base64();
-                        let filter_string = filter_string.clone();
-                        if exercises_page {
-                            navigator().replace_preserving_scroll(Route::Exercises {
-                                add: false,
-                                filter: filter_string,
-                            });
-                        }
                     }
                 }
                 button {

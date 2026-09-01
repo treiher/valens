@@ -1509,6 +1509,7 @@ fn view_edit_dialog(
                                 MenuOption {
                                     icon: "arrow-right-arrow-left".to_string(),
                                     text: "Replace exercise".to_string(),
+                                    "data-testid": "options-replace-exercise",
                                     on_click: eh!(mut edit_dialog; training_session, section_idx, exercise_idx; {
                                         *edit_dialog.write() = EditDialog::ReplaceExercise { training_session, section_idx, exercise_idx };
                                     })
@@ -1551,7 +1552,7 @@ fn view_edit_dialog(
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: String::new(),
+                            filter: domain::ExerciseFilter::default(),
                             on_exercise_click: {
                                 let training_session = training_session.clone();
                                 let section_idx = *section_idx;
@@ -1583,7 +1584,7 @@ fn view_edit_dialog(
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: String::new(),
+                            filter: replacement_filter(training_session, *section_idx, *exercise_idx, &cache),
                             on_exercise_click: {
                                 let training_session = training_session.clone();
                                 let section_idx = *section_idx;
@@ -1611,7 +1612,7 @@ fn view_edit_dialog(
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: String::new(),
+                            filter: domain::ExerciseFilter::default(),
                             on_exercise_click: {
                                 let training_session = training_session.clone();
                                 move |(_, exercise_id)| {
@@ -1641,6 +1642,25 @@ fn view_edit_dialog(
             }
         }
     }
+}
+
+/// A filter which restricts the exercises offered as a replacement to similar ones.
+fn replacement_filter(
+    training_session: &domain::TrainingSession,
+    section_idx: usize,
+    exercise_idx: usize,
+    cache: &Cache,
+) -> domain::ExerciseFilter {
+    let CacheState::Ready(exercises) = &*cache.exercises.read() else {
+        return domain::ExerciseFilter::default();
+    };
+    training_session
+        .compute_sections()
+        .get(section_idx)
+        .and_then(|section| section.exercise_ids().get(exercise_idx).copied())
+        .and_then(|exercise_id| exercises.iter().find(|e| e.id == exercise_id))
+        .map(domain::ExerciseFilter::primary_muscles_of)
+        .unwrap_or_default()
 }
 
 #[component]

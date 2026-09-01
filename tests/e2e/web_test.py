@@ -1229,6 +1229,34 @@ def test_training_session_exercise_notes(page: Page) -> None:
     assert exercise_page.get_notes() == notes
 
 
+def test_training_session_replace_exercise_filter(page: Page) -> None:
+    workout = USER.workouts[0]
+    sets = [e for e in workout.elements if isinstance(e, models.WorkoutSet)]
+    exercise_with_primary_muscle = str(sets[1].exercise.name)
+    all_exercises = {str(e.name) for e in USER.exercises}
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.open_replace_exercise_dialog(1)
+
+    assert p.get_replacement_filter_tags() == ["Pecs"]
+    assert p.get_replacement_exercises() == [exercise_with_primary_muscle]
+
+    p.remove_replacement_filter_tag("Pecs")
+
+    assert p.get_replacement_filter_tags() == []
+    assert set(p.get_replacement_exercises()) == all_exercises
+
+    p.dialog.close()
+    p.open_replace_exercise_dialog(0)
+
+    assert p.get_replacement_filter_tags() == []
+    assert set(p.get_replacement_exercises()) == all_exercises
+
+
 def test_training_session_1rm_calculator(page: Page) -> None:
     workout = next(w for w in USER.workouts if w.id == 5)
 

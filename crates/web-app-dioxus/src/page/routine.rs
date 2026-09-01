@@ -898,7 +898,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: String::new(),
+                            filter: domain::ExerciseFilter::default(),
                             on_exercise_click: {
                                 let routine = routine.clone();
                                 let path = path.clone();
@@ -925,7 +925,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: String::new(),
+                            filter: domain::ExerciseFilter::default(),
                             on_exercise_click: {
                                 let routine = routine.clone();
                                 let path = path.clone();

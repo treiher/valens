@@ -949,6 +949,22 @@ pub struct ExerciseFilter {
 }
 
 impl ExerciseFilter {
+    /// A filter which matches exercises with the same primary muscles.
+    #[must_use]
+    pub fn primary_muscles_of(exercise: &Exercise) -> Self {
+        Self {
+            muscles: exercise
+                .muscles
+                .iter()
+                .filter(|m| {
+                    StimulusLevel::from_stimulus(m.stimulus) == Some(StimulusLevel::Primary)
+                })
+                .map(|m| Some((m.muscle_id, StimulusLevel::Primary)))
+                .collect(),
+            ..Self::default()
+        }
+    }
+
     #[must_use]
     pub fn exercises<'a>(
         &self,
@@ -1622,6 +1638,41 @@ mod tests {
     #[test]
     fn test_category_try_from_u8() {
         assert_try_from_u8::<Category>();
+    }
+
+    #[rstest]
+    #[case::no_muscles(vec![], [].into())]
+    #[case::only_secondary_muscles(
+        vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY }],
+        [].into()
+    )]
+    #[case::primary_and_secondary_muscles(
+        vec![
+            ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY },
+            ExerciseMuscle { muscle_id: MuscleID::Triceps, stimulus: Stimulus::PRIMARY },
+            ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY },
+        ],
+        [
+            Some((MuscleID::Pecs, StimulusLevel::Primary)),
+            Some((MuscleID::Triceps, StimulusLevel::Primary)),
+        ].into()
+    )]
+    fn test_exercise_filter_primary_muscles_of(
+        #[case] muscles: Vec<ExerciseMuscle>,
+        #[case] expected_muscles: HashSet<Option<(MuscleID, StimulusLevel)>>,
+    ) {
+        let exercise = exercise(0, "A", muscles);
+
+        let filter = ExerciseFilter::primary_muscles_of(&exercise);
+
+        assert_eq!(
+            filter,
+            ExerciseFilter {
+                muscles: expected_muscles,
+                ..ExerciseFilter::default()
+            }
+        );
+        assert_eq!(filter.exercises([&exercise].into_iter()), vec![&exercise]);
     }
 
     #[rstest]

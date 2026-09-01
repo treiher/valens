@@ -64,7 +64,8 @@ pub fn Exercises(add: bool, filter: String) -> Element {
     rsx! {
         ExerciseList {
             add,
-            filter,
+            filter: domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&filter))
+                .unwrap_or_default(),
             on_exercise_click: move |(_, id)| { navigator().push(Route::Exercise { id }); },
             on_catalog_click: move |(_, name)| { navigator().push(Route::Catalog { name }); },
             exercises_page: true,
@@ -75,7 +76,7 @@ pub fn Exercises(add: bool, filter: String) -> Element {
 #[component]
 pub fn ExerciseList(
     add: bool,
-    filter: String,
+    filter: domain::ExerciseFilter,
     on_exercise_click: EventHandler<(MouseEvent, domain::ExerciseID)>,
     on_catalog_click: EventHandler<(MouseEvent, String)>,
     #[props(default)] exercises_page: bool,
@@ -85,9 +86,7 @@ pub fn ExerciseList(
     let filter_dialog_shown = use_signal(|| false);
     let mut catalog_update_dialog_shown = use_signal(|| false);
 
-    let exercise_filter = use_signal(|| {
-        domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&filter)).unwrap_or_default()
-    });
+    let exercise_filter = use_signal(|| filter);
     let mut last_filter = use_signal(|| exercise_filter.peek().clone());
 
     use_effect(move || {
@@ -104,18 +103,19 @@ pub fn ExerciseList(
 
     let name = exercise_filter.read().name.clone();
     let properties = exercise_filter.read().exercise_properties();
+    let filter_string = ExerciseFilter::from(exercise_filter.read().clone()).to_base64();
 
     use_future({
         let name = name.clone();
         let properties = properties.clone();
-        let filter = filter.clone();
+        let filter_string = filter_string.clone();
         move || {
             let name = name.clone();
             let properties = properties.clone();
-            let filter = filter.clone();
+            let filter_string = filter_string.clone();
             async move {
                 if add {
-                    show_add_dialog!(dialog, name, properties, filter, exercises_page).await;
+                    show_add_dialog!(dialog, name, properties, filter_string, exercises_page).await;
                 }
             }
         }
@@ -127,7 +127,7 @@ pub fn ExerciseList(
             rsx! {
                 {view_search_box(exercise_filter, dialog, filter_dialog_shown, catalog_update_dialog_shown, properties.clone(), exercises_page)},
                 {view_list(&filtered_exercises, exercises, training_sessions, exercise_filter, dialog, on_exercise_click, on_catalog_click)}
-                {view_dialog(dialog, if exercises_page { Some(Route::Exercises { add: false, filter: filter.clone() }) } else { None })}
+                {view_dialog(dialog, if exercises_page { Some(Route::Exercises { add: false, filter: filter_string.clone() }) } else { None })}
                 {view_filter_dialog(exercise_filter, filter_dialog_shown, filtered_exercises.len())}
                 if catalog_update_dialog_shown() {
                     CatalogUpdateDialog { on_close: move |()| catalog_update_dialog_shown.set(false) }
@@ -136,7 +136,7 @@ pub fn ExerciseList(
                     FloatingActionButton {
                         icon: "plus".to_string(),
                         on_click: move |_| {
-                            show_add_dialog!(dialog, name, properties, filter, exercises_page)
+                            show_add_dialog!(dialog, name, properties, filter_string, exercises_page)
                         },
                     }
                 }

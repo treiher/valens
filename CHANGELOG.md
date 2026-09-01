@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Training session page:
     - Notes preserving line breaks
     - Name of the session-specific notes of an exercise to "Notes for this session"
+    - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
 - Exercises page:
     - Filtering by muscles differentiating between primary and secondary muscles
     - Muscles of an exercise cycling through primary before secondary

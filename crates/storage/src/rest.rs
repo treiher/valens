@@ -1371,26 +1371,6 @@ pub struct ExerciseData {
     pub category: Option<u8>,
 }
 
-impl From<domain::Exercise> for ExerciseData {
-    fn from(value: domain::Exercise) -> Self {
-        Self {
-            name: value.name.to_string(),
-            notes: Some(value.notes),
-            muscles: value
-                .muscles
-                .into_iter()
-                .map(ExerciseMuscle::from)
-                .collect(),
-            force: value.force.map(|v| v as u8),
-            mechanic: value.mechanic.map(|v| v as u8),
-            laterality: value.laterality.map(|v| v as u8),
-            assistance: value.assistance.map(|v| v as u8),
-            equipment: value.equipment.into_iter().map(|v| v as u8).collect(),
-            category: value.category.map(|v| v as u8),
-        }
-    }
-}
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct ExerciseMuscle {
     pub muscle_id: u8,

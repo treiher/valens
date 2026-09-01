@@ -33,6 +33,7 @@ web-sys = { workspace = true, features = [
     "CredentialRequestOptions",
     "CredentialsContainer",
     "Navigator",
+    "RequestCache",
     "Window",
 ] }
 

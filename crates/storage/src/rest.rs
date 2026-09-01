@@ -52,7 +52,11 @@ impl<S: SendRequest> REST<S> {
             ))
         })?;
         let signal = controller.signal();
-        let builder = request.abort_signal(Some(&signal));
+        // The `ETag`s of the API are handled by the app itself. Bypassing the browser HTTP cache
+        // prevents it from answering a revalidation with a body that predates an app update.
+        let builder = request
+            .abort_signal(Some(&signal))
+            .cache(web_sys::RequestCache::NoStore);
         let request = if let Some(json) = json {
             builder.json(&json)
         } else {

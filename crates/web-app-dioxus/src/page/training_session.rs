@@ -337,7 +337,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                             .map(|id| {
                                 let number =
                                     if let Some(number) = exercise_number(&id, &exercise_ids) {
-                                        format!("{} ", circled_number(number))
+                                        format!("{} ", exercise_marker(number))
                                     } else {
                                         String::new()
                                     };
@@ -703,7 +703,7 @@ fn view_form(
                         if let Some(number) = number {
                             span{
                                 class: "px-1",
-                                "{circled_number(number)}"
+                                "{exercise_marker(number)}"
                             }
                         }
                         Link {
@@ -815,7 +815,7 @@ fn view_form(
                                         style: "vertical-align: middle",
                                         "data-testid": "set-number",
                                         if let Some(number) = number {
-                                            "{circled_number(number)}"
+                                            "{exercise_marker(number)}"
                                         }
                                     }
                                     td {
@@ -882,7 +882,7 @@ fn view_form(
                                     style: "vertical-align: middle",
                                     "data-testid": "set-number",
                                     if let Some(number) = number {
-                                        "{circled_number(number)}"
+                                        "{exercise_marker(number)}"
                                     }
                                 }
                                 td {
@@ -1233,7 +1233,7 @@ fn view_list(
                         if let Some(number) = number {
                             span{
                                 class: "px-1",
-                                "{circled_number(number)}"
+                                "{exercise_marker(number)}"
                             }
                         }
                         Link {
@@ -1274,7 +1274,7 @@ fn view_list(
                                         if let Some(number) = number {
                                             span {
                                                 class: "pr-2",
-                                                "{circled_number(number)} "
+                                                "{exercise_marker(number)} "
                                             }
                                         }
                                         span {
@@ -1286,7 +1286,7 @@ fn view_list(
                                     td {
                                         class: "px-2 has-text-centered",
                                         if let Some(number) = number {
-                                            "{circled_number(number)}"
+                                            "{exercise_marker(number)}"
                                         }
                                     }
                                     td {
@@ -1766,8 +1766,14 @@ fn exercise_number(
     }
 }
 
-fn circled_number(number: u32) -> char {
-    std::char::from_u32(0x2460 + number).unwrap_or_default()
+/// Returns the marker of the zero-based exercise number, as a circled digit where one exists.
+fn exercise_marker(number: u32) -> String {
+    if number < 20 {
+        std::char::from_u32(0x2460 + number).map(String::from)
+    } else {
+        None
+    }
+    .unwrap_or_else(|| format!("({})", number + 1))
 }
 
 fn modify_training_session_elements(
@@ -1908,4 +1914,21 @@ pub enum EditDialog {
         training_session: domain::TrainingSession,
         exercise_id: domain::ExerciseID,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case(0, "\u{2460}")]
+    #[case(19, "\u{2473}")]
+    #[case(20, "(21)")]
+    #[case(99, "(100)")]
+    fn test_exercise_marker(#[case] number: u32, #[case] expected: &str) {
+        assert_eq!(exercise_marker(number), expected);
+    }
 }

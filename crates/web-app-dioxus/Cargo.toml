@@ -27,3 +27,5 @@ web-sys = { workspace = true, features = ["AddEventListenerOptions", "AudioBuffe
 
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }

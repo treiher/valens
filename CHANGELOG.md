@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - App not starting when it is reloaded while offline
+- Training session page: Marker of the twenty-first and following exercises of a section
 - Exercises page:
     - Button for applying the filter overflowing the screen when its label is long
     - Muscles selected in the filter being lost when the page is reloaded

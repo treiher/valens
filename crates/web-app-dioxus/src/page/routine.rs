@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    rc::Rc,
-};
+use std::{collections::BTreeMap, rc::Rc};
 
 use chrono::NaiveDate;
 use dioxus::prelude::*;
@@ -605,7 +602,7 @@ fn view_previous_exercises(
     training_sessions: &[domain::TrainingSession],
     exercises: &[domain::Exercise],
 ) -> Element {
-    let previous_exercises = previous_exercises(routine, training_sessions, exercises);
+    let previous_exercises = routine.previously_used_exercises(training_sessions, exercises);
 
     if previous_exercises.is_empty() {
         rsx! {}
@@ -625,26 +622,6 @@ fn view_previous_exercises(
             }
         }
     }
-}
-
-/// Returns the exercises used in training sessions of the routine that the routine no longer
-/// contains, sorted by name.
-fn previous_exercises<'a>(
-    routine: &domain::Routine,
-    training_sessions: &[domain::TrainingSession],
-    exercises: &'a [domain::Exercise],
-) -> Vec<&'a domain::Exercise> {
-    let used_exercise_ids = training_sessions
-        .iter()
-        .filter(|t| t.routine_id == routine.id)
-        .flat_map(domain::TrainingSession::exercises)
-        .collect::<BTreeSet<_>>();
-    let mut result = (&used_exercise_ids - &routine.exercises())
-        .iter()
-        .filter_map(|exercise_id| exercises.iter().find(|e| e.id == *exercise_id))
-        .collect::<Vec<_>>();
-    result.sort_by(|a, b| a.name.cmp(&b.name));
-    result
 }
 
 fn view_charts(
@@ -925,7 +902,13 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: page::exercises::replacement_filter(exercise_id_at(routine, path), &cache),
+                            filter: page::exercises::replacement_filter(
+                                match routine.part(path) {
+                                    Some(domain::RoutinePart::RoutineActivity { exercise_id, .. }) => *exercise_id,
+                                    _ => domain::ExerciseID::nil(),
+                                },
+                                &cache,
+                            ),
                             on_exercise_click: {
                                 let routine = routine.clone();
                                 let path = path.clone();
@@ -1177,13 +1160,6 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
     }
 }
 
-fn exercise_id_at(routine: &domain::Routine, path: &domain::RoutinePartPath) -> domain::ExerciseID {
-    match routine.part(path) {
-        Some(domain::RoutinePart::RoutineActivity { exercise_id, .. }) => *exercise_id,
-        _ => domain::ExerciseID::nil(),
-    }
-}
-
 async fn modify_routine_sections(
     routine: domain::Routine,
     cache: Cache,
@@ -1353,80 +1329,6 @@ mod tests {
             rpe: domain::RPE::ZERO,
             automatic: false,
         }
-    }
-
-    fn exercise(id: u128, name: &str) -> domain::Exercise {
-        domain::Exercise {
-            id: id.into(),
-            name: domain::Name::new(name).unwrap(),
-            notes: String::new(),
-            muscles: vec![],
-            force: None,
-            mechanic: None,
-            laterality: None,
-            assistance: None,
-            equipment: vec![],
-            category: None,
-        }
-    }
-
-    fn training_session(exercise_ids: &[u128]) -> domain::TrainingSession {
-        domain::TrainingSession {
-            id: 1.into(),
-            routine_id: 1.into(),
-            date: chrono::NaiveDate::default(),
-            notes: String::new(),
-            elements: exercise_ids
-                .iter()
-                .map(|exercise_id| domain::TrainingSessionElement::Set {
-                    exercise_id: (*exercise_id).into(),
-                    reps: domain::Reps::default(),
-                    time: domain::Time::default(),
-                    weight: domain::Weight::default(),
-                    rpe: domain::RPE::default(),
-                    target_reps: domain::Reps::default(),
-                    target_time: domain::Time::default(),
-                    target_weight: domain::Weight::default(),
-                    target_rpe: domain::RPE::default(),
-                    automatic: false,
-                })
-                .collect(),
-            exercise_notes: BTreeMap::new(),
-        }
-    }
-
-    #[test]
-    fn test_previous_exercises_excludes_exercises_of_routine() {
-        let exercises = [exercise(1, "A"), exercise(2, "B")];
-
-        assert_eq!(
-            previous_exercises(&routine(), &[training_session(&[1, 2])], &exercises),
-            [&exercises[1]]
-        );
-    }
-
-    #[test]
-    fn test_previous_exercises_orders_by_name() {
-        let exercises = [exercise(2, "C"), exercise(3, "B")];
-
-        assert_eq!(
-            previous_exercises(&routine(), &[training_session(&[2, 3])], &exercises),
-            [&exercises[1], &exercises[0]]
-        );
-    }
-
-    #[test]
-    fn test_previous_exercises_ignores_other_routines() {
-        let exercises = [exercise(2, "B")];
-        let training_session = domain::TrainingSession {
-            routine_id: 2.into(),
-            ..training_session(&[2])
-        };
-
-        assert_eq!(
-            previous_exercises(&routine(), &[training_session], &exercises),
-            [] as [&domain::Exercise; 0]
-        );
     }
 
     #[test]

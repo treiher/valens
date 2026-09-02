@@ -228,6 +228,14 @@ pub struct CatalogUpdate {
     pub changes: Vec<PropertyChange>,
 }
 
+impl CatalogUpdate {
+    /// Returns whether the name of the exercise matched the name of the catalog exercise exactly.
+    #[must_use]
+    pub fn is_exact_match(&self) -> bool {
+        self.catalog_match == CatalogMatch::Exact
+    }
+}
+
 /// Determine the updates from the catalog for all given exercises, sorted by exercise name.
 #[must_use]
 pub fn catalog_updates(exercises: &[Exercise], mode: CatalogUpdateMode) -> Vec<CatalogUpdate> {
@@ -1362,6 +1370,16 @@ mod tests {
                 .map(|update| (update.catalog_name.as_ref().as_str(), update.catalog_match)),
             expected
         );
+    }
+
+    #[rstest]
+    #[case("Dip", true)]
+    #[case("Dip (weighted)", false)]
+    fn test_catalog_update_is_exact_match(#[case] name: &str, #[case] expected: bool) {
+        let update =
+            catalog_update(&exercise(1, name, vec![]), CatalogUpdateMode::FillMissing).unwrap();
+
+        assert_eq!(update.is_exact_match(), expected);
     }
 
     #[rstest]

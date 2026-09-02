@@ -1605,7 +1605,7 @@ fn view_property_value(value: &domain::PropertyValue) -> Element {
 fn default_selection(updates: &[domain::CatalogUpdate]) -> HashSet<domain::ExerciseID> {
     updates
         .iter()
-        .filter(|update| update.catalog_match == domain::CatalogMatch::Exact)
+        .filter(|update| update.is_exact_match())
         .map(|update| update.exercise.id)
         .collect()
 }

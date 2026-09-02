@@ -1584,7 +1584,9 @@ fn view_edit_dialog(
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: page::exercises::replacement_filter(exercise_id_at(training_session, *section_idx, *exercise_idx), &cache),
+                            filter: page::exercises::replacement_filter(training_session
+                                .exercise_id_at(*section_idx, *exercise_idx)
+                                .unwrap_or_else(domain::ExerciseID::nil), &cache),
                             on_exercise_click: {
                                 let training_session = training_session.clone();
                                 let section_idx = *section_idx;
@@ -1642,18 +1644,6 @@ fn view_edit_dialog(
             }
         }
     }
-}
-
-fn exercise_id_at(
-    training_session: &domain::TrainingSession,
-    section_idx: usize,
-    exercise_idx: usize,
-) -> domain::ExerciseID {
-    training_session
-        .compute_sections()
-        .get(section_idx)
-        .and_then(|section| section.exercise_ids().get(exercise_idx).copied())
-        .unwrap_or_else(domain::ExerciseID::nil)
 }
 
 #[component]

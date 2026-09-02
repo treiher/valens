@@ -815,6 +815,14 @@ impl TrainingSession {
         first..=last
     }
 
+    /// Returns the exercise at the given position of the given computed section, if any.
+    #[must_use]
+    pub fn exercise_id_at(&self, section_idx: usize, exercise_idx: usize) -> Option<ExerciseID> {
+        self.compute_sections()
+            .get(section_idx)
+            .and_then(|section| section.exercise_ids().get(exercise_idx).copied())
+    }
+
     #[must_use]
     pub fn compute_sections(&self) -> Vec<TrainingSessionSection> {
         let mut sections = vec![];
@@ -2959,6 +2967,26 @@ mod tests {
         assert_eq!(
             training_session.elements,
             vec![exercise(0, 1), rest(0), exercise(0, 2)]
+        );
+    }
+
+    #[rstest]
+    #[case(0, 0, Some(ExerciseID::from(1_u128)))]
+    #[case(0, 1, Some(ExerciseID::from(2_u128)))]
+    #[case(1, 0, Some(ExerciseID::from(3_u128)))]
+    #[case(0, 2, None)]
+    #[case(2, 0, None)]
+    fn test_training_session_exercise_id_at(
+        #[case] section_idx: usize,
+        #[case] exercise_idx: usize,
+        #[case] expected: Option<ExerciseID>,
+    ) {
+        let training_session =
+            training_session(&[exercise(0, 1), exercise(1, 2), rest(0), exercise(2, 3)]);
+
+        assert_eq!(
+            training_session.exercise_id_at(section_idx, exercise_idx),
+            expected
         );
     }
 

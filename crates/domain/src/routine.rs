@@ -136,6 +136,26 @@ impl Routine {
             .collect::<BTreeSet<_>>()
     }
 
+    /// Returns the exercises used in training sessions of the routine that the routine no longer
+    /// contains, sorted by name.
+    pub fn previously_used_exercises<'a>(
+        &self,
+        training_sessions: &[TrainingSession],
+        exercises: &'a [Exercise],
+    ) -> Vec<&'a Exercise> {
+        let used_exercise_ids = training_sessions
+            .iter()
+            .filter(|t| t.routine_id == self.id)
+            .flat_map(TrainingSession::exercises)
+            .collect::<BTreeSet<_>>();
+        let mut result = (&used_exercise_ids - &self.exercises())
+            .iter()
+            .filter_map(|exercise_id| exercises.iter().find(|e| e.id == *exercise_id))
+            .collect::<Vec<_>>();
+        result.sort_by(|a, b| a.name.cmp(&b.name));
+        result
+    }
+
     pub fn add_section(&mut self, path: &RoutinePartPath) {
         let new_section = RoutinePart::RoutineSection {
             rounds: Rounds::new(1).unwrap(),
@@ -871,6 +891,72 @@ mod tests {
     #[test]
     fn test_routine_exercises() {
         assert_eq!(ROUTINE.exercises(), BTreeSet::from([1.into(), 2.into()]));
+    }
+
+    #[test]
+    fn test_routine_previously_used_exercises_excludes_exercises_of_routine() {
+        let exercises = [named_exercise(1, "A"), named_exercise(3, "B")];
+
+        assert_eq!(
+            ROUTINE.previously_used_exercises(&[training_session_with(1, &[1, 3])], &exercises),
+            [&exercises[1]]
+        );
+    }
+
+    #[test]
+    fn test_routine_previously_used_exercises_orders_by_name() {
+        let exercises = [named_exercise(3, "C"), named_exercise(4, "B")];
+
+        assert_eq!(
+            ROUTINE.previously_used_exercises(&[training_session_with(1, &[3, 4])], &exercises),
+            [&exercises[1], &exercises[0]]
+        );
+    }
+
+    #[test]
+    fn test_routine_previously_used_exercises_ignores_other_routines() {
+        let exercises = [named_exercise(3, "B")];
+
+        assert_eq!(
+            ROUTINE.previously_used_exercises(&[training_session_with(2, &[3])], &exercises),
+            [] as [&Exercise; 0]
+        );
+    }
+
+    fn named_exercise(id: u128, name: &str) -> Exercise {
+        Exercise {
+            id: id.into(),
+            name: Name::new(name).unwrap(),
+            notes: String::new(),
+            muscles: vec![],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
+    fn training_session_with(routine_id: u128, exercise_ids: &[u128]) -> TrainingSession {
+        TrainingSession {
+            elements: exercise_ids
+                .iter()
+                .map(|exercise_id| TrainingSessionElement::Set {
+                    exercise_id: (*exercise_id).into(),
+                    reps: Reps::default(),
+                    time: Time::default(),
+                    weight: Weight::default(),
+                    rpe: RPE::default(),
+                    target_reps: Reps::default(),
+                    target_time: Time::default(),
+                    target_weight: Weight::default(),
+                    target_rpe: RPE::default(),
+                    automatic: false,
+                })
+                .collect(),
+            ..training_session(1, routine_id, NaiveDate::default())
+        }
     }
 
     #[test]

@@ -282,7 +282,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(
                                         &mut training_session,
-                                        field_values,
+                                        &field_values.read(),
                                     );
                                     save(training_session, cache, || {}).await;
                                 });
@@ -466,7 +466,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     icon: (if edit() { if has_changes() { "save" } else { "eye" } } else { "edit" }).to_string(),
                     on_click: eh!(mut edit, training_session; {
                         if edit() && has_changes() {
-                            modify_training_session_elements(&mut training_session, field_values);
+                            modify_training_session_elements(&mut training_session, &field_values.read());
                             training_session.notes = notes.read().as_ref().unwrap().validated.clone().unwrap();
                             spawn(async move {
                                 save(training_session.clone(), cache, || {}).await;
@@ -853,7 +853,7 @@ fn view_form(
                                                     if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
                                                         set_field_values.time.validated = Ok(target_time);
                                                     }
-                                                    modify_training_session_elements(&mut training_session, field_values);
+                                                    modify_training_session_elements(&mut training_session, &field_values.read());
                                                     spawn(async move {
                                                         save(training_session.clone(), cache, || {}).await;
                                                     });
@@ -1000,7 +1000,7 @@ fn view_form(
                                                     progress.write().set_element_idx(element_idx);
                                                 } else {
                                                     progress.write().set_element_idx(element_idx + 1);
-                                                    modify_training_session_elements(&mut training_session, field_values);
+                                                    modify_training_session_elements(&mut training_session, &field_values.read());
                                                     spawn(async move {
                                                         save(training_session.clone(), cache, || {}).await;
                                                     });
@@ -1467,7 +1467,7 @@ fn view_edit_dialog(
                                     icon: "plus".to_string(),
                                     text: "Add set".to_string(),
                                     on_click: eh!(mut training_session; element_idx, close_dialog; {
-                                        modify_training_session_elements(&mut training_session, field_values);
+                                        modify_training_session_elements(&mut training_session, &field_values.read());
                                         training_session.add_set(element_idx);
                                         save(training_session, cache, close_dialog)
                                     })
@@ -1476,7 +1476,7 @@ fn view_edit_dialog(
                                     icon: "plus".to_string(),
                                     text: "Add same exercise".to_string(),
                                     on_click: eh!(mut training_session; section_idx, exercise_idx, close_dialog; {
-                                        modify_training_session_elements(&mut training_session, field_values);
+                                        modify_training_session_elements(&mut training_session, &field_values.read());
                                         training_session.add_same_exercise(section_idx, exercise_idx);
                                         save(training_session, cache, close_dialog)
                                     })
@@ -1492,7 +1492,7 @@ fn view_edit_dialog(
                                     icon: "arrow-up".to_string(),
                                     text: "Move up".to_string(),
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
-                                        modify_training_session_elements(&mut training_session, field_values);
+                                        modify_training_session_elements(&mut training_session, &field_values.read());
                                         training_session.move_section_up(section_idx);
                                         save(training_session, cache, close_dialog)
                                     })
@@ -1501,7 +1501,7 @@ fn view_edit_dialog(
                                     icon: "arrow-down".to_string(),
                                     text: "Move down".to_string(),
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
-                                        modify_training_session_elements(&mut training_session, field_values);
+                                        modify_training_session_elements(&mut training_session, &field_values.read());
                                         training_session.move_section_down(section_idx);
                                         save(training_session, cache, close_dialog)
                                     })
@@ -1518,7 +1518,7 @@ fn view_edit_dialog(
                                     icon: "times".to_string(),
                                     text: "Remove set".to_string(),
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
-                                        modify_training_session_elements(&mut training_session, field_values);
+                                        modify_training_session_elements(&mut training_session, &field_values.read());
                                         training_session.remove_set(section_idx);
                                         save(training_session, cache, close_dialog)
                                     })
@@ -1527,7 +1527,7 @@ fn view_edit_dialog(
                                     icon: "times".to_string(),
                                     text: "Remove exercise".to_string(),
                                     on_click: eh!(mut training_session; section_idx, exercise_idx, close_dialog; {
-                                        modify_training_session_elements(&mut training_session, field_values);
+                                        modify_training_session_elements(&mut training_session, &field_values.read());
                                         training_session.remove_exercise(section_idx, exercise_idx);
                                         save(training_session, cache, close_dialog)
                                     })
@@ -1558,7 +1558,7 @@ fn view_edit_dialog(
                                 let section_idx = *section_idx;
                                 move |(_, exercise_id)| {
                                     let mut training_session = training_session.clone();
-                                    modify_training_session_elements(&mut training_session, field_values);
+                                    modify_training_session_elements(&mut training_session, &field_values.read());
                                     training_session.add_exercise(section_idx, exercise_id);
                                     save(training_session, cache, close_dialog)
                                 }
@@ -1593,7 +1593,7 @@ fn view_edit_dialog(
                                 let exercise_idx = *exercise_idx;
                                 move |(_, exercise_id)| {
                                     let mut training_session = training_session.clone();
-                                    modify_training_session_elements(&mut training_session, field_values);
+                                    modify_training_session_elements(&mut training_session, &field_values.read());
                                     training_session.replace_exercise(section_idx, exercise_idx, exercise_id);
                                     save(training_session, cache, close_dialog)
                                 }
@@ -1619,7 +1619,7 @@ fn view_edit_dialog(
                                 let training_session = training_session.clone();
                                 move |(_, exercise_id)| {
                                     let mut training_session = training_session.clone();
-                                    modify_training_session_elements(&mut training_session, field_values);
+                                    modify_training_session_elements(&mut training_session, &field_values.read());
                                     training_session.append_exercise(exercise_id);
                                     save(training_session, cache, close_dialog)
                                 }
@@ -1778,7 +1778,7 @@ fn exercise_marker(number: u32) -> String {
 
 fn modify_training_session_elements(
     training_session: &mut domain::TrainingSession,
-    field_values: Signal<HashMap<usize, SetFieldValues>>,
+    field_values: &HashMap<usize, SetFieldValues>,
 ) {
     for (element_idx, element) in &mut training_session.elements.iter_mut().enumerate() {
         if let domain::TrainingSessionElement::Set {

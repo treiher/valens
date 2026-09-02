@@ -356,6 +356,12 @@ pub struct MultiToggle {
 }
 
 impl MultiToggle {
+    /// Cycles the state of the given entry, wrapping around to the zeroth state.
+    fn advance(&mut self, index: usize) {
+        let num_states = self.classes.len() + 1;
+        self.states[index].1 = (self.states[index].1 + 1) % num_states;
+    }
+
     fn class(&self, state: usize) -> &'static str {
         state
             .checked_sub(1)
@@ -379,9 +385,7 @@ pub fn MultiToggleTags(multi_toggle: Signal<MultiToggle>) -> Element {
                     class: "tag is-hoverable {class}",
                     "data-testid": "multi-toggle-tag",
                     onclick: move |_| {
-                        let num_states = multi_toggle.read().classes.len() + 1;
-                        let s = multi_toggle.read().states[i].1;
-                        multi_toggle.write().states[i].1 = (s + 1) % num_states;
+                        multi_toggle.write().advance(i);
                     },
                     "{name}"
                 }

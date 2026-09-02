@@ -83,7 +83,12 @@ pub fn Home() -> Element {
                 } else {
                     "optimal load"
                 });
-                if let Some(last) = training_sessions.iter().map(|ts| ts.date).max().map(last) {
+                if let Some(last) = training_sessions
+                    .iter()
+                    .map(|ts| ts.date)
+                    .max()
+                    .map(|date| last(date, today))
+                {
                     rsx! { strong { {load} } " (last {last})" }
                 } else {
                     rsx! { strong { {load} } }
@@ -111,7 +116,7 @@ pub fn Home() -> Element {
             .iter()
             .filter(|bw| bw.date <= today)
             .max_by(|a, b| a.date.cmp(&b.date))
-            .map(|bw| rsx! { strong { "{bw.weight:.1} kg" } " ({last(bw.date)})" }),
+            .map(|bw| rsx! { strong { "{bw.weight:.1} kg" } " ({last(bw.date, today)})" }),
         CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
     };
@@ -123,7 +128,7 @@ pub fn Home() -> Element {
             .max_by(|a, b| a.date.cmp(&b.date))
             .and_then(|bf| {
                 bf.jp3(sex())
-                    .map(|jp3| rsx! { strong { "{jp3:.1} %" } " ({last(bf.date)})" })
+                    .map(|jp3| rsx! { strong { "{jp3:.1} %" } " ({last(bf.date, today)})" })
             }),
         CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
         CacheState::Loading => Some(rsx! { Loading {} }),
@@ -132,7 +137,7 @@ pub fn Home() -> Element {
     let ffmi_subtitle = if height().is_some() {
         match (&*cache.body_fat.read(), &*cache.body_weight.read()) {
             (CacheState::Ready(_), CacheState::Ready(_)) => latest_ffmi()
-                .map(|(date, value)| rsx! { strong { "{value:.1}" } " ({last(date)})" }),
+                .map(|(date, value)| rsx! { strong { "{value:.1}" } " ({last(date, today)})" }),
             (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
                 Some(rsx! { Error { message: "{err}" } })
             }
@@ -350,8 +355,7 @@ fn Tile(
     }
 }
 
-fn last(date: chrono::NaiveDate) -> String {
-    let today = current_date();
+fn last(date: chrono::NaiveDate, today: chrono::NaiveDate) -> String {
     let days = (today - date).num_days();
 
     if days == 0 {

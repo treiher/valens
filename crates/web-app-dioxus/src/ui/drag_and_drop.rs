@@ -457,6 +457,20 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn test_drop_state() {
+        assert_eq!(drop_state(true), Some("hovered"));
+        assert_eq!(drop_state(false), None);
+    }
+
+    #[test]
+    fn test_insertion_state() {
+        assert_eq!(insertion_state(true, false), Some("insert-before"));
+        assert_eq!(insertion_state(false, true), Some("insert-after"));
+        assert_eq!(insertion_state(true, true), Some("insert-before"));
+        assert_eq!(insertion_state(false, false), None);
+    }
+
     fn ghost() -> Ghost {
         Ghost {
             html: String::new(),

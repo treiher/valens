@@ -3655,12 +3655,14 @@ dependencies = [
 name = "valens-web-app"
 version = "0.0.0"
 dependencies = [
+ "assert_approx_eq",
  "chrono",
  "gloo-console",
  "gloo-utils 0.3.0",
  "js-sys",
  "log",
  "plotters",
+ "pretty_assertions",
  "serde",
  "serde-wasm-bindgen",
  "thiserror 2.0.20",
@@ -3684,6 +3686,8 @@ dependencies = [
  "indexmap",
  "log",
  "postcard",
+ "pretty_assertions",
+ "rstest",
  "serde",
  "strum",
  "uuid",

@@ -1791,6 +1791,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_stimulus_level_round_trip() {
+        assert_eq!(stimulus_level(multi_toggle_state(None)), None);
+
+        for level in STIMULUS_LEVELS {
+            assert_eq!(stimulus_level(multi_toggle_state(Some(level))), Some(level));
+        }
+    }
+
+    #[test]
+    fn test_stimulus_level_of_state_beyond_the_last() {
+        assert_eq!(stimulus_level(STIMULUS_LEVELS.len() + 1), None);
+    }
+
+    #[test]
     fn test_exercise_filter_base64_round_trip() {
         let exercise_filter = domain::ExerciseFilter {
             name: "Exercise Name".to_string(),

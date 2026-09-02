@@ -1446,6 +1446,74 @@ mod tests {
         schedule
     }
 
+    #[test]
+    fn test_sorted_by_name() {
+        let routines = [routine(2, "B", false), routine(1, "A", false)];
+
+        assert_eq!(sorted_by_name(&routines, &[]), [&routines[1], &routines[0]]);
+    }
+
+    #[test]
+    fn test_sorted_by_name_excludes_given_routines() {
+        let routines = [routine(1, "A", false), routine(2, "B", false)];
+
+        assert_eq!(sorted_by_name(&routines, &[1.into()]), [&routines[1]]);
+    }
+
+    #[test]
+    fn test_sorted_by_name_excludes_archived_routines() {
+        let routines = [routine(1, "A", true), routine(2, "B", false)];
+
+        assert_eq!(sorted_by_name(&routines, &[]), [&routines[1]]);
+    }
+
+    #[test]
+    fn test_routine_name() {
+        let routines = [routine(1, "A", false)];
+
+        assert_eq!(routine_name(&routines, 1.into()), "A");
+    }
+
+    #[test]
+    fn test_routine_name_of_unknown_routine() {
+        assert_eq!(routine_name(&[], 1.into()), "Unknown routine");
+    }
+
+    #[test]
+    fn test_rotation_name() {
+        assert_eq!(rotation_name(&schedule(), 1.into()), "A");
+    }
+
+    #[test]
+    fn test_rotation_name_of_unknown_rotation() {
+        assert_eq!(rotation_name(&schedule(), 2.into()), "Unknown rotation");
+    }
+
+    #[test]
+    fn test_parse_weekday() {
+        assert_eq!(parse_weekday("1"), Some(domain::Weekday::Monday));
+        assert_eq!(parse_weekday("7"), Some(domain::Weekday::Sunday));
+        assert_eq!(parse_weekday("0"), None);
+        assert_eq!(parse_weekday("8"), None);
+        assert_eq!(parse_weekday("Monday"), None);
+    }
+
+    #[test]
+    fn test_parse_rotation_id() {
+        assert_eq!(parse_rotation_id("1"), Some(domain::RotationID::from(1)));
+        assert_eq!(parse_rotation_id("A"), None);
+    }
+
+    fn routine(id: u128, name: &str, archived: bool) -> domain::Routine {
+        domain::Routine {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            notes: String::new(),
+            archived,
+            sections: vec![],
+        }
+    }
+
     fn schedule() -> domain::Schedule {
         domain::Schedule::new(
             BTreeMap::from([(

@@ -401,3 +401,138 @@ pub fn MultiToggleTags(multi_toggle: Signal<MultiToggle>) -> Element {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_field_value_new() {
+        let value = FieldValue::new(1);
+
+        assert!(value.valid());
+        assert!(!value.changed());
+        assert_eq!(value.input, "1");
+    }
+
+    #[test]
+    fn test_field_value_new_with_empty_default() {
+        let value = FieldValue::new_with_empty_default(0);
+
+        assert!(value.valid());
+        assert!(!value.changed());
+        assert_eq!(value.input, "");
+    }
+
+    #[test]
+    fn test_field_value_new_with_empty_default_of_non_default() {
+        assert_eq!(FieldValue::new_with_empty_default(1).input, "1");
+    }
+
+    #[test]
+    fn test_field_value_from_option() {
+        let value = FieldValue::from_option(Some(1));
+
+        assert!(value.valid());
+        assert!(!value.changed());
+        assert_eq!(value.input, "1");
+    }
+
+    #[test]
+    fn test_field_value_from_option_of_none() {
+        let value = FieldValue::from_option(None::<i32>);
+
+        assert!(value.valid());
+        assert!(!value.changed());
+        assert_eq!(value.input, "");
+    }
+
+    #[test]
+    fn test_field_value_default_is_invalid() {
+        assert!(!FieldValue::<i32>::default().valid());
+    }
+
+    #[test]
+    fn test_field_value_changed_ignores_surrounding_whitespace() {
+        let value = FieldValue::<i32> {
+            input: " 1 ".to_string(),
+            validated: Ok(1),
+            orig: "1".to_string(),
+        };
+
+        assert!(!value.changed());
+    }
+
+    #[test]
+    fn test_has_valid_changes_without_changes() {
+        assert!(!FieldValue::has_valid_changes(&[
+            &FieldValue::new(1),
+            &FieldValue::new(2)
+        ]));
+    }
+
+    #[test]
+    fn test_has_valid_changes_with_a_valid_change() {
+        assert!(FieldValue::has_valid_changes(&[
+            &changed(1),
+            &FieldValue::new(2)
+        ]));
+    }
+
+    #[test]
+    fn test_has_valid_changes_with_an_invalid_field() {
+        assert!(!FieldValue::has_valid_changes(&[
+            &changed(1),
+            &FieldValue::<i32>::default()
+        ]));
+    }
+
+    #[test]
+    fn test_multi_toggle_advance_cycles_through_all_states() {
+        let mut multi_toggle = multi_toggle();
+
+        for expected in [1, 2, 0, 1] {
+            multi_toggle.advance(0);
+            assert_eq!(multi_toggle.states[0].1, expected);
+        }
+    }
+
+    #[test]
+    fn test_multi_toggle_advance_affects_only_the_given_entry() {
+        let mut multi_toggle = multi_toggle();
+
+        multi_toggle.advance(1);
+
+        assert_eq!(
+            multi_toggle.states,
+            vec![("A".to_string(), 0), ("B".to_string(), 1)]
+        );
+    }
+
+    #[test]
+    fn test_multi_toggle_class() {
+        let multi_toggle = multi_toggle();
+
+        assert_eq!(multi_toggle.class(0), "");
+        assert_eq!(multi_toggle.class(1), "is-dark");
+        assert_eq!(multi_toggle.class(2), "is-link");
+        assert_eq!(multi_toggle.class(3), "");
+    }
+
+    fn changed(value: i32) -> FieldValue<i32> {
+        FieldValue {
+            input: value.to_string(),
+            validated: Ok(value),
+            orig: String::new(),
+        }
+    }
+
+    fn multi_toggle() -> MultiToggle {
+        MultiToggle {
+            states: vec![("A".to_string(), 0), ("B".to_string(), 0)],
+            classes: vec!["is-dark", "is-link"],
+        }
+    }
+}

@@ -368,3 +368,25 @@ fn last(date: chrono::NaiveDate, today: chrono::NaiveDate) -> String {
 
     format!("{days} days ago")
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    use super::*;
+
+    #[rstest]
+    #[case(0, "today")]
+    #[case(1, "yesterday")]
+    #[case(7, "7 days ago")]
+    #[case(-1, "-1 days ago")]
+    fn test_last(#[case] days_ago: i64, #[case] expected: &str) {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 5, 16).unwrap();
+
+        assert_eq!(
+            last(today - chrono::Duration::days(days_ago), today),
+            expected
+        );
+    }
+}

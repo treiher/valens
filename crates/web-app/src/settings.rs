@@ -76,3 +76,18 @@ impl Theme {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_theme_resolve() {
+        assert!(Theme::System.resolve(true) == Theme::Dark);
+        assert!(Theme::System.resolve(false) == Theme::Light);
+        assert!(Theme::Light.resolve(true) == Theme::Light);
+        assert!(Theme::Light.resolve(false) == Theme::Light);
+        assert!(Theme::Dark.resolve(true) == Theme::Dark);
+        assert!(Theme::Dark.resolve(false) == Theme::Dark);
+    }
+}

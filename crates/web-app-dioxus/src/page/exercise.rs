@@ -553,3 +553,27 @@ fn view_sets(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    #[test]
+    fn stimulus_levels_are_visually_distinct() {
+        let levels = [
+            domain::StimulusLevel::Primary,
+            domain::StimulusLevel::Secondary,
+        ];
+
+        assert_eq!(
+            levels
+                .into_iter()
+                .map(stimulus_level_class)
+                .collect::<HashSet<_>>()
+                .len(),
+            levels.len()
+        );
+    }
+}

@@ -90,3 +90,28 @@ fn appearance(level: log::Level) -> (Color, &'static str) {
         log::Level::Trace => (Color::Dark, "trace"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    #[test]
+    fn log_levels_are_visually_distinct() {
+        let levels = [
+            log::Level::Error,
+            log::Level::Warn,
+            log::Level::Info,
+            log::Level::Debug,
+            log::Level::Trace,
+        ];
+        let appearances = levels
+            .into_iter()
+            .map(appearance)
+            .map(|(color, name)| (color.to_string(), name))
+            .collect::<HashSet<_>>();
+
+        assert_eq!(appearances.len(), levels.len());
+    }
+}

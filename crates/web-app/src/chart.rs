@@ -714,3 +714,212 @@ fn chart_width() -> u32 {
         960,
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use assert_approx_eq::assert_approx_eq;
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    /// The number of colors of `Palette99`, despite the name of the palette.
+    const PALETTE_LEN: usize = 21;
+
+    fn date(day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 5, day).unwrap()
+    }
+
+    fn plot_data(values_high: &[(NaiveDate, f32)], params: PlotParams) -> PlotData {
+        PlotData {
+            values_high: values_high.to_vec(),
+            values_low: None,
+            plots: plot_line(0),
+            params,
+        }
+    }
+
+    #[test]
+    fn test_determine_y_bounds_without_data() {
+        let (primary, secondary) = determine_y_bounds(&[]);
+
+        assert!(primary.is_none());
+        assert!(secondary.is_none());
+    }
+
+    #[test]
+    fn test_determine_y_bounds_ignores_plots_without_values() {
+        let (primary, _) = determine_y_bounds(&[plot_data(&[], PlotParams::default())]);
+
+        assert!(primary.is_none());
+    }
+
+    #[test]
+    fn test_determine_y_bounds_spans_all_values() {
+        let (primary, secondary) = determine_y_bounds(&[
+            plot_data(&[(date(1), 3.0)], PlotParams::default()),
+            plot_data(&[(date(2), 7.0)], PlotParams::default()),
+        ]);
+
+        let primary = primary.unwrap();
+        assert_approx_eq!(primary.min, 3.0);
+        assert_approx_eq!(primary.max, 7.0);
+        assert!(secondary.is_none());
+    }
+
+    #[test]
+    fn test_determine_y_bounds_includes_low_values() {
+        let (primary, _) = determine_y_bounds(&[PlotData {
+            values_low: Some(vec![(date(1), 9.0)]),
+            ..plot_data(&[(date(1), 3.0)], PlotParams::default())
+        }]);
+
+        let primary = primary.unwrap();
+        assert_approx_eq!(primary.min, 3.0);
+        assert_approx_eq!(primary.max, 9.0);
+    }
+
+    #[test]
+    fn test_determine_y_bounds_of_all_zero_values() {
+        let (primary, _) = determine_y_bounds(&[plot_data(
+            &[(date(1), 0.0), (date(2), 0.0)],
+            PlotParams::default(),
+        )]);
+
+        let primary = primary.unwrap();
+        assert_approx_eq!(primary.min, 0.0);
+        assert_approx_eq!(primary.max, 0.0);
+    }
+
+    #[test]
+    fn test_determine_y_bounds_extends_the_configured_range() {
+        let (primary, _) = determine_y_bounds(&[plot_data(
+            &[(date(1), 12.0)],
+            PlotParams::primary_range(0.0, 10.0),
+        )]);
+
+        let primary = primary.unwrap();
+        assert_approx_eq!(primary.min, 0.0);
+        assert_approx_eq!(primary.max, 12.0);
+    }
+
+    #[test]
+    fn test_determine_y_bounds_separates_the_secondary_axis() {
+        let (primary, secondary) = determine_y_bounds(&[
+            plot_data(&[(date(1), 3.0)], PlotParams::default()),
+            plot_data(&[(date(1), 100.0)], PlotParams::SECONDARY),
+        ]);
+
+        assert_approx_eq!(primary.unwrap().max, 3.0);
+        assert_approx_eq!(secondary.unwrap().max, 100.0);
+    }
+
+    #[test]
+    fn test_all_zeros_without_data() {
+        assert!(all_zeros(&[]));
+    }
+
+    #[test]
+    fn test_all_zeros_of_zero_values() {
+        assert!(all_zeros(&[PlotData {
+            values_low: Some(vec![(date(1), 0.0)]),
+            ..plot_data(&[(date(1), 0.0)], PlotParams::default())
+        }]));
+    }
+
+    #[test]
+    fn test_all_zeros_of_non_zero_high_value() {
+        assert!(!all_zeros(&[plot_data(
+            &[(date(1), 0.0), (date(2), 1.0)],
+            PlotParams::default()
+        )]));
+    }
+
+    #[test]
+    fn test_all_zeros_of_non_zero_low_value() {
+        assert!(!all_zeros(&[PlotData {
+            values_low: Some(vec![(date(1), 1.0)]),
+            ..plot_data(&[(date(1), 0.0)], PlotParams::default())
+        }]));
+    }
+
+    #[test]
+    fn test_plot_data_min_avg_max() {
+        let [area, line] = plot_data_min_avg_max(
+            &[(date(1), 1.0), (date(1), 3.0), (date(2), 5.0)],
+            domain::Interval {
+                first: date(1),
+                last: date(1),
+            },
+            PlotParams::default(),
+            0,
+        );
+
+        assert_eq!(area.values_high, vec![(date(1), 1.0)]);
+        assert_eq!(area.values_low, Some(vec![(date(1), 3.0)]));
+        assert_eq!(line.values_high, vec![(date(1), 2.0)]);
+        assert_eq!(line.values_low, None);
+    }
+
+    #[test]
+    fn test_labeled_min_avg_max() {
+        let series = labeled_min_avg_max(
+            "load",
+            &[(date(1), 1.0)],
+            domain::Interval {
+                first: date(1),
+                last: date(1),
+            },
+            PlotParams::default(),
+            0,
+        );
+
+        assert_eq!(
+            series.iter().map(|s| s.name.clone()).collect::<Vec<_>>(),
+            vec!["Avg. load", "Min./max. load"]
+        );
+    }
+
+    #[test]
+    fn test_hex_color_opacity() {
+        assert!(hex_color(0, 1.0).ends_with("ff"));
+        assert!(hex_color(0, 0.0).ends_with("00"));
+    }
+
+    #[test]
+    fn test_hex_color_wraps_around_the_palette() {
+        assert_ne!(hex_color(0, 1.0), hex_color(1, 1.0));
+        assert_eq!(hex_color(0, 1.0), hex_color(PALETTE_LEN, 1.0));
+    }
+
+    #[test]
+    fn test_rgba_color_opacity() {
+        assert!(rgba_color(0, 0.5).ends_with(", 0.5)"));
+    }
+
+    #[test]
+    fn test_rgba_color_wraps_around_the_palette() {
+        assert_ne!(rgba_color(0, 1.0), rgba_color(1, 1.0));
+        assert_eq!(rgba_color(0, 1.0), rgba_color(PALETTE_LEN, 1.0));
+    }
+
+    #[test]
+    fn test_colors_are_distinct() {
+        let (foreground, background) = colors(Theme::Light);
+
+        assert_ne!(foreground.rgb(), background.rgb());
+    }
+
+    #[test]
+    fn test_colors_are_swapped_between_themes() {
+        let (light_foreground, light_background) = colors(Theme::Light);
+        let (dark_foreground, dark_background) = colors(Theme::Dark);
+
+        assert_eq!(light_foreground.rgb(), dark_background.rgb());
+        assert_eq!(light_background.rgb(), dark_foreground.rgb());
+    }
+
+    #[test]
+    fn test_colors_of_the_system_theme_match_the_light_theme() {
+        assert_eq!(colors(Theme::System).0.rgb(), colors(Theme::Light).0.rgb());
+    }
+}

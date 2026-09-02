@@ -1923,6 +1923,136 @@ mod tests {
 
     use super::*;
 
+    fn set(exercise_id: u128, reps: u32) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            reps: domain::Reps::new(reps).unwrap(),
+            time: domain::Time::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::default(),
+            target_reps: domain::Reps::default(),
+            target_time: domain::Time::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::default(),
+            automatic: false,
+        }
+    }
+
+    fn rest() -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Rest {
+            target_time: domain::Time::default(),
+            automatic: false,
+        }
+    }
+
+    fn training_session(elements: Vec<domain::TrainingSessionElement>) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: 1.into(),
+            routine_id: 1.into(),
+            date: chrono::NaiveDate::default(),
+            notes: String::new(),
+            elements,
+            exercise_notes: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn set_field_values(reps: u32) -> SetFieldValues {
+        SetFieldValues {
+            reps: FieldValue::new(domain::Reps::new(reps).unwrap()),
+            time: FieldValue::new(domain::Time::default()),
+            weight: FieldValue::new(domain::Weight::default()),
+            rpe: FieldValue::new(domain::RPE::default()),
+        }
+    }
+
+    fn exercise(id: u128, name: &str) -> domain::Exercise {
+        domain::Exercise {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            notes: String::new(),
+            muscles: vec![],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
+    #[test]
+    fn test_modify_training_session_elements_writes_validated_values() {
+        let mut training_session = training_session(vec![set(1, 5), set(1, 5)]);
+
+        modify_training_session_elements(
+            &mut training_session,
+            &HashMap::from([(1, set_field_values(10))]),
+        );
+
+        assert_eq!(training_session.elements, vec![set(1, 5), set(1, 10)]);
+    }
+
+    #[test]
+    fn test_modify_training_session_elements_keeps_rest_elements() {
+        let mut training_session = training_session(vec![rest()]);
+
+        modify_training_session_elements(
+            &mut training_session,
+            &HashMap::from([(0, set_field_values(10))]),
+        );
+
+        assert_eq!(training_session.elements, vec![rest()]);
+    }
+
+    #[test]
+    fn test_modify_training_session_elements_resets_invalid_values() {
+        let mut training_session = training_session(vec![set(1, 5)]);
+        let field_values = SetFieldValues {
+            reps: FieldValue::default(),
+            ..set_field_values(10)
+        };
+
+        modify_training_session_elements(
+            &mut training_session,
+            &HashMap::from([(0, field_values)]),
+        );
+
+        assert_eq!(training_session.elements, vec![set(1, 0)]);
+    }
+
+    #[test]
+    fn test_exercise_name() {
+        let exercises = [exercise(1, "A")];
+
+        assert_eq!(exercise_name(1.into(), &exercises), "A");
+    }
+
+    #[test]
+    fn test_exercise_name_of_unknown_exercise() {
+        assert_eq!(exercise_name(1.into(), &[]), "Exercise#1");
+    }
+
+    #[test]
+    fn test_exercise_number_of_single_exercise() {
+        assert_eq!(exercise_number(&1.into(), &[1.into()]), None);
+    }
+
+    #[rstest]
+    #[case(1, Some(0))]
+    #[case(2, Some(1))]
+    #[case(3, None)]
+    fn test_exercise_number(#[case] exercise_id: u128, #[case] expected: Option<u32>) {
+        assert_eq!(
+            exercise_number(&exercise_id.into(), &[1.into(), 2.into()]),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_unique_keeps_first_occurrence_in_order() {
+        assert_eq!(unique(vec![3, 1, 3, 2, 1]), vec![3, 1, 2]);
+    }
+
     #[rstest]
     #[case(0, "\u{2460}")]
     #[case(19, "\u{2473}")]

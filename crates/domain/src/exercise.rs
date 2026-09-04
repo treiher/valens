@@ -2267,4 +2267,12 @@ mod tests {
             expected.map(str::to_string)
         );
     }
+
+    #[test]
+    fn test_exercise_id_from_str() {
+        let id = ExerciseID::from(Uuid::from_u128(1));
+
+        assert_eq!(id, ExerciseID::from(1u128));
+        assert_eq!(ExerciseID::from_str(&id.to_string()), Ok(id));
+    }
 }

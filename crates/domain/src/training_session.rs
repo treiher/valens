@@ -3616,4 +3616,98 @@ mod tests {
             ..training_session(elements)
         }
     }
+
+    #[rstest]
+    #[case::all_shown(true, true, "10 × 3 s × 30 kg @ 8")]
+    #[case::without_tut(false, true, "10 × 30 kg @ 8")]
+    #[case::without_rpe(true, false, "10 × 3 s × 30 kg")]
+    #[case::without_tut_and_rpe(false, false, "10 × 30 kg")]
+    fn test_set_to_string(#[case] show_tut: bool, #[case] show_rpe: bool, #[case] expected: &str) {
+        let set = Set {
+            reps: Reps::new(10).unwrap(),
+            time: Time::new(3).unwrap(),
+            weight: Weight::new(30.0).unwrap(),
+            rpe: RPE::EIGHT,
+        };
+
+        assert_eq!(set.to_string(show_tut, show_rpe), expected);
+    }
+
+    #[test]
+    fn test_set_to_string_without_values() {
+        let set = Set {
+            reps: Reps::default(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+        };
+
+        assert_eq!(set.to_string(true, true), "");
+    }
+
+    #[test]
+    fn test_training_session_element_to_string() {
+        let element = TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            reps: Reps::new(10).unwrap(),
+            time: Time::new(3).unwrap(),
+            weight: Weight::new(30.0).unwrap(),
+            rpe: RPE::EIGHT,
+            target_reps: Reps::new(8).unwrap(),
+            target_time: Time::new(4).unwrap(),
+            target_weight: Weight::new(40.0).unwrap(),
+            target_rpe: RPE::NINE,
+            automatic: false,
+        };
+
+        assert_eq!(element.to_string(true, true), "10 × 3 s × 30 kg @ 8");
+        assert_eq!(element.target_to_string(true, true), "8 × 4 s × 40 kg @ 9");
+    }
+
+    #[test]
+    fn test_training_session_element_to_string_of_rest() {
+        assert_eq!(rest(60).to_string(true, true), "");
+        assert_eq!(rest(60).target_to_string(true, true), "");
+    }
+
+    #[test]
+    fn test_training_session_is_empty() {
+        assert!(training_session(&[]).is_empty());
+        assert!(training_session(&[set(1, 0, 0.0, RPE::ZERO), rest(60)]).is_empty());
+        assert!(!training_session(&[set(1, 5, 0.0, RPE::ZERO)]).is_empty());
+    }
+
+    #[test]
+    fn test_training_session_element_is_empty_of_rest() {
+        assert!(rest(60).is_empty());
+    }
+
+    #[test]
+    fn test_training_session_element_one_rep_max() {
+        assert!(set(1, 5, 100.0, RPE::TEN).one_rep_max().is_some());
+        assert_eq!(set(1, 0, 100.0, RPE::TEN).one_rep_max(), None);
+        assert_eq!(set(1, 5, 0.0, RPE::TEN).one_rep_max(), None);
+        assert_eq!(rest(60).one_rep_max(), None);
+    }
+
+    #[test]
+    fn test_training_session_section_exercise_counts() {
+        let section = section(&[
+            set(1, 5, 100.0, RPE::ZERO),
+            set(2, 5, 50.0, RPE::ZERO),
+            set(1, 5, 100.0, RPE::ZERO),
+        ]);
+
+        assert_eq!(
+            section.exercise_counts(),
+            HashMap::from([(ExerciseID::from(1u128), 2), (2.into(), 1)])
+        );
+    }
+
+    #[test]
+    fn test_training_session_id_from_str() {
+        let id = TrainingSessionID::from(uuid::Uuid::from_u128(1));
+
+        assert_eq!(TrainingSessionID::from_str(&id.to_string()), Ok(id));
+    }
 }

@@ -984,4 +984,21 @@ mod tests {
     fn from_num_days(days: i32) -> NaiveDate {
         NaiveDate::from_num_days_from_ce_opt(days).unwrap()
     }
+
+    #[test]
+    fn test_weight_hash_matches_equality() {
+        assert_eq!(
+            hash_of(Weight::new(30.0).unwrap()),
+            hash_of(Weight::new(30.0).unwrap())
+        );
+        assert_ne!(Weight::new(-0.0).unwrap(), Weight::new(0.0).unwrap());
+    }
+
+    fn hash_of(weight: Weight) -> u64 {
+        use std::hash::DefaultHasher;
+
+        let mut hasher = DefaultHasher::new();
+        weight.hash(&mut hasher);
+        hasher.finish()
+    }
 }

@@ -298,4 +298,17 @@ mod tests {
     fn test_role_display(#[case] role: Role, #[case] string: &str) {
         assert_eq!(role.to_string(), string);
     }
+
+    #[test]
+    fn test_user_id_from_uuid() {
+        assert_eq!(UserID::from(Uuid::from_u128(1)), UserID::from(1u128));
+    }
+
+    #[rstest]
+    #[case("female", Sex::FEMALE)]
+    #[case("male", Sex::MALE)]
+    #[case("other", Sex::MALE)]
+    fn test_sex_from_str(#[case] value: &str, #[case] expected: Sex) {
+        assert_eq!(Sex::from(value), expected);
+    }
 }

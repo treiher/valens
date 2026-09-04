@@ -858,4 +858,41 @@ mod tests {
             exercise_notes: BTreeMap::new(),
         }
     }
+
+    #[test]
+    fn test_schedule_is_empty() {
+        let mut schedule = Schedule::default();
+        assert!(schedule.is_empty());
+
+        schedule
+            .add_slot(Weekday::Monday, ScheduleSlot::Routine(PUSH.into()))
+            .unwrap();
+        assert!(!schedule.is_empty());
+    }
+
+    #[test]
+    fn test_schedule_pending_routines_skips_unknown_rotation() {
+        let schedule = Schedule {
+            rotations: BTreeMap::new(),
+            entries: BTreeMap::from([(
+                Weekday::Monday,
+                vec![
+                    ScheduleSlot::Rotation(1.into()),
+                    ScheduleSlot::Routine(PUSH.into()),
+                ],
+            )]),
+        };
+
+        assert_eq!(
+            schedule.pending_routines(date(2020, 3, 2), &[]),
+            [(ScheduleSlot::Routine(PUSH.into()), RoutineID::from(PUSH))]
+        );
+    }
+
+    #[test]
+    fn test_rotation_id_from_str() {
+        let id = RotationID::from(Uuid::from_u128(1));
+
+        assert_eq!(RotationID::from_str(&id.to_string()), Ok(id));
+    }
 }

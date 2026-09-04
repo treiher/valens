@@ -219,6 +219,10 @@ mod tests {
     #[test]
     fn test_sync_error_from_read_error() {
         assert!(matches!(
+            SyncError::from(ReadError::NotFound),
+            SyncError::Other(error) if error.to_string() == "not found"
+        ));
+        assert!(matches!(
             SyncError::from(ReadError::Unauthorized("foo".to_string())),
             SyncError::Other(error) if error.to_string() == "foo"
         ));
@@ -257,6 +261,30 @@ mod tests {
         assert!(matches!(
             UpdateError::from(ReadError::Other("foo".into())),
             UpdateError::Other(error) if error.to_string() == "foo"
+        ));
+    }
+
+    #[test]
+    fn test_delete_error_from_read_error() {
+        assert!(matches!(
+            DeleteError::from(ReadError::NotFound),
+            DeleteError::Other(error) if error.to_string() == "not found"
+        ));
+        assert!(matches!(
+            DeleteError::from(ReadError::Unauthorized("foo".to_string())),
+            DeleteError::Other(error) if error.to_string() == "foo"
+        ));
+        assert!(matches!(
+            DeleteError::from(ReadError::Forbidden("foo".to_string())),
+            DeleteError::Forbidden(reason) if reason == "foo"
+        ));
+        assert!(matches!(
+            DeleteError::from(ReadError::Storage(StorageError::NoSession)),
+            DeleteError::Storage(StorageError::NoSession)
+        ));
+        assert!(matches!(
+            DeleteError::from(ReadError::Other("foo".into())),
+            DeleteError::Other(error) if error.to_string() == "foo"
         ));
     }
 

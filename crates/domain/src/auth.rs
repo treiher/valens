@@ -76,3 +76,15 @@ impl From<u128> for PasskeyID {
         Self(Uuid::from_bytes(value.to_be_bytes()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_passkey_id_from_uuid() {
+        assert_eq!(PasskeyID::from(Uuid::from_u128(1)), PasskeyID::from(1u128));
+    }
+}

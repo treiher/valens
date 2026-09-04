@@ -2030,4 +2030,21 @@ mod tests {
     ) {
         assert_eq!(Rounds::try_from(input), expected);
     }
+
+    #[test]
+    fn test_routine_move_part_from_unknown_section_keeps_routine_unchanged() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1)])]);
+
+        routine.move_part(&vec![0, 1].into(), &vec![0].into(), 0);
+
+        assert_eq!(routine.sections, vec![section(1, vec![activity(1)])]);
+    }
+
+    #[test]
+    fn test_routine_id_from_str() {
+        let id = RoutineID::from(Uuid::from_u128(1));
+
+        assert_eq!(id, RoutineID::from(1u128));
+        assert_eq!(RoutineID::from_str(&id.to_string()), Ok(id));
+    }
 }

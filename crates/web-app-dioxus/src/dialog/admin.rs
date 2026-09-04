@@ -588,3 +588,66 @@ enum UserDialog {
     LoginLink(domain::User),
     Delete(domain::User),
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{contains, render_settled, rows_of, seed_domain_service, text_of};
+
+    use super::*;
+
+    fn user(id: u128, name: &str, role: domain::Role) -> domain::User {
+        domain::User {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            sex: domain::Sex::FEMALE,
+            height: Some(170),
+            role,
+        }
+    }
+
+    fn render_users(repository: domain::tests::FakeRepository) -> String {
+        render_settled(move || {
+            seed_domain_service(repository.clone());
+            rsx! { Users {} }
+        })
+    }
+
+    #[test]
+    fn test_the_users_are_tabulated_with_their_properties() {
+        let html = render_users(
+            domain::tests::FakeRepository::default().with_users(vec![user(
+                1,
+                "Alice",
+                domain::Role::ADMIN,
+            )]),
+        );
+
+        assert_eq!(
+            rows_of(&html, "table")[1][0..4],
+            ["Alice", "female", "170", "admin"]
+        );
+        assert!(contains(&html, "add-user"));
+    }
+
+    #[test]
+    fn test_unreadable_users_are_reported() {
+        let html = render_users(
+            domain::tests::FakeRepository::default().failing(domain::tests::Call::ReadUsers),
+        );
+
+        assert!(!contains(&html, "table"));
+        assert!(!contains(&html, "add-user"));
+    }
+
+    #[test]
+    fn test_unreadable_auth_methods_leave_the_users_manageable() {
+        let html = render_users(
+            domain::tests::FakeRepository::default().failing(domain::tests::Call::ReadAuthMethods),
+        );
+
+        assert!(!contains(&html, "passkey-login-unavailable"));
+        assert_eq!(text_of(&html, "title"), "Users");
+    }
+}

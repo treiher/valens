@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 
 use chrono::{Days, Duration, Local, NaiveDate};
 
-#[derive(Clone, Copy, Default, PartialEq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Interval {
     pub first: NaiveDate,
     pub last: NaiveDate,

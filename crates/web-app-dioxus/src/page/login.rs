@@ -220,3 +220,65 @@ fn LoginForm(username_login: bool, passkey_login: bool, redemption_failed: bool)
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{contains, render, render_settled, seed_domain_service, text_of};
+
+    use super::*;
+
+    /// A repository without a session, so that the login page shows its form.
+    fn signed_out() -> domain::tests::FakeRepository {
+        domain::tests::FakeRepository::default().failing(domain::tests::Call::InitializeSession)
+    }
+
+    fn render_login(repository: domain::tests::FakeRepository) -> String {
+        render_settled(move || {
+            seed_domain_service(repository.clone());
+            rsx! { Login {} }
+        })
+    }
+
+    #[test]
+    fn test_both_login_methods_are_offered() {
+        let html = render_login(signed_out());
+
+        assert!(contains(&html, "login-username"));
+        assert!(contains(&html, "login-button"));
+        assert!(contains(&html, "login-passkey-button"));
+    }
+
+    #[test]
+    fn test_only_the_offered_methods_are_shown() {
+        let html = render_login(signed_out().failing(domain::tests::Call::ReadAuthMethods));
+
+        assert!(contains(&html, "login-username"));
+        assert!(contains(&html, "login-passkey-button"));
+    }
+
+    #[test]
+    fn test_a_pending_session_is_shown_as_loading() {
+        let html = render(|| {
+            seed_domain_service(signed_out());
+            rsx! { Login {} }
+        });
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    /// `LOGIN_LINK_TOKEN` is process-global rather than per runtime, so this test relies on
+    /// `nextest` running every test in its own process.
+    #[test]
+    fn test_a_failed_redemption_is_reported() {
+        *LOGIN_LINK_TOKEN.lock().unwrap() = Some("token".to_string());
+
+        let html = render_login(signed_out().failing(domain::tests::Call::RedeemLoginLink));
+
+        assert_eq!(
+            text_of(&html, "login-error"),
+            "The login link is invalid or has expired"
+        );
+    }
+}

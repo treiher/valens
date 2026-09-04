@@ -149,3 +149,142 @@ pub enum CacheState<T> {
     Error(domain::ReadError),
     Ready(T),
 }
+
+#[cfg(test)]
+mod tests {
+    use dioxus::prelude::*;
+    use pretty_assertions::assert_eq;
+    use valens_domain::tests::{Call, FakeRepository};
+
+    use crate::test_render::{render, render_settled, seed_domain_service};
+
+    use super::*;
+
+    /// The state of every field of the cache, in the order of the `call!` list of `refresh`.
+    fn states(cache: &Cache) -> Vec<String> {
+        vec![
+            state(&cache.body_weight.read()),
+            state(&cache.body_fat.read()),
+            state(&cache.period.read()),
+            state(&cache.exercises.read()),
+            state(&cache.routines.read()),
+            state(&cache.schedule.read()),
+            state(&cache.training_sessions.read()),
+        ]
+    }
+
+    fn state<T>(state: &CacheState<T>) -> String {
+        match state {
+            CacheState::Loading => "loading",
+            CacheState::Error(_) => "error",
+            CacheState::Ready(_) => "ready",
+        }
+        .to_string()
+    }
+
+    fn seeded() -> FakeRepository {
+        FakeRepository::default()
+            .with_body_weight(vec![domain::BodyWeight {
+                date: chrono::NaiveDate::default(),
+                weight: 70.0,
+            }])
+            .with_exercises(vec![])
+    }
+
+    /// Renders `body` with the cache provided, reporting the state of its fields.
+    fn render_cache(
+        repository: FakeRepository,
+        settle: bool,
+        body: impl Fn(Cache) + Clone + 'static,
+    ) -> Vec<String> {
+        let reported = std::rc::Rc::new(std::cell::RefCell::new(vec![]));
+        let started = std::rc::Rc::new(std::cell::Cell::new(false));
+        let target = {
+            let reported = reported.clone();
+            move || {
+                seed_domain_service(repository.clone());
+                Cache::provide();
+                let cache = consume_context::<Cache>();
+                if !started.replace(true) {
+                    body(cache);
+                }
+                *reported.borrow_mut() = states(&cache);
+                rsx! { div { "data-testid": "cache", "rendered" } }
+            }
+        };
+        if settle {
+            render_settled(target);
+        } else {
+            render(target);
+        }
+        reported.borrow().clone()
+    }
+
+    #[test]
+    fn test_a_provided_cache_holds_no_data_yet() {
+        let states = render_cache(FakeRepository::default(), false, |_| {});
+
+        assert_eq!(states, vec!["loading"; 7]);
+    }
+
+    #[test]
+    fn test_a_refresh_reaches_every_field() {
+        let states = render_cache(seeded(), true, |cache| cache.refresh());
+
+        assert_eq!(states, vec!["ready"; 7]);
+    }
+
+    #[test]
+    fn test_a_refresh_of_one_collection_leaves_the_others_untouched() {
+        let states = render_cache(seeded(), true, |cache| cache.refresh_body_weight());
+
+        assert_eq!(
+            states,
+            vec![
+                "ready", "loading", "loading", "loading", "loading", "loading", "loading"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_a_failing_repository_leaves_the_fields_in_error() {
+        let repository = FakeRepository::default()
+            .failing(Call::ReadBodyWeight)
+            .failing(Call::ReadBodyFat)
+            .failing(Call::ReadPeriod)
+            .failing(Call::ReadExercises)
+            .failing(Call::ReadRoutines)
+            .failing(Call::ReadSchedule)
+            .failing(Call::ReadTrainingSessions);
+
+        let states = render_cache(repository, true, |cache| cache.refresh());
+
+        assert_eq!(states, vec!["error"; 7]);
+    }
+
+    #[test]
+    fn test_loading_a_collection_completes_without_settling_the_dom() {
+        let repository = seeded();
+        let reported = std::rc::Rc::new(std::cell::RefCell::new(String::new()));
+        let started = std::rc::Rc::new(std::cell::Cell::new(false));
+        let target = {
+            let reported = reported.clone();
+            move || {
+                seed_domain_service(repository.clone());
+                Cache::provide();
+                let cache = consume_context::<Cache>();
+                if !started.replace(true) {
+                    let reported = reported.clone();
+                    spawn(async move {
+                        cache.load_exercises().await;
+                        *reported.borrow_mut() = state(&cache.exercises.read());
+                    });
+                }
+                rsx! { div { "data-testid": "cache", "rendered" } }
+            }
+        };
+        render_settled(target);
+
+        assert_eq!(*reported.borrow(), "ready");
+    }
+}

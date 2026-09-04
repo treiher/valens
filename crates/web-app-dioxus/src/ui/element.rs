@@ -684,3 +684,113 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
         "-".into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{all_text_of, contains, render, rows_of, text_of};
+
+    use super::*;
+
+    #[test]
+    fn test_value_or_dash_renders_a_dash_for_a_missing_value() {
+        assert_eq!(value_or_dash(Some(1.25)), "1.2");
+        assert_eq!(value_or_dash(None::<f32>), "-");
+    }
+
+    #[test]
+    fn test_a_table_renders_its_head_and_body() {
+        let html = render(|| {
+            rsx! {
+                Table {
+                    head: vec![rsx! { "Date" }, rsx! { "Weight" }],
+                    body: vec![vec![rsx! { "2026-01-01" }, rsx! { "70" }]],
+                }
+            }
+        });
+
+        assert_eq!(
+            rows_of(&html, "table"),
+            vec![vec!["Date", "Weight"], vec!["2026-01-01", "70"]]
+        );
+    }
+
+    #[test]
+    fn test_a_table_without_a_head_renders_only_its_body() {
+        let html = render(|| {
+            rsx! { Table { body: vec![vec![rsx! { "only" }]] } }
+        });
+
+        assert_eq!(rows_of(&html, "table"), vec![vec!["only"]]);
+    }
+
+    #[test]
+    fn test_a_delete_confirmation_names_what_is_deleted() {
+        let html = render(|| {
+            rsx! {
+                DeleteConfirmationDialog {
+                    element_type: "routine".to_string(),
+                    element_name: rsx! { "A" },
+                    on_delete: move |_| {},
+                    on_cancel: move |_| {},
+                    is_loading: false,
+                }
+            }
+        });
+
+        assert_eq!(text_of(&html, "dialog-delete"), "Yes, delete routine");
+        assert_eq!(text_of(&html, "dialog-no"), "No");
+    }
+
+    #[test]
+    fn test_a_dialog_can_be_closed_and_saved() {
+        let html = render(|| {
+            rsx! {
+                SaveDialog {
+                    on_close: move |_| {},
+                    on_save: move |_| {},
+                    is_loading: false,
+                    disabled: false,
+                    "content"
+                }
+            }
+        });
+
+        assert!(contains(&html, "dialog-close"));
+        assert_eq!(text_of(&html, "dialog-cancel"), "Cancel");
+        assert_eq!(text_of(&html, "dialog-save"), "Save");
+    }
+
+    #[test]
+    fn test_an_options_menu_renders_its_options() {
+        let html = render(|| {
+            rsx! {
+                OptionsMenu {
+                    options: vec![
+                        rsx! {
+                            MenuOption {
+                                icon: "edit",
+                                text: "Edit",
+                                "data-testid": "menu-option",
+                                on_click: move |_| {},
+                            }
+                        },
+                        rsx! {
+                            MenuOption {
+                                icon: "trash",
+                                text: "Delete",
+                                "data-testid": "menu-option",
+                                on_click: move |_| {},
+                            }
+                        },
+                    ],
+                    on_close: move |_| {},
+                }
+            }
+        });
+
+        assert_eq!(all_text_of(&html, "menu-option"), vec!["Edit", "Delete"]);
+        assert!(contains(&html, "options-menu-close"));
+    }
+}

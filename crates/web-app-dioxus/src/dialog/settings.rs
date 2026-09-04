@@ -58,6 +58,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                         button {
                             class: "button",
                             class: if settings.theme() == web_app::Theme::Light { "is-link" },
+                            "data-selected": "{settings.theme() == web_app::Theme::Light}",
                             onclick: {
                                 move |_| {
                                     let mut settings = settings;
@@ -67,6 +68,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                                     }
                                 }
                             },
+                            "data-testid": "settings-theme-light",
                             Icon { name: "sun", is_small: true }
                             span { "Light" }
                         }
@@ -76,6 +78,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                         button {
                             class: "button",
                             class: if settings.theme() == web_app::Theme::Dark { "is-link" },
+                            "data-selected": "{settings.theme() == web_app::Theme::Dark}",
                             onclick: {
                                 move |_| {
                                     let mut settings = settings;
@@ -85,6 +88,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                                     }
                                 }
                             },
+                            "data-testid": "settings-theme-dark",
                             Icon { name: "moon", is_small: true }
                             span { "Dark" }
                         }
@@ -93,6 +97,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                         button {
                             class: "button",
                             class: if settings.theme() == web_app::Theme::System { "is-link" },
+                            "data-selected": "{settings.theme() == web_app::Theme::System}",
                             onclick: {
                                 move |_| {
                                     let mut settings = settings;
@@ -102,6 +107,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                                     }
                                 }
                             },
+                            "data-testid": "settings-theme-system",
                             Icon { name: "desktop", is_small: true }
                             span { "System" }
                         }
@@ -121,9 +127,9 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                 },
                 h1 { class: "subtitle", "Metronome" }
                 if settings.automatic_metronome() {
-                    button { class: "button is-link", "Automatic" }
+                    button { class: "button is-link", "data-testid": "settings-metronome", "Automatic" }
                 } else {
-                    button { class: "button", "Manual" }
+                    button { class: "button", "data-testid": "settings-metronome", "Manual" }
                 }
             }
             p {
@@ -157,9 +163,9 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                 },
                 h1 { class: "subtitle", "Time Under Tension (TUT)" }
                 if settings.show_tut() {
-                    button { class: "button is-link", "Enabled" }
+                    button { class: "button is-link", "data-testid": "settings-tut", "Enabled" }
                 } else {
-                    button { class: "button", "Disabled" }
+                    button { class: "button", "data-testid": "settings-tut", "Disabled" }
                 }
             }
             p {
@@ -175,9 +181,9 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                 },
                 h1 { class: "subtitle", "Scroll snapping" }
                 if settings.scroll_snapping() {
-                    button { class: "button is-link", "Enabled" }
+                    button { class: "button is-link", "data-testid": "settings-scroll-snapping", "Enabled" }
                 } else {
-                    button { class: "button", "Disabled" }
+                    button { class: "button", "data-testid": "settings-scroll-snapping", "Disabled" }
                 }
             }
             p {
@@ -213,6 +219,7 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                     button {
                         class: "button",
                         class: "{notifications_color}",
+                        "data-testid": "settings-notifications",
                         match permission {
                             web_sys::NotificationPermission::Granted => {
                                 if settings.notifications() {
@@ -236,9 +243,66 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                         }
                     }
                 } else {
-                    p { "Not supported by this browser" }
+                    p { "data-testid": "settings-notifications-unsupported", "Not supported by this browser" }
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{attribute_of, contains, provide_settings, render, text_of};
+
+    use super::*;
+
+    fn render_settings(settings: web_app::Settings) -> String {
+        render(move || {
+            provide_settings(settings);
+            rsx! { SettingsDialog { on_close: move |_| {} } }
+        })
+    }
+
+    #[test]
+    fn test_every_toggle_shows_the_stored_setting() {
+        let html = render_settings(web_app::Settings {
+            automatic_metronome: true,
+            show_rpe: true,
+            show_tut: false,
+            scroll_snapping: true,
+            ..web_app::Settings::default()
+        });
+
+        assert_eq!(text_of(&html, "settings-metronome"), "Automatic");
+        assert_eq!(text_of(&html, "settings-rpe"), "Enabled");
+        assert_eq!(text_of(&html, "settings-tut"), "Disabled");
+        assert_eq!(text_of(&html, "settings-scroll-snapping"), "Enabled");
+    }
+
+    #[test]
+    fn test_the_chosen_theme_is_marked_as_selected() {
+        let html = render_settings(web_app::Settings {
+            theme: web_app::Theme::Dark,
+            ..web_app::Settings::default()
+        });
+
+        assert_eq!(
+            attribute_of(&html, "settings-theme-dark", "data-selected"),
+            "true"
+        );
+        assert_eq!(
+            attribute_of(&html, "settings-theme-light", "data-selected"),
+            "false"
+        );
+    }
+
+    #[test]
+    fn test_without_notification_support_it_is_reported_as_unsupported() {
+        let html = render_settings(web_app::Settings::default());
+
+        assert!(contains(&html, "settings-notifications-unsupported"));
+        assert!(!contains(&html, "settings-notifications"));
     }
 }

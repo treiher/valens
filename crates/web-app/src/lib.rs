@@ -16,6 +16,9 @@ pub use ongoing_training_session::{
 pub use service::Service;
 pub use settings::{Settings, SettingsRepository, SettingsService, Theme};
 
+#[cfg(any(test, feature = "testing"))]
+pub mod tests;
+
 mod notification;
 mod ongoing_training_session;
 mod service;

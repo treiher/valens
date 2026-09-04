@@ -57,6 +57,56 @@ pub enum Route {
         NotFound { route: Vec<String> },
 }
 
+/// The title the navigation bar shows for `route`.
+#[must_use]
+pub fn page_title(route: &Route, user_name: &domain::Name) -> String {
+    match route {
+        Route::Login {} => "Valens".to_string(),
+        Route::Home {} => user_name.to_string(),
+        Route::TrainingSessions { .. } => "Training sessions".to_string(),
+        Route::TrainingSession { .. } => "Training session".to_string(),
+        Route::Routines { .. } => "Routines".to_string(),
+        Route::Routine { .. } => "Routine".to_string(),
+        Route::Schedule {} => "Schedule".to_string(),
+        Route::Exercises { .. } => "Exercises".to_string(),
+        Route::Exercise { .. } => "Exercise".to_string(),
+        Route::Catalog { .. } => "Catalog exercise".to_string(),
+        Route::Muscles { .. } => "Muscles".to_string(),
+        Route::BodyWeight { .. } => "Body weight".to_string(),
+        Route::BodyFat { .. } => "Body fat".to_string(),
+        Route::Ffmi {} => "FFMI".to_string(),
+        Route::MenstrualCycle { .. } => "Menstrual cycle".to_string(),
+        Route::NotFound { .. } => String::new(),
+    }
+}
+
+/// The route the navigation bar leads up to from `route`, if any.
+#[must_use]
+pub fn go_up_target(route: &Route) -> Option<Route> {
+    match route {
+        Route::Login {} | Route::Home {} => None,
+        Route::TrainingSessions { .. }
+        | Route::Routines { .. }
+        | Route::Schedule {}
+        | Route::Exercises { .. }
+        | Route::Muscles { .. }
+        | Route::BodyWeight { .. }
+        | Route::BodyFat { .. }
+        | Route::Ffmi {}
+        | Route::MenstrualCycle { .. }
+        | Route::NotFound { .. } => Some(Route::Home {}),
+        Route::TrainingSession { .. } => Some(Route::TrainingSessions { add: false }),
+        Route::Routine { .. } => Some(Route::Routines {
+            add: false,
+            search: String::new(),
+        }),
+        Route::Exercise { .. } | Route::Catalog { .. } => Some(Route::Exercises {
+            add: false,
+            filter: String::new(),
+        }),
+    }
+}
+
 pub trait NavigatorScrollExt {
     fn replace_preserving_scroll<R: Routable + 'static>(&self, route: R);
 }
@@ -83,5 +133,66 @@ impl NavigatorScrollExt for Navigator {
         if let Err(e) = window.request_animation_frame(cb.unchecked_ref()) {
             warn!("failed to request animation frame: {e:?}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    fn all_routes() -> Vec<Route> {
+        vec![
+            Route::Login {},
+            Route::Home {},
+            Route::TrainingSessions { add: false },
+            Route::TrainingSession { id: 1.into() },
+            Route::Routines {
+                add: false,
+                search: String::new(),
+            },
+            Route::Routine { id: 1.into() },
+            Route::Schedule {},
+            Route::Exercises {
+                add: false,
+                filter: String::new(),
+            },
+            Route::Exercise { id: 1.into() },
+            Route::Catalog {
+                name: String::new(),
+            },
+            Route::Muscles {},
+            Route::BodyWeight { add: false },
+            Route::BodyFat { add: false },
+            Route::Ffmi {},
+            Route::MenstrualCycle { add: false },
+            Route::NotFound { route: vec![] },
+        ]
+    }
+
+    #[test]
+    fn test_every_route_leads_up_to_home_in_at_most_two_steps() {
+        for route in all_routes() {
+            let Some(up) = go_up_target(&route) else {
+                continue;
+            };
+            let up = if up == (Route::Home {}) {
+                up
+            } else {
+                go_up_target(&up).unwrap_or_else(|| panic!("{route:?} leads up to a dead end"))
+            };
+            assert_eq!(up, Route::Home {}, "reached from {route:?}");
+        }
+    }
+
+    #[test]
+    fn test_only_login_and_home_lead_nowhere() {
+        let without_target = all_routes()
+            .into_iter()
+            .filter(|route| go_up_target(route).is_none())
+            .collect::<Vec<_>>();
+
+        assert_eq!(without_target, vec![Route::Login {}, Route::Home {}]);
     }
 }

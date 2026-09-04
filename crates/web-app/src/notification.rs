@@ -45,9 +45,11 @@ use crate::service_worker;
 /// Returns the granted permission, or `None` if the Notifications API is unavailable.
 #[must_use]
 pub fn notification_permission() -> Option<web_sys::NotificationPermission> {
-    js_sys::Reflect::has(&js_sys::global(), &JsValue::from_str("Notification"))
-        .unwrap_or(false)
-        .then(web_sys::Notification::permission)
+    // Off wasm the reflection panics rather than reporting the API as absent
+    (cfg!(target_arch = "wasm32")
+        && js_sys::Reflect::has(&js_sys::global(), &JsValue::from_str("Notification"))
+            .unwrap_or(false))
+    .then(web_sys::Notification::permission)
 }
 
 /// # Errors

@@ -62,8 +62,22 @@ fn service_repository() -> ServiceRepository {
 
 static DOMAIN_SERVICE: GlobalSignal<domain::Service<ServiceRepository>> =
     Signal::global(|| domain::Service::new(service_repository()));
-static WEB_APP_SERVICE: GlobalSignal<web_app::Service<storage::local_storage::LocalStorage>> =
-    Signal::global(|| web_app::Service::new(storage::local_storage::LocalStorage));
+#[cfg(not(test))]
+type WebAppRepository = storage::local_storage::LocalStorage;
+#[cfg(test)]
+type WebAppRepository = web_app::tests::FakeRepository;
+
+#[cfg(not(test))]
+fn web_app_repository() -> WebAppRepository {
+    storage::local_storage::LocalStorage
+}
+#[cfg(test)]
+fn web_app_repository() -> WebAppRepository {
+    web_app::tests::FakeRepository::default()
+}
+
+static WEB_APP_SERVICE: GlobalSignal<web_app::Service<WebAppRepository>> =
+    Signal::global(|| web_app::Service::new(web_app_repository()));
 /// Counter incremented after every mutation. Components that must reflect fresh data read it
 /// first in the closure of a `use_resource`, so the resource re-runs on every data change.
 static DATA_CHANGED: GlobalSignal<usize> = Signal::global(|| 0);

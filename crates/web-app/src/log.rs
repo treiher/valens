@@ -30,7 +30,7 @@ pub enum Error {
     Unknown(String),
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Entry {
     pub time: String,
     #[serde(with = "LevelDef")]
@@ -38,7 +38,7 @@ pub struct Entry {
     pub message: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(remote = "Level")]
 pub enum LevelDef {
     Error,

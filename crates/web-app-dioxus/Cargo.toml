@@ -27,6 +27,7 @@ web-sys = { workspace = true, features = ["AddEventListenerOptions", "AudioBuffe
 
 [dev-dependencies]
 valens-domain = { path = "../domain", features = ["testing"] }
+valens-web-app = { path = "../web-app", features = ["testing"] }
 
 assert_approx_eq = { workspace = true }
 dioxus-ssr = "0.7.10"

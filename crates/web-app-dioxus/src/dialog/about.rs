@@ -93,9 +93,61 @@ fn appearance(level: log::Level) -> (Color, &'static str) {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
+    use std::collections::{HashSet, VecDeque};
+
+    use pretty_assertions::assert_eq;
+    use valens_web_app as web_app;
+
+    use crate::test_render::{all_text_of, contains, render, seed_web_app_service, text_of};
 
     use super::*;
+
+    fn entry(level: log::Level, message: &str) -> web_app::log::Entry {
+        web_app::log::Entry {
+            time: "2026-01-01 00:00:00".to_string(),
+            level,
+            message: message.to_string(),
+        }
+    }
+
+    fn render_log(repository: web_app::tests::FakeRepository) -> String {
+        render(move || {
+            seed_web_app_service(repository.clone());
+            rsx! { Log {} }
+        })
+    }
+
+    #[test]
+    fn test_every_log_entry_is_shown_with_its_severity() {
+        let html = render_log(web_app::tests::FakeRepository::default().with_entries(
+            VecDeque::from([
+                entry(log::Level::Error, "failed"),
+                entry(log::Level::Info, "started"),
+            ]),
+        ));
+
+        assert_eq!(all_text_of(&html, "log-entry").len(), 2);
+        assert!(all_text_of(&html, "log-entry")[0].contains("failed"));
+        assert!(html.contains("data-severity=\"error\""), "{html}");
+    }
+
+    #[test]
+    fn test_an_unreadable_log_is_reported() {
+        let html = render_log(web_app::tests::FakeRepository::default().failing());
+
+        assert!(!contains(&html, "log-entry"));
+        assert_eq!(text_of(&html, "log"), "Storage is unavailable");
+    }
+
+    #[test]
+    fn test_a_deferred_update_offers_the_download() {
+        let html = render(|| {
+            *UPDATE_STATUS.write() = UpdateStatus::Deferred;
+            rsx! { Version {} }
+        });
+
+        assert!(contains(&html, "icon-download"));
+    }
 
     #[test]
     fn log_levels_are_visually_distinct() {

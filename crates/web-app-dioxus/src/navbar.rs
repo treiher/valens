@@ -16,6 +16,7 @@ use crate::{
         one_rep_max::OneRepMaxCalculator, profile::ProfileDialog, settings::SettingsDialog,
     },
     ongoing_training_session::OngoingTrainingSession,
+    routing::{go_up_target, page_title},
     session::{Session, sign_out},
     settings::Settings,
     synchronization::Synchronization,
@@ -72,46 +73,8 @@ pub fn Navbar() -> Element {
 
     let user = session.user();
     let route = use_route::<Route>();
-    let page_title = match route.clone() {
-        Route::Login {} => "Valens".to_string(),
-        Route::Home {} => user.name.to_string(),
-        Route::TrainingSessions { .. } => "Training sessions".to_string(),
-        Route::TrainingSession { .. } => "Training session".to_string(),
-        Route::Routines { .. } => "Routines".to_string(),
-        Route::Routine { .. } => "Routine".to_string(),
-        Route::Schedule {} => "Schedule".to_string(),
-        Route::Exercises { .. } => "Exercises".to_string(),
-        Route::Exercise { .. } => "Exercise".to_string(),
-        Route::Catalog { .. } => "Catalog exercise".to_string(),
-        Route::Muscles { .. } => "Muscles".to_string(),
-        Route::BodyWeight { .. } => "Body weight".to_string(),
-        Route::BodyFat { .. } => "Body fat".to_string(),
-        Route::Ffmi {} => "FFMI".to_string(),
-        Route::MenstrualCycle { .. } => "Menstrual cycle".to_string(),
-        Route::NotFound { .. } => String::new(),
-    };
-    let go_up_target = match route {
-        Route::Login {} | Route::Home {} => None,
-        Route::TrainingSessions { .. }
-        | Route::Routines { .. }
-        | Route::Schedule {}
-        | Route::Exercises { .. }
-        | Route::Muscles { .. }
-        | Route::BodyWeight { .. }
-        | Route::BodyFat { .. }
-        | Route::Ffmi {}
-        | Route::MenstrualCycle { .. }
-        | Route::NotFound { .. } => Some(Route::Home {}),
-        Route::TrainingSession { .. } => Some(Route::TrainingSessions { add: false }),
-        Route::Routine { .. } => Some(Route::Routines {
-            add: false,
-            search: String::new(),
-        }),
-        Route::Exercise { .. } | Route::Catalog { .. } => Some(Route::Exercises {
-            add: false,
-            filter: String::new(),
-        }),
-    };
+    let page_title = page_title(&route, &user.name);
+    let go_up_target = go_up_target(&route);
 
     let mut synchronization = consume_context::<Synchronization>();
 

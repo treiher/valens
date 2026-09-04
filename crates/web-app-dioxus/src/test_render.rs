@@ -249,6 +249,11 @@ pub fn seed_domain_service(repository: domain::tests::FakeRepository) {
     *crate::DOMAIN_SERVICE.write() = domain::Service::new(repository);
 }
 
+/// Seed the web app service of this virtual dom with `repository`.
+pub fn seed_web_app_service(repository: web_app::tests::FakeRepository) {
+    *crate::WEB_APP_SERVICE.write() = web_app::Service::new(repository);
+}
+
 /// Provide the in-progress training session, if any.
 pub fn provide_ongoing_training_session(state: ongoing_training_session::State) {
     provide_context(OngoingTrainingSession::new_for_test(state));
@@ -319,6 +324,23 @@ pub fn all_text_of(html: &str, test_id: &str) -> Vec<String> {
     let document = scraper::Html::parse_fragment(html);
     let selector = scraper::Selector::parse(&format!("[data-testid=\"{test_id}\"]")).unwrap();
     document.select(&selector).map(|e| text(&e)).collect()
+}
+
+/// The value of `attribute` on the element carrying `test_id`.
+///
+/// # Panics
+///
+/// Panics if no element carries `test_id`, or if that element does not carry `attribute`.
+#[must_use]
+pub fn attribute_of(html: &str, test_id: &str, attribute: &str) -> String {
+    let document = scraper::Html::parse_fragment(html);
+    element(&document, test_id, 0)
+        .value()
+        .attr(attribute)
+        .unwrap_or_else(|| {
+            panic!("element with test id `{test_id}` has no attribute `{attribute}`")
+        })
+        .to_string()
 }
 
 /// Whether any element carries `test_id`.

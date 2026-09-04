@@ -357,3 +357,58 @@ enum PasskeyDialog {
     },
     Delete(domain::Passkey),
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{
+        contains, provide_session, render_settled, rows_of, seed_domain_service,
+    };
+
+    use super::*;
+
+    fn user() -> domain::User {
+        domain::User {
+            id: 1.into(),
+            name: domain::Name::new("Alice").unwrap(),
+            sex: domain::Sex::FEMALE,
+            height: Some(170),
+            role: domain::Role::USER,
+        }
+    }
+
+    fn render_profile(repository: domain::tests::FakeRepository) -> String {
+        render_settled(move || {
+            seed_domain_service(repository.clone());
+            provide_session(user());
+            rsx! { ProfileDialog { on_close: move |_| {} } }
+        })
+    }
+
+    #[test]
+    fn test_the_profile_of_the_session_user_is_shown() {
+        let html = render_profile(domain::tests::FakeRepository::default());
+
+        assert!(html.contains("value=\"Alice\""), "{html}");
+        assert!(html.contains("value=\"170\""), "{html}");
+    }
+
+    #[test]
+    fn test_the_passkeys_of_the_user_are_listed() {
+        let html = render_profile(domain::tests::FakeRepository::default());
+
+        assert_eq!(rows_of(&html, "table")[1][0], "Passkey");
+        assert!(contains(&html, "add-passkey"));
+    }
+
+    #[test]
+    fn test_unreadable_passkeys_are_reported() {
+        let html = render_profile(
+            domain::tests::FakeRepository::default().failing(domain::tests::Call::ReadPasskeys),
+        );
+
+        assert!(!contains(&html, "table"));
+        assert!(!contains(&html, "add-passkey"));
+    }
+}

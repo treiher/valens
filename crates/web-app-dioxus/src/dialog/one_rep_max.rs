@@ -93,6 +93,7 @@ pub fn OneRepMaxCalculator() -> Element {
                 }
             }
             table {
+                "data-testid": "1rm-table",
                 class: "table is-striped is-fullwidth",
                 style: "white-space: nowrap",
                 thead {
@@ -131,5 +132,42 @@ impl OneRepMaxCalculatorState {
             reps,
             weight,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{render, rows_of};
+
+    use super::*;
+
+    #[test]
+    fn test_the_table_covers_every_percentage_from_100_down_to_50() {
+        let html = render(|| rsx! { OneRepMaxCalculator {} });
+
+        let rows = rows_of(&html, "1rm-table");
+        assert_eq!(rows[0], vec!["% 1RM", "Reps", "Weight (kg)"]);
+        assert_eq!(
+            rows[1..]
+                .iter()
+                .map(|row| row[0].clone())
+                .collect::<Vec<_>>(),
+            [
+                "100", "95", "90", "85", "80", "75", "70", "65", "60", "55", "50"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_the_weight_of_a_row_is_the_percentage_of_the_one_rep_max() {
+        let html = render(|| rsx! { OneRepMaxCalculator {} });
+
+        let rows = rows_of(&html, "1rm-table");
+        let one_rep_max: f32 = rows[1][2].parse().unwrap();
+        let half: f32 = rows.last().unwrap()[2].parse().unwrap();
+
+        assert!((half * 2.0 - one_rep_max).abs() < 0.01, "{rows:?}");
     }
 }

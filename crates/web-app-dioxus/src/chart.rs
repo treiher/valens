@@ -21,115 +21,25 @@ pub fn IntervalControl(
     current_interval: Signal<domain::Interval>,
     all: domain::Interval,
 ) -> Element {
-    let current = current_interval.read();
+    let current = *current_interval.read();
     let today = current_date();
-    let duration = current.last - current.first + Duration::days(1);
-    let intervals = [
-        (
-            "1M",
-            today - Duration::days(domain::DefaultInterval::_1M as i64),
-            today,
-            current.last == today
-                && duration == Duration::days(domain::DefaultInterval::_1M as i64 + 1),
-        ),
-        (
-            "3M",
-            today - Duration::days(domain::DefaultInterval::_3M as i64),
-            today,
-            current.last == today
-                && duration == Duration::days(domain::DefaultInterval::_3M as i64 + 1),
-        ),
-        (
-            "6M",
-            today - Duration::days(domain::DefaultInterval::_6M as i64),
-            today,
-            current.last == today
-                && duration == Duration::days(domain::DefaultInterval::_6M as i64 + 1),
-        ),
-        (
-            "1Y",
-            today - Duration::days(domain::DefaultInterval::_1Y as i64),
-            today,
-            current.last == today
-                && duration == Duration::days(domain::DefaultInterval::_1Y as i64 + 1),
-        ),
-        (
-            "NOW",
-            all.first,
-            today,
-            current.first == all.first && current.last == today,
-        ),
-        (
-            "ALL",
-            all.first,
-            all.last,
-            current.first == all.first && current.last == all.last,
-        ),
-        (
-            "+",
-            if current.first + Duration::days(6) <= current.last - duration / 2 {
-                current.first + duration / 4
-            } else {
-                current.first
-            },
-            if current.first + Duration::days(6) <= current.last - duration / 2 {
-                current.last - duration / 4
-            } else {
-                current.first + Duration::days(6)
-            },
-            false,
-        ),
-        (
-            "−",
-            if current.first - duration / 2 > all.first {
-                current.first - duration / 2
-            } else {
-                all.first
-            },
-            if current.last + duration / 2 < today {
-                current.last + duration / 2
-            } else {
-                today
-            },
-            false,
-        ),
-    ];
-
-    let left_first = if current.first - duration / 4 > all.first {
-        current.first - duration / 4
-    } else {
-        all.first
-    };
-    let left_last = if current.first - duration / 4 > all.first {
-        current.last - duration / 4
-    } else {
-        all.first + duration - Duration::days(1)
-    };
-    let is_left_disabled = current.first == left_first;
-
-    let right_first = if current.last + duration / 4 < today {
-        current.first + duration / 4
-    } else {
-        today - duration + Duration::days(1)
-    };
-    let right_last = if current.last + duration / 4 < today {
-        current.last + duration / 4
-    } else {
-        today
-    };
-    let is_right_disabled = current.last == right_last;
+    let intervals = interval_buttons(current, all, today);
+    let previous = previous_interval(current, all);
+    let is_left_disabled = current.first == previous.first;
+    let next = next_interval(current, today);
+    let is_right_disabled = current.last == next.last;
 
     rsx! {
         div {
             class: "field has-addons has-addons-centered",
-            for (name, first, last, is_active) in intervals {
+            for IntervalButton { name, interval, is_active } in intervals {
                 p {
                     class: "control",
                     a {
                         class: "button is-small",
                         class: if is_active { "is-link" },
                         "data-testid": "interval-{name}",
-                        onclick: move |_| { *current_interval.write() = domain::Interval { first, last } },
+                        onclick: move |_| { *current_interval.write() = interval },
                         "{name}"
                     }
                 }
@@ -140,7 +50,7 @@ pub fn IntervalControl(
             button {
                 class: "button is-small",
                 disabled: is_left_disabled,
-                onclick: move |_| { *current_interval.write() = domain::Interval { first: left_first, last: left_last } },
+                onclick: move |_| { *current_interval.write() = previous },
                 Icon { name: "chevron-left" }
             }
             span {
@@ -150,9 +60,118 @@ pub fn IntervalControl(
             button {
                 class: "button is-small",
                 disabled: is_right_disabled,
-                onclick: move |_| { *current_interval.write() = domain::Interval { first: right_first, last: right_last } },
+                onclick: move |_| { *current_interval.write() = next },
                 Icon { name: "chevron-right" }
             }
+        }
+    }
+}
+
+/// One button of the interval control.
+#[derive(Debug, PartialEq)]
+struct IntervalButton {
+    name: &'static str,
+    interval: domain::Interval,
+    is_active: bool,
+}
+
+/// The intervals the control offers, marking the one the current interval matches.
+fn interval_buttons(
+    current: domain::Interval,
+    all: domain::Interval,
+    today: NaiveDate,
+) -> Vec<IntervalButton> {
+    let duration = current.last - current.first + Duration::days(1);
+    let fixed = |name, days: domain::DefaultInterval| IntervalButton {
+        name,
+        interval: domain::Interval {
+            first: today - Duration::days(days as i64),
+            last: today,
+        },
+        is_active: current.last == today && duration == Duration::days(days as i64 + 1),
+    };
+    let zoom_in = current.first + Duration::days(6) <= current.last - duration / 2;
+    vec![
+        fixed("1M", domain::DefaultInterval::_1M),
+        fixed("3M", domain::DefaultInterval::_3M),
+        fixed("6M", domain::DefaultInterval::_6M),
+        fixed("1Y", domain::DefaultInterval::_1Y),
+        IntervalButton {
+            name: "NOW",
+            interval: domain::Interval {
+                first: all.first,
+                last: today,
+            },
+            is_active: current.first == all.first && current.last == today,
+        },
+        IntervalButton {
+            name: "ALL",
+            interval: all,
+            is_active: current.first == all.first && current.last == all.last,
+        },
+        IntervalButton {
+            name: "+",
+            interval: domain::Interval {
+                first: if zoom_in {
+                    current.first + duration / 4
+                } else {
+                    current.first
+                },
+                last: if zoom_in {
+                    current.last - duration / 4
+                } else {
+                    current.first + Duration::days(6)
+                },
+            },
+            is_active: false,
+        },
+        IntervalButton {
+            name: "\u{2212}",
+            interval: domain::Interval {
+                first: if current.first - duration / 2 > all.first {
+                    current.first - duration / 2
+                } else {
+                    all.first
+                },
+                last: if current.last + duration / 2 < today {
+                    current.last + duration / 2
+                } else {
+                    today
+                },
+            },
+            is_active: false,
+        },
+    ]
+}
+
+/// The interval a quarter of its duration earlier, bounded by the first day of `all`.
+fn previous_interval(current: domain::Interval, all: domain::Interval) -> domain::Interval {
+    let duration = current.last - current.first + Duration::days(1);
+    if current.first - duration / 4 > all.first {
+        domain::Interval {
+            first: current.first - duration / 4,
+            last: current.last - duration / 4,
+        }
+    } else {
+        domain::Interval {
+            first: all.first,
+            last: all.first + duration - Duration::days(1),
+        }
+    }
+}
+
+/// The interval a quarter of its duration later, bounded by `today`.
+fn next_interval(current: domain::Interval, today: NaiveDate) -> domain::Interval {
+    let duration = current.last - current.first + Duration::days(1);
+    if current.last + duration / 4 < today {
+        domain::Interval {
+            first: current.first + duration / 4,
+            last: current.last + duration / 4,
+        }
+    } else {
+        domain::Interval {
+            first: today - duration + Duration::days(1),
+            last: today,
         }
     }
 }
@@ -502,10 +521,102 @@ pub fn Calendar(entries: Vec<(NaiveDate, usize, f64)>, interval: domain::Interva
 mod tests {
     use chrono::NaiveDate;
 
-    use super::{format_value, nearest_mark};
+    use pretty_assertions::assert_eq;
+
+    use super::*;
 
     fn date(day: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 1, day).unwrap()
+    }
+
+    fn interval(first: u32, last: u32) -> domain::Interval {
+        domain::Interval {
+            first: date(first),
+            last: date(last),
+        }
+    }
+
+    #[test]
+    fn interval_buttons_mark_the_matching_one_as_active() {
+        let today = date(31);
+        let all = interval(1, 31);
+
+        let active = interval_buttons(
+            domain::Interval {
+                first: today - Duration::days(domain::DefaultInterval::_3M as i64),
+                last: today,
+            },
+            all,
+            today,
+        )
+        .into_iter()
+        .filter(|button| button.is_active)
+        .map(|button| button.name)
+        .collect::<Vec<_>>();
+
+        assert_eq!(active, vec!["3M"]);
+    }
+
+    #[test]
+    fn interval_buttons_offer_the_whole_range_and_the_range_until_today() {
+        let today = date(31);
+        let all = interval(1, 20);
+
+        let buttons = interval_buttons(interval(1, 20), all, today);
+
+        assert_eq!(buttons[4].name, "NOW");
+        assert_eq!(buttons[4].interval, interval(1, 31));
+        assert_eq!(buttons[5].name, "ALL");
+        assert_eq!(buttons[5].interval, all);
+        assert!(buttons[5].is_active);
+    }
+
+    #[test]
+    fn zooming_in_halves_the_interval_around_its_centre() {
+        let buttons = interval_buttons(interval(1, 21), interval(1, 31), date(31));
+
+        assert_eq!(buttons[6].name, "+");
+        assert_eq!(buttons[6].interval, interval(6, 16));
+    }
+
+    #[test]
+    fn zooming_in_stops_at_a_week() {
+        let buttons = interval_buttons(interval(1, 7), interval(1, 31), date(31));
+
+        assert_eq!(buttons[6].interval, interval(1, 7));
+    }
+
+    #[test]
+    fn zooming_out_is_bounded_by_the_whole_range_and_today() {
+        let buttons = interval_buttons(interval(10, 20), interval(1, 31), date(25));
+
+        assert_eq!(buttons[7].interval, interval(5, 25));
+    }
+
+    #[test]
+    fn the_previous_interval_shifts_by_a_quarter_of_the_duration() {
+        assert_eq!(
+            previous_interval(interval(13, 20), interval(1, 31)),
+            interval(11, 18)
+        );
+    }
+
+    #[test]
+    fn the_previous_interval_stops_at_the_first_day_of_the_whole_range() {
+        assert_eq!(
+            previous_interval(interval(2, 9), interval(1, 31)),
+            interval(1, 8)
+        );
+    }
+
+    #[test]
+    fn the_next_interval_shifts_by_a_quarter_of_the_duration() {
+        assert_eq!(next_interval(interval(1, 8), date(31)), interval(3, 10));
+    }
+
+    #[test]
+    fn the_next_interval_stops_at_today() {
+        assert_eq!(next_interval(interval(20, 30), date(31)), interval(21, 31));
     }
 
     #[test]

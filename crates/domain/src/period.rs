@@ -109,6 +109,7 @@ pub enum IntensityError {
     OutOfRange,
 }
 
+/// Returns the cycles of `period`, which must be sorted by date in ascending order.
 #[must_use]
 pub fn cycles(period: &[Period]) -> Vec<Cycle> {
     if period.is_empty() {
@@ -196,6 +197,7 @@ pub enum Quartile {
     Q3 = 3,
 }
 
+/// Returns the requested quartile of `durations`, which must be sorted in ascending order.
 #[must_use]
 pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
     if durations.is_empty() {
@@ -224,6 +226,7 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use crate::{
@@ -517,5 +520,46 @@ mod tests {
                 .map_err(|err| err.to_string()),
             expected.map_err(str::to_string)
         );
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn test_cycles_are_positive_and_consecutive(gaps in prop::collection::vec(1i64..30, 1..30)) {
+            let mut date = NaiveDate::default();
+            let period = gaps
+                .iter()
+                .map(|gap| {
+                    date += Duration::days(*gap);
+                    Period {
+                        date,
+                        intensity: Intensity::Medium,
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let cycles = cycles(&period);
+
+            let mut previous_begin = None;
+            for cycle in &cycles {
+                prop_assert!(cycle.length > Duration::days(0));
+                if let Some(previous_begin) = previous_begin {
+                    prop_assert!(cycle.begin > previous_begin);
+                }
+                previous_begin = Some(cycle.begin);
+            }
+        }
+
+        // A single duration is excluded, because `Q1` and `Q3` are then taken from an empty half
+        // and are zero.
+        #[test]
+        fn test_quartiles_are_ordered(lengths in prop::collection::vec(1i64..100, 2..30)) {
+            let mut durations = lengths.iter().map(|l| Duration::days(*l)).collect::<Vec<_>>();
+            durations.sort();
+
+            prop_assert!(quartile(&durations, Quartile::Q1) <= quartile(&durations, Quartile::Q2));
+            prop_assert!(quartile(&durations, Quartile::Q2) <= quartile(&durations, Quartile::Q3));
+        }
     }
 }

@@ -265,6 +265,7 @@ pub fn value_based_centered_moving_average(
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use super::*;
@@ -701,5 +702,75 @@ mod tests {
                 .map(|(y, m, d, v)| (NaiveDate::from_ymd_opt(*y, *m, *d).unwrap(), *v))
                 .collect::<Vec<_>>()
         );
+    }
+
+    const SPAN: i64 = 40;
+
+    fn any_data() -> impl Strategy<Value = Vec<(NaiveDate, f32)>> {
+        prop::collection::vec((0i64..=SPAN, 0.0f32..100.0), 0..20).prop_map(|values| {
+            values
+                .into_iter()
+                .map(|(day, value)| (NaiveDate::default() + Duration::days(day), value))
+                .collect()
+        })
+    }
+
+    fn dates(segments: &[Vec<(NaiveDate, f32)>]) -> Vec<NaiveDate> {
+        segments.iter().flatten().map(|(date, _)| *date).collect()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(128))]
+
+        #[test]
+        fn test_centered_moving_min_average_max_agree(
+            data in any_data(),
+            radius in 0u64..5,
+        ) {
+            let interval = Interval {
+                first: NaiveDate::default(),
+                last: NaiveDate::default() + Duration::days(SPAN),
+            };
+
+            let min = centered_moving_min(&data, interval, radius);
+            let average = centered_moving_average(&data, interval, radius);
+            let max = centered_moving_max(&data, interval, radius);
+
+            prop_assert_eq!(dates(&min), dates(&average));
+            prop_assert_eq!(dates(&max), dates(&average));
+
+            for ((min, average), max) in min.iter().flatten().zip(average.iter().flatten()).zip(max.iter().flatten()) {
+                prop_assert!(min.1 <= average.1 + 1e-3);
+                prop_assert!(average.1 <= max.1 + 1e-3);
+                prop_assert!(interval.first <= average.0 && average.0 <= interval.last);
+            }
+        }
+
+        #[test]
+        fn test_centered_moving_average_covers_the_days_with_data_in_range(
+            data in any_data(),
+            radius in 0u64..5,
+        ) {
+            let interval = Interval {
+                first: NaiveDate::default(),
+                last: NaiveDate::default() + Duration::days(SPAN),
+            };
+
+            let expected = interval
+                .first
+                .iter_days()
+                .take_while(|day| *day <= interval.last)
+                .filter(|day| {
+                    data.iter().any(|(date, _)| {
+                        (*date - *day).num_days().abs() <= i64::try_from(radius).unwrap()
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            prop_assert_eq!(
+                dates(&centered_moving_average(&data, interval, radius)),
+                expected
+            );
+        }
     }
 }

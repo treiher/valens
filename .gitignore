@@ -134,3 +134,6 @@ dmypy.json
 
 # Playwright
 test-results/
+
+# proptest
+proptest-regressions/

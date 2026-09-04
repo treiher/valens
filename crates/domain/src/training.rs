@@ -483,6 +483,7 @@ pub fn drop_set_weights(start_weight: f32, drop_percentage: f32, increment: f32)
 mod tests {
     use assert_approx_eq::assert_approx_eq;
     use pretty_assertions::assert_eq;
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use crate::TrainingSessionElement;
@@ -1000,5 +1001,72 @@ mod tests {
         let mut hasher = DefaultHasher::new();
         weight.hash(&mut hasher);
         hasher.finish()
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn test_round_drop_to_increment_is_a_multiple_of_the_increment(
+            amount in 0.0f32..1000.0,
+            increment in 0.5f32..50.0,
+        ) {
+            let drop = round_drop_to_increment(amount, increment);
+            let steps = drop / increment;
+
+            prop_assert!((steps - steps.round()).abs() < 1e-3);
+            prop_assert!((drop - amount).abs() <= increment);
+        }
+
+        #[test]
+        fn test_round_drop_to_increment_of_a_full_increment_is_not_smaller(
+            increment in 0.5f32..50.0,
+            factor in 1.0f32..100.0,
+        ) {
+            prop_assert!(round_drop_to_increment(factor * increment, increment) >= increment);
+        }
+
+        #[test]
+        fn test_drop_set_weights_stay_on_the_lattice_of_the_start_weight(
+            start_weight in 1.0f32..1000.0,
+            increment in 1.0f32..50.0,
+            drop_percentage in 5.0f32..99.0,
+        ) {
+            let weights = drop_set_weights(start_weight, drop_percentage, increment);
+
+            let mut previous = start_weight;
+            for weight in weights {
+                prop_assert!(weight < previous);
+                prop_assert!(weight >= increment);
+                let steps = (start_weight - weight) / increment;
+                prop_assert!((steps - steps.round()).abs() < 1e-2, "{weight} is off the lattice");
+                previous = weight;
+            }
+        }
+
+        #[test]
+        fn test_one_rep_max_increases_with_reps(reps in 1u32..40, weight in 1.0f32..1000.0) {
+            #[allow(clippy::cast_precision_loss)]
+            let (lower, upper) = (reps as f32, (reps + 1) as f32);
+
+            prop_assert!(one_rep_max(upper, weight) >= one_rep_max(lower, weight));
+        }
+
+        #[test]
+        fn test_reps_for_percentage_inverts_one_rep_max(
+            reps in 1u32..=40,
+            weight in 1.0f32..1000.0,
+        ) {
+            #[allow(clippy::cast_precision_loss)]
+            let reps = reps as f32;
+            let percentage = 100.0 * weight / one_rep_max(reps, weight);
+
+            let result = reps_for_percentage(percentage);
+
+            prop_assert!(
+                (result - reps).abs() / reps < 1e-2,
+                "{result} is not the inverse of {reps}"
+            );
+        }
     }
 }

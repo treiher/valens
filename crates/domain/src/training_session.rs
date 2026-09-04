@@ -1132,6 +1132,7 @@ fn next_consecutive_exercise_ids(elements: &[TrainingSessionElement]) -> Vec<Exe
 mod tests {
     use chrono::{Duration, Local};
     use pretty_assertions::assert_eq;
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use crate::{ExerciseMuscle, Name, Service, tests::FakeRepository};
@@ -3709,5 +3710,89 @@ mod tests {
         let id = TrainingSessionID::from(uuid::Uuid::from_u128(1));
 
         assert_eq!(TrainingSessionID::from_str(&id.to_string()), Ok(id));
+    }
+
+    fn any_session() -> impl Strategy<Value = TrainingSession> {
+        prop::collection::vec(prop::option::of(1u128..4), 1..10)
+            .prop_map(|slots| {
+                let mut elements: Vec<TrainingSessionElement> = vec![];
+                for slot in slots {
+                    match slot {
+                        Some(exercise_id) => {
+                            elements.push(set(exercise_id, 5, 100.0, RPE::ZERO));
+                        }
+                        None => {
+                            if matches!(elements.last(), Some(TrainingSessionElement::Set { .. })) {
+                                elements.push(rest(60));
+                            }
+                        }
+                    }
+                }
+                training_session(&elements)
+            })
+            .prop_filter("session without sets", |session| {
+                !session.elements.is_empty()
+            })
+    }
+
+    fn has_rest_only_section(session: &TrainingSession) -> bool {
+        session.compute_sections().iter().any(|section| {
+            !section
+                .elements()
+                .iter()
+                .any(|element| matches!(element, TrainingSessionElement::Set { .. }))
+        })
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        // `remove_exercise` is left out, because it can produce such a section.
+        #[test]
+        fn test_training_session_mutations_keep_a_set_in_every_section(
+            session in any_session(),
+            operations in prop::collection::vec((0u8..6, 0usize..8, 0usize..8), 0..8),
+        ) {
+            let mut session = session;
+
+            for (operation, a, b) in operations {
+                let sections = session.compute_sections();
+                if sections.is_empty() {
+                    continue;
+                }
+                let section_idx = a % sections.len();
+                let exercises = sections[section_idx].exercise_ids().len();
+                match operation {
+                    0 => session.add_set(b % session.elements.len()),
+                    1 => session.add_exercise(section_idx, (b as u128 % 3 + 1).into()),
+                    2 if exercises > 0 => session.add_same_exercise(section_idx, b % exercises),
+                    3 => session.remove_set(section_idx),
+                    4 => session.move_section_up(section_idx),
+                    5 => session.move_section_down(section_idx),
+                    _ => {}
+                }
+
+                prop_assert!(!has_rest_only_section(&session));
+            }
+        }
+    }
+
+    /// Removing an exercise from a section that repeats its exercises leaves two adjacent rest
+    /// elements behind, which form a section without a set. The recovery of
+    /// `ensure_sections_contain_set` drops that section, but its debug assertion fires first.
+    #[test]
+    #[should_panic(expected = "removing exercise resulted in a section consisting only of rest")]
+    fn test_training_session_remove_exercise_leaves_a_section_without_a_set() {
+        let mut session = training_session(&[
+            set(1, 5, 100.0, RPE::ZERO),
+            set(2, 5, 100.0, RPE::ZERO),
+            rest(60),
+            set(1, 5, 100.0, RPE::ZERO),
+            rest(60),
+            set(2, 5, 100.0, RPE::ZERO),
+            rest(60),
+        ]);
+
+        session.remove_exercise(0, 1);
     }
 }

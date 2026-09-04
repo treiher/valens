@@ -17,4 +17,5 @@ uuid = { workspace = true }
 assert_approx_eq = { workspace = true }
 pollster = { workspace = true }
 pretty_assertions = { workspace = true }
+proptest = { workspace = true }
 rstest = { workspace = true }

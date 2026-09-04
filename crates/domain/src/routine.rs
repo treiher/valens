@@ -775,6 +775,7 @@ pub fn routines_sorted_by_last_use(
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+    use proptest::prelude::*;
     use rstest::rstest;
 
     use crate::{
@@ -2046,5 +2047,129 @@ mod tests {
 
         assert_eq!(id, RoutineID::from(1u128));
         assert_eq!(RoutineID::from_str(&id.to_string()), Ok(id));
+    }
+
+    fn any_activity() -> impl Strategy<Value = RoutinePart> {
+        (1u32..10).prop_map(activity)
+    }
+
+    fn any_routine() -> impl Strategy<Value = Routine> {
+        let part = prop_oneof![
+            any_activity(),
+            (1u32..3, prop::collection::vec(any_activity(), 0..3))
+                .prop_map(|(rounds, parts)| section(rounds, parts)),
+        ];
+        prop::collection::vec(
+            (1u32..3, prop::collection::vec(part, 0..4))
+                .prop_map(|(rounds, parts)| section(rounds, parts)),
+            0..4,
+        )
+        .prop_map(routine_with_sections)
+    }
+
+    fn any_path() -> impl Strategy<Value = RoutinePartPath> {
+        prop::collection::vec(0usize..4, 0..4).prop_map(RoutinePartPath::from)
+    }
+
+    fn activities(parts: &[RoutinePart]) -> Vec<String> {
+        let mut result = vec![];
+        for part in parts {
+            match part {
+                RoutinePart::RoutineSection { parts, .. } => result.extend(activities(parts)),
+                RoutinePart::RoutineActivity { .. } => result.push(format!("{part:?}")),
+            }
+        }
+        result.sort();
+        result
+    }
+
+    fn siblings(routine: &Routine, path: &RoutinePartPath) -> usize {
+        if path.len() == 1 {
+            routine.sections.len()
+        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
+            routine.part(&path[1..].to_vec().into())
+        {
+            parts.len()
+        } else {
+            0
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn test_routine_mutations_ignore_unresolvable_paths(
+            routine in any_routine(),
+            path in any_path(),
+        ) {
+            if routine.part(&path).is_some() {
+                return Ok(());
+            }
+
+            for mutate in [
+                Routine::remove_part,
+                Routine::move_part_down,
+                Routine::move_part_up,
+            ] {
+                let mut mutated = routine.clone();
+                mutate(&mut mutated, &path);
+                prop_assert_eq!(&mutated, &routine);
+            }
+        }
+
+        #[test]
+        fn test_routine_move_part_down_is_undone_by_move_part_up(
+            routine in any_routine(),
+            path in any_path(),
+        ) {
+            if routine.part(&path).is_none() {
+                return Ok(());
+            }
+            let last = siblings(&routine, &path) - 1;
+            let mut moved_path = path.to_vec();
+            moved_path[0] = if path[0] == last { 0 } else { path[0] + 1 };
+
+            let mut mutated = routine.clone();
+            mutated.move_part_down(&path);
+            mutated.move_part_up(&moved_path.into());
+
+            prop_assert_eq!(mutated, routine);
+        }
+
+        #[test]
+        fn test_routine_moves_preserve_the_activities(
+            routine in any_routine(),
+            moves in prop::collection::vec((any::<bool>(), any_path()), 0..8),
+        ) {
+            let expected = activities(&routine.sections);
+            let mut mutated = routine;
+
+            for (down, path) in moves {
+                if down {
+                    mutated.move_part_down(&path);
+                } else {
+                    mutated.move_part_up(&path);
+                }
+            }
+
+            prop_assert_eq!(activities(&mutated.sections), expected);
+        }
+
+        #[test]
+        fn test_routine_remove_part_removes_one_sibling(
+            routine in any_routine(),
+            path in any_path(),
+        ) {
+            if routine.part(&path).is_none() {
+                return Ok(());
+            }
+            let expected = siblings(&routine, &path) - 1;
+
+            let mut mutated = routine;
+            mutated.remove_part(&path);
+
+            prop_assert_eq!(siblings(&mutated, &path), expected);
+        }
     }
 }

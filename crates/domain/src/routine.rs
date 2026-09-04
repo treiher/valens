@@ -248,50 +248,54 @@ impl Routine {
         }
     }
 
+    /// Removes the part at `path`, leaving the routine unchanged if `path` does not resolve.
     pub fn remove_part(&mut self, path: &RoutinePartPath) {
-        if path.len() == 1 {
-            self.sections.remove(path[0]);
-        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
-            Self::get_mut_part(&mut self.sections, &path[1..])
-        {
-            parts.remove(path[0]);
+        if let Some((parts, index)) = self.siblings_mut(path) {
+            parts.remove(index);
         }
     }
 
+    /// Moves the part at `path` one position towards the end of its list, wrapping around at the
+    /// end and leaving the routine unchanged if `path` does not resolve.
     pub fn move_part_down(&mut self, path: &RoutinePartPath) {
-        if path.len() == 1 {
-            if path[0] == self.sections.len() - 1 {
-                self.sections.rotate_right(1);
-            } else {
-                self.sections.swap(path[0], path[0] + 1);
-            }
-        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
-            Self::get_mut_part(&mut self.sections, &path[1..])
-        {
-            if path[0] == parts.len() - 1 {
+        if let Some((parts, index)) = self.siblings_mut(path) {
+            if index == parts.len() - 1 {
                 parts.rotate_right(1);
             } else {
-                parts.swap(path[0], path[0] + 1);
+                parts.swap(index, index + 1);
             }
         }
     }
 
+    /// Moves the part at `path` one position towards the start of its list, wrapping around at the
+    /// start and leaving the routine unchanged if `path` does not resolve.
     pub fn move_part_up(&mut self, path: &RoutinePartPath) {
-        if path.len() == 1 {
-            if path[0] == 0 {
-                self.sections.rotate_left(1);
-            } else {
-                self.sections.swap(path[0], path[0] - 1);
-            }
-        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
-            Self::get_mut_part(&mut self.sections, &path[1..])
-        {
-            if path[0] == 0 {
+        if let Some((parts, index)) = self.siblings_mut(path) {
+            if index == 0 {
                 parts.rotate_left(1);
             } else {
-                parts.swap(path[0], path[0] - 1);
+                parts.swap(index, index - 1);
             }
         }
+    }
+
+    /// Returns the list containing the part at `path` together with the index of that part in the
+    /// list, or `None` if `path` does not resolve.
+    fn siblings_mut(&mut self, path: &RoutinePartPath) -> Option<(&mut Vec<RoutinePart>, usize)> {
+        let (&index, parent) = path.split_first()?;
+        let parts = if parent.is_empty() {
+            &mut self.sections
+        } else if let Some(RoutinePart::RoutineSection { parts, .. }) =
+            Self::get_mut_part(&mut self.sections, parent)
+        {
+            parts
+        } else {
+            return None;
+        };
+        if index >= parts.len() {
+            return None;
+        }
+        Some((parts, index))
     }
 
     /// Move the part at `source` into the section at `target_parent` at the insertion position
@@ -1603,6 +1607,41 @@ mod tests {
             notes: String::new(),
             archived: false,
             sections: vec![],
+        }
+    }
+
+    #[rstest]
+    #[case::empty_path(RoutinePartPath::default())]
+    #[case::section_out_of_range(vec![1].into())]
+    #[case::part_out_of_range(vec![1, 0].into())]
+    #[case::unknown_parent_section(vec![0, 1].into())]
+    #[case::parent_is_an_activity(vec![0, 0, 0].into())]
+    fn test_routine_mutate_unresolvable_path_keeps_routine_unchanged(
+        #[case] path: RoutinePartPath,
+    ) {
+        let sections = vec![section(1, vec![activity(1)])];
+
+        for mutate in [
+            Routine::remove_part,
+            Routine::move_part_down,
+            Routine::move_part_up,
+        ] {
+            let mut routine = routine_with_sections(sections.clone());
+            mutate(&mut routine, &path);
+            assert_eq!(routine.sections, sections);
+        }
+    }
+
+    #[test]
+    fn test_routine_mutate_empty_routine_keeps_routine_unchanged() {
+        for mutate in [
+            Routine::remove_part,
+            Routine::move_part_down,
+            Routine::move_part_up,
+        ] {
+            let mut routine = routine_with_sections(vec![]);
+            mutate(&mut routine, &vec![0].into());
+            assert_eq!(routine.sections, vec![]);
         }
     }
 }

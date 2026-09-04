@@ -41,12 +41,6 @@ class AdminDialog(BaseDialog):
         self.open_edit_user_dialog(name)
         return get_focused_selection(self.dialog.root.get_by_test_id("user-name"))
 
-    def edit_user_height(self, name: str, height: str) -> None:
-        self.open_edit_user_dialog(name)
-        self.dialog.root.get_by_test_id("user-height").fill(height)
-        self.dialog.save()
-        self.wait_until_idle()
-
     def edit_user_role(self, name: str, role: str) -> None:
         self.open_edit_user_dialog(name)
         self.select_role(role)

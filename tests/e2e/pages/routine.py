@@ -40,9 +40,6 @@ class RoutinePage(BasePage):
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Routine")
 
-    def get_title(self) -> str:
-        return self.page.get_by_test_id("page-title").inner_text().strip()
-
     def get_sections(self) -> list[RoutineSection]:
         sections_data = []
 

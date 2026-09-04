@@ -187,11 +187,6 @@ class TrainingSessionPage(BasePage):
         self.page.get_by_test_id("options-1rm").click()
         self.one_rep_max_dialog.wait_until_open()
 
-    def show_drop_set(self, exercise_idx: int = 0) -> None:
-        self.open_exercise_options(exercise_idx)
-        self.page.get_by_test_id("options-drop-set").click()
-        self.drop_set_dialog.wait_until_open()
-
     def open_replace_exercise_dialog(self, exercise_idx: int = 0) -> None:
         self.open_exercise_options(exercise_idx)
         self.page.get_by_test_id("options-replace-exercise").click()
@@ -223,16 +218,8 @@ class TrainingSessionPage(BasePage):
     def get_exercise_notes(self, exercise_idx: int = 0) -> str:
         return get_text(self.page.get_by_test_id("exercise-notes").nth(exercise_idx))
 
-    def expect_no_exercise_notes(self) -> None:
-        expect(self.page.get_by_test_id("exercise-notes")).to_have_count(0)
-
     def click_exercise_notes(self, exercise_idx: int = 0) -> None:
         self.page.get_by_test_id("exercise-notes").nth(exercise_idx).click()
-        self.exercise_notes_dialog.wait_until_open()
-
-    def open_exercise_notes_dialog(self, exercise_idx: int = 0) -> None:
-        self.open_exercise_options(exercise_idx)
-        self.page.get_by_test_id("options-edit-exercise-notes").click()
         self.exercise_notes_dialog.wait_until_open()
 
     def set_exercise_notes(self, notes: str) -> None:

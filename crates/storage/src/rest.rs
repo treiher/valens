@@ -367,6 +367,57 @@ fn error_reason(body: Option<&str>, default: &str) -> String {
         .map_or_else(|| default.to_string(), str::to_string)
 }
 
+impl<S: SendRequest> crate::cached_rest::Remote for REST<S> {
+    async fn read_body_weight_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::BodyWeight>>, domain::ReadError> {
+        REST::read_body_weight_conditional(self, etag).await
+    }
+
+    async fn read_body_fat_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::BodyFat>>, domain::ReadError> {
+        REST::read_body_fat_conditional(self, etag).await
+    }
+
+    async fn read_period_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Period>>, domain::ReadError> {
+        REST::read_period_conditional(self, etag).await
+    }
+
+    async fn read_exercises_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Exercise>>, domain::ReadError> {
+        REST::read_exercises_conditional(self, etag).await
+    }
+
+    async fn read_routines_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Routine>>, domain::ReadError> {
+        REST::read_routines_conditional(self, etag).await
+    }
+
+    async fn read_schedule_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<domain::Schedule>, domain::ReadError> {
+        REST::read_schedule_conditional(self, etag).await
+    }
+
+    async fn read_training_sessions_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::TrainingSession>>, domain::ReadError> {
+        REST::read_training_sessions_conditional(self, etag).await
+    }
+}
+
 impl<S: SendRequest> domain::SessionRepository for REST<S> {
     async fn request_session(&self, name: domain::Name) -> Result<domain::User, domain::ReadError> {
         let r: User = self

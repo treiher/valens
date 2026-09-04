@@ -9,31 +9,114 @@
 
 use chrono::NaiveDate;
 use log::error;
-use valens_domain::{self as domain, SessionRepository};
+use valens_domain::{self as domain};
 
 use super::{
-    indexed_db::{IndexedDB, Store},
-    rest::{Conditional, GlooNetSendRequest, REST, SendRequest},
+    indexed_db::IndexedDB,
+    rest::{Conditional, GlooNetSendRequest, REST},
 };
+
+pub type DefaultCachedREST = CachedREST<REST<GlooNetSendRequest>, IndexedDB>;
+
+/// The authoritative data source behind [`CachedREST`].
+#[allow(async_fn_in_trait)]
+pub trait Remote:
+    domain::SessionRepository
+    + domain::AuthRepository
+    + domain::VersionRepository
+    + domain::UserRepository
+    + domain::BodyWeightRepository
+    + domain::BodyFatRepository
+    + domain::PeriodRepository
+    + domain::ExerciseRepository
+    + domain::RoutineRepository
+    + domain::ScheduleRepository
+    + domain::TrainingSessionRepository
+{
+    async fn read_body_weight_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::BodyWeight>>, domain::ReadError>;
+    async fn read_body_fat_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::BodyFat>>, domain::ReadError>;
+    async fn read_period_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Period>>, domain::ReadError>;
+    async fn read_exercises_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Exercise>>, domain::ReadError>;
+    async fn read_routines_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::Routine>>, domain::ReadError>;
+    async fn read_schedule_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<domain::Schedule>, domain::ReadError>;
+    async fn read_training_sessions_conditional(
+        &self,
+        etag: Option<&str>,
+    ) -> Result<Conditional<Vec<domain::TrainingSession>>, domain::ReadError>;
+}
+
+/// The local cache behind [`CachedREST`].
+#[allow(async_fn_in_trait)]
+pub trait Cache:
+    domain::SessionRepository
+    + domain::BodyWeightRepository
+    + domain::BodyFatRepository
+    + domain::PeriodRepository
+    + domain::ExerciseRepository
+    + domain::RoutineRepository
+    + domain::ScheduleRepository
+    + domain::TrainingSessionRepository
+    + Send
+    + Sync
+    + 'static
+{
+    async fn read_etag(&self, collection: &str) -> Result<Option<String>, String>;
+    async fn write_etag(&self, collection: &str, etag: &str) -> Result<(), String>;
+    async fn write_session(&self, user: &domain::User) -> Result<(), String>;
+    async fn clear_session_dependent_data(&self) -> Result<(), Box<dyn std::error::Error>>;
+    async fn write_body_weight(&self, body_weight: &[domain::BodyWeight]) -> Result<(), String>;
+    async fn write_body_fat(&self, body_fat: &[domain::BodyFat]) -> Result<(), String>;
+    async fn write_period(&self, period: &[domain::Period]) -> Result<(), String>;
+    async fn write_exercises(&self, exercises: &[domain::Exercise]) -> Result<(), String>;
+    async fn write_routines(&self, routines: &[domain::Routine]) -> Result<(), String>;
+    async fn write_schedule(&self, schedule: &domain::Schedule) -> Result<(), String>;
+    async fn write_training_sessions(
+        &self,
+        training_sessions: &[domain::TrainingSession],
+    ) -> Result<(), String>;
+    async fn write_routine(&self, routine: &domain::Routine) -> Result<(), String>;
+    async fn write_training_session(
+        &self,
+        training_session: &domain::TrainingSession,
+    ) -> Result<(), String>;
+}
 
 macro_rules! sync {
     ($self:ident, $read:ident, $write:ident, $read_back:ident, $name:literal) => {{
-        let etag = IndexedDB.read_etag($name).await.ok().flatten();
-        match $self.rest.$read(etag.as_deref()).await {
+        let etag = $self.cache.read_etag($name).await.ok().flatten();
+        match $self.remote.$read(etag.as_deref()).await {
             Ok(Conditional::Modified { data, etag }) => {
                 // Persist the ETag only after the data it describes is cached, so a later 304
                 // never serves stale data behind a current ETag.
-                if let Err(err) = IndexedDB.$write(&data).await {
+                if let Err(err) = $self.cache.$write(&data).await {
                     error!("failed to write {} into IDB: {err}", $name);
                 } else if let Some(etag) = etag
-                    && let Err(err) = IndexedDB.write_etag($name, &etag).await
+                    && let Err(err) = $self.cache.write_etag($name, &etag).await
                 {
                     error!("failed to write {} etag into IDB: {err}", $name);
                 }
                 Ok(data)
             }
             // Reuse the cached data the server confirmed is still current.
-            Ok(Conditional::NotModified) => Ok(IndexedDB.$read_back().await?),
+            Ok(Conditional::NotModified) => Ok($self.cache.$read_back().await?),
             Err(err) => Err(err.into()),
         }
     }};
@@ -41,8 +124,8 @@ macro_rules! sync {
 
 macro_rules! create {
     ($self: ident, $create: ident, $replace: ident, $name: literal, $($arg:expr),*) => {{
-        let result = $self.rest.$create($($arg),*).await?;
-        if let Err(err) = IndexedDB.$replace(result.clone()).await {
+        let result = $self.remote.$create($($arg),*).await?;
+        if let Err(err) = $self.cache.$replace(result.clone()).await {
             error!("failed to update {} in IDB: {err}", $name);
         }
         Ok(result)
@@ -51,8 +134,8 @@ macro_rules! create {
 
 macro_rules! execute {
     ($self: ident, $method: ident, $name: literal $(, $arg:expr)*) => {{
-        let result = $self.rest.$method($($arg.clone()),*).await?;
-        if let Err(err) = IndexedDB.$method($($arg),*).await {
+        let result = $self.remote.$method($($arg.clone()),*).await?;
+        if let Err(err) = $self.cache.$method($($arg),*).await {
             error!("failed to update {} in IDB: {err}", $name);
         }
         Ok(result)
@@ -60,28 +143,32 @@ macro_rules! execute {
 }
 
 #[derive(Clone, Copy)]
-pub struct CachedREST<S: SendRequest> {
-    pub rest: REST<S>,
+pub struct CachedREST<R: Remote, C: Cache> {
+    pub remote: R,
+    pub cache: C,
 }
 
-impl CachedREST<GlooNetSendRequest> {
+impl DefaultCachedREST {
     #[must_use]
     pub const fn new() -> Self {
-        Self { rest: REST::new() }
+        Self {
+            remote: REST::new(),
+            cache: IndexedDB,
+        }
     }
 }
 
-impl Default for CachedREST<GlooNetSendRequest> {
+impl Default for DefaultCachedREST {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::SessionRepository for CachedREST<R, C> {
     async fn request_session(&self, name: domain::Name) -> Result<domain::User, domain::ReadError> {
-        let rest_result = self.rest.request_session(name).await;
+        let rest_result = self.remote.request_session(name).await;
         if let Ok(ref user) = rest_result
-            && let Err(err) = IndexedDB.write_session(user).await
+            && let Err(err) = self.cache.write_session(user).await
         {
             error!("failed to write session into IDB: {err}");
         }
@@ -90,21 +177,21 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
     }
 
     async fn initialize_session(&self) -> Result<domain::User, domain::ReadError> {
-        IndexedDB.initialize_session().await
+        self.cache.initialize_session().await
     }
 
     async fn sync_session(&self) -> Result<Option<domain::User>, domain::SyncError> {
-        if let Some(user) = self.rest.sync_session().await? {
-            if let Err(err) = IndexedDB.write_session(&user).await {
+        if let Some(user) = self.remote.sync_session().await? {
+            if let Err(err) = self.cache.write_session(&user).await {
                 error!("failed to write session into IDB: {err}");
             }
             Ok(Some(user))
         } else {
             // A missing session on the server means the user is signed out
-            if let Err(err) = IndexedDB.delete_session().await {
+            if let Err(err) = self.cache.delete_session().await {
                 error!("failed to update session in IDB: {err}");
             }
-            if let Err(err) = IndexedDB.clear_session_dependent_data().await {
+            if let Err(err) = self.cache.clear_session_dependent_data().await {
                 error!("failed to update session-dependent data in IDB: {err}");
             }
             Ok(None)
@@ -112,13 +199,13 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
     }
 
     async fn delete_session(&self) -> Result<domain::SignOut, domain::DeleteError> {
-        self.rest.delete_session().await?;
+        self.remote.delete_session().await?;
         let mut sign_out = domain::SignOut::Complete;
-        if let Err(err) = IndexedDB.delete_session().await {
+        if let Err(err) = self.cache.delete_session().await {
             error!("failed to update session in IDB: {err}");
             sign_out = domain::SignOut::DataRetained;
         }
-        if let Err(err) = IndexedDB.clear_session_dependent_data().await {
+        if let Err(err) = self.cache.clear_session_dependent_data().await {
             error!("failed to update session-dependent data in IDB: {err}");
             sign_out = domain::SignOut::DataRetained;
         }
@@ -126,15 +213,15 @@ impl<S: SendRequest> domain::SessionRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::AuthRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::AuthRepository for CachedREST<R, C> {
     async fn read_auth_methods(&self) -> Result<Vec<domain::AuthMethod>, domain::ReadError> {
-        self.rest.read_auth_methods().await
+        self.remote.read_auth_methods().await
     }
 
     async fn login_with_passkey(&self) -> Result<domain::User, domain::ReadError> {
-        let rest_result = self.rest.login_with_passkey().await;
+        let rest_result = self.remote.login_with_passkey().await;
         if let Ok(ref user) = rest_result
-            && let Err(err) = IndexedDB.write_session(user).await
+            && let Err(err) = self.cache.write_session(user).await
         {
             error!("failed to write session into IDB: {err}");
         }
@@ -143,14 +230,14 @@ impl<S: SendRequest> domain::AuthRepository for CachedREST<S> {
     }
 
     async fn register_passkey(&self) -> Result<domain::Passkey, domain::CreateError> {
-        self.rest.register_passkey().await
+        self.remote.register_passkey().await
     }
 
     async fn read_passkeys(
         &self,
         user_id: domain::UserID,
     ) -> Result<Vec<domain::Passkey>, domain::ReadError> {
-        self.rest.read_passkeys(user_id).await
+        self.remote.read_passkeys(user_id).await
     }
 
     async fn rename_passkey(
@@ -159,7 +246,7 @@ impl<S: SendRequest> domain::AuthRepository for CachedREST<S> {
         id: domain::PasskeyID,
         label: domain::Name,
     ) -> Result<domain::Passkey, domain::UpdateError> {
-        self.rest.rename_passkey(user_id, id, label).await
+        self.remote.rename_passkey(user_id, id, label).await
     }
 
     async fn delete_passkey(
@@ -167,20 +254,20 @@ impl<S: SendRequest> domain::AuthRepository for CachedREST<S> {
         user_id: domain::UserID,
         id: domain::PasskeyID,
     ) -> Result<(), domain::DeleteError> {
-        self.rest.delete_passkey(user_id, id).await
+        self.remote.delete_passkey(user_id, id).await
     }
 
     async fn create_login_link(
         &self,
         user_id: domain::UserID,
     ) -> Result<String, domain::CreateError> {
-        self.rest.create_login_link(user_id).await
+        self.remote.create_login_link(user_id).await
     }
 
     async fn redeem_login_link(&self, token: String) -> Result<domain::User, domain::ReadError> {
-        let rest_result = self.rest.redeem_login_link(token).await;
+        let rest_result = self.remote.redeem_login_link(token).await;
         if let Ok(ref user) = rest_result
-            && let Err(err) = IndexedDB.write_session(user).await
+            && let Err(err) = self.cache.write_session(user).await
         {
             error!("failed to write session into IDB: {err}");
         }
@@ -189,15 +276,15 @@ impl<S: SendRequest> domain::AuthRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::VersionRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::VersionRepository for CachedREST<R, C> {
     async fn read_version(&self) -> Result<String, domain::ReadError> {
-        self.rest.read_version().await
+        self.remote.read_version().await
     }
 }
 
-impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::UserRepository for CachedREST<R, C> {
     async fn read_users(&self) -> Result<Vec<domain::User>, domain::ReadError> {
-        self.rest.read_users().await
+        self.remote.read_users().await
     }
 
     async fn create_user(
@@ -207,14 +294,14 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
         height: Option<u8>,
         role: domain::Role,
     ) -> Result<domain::User, domain::CreateError> {
-        self.rest.create_user(name, sex, height, role).await
+        self.remote.create_user(name, sex, height, role).await
     }
 
     async fn replace_user(&self, user: domain::User) -> Result<domain::User, domain::UpdateError> {
-        let user = self.rest.replace_user(user).await?;
-        if let Ok(session_user) = IndexedDB.initialize_session().await
+        let user = self.remote.replace_user(user).await?;
+        if let Ok(session_user) = self.cache.initialize_session().await
             && session_user.id == user.id
-            && let Err(err) = IndexedDB.write_session(&user).await
+            && let Err(err) = self.cache.write_session(&user).await
         {
             error!("failed to write session into IDB: {err}");
         }
@@ -228,10 +315,10 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
         sex: domain::Sex,
         height: Option<u8>,
     ) -> Result<domain::User, domain::UpdateError> {
-        let user = self.rest.update_user(id, name, sex, height).await?;
-        if let Ok(session_user) = IndexedDB.initialize_session().await
+        let user = self.remote.update_user(id, name, sex, height).await?;
+        if let Ok(session_user) = self.cache.initialize_session().await
             && session_user.id == user.id
-            && let Err(err) = IndexedDB.write_session(&user).await
+            && let Err(err) = self.cache.write_session(&user).await
         {
             error!("failed to write session into IDB: {err}");
         }
@@ -239,11 +326,11 @@ impl<S: SendRequest> domain::UserRepository for CachedREST<S> {
     }
 
     async fn delete_user(&self, id: domain::UserID) -> Result<(), domain::DeleteError> {
-        self.rest.delete_user(id).await
+        self.remote.delete_user(id).await
     }
 }
 
-impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::BodyWeightRepository for CachedREST<R, C> {
     async fn sync_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::SyncError> {
         sync!(
             self,
@@ -255,7 +342,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
     }
 
     async fn read_body_weight(&self) -> Result<Vec<domain::BodyWeight>, domain::ReadError> {
-        IndexedDB.read_body_weight().await
+        self.cache.read_body_weight().await
     }
 
     async fn create_body_weight(
@@ -283,7 +370,7 @@ impl<S: SendRequest> domain::BodyWeightRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::BodyFatRepository for CachedREST<R, C> {
     async fn sync_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::SyncError> {
         sync!(
             self,
@@ -295,7 +382,7 @@ impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
     }
 
     async fn read_body_fat(&self) -> Result<Vec<domain::BodyFat>, domain::ReadError> {
-        IndexedDB.read_body_fat().await
+        self.cache.read_body_fat().await
     }
 
     async fn create_body_fat(
@@ -323,7 +410,7 @@ impl<S: SendRequest> domain::BodyFatRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::PeriodRepository for CachedREST<R, C> {
     async fn sync_period(&self) -> Result<Vec<domain::Period>, domain::SyncError> {
         sync!(
             self,
@@ -335,7 +422,7 @@ impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
     }
 
     async fn read_period(&self) -> Result<Vec<domain::Period>, domain::ReadError> {
-        IndexedDB.read_period().await
+        self.cache.read_period().await
     }
 
     async fn create_period(
@@ -357,7 +444,7 @@ impl<S: SendRequest> domain::PeriodRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::ExerciseRepository for CachedREST<R, C> {
     async fn sync_exercises(&self) -> Result<Vec<domain::Exercise>, domain::SyncError> {
         sync!(
             self,
@@ -369,7 +456,7 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
     }
 
     async fn read_exercises(&self) -> Result<Vec<domain::Exercise>, domain::ReadError> {
-        IndexedDB.read_exercises().await
+        self.cache.read_exercises().await
     }
 
     async fn create_exercise(
@@ -413,7 +500,7 @@ impl<S: SendRequest> domain::ExerciseRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::RoutineRepository for CachedREST<R, C> {
     async fn sync_routines(&self) -> Result<Vec<domain::Routine>, domain::SyncError> {
         sync!(
             self,
@@ -425,7 +512,7 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
     }
 
     async fn read_routines(&self) -> Result<Vec<domain::Routine>, domain::ReadError> {
-        IndexedDB.read_routines().await
+        self.cache.read_routines().await
     }
 
     async fn create_routine(
@@ -434,15 +521,8 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
         notes: String,
         sections: Vec<domain::RoutinePart>,
     ) -> Result<domain::Routine, domain::CreateError> {
-        let routine = self.rest.create_routine(name, notes, sections).await?;
-        if let Err(err) = IndexedDB
-            .put(
-                Store::Routines,
-                super::indexed_db::Routine::from(&routine),
-                (),
-            )
-            .await
-        {
+        let routine = self.remote.create_routine(name, notes, sections).await?;
+        if let Err(err) = self.cache.write_routine(&routine).await {
             error!("failed to update routine in IDB: {err}");
         }
         Ok(routine)
@@ -473,7 +553,7 @@ impl<S: SendRequest> domain::RoutineRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::ScheduleRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::ScheduleRepository for CachedREST<R, C> {
     async fn sync_schedule(&self) -> Result<domain::Schedule, domain::SyncError> {
         sync!(
             self,
@@ -485,7 +565,7 @@ impl<S: SendRequest> domain::ScheduleRepository for CachedREST<S> {
     }
 
     async fn read_schedule(&self) -> Result<domain::Schedule, domain::ReadError> {
-        IndexedDB.read_schedule().await
+        self.cache.read_schedule().await
     }
 
     async fn replace_schedule(
@@ -496,7 +576,7 @@ impl<S: SendRequest> domain::ScheduleRepository for CachedREST<S> {
     }
 }
 
-impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
+impl<R: Remote, C: Cache> domain::TrainingSessionRepository for CachedREST<R, C> {
     async fn sync_training_sessions(
         &self,
     ) -> Result<Vec<domain::TrainingSession>, domain::SyncError> {
@@ -512,7 +592,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
     async fn read_training_sessions(
         &self,
     ) -> Result<Vec<domain::TrainingSession>, domain::ReadError> {
-        IndexedDB.read_training_sessions().await
+        self.cache.read_training_sessions().await
     }
 
     async fn create_training_session(
@@ -523,17 +603,10 @@ impl<S: SendRequest> domain::TrainingSessionRepository for CachedREST<S> {
         elements: Vec<domain::TrainingSessionElement>,
     ) -> Result<domain::TrainingSession, domain::CreateError> {
         let training_session = self
-            .rest
+            .remote
             .create_training_session(routine_id, date, notes, elements)
             .await?;
-        if let Err(err) = IndexedDB
-            .put(
-                Store::TrainingSessions,
-                super::indexed_db::TrainingSession::from(&training_session),
-                (),
-            )
-            .await
-        {
+        if let Err(err) = self.cache.write_training_session(&training_session).await {
             error!("failed to update training session in IDB: {err}");
         }
         Ok(training_session)
@@ -583,7 +656,7 @@ mod tests {
         use wasm_bindgen_test::wasm_bindgen_test;
 
         use crate::{
-            rest,
+            rest::{self, SendRequest},
             tests::data::{
                 BODY_FAT, BODY_FATS, BODY_WEIGHT, BODY_WEIGHTS, EXERCISE, EXERCISES, PERIOD,
                 PERIODS, ROUTINE, ROUTINES, SCHEDULE, TRAINING_SESSION, TRAINING_SESSIONS, USER,
@@ -2781,7 +2854,7 @@ mod tests {
 
         fn cached_rest_with_response(
             response: Option<Result<gloo_net::http::Response, gloo_net::Error>>,
-        ) -> CachedREST<MockSendRequest> {
+        ) -> CachedREST<REST<MockSendRequest>, IndexedDB> {
             cached_rest_capturing(response).0
         }
 
@@ -2789,7 +2862,7 @@ mod tests {
         fn cached_rest_capturing(
             response: Option<Result<gloo_net::http::Response, gloo_net::Error>>,
         ) -> (
-            CachedREST<MockSendRequest>,
+            CachedREST<REST<MockSendRequest>, IndexedDB>,
             Arc<Mutex<Option<gloo_net::http::Request>>>,
         ) {
             #[allow(clippy::arc_with_non_send_sync)]
@@ -2801,7 +2874,8 @@ mod tests {
             };
             (
                 CachedREST {
-                    rest: REST { sender },
+                    remote: REST { sender },
+                    cache: IndexedDB,
                 },
                 request,
             )

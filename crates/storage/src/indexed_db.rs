@@ -359,6 +359,85 @@ impl IndexedDB {
             .replace_all::<_, TrainingSession, _>(Store::TrainingSessions, training_sessions, ())
             .await
     }
+
+    pub async fn write_routine(&self, routine: &domain::Routine) -> Result<(), String> {
+        self.put(Store::Routines, Routine::from(routine), ())
+            .await
+            .map_err(|err| err.to_string())
+    }
+
+    pub async fn write_training_session(
+        &self,
+        training_session: &domain::TrainingSession,
+    ) -> Result<(), String> {
+        self.put(
+            Store::TrainingSessions,
+            TrainingSession::from(training_session),
+            (),
+        )
+        .await
+        .map_err(|err| err.to_string())
+    }
+}
+
+impl crate::cached_rest::Cache for IndexedDB {
+    async fn read_etag(&self, collection: &str) -> Result<Option<String>, String> {
+        IndexedDB::read_etag(self, collection).await
+    }
+
+    async fn write_etag(&self, collection: &str, etag: &str) -> Result<(), String> {
+        IndexedDB::write_etag(self, collection, etag).await
+    }
+
+    async fn write_session(&self, user: &domain::User) -> Result<(), String> {
+        IndexedDB::write_session(self, user).await
+    }
+
+    async fn clear_session_dependent_data(&self) -> Result<(), Box<dyn std::error::Error>> {
+        IndexedDB::clear_session_dependent_data(self).await
+    }
+
+    async fn write_body_weight(&self, body_weight: &[domain::BodyWeight]) -> Result<(), String> {
+        IndexedDB::write_body_weight(self, body_weight).await
+    }
+
+    async fn write_body_fat(&self, body_fat: &[domain::BodyFat]) -> Result<(), String> {
+        IndexedDB::write_body_fat(self, body_fat).await
+    }
+
+    async fn write_period(&self, period: &[domain::Period]) -> Result<(), String> {
+        IndexedDB::write_period(self, period).await
+    }
+
+    async fn write_exercises(&self, exercises: &[domain::Exercise]) -> Result<(), String> {
+        IndexedDB::write_exercises(self, exercises).await
+    }
+
+    async fn write_routines(&self, routines: &[domain::Routine]) -> Result<(), String> {
+        IndexedDB::write_routines(self, routines).await
+    }
+
+    async fn write_schedule(&self, schedule: &domain::Schedule) -> Result<(), String> {
+        IndexedDB::write_schedule(self, schedule).await
+    }
+
+    async fn write_training_sessions(
+        &self,
+        training_sessions: &[domain::TrainingSession],
+    ) -> Result<(), String> {
+        IndexedDB::write_training_sessions(self, training_sessions).await
+    }
+
+    async fn write_routine(&self, routine: &domain::Routine) -> Result<(), String> {
+        IndexedDB::write_routine(self, routine).await
+    }
+
+    async fn write_training_session(
+        &self,
+        training_session: &domain::TrainingSession,
+    ) -> Result<(), String> {
+        IndexedDB::write_training_session(self, training_session).await
+    }
 }
 
 impl domain::SessionRepository for IndexedDB {

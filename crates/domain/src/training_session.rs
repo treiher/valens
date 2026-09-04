@@ -655,26 +655,39 @@ impl TrainingSession {
         let section = &sections[section_idx];
 
         let mut elements = vec![];
-        if section.exercise_ids().len() > 1 {
-            let id = section.exercise_ids()[exercise_idx];
-            let mut removed = false;
-            for element in section.elements().iter().rev() {
-                match element {
-                    TrainingSessionElement::Set { exercise_id, .. } => {
-                        if !removed && *exercise_id == id {
-                            removed = true;
-                        } else {
-                            elements.push(element.clone());
-                        }
+        let ids = section.exercise_ids();
+        if ids.len() > 1 {
+            let id = ids[exercise_idx];
+            let closes_round = ids.last() == Some(&id);
+            for run in section
+                .elements()
+                .split_inclusive(|element| matches!(element, TrainingSessionElement::Rest { .. }))
+            {
+                let removed_idx = run.iter().rposition(|element| {
+                    matches!(element, TrainingSessionElement::Set { exercise_id, .. } if *exercise_id == id)
+                });
+                let remaining = run
+                    .iter()
+                    .enumerate()
+                    .filter(|(idx, _)| Some(*idx) != removed_idx)
+                    .map(|(_, element)| element.clone())
+                    .collect::<Vec<_>>();
+                if remaining
+                    .iter()
+                    .any(|element| matches!(element, TrainingSessionElement::Set { .. }))
+                {
+                    elements.extend(remaining);
+                    continue;
+                }
+                // Of the rests around an emptied run, the one closing the round is kept.
+                if closes_round {
+                    if matches!(elements.last(), Some(TrainingSessionElement::Rest { .. })) {
+                        elements.pop();
                     }
-                    TrainingSessionElement::Rest { .. } => {
-                        elements.push(element.clone());
-                        removed = false;
-                    }
+                    elements.extend(remaining);
                 }
             }
         }
-        elements.reverse();
 
         self.replace_elements_of_section(&sections, section_idx, elements);
         self.ensure_sections_contain_set("removing exercise");
@@ -3747,11 +3760,10 @@ mod tests {
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(256))]
 
-        // `remove_exercise` is left out, because it can produce such a section.
         #[test]
         fn test_training_session_mutations_keep_a_set_in_every_section(
             session in any_session(),
-            operations in prop::collection::vec((0u8..6, 0usize..8, 0usize..8), 0..8),
+            operations in prop::collection::vec((0u8..7, 0usize..8, 0usize..8), 0..8),
         ) {
             let mut session = session;
 
@@ -3767,8 +3779,9 @@ mod tests {
                     1 => session.add_exercise(section_idx, (b as u128 % 3 + 1).into()),
                     2 if exercises > 0 => session.add_same_exercise(section_idx, b % exercises),
                     3 => session.remove_set(section_idx),
-                    4 => session.move_section_up(section_idx),
-                    5 => session.move_section_down(section_idx),
+                    4 if exercises > 0 => session.remove_exercise(section_idx, b % exercises),
+                    5 => session.move_section_up(section_idx),
+                    6 => session.move_section_down(section_idx),
                     _ => {}
                 }
 
@@ -3777,12 +3790,34 @@ mod tests {
         }
     }
 
-    /// Removing an exercise from a section that repeats its exercises leaves two adjacent rest
-    /// elements behind, which form a section without a set. The recovery of
-    /// `ensure_sections_contain_set` drops that section, but its debug assertion fires first.
+    #[rstest]
+    #[case::opening_exercise(0, &[exercise(1, 1), exercise(2, 2), rest(90), exercise(5, 1), rest(31), exercise(6, 2), rest(91)])]
+    #[case::middle_exercise(1, &[exercise(0, 0), exercise(2, 2), rest(90), exercise(4, 0), rest(30), exercise(6, 2), rest(91)])]
+    #[case::closing_exercise(2, &[exercise(0, 0), exercise(1, 1), rest(90), exercise(4, 0), rest(30), exercise(5, 1), rest(91)])]
+    fn test_training_session_remove_exercise_keeps_the_rest_closing_a_round(
+        #[case] exercise_idx: usize,
+        #[case] expected: &[TrainingSessionElement],
+    ) {
+        let mut session = training_session(&[
+            exercise(0, 0),
+            exercise(1, 1),
+            exercise(2, 2),
+            rest(90),
+            exercise(4, 0),
+            rest(30),
+            exercise(5, 1),
+            rest(31),
+            exercise(6, 2),
+            rest(91),
+        ]);
+
+        session.remove_exercise(0, exercise_idx);
+
+        assert_eq!(session.elements, expected);
+    }
+
     #[test]
-    #[should_panic(expected = "removing exercise resulted in a section consisting only of rest")]
-    fn test_training_session_remove_exercise_leaves_a_section_without_a_set() {
+    fn test_training_session_remove_exercise_drops_the_rest_of_an_emptied_round() {
         let mut session = training_session(&[
             set(1, 5, 100.0, RPE::ZERO),
             set(2, 5, 100.0, RPE::ZERO),
@@ -3794,5 +3829,15 @@ mod tests {
         ]);
 
         session.remove_exercise(0, 1);
+
+        assert_eq!(
+            session.elements,
+            [
+                set(1, 5, 100.0, RPE::ZERO),
+                rest(60),
+                set(1, 5, 100.0, RPE::ZERO),
+                rest(60),
+            ]
+        );
     }
 }

@@ -1266,7 +1266,7 @@ def test_training_session_1rm_calculator(page: Page) -> None:
     p.goto()
     p.edit()
 
-    p.show_1rm()
+    p.calculate_1rm()
 
     dialog = p.one_rep_max_dialog
     assert dialog.get_weight() == "100"
@@ -1278,6 +1278,41 @@ def test_training_session_1rm_calculator(page: Page) -> None:
 
     dialog.close()
     dialog.wait_until_closed()
+
+
+def test_training_session_drop_set_calculator_fills_the_sets(page: Page) -> None:
+    workout = next(w for w in USER.workouts if w.id == 5)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    assert p.get_form() == [(10, None, 100.0, None), (8, None, 105.0, None)]
+
+    p.calculate_drop_sets()
+
+    dialog = p.drop_set_dialog
+    assert dialog.get_start_weight() == "100"
+    assert dialog.has_fill()
+
+    dialog.set_start_weight(60.0)
+    dialog.fill_sets()
+
+    assert p.get_form() == [(10, None, 60.0, None), (8, None, 48.0, None)]
+
+
+def test_training_session_drop_set_calculator_is_unavailable_for_a_single_set(
+    page: Page,
+) -> None:
+    workout = next(w for w in USER.workouts if w.id == 4)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.expect_drop_set_option_hidden()
 
 
 def test_activity_bar(page: Page) -> None:
@@ -3271,6 +3306,7 @@ def test_navbar_drop_set_calculator(page: Page) -> None:
     assert dialog.get_start_weight() == "100"
     assert dialog.get_drop_percentage() == "20"
     assert dialog.get_increment() == "2"
+    assert not dialog.has_fill()
 
     rows = dialog.get_rows()
     assert rows[0] == ("100.0", "100.0", "100")

@@ -196,10 +196,19 @@ class TrainingSessionPage(BasePage):
         self.page.get_by_test_id("item-options").nth(exercise_idx).click()
         self.page.get_by_test_id("options-menu").wait_for(state="visible")
 
-    def show_1rm(self, exercise_idx: int = 0) -> None:
+    def calculate_1rm(self, exercise_idx: int = 0) -> None:
         self.open_exercise_options(exercise_idx)
         self.page.get_by_test_id("options-1rm").click()
         self.one_rep_max_dialog.wait_until_open()
+
+    def calculate_drop_sets(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        self.page.get_by_test_id("options-drop-set").click()
+        self.drop_set_dialog.wait_until_open()
+
+    def expect_drop_set_option_hidden(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        expect(self.page.get_by_test_id("options-drop-set")).to_be_hidden()
 
     def open_replace_exercise_dialog(self, exercise_idx: int = 0) -> None:
         self.open_exercise_options(exercise_idx)
@@ -329,6 +338,13 @@ class DropSetCalculatorDialog(Dialog):
 
     def set_increment(self, increment: str) -> None:
         self.root.get_by_test_id("drop-set-increment").select_option(increment)
+
+    def has_fill(self) -> bool:
+        return self.root.get_by_test_id("drop-set-fill").count() > 0
+
+    def fill_sets(self) -> None:
+        self.root.get_by_test_id("drop-set-fill").click()
+        self.wait_until_closed()
 
     def get_rows(self) -> list[tuple[str, str, str]]:
         """Return (nominal_pct, actual_pct, weight) for all rows."""

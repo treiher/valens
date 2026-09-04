@@ -11,22 +11,24 @@ use crate::{
 };
 
 #[component]
-pub fn DropSetCalculator() -> Element {
+pub fn DropSetCalculator(
+    on_close: EventHandler<MouseEvent>,
+    on_fill: Option<EventHandler<Vec<domain::Weight>>>,
+) -> Element {
     let state = DROP_SET_CALCULATOR.read().clone();
-    let mut start_weight_input = use_signal(|| FieldValue::new(state.start_weight));
+    let mut start_weight_input =
+        use_signal(|| FieldValue::new_with_empty_default(state.start_weight));
     let mut drop_percentage_input = use_signal(|| FieldValue::new(state.drop_percentage));
 
     let start_weight = state.start_weight;
     let drop_percentage = state.drop_percentage;
     let increment = state.increment;
-    let weights = domain::drop_set_weights(start_weight, drop_percentage, increment);
-    let dp = decimal_places(increment);
+    let ladder = ladder(start_weight, drop_percentage, increment);
+    let dp = decimal_places(increment).max(decimal_places(start_weight));
 
     rsx! {
         Dialog {
-            on_close: move |_| {
-                DROP_SET_CALCULATOR.write().visible = false;
-            },
+            on_close,
             div {
                 class: "columns is-mobile",
                 div {
@@ -110,17 +112,15 @@ pub fn DropSetCalculator() -> Element {
                     }
                 }
                 tbody {
-                    tr {
-                        td { class: "has-text-right", "100.0" }
-                        td { class: "has-text-right", "100.0" }
-                        td { class: "has-text-right", { format!("{start_weight:.dp$}") } }
-                    }
-                    for (index, w) in weights.iter().enumerate() {
+                    for (index, weight) in ladder.iter().enumerate() {
                         {
-                            let drop_index = i32::try_from(index + 1).unwrap_or(i32::MAX);
+                            let w = f32::from(*weight);
+                            let drop_index = i32::try_from(index).unwrap_or(i32::MAX);
                             let nominal: f32 =
                                 100.0 * (1.0f32 - drop_percentage / 100.0).powi(drop_index);
-                            let actual: f32 = if start_weight > 0.0 {
+                            let actual: f32 = if index == 0 {
+                                100.0
+                            } else if start_weight > 0.0 {
                                 100.0 * w / start_weight
                             } else {
                                 0.0
@@ -136,8 +136,41 @@ pub fn DropSetCalculator() -> Element {
                     }
                 }
             }
+            if let Some(on_fill) = on_fill {
+                div {
+                    class: "has-text-centered",
+                    button {
+                        class: "button is-link",
+                        "data-testid": "drop-set-fill",
+                        disabled: ladder.len() < 2,
+                        onclick: move |event: MouseEvent| {
+                            on_fill.call(ladder.clone());
+                            on_close.call(event);
+                        },
+                        "Fill sets"
+                    }
+                }
+            }
         }
     }
+}
+
+/// Returns the weights of the drop set, starting with `start_weight`.
+///
+/// The ladder is empty if `start_weight` is not a valid weight, and truncated at the first drop
+/// weight that is not.
+fn ladder(start_weight: f32, drop_percentage: f32, increment: f32) -> Vec<domain::Weight> {
+    let Ok(start_weight_value) = domain::Weight::new(start_weight) else {
+        return vec![];
+    };
+    let mut ladder = vec![start_weight_value];
+    for weight in domain::drop_set_weights(start_weight, drop_percentage, increment) {
+        let Ok(weight) = domain::Weight::new(weight) else {
+            break;
+        };
+        ladder.push(weight);
+    }
+    ladder
 }
 
 fn parse_drop_percentage(input: &str) -> Result<f32, String> {
@@ -174,8 +207,8 @@ impl DropSetCalculatorState {
 }
 
 #[allow(clippy::cast_possible_truncation)]
-fn decimal_places(increment: f32) -> usize {
-    let hundredths = (increment * 100.0).round() as i64;
+fn decimal_places(value: f32) -> usize {
+    let hundredths = (value * 100.0).round() as i64;
     if hundredths % 100 == 0 {
         0
     } else if hundredths % 10 == 0 {
@@ -187,7 +220,9 @@ fn decimal_places(increment: f32) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{decimal_places, parse_drop_percentage};
+    use valens_domain as domain;
+
+    use super::{decimal_places, ladder, parse_drop_percentage};
 
     #[test]
     fn decimal_places_matches_preset_precision() {
@@ -200,6 +235,35 @@ mod tests {
         assert_eq!(decimal_places(0.25), 2);
         assert_eq!(decimal_places(1.25), 2);
         assert_eq!(decimal_places(3.75), 2);
+    }
+
+    #[test]
+    fn decimal_places_widens_for_a_start_weight_off_the_grid() {
+        assert_eq!(decimal_places(100.0).max(decimal_places(2.0)), 0);
+        assert_eq!(decimal_places(102.5).max(decimal_places(2.0)), 1);
+    }
+
+    fn weights(ladder: &[domain::Weight]) -> Vec<f32> {
+        ladder.iter().copied().map(f32::from).collect()
+    }
+
+    #[test]
+    fn ladder_starts_with_the_start_weight_and_decreases() {
+        let ladder = weights(&ladder(100.0, 20.0, 2.0));
+
+        assert_eq!(ladder[..4], [100.0, 80.0, 64.0, 50.0]);
+        assert!(ladder.windows(2).all(|w| w[1] < w[0]));
+    }
+
+    #[test]
+    fn ladder_of_a_start_weight_below_the_increment_holds_only_the_start_weight() {
+        assert_eq!(weights(&ladder(1.0, 20.0, 2.0)), vec![1.0]);
+    }
+
+    #[test]
+    fn ladder_of_an_invalid_start_weight_is_empty() {
+        assert!(ladder(1000.0, 20.0, 2.0).is_empty());
+        assert!(ladder(-1.0, 20.0, 2.0).is_empty());
     }
 
     #[test]

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Training session page:
     - Notes of an exercise
     - Sets of the recent sessions of an exercise, shown on demand below the values of a set
+    - Filling of the sets of an exercise from the drop set calculator
 - Routines page: Editing of the notes of a routine
 - Routine page: Notes of a routine
 - Exercises page:
@@ -34,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Values of the previous session of an exercise, taken from the last session in which the exercise was performed
     - Notes preserving line breaks
     - Name of the session-specific notes of an exercise to "Notes for this session"
+    - Names of the calculator options of an exercise to "Calculate 1RM" and "Calculate drop sets"
+    - Option to calculate drop sets, only shown if at least two sets of the exercise are in the same series of sets without a rest
     - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
 - Routine page: Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
 - Exercises page:

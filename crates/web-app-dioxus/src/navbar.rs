@@ -270,7 +270,9 @@ pub fn Navbar() -> Element {
         }
 
         if DROP_SET_CALCULATOR.read().visible {
-            DropSetCalculator {}
+            DropSetCalculator {
+                on_close: move |_| { DROP_SET_CALCULATOR.write().visible = false; }
+            }
         }
 
         div {

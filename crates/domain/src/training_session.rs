@@ -859,6 +859,19 @@ impl TrainingSession {
     }
 
     #[must_use]
+    fn section_count(&self) -> usize {
+        let mut count = 0;
+        let mut idx = 0;
+
+        while idx < self.elements.len() {
+            idx = Self::find_last_of_section(self, idx) + 1;
+            count += 1;
+        }
+
+        count
+    }
+
+    #[must_use]
     fn section_range(&self, section_idx: usize) -> RangeInclusive<usize> {
         let mut first = 0;
         let mut last = 0;
@@ -882,6 +895,58 @@ impl TrainingSession {
         self.compute_sections()
             .get(section_idx)
             .and_then(|section| section.exercise_ids().get(exercise_idx).copied())
+    }
+
+    /// Returns the indices of the elements of `exercise_id` in one run of consecutive sets of the
+    /// given section, in order.
+    ///
+    /// A run is a maximal sequence of sets not interrupted by a rest. The run containing
+    /// `element_idx` is returned, a rest counting towards the run following it. If `element_idx`
+    /// lies outside the runs of the section, the first run is returned.
+    #[must_use]
+    pub fn run_element_indices(
+        &self,
+        section_idx: usize,
+        exercise_id: ExerciseID,
+        element_idx: usize,
+    ) -> Vec<usize> {
+        if section_idx >= self.section_count() {
+            return vec![];
+        }
+
+        let mut runs: Vec<Vec<usize>> = vec![];
+        let mut run = vec![];
+        for idx in self.section_range(section_idx) {
+            match self.elements[idx] {
+                TrainingSessionElement::Set { .. } => run.push(idx),
+                TrainingSessionElement::Rest { .. } => {
+                    if !run.is_empty() {
+                        runs.push(std::mem::take(&mut run));
+                    }
+                }
+            }
+        }
+        if !run.is_empty() {
+            runs.push(run);
+        }
+
+        let run = runs
+            .iter()
+            .find(|run| run.last().is_some_and(|last| *last >= element_idx))
+            .or_else(|| runs.first());
+
+        run.map(|run| {
+            run.iter()
+                .copied()
+                .filter(|idx| {
+                    matches!(
+                        self.elements[*idx],
+                        TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default()
     }
 
     #[must_use]
@@ -3488,6 +3553,71 @@ mod tests {
         ]);
         assert_eq!(ts.section_idx_lookahead(2), 2);
         assert_eq!(ts.section_idx_lookahead(99), 2);
+    }
+
+    #[rstest]
+    #[case::first_round(0, 1, 0, vec![0])]
+    #[case::rest_belongs_to_the_following_round(0, 1, 1, vec![2])]
+    #[case::second_round(0, 1, 2, vec![2])]
+    #[case::trailing_rest_falls_back_to_the_first_round(0, 1, 3, vec![0])]
+    #[case::before_the_section_falls_back_to_the_first_round(1, 2, 0, vec![4])]
+    #[case::after_the_section_falls_back_to_the_first_round(0, 1, 99, vec![0])]
+    fn test_training_session_run_element_indices(
+        #[case] section_idx: usize,
+        #[case] exercise_id: u128,
+        #[case] element_idx: usize,
+        #[case] expected: Vec<usize>,
+    ) {
+        let ts = training_session(&[
+            exercise(0, 1),
+            rest(0),
+            exercise(1, 1),
+            rest(1),
+            exercise(2, 2),
+        ]);
+
+        assert_eq!(
+            ts.run_element_indices(section_idx, exercise_id.into(), element_idx),
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case::first_exercise(1, 3, vec![3])]
+    #[case::second_exercise(2, 0, vec![1])]
+    fn test_training_session_run_element_indices_of_a_superset(
+        #[case] exercise_id: u128,
+        #[case] element_idx: usize,
+        #[case] expected: Vec<usize>,
+    ) {
+        let ts = training_session(&[
+            exercise(0, 1),
+            exercise(1, 2),
+            rest(0),
+            exercise(2, 1),
+            exercise(3, 2),
+        ]);
+
+        assert_eq!(
+            ts.run_element_indices(0, exercise_id.into(), element_idx),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_training_session_run_element_indices_skips_a_leading_rest() {
+        let ts = training_session(&[rest(0), exercise(1, 1), rest(1), exercise(2, 1)]);
+
+        assert_eq!(ts.run_element_indices(0, 1.into(), 0), Vec::<usize>::new());
+        assert_eq!(ts.run_element_indices(1, 1.into(), 1), vec![1]);
+        assert_eq!(ts.run_element_indices(1, 1.into(), 2), vec![3]);
+    }
+
+    #[test]
+    fn test_training_session_run_element_indices_beyond_the_last_section() {
+        let ts = training_session(&[exercise(0, 1)]);
+
+        assert_eq!(ts.run_element_indices(1, 1.into(), 0), Vec::<usize>::new());
     }
 
     #[test]

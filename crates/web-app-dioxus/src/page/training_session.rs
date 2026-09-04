@@ -15,7 +15,7 @@ use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
     audio::{TICK_INTERVAL_MS, Timer, TimerService},
     cache::{Cache, CacheState},
-    dialog::one_rep_max::OneRepMaxCalculatorState,
+    dialog::{drop_set::DropSetCalculator, one_rep_max::OneRepMaxCalculatorState},
     eh,
     loading::LoadingFlag,
     muscle::SetsPerMuscle,
@@ -80,6 +80,8 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     let mut progress = use_store(|| Progress::new(id));
     let mut owns_progress = use_signal(|| false);
     let mut resume_attempted = use_signal(|| false);
+    // The elements the drop set calculator fills, `None` while it is closed.
+    let mut drop_set_target: Signal<Option<Vec<usize>>> = use_signal(|| None);
 
     let ongoing = consume_context::<OngoingTrainingSession>();
     let id_value = id.as_u128();
@@ -459,7 +461,17 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
-                {view_edit_dialog(edit_dialog, exercise_dialog, field_values, training_sessions, cache)}
+                {view_edit_dialog(edit_dialog, exercise_dialog, field_values, drop_set_target, progress, training_sessions, cache)}
+                if drop_set_target.read().is_some() {
+                    DropSetCalculator {
+                        on_close: move |_| { drop_set_target.set(None); },
+                        on_fill: move |weights: Vec<domain::Weight>| {
+                            if let Some(elements) = drop_set_target.take() {
+                                fill_weights(&mut field_values.write(), &elements, &weights);
+                            }
+                        },
+                    }
+                }
                 {page::exercises::view_dialog(exercise_dialog, None)}
                 if let Some(ongoing) = ongoing.get().filter(|o| o.training_session_id == id.as_u128()) {
                     OngoingSessionBar {
@@ -1481,10 +1493,13 @@ fn view_muscles(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn view_edit_dialog(
     mut edit_dialog: Signal<EditDialog>,
     exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
+    drop_set_target: Signal<Option<Vec<usize>>>,
+    progress: Store<Progress>,
     training_sessions: &[domain::TrainingSession],
     cache: Cache,
 ) -> Element {
@@ -1500,6 +1515,8 @@ fn view_edit_dialog(
             element_idx,
             exercise_idx,
         } => {
+            let sections = training_session.compute_sections();
+            let exercise_id = unique(sections[*section_idx].exercise_ids())[*exercise_idx];
             rsx! {
                 if IS_LOADING() {
                     LoadingDialog {}
@@ -1508,9 +1525,6 @@ fn view_edit_dialog(
                         options: vec![
                             rsx! {
                                 {
-                                    let sections = training_session.compute_sections();
-                                    let exercise_ids = unique(sections[*section_idx].exercise_ids());
-                                    let exercise_id = exercise_ids[*exercise_idx];
                                     let exercise = if let CacheState::Ready(exercises) = &*cache.exercises.read() {
                                         exercises.iter().find(|e| e.id == exercise_id).cloned()
                                     } else {
@@ -1534,26 +1548,25 @@ fn view_edit_dialog(
                                     icon: "file-lines".to_string(),
                                     text: "Show notes for this session".to_string(),
                                     "data-testid": "options-show-session-notes",
-                                    on_click: eh!(mut edit_dialog; training_session, section_idx, exercise_idx; {
-                                        let sections = training_session.compute_sections();
-                                        let exercise_ids = unique(sections[section_idx].exercise_ids());
-                                        let exercise_id = exercise_ids[exercise_idx];
+                                    on_click: eh!(mut edit_dialog; training_session, exercise_id; {
                                         *edit_dialog.write() = EditDialog::SessionExerciseNotes { training_session, exercise_id };
                                     })
                                 },
                                 {
-                                    let sections = training_session.compute_sections();
-                                    let exercise_ids = unique(sections[*section_idx].exercise_ids());
-                                    let exercise_id = exercise_ids[*exercise_idx];
                                     let recent_best_set = domain::most_recent_best_set_for_one_rep_max(
                                         training_sessions,
                                         exercise_id,
+                                    );
+                                    let elements = training_session.run_element_indices(
+                                        *section_idx,
+                                        exercise_id,
+                                        progress.read().element_idx,
                                     );
                                     rsx! {
                                         if let Some((reps, weight)) = recent_best_set {
                                             MenuOption {
                                                 icon: "dumbbell".to_string(),
-                                                text: "Show 1RM".to_string(),
+                                                text: "Calculate 1RM".to_string(),
                                                 "data-testid": "options-1rm",
                                                 on_click: eh!(mut edit_dialog; {
                                                     let mut state = OneRepMaxCalculatorState::new(reps.into(), f32::from(weight));
@@ -1562,14 +1575,18 @@ fn view_edit_dialog(
                                                     *edit_dialog.write() = EditDialog::None;
                                                 })
                                             }
+                                        }
+                                        if elements.len() > 1 {
                                             MenuOption {
                                                 icon: "arrow-down-wide-short".to_string(),
-                                                text: "Show drop set".to_string(),
+                                                text: "Calculate drop sets".to_string(),
                                                 "data-testid": "options-drop-set",
-                                                on_click: eh!(mut edit_dialog; {
-                                                    let mut state = DROP_SET_CALCULATOR.write();
-                                                    state.start_weight = f32::from(weight);
-                                                    state.visible = true;
+                                                on_click: eh!(mut edit_dialog, drop_set_target; training_session, recent_best_set, field_values, elements; {
+                                                    let start_weight = entered_weight_of(&field_values.read(), elements.first().copied())
+                                                        .or_else(|| recent_best_set.map(|(_, weight)| weight))
+                                                        .or_else(|| target_weight_of(&training_session, elements.first().copied()));
+                                                    DROP_SET_CALCULATOR.write().start_weight = start_weight.map_or(0.0, f32::from);
+                                                    drop_set_target.set(Some(elements));
                                                     *edit_dialog.write() = EditDialog::None;
                                                 })
                                             }
@@ -1755,6 +1772,47 @@ fn view_edit_dialog(
                     on_close: eh!(mut close_dialog; { close_dialog(); }),
                 }
             }
+        }
+    }
+}
+
+/// Returns the target weight of the element at `element_idx`, if it is set.
+fn target_weight_of(
+    training_session: &domain::TrainingSession,
+    element_idx: Option<usize>,
+) -> Option<domain::Weight> {
+    match training_session.elements.get(element_idx?) {
+        Some(domain::TrainingSessionElement::Set { target_weight, .. }) => target_weight.non_zero(),
+        _ => None,
+    }
+}
+
+/// Returns the weight entered for the element at `element_idx`, if it is valid and not zero.
+fn entered_weight_of(
+    field_values: &HashMap<usize, SetFieldValues>,
+    element_idx: Option<usize>,
+) -> Option<domain::Weight> {
+    field_values
+        .get(&element_idx?)?
+        .weight
+        .validated
+        .as_ref()
+        .ok()
+        .and_then(|weight| weight.non_zero())
+}
+
+/// Writes `weights` into the weight fields of `elements`, pairing them in order.
+///
+/// Surplus weights and surplus elements are left alone.
+fn fill_weights(
+    field_values: &mut HashMap<usize, SetFieldValues>,
+    elements: &[usize],
+    weights: &[domain::Weight],
+) {
+    for (element_idx, weight) in elements.iter().zip(weights) {
+        if let Some(set_field_values) = field_values.get_mut(element_idx) {
+            set_field_values.weight.input = weight.to_string();
+            set_field_values.weight.validated = Ok(*weight);
         }
     }
 }
@@ -2440,6 +2498,24 @@ mod tests {
         }
     }
 
+    fn set_with_target_weight(
+        exercise_id: u128,
+        target_weight: f32,
+    ) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            reps: domain::Reps::default(),
+            time: domain::Time::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::default(),
+            target_reps: domain::Reps::default(),
+            target_time: domain::Time::default(),
+            target_weight: domain::Weight::new(target_weight).unwrap(),
+            target_rpe: domain::RPE::default(),
+            automatic: false,
+        }
+    }
+
     fn rest() -> domain::TrainingSessionElement {
         domain::TrainingSessionElement::Rest {
             target_time: domain::Time::default(),
@@ -2465,6 +2541,89 @@ mod tests {
             weight: FieldValue::new(domain::Weight::default()),
             rpe: FieldValue::new(domain::RPE::default()),
         }
+    }
+
+    fn weight(value: f32) -> domain::Weight {
+        domain::Weight::new(value).unwrap()
+    }
+
+    fn filled_weights(elements: &[usize], weights: &[domain::Weight]) -> Vec<(usize, String)> {
+        let mut field_values =
+            HashMap::from([(0, set_field_values(10)), (1, set_field_values(10))]);
+
+        fill_weights(&mut field_values, elements, weights);
+
+        let mut filled = field_values
+            .into_iter()
+            .map(|(idx, values)| (idx, values.weight.input))
+            .collect::<Vec<_>>();
+        filled.sort();
+        filled
+    }
+
+    #[test]
+    fn test_an_entered_weight_is_used_as_start_weight() {
+        let mut values = set_field_values(10);
+        values.weight = FieldValue::new(weight(80.0));
+        let field_values = HashMap::from([(0, values)]);
+
+        assert_eq!(
+            entered_weight_of(&field_values, Some(0)),
+            Some(weight(80.0))
+        );
+    }
+
+    #[test]
+    fn test_an_unset_or_missing_weight_is_no_start_weight() {
+        let field_values = HashMap::from([(0, set_field_values(10))]);
+
+        assert_eq!(entered_weight_of(&field_values, Some(0)), None);
+        assert_eq!(entered_weight_of(&field_values, Some(1)), None);
+        assert_eq!(entered_weight_of(&field_values, None), None);
+    }
+
+    #[test]
+    fn test_a_target_weight_is_used_as_start_weight() {
+        let training_session = training_session(vec![set_with_target_weight(1, 80.0)]);
+
+        assert_eq!(
+            target_weight_of(&training_session, Some(0)),
+            Some(weight(80.0))
+        );
+    }
+
+    #[test]
+    fn test_an_unset_target_weight_or_a_rest_is_no_start_weight() {
+        let training_session = training_session(vec![set(1, 10), rest()]);
+
+        assert_eq!(target_weight_of(&training_session, Some(0)), None);
+        assert_eq!(target_weight_of(&training_session, Some(1)), None);
+        assert_eq!(target_weight_of(&training_session, Some(2)), None);
+        assert_eq!(target_weight_of(&training_session, None), None);
+    }
+
+    #[test]
+    fn test_a_surplus_set_keeps_its_weight() {
+        assert_eq!(
+            filled_weights(&[0, 1], &[weight(50.0)]),
+            vec![(0, "50".to_string()), (1, "0".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_a_surplus_weight_is_ignored() {
+        assert_eq!(
+            filled_weights(&[0], &[weight(50.0), weight(40.0)]),
+            vec![(0, "50".to_string()), (1, "0".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_an_element_without_fields_is_skipped() {
+        assert_eq!(
+            filled_weights(&[2, 1], &[weight(50.0), weight(40.0)]),
+            vec![(0, "0".to_string()), (1, "40".to_string())]
+        );
     }
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {

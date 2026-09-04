@@ -36,6 +36,8 @@ mod routing;
 mod session;
 mod settings;
 mod synchronization;
+#[cfg(test)]
+mod test_render;
 mod ui;
 mod unsaved_changes;
 mod update;

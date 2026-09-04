@@ -1,7 +1,6 @@
 use std::{borrow::BorrowMut, collections::BTreeMap};
 
 use chrono::prelude::*;
-use gloo_utils::window;
 use plotters::{
     chart::ChartBuilder,
     prelude::{Circle, DrawingAreaErrorKind, IntoDrawingArea, Polygon, SVGBackend},
@@ -9,7 +8,6 @@ use plotters::{
     style::{Color, IntoFont, Palette, Palette99, RGBColor, TextStyle, WHITE},
 };
 use valens_domain as domain;
-use wasm_bindgen::JsValue;
 
 use crate::Theme;
 
@@ -132,7 +130,7 @@ impl PlotData {
 }
 
 /// A data point together with its pixel position in the rendered chart SVG.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Sample {
     pub date: NaiveDate,
     pub value: f32,
@@ -152,7 +150,7 @@ pub struct SeriesSamples {
 }
 
 /// Inner plotting rectangle in SVG pixel coordinates.
-#[derive(Clone, Copy, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct PlotArea {
     pub left: i32,
     pub right: i32,
@@ -245,6 +243,7 @@ pub fn plot(
     data: &[PlotData],
     interval: domain::Interval,
     theme: Theme,
+    window_width: u32,
 ) -> Result<Option<PlotResult>, Box<dyn std::error::Error>> {
     if all_zeros(data) {
         return Ok(None);
@@ -259,7 +258,8 @@ pub fn plot(
     let area;
 
     {
-        let root = SVGBackend::with_string(&mut result, (chart_width(), 200)).into_drawing_area();
+        let root = SVGBackend::with_string(&mut result, (chart_width(window_width), 200))
+            .into_drawing_area();
         let (color, background_color) = colors(theme);
 
         root.fill(&background_color)?;
@@ -699,20 +699,9 @@ fn determine_y_bounds(data: &[PlotData]) -> (Option<Bounds>, Option<Bounds>) {
     (primary_bounds, secondary_bounds)
 }
 
-fn chart_width() -> u32 {
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    u32::min(
-        u32::max(
-            window()
-                .inner_width()
-                .unwrap_or(JsValue::UNDEFINED)
-                .as_f64()
-                .unwrap_or(420.) as u32
-                - 20,
-            300,
-        ),
-        960,
-    )
+/// The width of the chart, inset from the window and clamped to the supported range.
+fn chart_width(window_width: u32) -> u32 {
+    window_width.saturating_sub(20).clamp(300, 960)
 }
 
 #[cfg(test)]
@@ -921,5 +910,65 @@ mod tests {
     #[test]
     fn test_colors_of_the_system_theme_match_the_light_theme() {
         assert_eq!(colors(Theme::System).0.rgb(), colors(Theme::Light).0.rgb());
+    }
+
+    /// The window width the plot is asked for, below the lower clamp of the chart width.
+    const NARROW_WINDOW: u32 = 320;
+    /// The window width the plot is asked for, above the upper clamp of the chart width.
+    const WIDE_WINDOW: u32 = 1400;
+
+    fn plot_two_samples(window_width: u32) -> PlotResult {
+        plot(
+            &[plot_data(
+                &[(date(1), 1.0), (date(5), 5.0)],
+                PlotParams::default(),
+            )],
+            domain::Interval {
+                first: date(1),
+                last: date(5),
+            },
+            Theme::Light,
+            window_width,
+        )
+        .unwrap()
+        .unwrap()
+    }
+
+    #[test]
+    fn test_plot_area_widens_with_the_window() {
+        assert_eq!(
+            plot_two_samples(NARROW_WINDOW).area,
+            PlotArea {
+                left: 50,
+                right: 289,
+                top: 10,
+                bottom: 159,
+            }
+        );
+        assert_eq!(
+            plot_two_samples(WIDE_WINDOW).area,
+            PlotArea {
+                left: 50,
+                right: 949,
+                top: 10,
+                bottom: 159,
+            }
+        );
+    }
+
+    #[test]
+    fn test_plot_samples_span_the_plot_area() {
+        for window_width in [NARROW_WINDOW, WIDE_WINDOW] {
+            let result = plot_two_samples(window_width);
+            let samples = &result.series[0].high;
+
+            assert_eq!(
+                samples.iter().map(|sample| sample.x).collect::<Vec<_>>(),
+                vec![result.area.left, result.area.right]
+            );
+            for sample in samples {
+                assert!(sample.y >= result.area.top && sample.y <= result.area.bottom);
+            }
+        }
     }
 }

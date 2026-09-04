@@ -166,15 +166,15 @@ pub fn Chart(
     let settings = use_context::<Settings>();
     // The size of the SVG and the pixel positions of the samples depend on the window width at
     // the time of plotting
-    use_window_width();
+    let window_width = use_window_width();
     let labels: Vec<web_app::chart::ChartLabel> = series
         .iter()
         .map(web_app::chart::LabeledSeries::label)
         .collect();
     let data: Vec<web_app::chart::PlotData> =
         series.into_iter().rev().flat_map(|s| s.data).collect();
-    let chart =
-        web_app::chart::plot(&data, interval, settings.current_theme()).map_err(|e| e.to_string());
+    let chart = web_app::chart::plot(&data, interval, settings.current_theme(), window_width)
+        .map_err(|e| e.to_string());
 
     match chart {
         Ok(None) => {
@@ -235,11 +235,19 @@ pub fn Chart(
     }
 }
 
-static WINDOW_WIDTH: GlobalSignal<f64> = Signal::global(window_width);
+static WINDOW_WIDTH: GlobalSignal<u32> = Signal::global(window_width);
 static RESIZE_LISTENER: std::sync::Once = std::sync::Once::new();
 
+/// The window width a component renders for, overriding the width of the actual window.
+#[derive(Clone, Copy)]
+pub struct WindowWidth(pub u32);
+
 /// Subscribes the component to changes of the window width and returns the current width.
-fn use_window_width() -> f64 {
+fn use_window_width() -> u32 {
+    if let Some(width) = try_consume_context::<WindowWidth>() {
+        return width.0;
+    }
+
     use_hook(|| {
         RESIZE_LISTENER.call_once(|| {
             let Some(window) = web_sys::window() else {
@@ -262,11 +270,12 @@ fn use_window_width() -> f64 {
     WINDOW_WIDTH()
 }
 
-fn window_width() -> f64 {
+fn window_width() -> u32 {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     web_sys::window()
         .and_then(|window| window.inner_width().ok())
         .and_then(|width| width.as_f64())
-        .unwrap_or_default()
+        .map_or(420, |width| width as u32)
 }
 
 /// Transparent layer over a chart that tracks the pointer and renders the

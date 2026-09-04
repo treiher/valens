@@ -27,5 +27,7 @@ web-sys = { workspace = true, features = ["AddEventListenerOptions", "AudioBuffe
 
 [dev-dependencies]
 assert_approx_eq = { workspace = true }
+dioxus-ssr = "0.7.10"
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
+scraper = "0.24.0"

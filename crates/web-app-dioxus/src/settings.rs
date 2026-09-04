@@ -7,8 +7,9 @@ use valens_web_app::{self as web_app, SettingsService};
 use crate::{WEB_APP_SERVICE, notification::notify_error};
 
 /// Whether the system asks for a dark color scheme.
-static PREFERS_DARK_SCHEME: GlobalSignal<bool> =
-    Signal::global(|| color_scheme_query().is_some_and(|query| query.matches()));
+static PREFERS_DARK_SCHEME: GlobalSignal<bool> = Signal::global(|| {
+    cfg!(target_arch = "wasm32") && color_scheme_query().is_some_and(|query| query.matches())
+});
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Settings {

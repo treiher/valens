@@ -203,6 +203,11 @@ pub fn quartile(durations: &[Duration], quartile_num: Quartile) -> Duration {
     if durations.is_empty() {
         return Duration::days(0);
     }
+    // A single duration is its own median, and the halves that `Q1` and `Q3` are taken from are
+    // empty.
+    if durations.len() == 1 {
+        return durations[0];
+    }
     let idx = durations.len() / 2;
     match quartile_num {
         Quartile::Q1 => quartile(&durations[..idx], Quartile::Q2),
@@ -354,7 +359,7 @@ mod tests {
         assert_eq!(quartile(&[], Quartile::Q1), Duration::days(0));
         assert_eq!(
             quartile(&[Duration::days(2)], Quartile::Q1),
-            Duration::days(0)
+            Duration::days(2)
         );
         assert_eq!(
             quartile(&[Duration::days(4), Duration::days(12)], Quartile::Q1),
@@ -433,7 +438,7 @@ mod tests {
         assert_eq!(quartile(&[], Quartile::Q3), Duration::days(0));
         assert_eq!(
             quartile(&[Duration::days(2)], Quartile::Q3),
-            Duration::days(0)
+            Duration::days(2)
         );
         assert_eq!(
             quartile(
@@ -564,10 +569,8 @@ mod tests {
             }
         }
 
-        // A single duration is excluded, because `Q1` and `Q3` are then taken from an empty half
-        // and are zero.
         #[test]
-        fn test_quartiles_are_ordered(lengths in prop::collection::vec(1i64..100, 2..30)) {
+        fn test_quartiles_are_ordered(lengths in prop::collection::vec(1i64..100, 0..30)) {
             let mut durations = lengths.iter().map(|l| Duration::days(*l)).collect::<Vec<_>>();
             durations.sort();
 

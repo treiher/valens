@@ -4029,6 +4029,7 @@ dependencies = [
  "indexed_db_futures",
  "js-sys",
  "log",
+ "pollster",
  "pretty_assertions",
  "rstest",
  "serde",

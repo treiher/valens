@@ -38,6 +38,9 @@ web-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+valens-domain = { path = "../domain", features = ["testing"] }
+
+pollster = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 wasm-bindgen-test = "0.3.64"

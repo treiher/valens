@@ -282,11 +282,18 @@ $(BUILD_DIR):
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -rf $(GENERATED_DIR)
+	rm -rf .coverage
+	rm -rf .mypy_cache
+	rm -rf .pytest_cache
+	rm -rf .ruff_cache
 	rm -rf dist
+	rm -rf mutants.out
+	rm -rf mutants.out.old
 	rm -rf target
 	rm -rf test-results
 	rm -rf valens.egg-info
 	rm -rf valens/static/generated
+	find valens tests tools -type d -name __pycache__ -prune -exec rm -rf {} +
 
 .PHONY: version version-public release-notes
 

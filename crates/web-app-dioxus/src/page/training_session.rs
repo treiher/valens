@@ -35,6 +35,9 @@ use crate::{
 
 static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 
+/// Number of earlier training sessions whose sets can be shown for an exercise.
+const RECENT_SESSIONS: usize = 3;
+
 /// Renders a training session and drives its *ongoing* state.
 ///
 /// At most one training session is ongoing at a time. It is tracked in the session-scoped
@@ -184,8 +187,10 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     });
 
     let mut field_values = use_signal(HashMap::new);
+    let mut expanded_history: Signal<HashSet<usize>> = use_signal(HashSet::new);
     use_memo(move || {
         if let Some(training_session) = training_session() {
+            expanded_history.set(HashSet::new());
             field_values.set(
                 training_session
                     .elements
@@ -448,7 +453,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, exercises, settings, cache, element_elements)},
+                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, exercises, settings, cache, element_elements, expanded_history)},
                 } else {
                     {view_list(training_session, exercises, settings)},
                     {view_muscles(training_session, exercises)}
@@ -654,6 +659,7 @@ fn view_form(
     settings: Settings,
     cache: Cache,
     mut element_elements: Signal<HashMap<usize, web_sys::Element>>,
+    expanded_history: Signal<HashSet<usize>>,
 ) -> Element {
     let mut element_idx: usize = 0;
     let sections = training_session.compute_sections();
@@ -663,10 +669,13 @@ fn view_form(
         training_session.section_idx_lookahead(progress_element_idx);
     let training_sessions_cache = &*cache.training_sessions.read();
     let sets_by_exercise = DOMAIN_SERVICE().get_sets_by_exercise(training_session);
-    let previous_session_sets_by_exercise = {
+    let recent_session_sets_by_exercise = {
         if let CacheState::Ready(training_sessions) = training_sessions_cache {
-            DOMAIN_SERVICE()
-                .get_previous_session_sets_by_exercise(training_session, training_sessions)
+            DOMAIN_SERVICE().get_recent_session_sets_by_exercise(
+                training_session,
+                training_sessions,
+                RECENT_SESSIONS,
+            )
         } else {
             HashMap::new()
         }
@@ -784,8 +793,24 @@ fn view_form(
                     let set_index = *set_index_for_exercise.entry(*exercise_id).or_default();
                     let set_field_values = &field_values.read()[&element_idx];
 
+                    let show_set_buttons = is_current_section && (set_field_values.is_empty() || set_field_values.changed());
+
+                    let history = if show_set_buttons {
+                        recent_session_sets_by_exercise
+                            .get(exercise_id)
+                            .map(|sessions| {
+                                sessions
+                                    .iter()
+                                    .map(|(date, sets)| (*date, sets.iter().filter_map(|e| e.set()).collect::<Vec<_>>()))
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+
                     let mut set_buttons: IndexMap<domain::Set, Vec<String>> = IndexMap::new();
-                    if is_current_section && set_field_values.is_empty() || set_field_values.changed() {
+                    if show_set_buttons {
                         if target_reps.non_zero().is_some() || target_time.non_zero().is_some() || target_weight.non_zero().is_some() || target_rpe.non_zero().is_some() {
                             set_buttons.entry(domain::Set {
                                 reps: *target_reps,
@@ -794,12 +819,11 @@ fn view_form(
                                 rpe: *target_rpe,
                             }).or_default().push("bullseye".to_string());
                         }
-                        let previous_set = set_index.checked_sub(*exercise_counts.get(exercise_id).unwrap_or(&1)).and_then(|previous_set_index| sets_by_exercise.get(exercise_id).and_then(|set| set.get(previous_set_index).map(|e| (**e).clone())));
-                        if let Some(domain::TrainingSessionElement::Set { reps, time, weight, rpe, .. }) = previous_set {
-                            set_buttons.entry(domain::Set { reps, time, weight, rpe }).or_default().push("arrow-turn-down".to_string());
+                        let previous_set = set_index.checked_sub(*exercise_counts.get(exercise_id).unwrap_or(&1)).and_then(|previous_set_index| sets_by_exercise.get(exercise_id).and_then(|set| set.get(previous_set_index).and_then(|e| e.set())));
+                        if let Some(set) = previous_set {
+                            set_buttons.entry(set).or_default().push("arrow-turn-down".to_string());
                         }
-                        let previous_session_set = previous_session_sets_by_exercise.get(exercise_id).and_then(|set| set.get(set_index).map(|e| (**e).clone()));
-                        if let Some(domain::TrainingSessionElement::Set { reps, time, weight, rpe, .. }) = previous_session_set {
+                        if let Some(domain::Set { reps, time, weight, rpe }) = history.first().and_then(|(_, sets)| sets.get(set_index)).cloned() {
                             set_buttons.entry(domain::Set { reps, time, weight, rpe }).or_default().push("calendar-minus".to_string());
                         }
                     }
@@ -868,7 +892,7 @@ fn view_form(
                                     }
                                 }
                                 if is_current_section {
-                                    {set_value_buttons(set_buttons, element_idx, field_values, settings)}
+                                    {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
                                 }
                             }
                         } else {
@@ -1013,7 +1037,7 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                {set_value_buttons(set_buttons, element_idx, field_values, settings)}
+                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
                             }
                         }
                     };
@@ -1125,44 +1149,129 @@ fn view_form(
 }
 
 /// Renders the row of buttons that prefill a set with the target, previous-set,
-/// or previous-session values.
+/// or previous-session values, and the sets of the recent sessions of the exercise.
+///
+/// The sets of the recent sessions are shown when the caret at the end of the row is activated.
+/// Sets that do not share the position of the set are de-emphasized.
+#[allow(clippy::too_many_arguments)]
 fn set_value_buttons(
     set_buttons: IndexMap<domain::Set, Vec<String>>,
+    history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
+    set_index: usize,
     element_idx: usize,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
+    expanded_history: Signal<HashSet<usize>>,
     settings: Settings,
 ) -> Element {
+    let is_expanded = expanded_history.read().contains(&element_idx);
+    let show_history = !history.is_empty();
+    let last_session_index = history.len().saturating_sub(1);
+
     rsx! {
         tr {
             td {}
             td {
-                class: "p-1 has-text-centered",
+                class: "p-1",
                 colspan: 4,
-                for (set, icons) in set_buttons {
-                    button {
-                        class: "button is-small mr-2",
-                        "data-testid": "set-value",
-                        onclick: eh!(mut field_values; set; {
-                            if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
-                                let reps = set.reps;
-                                set_field_values.reps.input = if reps == domain::Reps::default() { String::new() } else { reps.to_string() };
-                                set_field_values.reps.validated = Ok(reps);
-                                let time = set.time;
-                                set_field_values.time.input = if time == domain::Time::default() { String::new() } else { time.to_string() };
-                                set_field_values.time.validated = Ok(time);
-                                let weight = set.weight;
-                                set_field_values.weight.input = if weight == domain::Weight::default() { String::new() } else { weight.to_string() };
-                                set_field_values.weight.validated = Ok(weight);
-                                let rpe = set.rpe;
-                                set_field_values.rpe.input = if rpe == domain::RPE::default() { String::new() } else { rpe.to_string() };
-                                set_field_values.rpe.validated = Ok(rpe);
-                            }
-                        }),
-                        Icon { name: icons[0].clone(), is_small: true },
-                        span { {set.to_string(settings.show_tut(), settings.show_rpe())} },
+                div {
+                    class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
+                    for (set, icons) in set_buttons {
+                        {set_value_button(&set, Some(icons[0].clone()), false, element_idx, field_values, settings)}
+                    }
+                    if show_history {
+                        {history_caret(is_expanded, element_idx, expanded_history)}
                     }
                 }
             }
+        }
+        if is_expanded && show_history {
+            tr {
+                td {}
+                td {
+                    class: "p-1 has-text-centered",
+                    colspan: 4,
+                    for (session_index, (date, sets)) in history.into_iter().enumerate() {
+                        div {
+                            class: if session_index < last_session_index { "mb-2" },
+                            "data-testid": "set-history-session",
+                            div { class: "is-size-7", "{date}" }
+                            div {
+                                class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
+                                for (index, set) in sets.iter().cloned().enumerate() {
+                                    {set_value_button(&set, None, sets.len() > set_index && index != set_index, element_idx, field_values, settings)}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Renders a button that prefills the set of `element_idx` with `set`.
+fn set_value_button(
+    set: &domain::Set,
+    icon: Option<String>,
+    is_dimmed: bool,
+    element_idx: usize,
+    field_values: Signal<HashMap<usize, SetFieldValues>>,
+    settings: Settings,
+) -> Element {
+    let has_no_icon = icon.is_none();
+    let label = set.to_string(settings.show_tut(), settings.show_rpe());
+    let label = if label.is_empty() && has_no_icon {
+        "–".to_string()
+    } else {
+        label
+    };
+    let set = set.clone();
+    rsx! {
+        button {
+            class: "button is-small mr-1",
+            class: if is_dimmed { "is-semitransparent" },
+            "data-testid": "set-value",
+            onclick: eh!(mut field_values; set; {
+                if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
+                    let reps = set.reps;
+                    set_field_values.reps.input = if reps == domain::Reps::default() { String::new() } else { reps.to_string() };
+                    set_field_values.reps.validated = Ok(reps);
+                    let time = set.time;
+                    set_field_values.time.input = if time == domain::Time::default() { String::new() } else { time.to_string() };
+                    set_field_values.time.validated = Ok(time);
+                    let weight = set.weight;
+                    set_field_values.weight.input = if weight == domain::Weight::default() { String::new() } else { weight.to_string() };
+                    set_field_values.weight.validated = Ok(weight);
+                    let rpe = set.rpe;
+                    set_field_values.rpe.input = if rpe == domain::RPE::default() { String::new() } else { rpe.to_string() };
+                    set_field_values.rpe.validated = Ok(rpe);
+                }
+            }),
+            if let Some(icon) = icon {
+                Icon { name: icon, is_small: true }
+            }
+            span { {label} },
+        }
+    }
+}
+
+/// Renders the caret that shows or hides the sets of the recent sessions of an exercise.
+fn history_caret(
+    is_expanded: bool,
+    element_idx: usize,
+    mut expanded_history: Signal<HashSet<usize>>,
+) -> Element {
+    rsx! {
+        button {
+            class: "button is-small",
+            "data-testid": "set-history",
+            onclick: move |_| {
+                let mut expanded = expanded_history.write();
+                if !expanded.remove(&element_idx) {
+                    expanded.insert(element_idx);
+                }
+            },
+            Icon { name: if is_expanded { "chevron-up" } else { "chevron-down" }, is_small: true }
         }
     }
 }
@@ -1926,8 +2035,8 @@ mod tests {
     use crate::{
         ongoing_training_session::State,
         test_render::{
-            TestCache, all_text_of, contains, provide_ongoing_training_session, provide_settings,
-            render, rows_of, text_of,
+            TestCache, all_attributes_of, all_text_of, contains, provide_ongoing_training_session,
+            provide_settings, render, rows_of, text_of,
         },
     };
 
@@ -2039,6 +2148,256 @@ mod tests {
 
         assert!(with_snapping.contains("element-snap"), "{with_snapping}");
         assert!(!without.contains("element-snap"), "{without}");
+    }
+
+    fn planned_session_with_history(
+        earlier_sessions: Vec<domain::TrainingSession>,
+    ) -> impl Fn() -> TestCache + 'static {
+        move || {
+            let mut training_sessions = earlier_sessions.clone();
+            training_sessions.push(domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![planned_set(1)],
+                exercise_notes: std::collections::BTreeMap::new(),
+            });
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Squat")])
+                .with_training_sessions(training_sessions)
+        }
+    }
+
+    fn planned_set(exercise_id: u128) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            reps: domain::Reps::default(),
+            time: domain::Time::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+            target_reps: domain::Reps::default(),
+            target_time: domain::Time::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    fn earlier_session(
+        id: u128,
+        days_ago: i64,
+        elements: Vec<domain::TrainingSessionElement>,
+    ) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: id.into(),
+            routine_id: 1.into(),
+            date: chrono::Local::now().date_naive() - chrono::Duration::days(days_ago),
+            notes: String::new(),
+            elements,
+            exercise_notes: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn performed_set(exercise_id: u128, weight: f32) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            reps: domain::Reps::new(10).unwrap(),
+            time: domain::Time::default(),
+            weight: domain::Weight::new(weight).unwrap(),
+            rpe: domain::RPE::ZERO,
+            target_reps: domain::Reps::default(),
+            target_time: domain::Time::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    #[test]
+    fn test_the_values_of_an_exercise_skipped_in_the_last_session_are_offered() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            planned_session_with_history(vec![
+                earlier_session(2, 7, vec![performed_set(2, 60.0)]),
+                earlier_session(3, 14, vec![performed_set(1, 50.0)]),
+            ]),
+        );
+
+        assert_eq!(all_text_of(&html, "set-value"), vec!["10 × 50 kg"]);
+    }
+
+    #[test]
+    fn test_the_values_of_an_exercise_are_not_offered_without_an_earlier_session() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            planned_session_with_history(vec![]),
+        );
+
+        assert!(all_text_of(&html, "set-value").is_empty(), "{html}");
+        assert!(!contains(&html, "set-history"), "{html}");
+    }
+
+    #[test]
+    fn test_the_sets_of_the_recent_sessions_can_be_shown() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            planned_session_with_history(vec![earlier_session(2, 7, vec![performed_set(1, 50.0)])]),
+        );
+
+        assert!(contains(&html, "set-history"), "{html}");
+    }
+
+    #[component]
+    fn ExpandedHistory(
+        history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
+        set_index: usize,
+        with_set_buttons: bool,
+    ) -> Element {
+        let field_values = use_signal(|| HashMap::from([(0, set_field_values(0))]));
+        let expanded_history = use_signal(|| HashSet::from([0]));
+        let set_buttons = if with_set_buttons {
+            IndexMap::from([(
+                domain::Set {
+                    reps: domain::Reps::new(10).unwrap(),
+                    time: domain::Time::default(),
+                    weight: domain::Weight::new(50.0).unwrap(),
+                    rpe: domain::RPE::ZERO,
+                },
+                vec!["calendar-minus".to_string()],
+            )])
+        } else {
+            IndexMap::new()
+        };
+        rsx! {
+            table {
+                tbody {
+                    {set_value_buttons(
+                        set_buttons,
+                        history,
+                        set_index,
+                        0,
+                        field_values,
+                        expanded_history,
+                        use_context::<Settings>(),
+                    )}
+                }
+            }
+        }
+    }
+
+    fn render_expanded_history(
+        history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
+        set_index: usize,
+    ) -> String {
+        render_expanded_history_with_set_buttons(history, set_index, true)
+    }
+
+    fn render_expanded_history_with_set_buttons(
+        history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
+        set_index: usize,
+        with_set_buttons: bool,
+    ) -> String {
+        render(move || {
+            provide_settings(web_app::Settings::default());
+            rsx! {
+                ExpandedHistory {
+                    history: history.clone(),
+                    set_index,
+                    with_set_buttons,
+                }
+            }
+        })
+    }
+
+    fn recent_set(weight: f32) -> domain::Set {
+        domain::Set {
+            reps: domain::Reps::new(10).unwrap(),
+            time: domain::Time::default(),
+            weight: domain::Weight::new(weight).unwrap(),
+            rpe: domain::RPE::ZERO,
+        }
+    }
+
+    #[test]
+    fn test_the_expanded_history_shows_the_sets_of_every_session_with_its_date() {
+        let html = render_expanded_history(
+            vec![
+                (
+                    chrono::NaiveDate::from_ymd_opt(2026, 8, 28).unwrap(),
+                    vec![recent_set(50.0), recent_set(52.5)],
+                ),
+                (
+                    chrono::NaiveDate::from_ymd_opt(2026, 8, 21).unwrap(),
+                    vec![recent_set(47.5)],
+                ),
+            ],
+            0,
+        );
+
+        assert_eq!(
+            all_text_of(&html, "set-history-session"),
+            vec!["2026-08-2810 × 50 kg10 × 52.5 kg", "2026-08-2110 × 47.5 kg"]
+        );
+    }
+
+    #[test]
+    fn test_the_sets_of_other_positions_are_de_emphasized() {
+        let html = render_expanded_history(
+            vec![(
+                chrono::NaiveDate::from_ymd_opt(2026, 8, 28).unwrap(),
+                vec![recent_set(50.0), recent_set(52.5), recent_set(55.0)],
+            )],
+            1,
+        );
+
+        assert_eq!(
+            all_attributes_of(&html, "set-value", "class")
+                .iter()
+                .map(|class| class.contains("is-semitransparent"))
+                .collect::<Vec<_>>(),
+            vec![false, true, false, true]
+        );
+    }
+
+    #[test]
+    fn test_the_history_can_be_expanded_without_set_buttons() {
+        let html = render_expanded_history_with_set_buttons(
+            vec![(
+                chrono::NaiveDate::from_ymd_opt(2026, 8, 28).unwrap(),
+                vec![recent_set(50.0)],
+            )],
+            0,
+            false,
+        );
+
+        assert!(contains(&html, "set-history"), "{html}");
+        assert_eq!(
+            all_text_of(&html, "set-history-session"),
+            vec!["2026-08-2810 × 50 kg"]
+        );
+    }
+
+    #[test]
+    fn test_the_sets_of_a_session_without_that_position_are_not_de_emphasized() {
+        let html = render_expanded_history(
+            vec![(
+                chrono::NaiveDate::from_ymd_opt(2026, 8, 28).unwrap(),
+                vec![recent_set(50.0), recent_set(52.5)],
+            )],
+            2,
+        );
+
+        assert_eq!(
+            all_attributes_of(&html, "set-value", "class")
+                .iter()
+                .map(|class| class.contains("is-semitransparent"))
+                .collect::<Vec<_>>(),
+            vec![false, false, false]
+        );
     }
 
     #[test]

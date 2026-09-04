@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Training session page: Notes of an exercise
+- Training session page:
+    - Notes of an exercise
+    - Sets of the recent sessions of an exercise, shown on demand below the values of a set
 - Routines page: Editing of the notes of a routine
 - Routine page: Notes of a routine
 - Exercises page:
@@ -29,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Loading screen shown while the app is starting
 - Training session page:
+    - Values of the previous session of an exercise, taken from the last session in which the exercise was performed
     - Notes preserving line breaks
     - Name of the session-specific notes of an exercise to "Notes for this session"
     - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise

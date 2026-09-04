@@ -343,6 +343,19 @@ pub fn attribute_of(html: &str, test_id: &str, attribute: &str) -> String {
         .to_string()
 }
 
+/// The value of `attribute` on every element carrying `test_id`, in document order.
+///
+/// Elements without `attribute` are reported as an empty string.
+#[must_use]
+pub fn all_attributes_of(html: &str, test_id: &str, attribute: &str) -> Vec<String> {
+    let document = scraper::Html::parse_fragment(html);
+    let selector = scraper::Selector::parse(&format!("[data-testid=\"{test_id}\"]")).unwrap();
+    document
+        .select(&selector)
+        .map(|e| e.value().attr(attribute).unwrap_or_default().to_string())
+        .collect()
+}
+
 /// Whether any element carries `test_id`.
 #[must_use]
 pub fn contains(html: &str, test_id: &str) -> bool {

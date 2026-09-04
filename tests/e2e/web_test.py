@@ -948,6 +948,47 @@ def test_training_session_change_entries(page: Page) -> None:
     assert p.get_form() == [new_values, *sets[1:]]
 
 
+def test_training_session_recent_session_values(page: Page) -> None:
+    workout = USER.workouts[-1]
+    exercise_name = next(
+        e.exercise.name for e in workout.elements if isinstance(e, models.WorkoutSet)
+    )
+
+    def recorded_sets(w: models.Workout) -> list[models.WorkoutSet]:
+        return [
+            e
+            for e in w.elements
+            if isinstance(e, models.WorkoutSet)
+            and e.exercise.name == exercise_name
+            and (
+                e.reps is not None
+                or e.time is not None
+                or e.weight is not None
+                or e.rpe is not None
+            )
+        ]
+
+    recent_sets = [
+        recorded_sets(w)
+        for w in sorted(USER.workouts, key=lambda w: (w.date, w.id), reverse=True)
+        if w.date < workout.date and w.routine_id == workout.routine_id and recorded_sets(w)
+    ][:RECENT_SESSIONS]
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.set_form_text(0, ("", "", "", ""))
+    p.expand_set_history()
+
+    assert p.get_set_history() == [[str(s.reps) for s in sets] for sets in recent_sets]
+
+    p.insert_set_history_value(0, 1)
+
+    assert p.get_form()[0] == (recent_sets[0][1].reps, None, None, None)
+
+
 def test_training_session_unsaved_changes_stay(page: Page) -> None:
     workout = USER.workouts[-1]
     new_values = (1, 2, 3, 4)
@@ -3407,6 +3448,7 @@ def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None
         context.close()
 
 
+RECENT_SESSIONS = 3
 NEW_VERSION = "99.0.0"
 
 CACHED_FILES = [

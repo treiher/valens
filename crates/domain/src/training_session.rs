@@ -71,28 +71,76 @@ pub trait TrainingSessionService {
         result
     }
 
-    /// Returns all non-empty sets from the previous training session, grouped by exercise.
+    /// Returns the non-empty sets of up to `limit` earlier training sessions per exercise of the
+    /// training session, together with the date of the session they belong to, ordered from most
+    /// recent to oldest.
     ///
-    /// The previous session is the most recent training session for the same routine that occurred
-    /// before the current one. If no such session exists, this returns an empty map.
-    fn get_previous_session_sets_by_exercise<'a>(
+    /// Only training sessions for the same routine that occurred before the current one are taken
+    /// into account. Sessions without a non-empty set for an exercise are skipped for that
+    /// exercise, so the sets of an exercise that was left out of a session are still returned.
+    fn get_recent_session_sets_by_exercise<'a>(
         &self,
         training_session: &TrainingSession,
         training_sessions: &'a [TrainingSession],
-    ) -> HashMap<ExerciseID, Vec<&'a TrainingSessionElement>> {
-        if let Some(previous_training_session) = training_sessions
+        limit: usize,
+    ) -> HashMap<ExerciseID, Vec<(NaiveDate, Vec<&'a TrainingSessionElement>)>> {
+        if limit == 0 {
+            return HashMap::new();
+        }
+
+        let exercise_ids = training_session
+            .elements
+            .iter()
+            .filter_map(|element| match element {
+                TrainingSessionElement::Set { exercise_id, .. } => Some(*exercise_id),
+                TrainingSessionElement::Rest { .. } => None,
+            })
+            .collect::<HashSet<_>>();
+
+        let mut earlier_training_sessions = training_sessions
             .iter()
             .filter(|t| {
                 t.id != training_session.id
                     && t.date < training_session.date
                     && t.routine_id == training_session.routine_id
             })
-            .max_by_key(|t| (t.date, t.id))
-        {
-            self.get_sets_by_exercise(previous_training_session)
-        } else {
-            HashMap::new()
+            .collect::<Vec<_>>();
+        earlier_training_sessions.sort_by_key(|t| std::cmp::Reverse((t.date, t.id)));
+
+        let mut result: HashMap<ExerciseID, Vec<(NaiveDate, Vec<&'a TrainingSessionElement>)>> =
+            HashMap::new();
+        let mut sets_by_exercise: HashMap<ExerciseID, Vec<&'a TrainingSessionElement>> =
+            HashMap::new();
+        for earlier_training_session in earlier_training_sessions {
+            for element in &earlier_training_session.elements {
+                if let TrainingSessionElement::Set { exercise_id, .. } = element
+                    && !element.is_empty()
+                    && exercise_ids.contains(exercise_id)
+                    && result
+                        .get(exercise_id)
+                        .is_none_or(|sessions| sessions.len() < limit)
+                {
+                    sets_by_exercise
+                        .entry(*exercise_id)
+                        .or_default()
+                        .push(element);
+                }
+            }
+            for (exercise_id, sets) in sets_by_exercise.drain() {
+                result
+                    .entry(exercise_id)
+                    .or_default()
+                    .push((earlier_training_session.date, sets));
+            }
+            if exercise_ids.iter().all(|id| {
+                result
+                    .get(id)
+                    .is_some_and(|sessions| sessions.len() >= limit)
+            }) {
+                break;
+            }
         }
+        result
     }
 }
 
@@ -993,6 +1041,25 @@ impl TrainingSessionElement {
     }
 
     #[must_use]
+    pub fn set(&self) -> Option<Set> {
+        match self {
+            TrainingSessionElement::Set {
+                reps,
+                time,
+                weight,
+                rpe,
+                ..
+            } => Some(Set {
+                reps: *reps,
+                time: *time,
+                weight: *weight,
+                rpe: *rpe,
+            }),
+            TrainingSessionElement::Rest { .. } => None,
+        }
+    }
+
+    #[must_use]
     pub fn one_rep_max(&self) -> Option<f32> {
         match self {
             TrainingSessionElement::Set {
@@ -1011,22 +1078,9 @@ impl TrainingSessionElement {
 
     #[must_use]
     pub fn to_string(&self, show_tut: bool, show_rpe: bool) -> String {
-        match self {
-            TrainingSessionElement::Set {
-                reps,
-                time,
-                weight,
-                rpe,
-                ..
-            } => Set {
-                reps: *reps,
-                time: *time,
-                weight: *weight,
-                rpe: *rpe,
-            }
-            .to_string(show_tut, show_rpe),
-            TrainingSessionElement::Rest { .. } => String::new(),
-        }
+        self.set()
+            .map(|set| set.to_string(show_tut, show_rpe))
+            .unwrap_or_default()
     }
 
     #[must_use]
@@ -3571,7 +3625,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_previous_session_sets_by_exercise() {
+    fn test_get_recent_session_sets_by_exercise() {
         let service = Service::new(FakeRepository::default());
         let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
         let previous = dated_training_session(
@@ -3580,13 +3634,14 @@ mod tests {
             *TODAY - Duration::days(7),
             &[set(1, 3, 90.0, RPE::ZERO)],
         );
+        let earlier = dated_training_session(
+            3,
+            1,
+            *TODAY - Duration::days(14),
+            &[set(1, 2, 80.0, RPE::ZERO)],
+        );
         let training_sessions = [
-            dated_training_session(
-                3,
-                1,
-                *TODAY - Duration::days(14),
-                &[set(1, 2, 80.0, RPE::ZERO)],
-            ),
+            earlier.clone(),
             dated_training_session(6, 1, *TODAY, &[set(1, 1, 70.0, RPE::ZERO)]),
             previous.clone(),
             dated_training_session(
@@ -3605,18 +3660,125 @@ mod tests {
         ];
 
         assert_eq!(
-            service.get_previous_session_sets_by_exercise(&current, &training_sessions),
-            HashMap::from([(ExerciseID::from(1u128), vec![&previous.elements[0]])])
+            service.get_recent_session_sets_by_exercise(&current, &training_sessions, 3),
+            HashMap::from([(
+                ExerciseID::from(1u128),
+                vec![
+                    (previous.date, vec![&previous.elements[0]]),
+                    (earlier.date, vec![&earlier.elements[0]]),
+                ]
+            )])
         );
     }
 
     #[test]
-    fn test_get_previous_session_sets_by_exercise_without_earlier_session() {
+    fn test_get_recent_session_sets_by_exercise_skipping_sessions_without_exercise() {
+        let service = Service::new(FakeRepository::default());
+        let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
+        let earlier = dated_training_session(
+            3,
+            1,
+            *TODAY - Duration::days(14),
+            &[set(1, 2, 80.0, RPE::ZERO)],
+        );
+        let training_sessions = [
+            current.clone(),
+            dated_training_session(
+                2,
+                1,
+                *TODAY - Duration::days(7),
+                &[set(2, 3, 90.0, RPE::ZERO), set(1, 0, 0.0, RPE::ZERO)],
+            ),
+            earlier.clone(),
+        ];
+
+        assert_eq!(
+            service
+                .get_recent_session_sets_by_exercise(&current, &training_sessions, 3)
+                .get(&ExerciseID::from(1u128)),
+            Some(&vec![(earlier.date, vec![&earlier.elements[0]])])
+        );
+    }
+
+    #[test]
+    fn test_get_recent_session_sets_by_exercise_ignoring_exercises_of_other_sessions() {
+        let service = Service::new(FakeRepository::default());
+        let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
+        let earlier = dated_training_session(
+            2,
+            1,
+            *TODAY - Duration::days(7),
+            &[set(1, 3, 90.0, RPE::ZERO), set(2, 4, 60.0, RPE::ZERO)],
+        );
+        let training_sessions = [current.clone(), earlier.clone()];
+
+        assert_eq!(
+            service.get_recent_session_sets_by_exercise(&current, &training_sessions, 3),
+            HashMap::from([(
+                ExerciseID::from(1u128),
+                vec![(earlier.date, vec![&earlier.elements[0]])]
+            )])
+        );
+    }
+
+    #[test]
+    fn test_get_recent_session_sets_by_exercise_limited_to_limit_sessions() {
+        let service = Service::new(FakeRepository::default());
+        let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
+        let training_sessions = (2u32..6)
+            .map(|i| {
+                dated_training_session(
+                    u128::from(i),
+                    1,
+                    *TODAY - Duration::days(i64::from(i)),
+                    &[set(1, 3, 90.0, RPE::ZERO)],
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let sessions = service.get_recent_session_sets_by_exercise(&current, &training_sessions, 3);
+
+        assert_eq!(
+            sessions[&ExerciseID::from(1u128)]
+                .iter()
+                .map(|(date, _)| *date)
+                .collect::<Vec<_>>(),
+            vec![
+                *TODAY - Duration::days(2),
+                *TODAY - Duration::days(3),
+                *TODAY - Duration::days(4),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_get_recent_session_sets_by_exercise_without_earlier_session() {
         let service = Service::new(FakeRepository::default());
         let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
 
         assert_eq!(
-            service.get_previous_session_sets_by_exercise(&current, std::slice::from_ref(&current)),
+            service.get_recent_session_sets_by_exercise(
+                &current,
+                std::slice::from_ref(&current),
+                3
+            ),
+            HashMap::new()
+        );
+    }
+
+    #[test]
+    fn test_get_recent_session_sets_by_exercise_without_limit() {
+        let service = Service::new(FakeRepository::default());
+        let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
+        let earlier = dated_training_session(
+            2,
+            1,
+            *TODAY - Duration::days(1),
+            &[set(1, 3, 90.0, RPE::ZERO)],
+        );
+
+        assert_eq!(
+            service.get_recent_session_sets_by_exercise(&current, &[current.clone(), earlier], 0),
             HashMap::new()
         );
     }

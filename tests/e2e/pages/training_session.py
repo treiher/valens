@@ -157,6 +157,20 @@ class TrainingSessionPage(BasePage):
         self.expect_edit_mode()
         expect(self.page.get_by_test_id("set-action").nth(index)).to_be_disabled()
 
+    def expand_set_history(self, index: int = 0) -> None:
+        self.page.get_by_test_id("set-history").nth(index).click()
+
+    def get_set_history(self) -> list[list[str]]:
+        return [
+            [get_text(value) for value in session.get_by_test_id("set-value").all()]
+            for session in self.page.get_by_test_id("set-history-session").all()
+        ]
+
+    def insert_set_history_value(self, session_index: int, set_index: int) -> None:
+        self.page.get_by_test_id("set-history-session").nth(session_index).get_by_test_id(
+            "set-value"
+        ).nth(set_index).click()
+
     def count_form_rows(self) -> int:
         return len(self.get_form())
 

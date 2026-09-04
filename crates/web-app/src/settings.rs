@@ -12,7 +12,7 @@ pub trait SettingsRepository {
     async fn write_settings(&self, settings: Settings) -> Result<(), String>;
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Settings {
     pub beep_volume: u8,
@@ -39,7 +39,7 @@ impl Default for Settings {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum Theme {
     System,
     Light,

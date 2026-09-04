@@ -19,7 +19,7 @@ pub trait OngoingTrainingSessionRepository {
     ) -> Result<(), String>;
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct OngoingTrainingSession {
     pub training_session_id: u128,
     pub start_time: DateTime<Utc>,
@@ -41,7 +41,7 @@ impl OngoingTrainingSession {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum TimerState {
     Unset,
     Active { target_time: DateTime<Utc> },

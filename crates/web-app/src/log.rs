@@ -30,7 +30,7 @@ pub enum Error {
     Unknown(String),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Entry {
     pub time: String,
     #[serde(with = "LevelDef")]

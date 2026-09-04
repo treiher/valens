@@ -1300,6 +1300,87 @@ mod tests {
 
     use super::*;
 
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{TestCache, all_text_of, contains, provide_settings, render, text_of};
+
+    fn exercise(id: u128, name: &str) -> domain::Exercise {
+        domain::Exercise {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            notes: String::new(),
+            muscles: vec![],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
+    fn render_routine(id: u128, cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            provide_settings(web_app::Settings::default());
+            rsx! { Routine { id: domain::RoutineID::from(id) } }
+        })
+    }
+
+    fn with_routine() -> TestCache {
+        TestCache::default()
+            .with_routines(vec![routine()])
+            .with_exercises(vec![exercise(1, "Squat")])
+    }
+
+    #[test]
+    fn test_the_name_and_the_summary_are_shown() {
+        let html = render_routine(1, with_routine);
+
+        assert_eq!(text_of(&html, "title"), "A");
+        assert_eq!(
+            all_text_of(&html, "data-box")[0..2],
+            ["Duration~ 0 min", "Sets3"]
+        );
+    }
+
+    #[test]
+    fn test_the_nested_sections_and_their_exercises_are_shown() {
+        let html = render_routine(1, with_routine);
+
+        assert_eq!(all_text_of(&html, "set-exercise"), vec!["Squat"; 3]);
+        assert_eq!(all_text_of(&html, "section-rounds").len(), 3);
+    }
+
+    #[test]
+    fn test_without_training_sessions_no_data_is_reported() {
+        let html = render_routine(1, with_routine);
+
+        assert_eq!(text_of(&html, "no-data"), "No data");
+        assert!(!contains(&html, "chart"));
+    }
+
+    #[test]
+    fn test_an_unknown_routine_is_reported() {
+        let html = render_routine(2, with_routine);
+
+        assert_eq!(text_of(&html, "error-page"), "Routine not found");
+    }
+
+    #[test]
+    fn test_unread_routines_are_shown_as_loading() {
+        let html = render_routine(1, TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_routines_are_shown_as_an_error() {
+        let html = render_routine(1, TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+
     fn routine() -> domain::Routine {
         domain::Routine {
             id: 1.into(),

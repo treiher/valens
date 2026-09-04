@@ -556,6 +556,80 @@ fn view_sets(
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{TestCache, contains, provide_settings, render, text_of};
+
+    fn exercise(id: u128, name: &str) -> domain::Exercise {
+        domain::Exercise {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            notes: "some notes".to_string(),
+            muscles: vec![domain::ExerciseMuscle {
+                muscle_id: domain::MuscleID::Pecs,
+                stimulus: domain::Stimulus::PRIMARY,
+            }],
+            force: Some(domain::Force::Push),
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
+    fn render_exercise(id: u128, cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            provide_settings(web_app::Settings::default());
+            rsx! { Exercise { id: domain::ExerciseID::from(id) } }
+        })
+    }
+
+    #[test]
+    fn test_the_name_properties_and_notes_are_shown() {
+        let html = render_exercise(1, || {
+            TestCache::default().with_exercises(vec![exercise(1, "Squat")])
+        });
+
+        assert_eq!(text_of(&html, "title"), "Squat");
+        assert_eq!(text_of(&html, "property-tag"), "Push");
+        assert_eq!(text_of(&html, "muscle-tag"), "Pecs");
+        assert_eq!(text_of(&html, "exercise-notes"), "some notes");
+    }
+
+    #[test]
+    fn test_without_training_sessions_no_data_is_reported() {
+        let html = render_exercise(1, || {
+            TestCache::default().with_exercises(vec![exercise(1, "Squat")])
+        });
+
+        assert_eq!(text_of(&html, "no-data"), "No data");
+        assert!(!contains(&html, "chart"));
+    }
+
+    #[test]
+    fn test_an_unknown_exercise_is_reported() {
+        let html = render_exercise(2, || {
+            TestCache::default().with_exercises(vec![exercise(1, "Squat")])
+        });
+
+        assert_eq!(text_of(&html, "error-page"), "Exercise not found");
+    }
+
+    #[test]
+    fn test_unread_exercises_are_shown_as_loading() {
+        let html = render_exercise(1, TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_exercises_are_shown_as_an_error() {
+        let html = render_exercise(1, TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
     use std::collections::HashSet;
 
     use super::*;

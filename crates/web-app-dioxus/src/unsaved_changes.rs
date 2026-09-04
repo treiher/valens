@@ -38,27 +38,10 @@ pub fn UnsavedChangesDialog() -> Element {
     let route = use_route();
     *CURRENT_ROUTE.write() = route;
 
-    use_hook(move || {
-        // Handle page reloads and closing tabs
-        let closure = Closure::<dyn FnMut(web_sys::BeforeUnloadEvent)>::new(
-            move |event: web_sys::BeforeUnloadEvent| {
-                if UNSAVED_CHANGES_GUARD().is_dirty() {
-                    event.prevent_default();
-                    event.set_return_value("");
-                }
-            },
-        );
-        let Some(window) = web_sys::window() else {
-            warn!("failed to access window");
-            return;
-        };
-        if let Err(e) = window
-            .add_event_listener_with_callback("beforeunload", closure.as_ref().unchecked_ref())
-        {
-            warn!("failed to register beforeunload handler: {e:?}");
-            return;
+    use_hook(|| {
+        if cfg!(target_arch = "wasm32") {
+            listen_for_before_unload();
         }
-        closure.forget();
     });
 
     let mut guard = UNSAVED_CHANGES_GUARD();
@@ -109,6 +92,29 @@ pub fn UnsavedChangesDialog() -> Element {
             }
         }
     }
+}
+
+/// Warns about unsaved changes when the page is reloaded or its tab is closed.
+fn listen_for_before_unload() {
+    let closure = Closure::<dyn FnMut(web_sys::BeforeUnloadEvent)>::new(
+        move |event: web_sys::BeforeUnloadEvent| {
+            if UNSAVED_CHANGES_GUARD().is_dirty() {
+                event.prevent_default();
+                event.set_return_value("");
+            }
+        },
+    );
+    let Some(window) = web_sys::window() else {
+        warn!("failed to access window");
+        return;
+    };
+    if let Err(e) =
+        window.add_event_listener_with_callback("beforeunload", closure.as_ref().unchecked_ref())
+    {
+        warn!("failed to register beforeunload handler: {e:?}");
+        return;
+    }
+    closure.forget();
 }
 
 pub fn use_unsaved_changes() -> Signal<bool> {

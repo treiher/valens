@@ -17,6 +17,13 @@ pub struct Settings {
 }
 
 impl Settings {
+    #[cfg(test)]
+    pub fn new_for_test(settings: web_app::Settings) -> Self {
+        Self {
+            settings: Signal::new(settings),
+        }
+    }
+
     pub fn provide() {
         use_hook(listen_for_color_scheme_changes);
         let settings = use_signal(web_app::Settings::default);

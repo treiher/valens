@@ -1790,6 +1790,151 @@ fn decode_values<T: TryFrom<u8> + Eq + std::hash::Hash>(values: HashSet<u8>) -> 
 mod tests {
     use super::*;
 
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{
+        TestCache, all_text_of, contains, render, rows_of, rows_of_nth, text_of,
+    };
+
+    fn exercise(id: u128, name: &str) -> domain::Exercise {
+        domain::Exercise {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            notes: String::new(),
+            muscles: vec![],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
+    fn training_session(
+        id: u128,
+        date: chrono::NaiveDate,
+        exercise_id: u128,
+    ) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: id.into(),
+            routine_id: 1.into(),
+            date,
+            notes: String::new(),
+            elements: vec![domain::TrainingSessionElement::Set {
+                exercise_id: exercise_id.into(),
+                reps: domain::Reps::default(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::default(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            }],
+            exercise_notes: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn render_exercises(filter: String, cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            rsx! { Exercises { add: false, filter: filter.clone() } }
+        })
+    }
+
+    #[test]
+    fn test_exercises_are_listed_by_name() {
+        let html = render_exercises(String::new(), || {
+            TestCache::default().with_exercises(vec![exercise(1, "Squat"), exercise(2, "Bench")])
+        });
+
+        assert_eq!(all_text_of(&html, "exercise-item"), vec!["Bench", "Squat"]);
+    }
+
+    #[test]
+    fn test_exercises_not_trained_recently_are_listed_separately() {
+        let today = chrono::Local::now().date_naive();
+        let html = render_exercises(String::new(), move || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Recent"), exercise(2, "Stale")])
+                .with_training_sessions(vec![
+                    training_session(1, today, 1),
+                    training_session(2, today - Duration::days(60), 2),
+                ])
+        });
+
+        assert_eq!(rows_of(&html, "table"), vec![vec!["Recent", ""]]);
+        assert_eq!(rows_of_nth(&html, "table", 1), vec![vec!["Stale", ""]]);
+        assert!(html.contains("Previous exercises"), "{html}");
+    }
+
+    #[test]
+    fn test_a_filter_matching_nothing_lists_no_exercise() {
+        let filter = ExerciseFilter::from(domain::ExerciseFilter {
+            name: "No Such Exercise".to_string(),
+            ..domain::ExerciseFilter::default()
+        })
+        .to_base64();
+        let html = render_exercises(filter, || {
+            TestCache::default().with_exercises(vec![exercise(1, "Squat")])
+        });
+
+        assert!(!contains(&html, "exercise-item"));
+        assert!(!contains(&html, "catalog-item"));
+    }
+
+    #[test]
+    fn test_a_filtered_property_is_shown_as_a_tag() {
+        let filter = ExerciseFilter::from(domain::ExerciseFilter {
+            force: HashSet::from([Some(domain::Force::Push)]),
+            ..domain::ExerciseFilter::default()
+        })
+        .to_base64();
+        let html = render_exercises(filter, TestCache::default);
+
+        assert_eq!(all_text_of(&html, "filter-tag"), vec!["Push"]);
+    }
+
+    #[test]
+    fn test_an_exercise_of_the_catalog_can_be_added() {
+        let html = render_exercises(String::new(), TestCache::default);
+
+        assert!(contains(&html, "catalog-item"));
+        assert!(contains(&html, "add-catalog-exercise"));
+    }
+
+    #[test]
+    fn test_an_exercise_already_present_is_not_offered_from_the_catalog() {
+        let html = render_exercises(String::new(), || {
+            TestCache::default().with_exercises(vec![exercise(1, "Back Extension")])
+        });
+
+        assert_eq!(
+            all_text_of(&html, "catalog-item")
+                .iter()
+                .filter(|name| *name == "Back Extension")
+                .count(),
+            1
+        );
+        assert!(!text_of(&html, "table").is_empty());
+    }
+
+    #[test]
+    fn test_unread_exercises_are_shown_as_loading() {
+        let html = render_exercises(String::new(), TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_exercises_are_shown_as_an_error() {
+        let html = render_exercises(String::new(), TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+
     #[test]
     fn test_stimulus_level_round_trip() {
         assert_eq!(stimulus_level(multi_toggle_state(None)), None);

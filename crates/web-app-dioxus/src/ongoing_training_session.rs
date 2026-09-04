@@ -27,6 +27,13 @@ pub enum State {
 }
 
 impl OngoingTrainingSession {
+    #[cfg(test)]
+    pub fn new_for_test(state: State) -> Self {
+        Self {
+            state: Signal::new(state),
+        }
+    }
+
     pub fn provide() {
         let state = use_signal(|| State::Loading);
         use_context_provider(move || Self { state });

@@ -27,6 +27,13 @@ pub struct Session {
 }
 
 impl Session {
+    #[cfg(test)]
+    pub fn new_for_test(user: domain::User) -> Self {
+        Self {
+            user: ReadSignal::from(Signal::new(user)),
+        }
+    }
+
     /// Read the session user. Reading subscribes the caller, so it re-renders when the
     /// user changes.
     #[must_use]
@@ -40,6 +47,14 @@ impl Session {
 pub struct SessionRefresh(Resource<Result<domain::User, domain::ReadError>>);
 
 impl SessionRefresh {
+    #[cfg(test)]
+    pub fn new_for_test(user: domain::User) -> Self {
+        Self(use_resource(move || {
+            let user = user.clone();
+            async move { Ok(user) }
+        }))
+    }
+
     pub fn refresh(mut self) {
         self.0.restart();
     }

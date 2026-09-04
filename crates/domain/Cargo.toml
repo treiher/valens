@@ -5,6 +5,10 @@ authors.workspace = true
 edition.workspace = true
 publish = false
 
+[features]
+# Exposes the in-memory `tests::FakeRepository` to other crates.
+testing = []
+
 [dependencies]
 anyhow = { workspace = true }
 chrono = { workspace = true, default-features = false, features = ["clock"] }

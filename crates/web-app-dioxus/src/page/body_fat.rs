@@ -690,3 +690,106 @@ enum BodyFatDialog {
     },
     Delete(domain::BodyFat),
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    use crate::test_render::{
+        TestCache, contains, provide_session, provide_settings, render, rows_of, text_of,
+    };
+
+    use super::*;
+
+    fn user(sex: domain::Sex) -> domain::User {
+        domain::User {
+            id: 1.into(),
+            name: domain::Name::new("Alice").unwrap(),
+            sex,
+            height: Some(170),
+            role: domain::Role::USER,
+        }
+    }
+
+    fn render_body_fat(sex: domain::Sex, cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            provide_session(user(sex));
+            provide_settings(web_app::Settings::default());
+            rsx! { BodyFat { add: false } }
+        })
+    }
+
+    fn body_fat() -> TestCache {
+        let today = Local::now().date_naive();
+        TestCache::default()
+            .with_body_weight(vec![domain::BodyWeight {
+                date: today,
+                weight: 60.0,
+            }])
+            .with_body_fat(vec![domain::BodyFat {
+                date: today,
+                chest: Some(1),
+                abdominal: Some(2),
+                thigh: Some(3),
+                tricep: Some(4),
+                subscapular: Some(5),
+                suprailiac: Some(6),
+                midaxillary: Some(7),
+            }])
+    }
+
+    #[rstest]
+    #[case(
+        domain::Sex::FEMALE,
+        ["Tricep (mm)", "Suprailiac (mm)", "Thigh (mm)"],
+        ["4", "6", "3"]
+    )]
+    #[case(
+        domain::Sex::MALE,
+        ["Chest (mm)", "Abdominal (mm)", "Thigh (mm)"],
+        ["1", "2", "3"]
+    )]
+    fn test_the_skinfold_sites_are_ordered_by_sex(
+        #[case] sex: domain::Sex,
+        #[case] expected_head: [&str; 3],
+        #[case] expected_values: [&str; 3],
+    ) {
+        let html = render_body_fat(sex, body_fat);
+
+        let rows = rows_of(&html, "table");
+        assert_eq!(rows[0][3..6], expected_head);
+        assert_eq!(rows[1][3..6], expected_values);
+    }
+
+    #[test]
+    fn test_the_chart_and_its_legend_are_shown() {
+        let html = render_body_fat(domain::Sex::FEMALE, body_fat);
+
+        assert!(contains(&html, "chart"));
+        assert!(html.contains("JP3 (%)"), "{html}");
+    }
+
+    #[test]
+    fn test_without_entries_no_chart_is_shown() {
+        let html = render_body_fat(domain::Sex::FEMALE, TestCache::default);
+
+        assert!(!contains(&html, "chart"));
+        assert_eq!(rows_of(&html, "table").len(), 1);
+    }
+
+    #[test]
+    fn test_unread_entries_are_shown_as_loading() {
+        let html = render_body_fat(domain::Sex::FEMALE, TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_entries_are_shown_as_an_error() {
+        let html = render_body_fat(domain::Sex::FEMALE, TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+}

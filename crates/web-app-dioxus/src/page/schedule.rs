@@ -1000,6 +1000,74 @@ mod tests {
 
     use super::*;
 
+    use crate::test_render::{TestCache, all_text_of, contains, render, text_of};
+
+    fn render_schedule(cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            rsx! { Schedule {} }
+        })
+    }
+
+    #[test]
+    fn test_every_weekday_is_shown() {
+        let html = render_schedule(TestCache::default);
+
+        for weekday in domain::Weekday::iter() {
+            assert!(contains(
+                &html,
+                &format!("schedule-day-{}", u8::from(*weekday))
+            ));
+        }
+    }
+
+    #[test]
+    fn test_the_slots_of_a_day_are_shown_by_name() {
+        let html = render_schedule(|| {
+            TestCache::default()
+                .with_schedule(schedule())
+                .with_routines(vec![routine(1, "A", false), routine(2, "B", false)])
+        });
+
+        assert_eq!(all_text_of(&html, "slot-name"), vec!["A", "A"]);
+    }
+
+    #[test]
+    fn test_the_routines_of_a_rotation_are_shown_by_name() {
+        let html = render_schedule(|| {
+            TestCache::default()
+                .with_schedule(schedule())
+                .with_routines(vec![routine(1, "A", false), routine(2, "B", false)])
+        });
+
+        assert_eq!(text_of(&html, "rotation-name"), "A");
+        assert_eq!(all_text_of(&html, "rotation-routine-name"), vec!["A", "B"]);
+    }
+
+    #[test]
+    fn test_a_slot_of_an_unknown_routine_is_marked_as_such() {
+        let html = render_schedule(|| TestCache::default().with_schedule(schedule()));
+
+        assert_eq!(
+            all_text_of(&html, "rotation-routine-name"),
+            vec!["Unknown routine", "Unknown routine"]
+        );
+    }
+
+    #[test]
+    fn test_unread_schedule_is_shown_as_loading() {
+        let html = render_schedule(TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_schedule_is_shown_as_an_error() {
+        let html = render_schedule(TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+
     #[test]
     fn test_add_and_remove_slot() {
         let schedule = schedule();

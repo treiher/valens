@@ -64,8 +64,8 @@ mod schedule;
 mod service;
 mod session;
 mod statistics;
-#[cfg(test)]
-mod tests;
+#[cfg(any(test, feature = "testing"))]
+pub mod tests;
 mod training;
 mod training_session;
 mod user;

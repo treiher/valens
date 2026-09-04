@@ -562,3 +562,116 @@ pub enum TrainingDialog {
     },
     Delete(domain::TrainingSession),
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{TestCache, contains, provide_settings, render, rows_of, text_of};
+
+    use super::*;
+
+    fn training_session(id: u128, date: NaiveDate) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: id.into(),
+            routine_id: 1.into(),
+            date,
+            notes: String::new(),
+            elements: vec![domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                reps: domain::Reps::new(10).unwrap(),
+                time: domain::Time::new(30).unwrap(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::new(8.0).unwrap(),
+                target_reps: domain::Reps::default(),
+                target_time: domain::Time::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::ZERO,
+                automatic: false,
+            }],
+            exercise_notes: BTreeMap::new(),
+        }
+    }
+
+    fn routine() -> domain::Routine {
+        domain::Routine {
+            id: 1.into(),
+            name: domain::Name::new("A").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![],
+        }
+    }
+
+    fn sessions() -> TestCache {
+        let today = Local::now().date_naive();
+        TestCache::default()
+            .with_routines(vec![routine()])
+            .with_training_sessions(vec![
+                training_session(1, today - chrono::Duration::days(1)),
+                training_session(2, today),
+            ])
+    }
+
+    fn render_training_sessions(
+        settings: web_app::Settings,
+        cache: impl Fn() -> TestCache + 'static,
+    ) -> String {
+        render(move || {
+            cache().provide();
+            provide_settings(settings);
+            rsx! { TrainingSessions { add: false } }
+        })
+    }
+
+    #[test]
+    fn test_sessions_are_tabulated_newest_first_with_their_routine() {
+        let html = render_training_sessions(web_app::Settings::default(), sessions);
+        let today = Local::now().date_naive();
+
+        let rows = rows_of(&html, "table");
+        assert_eq!(rows[1][0], today.to_string());
+        assert_eq!(rows[1][1], "A");
+        assert_eq!(rows[2][0], (today - chrono::Duration::days(1)).to_string());
+    }
+
+    #[test]
+    fn test_the_rpe_and_tut_columns_follow_the_settings() {
+        let with_both = render_training_sessions(web_app::Settings::default(), sessions);
+        let without = render_training_sessions(
+            web_app::Settings {
+                show_rpe: false,
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            sessions,
+        );
+
+        assert!(rows_of(&with_both, "table")[0].contains(&"RPE".to_string()));
+        assert!(rows_of(&with_both, "table")[0].contains(&"TUT".to_string()));
+        assert!(!rows_of(&without, "table")[0].contains(&"RPE".to_string()));
+        assert!(!rows_of(&without, "table")[0].contains(&"TUT".to_string()));
+    }
+
+    #[test]
+    fn test_without_sessions_no_chart_is_shown() {
+        let html = render_training_sessions(web_app::Settings::default(), TestCache::default);
+
+        assert!(!contains(&html, "chart"));
+        assert_eq!(rows_of(&html, "table").len(), 1);
+    }
+
+    #[test]
+    fn test_unread_sessions_are_shown_as_loading() {
+        let html = render_training_sessions(web_app::Settings::default(), TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_sessions_are_shown_as_an_error() {
+        let html = render_training_sessions(web_app::Settings::default(), TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+}

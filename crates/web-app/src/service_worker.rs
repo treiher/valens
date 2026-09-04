@@ -23,7 +23,7 @@ pub struct NotificationOptions {
 
 #[allow(clippy::missing_errors_doc)]
 pub fn post(message: &OutboundMessage) -> Result<(), String> {
-    let Some(window) = web_sys::window() else {
+    let Some(window) = window() else {
         return Err("failed to access window".to_string());
     };
     let Some(service_worker) = window.navigator().service_worker().controller() else {
@@ -48,6 +48,13 @@ pub fn post_to(
             "failed to prepare message for service worker: {err}"
         )),
     }
+}
+
+/// The browser window, if there is one.
+///
+/// Off wasm `web_sys::window` panics rather than yielding `None`, so it is not reached there.
+fn window() -> Option<web_sys::Window> {
+    cfg!(target_arch = "wasm32").then(web_sys::window).flatten()
 }
 
 /// Result of a check for a new service worker.

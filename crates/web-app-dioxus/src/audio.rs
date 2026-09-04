@@ -843,14 +843,20 @@ fn resume_audio_context() {
 fn with_audio_context<R>(f: impl FnOnce(&web_sys::AudioContext) -> R) -> Option<R> {
     AUDIO_CONTEXT.with(|audio_context| {
         audio_context
-            .get_or_init(|| match web_sys::AudioContext::new() {
-                Ok(audio_context) => {
-                    listen_for_user_gestures();
-                    Some(audio_context)
+            .get_or_init(|| {
+                // Off wasm the constructor panics rather than returning an error
+                if !cfg!(target_arch = "wasm32") {
+                    return None;
                 }
-                Err(err) => {
-                    warn!("failed to create audio context: {err:?}");
-                    None
+                match web_sys::AudioContext::new() {
+                    Ok(audio_context) => {
+                        listen_for_user_gestures();
+                        Some(audio_context)
+                    }
+                    Err(err) => {
+                        warn!("failed to create audio context: {err:?}");
+                        None
+                    }
                 }
             })
             .as_ref()

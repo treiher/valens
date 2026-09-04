@@ -104,3 +104,45 @@ fn charts(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{
+        all_text_of, contains, provide_settings, render_settled, seed_domain_service, text_of,
+    };
+
+    use super::*;
+
+    fn render_muscles(repository: domain::tests::FakeRepository) -> String {
+        render_settled(move || {
+            seed_domain_service(repository.clone());
+            provide_settings(web_app::Settings::default());
+            rsx! { Muscles {} }
+        })
+    }
+
+    #[test]
+    fn test_every_muscle_is_shown_with_its_description() {
+        let html = render_muscles(domain::tests::FakeRepository::default());
+
+        assert_eq!(
+            all_text_of(&html, "title"),
+            domain::MuscleID::iter()
+                .map(|muscle| muscle.name().to_string())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_unreadable_training_sessions_are_shown_as_an_error() {
+        let html = render_muscles(
+            domain::tests::FakeRepository::default()
+                .failing(domain::tests::Call::ReadTrainingSessions),
+        );
+
+        assert_eq!(text_of(&html, "error-page"), "Not found");
+        assert!(!contains(&html, "title"));
+    }
+}

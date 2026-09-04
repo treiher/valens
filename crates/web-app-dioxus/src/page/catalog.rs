@@ -33,3 +33,41 @@ pub fn Catalog(name: String) -> Element {
         rsx! { ErrorPage { message: "Exercise not found" } }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{all_text_of, render, text_of};
+
+    use super::*;
+
+    #[test]
+    fn test_the_properties_of_a_catalog_exercise_are_shown() {
+        let html = render(|| {
+            rsx! { Catalog { name: "Back Extension".to_string() } }
+        });
+
+        assert_eq!(text_of(&html, "title"), "Back Extension");
+        assert!(all_text_of(&html, "property-tag").contains(&"Pull".to_string()));
+        assert!(all_text_of(&html, "muscle-tag").contains(&"Erector Spinae".to_string()));
+    }
+
+    #[test]
+    fn test_an_unknown_exercise_is_reported() {
+        let html = render(|| {
+            rsx! { Catalog { name: "No Such Exercise".to_string() } }
+        });
+
+        assert_eq!(text_of(&html, "error-page"), "Exercise not found");
+    }
+
+    #[test]
+    fn test_an_invalid_name_is_reported() {
+        let html = render(|| {
+            rsx! { Catalog { name: String::new() } }
+        });
+
+        assert_eq!(text_of(&html, "error-page"), "Exercise not found");
+    }
+}

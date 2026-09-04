@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use chrono::NaiveDate;
@@ -17,7 +17,7 @@ use crate::{
 
 /// Repository operation that tests observe in the call log or let fail.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Call {
+pub enum Call {
     SyncExercises,
     SyncRoutines,
     SyncSchedule,
@@ -35,6 +35,18 @@ pub(crate) enum Call {
     ReadUsers,
     DeleteRoutine,
     ReplaceSchedule,
+    RequestSession,
+    InitializeSession,
+    SyncSession,
+    DeleteSession,
+    ReadAuthMethods,
+    LoginWithPasskey,
+    RegisterPasskey,
+    ReadPasskeys,
+    RenamePasskey,
+    DeletePasskey,
+    CreateLoginLink,
+    RedeemLoginLink,
 }
 
 /// Repository holding its collections in memory.
@@ -42,67 +54,77 @@ pub(crate) enum Call {
 /// Reads return the stored collection, writes return a value built from their arguments without
 /// changing the collections. Every operation of [`Call`] is appended to the call log and returns an
 /// error instead of its result while it is marked as failing.
-#[derive(Default)]
-pub(crate) struct FakeRepository {
-    exercises: Mutex<Vec<Exercise>>,
-    routines: Mutex<Vec<Routine>>,
-    schedule: Mutex<Schedule>,
-    training_sessions: Mutex<Vec<TrainingSession>>,
-    body_weight: Mutex<Vec<BodyWeight>>,
-    body_fat: Mutex<Vec<BodyFat>>,
-    period: Mutex<Vec<Period>>,
-    users: Mutex<Vec<User>>,
-    calls: Mutex<Vec<Call>>,
-    failing: Mutex<BTreeSet<Call>>,
+#[derive(Clone, Default)]
+pub struct FakeRepository {
+    exercises: Arc<Mutex<Vec<Exercise>>>,
+    routines: Arc<Mutex<Vec<Routine>>>,
+    schedule: Arc<Mutex<Schedule>>,
+    training_sessions: Arc<Mutex<Vec<TrainingSession>>>,
+    body_weight: Arc<Mutex<Vec<BodyWeight>>>,
+    body_fat: Arc<Mutex<Vec<BodyFat>>>,
+    period: Arc<Mutex<Vec<Period>>>,
+    users: Arc<Mutex<Vec<User>>>,
+    calls: Arc<Mutex<Vec<Call>>>,
+    failing: Arc<Mutex<BTreeSet<Call>>>,
 }
 
 impl FakeRepository {
-    pub(crate) fn with_exercises(self, exercises: Vec<Exercise>) -> Self {
+    #[must_use]
+    pub fn with_exercises(self, exercises: Vec<Exercise>) -> Self {
         *self.exercises.lock().unwrap() = exercises;
         self
     }
 
-    pub(crate) fn with_routines(self, routines: Vec<Routine>) -> Self {
+    #[must_use]
+    pub fn with_routines(self, routines: Vec<Routine>) -> Self {
         *self.routines.lock().unwrap() = routines;
         self
     }
 
-    pub(crate) fn with_schedule(self, schedule: Schedule) -> Self {
+    #[must_use]
+    pub fn with_schedule(self, schedule: Schedule) -> Self {
         *self.schedule.lock().unwrap() = schedule;
         self
     }
 
-    pub(crate) fn with_training_sessions(self, training_sessions: Vec<TrainingSession>) -> Self {
+    #[must_use]
+    pub fn with_training_sessions(self, training_sessions: Vec<TrainingSession>) -> Self {
         *self.training_sessions.lock().unwrap() = training_sessions;
         self
     }
 
-    pub(crate) fn with_body_weight(self, body_weight: Vec<BodyWeight>) -> Self {
+    #[must_use]
+    pub fn with_body_weight(self, body_weight: Vec<BodyWeight>) -> Self {
         *self.body_weight.lock().unwrap() = body_weight;
         self
     }
 
-    pub(crate) fn with_body_fat(self, body_fat: Vec<BodyFat>) -> Self {
+    #[must_use]
+    pub fn with_body_fat(self, body_fat: Vec<BodyFat>) -> Self {
         *self.body_fat.lock().unwrap() = body_fat;
         self
     }
 
-    pub(crate) fn with_period(self, period: Vec<Period>) -> Self {
+    #[must_use]
+    pub fn with_period(self, period: Vec<Period>) -> Self {
         *self.period.lock().unwrap() = period;
         self
     }
 
-    pub(crate) fn with_users(self, users: Vec<User>) -> Self {
+    #[must_use]
+    pub fn with_users(self, users: Vec<User>) -> Self {
         *self.users.lock().unwrap() = users;
         self
     }
 
-    pub(crate) fn failing(self, call: Call) -> Self {
+    #[must_use]
+    pub fn failing(self, call: Call) -> Self {
         self.failing.lock().unwrap().insert(call);
         self
     }
 
-    pub(crate) fn calls(&self) -> Vec<Call> {
+    #[must_use]
+    pub fn calls(&self) -> Vec<Call> {
         self.calls.lock().unwrap().clone()
     }
 
@@ -407,36 +429,60 @@ impl UserRepository for FakeRepository {
 
 impl SessionRepository for FakeRepository {
     async fn request_session(&self, name: Name) -> Result<User, ReadError> {
+        if self.called(Call::RequestSession) {
+            return Err(ReadError::NotFound);
+        }
         Ok(user(name))
     }
 
     async fn initialize_session(&self) -> Result<User, ReadError> {
+        if self.called(Call::InitializeSession) {
+            return Err(ReadError::NotFound);
+        }
         Ok(user(Name::new("Alice").unwrap()))
     }
 
     async fn sync_session(&self) -> Result<Option<User>, SyncError> {
+        if self.called(Call::SyncSession) {
+            return Err(SyncError::Other("sync failed".into()));
+        }
         Ok(Some(user(Name::new("Alice").unwrap())))
     }
 
     async fn delete_session(&self) -> Result<SignOut, DeleteError> {
+        if self.called(Call::DeleteSession) {
+            return Err(DeleteError::Other("delete failed".into()));
+        }
         Ok(SignOut::Complete)
     }
 }
 
 impl AuthRepository for FakeRepository {
     async fn read_auth_methods(&self) -> Result<Vec<AuthMethod>, ReadError> {
+        if self.called(Call::ReadAuthMethods) {
+            return Err(ReadError::NotFound);
+        }
         Ok(vec![AuthMethod::Passkey, AuthMethod::Username])
     }
 
     async fn login_with_passkey(&self) -> Result<User, ReadError> {
+        if self.called(Call::LoginWithPasskey) {
+            return Err(ReadError::NotFound);
+        }
         Ok(user(Name::new("Alice").unwrap()))
     }
 
     async fn register_passkey(&self) -> Result<Passkey, CreateError> {
+        if self.called(Call::RegisterPasskey) {
+            return Err(CreateError::Other("register failed".into()));
+        }
         Ok(passkey(Name::new("Passkey").unwrap()))
     }
 
     async fn read_passkeys(&self, _: UserID) -> Result<Vec<Passkey>, ReadError> {
+        if self.called(Call::ReadPasskeys) {
+            return Err(ReadError::NotFound);
+        }
         Ok(vec![passkey(Name::new("Passkey").unwrap())])
     }
 
@@ -446,6 +492,9 @@ impl AuthRepository for FakeRepository {
         id: PasskeyID,
         label: Name,
     ) -> Result<Passkey, UpdateError> {
+        if self.called(Call::RenamePasskey) {
+            return Err(UpdateError::Other("rename failed".into()));
+        }
         Ok(Passkey {
             id,
             ..passkey(label)
@@ -453,14 +502,23 @@ impl AuthRepository for FakeRepository {
     }
 
     async fn delete_passkey(&self, _: UserID, _: PasskeyID) -> Result<(), DeleteError> {
+        if self.called(Call::DeletePasskey) {
+            return Err(DeleteError::Other("delete failed".into()));
+        }
         Ok(())
     }
 
     async fn create_login_link(&self, _: UserID) -> Result<String, CreateError> {
+        if self.called(Call::CreateLoginLink) {
+            return Err(CreateError::Other("create failed".into()));
+        }
         Ok("https://example.com/login/token".to_string())
     }
 
     async fn redeem_login_link(&self, _: String) -> Result<User, ReadError> {
+        if self.called(Call::RedeemLoginLink) {
+            return Err(ReadError::NotFound);
+        }
         Ok(user(Name::new("Alice").unwrap()))
     }
 }

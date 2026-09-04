@@ -8,6 +8,17 @@ use std::rc::Rc;
 
 use dioxus::prelude::*;
 
+use valens_domain as domain;
+use valens_web_app as web_app;
+
+use crate::{
+    cache::{Cache, CacheState},
+    chart::WindowWidth,
+    ongoing_training_session::{self, OngoingTrainingSession},
+    session::{Session, SessionRefresh},
+    settings::Settings,
+};
+
 /// The maximum number of rounds [`render_settled`] waits for the pending work to settle.
 const MAX_SETTLE_ROUNDS: usize = 100;
 
@@ -78,7 +89,7 @@ struct RootProps {
 
 #[component]
 fn Root(props: RootProps) -> Element {
-    use_context_provider(|| props.target.clone());
+    provide_context(props.target.clone());
     rsx! { Router::<TestRoute> {} }
 }
 
@@ -95,6 +106,154 @@ fn Target() -> Element {
     (use_context::<PartialEqRc>().0)()
 }
 
+/// The [`Cache`] a page reads, every collection ready and empty unless it is named.
+pub struct TestCache {
+    body_weight: CacheState<Vec<domain::BodyWeight>>,
+    body_fat: CacheState<Vec<domain::BodyFat>>,
+    period: CacheState<Vec<domain::Period>>,
+    exercises: CacheState<Vec<domain::Exercise>>,
+    routines: CacheState<Vec<domain::Routine>>,
+    schedule: CacheState<domain::Schedule>,
+    training_sessions: CacheState<Vec<domain::TrainingSession>>,
+}
+
+impl Default for TestCache {
+    fn default() -> Self {
+        Self {
+            body_weight: CacheState::Ready(vec![]),
+            body_fat: CacheState::Ready(vec![]),
+            period: CacheState::Ready(vec![]),
+            exercises: CacheState::Ready(vec![]),
+            routines: CacheState::Ready(vec![]),
+            schedule: CacheState::Ready(domain::Schedule::default()),
+            training_sessions: CacheState::Ready(vec![]),
+        }
+    }
+}
+
+impl TestCache {
+    /// A cache whose collections have not been read yet.
+    #[must_use]
+    pub fn loading() -> Self {
+        Self {
+            body_weight: CacheState::Loading,
+            body_fat: CacheState::Loading,
+            period: CacheState::Loading,
+            exercises: CacheState::Loading,
+            routines: CacheState::Loading,
+            schedule: CacheState::Loading,
+            training_sessions: CacheState::Loading,
+        }
+    }
+
+    /// A cache whose collections could not be read.
+    #[must_use]
+    pub fn failing() -> Self {
+        Self {
+            body_weight: error(),
+            body_fat: error(),
+            period: error(),
+            exercises: error(),
+            routines: error(),
+            schedule: error(),
+            training_sessions: error(),
+        }
+    }
+
+    #[must_use]
+    pub fn with_body_weight(mut self, body_weight: Vec<domain::BodyWeight>) -> Self {
+        self.body_weight = CacheState::Ready(body_weight);
+        self
+    }
+
+    #[must_use]
+    pub fn with_body_fat(mut self, body_fat: Vec<domain::BodyFat>) -> Self {
+        self.body_fat = CacheState::Ready(body_fat);
+        self
+    }
+
+    #[must_use]
+    pub fn with_period(mut self, period: Vec<domain::Period>) -> Self {
+        self.period = CacheState::Ready(period);
+        self
+    }
+
+    #[must_use]
+    pub fn with_exercises(mut self, exercises: Vec<domain::Exercise>) -> Self {
+        self.exercises = CacheState::Ready(exercises);
+        self
+    }
+
+    #[must_use]
+    pub fn with_routines(mut self, routines: Vec<domain::Routine>) -> Self {
+        self.routines = CacheState::Ready(routines);
+        self
+    }
+
+    #[must_use]
+    pub fn with_schedule(mut self, schedule: domain::Schedule) -> Self {
+        self.schedule = CacheState::Ready(schedule);
+        self
+    }
+
+    #[must_use]
+    pub fn with_training_sessions(
+        mut self,
+        training_sessions: Vec<domain::TrainingSession>,
+    ) -> Self {
+        self.training_sessions = CacheState::Ready(training_sessions);
+        self
+    }
+
+    /// Provide the cache. Must be called from a component, the signals it holds needing a
+    /// running runtime and an owning scope.
+    pub fn provide(self) {
+        let cache = Cache {
+            body_weight: Signal::new(self.body_weight),
+            body_fat: Signal::new(self.body_fat),
+            period: Signal::new(self.period),
+            exercises: Signal::new(self.exercises),
+            routines: Signal::new(self.routines),
+            schedule: Signal::new(self.schedule),
+            training_sessions: Signal::new(self.training_sessions),
+        };
+        provide_context(cache);
+    }
+}
+
+fn error<T>() -> CacheState<T> {
+    CacheState::Error(domain::ReadError::Storage(
+        domain::StorageError::NoConnection,
+    ))
+}
+
+/// Provide the session of `user`.
+pub fn provide_session(user: domain::User) {
+    provide_context(Session::new_for_test(user.clone()));
+    provide_context(SessionRefresh::new_for_test(user));
+}
+
+/// Provide `settings`, alongside the window width the charts of a page are plotted for.
+pub fn provide_settings(settings: web_app::Settings) {
+    provide_context(Settings::new_for_test(settings));
+    provide_context(WindowWidth(DEFAULT_WINDOW_WIDTH));
+}
+
+/// The window width a page renders for unless a test chooses one.
+pub const DEFAULT_WINDOW_WIDTH: u32 = 420;
+
+/// Seed the domain service of this virtual dom with `repository`.
+///
+/// Global signals live per runtime, so the seeded service is visible to the rendered page alone.
+pub fn seed_domain_service(repository: domain::tests::FakeRepository) {
+    *crate::DOMAIN_SERVICE.write() = domain::Service::new(repository);
+}
+
+/// Provide the in-progress training session, if any.
+pub fn provide_ongoing_training_session(state: ongoing_training_session::State) {
+    provide_context(OngoingTrainingSession::new_for_test(state));
+}
+
 /// The text of the element carrying `test_id`, with runs of whitespace collapsed.
 ///
 /// # Panics
@@ -102,7 +261,20 @@ fn Target() -> Element {
 /// Panics if no element carries `test_id`, so that an assertion against an element that never
 /// rendered cannot pass.
 pub fn text_of(html: &str, test_id: &str) -> String {
-    text(&element(&scraper::Html::parse_fragment(html), test_id))
+    text_of_nth(html, test_id, 0)
+}
+
+/// The text of the `index`th element carrying `test_id`, counted in document order.
+///
+/// # Panics
+///
+/// Panics if fewer elements carry `test_id`.
+pub fn text_of_nth(html: &str, test_id: &str, index: usize) -> String {
+    text(&element(
+        &scraper::Html::parse_fragment(html),
+        test_id,
+        index,
+    ))
 }
 
 /// The rows and cells of the element carrying `test_id`.
@@ -111,21 +283,50 @@ pub fn text_of(html: &str, test_id: &str) -> String {
 ///
 /// Panics if no element carries `test_id`.
 pub fn rows_of(html: &str, test_id: &str) -> Vec<Vec<String>> {
+    rows_of_nth(html, test_id, 0)
+}
+
+/// The rows and cells of the `index`th element carrying `test_id`, counted in document order.
+///
+/// # Panics
+///
+/// Panics if fewer elements carry `test_id`.
+pub fn rows_of_nth(html: &str, test_id: &str, index: usize) -> Vec<Vec<String>> {
     let document = scraper::Html::parse_fragment(html);
     let row_selector = scraper::Selector::parse("tr").unwrap();
     let cell_selector = scraper::Selector::parse("th, td").unwrap();
-    element(&document, test_id)
+    element(&document, test_id, index)
         .select(&row_selector)
         .map(|row| row.select(&cell_selector).map(|cell| text(&cell)).collect())
         .collect()
 }
 
-fn element<'a>(document: &'a scraper::Html, test_id: &str) -> scraper::ElementRef<'a> {
+fn element<'a>(
+    document: &'a scraper::Html,
+    test_id: &str,
+    index: usize,
+) -> scraper::ElementRef<'a> {
     let selector = scraper::Selector::parse(&format!("[data-testid=\"{test_id}\"]")).unwrap();
     document
         .select(&selector)
-        .next()
-        .unwrap_or_else(|| panic!("no element with test id `{test_id}`"))
+        .nth(index)
+        .unwrap_or_else(|| panic!("no element {index} with test id `{test_id}`"))
+}
+
+/// The text of every element carrying `test_id`, in document order.
+#[must_use]
+pub fn all_text_of(html: &str, test_id: &str) -> Vec<String> {
+    let document = scraper::Html::parse_fragment(html);
+    let selector = scraper::Selector::parse(&format!("[data-testid=\"{test_id}\"]")).unwrap();
+    document.select(&selector).map(|e| text(&e)).collect()
+}
+
+/// Whether any element carries `test_id`.
+#[must_use]
+pub fn contains(html: &str, test_id: &str) -> bool {
+    let document = scraper::Html::parse_fragment(html);
+    let selector = scraper::Selector::parse(&format!("[data-testid=\"{test_id}\"]")).unwrap();
+    document.select(&selector).next().is_some()
 }
 
 fn text(element: &scraper::ElementRef) -> String {
@@ -194,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "no element with test id `missing`")]
+    #[should_panic(expected = "no element 0 with test id `missing`")]
     fn test_text_of_an_absent_test_id_panics() {
         text_of(&render(|| rsx! { p { "text" } }), "missing");
     }

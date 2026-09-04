@@ -46,8 +46,22 @@ mod wake_lock;
 /// Duration of the splash screen fade-out, matching the transition defined in `main.scss`.
 const SPLASH_SCREEN_FADE_OUT_MS: u32 = 200;
 
-static DOMAIN_SERVICE: GlobalSignal<domain::Service<storage::cached_rest::DefaultCachedREST>> =
-    Signal::global(|| domain::Service::new(storage::cached_rest::DefaultCachedREST::new()));
+#[cfg(not(test))]
+type ServiceRepository = storage::cached_rest::DefaultCachedREST;
+#[cfg(test)]
+type ServiceRepository = domain::tests::FakeRepository;
+
+#[cfg(not(test))]
+fn service_repository() -> ServiceRepository {
+    storage::cached_rest::DefaultCachedREST::new()
+}
+#[cfg(test)]
+fn service_repository() -> ServiceRepository {
+    domain::tests::FakeRepository::default()
+}
+
+static DOMAIN_SERVICE: GlobalSignal<domain::Service<ServiceRepository>> =
+    Signal::global(|| domain::Service::new(service_repository()));
 static WEB_APP_SERVICE: GlobalSignal<web_app::Service<storage::local_storage::LocalStorage>> =
     Signal::global(|| web_app::Service::new(storage::local_storage::LocalStorage));
 /// Counter incremented after every mutation. Components that must reflect fresh data read it

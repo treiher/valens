@@ -402,3 +402,77 @@ enum PeriodDialog {
     },
     Delete(domain::Period),
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{
+        TestCache, all_text_of, contains, provide_settings, render, rows_of, text_of,
+    };
+
+    use super::*;
+
+    fn render_menstrual_cycle(cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            provide_settings(web_app::Settings::default());
+            rsx! { MenstrualCycle { add: false } }
+        })
+    }
+
+    fn period() -> TestCache {
+        let today = Local::now().date_naive();
+        let mut period = (0..3)
+            .flat_map(|cycle| {
+                (0..2).map(move |day| domain::Period {
+                    date: today - chrono::Duration::days(cycle * 28 + day),
+                    intensity: domain::Intensity::Medium,
+                })
+            })
+            .collect::<Vec<_>>();
+        period.sort_by_key(|entry| entry.date);
+        TestCache::default().with_period(period)
+    }
+
+    #[test]
+    fn test_entries_are_tabulated_newest_first() {
+        let html = render_menstrual_cycle(period);
+        let today = Local::now().date_naive();
+
+        let rows = rows_of(&html, "table");
+        assert_eq!(rows[1][0], today.to_string());
+        assert_eq!(rows[1][1], "3");
+    }
+
+    #[test]
+    fn test_the_current_cycle_and_the_average_length_are_shown() {
+        let html = render_menstrual_cycle(period);
+
+        let boxes = all_text_of(&html, "data-box");
+        assert!(boxes[0].starts_with("Current cycle"), "{boxes:?}");
+        assert!(boxes[1].starts_with("Avg. cycle length"), "{boxes:?}");
+    }
+
+    #[test]
+    fn test_without_entries_no_current_cycle_is_shown() {
+        let html = render_menstrual_cycle(TestCache::default);
+
+        assert_eq!(all_text_of(&html, "data-box"), vec!["Avg. cycle length–"]);
+        assert!(!contains(&html, "chart"));
+    }
+
+    #[test]
+    fn test_unread_entries_are_shown_as_loading() {
+        let html = render_menstrual_cycle(TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_entries_are_shown_as_an_error() {
+        let html = render_menstrual_cycle(TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+}

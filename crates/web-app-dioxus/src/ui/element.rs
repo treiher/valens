@@ -69,6 +69,7 @@ pub fn WhiteBox(children: Element) -> Element {
 pub fn DataBox(children: Element, title: String) -> Element {
     rsx! {
         div {
+            "data-testid": "data-box",
             class: "box has-text-centered mx-2 p-3",
             p {
                 class: "is-size-6",
@@ -116,6 +117,7 @@ pub fn LoadingDialog() -> Element {
 pub fn LoadingPage() -> Element {
     rsx! {
         div {
+            "data-testid": "loading-page",
             class: "is-size-2 has-text-centered m-6",
             i { class: "fas fa-spinner fa-pulse" }
         }
@@ -170,6 +172,7 @@ pub fn Error(message: String) -> Element {
 pub fn ErrorPage(message: String) -> Element {
     rsx! {
         div {
+            "data-testid": "error-page",
             class: "message is-danger mx-2",
             div {
                 class: "message-body has-text-dark",
@@ -217,6 +220,7 @@ pub fn NoData(
 ) -> Element {
     rsx! {
         div {
+            "data-testid": "no-data",
             class: "block is-size-7 has-text-centered has-text-grey-light mb-6",
             ..attributes,
             "{label}"
@@ -496,6 +500,7 @@ pub fn Title(children: Element, class: Option<String>, actions: Option<Element>)
                 div {
                     class: "container px-2",
                     h1 {
+                        "data-testid": "title",
                         class: "title is-5",
                         class: if let Some(c) = &class { "{c}" },
                         {children}

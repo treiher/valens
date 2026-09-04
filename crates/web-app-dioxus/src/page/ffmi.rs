@@ -145,3 +145,108 @@ fn table(ffmi: &[(NaiveDate, f32)], interval: domain::Interval) -> Element {
         Table { head, body }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{
+        TestCache, contains, provide_session, provide_settings, render, rows_of, text_of,
+    };
+
+    use super::*;
+
+    fn user(height: Option<u8>) -> domain::User {
+        domain::User {
+            id: 1.into(),
+            name: domain::Name::new("Alice").unwrap(),
+            sex: domain::Sex::FEMALE,
+            height,
+            role: domain::Role::USER,
+        }
+    }
+
+    fn render_ffmi(user: domain::User, cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            provide_session(user.clone());
+            provide_settings(web_app::Settings::default());
+            rsx! { Ffmi {} }
+        })
+    }
+
+    fn today() -> NaiveDate {
+        chrono::Local::now().date_naive()
+    }
+
+    fn measurements() -> TestCache {
+        TestCache::default()
+            .with_body_weight(vec![domain::BodyWeight {
+                date: today(),
+                weight: 60.0,
+            }])
+            .with_body_fat(vec![domain::BodyFat {
+                date: today(),
+                chest: Some(10),
+                abdominal: Some(10),
+                thigh: Some(10),
+                tricep: Some(10),
+                subscapular: Some(10),
+                suprailiac: Some(10),
+                midaxillary: Some(10),
+            }])
+    }
+
+    #[test]
+    fn test_without_a_height_the_profile_is_pointed_at() {
+        let html = render_ffmi(user(None), TestCache::default);
+
+        assert!(contains(&html, "ffmi-height-missing"));
+        assert!(!contains(&html, "chart"));
+    }
+
+    #[test]
+    fn test_the_ffmi_of_every_measurement_is_tabulated() {
+        let html = render_ffmi(user(Some(170)), measurements);
+
+        assert_eq!(rows_of(&html, "table")[1][0], today().to_string());
+    }
+
+    #[test]
+    fn test_the_chart_and_its_legend_are_shown() {
+        let html = render_ffmi(user(Some(170)), measurements);
+
+        assert!(contains(&html, "chart"));
+        assert!(html.contains("Normalized FFMI (kg/m²)"), "{html}");
+    }
+
+    #[test]
+    fn test_without_measurements_no_data_is_reported() {
+        let html = render_ffmi(user(Some(170)), TestCache::default);
+
+        assert!(!contains(&html, "chart"));
+        assert_eq!(rows_of(&html, "table").len(), 1);
+    }
+
+    #[test]
+    fn test_the_interval_can_be_chosen() {
+        let html = render_ffmi(user(Some(170)), measurements);
+
+        assert!(contains(&html, "interval-3M"));
+        assert!(contains(&html, "interval-ALL"));
+    }
+
+    #[test]
+    fn test_unread_measurements_are_shown_as_loading() {
+        let html = render_ffmi(user(Some(170)), TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_measurements_are_shown_as_an_error() {
+        let html = render_ffmi(user(Some(170)), TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+}

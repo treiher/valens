@@ -406,3 +406,83 @@ enum BodyWeightDialog {
     },
     Delete(domain::BodyWeight),
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{TestCache, contains, provide_settings, render, rows_of, text_of};
+
+    use super::*;
+
+    fn render_body_weight(cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            provide_settings(web_app::Settings::default());
+            rsx! { BodyWeight { add: false } }
+        })
+    }
+
+    fn body_weight() -> TestCache {
+        let today = Local::now().date_naive();
+        TestCache::default().with_body_weight(vec![
+            domain::BodyWeight {
+                date: today - chrono::Duration::days(7),
+                weight: 70.0,
+            },
+            domain::BodyWeight {
+                date: today,
+                weight: 71.0,
+            },
+        ])
+    }
+
+    #[test]
+    fn test_entries_are_tabulated_newest_first() {
+        let html = render_body_weight(body_weight);
+        let today = Local::now().date_naive();
+
+        let rows = rows_of(&html, "table");
+        assert_eq!(rows[1][0], today.to_string());
+        assert_eq!(rows[1][1], "71.0");
+        assert_eq!(rows[2][0], (today - chrono::Duration::days(7)).to_string());
+    }
+
+    #[test]
+    fn test_the_chart_and_its_legend_are_shown() {
+        let html = render_body_weight(body_weight);
+
+        assert!(contains(&html, "chart"));
+        assert!(html.contains("Weight (kg)"), "{html}");
+        assert!(html.contains("Avg. weight (kg)"), "{html}");
+    }
+
+    #[test]
+    fn test_without_entries_no_chart_is_shown() {
+        let html = render_body_weight(TestCache::default);
+
+        assert!(!contains(&html, "chart"));
+        assert_eq!(rows_of(&html, "table").len(), 1);
+    }
+
+    #[test]
+    fn test_adding_an_entry_is_offered() {
+        let html = render_body_weight(TestCache::default);
+
+        assert!(contains(&html, "fab"));
+    }
+
+    #[test]
+    fn test_unread_entries_are_shown_as_loading() {
+        let html = render_body_weight(TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_entries_are_shown_as_an_error() {
+        let html = render_body_weight(TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+}

@@ -553,3 +553,142 @@ pub enum RoutineDialog {
     Delete(domain::Routine),
     ShowText(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use pretty_assertions::assert_eq;
+
+    use crate::test_render::{TestCache, contains, render, rows_of, rows_of_nth, text_of};
+
+    use super::*;
+
+    #[test]
+    fn test_routines_are_listed_in_the_order_of_their_last_use() {
+        let html = render(|| {
+            TestCache::default()
+                .with_routines(vec![routine(1, "A", false), routine(2, "B", false)])
+                .with_training_sessions(vec![
+                    training_session(1, date(1)),
+                    training_session(2, date(2)),
+                ])
+                .provide();
+            rsx! { Routines { add: false, search: String::new() } }
+        });
+
+        assert_eq!(rows_of(&html, "table"), vec![vec!["B", ""], vec!["A", ""]]);
+    }
+
+    #[test]
+    fn test_routines_link_to_the_routine() {
+        let html = render(|| {
+            TestCache::default()
+                .with_routines(vec![routine(1, "A", false)])
+                .provide();
+            rsx! { Routines { add: false, search: String::new() } }
+        });
+
+        assert!(
+            html.contains(&format!("href=\"{}\"", Route::Routine { id: 1.into() })),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn test_search_narrows_the_listed_routines() {
+        let html = render(|| {
+            TestCache::default()
+                .with_routines(vec![routine(1, "Upper", false), routine(2, "Lower", false)])
+                .provide();
+            rsx! { Routines { add: false, search: " up ".to_string() } }
+        });
+
+        assert_eq!(rows_of(&html, "table"), vec![vec!["Upper", ""]]);
+    }
+
+    #[test]
+    fn test_archived_routines_are_listed_separately() {
+        let html = render(|| {
+            TestCache::default()
+                .with_routines(vec![
+                    routine(1, "Current", false),
+                    routine(2, "Retired", true),
+                ])
+                .provide();
+            rsx! { Routines { add: false, search: String::new() } }
+        });
+
+        assert_eq!(rows_of(&html, "table"), vec![vec!["Current", ""]]);
+        assert_eq!(rows_of_nth(&html, "table", 1), vec![vec!["Retired", ""]]);
+        assert!(html.contains("Archive"), "{html}");
+    }
+
+    #[test]
+    fn test_without_archived_routines_no_archive_is_shown() {
+        let html = render(|| {
+            TestCache::default()
+                .with_routines(vec![routine(1, "Current", false)])
+                .provide();
+            rsx! { Routines { add: false, search: String::new() } }
+        });
+
+        assert!(!contains(&html, "table-1"));
+        assert!(!html.contains("Archive"), "{html}");
+    }
+
+    #[test]
+    fn test_unread_routines_are_shown_as_loading() {
+        let html = render(|| {
+            TestCache::loading().provide();
+            rsx! { Routines { add: false, search: String::new() } }
+        });
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_routines_are_shown_as_an_error() {
+        let html = render(|| {
+            TestCache::failing().provide();
+            rsx! { Routines { add: false, search: String::new() } }
+        });
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
+
+    #[test]
+    fn test_adding_a_routine_is_offered() {
+        let html = render(|| {
+            TestCache::default().provide();
+            rsx! { Routines { add: false, search: String::new() } }
+        });
+
+        assert_eq!(text_of(&html, "fab"), "");
+        assert!(contains(&html, "icon-plus"));
+    }
+
+    fn routine(id: u128, name: &str, archived: bool) -> domain::Routine {
+        domain::Routine {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            notes: String::new(),
+            archived,
+            sections: vec![],
+        }
+    }
+
+    fn training_session(routine_id: u128, date: NaiveDate) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: routine_id.into(),
+            routine_id: routine_id.into(),
+            date,
+            notes: String::new(),
+            elements: vec![],
+            exercise_notes: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn date(day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 1, day).unwrap()
+    }
+}

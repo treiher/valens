@@ -345,6 +345,7 @@ fn Tile(
                     }
                     if let Some(ref subtitle) = subtitle {
                         p {
+                            "data-testid": "{testid}-subtitle",
                             class: if disabled { "has-text-grey" },
                             {subtitle}
                         }
@@ -375,6 +376,118 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    use crate::test_render::{TestCache, contains, provide_session, render, text_of};
+
+    fn user(sex: domain::Sex, height: Option<u8>) -> domain::User {
+        domain::User {
+            id: 1.into(),
+            name: domain::Name::new("Alice").unwrap(),
+            sex,
+            height,
+            role: domain::Role::USER,
+        }
+    }
+
+    fn render_home(user: domain::User, cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            provide_session(user.clone());
+            rsx! { Home {} }
+        })
+    }
+
+    #[test]
+    fn test_menstrual_cycle_is_shown_for_a_female_user_only() {
+        assert!(contains(
+            &render_home(user(domain::Sex::FEMALE, None), TestCache::default),
+            "home-menstrual-cycle"
+        ));
+        assert!(!contains(
+            &render_home(user(domain::Sex::MALE, None), TestCache::default),
+            "home-menstrual-cycle"
+        ));
+    }
+
+    #[test]
+    fn test_ffmi_without_a_height_asks_for_one() {
+        let html = render_home(user(domain::Sex::FEMALE, None), TestCache::default);
+
+        assert_eq!(
+            text_of(&html, "home-ffmi-subtitle"),
+            "Set your height in the profile."
+        );
+    }
+
+    #[test]
+    fn test_body_weight_shows_the_latest_entry() {
+        let today = chrono::Local::now().date_naive();
+        let html = render_home(user(domain::Sex::FEMALE, None), move || {
+            TestCache::default().with_body_weight(vec![
+                domain::BodyWeight {
+                    date: today - chrono::Duration::days(1),
+                    weight: 70.0,
+                },
+                domain::BodyWeight {
+                    date: today,
+                    weight: 71.5,
+                },
+            ])
+        });
+
+        assert_eq!(
+            text_of(&html, "home-body-weight-subtitle"),
+            "71.5 kg (today)"
+        );
+    }
+
+    #[test]
+    fn test_unread_data_is_shown_as_loading() {
+        let html = render_home(user(domain::Sex::FEMALE, None), TestCache::loading);
+
+        assert!(contains(&html, "loading"));
+    }
+
+    #[test]
+    fn test_unreadable_data_is_reported_per_tile() {
+        let html = render_home(user(domain::Sex::FEMALE, None), TestCache::failing);
+
+        assert_eq!(text_of(&html, "home-body-weight-subtitle"), "No connection");
+    }
+
+    #[test]
+    fn test_pending_routines_of_today_are_shown() {
+        let today = chrono::Local::now().date_naive();
+        let routine = domain::Routine {
+            id: 1.into(),
+            name: domain::Name::new("A").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![],
+        };
+        let schedule = domain::Schedule::new(
+            std::collections::BTreeMap::new(),
+            std::collections::BTreeMap::from([(
+                domain::Weekday::from(chrono::Datelike::weekday(&today)),
+                vec![domain::ScheduleSlot::Routine(1.into())],
+            )]),
+        )
+        .unwrap();
+        let html = render_home(user(domain::Sex::FEMALE, None), move || {
+            TestCache::default()
+                .with_routines(vec![routine.clone()])
+                .with_schedule(schedule.clone())
+        });
+
+        assert_eq!(text_of(&html, "home-today-routine"), "A");
+    }
+
+    #[test]
+    fn test_without_a_pending_routine_today_is_not_shown() {
+        let html = render_home(user(domain::Sex::FEMALE, None), TestCache::default);
+
+        assert!(!contains(&html, "home-today-entry"));
+    }
 
     #[rstest]
     #[case(0, "today")]

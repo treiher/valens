@@ -708,6 +708,7 @@ fn view_form(
                         }
                         Link {
                             class: "px-1",
+                            "data-testid": "exercise-name",
                             to: Route::Exercise { id: *id },
                             "{name}"
                         }
@@ -1101,6 +1102,7 @@ fn view_form(
     rsx! {
         Block {
             table {
+                "data-testid": "session",
                 class: "mx-auto",
                 for row in rows {
                     {row}
@@ -1238,6 +1240,7 @@ fn view_list(
                         }
                         Link {
                             class: "px-1",
+                            "data-testid": "exercise-name",
                             to: Route::Exercise { id },
                             "{name}"
                         }
@@ -1342,6 +1345,7 @@ fn view_list(
     rsx! {
         Block {
             table {
+                "data-testid": "session",
                 class: "mx-auto",
                 for row in rows {
                     {row}
@@ -1918,6 +1922,145 @@ pub enum EditDialog {
 
 #[cfg(test)]
 mod tests {
+
+    use crate::{
+        ongoing_training_session::State,
+        test_render::{
+            TestCache, all_text_of, contains, provide_ongoing_training_session, provide_settings,
+            render, rows_of, text_of,
+        },
+    };
+
+    fn recorded_set(exercise_id: u128) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            reps: domain::Reps::new(10).unwrap(),
+            time: domain::Time::new(30).unwrap(),
+            weight: domain::Weight::new(50.0).unwrap(),
+            rpe: domain::RPE::new(8.0).unwrap(),
+            target_reps: domain::Reps::default(),
+            target_time: domain::Time::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    fn recorded_session() -> TestCache {
+        TestCache::default()
+            .with_exercises(vec![exercise(1, "Squat")])
+            .with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![recorded_set(1), recorded_set(1)],
+                exercise_notes: std::collections::BTreeMap::new(),
+            }])
+    }
+
+    fn planned_session() -> TestCache {
+        TestCache::default()
+            .with_exercises(vec![exercise(1, "Squat")])
+            .with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![domain::TrainingSessionElement::Set {
+                    exercise_id: 1.into(),
+                    reps: domain::Reps::default(),
+                    time: domain::Time::default(),
+                    weight: domain::Weight::default(),
+                    rpe: domain::RPE::ZERO,
+                    target_reps: domain::Reps::new(10).unwrap(),
+                    target_time: domain::Time::default(),
+                    target_weight: domain::Weight::default(),
+                    target_rpe: domain::RPE::ZERO,
+                    automatic: false,
+                }],
+                exercise_notes: std::collections::BTreeMap::new(),
+            }])
+    }
+
+    fn render_training_session(
+        id: u128,
+        settings: web_app::Settings,
+        cache: impl Fn() -> TestCache + 'static,
+    ) -> String {
+        render(move || {
+            cache().provide();
+            provide_settings(settings);
+            provide_ongoing_training_session(State::None);
+            rsx! { TrainingSession { id: domain::TrainingSessionID::from(id) } }
+        })
+    }
+
+    #[test]
+    fn test_the_sets_of_the_session_are_shown() {
+        let html = render_training_session(1, web_app::Settings::default(), recorded_session);
+
+        assert_eq!(all_text_of(&html, "exercise-name"), vec!["Squat"]);
+        assert_eq!(
+            rows_of(&html, "session")[1],
+            vec!["", "10 ×", "30 s", "50 kg", "@ 8"]
+        );
+    }
+
+    #[test]
+    fn test_the_recorded_values_follow_the_rpe_and_tut_settings() {
+        let html = render_training_session(
+            1,
+            web_app::Settings {
+                show_rpe: false,
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            recorded_session,
+        );
+
+        assert_eq!(
+            rows_of(&html, "session")[1],
+            vec!["", "10 ×", "", "50 kg", ""]
+        );
+    }
+
+    #[test]
+    fn test_scroll_snapping_follows_the_setting() {
+        let with_snapping = render_training_session(
+            1,
+            web_app::Settings {
+                scroll_snapping: true,
+                ..web_app::Settings::default()
+            },
+            planned_session,
+        );
+        let without = render_training_session(1, web_app::Settings::default(), planned_session);
+
+        assert!(with_snapping.contains("element-snap"), "{with_snapping}");
+        assert!(!without.contains("element-snap"), "{without}");
+    }
+
+    #[test]
+    fn test_an_unknown_session_is_reported() {
+        let html = render_training_session(2, web_app::Settings::default(), recorded_session);
+
+        assert_eq!(text_of(&html, "error-page"), "Training session not found");
+    }
+
+    #[test]
+    fn test_unread_sessions_are_shown_as_loading() {
+        let html = render_training_session(1, web_app::Settings::default(), TestCache::loading);
+
+        assert!(contains(&html, "loading-page"));
+    }
+
+    #[test]
+    fn test_unreadable_sessions_are_shown_as_an_error() {
+        let html = render_training_session(1, web_app::Settings::default(), TestCache::failing);
+
+        assert_eq!(text_of(&html, "error-page"), "No connection");
+    }
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 

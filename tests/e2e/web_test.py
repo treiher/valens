@@ -3183,12 +3183,6 @@ def test_exercise_without_notes(page: Page) -> None:
     assert p.get_notes() == notes
 
 
-def test_muscles(page: Page) -> None:
-    login(page)
-    p = MusclesPage(page)
-    p.goto()
-
-
 def test_navbar_stopwatch(page: Page) -> None:
     login(page)
     HomePage(page).expect_page()

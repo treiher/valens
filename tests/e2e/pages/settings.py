@@ -18,9 +18,6 @@ class SettingsDialog(BaseDialog):
     def expect_open(self) -> None:
         expect(self.dialog.root.get_by_text("Beep volume")).to_be_visible()
 
-    def expect_notifications_unsupported(self) -> None:
-        expect(self.dialog.root.get_by_text("Not supported by this browser")).to_be_visible()
-
     def choose_theme(self, theme: str) -> None:
         self.dialog.root.get_by_test_id(f"settings-theme-{theme}").click()
 
@@ -29,18 +26,6 @@ class SettingsDialog(BaseDialog):
 
     def expect_metronome(self, state: str) -> None:
         expect(self.dialog.root.get_by_test_id("settings-metronome")).to_have_text(state)
-
-    def toggle_tut(self) -> None:
-        self.dialog.root.get_by_test_id("settings-tut").click()
-
-    def expect_tut(self, state: str) -> None:
-        expect(self.dialog.root.get_by_test_id("settings-tut")).to_have_text(state)
-
-    def toggle_scroll_snapping(self) -> None:
-        self.dialog.root.get_by_test_id("settings-scroll-snapping").click()
-
-    def expect_scroll_snapping(self, state: str) -> None:
-        expect(self.dialog.root.get_by_test_id("settings-scroll-snapping")).to_have_text(state)
 
     def toggle_notifications(self) -> None:
         self.notifications_button.click()

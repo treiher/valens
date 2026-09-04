@@ -56,7 +56,6 @@ pub fn Metronome() -> Element {
                 class: "mx-3",
                 SelectField {
                     label: "Stress".to_string(),
-                    "data-testid": "metronome-stress",
                     options: (1..=12).map(|i| {
                         rsx! {
                             SelectOption {

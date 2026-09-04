@@ -599,6 +599,18 @@ mod tests {
     }
 
     #[test]
+    fn test_without_notes_none_are_shown() {
+        let html = render_exercise(1, || {
+            TestCache::default().with_exercises(vec![domain::Exercise {
+                notes: String::new(),
+                ..exercise(1, "Squat")
+            }])
+        });
+
+        assert!(!contains(&html, "exercise-notes"));
+    }
+
+    #[test]
     fn test_without_training_sessions_no_data_is_reported() {
         let html = render_exercise(1, || {
             TestCache::default().with_exercises(vec![exercise(1, "Squat")])

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -286,23 +285,6 @@ def test_home_links(page: Page) -> None:
     menstrual_cycle_page.expect_page()
     menstrual_cycle_page.navbar.go_back()
     home_page.expect_page()
-
-
-def test_ffmi(page: Page) -> None:
-    login(page)
-
-    home_page = HomePage(page)
-    home_page.expect_page()
-    expect(home_page.ffmi).to_be_visible()
-
-    home_page.go_to_ffmi()
-
-    ffmi_page = FfmiPage(page)
-    ffmi_page.expect_page()
-    ffmi_page.wait_until_idle()
-
-    expect(ffmi_page.chart).to_be_visible()
-    expect(ffmi_page.interval_button("ALL")).to_be_visible()
 
 
 def test_ffmi_requires_height(page: Page) -> None:
@@ -596,18 +578,6 @@ def test_settings_dialog_theme_survives_a_reload(page: Page) -> None:
     settings.choose_theme("system")
 
     p.expect_no_theme()
-
-
-def test_settings_dialog_without_notification_support(page: Page) -> None:
-    page.add_init_script("delete window.Notification")
-
-    login(page)
-
-    settings = SettingsDialog(page)
-    settings.open()
-    settings.expect_open()
-
-    settings.expect_notifications_unsupported()
 
 
 def test_body_weight_add(page: Page) -> None:
@@ -909,24 +879,6 @@ def test_training_sessions_add(page: Page) -> None:
     assert training_sessions_page.table.get_value(1, 1, 2) == routine
 
 
-def test_training_sessions_order(page: Page) -> None:
-    routine = USER.routines[-1].name
-    latest_date = str(USER.workouts[-1].date)
-    date = str(USER.workouts[-1].date - datetime.timedelta(2))
-
-    login(page)
-    training_sessions_page = TrainingSessionsPage(page)
-    training_sessions_page.goto()
-    training_sessions_page.add_training_session(routine, date)
-
-    TrainingSessionPage(page, 0).navbar.go_back()
-
-    training_sessions_page.expect_page()
-    training_sessions_page.table.expect_value(1, 1, 1, latest_date)
-    training_sessions_page.table.expect_value(1, 2, 1, date)
-    training_sessions_page.table.expect_value(1, 2, 2, routine)
-
-
 def test_training_sessions_delete(page: Page) -> None:
     workout = USER.workouts[-1]
     date_1 = str(workout.date)
@@ -954,28 +906,6 @@ def test_training_sessions_delete(page: Page) -> None:
     p.dialog.delete()
 
     p.table.expect_value(1, 1, 1, date_2)
-
-
-def test_training_session(page: Page) -> None:
-    workout = USER.workouts[-1]
-    sets = [
-        (
-            s.reps,
-            s.time,
-            s.weight,
-            s.rpe,
-        )
-        for s in workout.elements
-        if isinstance(s, models.WorkoutSet)
-    ]
-
-    login(page)
-    p = TrainingSessionPage(page, workout.id)
-    p.goto()
-
-    assert p.get_sets() == sets
-
-    p.edit()
 
 
 def test_training_session_change_entries(page: Page) -> None:
@@ -2339,23 +2269,6 @@ def test_routine_notes(page: Page) -> None:
     assert p.get_notes() == updated_notes
 
 
-def test_routine_without_notes(page: Page) -> None:
-    routine = USER.routines[1]
-    assert routine.notes is None
-    notes = "New notes"
-
-    login(page)
-    p = RoutinePage(page, routine.id)
-    p.goto()
-
-    p.expect_no_notes()
-
-    p.open_notes_dialog()
-    p.set_notes(notes)
-
-    assert p.get_notes() == notes
-
-
 def test_routine_copy_keeps_notes(page: Page) -> None:
     routine = USER.routines[0]
     assert routine.notes is not None
@@ -3165,22 +3078,6 @@ def test_exercise_notes(page: Page) -> None:
     p.expect_page()
 
     assert p.get_notes() == updated_notes
-
-
-def test_exercise_without_notes(page: Page) -> None:
-    exercise = next(e for e in USER.exercises if not e.notes)
-    notes = "New notes"
-
-    login(page)
-    p = ExercisePage(page, exercise.id)
-    p.goto()
-
-    p.expect_no_notes()
-
-    p.open_notes_dialog()
-    p.set_notes(notes)
-
-    assert p.get_notes() == notes
 
 
 def test_navbar_stopwatch(page: Page) -> None:

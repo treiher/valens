@@ -58,6 +58,3 @@ class FfmiPage(BasePage):
     def release_touch(self) -> None:
         self._cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
         self._cdp.detach()
-
-    def interval_button(self, label: str) -> Locator:
-        return self.page.get_by_test_id(f"interval-{label}")

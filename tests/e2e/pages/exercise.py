@@ -31,9 +31,6 @@ class ExercisePage(BasePage):
     def get_notes(self) -> str:
         return get_text(self.page.get_by_test_id("exercise-notes"))
 
-    def expect_no_notes(self) -> None:
-        expect(self.page.get_by_test_id("exercise-notes")).to_have_count(0)
-
     def click_notes(self) -> None:
         self.page.get_by_test_id("exercise-notes").click()
         self.notes_dialog.wait_until_open()

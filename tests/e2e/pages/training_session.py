@@ -134,9 +134,6 @@ class TrainingSessionPage(BasePage):
     def expect_countdown(self) -> None:
         expect(self.countdown).to_be_visible()
 
-    def expect_no_countdown(self) -> None:
-        expect(self.countdown).to_have_count(0)
-
     @property
     def countdown(self) -> Locator:
         return self.page.get_by_test_id("countdown")
@@ -274,9 +271,6 @@ class ExerciseNotesDialog(Dialog):
 
     def expect_countdown(self) -> None:
         expect(self.countdown).to_be_visible()
-
-    def expect_no_countdown(self) -> None:
-        expect(self.countdown).to_have_count(0)
 
     @property
     def countdown(self) -> Locator:

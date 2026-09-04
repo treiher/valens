@@ -1353,6 +1353,20 @@ mod tests {
     }
 
     #[test]
+    fn test_the_notes_are_shown_only_when_there_are_some() {
+        let with_notes = render_routine(1, || {
+            with_routine().with_routines(vec![domain::Routine {
+                notes: "some notes".to_string(),
+                ..routine()
+            }])
+        });
+        let without_notes = render_routine(1, with_routine);
+
+        assert_eq!(text_of(&with_notes, "routine-notes"), "some notes");
+        assert!(!contains(&without_notes, "routine-notes"));
+    }
+
+    #[test]
     fn test_without_training_sessions_no_data_is_reported() {
         let html = render_routine(1, with_routine);
 

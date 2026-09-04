@@ -1277,6 +1277,7 @@ mod tests {
 
     #[rstest]
     #[case(&*TRAINING_SESSION, Some(30.0))]
+    #[case(&training_session(&[set(1, 5, 30.0, RPE::ZERO), set(1, 5, 50.0, RPE::ZERO)]), Some(40.0))]
     #[case(&*EMPTY_TRAINING_SESSION, None)]
     fn test_training_session_avg_weight(
         #[case] training_session: &TrainingSession,
@@ -1526,6 +1527,8 @@ mod tests {
 
     #[rstest]
     #[case(RPE::ZERO, BTreeMap::from([(MuscleID::Pecs, Stimulus::PRIMARY)]))]
+    #[case(RPE::SEVEN, BTreeMap::from([(MuscleID::Pecs, Stimulus::PRIMARY)]))]
+    #[case(RPE::SIX, BTreeMap::new())]
     #[case(RPE::FOUR, BTreeMap::new())]
     fn test_training_session_stimulus_per_muscle_with_unset_rpe(
         #[case] rpe: RPE,
@@ -3584,6 +3587,7 @@ mod tests {
                 *TODAY - Duration::days(14),
                 &[set(1, 2, 80.0, RPE::ZERO)],
             ),
+            dated_training_session(6, 1, *TODAY, &[set(1, 1, 70.0, RPE::ZERO)]),
             previous.clone(),
             dated_training_session(
                 4,
@@ -3722,6 +3726,8 @@ mod tests {
     fn test_training_session_id_from_str() {
         let id = TrainingSessionID::from(uuid::Uuid::from_u128(1));
 
+        assert_eq!(id, TrainingSessionID::from(1u128));
+        assert!(!id.is_nil());
         assert_eq!(TrainingSessionID::from_str(&id.to_string()), Ok(id));
     }
 
@@ -3836,6 +3842,35 @@ mod tests {
                 set(1, 5, 100.0, RPE::ZERO),
                 rest(60),
                 set(1, 5, 100.0, RPE::ZERO),
+                rest(60),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_training_session_move_section_down_of_an_inner_section() {
+        let mut session = training_session(&[
+            set(1, 5, 100.0, RPE::ZERO),
+            rest(60),
+            set(2, 5, 100.0, RPE::ZERO),
+            rest(60),
+            set(3, 5, 100.0, RPE::ZERO),
+            rest(60),
+            set(4, 5, 100.0, RPE::ZERO),
+        ]);
+
+        session.move_section_down(2);
+
+        assert_eq!(
+            session.elements,
+            [
+                set(1, 5, 100.0, RPE::ZERO),
+                rest(60),
+                set(2, 5, 100.0, RPE::ZERO),
+                rest(60),
+                set(4, 5, 100.0, RPE::ZERO),
+                rest(0),
+                set(3, 5, 100.0, RPE::ZERO),
                 rest(60),
             ]
         );

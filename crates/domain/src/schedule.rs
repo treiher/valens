@@ -811,6 +811,22 @@ mod tests {
     }
 
     #[test]
+    fn test_weekday_iter() {
+        assert_eq!(
+            Weekday::iter().copied().collect::<Vec<_>>(),
+            [
+                Weekday::Monday,
+                Weekday::Tuesday,
+                Weekday::Wednesday,
+                Weekday::Thursday,
+                Weekday::Friday,
+                Weekday::Saturday,
+                Weekday::Sunday
+            ]
+        );
+    }
+
+    #[test]
     fn test_weekday_number_round_trip() {
         for weekday in Weekday::iter() {
             assert_eq!(Weekday::try_from(u8::from(*weekday)), Ok(*weekday));
@@ -893,6 +909,7 @@ mod tests {
     fn test_rotation_id_from_str() {
         let id = RotationID::from(Uuid::from_u128(1));
 
+        assert_eq!(id, RotationID::from(1u128));
         assert_eq!(RotationID::from_str(&id.to_string()), Ok(id));
     }
 }

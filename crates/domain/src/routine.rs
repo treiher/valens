@@ -871,6 +871,22 @@ mod tests {
     }
 
     #[test]
+    fn test_routine_num_sets_ignores_rests() {
+        let rest = RoutinePart::RoutineActivity {
+            exercise_id: ExerciseID::nil(),
+            reps: Reps::default(),
+            time: Time::new(60).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: true,
+        };
+        let routine =
+            routine_with_sections(vec![section(1, vec![activity(1), rest.clone(), rest])]);
+
+        assert_eq!(routine.num_sets(), 1);
+    }
+
+    #[test]
     fn test_routine_stimulus_per_muscle() {
         assert_eq!(
             ROUTINE.stimulus_per_muscle(&EXERCISES),
@@ -1298,6 +1314,7 @@ mod tests {
     #[test]
     fn test_routine_id_nil() {
         assert!(RoutineID::nil().is_nil());
+        assert!(!RoutineID::from(1u128).is_nil());
         assert_eq!(RoutineID::nil(), RoutineID::default());
     }
 
@@ -2046,6 +2063,7 @@ mod tests {
         let id = RoutineID::from(Uuid::from_u128(1));
 
         assert_eq!(id, RoutineID::from(1u128));
+        assert!(!id.is_nil());
         assert_eq!(RoutineID::from_str(&id.to_string()), Ok(id));
     }
 
@@ -2171,5 +2189,36 @@ mod tests {
 
             prop_assert_eq!(siblings(&mutated, &path), expected);
         }
+    }
+
+    #[test]
+    fn test_routine_to_text_numbers_sibling_sections() {
+        let routine = routine_with_sections(vec![section(
+            1,
+            vec![section(1, vec![activity(1)]), section(1, vec![activity(2)])],
+        )]);
+
+        let text = routine.to_text(&EXERCISES, true, true);
+
+        assert!(text.contains("[A1] 1 set"), "{text}");
+        assert!(text.contains("[A2] 1 set"), "{text}");
+    }
+
+    #[test]
+    fn test_routine_to_text_does_not_number_rests() {
+        let rest = RoutinePart::RoutineActivity {
+            exercise_id: ExerciseID::nil(),
+            reps: Reps::default(),
+            time: Time::new(60).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: true,
+        };
+        let routine = routine_with_sections(vec![section(1, vec![activity(1), rest, activity(2)])]);
+
+        let text = routine.to_text(&EXERCISES, true, true);
+
+        assert!(text.contains("A1 \u{2014}"), "{text}");
+        assert!(text.contains("A2 \u{2014}"), "{text}");
     }
 }

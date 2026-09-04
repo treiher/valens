@@ -1927,11 +1927,6 @@ mod tests {
     }
 
     #[test]
-    fn test_exercise_filter_is_empty() {
-        assert!(ExerciseFilter::default().is_empty());
-    }
-
-    #[test]
     fn test_exercise_filter_toggle_muscle() {
         let mut filter = ExerciseFilter::default();
 
@@ -2268,11 +2263,79 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::empty(ExerciseFilter::default(), true)]
+    #[case::name(ExerciseFilter { name: "push".into(), ..ExerciseFilter::default() }, false)]
+    #[case::blank_name(ExerciseFilter { name: "  ".into(), ..ExerciseFilter::default() }, true)]
+    #[case::muscles(
+        ExerciseFilter {
+            muscles: [Some((MuscleID::Pecs, StimulusLevel::Primary))].into(),
+            ..ExerciseFilter::default()
+        },
+        false
+    )]
+    #[case::force(
+        ExerciseFilter { force: [Some(Force::Push)].into(), ..ExerciseFilter::default() },
+        false
+    )]
+    #[case::mechanic(
+        ExerciseFilter {
+            mechanic: [Some(Mechanic::Compound)].into(),
+            ..ExerciseFilter::default()
+        },
+        false
+    )]
+    #[case::laterality(
+        ExerciseFilter {
+            laterality: [Some(Laterality::Bilateral)].into(),
+            ..ExerciseFilter::default()
+        },
+        false
+    )]
+    #[case::assistance(
+        ExerciseFilter {
+            assistance: [Some(Assistance::Assisted)].into(),
+            ..ExerciseFilter::default()
+        },
+        false
+    )]
+    #[case::equipment(
+        ExerciseFilter {
+            equipment: [Some(Equipment::Barbell)].into(),
+            ..ExerciseFilter::default()
+        },
+        false
+    )]
+    #[case::category(
+        ExerciseFilter {
+            category: [Some(Category::Strength)].into(),
+            ..ExerciseFilter::default()
+        },
+        false
+    )]
+    fn test_exercise_filter_is_empty(#[case] filter: ExerciseFilter, #[case] expected: bool) {
+        assert_eq!(filter.is_empty(), expected);
+    }
+
+    #[test]
+    fn test_exercise_filter_muscle_list_only_marks_selected_muscles() {
+        let filter = ExerciseFilter {
+            muscles: [Some((MuscleID::Pecs, StimulusLevel::Primary))].into(),
+            ..ExerciseFilter::default()
+        };
+
+        let levels = filter.muscle_list().into_iter().collect::<BTreeMap<_, _>>();
+
+        assert_eq!(levels[&MuscleID::Pecs], Some(StimulusLevel::Primary));
+        assert_eq!(levels[&MuscleID::Lats], None);
+    }
+
     #[test]
     fn test_exercise_id_from_str() {
         let id = ExerciseID::from(Uuid::from_u128(1));
 
         assert_eq!(id, ExerciseID::from(1u128));
+        assert!(!id.is_nil());
         assert_eq!(ExerciseID::from_str(&id.to_string()), Ok(id));
     }
 }

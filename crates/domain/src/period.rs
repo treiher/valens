@@ -240,6 +240,19 @@ mod tests {
         std::sync::LazyLock::new(|| Local::now().date_naive());
 
     #[test]
+    fn test_intensity_iter() {
+        assert_eq!(
+            Intensity::iter().copied().collect::<Vec<_>>(),
+            [
+                Intensity::Spotting,
+                Intensity::Light,
+                Intensity::Medium,
+                Intensity::Heavy
+            ]
+        );
+    }
+
+    #[test]
     fn test_intensity_try_from_u8() {
         for intensity in Intensity::iter() {
             assert_eq!(Intensity::try_from(*intensity as u8), Ok(*intensity));

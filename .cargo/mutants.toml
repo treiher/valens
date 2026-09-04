@@ -1,0 +1,34 @@
+# Configuration of `cargo mutants`, run by `make mutants`.
+
+exclude_globs = [
+    # Exercise data rather than logic.
+    "crates/domain/src/catalog.rs",
+    # Delegation to the repository, which a test can only restate.
+    "crates/domain/src/service.rs",
+]
+
+# Mutants that no test can distinguish.
+exclude_re = [
+    # Labels and descriptions shown in the user interface.
+    "-> &'static str",
+    # `Default` derives to the nil UUID.
+    "::nil -> Self with Default::default\\(\\)",
+    # Rounding the drop is only skipped for a remainder within `EPS` of the threshold.
+    "replace \\+ with - in round_drop_to_increment",
+    # A drop of 100 percent or more ends the loop in its first round anyway.
+    "replace \\|\\| with && in drop_set_weights",
+    # Candidates of equal length are ordered by the catalog rather than by the match.
+    "replace < with <= in match_catalog",
+    # The target being inside the moved part is rejected before the index is adjusted.
+    "replace > with >= in Routine::sections_with_moved_part",
+    # The membership check is repeated by the lookup in the map that follows it.
+    "replace == with != in routines_sorted_by_last_use",
+    # A training session on the day of the last use writes the same date.
+    "replace > with >= in routines_sorted_by_last_use",
+    # An RPE of 5 contributes a load of 1 either way.
+    "replace > with >= in TrainingSession::load",
+    # Recovery from a state that no sequence of mutations produces.
+    "replace TrainingSession::ensure_sections_contain_set with \\(\\)",
+    # The bound is only reached for a section index beyond the last section.
+    "replace < with <= in TrainingSession::section_range",
+]

@@ -239,6 +239,7 @@ mod tests {
     #[test]
     fn test_user_id_nil() {
         assert!(UserID::nil().is_nil());
+        assert!(!UserID::from(1u128).is_nil());
         assert_eq!(UserID::nil(), UserID::default());
     }
 

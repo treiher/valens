@@ -1644,4 +1644,390 @@ mod tests {
             assert_eq!(routine.sections, vec![]);
         }
     }
+
+    #[test]
+    fn test_routine_add_section_at_top_level() {
+        let mut routine = routine_with_sections(vec![section(1, vec![])]);
+
+        routine.add_section(&RoutinePartPath::default());
+
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![]), section(1, vec![])]
+        );
+    }
+
+    #[test]
+    fn test_routine_add_section_into_section() {
+        let mut routine = routine_with_sections(vec![section(2, vec![activity(1)])]);
+
+        routine.add_section(&vec![0].into());
+
+        assert_eq!(
+            routine.sections,
+            vec![section(2, vec![activity(1), section(1, vec![])])]
+        );
+    }
+
+    #[rstest]
+    #[case::unknown_section(vec![1].into())]
+    #[case::activity(vec![0, 0].into())]
+    fn test_routine_add_section_with_unresolvable_path(#[case] path: RoutinePartPath) {
+        let sections = vec![section(2, vec![activity(1)])];
+        let mut routine = routine_with_sections(sections.clone());
+
+        routine.add_section(&path);
+
+        assert_eq!(routine.sections, sections);
+    }
+
+    #[test]
+    fn test_routine_update_section() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1)])]);
+
+        routine.update_section(Some(Rounds::new(3).unwrap()), &vec![0].into());
+
+        assert_eq!(routine.sections, vec![section(3, vec![activity(1)])]);
+    }
+
+    #[rstest]
+    #[case::no_rounds(None, vec![0].into())]
+    #[case::unknown_section(Some(Rounds::new(3).unwrap()), vec![1].into())]
+    #[case::activity(Some(Rounds::new(3).unwrap()), vec![0, 0].into())]
+    fn test_routine_update_section_without_effect(
+        #[case] rounds: Option<Rounds>,
+        #[case] path: RoutinePartPath,
+    ) {
+        let sections = vec![section(1, vec![activity(1)])];
+        let mut routine = routine_with_sections(sections.clone());
+
+        routine.update_section(rounds, &path);
+
+        assert_eq!(routine.sections, sections);
+    }
+
+    #[test]
+    fn test_routine_add_activity() {
+        let mut routine = routine_with_sections(vec![section(1, vec![])]);
+
+        routine.add_activity(1.into(), &vec![0].into());
+
+        assert_eq!(
+            routine.sections,
+            vec![section(
+                1,
+                vec![RoutinePart::RoutineActivity {
+                    exercise_id: 1.into(),
+                    reps: Reps::default(),
+                    time: Time::default(),
+                    weight: Weight::default(),
+                    rpe: RPE::ZERO,
+                    automatic: false,
+                }]
+            )]
+        );
+    }
+
+    #[test]
+    fn test_routine_add_activity_without_exercise_is_an_automatic_rest() {
+        let mut routine = routine_with_sections(vec![section(1, vec![])]);
+
+        routine.add_activity(ExerciseID::nil(), &vec![0].into());
+
+        assert_eq!(
+            routine.sections,
+            vec![section(
+                1,
+                vec![RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::default(),
+                    time: Time::new(60).unwrap(),
+                    weight: Weight::default(),
+                    rpe: RPE::ZERO,
+                    automatic: true,
+                }]
+            )]
+        );
+    }
+
+    #[rstest]
+    #[case::top_level(RoutinePartPath::default())]
+    #[case::unknown_section(vec![1].into())]
+    #[case::activity(vec![0, 0].into())]
+    fn test_routine_add_activity_with_unresolvable_path(#[case] path: RoutinePartPath) {
+        let sections = vec![section(1, vec![activity(1)])];
+        let mut routine = routine_with_sections(sections.clone());
+
+        routine.add_activity(2.into(), &path);
+
+        assert_eq!(routine.sections, sections);
+    }
+
+    #[rstest]
+    #[case::exercise_id(
+        Some(ExerciseID::from(2u128)), None, None, None, None, None,
+        RoutinePart::RoutineActivity {
+            exercise_id: 2.into(),
+            reps: Reps::new(1).unwrap(),
+            time: Time::new(2).unwrap(),
+            weight: Weight::new(3.0).unwrap(),
+            rpe: RPE::FOUR,
+            automatic: false,
+        },
+    )]
+    #[case::reps(
+        None, Some(Reps::new(5).unwrap()), None, None, None, None,
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(5).unwrap(),
+            time: Time::new(2).unwrap(),
+            weight: Weight::new(3.0).unwrap(),
+            rpe: RPE::FOUR,
+            automatic: false,
+        },
+    )]
+    #[case::time(
+        None, None, Some(Time::new(6).unwrap()), None, None, None,
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(1).unwrap(),
+            time: Time::new(6).unwrap(),
+            weight: Weight::new(3.0).unwrap(),
+            rpe: RPE::FOUR,
+            automatic: false,
+        },
+    )]
+    #[case::weight(
+        None, None, None, Some(Weight::new(7.0).unwrap()), None, None,
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(1).unwrap(),
+            time: Time::new(2).unwrap(),
+            weight: Weight::new(7.0).unwrap(),
+            rpe: RPE::FOUR,
+            automatic: false,
+        },
+    )]
+    #[case::rpe(
+        None, None, None, None, Some(RPE::EIGHT), None,
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(1).unwrap(),
+            time: Time::new(2).unwrap(),
+            weight: Weight::new(3.0).unwrap(),
+            rpe: RPE::EIGHT,
+            automatic: false,
+        },
+    )]
+    #[case::automatic(
+        None, None, None, None, None, Some(true),
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(1).unwrap(),
+            time: Time::new(2).unwrap(),
+            weight: Weight::new(3.0).unwrap(),
+            rpe: RPE::FOUR,
+            automatic: true,
+        },
+    )]
+    #[case::nothing(
+        None, None, None, None, None, None,
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(1).unwrap(),
+            time: Time::new(2).unwrap(),
+            weight: Weight::new(3.0).unwrap(),
+            rpe: RPE::FOUR,
+            automatic: false,
+        },
+    )]
+    fn test_routine_update_activity(
+        #[case] exercise_id: Option<ExerciseID>,
+        #[case] reps: Option<Reps>,
+        #[case] time: Option<Time>,
+        #[case] weight: Option<Weight>,
+        #[case] rpe: Option<RPE>,
+        #[case] automatic: Option<bool>,
+        #[case] expected: RoutinePart,
+    ) {
+        let mut routine = routine_with_sections(vec![section(1, vec![full_activity()])]);
+
+        routine.update_activity(
+            exercise_id,
+            reps,
+            time,
+            weight,
+            rpe,
+            automatic,
+            &vec![0, 0].into(),
+        );
+
+        assert_eq!(routine.sections, vec![section(1, vec![expected])]);
+    }
+
+    #[rstest]
+    #[case::unknown_activity(vec![1, 0].into())]
+    #[case::section(vec![0].into())]
+    fn test_routine_update_activity_with_unresolvable_path(#[case] path: RoutinePartPath) {
+        let sections = vec![section(1, vec![full_activity()])];
+        let mut routine = routine_with_sections(sections.clone());
+
+        routine.update_activity(Some(2.into()), None, None, None, None, None, &path);
+
+        assert_eq!(routine.sections, sections);
+    }
+
+    fn full_activity() -> RoutinePart {
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(1).unwrap(),
+            time: Time::new(2).unwrap(),
+            weight: Weight::new(3.0).unwrap(),
+            rpe: RPE::FOUR,
+            automatic: false,
+        }
+    }
+
+    #[test]
+    fn test_routine_remove_section() {
+        let mut routine =
+            routine_with_sections(vec![section(1, vec![activity(1)]), section(2, vec![])]);
+
+        routine.remove_part(&vec![0].into());
+
+        assert_eq!(routine.sections, vec![section(2, vec![])]);
+    }
+
+    #[test]
+    fn test_routine_remove_part_of_section() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1), activity(2)])]);
+
+        routine.remove_part(&vec![0, 0].into());
+
+        assert_eq!(routine.sections, vec![section(1, vec![activity(2)])]);
+    }
+
+    #[rstest]
+    #[case::down(Routine::move_part_down, vec![0].into(), [2, 1, 3])]
+    #[case::down_wrapping_around(Routine::move_part_down, vec![2].into(), [3, 1, 2])]
+    #[case::up(Routine::move_part_up, vec![1].into(), [2, 1, 3])]
+    #[case::up_wrapping_around(Routine::move_part_up, vec![0].into(), [2, 3, 1])]
+    fn test_routine_move_section(
+        #[case] mutate: fn(&mut Routine, &RoutinePartPath),
+        #[case] path: RoutinePartPath,
+        #[case] expected: [u32; 3],
+    ) {
+        let mut routine =
+            routine_with_sections((1..=3).map(|rounds| section(rounds, vec![])).collect());
+
+        mutate(&mut routine, &path);
+
+        assert_eq!(
+            routine.sections,
+            expected
+                .iter()
+                .map(|rounds| section(*rounds, vec![]))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[rstest]
+    #[case::down(Routine::move_part_down, vec![0, 0].into(), [2, 1, 3])]
+    #[case::down_wrapping_around(Routine::move_part_down, vec![2, 0].into(), [3, 1, 2])]
+    #[case::up(Routine::move_part_up, vec![1, 0].into(), [2, 1, 3])]
+    #[case::up_wrapping_around(Routine::move_part_up, vec![0, 0].into(), [2, 3, 1])]
+    fn test_routine_move_part_of_section(
+        #[case] mutate: fn(&mut Routine, &RoutinePartPath),
+        #[case] path: RoutinePartPath,
+        #[case] expected: [u32; 3],
+    ) {
+        let mut routine = routine_with_sections(vec![section(1, (1..=3).map(activity).collect())]);
+
+        mutate(&mut routine, &path);
+
+        assert_eq!(
+            routine.sections,
+            vec![section(
+                1,
+                expected.iter().map(|reps| activity(*reps)).collect()
+            )]
+        );
+    }
+
+    #[test]
+    fn test_routine_part_to_training_session_elements() {
+        let part = section(
+            2,
+            vec![
+                section(2, vec![activity(1)]),
+                RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::default(),
+                    time: Time::new(60).unwrap(),
+                    weight: Weight::default(),
+                    rpe: RPE::ZERO,
+                    automatic: true,
+                },
+            ],
+        );
+
+        let set = TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            reps: Reps::default(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::default(),
+            target_reps: Reps::new(1).unwrap(),
+            target_time: Time::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::ZERO,
+            automatic: false,
+        };
+        let rest = TrainingSessionElement::Rest {
+            target_time: Time::new(60).unwrap(),
+            automatic: true,
+        };
+
+        assert_eq!(
+            part.to_training_session_elements(),
+            vec![
+                set.clone(),
+                set.clone(),
+                rest.clone(),
+                set.clone(),
+                set,
+                rest
+            ]
+        );
+    }
+
+    #[test]
+    fn test_routine_part_path() {
+        let routine = routine_with_sections(vec![section(1, vec![activity(1)])]);
+
+        assert_eq!(routine.part(&vec![0].into()), Some(&routine.sections[0]));
+        assert_eq!(routine.part(&vec![0, 0].into()), Some(&activity(1)));
+        assert_eq!(routine.part(&RoutinePartPath::default()), None);
+        assert_eq!(routine.part(&vec![1].into()), None);
+        assert_eq!(routine.part(&vec![1, 0].into()), None);
+        assert_eq!(routine.part(&vec![0, 0, 0].into()), None);
+    }
+
+    #[test]
+    fn test_rounds_default() {
+        assert_eq!(Rounds::default(), Rounds::new(1).unwrap());
+    }
+
+    #[rstest]
+    #[case::lowest("1", Ok(Rounds::new(1).unwrap()))]
+    #[case::highest("999", Ok(Rounds::new(999).unwrap()))]
+    #[case::zero("0", Err(RoundsError::OutOfRange))]
+    #[case::above_range("1000", Err(RoundsError::OutOfRange))]
+    #[case::not_a_number("abc", Err(RoundsError::ParseError))]
+    fn test_rounds_try_from_str(
+        #[case] input: &str,
+        #[case] expected: Result<Rounds, RoundsError>,
+    ) {
+        assert_eq!(Rounds::try_from(input), expected);
+    }
 }

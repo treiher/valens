@@ -151,6 +151,13 @@ $(BUILD_DIR)/venv/bin/valens: $(BUILD_DIR)/venv $(WHEEL)
 	# `-c` is the portable spelling of `--no-create`, which BSD `touch` does not support
 	touch -c $(BUILD_DIR)/venv/bin/valens
 
+.PHONY: mutants
+
+# Mutation testing needs triage of the survivors, which is why it is neither part of `check` and
+# `test` nor run in CI.
+mutants:
+	cargo mutants --test-tool nextest --package valens-domain
+
 .PHONY: update update-fonts
 
 update: update-fonts third-party/bulma third-party/bulma-slider

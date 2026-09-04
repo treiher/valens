@@ -28,6 +28,7 @@
           actionlint
           binaryen
           cargo-llvm-cov
+          cargo-mutants
           cargo-nextest
           chromedriver
           dart-sass

@@ -137,3 +137,7 @@ test-results/
 
 # proptest
 proptest-regressions/
+
+# cargo-mutants
+mutants.out/
+mutants.out.old/

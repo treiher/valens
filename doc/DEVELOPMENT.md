@@ -46,7 +46,7 @@ $ export RUSTFMT=$(rustup which --toolchain "$channel" rustfmt)
 Install the Rust-based command-line tools with Cargo or your system package manager.
 
 ```console
-$ cargo install --locked cargo-llvm-cov cargo-nextest wasm-pack dioxus-cli
+$ cargo install --locked cargo-llvm-cov cargo-mutants cargo-nextest wasm-pack dioxus-cli
 ```
 
 Then install the Python project and development dependencies.

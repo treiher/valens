@@ -82,6 +82,14 @@ class AdminDialog(BaseDialog):
         assert url
         return url
 
+    def copy_login_link(self) -> None:
+        self.page.get_by_test_id("login-link-copy").click()
+
+    def expect_login_link_copied(self) -> None:
+        expect(
+            self.page.get_by_test_id("login-link-copy").get_by_test_id("icon-check")
+        ).to_be_visible()
+
     def expect_passkey_login_unavailable_info(self) -> None:
         expect(self.page.get_by_test_id("passkey-login-unavailable")).to_be_visible()
 

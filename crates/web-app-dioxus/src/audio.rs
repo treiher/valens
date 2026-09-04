@@ -33,6 +33,7 @@ pub fn Metronome() -> Element {
                 class: "mx-3",
                 SelectField {
                     label: "Interval".to_string(),
+                    "data-testid": "metronome-interval",
                     options: (1..=60).map(|i| {
                         rsx! {
                             SelectOption {
@@ -55,6 +56,7 @@ pub fn Metronome() -> Element {
                 class: "mx-3",
                 SelectField {
                     label: "Stress".to_string(),
+                    "data-testid": "metronome-stress",
                     options: (1..=12).map(|i| {
                         rsx! {
                             SelectOption {
@@ -80,6 +82,7 @@ pub fn Metronome() -> Element {
                     button {
                         class: "button",
                         r#type: "button",
+                        "data-testid": "metronome-play",
                         onclick: move |_| METRONOME.write().start_pause(),
                         if METRONOME.read().is_active() {
                             Icon { name: "pause" }
@@ -216,11 +219,14 @@ pub fn Stopwatch(stopwatch: Signal<StopwatchService>) -> Element {
     rsx! {
         p {
             class: "title is-size-1",
+            "data-testid": "stopwatch-time",
             onclick: move |_| stopwatch.write().toggle(),
             "{stopwatch.read().seconds():.1}"
         }
         PlayResetButtons {
             margin_top: 1,
+            play_testid: "stopwatch-play",
+            reset_testid: "stopwatch-reset",
             is_active: stopwatch.read().is_active(),
             on_start_pause: move |_| stopwatch.write().start_pause(),
             on_reset: move |_| stopwatch.write().reset(),
@@ -286,6 +292,7 @@ impl StopwatchService {
 pub fn Timer(timer: Store<TimerService>) -> Element {
     rsx! {
         div {
+            "data-testid": "countdown",
             class: if timer.read().is_active() { "" } else { "is-blinking" },
             onclick: move |_| {
                 timer.write().start_pause();
@@ -304,6 +311,7 @@ pub fn MutableTimer(timer: Signal<TimerService>) -> Element {
                 class: "control",
                 input {
                     class: "input title is-size-1 has-text-centered",
+                    "data-testid": "timer-time",
                     inputmode: "numeric",
                     size: "4",
                     style: "height:auto; width:auto; padding:0",
@@ -328,6 +336,8 @@ pub fn MutableTimer(timer: Signal<TimerService>) -> Element {
         }
         PlayResetButtons {
             margin_top: 5,
+            play_testid: "timer-play",
+            reset_testid: "timer-reset",
             is_active: timer.read().is_active(),
             on_start_pause: move |_| timer.write().start_pause(),
             on_reset: move |_| timer.write().reset(),
@@ -889,6 +899,8 @@ fn listen_for_user_gestures() {
 fn PlayResetButtons(
     margin_top: u8,
     is_active: bool,
+    play_testid: String,
+    reset_testid: String,
     on_start_pause: EventHandler<MouseEvent>,
     on_reset: EventHandler<MouseEvent>,
 ) -> Element {
@@ -896,6 +908,7 @@ fn PlayResetButtons(
         button {
             class: "button mt-{margin_top} mx-3",
             r#type: "button",
+            "data-testid": "{play_testid}",
             onclick: on_start_pause,
             if is_active {
                 Icon { name: "pause" }
@@ -906,6 +919,7 @@ fn PlayResetButtons(
         button {
             class: "button mt-{margin_top} mx-3",
             r#type: "button",
+            "data-testid": "{reset_testid}",
             onclick: on_reset,
             Icon { name: "rotate-left" }
         }

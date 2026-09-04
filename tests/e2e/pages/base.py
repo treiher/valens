@@ -97,6 +97,9 @@ class BasePage:
     def expect_dark_theme(self) -> None:
         expect(self.page.locator("html")).to_have_attribute("data-theme", "dark")
 
+    def expect_no_theme(self) -> None:
+        expect(self.page.locator("html")).not_to_have_attribute("data-theme", "dark")
+
     def expect_fab(self, icon: str) -> None:
         expect(self.fab().get_by_test_id(f"icon-{icon}")).to_be_visible()
 
@@ -300,6 +303,10 @@ class Navbar(PageElement):
     def refresh_data(self) -> None:
         self._open_menu()
         self.page.get_by_test_id("navbar-refresh").click()
+
+    def open_metronome_timer_stopwatch(self) -> None:
+        self._open_menu()
+        self.page.get_by_test_id("navbar-metronome-timer-stopwatch").click()
 
     def open_1rm_calculator(self) -> None:
         self._open_menu()

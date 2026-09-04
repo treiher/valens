@@ -223,6 +223,12 @@ def test_login_link_login(page: Page) -> None:
     page.goto(url)
     home_page.expect_page()
 
+    # The consumed token is left neither in the address bar nor in a history entry
+    assert "recover=" not in page.url
+    assert not page.url.endswith("#")
+    page.go_back()
+    assert "recover=" not in page.url
+
     profile_dialog = ProfileDialog(page)
     profile_dialog.open()
     profile_dialog.expect_name(USERNAMES[1])
@@ -237,6 +243,22 @@ def test_login_link_login(page: Page) -> None:
     page.goto(url)
     login_page.expect_page()
     expect(login_page.error_message).to_have_text("The login link is invalid or has expired")
+
+
+@pytest.mark.chromium_only
+def test_login_link_copy(page: Page) -> None:
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+
+    login(page)
+
+    admin_dialog = AdminDialog(page)
+    admin_dialog.open()
+    url = admin_dialog.create_login_link(USERNAMES[1])
+
+    admin_dialog.copy_login_link()
+
+    admin_dialog.expect_login_link_copied()
+    assert page.evaluate("navigator.clipboard.readText()") == url
 
 
 @pytest.mark.parametrize("backend_server", [{"public_url_set": False}], indirect=True)

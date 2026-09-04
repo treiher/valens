@@ -43,6 +43,7 @@ from .pages import (
     HomePage,
     LoginPage,
     MenstrualCyclePage,
+    MetronomeTimerStopwatchDialog,
     MusclesPage,
     OneRepMaxCalculatorDialog,
     ProfileDialog,
@@ -557,8 +558,9 @@ def test_profile_edit_name_and_height(page: Page) -> None:
     profile.expect_height("185")
 
 
-def test_settings_dialog(page: Page) -> None:
+def test_settings_dialog_rpe_survives_a_reload(page: Page) -> None:
     login(page)
+    p = HomePage(page)
 
     settings = SettingsDialog(page)
     settings.open()
@@ -567,6 +569,33 @@ def test_settings_dialog(page: Page) -> None:
     settings.expect_rpe("Enabled")
     settings.toggle_rpe()
     settings.expect_rpe("Disabled")
+    settings.close()
+
+    p.reload()
+    settings.open()
+
+    settings.expect_rpe("Disabled")
+
+
+def test_settings_dialog_theme_survives_a_reload(page: Page) -> None:
+    login(page)
+    p = HomePage(page)
+
+    settings = SettingsDialog(page)
+    settings.open()
+    settings.choose_theme("dark")
+
+    p.expect_dark_theme()
+
+    settings.close()
+    p.reload()
+
+    p.expect_dark_theme()
+
+    settings.open()
+    settings.choose_theme("system")
+
+    p.expect_no_theme()
 
 
 def test_settings_dialog_without_notification_support(page: Page) -> None:
@@ -1497,6 +1526,173 @@ def test_training_session_numbering_of_time_based_sets(page: Page) -> None:
     assert p.get_set_numbers(4) == ["①", "②", "①", "②"]
 
 
+def test_training_session_countdown_advances_the_focus(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    # Both elements of this routine are automatic, so their countdowns start and advance on
+    # their own. The section has several rounds, so the set is reached again after the rest.
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_time(0, 0, "1")
+    r.set_time(0, 1, "2")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    p.expect_countdown_seconds(1)
+    p.expect_countdown_seconds(2)
+    p.expect_countdown_seconds(1)
+
+
+def test_training_session_set_countdown_records_the_target_time(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    # The set of this routine is automatic, so its countdown starts on its own
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_time(0, 0, "2")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown()
+
+    page.wait_for_timeout(2500)
+    p.wait_until_idle()
+
+    p.reload()
+    p.view()
+
+    assert p.get_sets()[0][1] == 2
+
+
+def test_training_session_countdown_survives_a_reload(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_time(0, 1, "60")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown()
+
+    before = p.countdown_seconds()
+    page.wait_for_timeout(1500)
+    p.reload()
+    p.expect_countdown()
+
+    after = p.countdown_seconds()
+    assert 0 < after < before
+
+
+def test_training_session_paused_countdown_survives_a_reload(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_time(0, 0, "60")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown()
+
+    p.start_pause_countdown()
+    paused = p.countdown_seconds()
+    page.wait_for_timeout(1500)
+    p.reload()
+
+    p.expect_countdown_seconds(paused)
+
+
+def test_training_session_automatic_metronome(page: Page) -> None:
+    routine = USER.routines[0]
+
+    login(page)
+
+    # The metronome follows a set that has both a target time and target reps
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_reps(0, 0, "10")
+    r.set_time(0, 0, "60")
+    r.wait_until_idle()
+
+    settings = SettingsDialog(page)
+    settings.open()
+    settings.toggle_metronome()
+    settings.expect_metronome("Automatic")
+    settings.close()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    tool = MetronomeTimerStopwatchDialog(page)
+    tool.open()
+
+    tool.expect_metronome_active(active=True)
+    tool.expect_metronome_interval(60)
+
+    tool.close()
+    p.activate_set_action()
+
+    tool.open()
+    tool.expect_metronome_active(active=False)
+
+
+def test_training_session_in_progress_survives_a_reload_on_another_page(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    home = HomePage(page)
+    home.goto()
+    home.activity_bar.expect_visible()
+
+    home.reload()
+
+    home.activity_bar.expect_visible()
+    home.activity_bar.resume()
+    p.expect_page()
+
+
 def test_routines_add(page: Page) -> None:
     name = USER.routines[-1].name
     new_name = "New Routine"
@@ -2195,6 +2391,57 @@ def test_routine_show_as_text(page: Page) -> None:
     assert routine.name in text
     assert exercise_1 in text
     assert exercise_2 in text
+
+
+@pytest.mark.chromium_only
+def test_routine_copy_as_text(page: Page) -> None:
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+    routine = USER.routines[0]
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    text = p.show_as_text()
+    p.copy_shown_text()
+
+    p.expect_shown_text_copied()
+    assert page.evaluate("navigator.clipboard.readText()").strip() == text
+
+
+# WebKit does not provide the Notifications API.
+@pytest.mark.webkit_incompatible
+def test_settings_dialog_with_granted_notification_permission(page: Page) -> None:
+    page.context.grant_permissions(["notifications"])
+
+    login(page)
+
+    settings = SettingsDialog(page)
+    settings.open()
+    settings.expect_open()
+
+    settings.expect_notifications("Disabled")
+    settings.toggle_notifications()
+    settings.expect_notifications("Enabled")
+
+
+# WebKit does not provide the Notifications API.
+@pytest.mark.webkit_incompatible
+def test_settings_dialog_with_denied_notification_permission(page: Page) -> None:
+    page.add_init_script("Object.defineProperty(Notification, 'permission', {get: () => 'denied'})")
+
+    login(page)
+
+    settings = SettingsDialog(page)
+    settings.open()
+    settings.expect_open()
+
+    settings.expect_notifications("Not allowed in browser settings")
+    settings.expect_notifications_explanation()
+
+    settings.toggle_notifications()
+
+    settings.expect_notifications("Not allowed in browser settings")
 
 
 def test_routine_delete_training_session(page: Page) -> None:
@@ -2940,6 +3187,109 @@ def test_muscles(page: Page) -> None:
     login(page)
     p = MusclesPage(page)
     p.goto()
+
+
+def test_navbar_stopwatch(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.expect_stopwatch_seconds(0)
+
+    dialog.start_pause_stopwatch()
+    page.wait_for_timeout(1100)
+
+    assert dialog.stopwatch_seconds() > 0
+
+
+def test_navbar_stopwatch_pause_holds_the_time(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.start_pause_stopwatch()
+    page.wait_for_timeout(1100)
+    dialog.start_pause_stopwatch()
+    paused = dialog.stopwatch_seconds()
+    page.wait_for_timeout(1100)
+
+    assert dialog.stopwatch_seconds() == paused
+
+
+def test_navbar_stopwatch_reset_while_running_keeps_it_running(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.start_pause_stopwatch()
+    page.wait_for_timeout(1100)
+    dialog.reset_stopwatch()
+    page.wait_for_timeout(1100)
+
+    assert 0 < dialog.stopwatch_seconds() < 2
+
+
+def test_navbar_stopwatch_click_on_a_stopped_time_resets_it(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.start_pause_stopwatch()
+    page.wait_for_timeout(1100)
+    dialog.start_pause_stopwatch()
+    assert dialog.stopwatch_seconds() > 0
+
+    dialog.click_stopwatch_time()
+
+    dialog.expect_stopwatch_seconds(0)
+
+
+def test_navbar_timer_counts_past_zero(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.set_timer(2)
+    dialog.start_pause_timer()
+    page.wait_for_timeout(3500)
+
+    assert dialog.timer_seconds() < 0
+
+
+def test_navbar_timer_reset_restores_the_configured_time(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.set_timer(5)
+    dialog.start_pause_timer()
+    page.wait_for_timeout(1500)
+    assert dialog.timer_seconds() < 5
+
+    dialog.reset_timer()
+
+    dialog.expect_timer_seconds(5)
+
+
+def test_navbar_metronome_starts_and_pauses(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.expect_metronome_active(active=False)
+
+    dialog.start_pause_metronome()
+    dialog.expect_metronome_active(active=True)
+
+    dialog.start_pause_metronome()
+    dialog.expect_metronome_active(active=False)
 
 
 def test_navbar_1rm_calculator(page: Page) -> None:

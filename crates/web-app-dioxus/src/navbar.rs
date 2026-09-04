@@ -135,6 +135,7 @@ pub fn Navbar() -> Element {
                         class: "navbar-end",
                         a {
                             class: "navbar-item",
+                            "data-testid": "navbar-metronome-timer-stopwatch",
                             onclick: move |_| {
                                 metronome_time_stopwatch_visible.set(true);
                                 menu_visible.set(false);

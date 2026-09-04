@@ -21,6 +21,42 @@ class SettingsDialog(BaseDialog):
     def expect_notifications_unsupported(self) -> None:
         expect(self.dialog.root.get_by_text("Not supported by this browser")).to_be_visible()
 
+    def choose_theme(self, theme: str) -> None:
+        self.dialog.root.get_by_test_id(f"settings-theme-{theme}").click()
+
+    def toggle_metronome(self) -> None:
+        self.dialog.root.get_by_test_id("settings-metronome").click()
+
+    def expect_metronome(self, state: str) -> None:
+        expect(self.dialog.root.get_by_test_id("settings-metronome")).to_have_text(state)
+
+    def toggle_tut(self) -> None:
+        self.dialog.root.get_by_test_id("settings-tut").click()
+
+    def expect_tut(self, state: str) -> None:
+        expect(self.dialog.root.get_by_test_id("settings-tut")).to_have_text(state)
+
+    def toggle_scroll_snapping(self) -> None:
+        self.dialog.root.get_by_test_id("settings-scroll-snapping").click()
+
+    def expect_scroll_snapping(self, state: str) -> None:
+        expect(self.dialog.root.get_by_test_id("settings-scroll-snapping")).to_have_text(state)
+
+    def toggle_notifications(self) -> None:
+        self.notifications_button.click()
+
+    def expect_notifications(self, state: str) -> None:
+        expect(self.notifications_button).to_have_text(state)
+
+    def expect_notifications_explanation(self) -> None:
+        expect(
+            self.dialog.root.get_by_text("To enable notifications, open the site settings")
+        ).to_be_visible()
+
+    @property
+    def notifications_button(self) -> Locator:
+        return self.dialog.root.get_by_test_id("settings-notifications")
+
     def toggle_rpe(self) -> None:
         self.rpe_button.click()
 

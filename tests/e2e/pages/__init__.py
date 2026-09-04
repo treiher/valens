@@ -11,6 +11,9 @@ from .ffmi import FfmiPage as FfmiPage
 from .home import HomePage as HomePage
 from .login import LoginPage as LoginPage
 from .menstrual_cycle import MenstrualCyclePage as MenstrualCyclePage
+from .metronome_timer_stopwatch import (
+    MetronomeTimerStopwatchDialog as MetronomeTimerStopwatchDialog,
+)
 from .muscles import MusclesPage as MusclesPage
 from .profile import ProfileDialog as ProfileDialog
 from .registration import PasskeyRegistrationView as PasskeyRegistrationView

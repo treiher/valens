@@ -121,6 +121,26 @@ class TrainingSessionPage(BasePage):
             for element in self.page.get_by_test_id("set-number").all()[:count]
         ]
 
+    def countdown_seconds(self) -> int:
+        text = self.countdown.inner_text().strip()
+        return int(text.removesuffix(" s"))
+
+    def start_pause_countdown(self) -> None:
+        self.countdown.click()
+
+    def expect_countdown_seconds(self, seconds: int) -> None:
+        expect(self.countdown).to_have_text(f"{seconds} s")
+
+    def expect_countdown(self) -> None:
+        expect(self.countdown).to_be_visible()
+
+    def expect_no_countdown(self) -> None:
+        expect(self.countdown).to_have_count(0)
+
+    @property
+    def countdown(self) -> Locator:
+        return self.page.get_by_test_id("countdown")
+
     def get_notes(self) -> str:
         self.expect_edit_mode()
         return self.page.get_by_test_id("session-notes").input_value()
@@ -132,6 +152,9 @@ class TrainingSessionPage(BasePage):
     def get_displayed_notes(self) -> str:
         self.expect_view_mode()
         return get_text(self.page.get_by_test_id("session-notes-text"))
+
+    def activate_set_action(self, index: int = 0) -> None:
+        self.page.get_by_test_id("set-action").nth(index).click()
 
     def expect_set_action_button_disabled(self, index: int = 0) -> None:
         self.expect_edit_mode()
@@ -239,6 +262,26 @@ class SessionExerciseNotesDialog(Dialog):
 
 
 class ExerciseNotesDialog(Dialog):
+    def countdown_seconds(self) -> int:
+        text = self.countdown.inner_text().strip()
+        return int(text.removesuffix(" s"))
+
+    def start_pause_countdown(self) -> None:
+        self.countdown.click()
+
+    def expect_countdown_seconds(self, seconds: int) -> None:
+        expect(self.countdown).to_have_text(f"{seconds} s")
+
+    def expect_countdown(self) -> None:
+        expect(self.countdown).to_be_visible()
+
+    def expect_no_countdown(self) -> None:
+        expect(self.countdown).to_have_count(0)
+
+    @property
+    def countdown(self) -> Locator:
+        return self.page.get_by_test_id("countdown")
+
     def get_notes(self) -> str:
         return self.root.get_by_test_id("exercise-notes-input").input_value()
 

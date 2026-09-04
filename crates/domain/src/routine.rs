@@ -771,8 +771,12 @@ pub fn routines_sorted_by_last_use(
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
 
-    use crate::ExerciseMuscle;
+    use crate::{
+        ExerciseMuscle, Service,
+        tests::{Call, FakeRepository},
+    };
 
     use super::*;
 
@@ -1546,5 +1550,59 @@ mod tests {
             text.contains("[#27] 1 set"),
             "expected fallback label for 27th section"
         );
+    }
+
+    #[rstest]
+    #[case::unused("C", Ok("C"))]
+    #[case::used_by_the_routine_itself("A", Ok("A"))]
+    #[case::used_by_another_routine("B", Err("entry with this name already exists"))]
+    #[case::invalid("", Err("name must not be empty"))]
+    fn test_validate_routine_name(#[case] input: &str, #[case] expected: Result<&str, &str>) {
+        let service = Service::new(
+            FakeRepository::default()
+                .with_routines(vec![named_routine(1, "A"), named_routine(2, "B")]),
+        );
+
+        assert_eq!(
+            pollster::block_on(service.validate_routine_name(input, 1.into()))
+                .map(|name| name.to_string())
+                .map_err(|err| err.to_string()),
+            expected.map(str::to_string).map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_validate_routine_name_unreadable_routines() {
+        let service = Service::new(FakeRepository::default().failing(Call::ReadRoutines));
+
+        assert!(matches!(
+            pollster::block_on(service.validate_routine_name("A", 1.into())),
+            Err(ValidationError::Other(_))
+        ));
+    }
+
+    #[rstest]
+    #[case::known(1, Some("A"))]
+    #[case::unknown(2, None)]
+    fn test_get_routine(#[case] id: u128, #[case] expected: Option<&str>) {
+        let service =
+            Service::new(FakeRepository::default().with_routines(vec![named_routine(1, "A")]));
+
+        assert_eq!(
+            pollster::block_on(service.get_routine(id.into()))
+                .unwrap()
+                .map(|r| r.name.to_string()),
+            expected.map(str::to_string)
+        );
+    }
+
+    fn named_routine(id: u128, name: &str) -> Routine {
+        Routine {
+            id: id.into(),
+            name: Name::new(name).unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![],
+        }
     }
 }

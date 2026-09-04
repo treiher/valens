@@ -156,6 +156,11 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
+    use crate::{
+        Service,
+        tests::{Call, FakeRepository},
+    };
+
     use super::*;
 
     #[rstest]
@@ -289,5 +294,121 @@ mod tests {
 
     fn from_num_days(days: i32) -> NaiveDate {
         NaiveDate::from_num_days_from_ce_opt(days).unwrap()
+    }
+
+    #[rstest]
+    #[case::unused("2020-02-03", Ok("2020-02-03"))]
+    #[case::already_used("2020-02-02", Err("entry with this date already exists"))]
+    #[case::in_the_future("2999-01-01", Err("date must not be in the future"))]
+    #[case::unparsable("02/02/2020", Err("invalid date"))]
+    fn test_validate_body_weight_date(#[case] input: &str, #[case] expected: Result<&str, &str>) {
+        let service = Service::new(FakeRepository::default().with_body_weight(vec![BodyWeight {
+            date: NaiveDate::from_ymd_opt(2020, 2, 2).unwrap(),
+            weight: 80.0,
+        }]));
+
+        assert_eq!(
+            pollster::block_on(service.validate_body_weight_date(input))
+                .map(|date| date.to_string())
+                .map_err(|err| err.to_string()),
+            expected.map(str::to_string).map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_validate_body_weight_date_unreadable_body_weight() {
+        let service = Service::new(FakeRepository::default().failing(Call::ReadBodyWeight));
+
+        assert!(matches!(
+            pollster::block_on(service.validate_body_weight_date("2020-02-02")),
+            Err(ValidationError::Other(_))
+        ));
+    }
+
+    #[rstest]
+    #[case::point("80.5", Ok(80.5))]
+    #[case::comma("80,5", Ok(80.5))]
+    #[case::surrounded_by_whitespace(" 80.5 ", Ok(80.5))]
+    #[case::zero("0", Err("weight must be a positive decimal number"))]
+    #[case::negative("-80.5", Err("weight must be a positive decimal number"))]
+    #[case::not_a_number("abc", Err("weight must be a decimal number"))]
+    fn test_validate_body_weight_weight(#[case] input: &str, #[case] expected: Result<f32, &str>) {
+        assert_eq!(
+            Service::new(FakeRepository::default())
+                .validate_body_weight_weight(input)
+                .map_err(|err| err.to_string()),
+            expected.map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_service_avg_body_weight() {
+        let service = Service::new(FakeRepository::default());
+        let body_weight = [
+            BodyWeight {
+                date: from_num_days(0),
+                weight: 80.0,
+            },
+            BodyWeight {
+                date: from_num_days(2),
+                weight: 82.0,
+            },
+            BodyWeight {
+                date: from_num_days(3),
+                weight: 79.0,
+            },
+            BodyWeight {
+                date: from_num_days(5),
+                weight: 79.0,
+            },
+        ];
+
+        assert_eq!(
+            service.avg_body_weight(&body_weight),
+            vec![
+                BodyWeight {
+                    date: from_num_days(0),
+                    weight: 80.0
+                },
+                BodyWeight {
+                    date: from_num_days(2),
+                    weight: 80.0
+                },
+                BodyWeight {
+                    date: from_num_days(3),
+                    weight: 80.0
+                },
+                BodyWeight {
+                    date: from_num_days(5),
+                    weight: 80.0
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_service_avg_weekly_change() {
+        let service = Service::new(FakeRepository::default());
+        let avg_body_weight = [
+            BodyWeight {
+                date: from_num_days(0),
+                weight: 80.0,
+            },
+            BodyWeight {
+                date: from_num_days(14),
+                weight: 90.0,
+            },
+        ];
+        let current = BodyWeight {
+            date: from_num_days(14),
+            weight: 90.0,
+        };
+
+        assert_approx_eq!(
+            service
+                .avg_weekly_change(&avg_body_weight, Some(&current))
+                .unwrap(),
+            5.882_353
+        );
     }
 }

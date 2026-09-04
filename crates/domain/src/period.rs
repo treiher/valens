@@ -226,6 +226,11 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
+    use crate::{
+        Service,
+        tests::{Call, FakeRepository},
+    };
+
     use super::*;
 
     static TODAY: std::sync::LazyLock<NaiveDate> =
@@ -464,5 +469,53 @@ mod tests {
 
     fn from_num_days(days: i32) -> NaiveDate {
         NaiveDate::from_num_days_from_ce_opt(days).unwrap()
+    }
+
+    #[rstest]
+    #[case::unused("2020-02-03", Ok("2020-02-03"))]
+    #[case::already_used("2020-02-02", Err("entry with this date already exists"))]
+    #[case::in_the_future("2999-01-01", Err("date must not be in the future"))]
+    #[case::unparsable("02/02/2020", Err("invalid date"))]
+    fn test_validate_period_date(#[case] input: &str, #[case] expected: Result<&str, &str>) {
+        let service = Service::new(FakeRepository::default().with_period(vec![Period {
+            date: NaiveDate::from_ymd_opt(2020, 2, 2).unwrap(),
+            intensity: Intensity::Medium,
+        }]));
+
+        assert_eq!(
+            pollster::block_on(service.validate_period_date(input))
+                .map(|date| date.to_string())
+                .map_err(|err| err.to_string()),
+            expected.map(str::to_string).map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_validate_period_date_unreadable_period() {
+        let service = Service::new(FakeRepository::default().failing(Call::ReadPeriod));
+
+        assert!(matches!(
+            pollster::block_on(service.validate_period_date("2020-02-02")),
+            Err(ValidationError::Other(_))
+        ));
+    }
+
+    #[rstest]
+    #[case::lowest("1", Ok(Intensity::Spotting))]
+    #[case::highest("4", Ok(Intensity::Heavy))]
+    #[case::surrounded_by_whitespace(" 2 ", Ok(Intensity::Light))]
+    #[case::below_range("0", Err("intensity must be in the range 1 to 4"))]
+    #[case::above_range("5", Err("intensity must be in the range 1 to 4"))]
+    #[case::not_a_number("abc", Err("intensity must be a positive whole number"))]
+    fn test_validate_period_intensity(
+        #[case] input: &str,
+        #[case] expected: Result<Intensity, &str>,
+    ) {
+        assert_eq!(
+            Service::new(FakeRepository::default())
+                .validate_period_intensity(input)
+                .map_err(|err| err.to_string()),
+            expected.map_err(str::to_string)
+        );
     }
 }

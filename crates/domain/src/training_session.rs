@@ -1134,7 +1134,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
-    use crate::{ExerciseMuscle, Name};
+    use crate::{ExerciseMuscle, Name, Service, tests::FakeRepository};
 
     use super::*;
 
@@ -3499,5 +3499,121 @@ mod tests {
 
     fn section(elements: &[TrainingSessionElement]) -> TrainingSessionSection {
         TrainingSessionSection(elements.to_vec())
+    }
+
+    #[rstest]
+    #[case::today(TODAY.to_string(), Ok(TODAY.to_string()))]
+    #[case::in_the_future("2999-01-01".to_string(), Err("date must not be in the future"))]
+    #[case::unparsable("02/02/2020".to_string(), Err("invalid date"))]
+    fn test_validate_training_session_date(
+        #[case] input: String,
+        #[case] expected: Result<String, &str>,
+    ) {
+        assert_eq!(
+            Service::new(FakeRepository::default())
+                .validate_training_session_date(&input)
+                .map(|date| date.to_string())
+                .map_err(|err| err.to_string()),
+            expected.map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_get_training_stats() {
+        let service = Service::new(FakeRepository::default());
+        let training_session = TrainingSession {
+            date: *TODAY,
+            ..training_session(&[set(1, 5, 100.0, RPE::ZERO), set(1, 5, 100.0, RPE::ZERO)])
+        };
+
+        let stats = service.get_training_stats(&[training_session]);
+
+        assert_eq!(stats.short_term_load, [(*TODAY, 2.0)]);
+        assert_eq!(stats.long_term_load, []);
+    }
+
+    #[test]
+    fn test_get_sets_by_exercise() {
+        let service = Service::new(FakeRepository::default());
+        let training_session = training_session(&[
+            set(1, 5, 100.0, RPE::ZERO),
+            rest(60),
+            set(1, 3, 100.0, RPE::ZERO),
+            set(2, 0, 0.0, RPE::ZERO),
+        ]);
+
+        let sets = service.get_sets_by_exercise(&training_session);
+
+        assert_eq!(
+            sets,
+            HashMap::from([(
+                ExerciseID::from(1u128),
+                vec![&training_session.elements[0], &training_session.elements[2]]
+            )])
+        );
+    }
+
+    #[test]
+    fn test_get_previous_session_sets_by_exercise() {
+        let service = Service::new(FakeRepository::default());
+        let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
+        let previous = dated_training_session(
+            2,
+            1,
+            *TODAY - Duration::days(7),
+            &[set(1, 3, 90.0, RPE::ZERO)],
+        );
+        let training_sessions = [
+            dated_training_session(
+                3,
+                1,
+                *TODAY - Duration::days(14),
+                &[set(1, 2, 80.0, RPE::ZERO)],
+            ),
+            previous.clone(),
+            dated_training_session(
+                4,
+                2,
+                *TODAY - Duration::days(1),
+                &[set(1, 4, 95.0, RPE::ZERO)],
+            ),
+            dated_training_session(
+                5,
+                1,
+                *TODAY + Duration::days(1),
+                &[set(1, 6, 110.0, RPE::ZERO)],
+            ),
+            current.clone(),
+        ];
+
+        assert_eq!(
+            service.get_previous_session_sets_by_exercise(&current, &training_sessions),
+            HashMap::from([(ExerciseID::from(1u128), vec![&previous.elements[0]])])
+        );
+    }
+
+    #[test]
+    fn test_get_previous_session_sets_by_exercise_without_earlier_session() {
+        let service = Service::new(FakeRepository::default());
+        let current = dated_training_session(1, 1, *TODAY, &[set(1, 5, 100.0, RPE::ZERO)]);
+
+        assert_eq!(
+            service.get_previous_session_sets_by_exercise(&current, std::slice::from_ref(&current)),
+            HashMap::new()
+        );
+    }
+
+    fn dated_training_session(
+        id: u128,
+        routine_id: u128,
+        date: NaiveDate,
+        elements: &[TrainingSessionElement],
+    ) -> TrainingSession {
+        TrainingSession {
+            id: id.into(),
+            routine_id: routine_id.into(),
+            date,
+            ..training_session(elements)
+        }
     }
 }

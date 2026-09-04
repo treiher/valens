@@ -64,6 +64,8 @@ mod schedule;
 mod service;
 mod session;
 mod statistics;
+#[cfg(test)]
+mod tests;
 mod training;
 mod training_session;
 mod user;

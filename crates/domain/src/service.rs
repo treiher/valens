@@ -354,7 +354,9 @@ impl<R: PeriodRepository> PeriodService for Service<R> {
     }
 
     async fn get_period(&self) -> Result<Vec<Period>, ReadError> {
-        self.repository.read_period().await
+        let mut period = self.repository.read_period().await?;
+        period.sort_by_key(|p| p.date);
+        Ok(period)
     }
 
     async fn create_period(&self, period: Period) -> Result<Period, CreateError> {
@@ -367,5 +369,218 @@ impl<R: PeriodRepository> PeriodService for Service<R> {
 
     async fn delete_period(&self, date: NaiveDate) -> Result<(), DeleteError> {
         self.repository.delete_period(date).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use chrono::Duration;
+    use pretty_assertions::assert_eq;
+
+    use crate::{
+        Intensity, Rotation, RotationID, ScheduleSlot, Weekday,
+        tests::{Call, FakeRepository},
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_sync_syncs_all_collections() {
+        let service = Service::new(FakeRepository::default());
+
+        assert!(pollster::block_on(service.sync()).is_ok());
+        assert_eq!(
+            service.repository.calls(),
+            [
+                Call::SyncExercises,
+                Call::SyncRoutines,
+                Call::SyncSchedule,
+                Call::SyncTrainingSessions,
+                Call::SyncBodyWeight,
+                Call::SyncBodyFat,
+                Call::SyncPeriod,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_sync_stops_at_first_error() {
+        let service = Service::new(FakeRepository::default().failing(Call::SyncRoutines));
+
+        assert!(pollster::block_on(service.sync()).is_err());
+        assert_eq!(
+            service.repository.calls(),
+            [Call::SyncExercises, Call::SyncRoutines]
+        );
+    }
+
+    #[test]
+    fn test_delete_routine() {
+        let service = Service::new(FakeRepository::default());
+
+        assert!(pollster::block_on(service.delete_routine(1.into())).is_ok());
+        assert!(service.repository.calls().contains(&Call::DeleteRoutine));
+    }
+
+    #[test]
+    fn test_delete_routine_scheduled() {
+        let service =
+            Service::new(FakeRepository::default().with_schedule(schedule_with_routine(1.into())));
+
+        assert!(matches!(
+            pollster::block_on(service.delete_routine(1.into())),
+            Err(DeleteError::Conflict(_))
+        ));
+        assert!(!service.repository.calls().contains(&Call::DeleteRoutine));
+    }
+
+    #[test]
+    fn test_delete_routine_unreadable_schedule() {
+        let service = Service::new(FakeRepository::default().failing(Call::ReadSchedule));
+
+        assert!(matches!(
+            pollster::block_on(service.delete_routine(1.into())),
+            Err(DeleteError::Other(_))
+        ));
+        assert!(!service.repository.calls().contains(&Call::DeleteRoutine));
+    }
+
+    #[test]
+    fn test_modify_schedule_without_routines() {
+        let service = Service::new(FakeRepository::default());
+
+        assert_eq!(
+            pollster::block_on(service.modify_schedule(Schedule::default())).ok(),
+            Some(Schedule::default())
+        );
+    }
+
+    #[test]
+    fn test_modify_schedule_with_known_routines() {
+        let service = Service::new(FakeRepository::default().with_routines(vec![routine(1)]));
+        let schedule = schedule_with_routine(1.into());
+
+        assert_eq!(
+            pollster::block_on(service.modify_schedule(schedule.clone())).ok(),
+            Some(schedule)
+        );
+    }
+
+    #[test]
+    fn test_modify_schedule_with_unknown_routine() {
+        let service = Service::new(FakeRepository::default().with_routines(vec![routine(1)]));
+
+        assert!(matches!(
+            pollster::block_on(service.modify_schedule(schedule_with_routine(2.into()))),
+            Err(UpdateError::Conflict(_))
+        ));
+        assert!(!service.repository.calls().contains(&Call::ReplaceSchedule));
+    }
+
+    #[test]
+    fn test_get_training_sessions_sorts_by_date_and_id() {
+        let service = Service::new(FakeRepository::default().with_training_sessions(vec![
+            training_session(3, 2),
+            training_session(1, 3),
+            training_session(2, 2),
+        ]));
+
+        assert_eq!(
+            pollster::block_on(service.get_training_sessions())
+                .unwrap()
+                .iter()
+                .map(|t| t.id)
+                .collect::<Vec<_>>(),
+            [TrainingSessionID::from(2u128), 3.into(), 1.into()]
+        );
+    }
+
+    #[test]
+    fn test_get_period_sorts_by_date() {
+        let service = Service::new(FakeRepository::default().with_period(vec![
+            period(3),
+            period(1),
+            period(2),
+        ]));
+
+        assert_eq!(
+            pollster::block_on(service.get_period())
+                .unwrap()
+                .iter()
+                .map(|p| p.date)
+                .collect::<Vec<_>>(),
+            [day(1), day(2), day(3)]
+        );
+    }
+
+    #[test]
+    fn test_get_current_cycle() {
+        let service = Service::new(FakeRepository::default().with_period(vec![
+            period(-40),
+            period(-10),
+            period(-9),
+        ]));
+
+        assert_eq!(
+            pollster::block_on(service.get_current_cycle())
+                .unwrap()
+                .begin,
+            day(-10)
+        );
+    }
+
+    #[test]
+    fn test_get_current_cycle_without_cycles() {
+        let service = Service::new(FakeRepository::default());
+
+        assert!(matches!(
+            pollster::block_on(service.get_current_cycle()),
+            Err(ReadError::NotFound)
+        ));
+    }
+
+    fn schedule_with_routine(routine_id: RoutineID) -> Schedule {
+        Schedule::new(
+            BTreeMap::from([(
+                RotationID::from(1u128),
+                Rotation::new(Name::new("R").unwrap(), vec![routine_id]).unwrap(),
+            )]),
+            BTreeMap::from([(Weekday::Monday, vec![ScheduleSlot::Routine(routine_id)])]),
+        )
+        .unwrap()
+    }
+
+    fn routine(id: u128) -> Routine {
+        Routine {
+            id: id.into(),
+            name: Name::new("R").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![],
+        }
+    }
+
+    fn training_session(id: u128, day_offset: i64) -> TrainingSession {
+        TrainingSession {
+            id: id.into(),
+            routine_id: 1.into(),
+            date: day(day_offset),
+            notes: String::new(),
+            elements: vec![],
+            exercise_notes: BTreeMap::new(),
+        }
+    }
+
+    fn period(day_offset: i64) -> Period {
+        Period {
+            date: day(day_offset),
+            intensity: Intensity::Medium,
+        }
+    }
+
+    fn day(offset: i64) -> NaiveDate {
+        chrono::Local::now().date_naive() + Duration::days(offset)
     }
 }

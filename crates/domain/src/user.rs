@@ -191,41 +191,48 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
+    use crate::{
+        Service,
+        tests::{Call, FakeRepository},
+    };
+
     use super::*;
 
-    struct TestService;
+    #[rstest]
+    #[case::unused("Bob", Ok("Bob"))]
+    #[case::used_by_the_user_itself("Alice", Ok("Alice"))]
+    #[case::used_by_another_user("Carol", Err("entry with this name already exists"))]
+    #[case::invalid("", Err("name must not be empty"))]
+    fn test_validate_user_name(#[case] input: &str, #[case] expected: Result<&str, &str>) {
+        let service = Service::new(
+            FakeRepository::default().with_users(vec![user(1, "Alice"), user(2, "Carol")]),
+        );
 
-    impl UserService for TestService {
-        async fn get_users(&self) -> Result<Vec<User>, ReadError> {
-            unimplemented!()
-        }
+        assert_eq!(
+            pollster::block_on(service.validate_user_name(input, 1.into()))
+                .map(|name| name.to_string())
+                .map_err(|err| err.to_string()),
+            expected.map(str::to_string).map_err(str::to_string)
+        );
+    }
 
-        async fn create_user(
-            &self,
-            _: Name,
-            _: Sex,
-            _: Option<u8>,
-            _: Role,
-        ) -> Result<User, CreateError> {
-            unimplemented!()
-        }
+    #[test]
+    fn test_validate_user_name_unreadable_users() {
+        let service = Service::new(FakeRepository::default().failing(Call::ReadUsers));
 
-        async fn replace_user(&self, _: User) -> Result<User, UpdateError> {
-            unimplemented!()
-        }
+        assert!(matches!(
+            pollster::block_on(service.validate_user_name("Bob", 1.into())),
+            Err(ValidationError::Other(_))
+        ));
+    }
 
-        async fn update_user(
-            &self,
-            _: UserID,
-            _: Name,
-            _: Sex,
-            _: Option<u8>,
-        ) -> Result<User, UpdateError> {
-            unimplemented!()
-        }
-
-        async fn delete_user(&self, _: UserID) -> Result<(), DeleteError> {
-            unimplemented!()
+    fn user(id: u128, name: &str) -> User {
+        User {
+            id: id.into(),
+            name: Name::new(name).unwrap(),
+            sex: Sex::FEMALE,
+            height: None,
+            role: Role::USER,
         }
     }
 
@@ -247,7 +254,7 @@ mod tests {
     #[case("abc", Err("height must be a whole number between 1 and 255"))]
     fn test_validate_user_height(#[case] input: &str, #[case] expected: Result<Option<u8>, &str>) {
         assert_eq!(
-            TestService
+            Service::new(FakeRepository::default())
                 .validate_user_height(input)
                 .map_err(|err| err.to_string()),
             expected.map_err(str::to_string)

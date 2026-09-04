@@ -1237,6 +1237,11 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
+    use crate::{
+        Service,
+        tests::{Call, FakeRepository},
+    };
+
     use super::*;
 
     #[test]
@@ -2217,5 +2222,49 @@ mod tests {
         );
         assert_eq!(decoded.len(), T::iter().count());
         assert!(T::try_from(0).is_err());
+    }
+
+    #[rstest]
+    #[case::unused("C", Ok("C"))]
+    #[case::used_by_the_exercise_itself("A", Ok("A"))]
+    #[case::used_by_another_exercise("B", Err("entry with this name already exists"))]
+    #[case::invalid("", Err("name must not be empty"))]
+    fn test_validate_exercise_name(#[case] input: &str, #[case] expected: Result<&str, &str>) {
+        let service = Service::new(
+            FakeRepository::default()
+                .with_exercises(vec![exercise(1, "A", vec![]), exercise(2, "B", vec![])]),
+        );
+
+        assert_eq!(
+            pollster::block_on(service.validate_exercise_name(input, 1.into()))
+                .map(|name| name.to_string())
+                .map_err(|err| err.to_string()),
+            expected.map(str::to_string).map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_validate_exercise_name_unreadable_exercises() {
+        let service = Service::new(FakeRepository::default().failing(Call::ReadExercises));
+
+        assert!(matches!(
+            pollster::block_on(service.validate_exercise_name("A", 1.into())),
+            Err(ValidationError::Other(_))
+        ));
+    }
+
+    #[rstest]
+    #[case::known(1, Some("A"))]
+    #[case::unknown(2, None)]
+    fn test_get_exercise(#[case] id: u128, #[case] expected: Option<&str>) {
+        let service =
+            Service::new(FakeRepository::default().with_exercises(vec![exercise(1, "A", vec![])]));
+
+        assert_eq!(
+            pollster::block_on(service.get_exercise(id.into()))
+                .unwrap()
+                .map(|e| e.name.to_string()),
+            expected.map(str::to_string)
+        );
     }
 }

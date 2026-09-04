@@ -21,6 +21,7 @@ gloo-timers = { version = "0.4", features = ["futures"] }
 js-sys = "0.3"
 log = { version = "0.4.28" }
 plotters = { version = "0.3.7", default-features = false }
+pollster = "1.0.1"
 pretty_assertions = "1.4.1"
 rstest = "0.26.1"
 serde = "1.0"

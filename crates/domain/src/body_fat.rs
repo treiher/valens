@@ -132,6 +132,11 @@ mod tests {
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
+    use crate::{
+        Service,
+        tests::{Call, FakeRepository},
+    };
+
     use super::*;
 
     #[rstest]
@@ -233,5 +238,58 @@ mod tests {
     ) {
         assert_eq!(body_fat.jp3(sex), expected_jp3);
         assert_eq!(body_fat.jp7(sex), expected_jp7);
+    }
+
+    #[rstest]
+    #[case::unused("2020-02-03", Ok("2020-02-03"))]
+    #[case::already_used("2020-02-02", Err("entry with this date already exists"))]
+    #[case::in_the_future("2999-01-01", Err("date must not be in the future"))]
+    #[case::unparsable("02/02/2020", Err("invalid date"))]
+    fn test_validate_body_fat_date(#[case] input: &str, #[case] expected: Result<&str, &str>) {
+        let service = Service::new(FakeRepository::default().with_body_fat(vec![BodyFat {
+            date: NaiveDate::from_ymd_opt(2020, 2, 2).unwrap(),
+            chest: None,
+            abdominal: None,
+            thigh: None,
+            tricep: None,
+            subscapular: None,
+            suprailiac: None,
+            midaxillary: None,
+        }]));
+
+        assert_eq!(
+            pollster::block_on(service.validate_body_fat_date(input))
+                .map(|date| date.to_string())
+                .map_err(|err| err.to_string()),
+            expected.map(str::to_string).map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_validate_body_fat_date_unreadable_body_fat() {
+        let service = Service::new(FakeRepository::default().failing(Call::ReadBodyFat));
+
+        assert!(matches!(
+            pollster::block_on(service.validate_body_fat_date("2020-02-02")),
+            Err(ValidationError::Other(_))
+        ));
+    }
+
+    #[rstest]
+    #[case::empty("", Ok(None))]
+    #[case::lowest("0", Ok(Some(0)))]
+    #[case::highest("255", Ok(Some(255)))]
+    #[case::out_of_range("256", Err("measurement must be a positive whole number"))]
+    #[case::not_a_number("abc", Err("measurement must be a positive whole number"))]
+    fn test_validate_body_fat_skinfold(
+        #[case] input: &str,
+        #[case] expected: Result<Option<u8>, &str>,
+    ) {
+        assert_eq!(
+            Service::new(FakeRepository::default())
+                .validate_body_fat_skinfold(input)
+                .map_err(|err| err.to_string()),
+            expected.map_err(str::to_string)
+        );
     }
 }

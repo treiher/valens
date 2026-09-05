@@ -282,6 +282,20 @@ pub fn text_of_nth(html: &str, test_id: &str, index: usize) -> String {
     ))
 }
 
+/// The cells of the table row carrying `test_id`.
+///
+/// # Panics
+///
+/// Panics if no element carries `test_id`.
+pub fn cells_of(html: &str, test_id: &str) -> Vec<String> {
+    let document = scraper::Html::parse_fragment(html);
+    let cell_selector = scraper::Selector::parse("th, td").unwrap();
+    element(&document, test_id, 0)
+        .select(&cell_selector)
+        .map(|cell| text(&cell))
+        .collect()
+}
+
 /// The rows and cells of the element carrying `test_id`.
 ///
 /// # Panics

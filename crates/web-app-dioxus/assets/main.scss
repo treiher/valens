@@ -315,6 +315,21 @@ div.is-calendar {
     border: 0;
 }
 
+// Equally wide value fields, so that the columns of the sets line up with their labels. The
+// width follows the character width of the font, so that the longest value fits into a field
+// whatever font the browser uses. The horizontal padding is reduced to keep the fields narrow.
+$value-field-characters: 6;
+$value-field-padding: 0.4em;
+
+.has-equal-input-widths td > .field .input {
+    width: calc(
+        #{$value-field-characters}ch + 2 * #{$value-field-padding} + 2 *
+            var(--bulma-input-border-width, 1px)
+    );
+    padding-left: $value-field-padding;
+    padding-right: $value-field-padding;
+}
+
 // Scrollbar
 
 .is-scrollbar-width-none {

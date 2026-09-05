@@ -38,6 +38,9 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 /// Number of earlier training sessions whose sets can be shown for an exercise.
 const RECENT_SESSIONS: usize = 3;
 
+const COLUMN_HEADER_CLASS: &str =
+    "p-1 has-text-centered is-size-7 has-text-grey has-text-weight-normal";
+
 /// Renders a training session and drives its *ongoing* state.
 ///
 /// At most one training session is ongoing at a time. It is tracked in the session-scoped
@@ -673,8 +676,15 @@ fn view_form(
     mut element_elements: Signal<HashMap<usize, web_sys::Element>>,
     expanded_history: Signal<HashSet<usize>>,
 ) -> Element {
-    let mut element_idx: usize = 0;
     let sections = training_session.compute_sections();
+    let section_element_offsets = sections
+        .iter()
+        .scan(0, |offset, section| {
+            let first_element_idx = *offset;
+            *offset += section.elements().len();
+            Some(first_element_idx)
+        })
+        .collect::<Vec<_>>();
     let progress_element_idx = progress.read().element_idx;
     let progress_section_idx = training_session.section_idx(progress_element_idx);
     let progress_section_idx_lookahead =
@@ -699,7 +709,7 @@ fn view_form(
             || section_idx == progress_section_idx_lookahead;
         let exercise_ids = unique(section.exercise_ids());
         let exercise_ids_len = exercise_ids.len();
-        let element_idx_for_options = element_idx;
+        let first_element_idx = section_element_offsets[section_idx];
         let exercise_names = exercise_ids.iter().enumerate().map(|(i, id)| {
             let name = exercise_name(*id, exercises);
             let number = exercise_number(id, &exercise_ids);
@@ -736,11 +746,11 @@ fn view_form(
                         a {
                             class: "px-1 is-link",
                             "data-testid": "item-options",
-                            onclick: eh!(training_session, element_idx_for_options; {
+                            onclick: eh!(training_session, first_element_idx; {
                                 *edit_dialog.write() = EditDialog::Options {
                                     training_session: training_session.clone(),
                                     section_idx,
-                                    element_idx: element_idx_for_options,
+                                    element_idx: first_element_idx,
                                     exercise_idx: i,
                                 }
                             }),
@@ -798,8 +808,28 @@ fn view_form(
 
         let exercise_counts = section.exercise_counts();
 
-        let sets = section.elements().iter().map(|element| {
-            let current_element_idx = element_idx;
+        let shows_column_header = {
+            let field_values = field_values.read();
+            section.elements().iter().enumerate().any(|(i, element)| {
+                let domain::TrainingSessionElement::Set {
+                    target_reps,
+                    target_time,
+                    ..
+                } = element
+                else {
+                    return false;
+                };
+                field_values
+                    .get(&(first_element_idx + i))
+                    .is_some_and(|set_field_values| {
+                        timer_target_time(*target_reps, *target_time, set_field_values, focus)
+                            .is_none()
+                    })
+            })
+        };
+
+        let sets = section.elements().iter().enumerate().map(|(i, element)| {
+            let element_idx = first_element_idx + i;
             let set = match element {
                 domain::TrainingSessionElement::Set { exercise_id, target_reps, target_time, target_weight, target_rpe, .. } => {
                     let set_index = *set_index_for_exercise.entry(*exercise_id).or_default();
@@ -842,76 +872,8 @@ fn view_form(
 
                     let number = exercise_number(exercise_id, &exercise_ids);
 
-                    let set = if set_field_values.is_empty() && !set_field_values.changed() && target_reps.non_zero().is_none() && target_time.non_zero().is_some() && !focus.other_session_running() {
-                        if let Some(target_time) = target_time.non_zero() {
-                            rsx! {
-                                tr {
-                                    class: if is_current_section { "" } else { "is-semitransparent" },
-                                    td {
-                                        class: "p-1",
-                                        style: "vertical-align: middle",
-                                        "data-testid": "set-number",
-                                        if let Some(number) = number {
-                                            "{exercise_marker(number)}"
-                                        }
-                                    }
-                                    td {
-                                        class: "p-1",
-                                        colspan: 4,
-                                        div {
-                                            class: "notification is-link has-text-centered px-6 py-1",
-                                            class: if focus.is_focused(element_idx) { "is-size-1" },
-                                            if focus.is_focused(element_idx) {
-                                                Timer { timer: progress.timer_service() }
-                                            } else {
-                                                div {
-                                                    onclick: move |_| {
-                                                        if focus.other_session_running() {
-                                                            return;
-                                                        }
-                                                        focus.take_ownership();
-                                                        progress.write().set_element_idx(element_idx);
-                                                    },
-                                                    "{target_time} s"
-                                                }
-                                            }
-                                        }
-                                    }
-                                    td {
-                                        class: "p-1",
-                                        style: "vertical-align: middle",
-                                        button {
-                                            class: "button is-small",
-                                            class: if focus.is_focused(element_idx) { "is-link is-outlined" },
-                                            disabled: focus.other_session_running(),
-                                            onclick: eh!(mut training_session; target_time; {
-                                                if focus.is_focused(element_idx) {
-                                                    progress.write().set_element_idx(element_idx + 1);
-                                                    if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
-                                                        set_field_values.time.validated = Ok(target_time);
-                                                    }
-                                                    modify_training_session_elements(&mut training_session, &field_values.read());
-                                                    spawn(async move {
-                                                        save(training_session.clone(), cache, || {}).await;
-                                                    });
-                                                } else {
-                                                    focus.take_ownership();
-                                                    progress.write().set_element_idx(element_idx);
-                                                }
-                                            }),
-                                            Icon { name: if focus.is_focused(element_idx) { "check" } else { "angles-left" } }
-                                        }
-                                    }
-                                }
-                                if is_current_section {
-                                    {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
-                                }
-                            }
-                        } else {
-                            rsx! {}
-                        }
-                    } else {
-                        rsx! {
+                    let set = match timer_target_time(*target_reps, *target_time, set_field_values, focus) {
+                        None => rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
                                 td {
@@ -923,11 +885,10 @@ fn view_form(
                                     }
                                 }
                                 td {
-                                    class: "p-1 has-text-right",
+                                    class: "p-1 has-text-centered",
                                     InputField {
-                                        right_icon: rsx! { "✕" },
                                         inputmode: "numeric",
-                                        size: 2,
+                                        "aria-label": "Reps",
                                         value: set_field_values.reps.input.clone(),
                                         error: if let Err(err) = &set_field_values.reps.validated { err.clone() },
                                         has_changed: set_field_values.reps.changed(),
@@ -947,12 +908,11 @@ fn view_form(
                                     }
                                 }
                                 td {
-                                    class: "p-1 has-text-right",
+                                    class: "p-1 has-text-centered",
                                     if settings.show_tut() {
                                         InputField {
-                                            right_icon: rsx! { "s" },
                                             inputmode: "numeric",
-                                            size: 2,
+                                            "aria-label": "Time (s)",
                                             value: set_field_values.time.input.clone(),
                                             error: if let Err(err) = &set_field_values.time.validated { err.clone() },
                                             has_changed: set_field_values.time.changed(),
@@ -973,11 +933,10 @@ fn view_form(
                                     }
                                 }
                                 td {
-                                    class: "p-1 has-text-right",
+                                    class: "p-1 has-text-centered",
                                     InputField {
-                                        right_icon: rsx! { "kg" },
                                         inputmode: "decimal",
-                                        size: 3,
+                                        "aria-label": "Weight (kg)",
                                         value: set_field_values.weight.input.clone(),
                                         error: if let Err(err) = &set_field_values.weight.validated { err.clone() },
                                         has_changed: set_field_values.weight.changed(),
@@ -997,12 +956,11 @@ fn view_form(
                                     }
                                 }
                                 td {
-                                    class: "p-1",
+                                    class: "p-1 has-text-centered",
                                     if settings.show_rpe() {
                                         InputField {
-                                            left_icon: rsx! { "@" },
                                             inputmode: "decimal",
-                                            size: 2,
+                                            "aria-label": "RPE",
                                             value: set_field_values.rpe.input.clone(),
                                             error: if let Err(err) = &set_field_values.rpe.validated { err.clone() },
                                             has_changed: set_field_values.rpe.changed(),
@@ -1051,7 +1009,70 @@ fn view_form(
                             if is_current_section {
                                 {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
                             }
-                        }
+                        },
+                        Some(target_time) => rsx! {
+                            tr {
+                                class: if is_current_section { "" } else { "is-semitransparent" },
+                                td {
+                                    class: "p-1",
+                                    style: "vertical-align: middle",
+                                    "data-testid": "set-number",
+                                    if let Some(number) = number {
+                                        "{exercise_marker(number)}"
+                                    }
+                                }
+                                td {
+                                    class: "p-1",
+                                    colspan: 4,
+                                    div {
+                                        class: "notification is-link has-text-centered px-6 py-1",
+                                        class: if focus.is_focused(element_idx) { "is-size-1" },
+                                        if focus.is_focused(element_idx) {
+                                            Timer { timer: progress.timer_service() }
+                                        } else {
+                                            div {
+                                                onclick: move |_| {
+                                                    if focus.other_session_running() {
+                                                        return;
+                                                    }
+                                                    focus.take_ownership();
+                                                    progress.write().set_element_idx(element_idx);
+                                                },
+                                                "{target_time} s"
+                                            }
+                                        }
+                                    }
+                                }
+                                td {
+                                    class: "p-1",
+                                    style: "vertical-align: middle",
+                                    button {
+                                        class: "button is-small",
+                                        class: if focus.is_focused(element_idx) { "is-link is-outlined" },
+                                        disabled: focus.other_session_running(),
+                                        onclick: eh!(mut training_session; target_time; {
+                                            if focus.is_focused(element_idx) {
+                                                progress.write().set_element_idx(element_idx + 1);
+                                                if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
+                                                    set_field_values.time.validated = Ok(target_time);
+                                                }
+                                                modify_training_session_elements(&mut training_session, &field_values.read());
+                                                spawn(async move {
+                                                    save(training_session.clone(), cache, || {}).await;
+                                                });
+                                            } else {
+                                                focus.take_ownership();
+                                                progress.write().set_element_idx(element_idx);
+                                            }
+                                        }),
+                                        Icon { name: if focus.is_focused(element_idx) { "check" } else { "angles-left" } }
+                                    }
+                                }
+                            }
+                            if is_current_section {
+                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
+                            }
+                        },
                     };
                     set_index_for_exercise.entry(*exercise_id).and_modify(|i| *i += 1);
                     set
@@ -1111,13 +1132,32 @@ fn view_form(
                     }
                 }
             };
-            element_idx += 1;
-            (current_element_idx, set)
+            (element_idx, set)
         });
         rsx! {
             tbody {
                 for name in exercise_names {
                     {name}
+                }
+                if shows_column_header {
+                    tr {
+                        class: if is_current_section { "" } else { "is-semitransparent" },
+                        "data-testid": "column-header",
+                        td {}
+                        th { class: COLUMN_HEADER_CLASS, scope: "col", "Reps" }
+                        th {
+                            class: COLUMN_HEADER_CLASS,
+                            scope: "col",
+                            if settings.show_tut() { "Time (s)" }
+                        }
+                        th { class: COLUMN_HEADER_CLASS, scope: "col", "Weight (kg)" }
+                        th {
+                            class: COLUMN_HEADER_CLASS,
+                            scope: "col",
+                            if settings.show_rpe() { "RPE" }
+                        }
+                        td {}
+                    }
                 }
             }
             for (element_idx, set) in sets {
@@ -1139,7 +1179,7 @@ fn view_form(
         Block {
             table {
                 "data-testid": "session",
-                class: "mx-auto",
+                class: "mx-auto has-equal-input-widths",
                 for row in rows {
                     {row}
                 }
@@ -1157,6 +1197,26 @@ fn view_form(
                 }
             }
         }
+    }
+}
+
+/// The target time of a set that is performed with a timer instead of input fields.
+///
+/// Returns `None` for a set that is performed with input fields.
+fn timer_target_time(
+    target_reps: domain::Reps,
+    target_time: domain::Time,
+    set_field_values: &SetFieldValues,
+    focus: SetFocus,
+) -> Option<domain::Time> {
+    if set_field_values.is_empty()
+        && !set_field_values.changed()
+        && target_reps.non_zero().is_none()
+        && !focus.other_session_running()
+    {
+        target_time.non_zero()
+    } else {
+        None
     }
 }
 
@@ -2093,8 +2153,8 @@ mod tests {
     use crate::{
         ongoing_training_session::State,
         test_render::{
-            TestCache, all_attributes_of, all_text_of, contains, provide_ongoing_training_session,
-            provide_settings, render, rows_of, text_of,
+            TestCache, all_attributes_of, all_text_of, cells_of, contains,
+            provide_ongoing_training_session, provide_settings, render, rows_of, text_of,
         },
     };
 
@@ -2150,6 +2210,30 @@ mod tests {
             }])
     }
 
+    fn timed_session() -> TestCache {
+        TestCache::default()
+            .with_exercises(vec![exercise(1, "Plank")])
+            .with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![domain::TrainingSessionElement::Set {
+                    exercise_id: 1.into(),
+                    reps: domain::Reps::default(),
+                    time: domain::Time::default(),
+                    weight: domain::Weight::default(),
+                    rpe: domain::RPE::ZERO,
+                    target_reps: domain::Reps::default(),
+                    target_time: domain::Time::new(60).unwrap(),
+                    target_weight: domain::Weight::default(),
+                    target_rpe: domain::RPE::ZERO,
+                    automatic: false,
+                }],
+                exercise_notes: std::collections::BTreeMap::new(),
+            }])
+    }
+
     fn render_training_session(
         id: u128,
         settings: web_app::Settings,
@@ -2190,6 +2274,41 @@ mod tests {
             rows_of(&html, "session")[1],
             vec!["", "10 ×", "", "50 kg", ""]
         );
+    }
+
+    #[test]
+    fn test_the_columns_of_the_input_fields_are_labeled() {
+        let html = render_training_session(1, web_app::Settings::default(), planned_session);
+
+        assert_eq!(
+            cells_of(&html, "column-header"),
+            vec!["", "Reps", "Time (s)", "Weight (kg)", "RPE", ""]
+        );
+    }
+
+    #[test]
+    fn test_the_column_labels_follow_the_rpe_and_tut_settings() {
+        let html = render_training_session(
+            1,
+            web_app::Settings {
+                show_rpe: false,
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            planned_session,
+        );
+
+        assert_eq!(
+            cells_of(&html, "column-header"),
+            vec!["", "Reps", "", "Weight (kg)", "", ""]
+        );
+    }
+
+    #[test]
+    fn test_the_columns_of_a_section_without_input_fields_are_not_labeled() {
+        let html = render_training_session(1, web_app::Settings::default(), timed_session);
+
+        assert!(!contains(&html, "column-header"), "{html}");
     }
 
     #[test]

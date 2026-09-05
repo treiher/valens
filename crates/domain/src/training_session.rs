@@ -949,6 +949,26 @@ impl TrainingSession {
         .unwrap_or_default()
     }
 
+    /// For every set, its position among the sets of the same exercise, keyed by the index of the
+    /// element.
+    #[must_use]
+    pub fn set_indices(&self) -> HashMap<usize, usize> {
+        let mut counts: HashMap<ExerciseID, usize> = HashMap::new();
+        self.elements
+            .iter()
+            .enumerate()
+            .filter_map(|(element_idx, element)| match element {
+                TrainingSessionElement::Set { exercise_id, .. } => {
+                    let count = counts.entry(*exercise_id).or_default();
+                    let set_index = *count;
+                    *count += 1;
+                    Some((element_idx, set_index))
+                }
+                TrainingSessionElement::Rest { .. } => None,
+            })
+            .collect()
+    }
+
     #[must_use]
     pub fn compute_sections(&self) -> Vec<TrainingSessionSection> {
         let mut sections = vec![];
@@ -3129,6 +3149,27 @@ mod tests {
     #[test]
     fn test_training_session_compute_sections_empty() {
         assert_eq!(training_session(&[]).compute_sections(), vec![]);
+    }
+
+    #[test]
+    fn test_training_session_set_indices_number_the_sets_of_each_exercise_separately() {
+        let session = training_session(&[
+            exercise(0, 0),
+            exercise(1, 1),
+            rest(1),
+            exercise(2, 0),
+            exercise(3, 1),
+        ]);
+
+        assert_eq!(
+            session.set_indices(),
+            HashMap::from([(0, 0), (1, 0), (3, 1), (4, 1)])
+        );
+    }
+
+    #[test]
+    fn test_training_session_set_indices_of_a_session_without_sets_are_empty() {
+        assert_eq!(training_session(&[rest(0)]).set_indices(), HashMap::new());
     }
 
     #[test]

@@ -702,7 +702,7 @@ fn view_form(
             HashMap::new()
         }
     };
-    let mut set_index_for_exercise: HashMap<domain::ExerciseID, usize> = HashMap::new();
+    let set_indices = training_session.set_indices();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
         let is_current_section = !focus.show_active_focus
             || section_idx == progress_section_idx
@@ -832,7 +832,7 @@ fn view_form(
             let element_idx = first_element_idx + i;
             let set = match element {
                 domain::TrainingSessionElement::Set { exercise_id, target_reps, target_time, target_weight, target_rpe, .. } => {
-                    let set_index = *set_index_for_exercise.entry(*exercise_id).or_default();
+                    let set_index = set_indices[&element_idx];
                     let set_field_values = &field_values.read()[&element_idx];
 
                     let show_set_buttons = is_current_section && (set_field_values.is_empty() || set_field_values.changed());
@@ -872,7 +872,7 @@ fn view_form(
 
                     let number = exercise_number(exercise_id, &exercise_ids);
 
-                    let set = match timer_target_time(*target_reps, *target_time, set_field_values, focus) {
+                    match timer_target_time(*target_reps, *target_time, set_field_values, focus) {
                         None => rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
@@ -1073,9 +1073,7 @@ fn view_form(
                                 {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
                             }
                         },
-                    };
-                    set_index_for_exercise.entry(*exercise_id).and_modify(|i| *i += 1);
-                    set
+                    }
                 }
                 domain::TrainingSessionElement::Rest { target_time, .. } => {
                     rsx! {

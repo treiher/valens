@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from itertools import pairwise
 from pathlib import Path
@@ -10,7 +10,15 @@ from subprocess import PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
 
 import pytest
-from playwright.sync_api import Browser, Dialog, Page, Route, expect
+from playwright.sync_api import (
+    Browser,
+    Dialog,
+    Page,
+    Route,
+    TimeoutError as PlaywrightTimeoutError,
+    ViewportSize,
+    expect,
+)
 
 import tests.utils
 from valens import app, models
@@ -32,6 +40,7 @@ from .io import run_server
 from .pages import (
     AboutDialog,
     AdminDialog,
+    BasePage,
     BodyFatPage,
     BodyWeightPage,
     CatalogPage,
@@ -285,6 +294,75 @@ def test_home_links(page: Page) -> None:
     menstrual_cycle_page.expect_page()
     menstrual_cycle_page.navbar.go_back()
     home_page.expect_page()
+
+
+# The narrowest viewport of current phones, where the layout has the least room
+NARROW_VIEWPORT = ViewportSize(width=360, height=780)
+
+
+def goto_training_session_form(page: Page) -> BasePage:
+    p = TrainingSessionPage(page, USER.workouts[-1].id)
+    p.goto()
+    p.edit()
+    return p
+
+
+def goto_routine_activity_edit_dialog(page: Page) -> BasePage:
+    p = RoutinePage(page, USER.routines[-1].id)
+    p.goto()
+    p.open_activity_edit_dialog(0, 0)
+    return p
+
+
+def goto_page(create: Callable[[Page], BasePage]) -> Callable[[Page], BasePage]:
+    def goto(page: Page) -> BasePage:
+        p = create(page)
+        p.goto()
+        return p
+
+    return goto
+
+
+NARROW_SCREEN_PAGES: list[tuple[str, Callable[[Page], BasePage]]] = [
+    ("home", goto_page(HomePage)),
+    ("training_sessions", goto_page(TrainingSessionsPage)),
+    ("training_session", goto_page(lambda page: TrainingSessionPage(page, USER.workouts[-1].id))),
+    ("training_session_form", goto_training_session_form),
+    ("schedule", goto_page(SchedulePage)),
+    ("routines", goto_page(RoutinesPage)),
+    ("routine", goto_page(lambda page: RoutinePage(page, USER.routines[-1].id))),
+    ("routine_activity_edit_dialog", goto_routine_activity_edit_dialog),
+    ("exercises", goto_page(ExercisesPage)),
+    ("exercise", goto_page(lambda page: ExercisePage(page, USER.exercises[0].id))),
+    ("catalog", goto_page(lambda page: CatalogPage(page, "Barbell Bench Press"))),
+    ("muscles", goto_page(MusclesPage)),
+    ("body_weight", goto_page(BodyWeightPage)),
+    ("body_fat", goto_page(BodyFatPage)),
+    ("menstrual_cycle", goto_page(MenstrualCyclePage)),
+    ("ffmi", goto_page(FfmiPage)),
+]
+
+
+def test_no_horizontal_overflow_on_a_narrow_screen(page: Page) -> None:
+    page.set_viewport_size(NARROW_VIEWPORT)
+
+    login_page = LoginPage(page)
+    login_page.goto()
+    expect_no_horizontal_overflow(login_page, "login")
+
+    login(page)
+
+    for name, goto in NARROW_SCREEN_PAGES:
+        p = goto(page)
+        p.wait_until_idle()
+        expect_no_horizontal_overflow(p, name)
+
+
+def expect_no_horizontal_overflow(p: BasePage, name: str) -> None:
+    try:
+        p.expect_no_horizontal_overflow()
+    except PlaywrightTimeoutError:
+        pytest.fail(f"{name} is {p.horizontal_overflow} px wider than the screen")
 
 
 def test_ffmi_requires_height(page: Page) -> None:

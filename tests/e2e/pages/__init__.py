@@ -2,6 +2,7 @@
 
 from .about import AboutDialog as AboutDialog
 from .admin import AdminDialog as AdminDialog
+from .base import BasePage as BasePage
 from .body_fat import BodyFatPage as BodyFatPage
 from .body_weight import BodyWeightPage as BodyWeightPage
 from .catalog import CatalogPage as CatalogPage

@@ -225,6 +225,9 @@ class RoutinePage(BasePage):
                 break
         self.wait_until_idle()
 
+    def open_activity_edit_dialog(self, section_idx: int, activity_idx: int) -> None:
+        self._open_edit_dialog(section_idx, activity_idx)
+
     def set_reps(self, section_idx: int, activity_idx: int, reps: str) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
         dialog.get_by_test_id("input-reps").fill(reps)

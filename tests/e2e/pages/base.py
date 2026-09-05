@@ -51,6 +51,23 @@ class BasePage:
     def wait_until_idle(self) -> None:
         wait_until_idle(self.page)
 
+    @property
+    def horizontal_overflow(self) -> int:
+        """Number of pixels by which the page is wider than the viewport."""
+        return int(
+            self.page.evaluate(
+                "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
+            )
+        )
+
+    def expect_no_horizontal_overflow(self) -> None:
+        """Wait until the page is not wider than the viewport."""
+        # The web font is loaded lazily and changes the width of the layout.
+        self.page.evaluate("async () => { await document.fonts.ready; }")
+        self.page.wait_for_function(
+            "() => document.documentElement.scrollWidth <= document.documentElement.clientWidth"
+        )
+
     def delete_item(self, index: int) -> None:
         if self.page.get_by_test_id("item-delete").nth(index).is_visible(timeout=1000):
             self.page.get_by_test_id("item-delete").nth(index).click()

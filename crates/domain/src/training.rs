@@ -206,6 +206,36 @@ impl Tempo {
             index == 0 || (before > 0 && self.phases[index] > Time::default()),
         ))
     }
+
+    /// Returns the seconds after the start of the tempo at which a beat that sounds falls, if one
+    /// falls within `tolerance` of `elapsed`.
+    ///
+    /// Of several such beats the earliest one is returned.
+    #[must_use]
+    pub fn beat_near(&self, elapsed: f64, tolerance: f64) -> Option<f64> {
+        let seconds_per_rep = f64::from(self.seconds_per_rep().0);
+        if seconds_per_rep == 0. {
+            return None;
+        }
+
+        let from = elapsed - tolerance;
+        let to = elapsed + tolerance;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let repetition = (from / seconds_per_rep).floor().max(0.) as u32;
+        #[allow(clippy::cast_possible_truncation)]
+        let mut beat = repetition * self.len as u32;
+
+        while let Some((time, sounds)) = self.beat_at(beat)
+            && time <= to
+        {
+            if sounds && time >= from {
+                return Some(time);
+            }
+            beat = beat.saturating_add(1);
+        }
+
+        None
+    }
 }
 
 impl fmt::Display for Tempo {
@@ -880,6 +910,27 @@ mod tests {
         #[case] expected: Option<(f64, bool)>,
     ) {
         assert_eq!(Tempo::new(phases).unwrap().beat_at(beat), expected);
+    }
+
+    #[rstest]
+    #[case::empty(&[], 0., 0.25, None)]
+    #[case::on_a_beat(&[3, 1, 1, 0], 3., 0.25, Some(3.))]
+    #[case::within_the_tolerance(&[3, 1, 1, 0], 3.2, 0.25, Some(3.))]
+    #[case::beyond_the_tolerance(&[3, 1, 1, 0], 3.5, 0.25, None)]
+    #[case::before_the_start(&[3, 1, 1, 0], -0.1, 0.25, Some(0.))]
+    #[case::later_repetition(&[3, 1, 1, 0], 10.1, 0.25, Some(10.))]
+    #[case::shared_moment(&[3, 1, 1, 0], 5., 0.25, Some(5.))]
+    #[case::earliest_of_several(&[1], 1., 1.5, Some(0.))]
+    fn test_tempo_beat_near(
+        #[case] phases: &[u32],
+        #[case] elapsed: f64,
+        #[case] tolerance: f64,
+        #[case] expected: Option<f64>,
+    ) {
+        assert_eq!(
+            Tempo::new(phases).unwrap().beat_near(elapsed, tolerance),
+            expected
+        );
     }
 
     #[rstest]

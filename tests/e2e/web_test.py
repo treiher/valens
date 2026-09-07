@@ -1654,13 +1654,128 @@ def test_training_session_set_countdown_records_the_target_time(page: Page) -> N
     p.expect_page()
     p.expect_countdown()
 
-    page.wait_for_timeout(2500)
+    # The countdown starts after the same short delay as the first beep
+    page.wait_for_timeout(3000)
     p.wait_until_idle()
 
     p.reload()
     p.view()
 
     assert p.get_sets()[0][1] == 2
+
+
+def test_training_session_tempo_guides_a_set_with_input_fields(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    # The set of this routine prescribes repetitions, so it keeps its input fields
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_automatic(0, 0, automatic=False)
+    r.set_reps(0, 0, "8")
+    r.set_tempo(0, 0, "3", "1", "1", "0")
+    r.wait_until_idle()
+
+    assert r.get_sections()[0].get_set_at(0).tempo == "3·1·1·0"
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    assert any("3·1·1·0" in value for value in p.get_set_values())
+
+    p.expect_set_tempo_bar()
+    p.expect_phase_bar(4)
+    p.click_set_tempo_bar()
+    p.expect_set_tempo_bar_running(running=True)
+    p.click_set_tempo_bar()
+    p.expect_set_tempo_bar_running(running=False)
+
+    # The bar of a set is reset when another element becomes current
+    p.activate_set_action(1)
+    p.activate_set_action(0)
+    p.expect_set_tempo_bar()
+    p.expect_set_tempo_bar_running(running=True)
+    assert p.get_phase_bar_fills() == [0.0, 0.0, 0.0, 0.0]
+
+    # The bar of a running set advances through the phases
+    p.click_set_tempo_bar()
+    page.wait_for_timeout(1000)
+    assert p.get_phase_bar_fills()[0] > 0
+
+    p.set_form_text(0, ("8",))
+    assert p.get_form_text(0)[0] == "8"
+
+
+def test_training_session_automatic_tempo_set_records_the_prescribed_values(
+    page: Page,
+) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_reps(0, 0, "2")
+    r.set_tempo(0, 0, "1")
+    r.set_weight(0, 0, "20")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown()
+    p.expect_phase_bar(1)
+
+    page.wait_for_timeout(3000)
+    p.wait_until_idle()
+
+    p.reload()
+    p.view()
+
+    assert p.get_sets()[0] == (2, 1, 20.0, None)
+
+
+def test_training_session_countdown_holds_its_position_while_paused(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_reps(0, 0, "5")
+    r.set_tempo(0, 0, "3", "1", "1", "0")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown()
+
+    page.wait_for_timeout(1500)
+    running = p.get_phase_bar_fills()[0]
+    p.start_pause_countdown()
+    page.wait_for_timeout(200)
+    paused = p.get_phase_bar_fills()[0]
+
+    # Holding the countdown neither rewinds the phase nor lets it run on
+    assert paused >= running
+    page.wait_for_timeout(500)
+    assert p.get_phase_bar_fills()[0] == paused
+
+    p.start_pause_countdown()
+    page.wait_for_timeout(200)
+    assert p.get_phase_bar_fills()[0] > paused
 
 
 def test_training_session_countdown_survives_a_reload(page: Page) -> None:
@@ -1683,11 +1798,15 @@ def test_training_session_countdown_survives_a_reload(page: Page) -> None:
 
     before = p.countdown_seconds()
     page.wait_for_timeout(1500)
+    before_fill = p.get_phase_bar_fills()[0]
     p.reload()
     p.expect_countdown()
 
     after = p.countdown_seconds()
     assert 0 < after < before
+
+    # The phase of the tempo is restored where it stood, not at its start
+    assert p.get_phase_bar_fills()[0] >= before_fill
 
 
 def test_training_session_paused_countdown_survives_a_reload(page: Page) -> None:
@@ -1708,6 +1827,8 @@ def test_training_session_paused_countdown_survives_a_reload(page: Page) -> None
     p.expect_page()
     p.expect_countdown()
 
+    # The countdown starts after the same short delay as the first beep
+    page.wait_for_timeout(1000)
     p.start_pause_countdown()
     paused = p.countdown_seconds()
     page.wait_for_timeout(1500)

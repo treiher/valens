@@ -1,11 +1,13 @@
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     hash::Hash,
+    rc::Rc,
 };
 
 use dioxus::{prelude::*, web::WebEventExt};
 use futures_util::StreamExt;
-use gloo_timers::future::IntervalStream;
+use gloo_timers::future::{IntervalStream, TimeoutFuture};
 use indexmap::IndexMap;
 
 use valens_domain::{self as domain, TrainingSessionService};
@@ -13,7 +15,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, ONE_REP_MAX_CALCULATOR, Route,
-    audio::{TICK_INTERVAL_MS, Timer, TimerService},
+    audio::{METRONOME_START_DELAY, MetronomeService, TICK_INTERVAL_MS, Timer, TimerService},
     cache::{Cache, CacheState},
     dialog::{drop_set::DropSetCalculator, one_rep_max::OneRepMaxCalculatorState},
     eh,
@@ -26,11 +28,13 @@ use crate::{
     ui::{
         element::{
             ActivityBar, Block, CenteredBlock, Color, Dialog, ErrorPage, FloatingActionButton,
-            Icon, Loading, LoadingDialog, LoadingPage, MenuOption, OptionsMenu, SaveDialog, Title,
+            Icon, Loading, LoadingDialog, LoadingPage, MenuOption, OptionsMenu, PhaseBar,
+            SaveDialog, Title,
         },
         form::{FieldValue, FieldValueState, InputField, TextAreaField},
     },
     unsaved_changes::{UnsavedChangesDialog, use_unsaved_changes},
+    wake_lock::{self, WakeLock},
 };
 
 static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
@@ -172,11 +176,27 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     });
 
     let settings = use_context::<Settings>();
+    let mut metronome = use_store(MetronomeService::new);
+    let phase_clock = PhaseClock {
+        bar: use_signal(|| None),
+        elapsed: use_signal(|| 0.),
+        countdown_starts: use_signal(|| 0),
+        countdown_start_pending: use_signal(|| false),
+    };
+    // The bar clock belongs to the element it was started on and does not outlive it.
+    use_effect(move || {
+        let element_idx = *progress.element_idx().read();
+        let mut bar = phase_clock.bar;
+        if bar.peek().is_some_and(|bar| bar.element_idx != element_idx) {
+            bar.set(None);
+        }
+    });
     use_effect(move || {
         progress
             .timer_service()
             .write()
             .set_beep_volume(settings.beep_volume());
+        metronome.write().set_beep_volume(settings.beep_volume());
     });
 
     use_coroutine(move |_: UnboundedReceiver<()>| async move {
@@ -187,6 +207,15 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             // Writing on every tick would re-run the effects reading the timer ten times a second.
             if timer.peek().needs_update() {
                 timer.write().update();
+            }
+            if metronome.peek().is_active() {
+                metronome.write().update();
+            }
+            // Only the segmented bar moves between two seconds, so it alone reads this.
+            let mut elapsed = phase_clock.elapsed;
+            let value = phase_clock.seconds(*progress.element_idx().peek(), &timer.peek());
+            if (*elapsed.peek() - value).abs() > f64::EPSILON {
+                elapsed.set(value);
             }
         }
     });
@@ -234,40 +263,142 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         has_unsaved_changes.set(field_values.read().iter().any(|(_, v)| v.changed()));
     });
 
+    let current_values_are_unperformed = use_memo(move || {
+        field_values
+            .read()
+            .get(&*progress.element_idx().read())
+            .is_none_or(SetFieldValues::is_unperformed)
+    });
+
+    // The beeps and the displays of a set are two readings of one clock.
+    let clock_is_running = use_memo(move || {
+        let element_idx = *progress.element_idx().read();
+        phase_clock.bar_is_running(element_idx) || progress.timer_service().read().is_active()
+    });
+    use_effect(move || {
+        let element_idx = *progress.element_idx().read();
+        let target = training_session
+            .read()
+            .as_ref()
+            .and_then(|training_session| training_session.elements.get(element_idx).cloned())
+            .and_then(|element| match element {
+                domain::TrainingSessionElement::Set {
+                    target_reps,
+                    target_tempo,
+                    automatic,
+                    ..
+                } if target_reps.non_zero().is_some() || target_tempo.phases().len() > 1 => Some((
+                    target_tempo.non_zero()?,
+                    countdown_seconds(target_reps, target_tempo, automatic),
+                )),
+                _ => None,
+            })
+            .filter(|_| !other_session_running());
+        match target {
+            Some((tempo, countdown)) if clock_is_running() => {
+                metronome.write().set_tempo(tempo);
+                let elapsed = phase_clock
+                    .seconds(element_idx, &progress.timer_service().peek())
+                    .max(0.);
+                // The tempo of a counted-down set ends with it, so that the beat opening the
+                // repetition that follows does not sound.
+                let duration = countdown
+                    .filter(|_| !phase_clock.has_bar_clock(element_idx))
+                    .map(f64::from);
+                // The countdown and the tempo run on one clock, so a cue of the countdown can
+                // share the moment of a beat.
+                let beeped_tempo = duration.map(|_| tempo);
+                if progress.timer_service().peek().tempo() != beeped_tempo {
+                    progress.timer_service().write().set_tempo(beeped_tempo);
+                }
+                metronome.write().start(elapsed, duration);
+            }
+            _ => {
+                if progress.timer_service().peek().tempo().is_some() {
+                    progress.timer_service().write().set_tempo(None);
+                }
+                if metronome.peek().is_active() {
+                    metronome.write().pause();
+                }
+            }
+        }
+    });
+
     use_effect(move || {
         let element_idx = progress.read().element_idx;
+        // Only a set counted down automatically waits for its delayed start.
+        let set_start_pending = move |pending: bool| {
+            let mut start_pending = phase_clock.countdown_start_pending;
+            if *start_pending.peek() != pending {
+                start_pending.set(pending);
+            }
+        };
         if let Some(training_session) = training_session()
             && let Some(element) = training_session.elements.get(element_idx)
         {
             match element {
                 domain::TrainingSessionElement::Set {
+                    target_reps,
                     target_tempo,
+                    target_weight,
                     automatic,
                     ..
                 } => {
-                    if let Some(target_time) = target_tempo.seconds_per_rep().non_zero() {
-                        if progress.timer_service().read().is_set() {
-                            if progress.timer_service().read().seconds() <= 0 {
-                                progress.write().set_element_idx(element_idx + 1);
-                                if let Some(set_field_values) =
-                                    field_values.write().get_mut(&element_idx)
+                    let Some(total) = countdown_seconds(*target_reps, *target_tempo, *automatic)
+                    else {
+                        set_start_pending(false);
+                        return;
+                    };
+                    if !current_values_are_unperformed() {
+                        set_start_pending(false);
+                        // Filling a set by hand takes it out of its countdown.
+                        if progress.timer_service().peek().is_set() {
+                            progress.timer_service().write().unset();
+                        }
+                        return;
+                    }
+                    if progress.timer_service().read().is_set() {
+                        if progress.timer_service().read().seconds() <= 0 {
+                            progress.write().set_element_idx(element_idx + 1);
+                            if let Some(set_field_values) =
+                                field_values.write().get_mut(&element_idx)
+                            {
+                                set_field_values.fill(
+                                    *target_reps,
+                                    target_tempo.seconds_per_rep(),
+                                    *target_weight,
+                                );
+                            }
+                            spawn(async move {
+                                let mut training_session = training_session.clone();
+                                modify_training_session_elements(
+                                    &mut training_session,
+                                    &field_values.read(),
+                                );
+                                save(training_session, cache, || {}).await;
+                            });
+                        }
+                    } else {
+                        // A set guided by its countdown is not guided by a bar clock.
+                        let mut bar = phase_clock.bar;
+                        bar.set(None);
+                        progress.timer_service().write().set(i64::from(total));
+                        set_start_pending(*automatic);
+                        if *automatic {
+                            // The countdown starts with the first beep, and a tap within that
+                            // lead-in decides it instead.
+                            let starts = *phase_clock.countdown_starts.peek();
+                            let mut start_pending = phase_clock.countdown_start_pending;
+                            spawn(async move {
+                                TimeoutFuture::new(lead_in_ms()).await;
+                                if *progress.element_idx().peek() == element_idx
+                                    && *phase_clock.countdown_starts.peek() == starts
+                                    && progress.timer_service().peek().is_set()
                                 {
-                                    set_field_values.time.validated = Ok(target_time);
+                                    start_pending.set(false);
+                                    progress.timer_service().write().start();
                                 }
-                                spawn(async move {
-                                    let mut training_session = training_session.clone();
-                                    modify_training_session_elements(
-                                        &mut training_session,
-                                        &field_values.read(),
-                                    );
-                                    save(training_session, cache, || {}).await;
-                                });
-                            }
-                        } else {
-                            progress.timer_service().write().set(i64::from(target_time));
-                            if *automatic {
-                                progress.timer_service().write().start();
-                            }
+                            });
                         }
                     }
                 }
@@ -275,6 +406,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     target_time,
                     automatic,
                 } => {
+                    set_start_pending(false);
                     if let Some(target_time) = target_time.non_zero() {
                         if progress.timer_service().read().is_set() {
                             if *automatic && progress.timer_service().read().seconds() <= 0 {
@@ -424,7 +556,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, exercises, settings, cache, element_elements, expanded_history)},
+                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
                     {view_list(training_session, exercises, settings)},
                     {view_muscles(training_session, exercises)}
@@ -573,6 +705,15 @@ struct SetFieldValues {
 }
 
 impl SetFieldValues {
+    /// Fills the values a set is recorded with when its countdown runs out or it is confirmed.
+    ///
+    /// The rating is what the set felt like and is therefore left to the user.
+    fn fill(&mut self, reps: domain::Reps, time: domain::Time, weight: domain::Weight) {
+        fill_field(&mut self.reps, reps);
+        fill_field(&mut self.time, time);
+        fill_field(&mut self.weight, weight);
+    }
+
     fn valid(&self) -> bool {
         self.reps.valid() && self.time.valid() && self.weight.valid() && self.rpe.valid()
     }
@@ -591,6 +732,120 @@ impl SetFieldValues {
             && self.weight.input.is_empty()
             && self.rpe.input.is_empty()
     }
+
+    /// Whether the set carries neither recorded nor entered values.
+    fn is_unperformed(&self) -> bool {
+        self.is_empty() && !self.changed()
+    }
+}
+
+/// Writes a value into a field as if the user had entered and saved it.
+fn fill_field<T: Default + PartialEq + ToString>(field: &mut FieldValue<T>, value: T) {
+    let input = if value == T::default() {
+        String::new()
+    } else {
+        value.to_string()
+    };
+    field.input.clone_from(&input);
+    field.orig = input;
+    field.validated = Ok(value);
+}
+
+/// The clock a set is guided by, and the state its bar and its countdown are read from.
+#[derive(Clone, Copy, PartialEq)]
+struct PhaseClock {
+    /// The clock of a set performed with its input fields, which has no countdown of its own.
+    bar: Signal<Option<BarClock>>,
+    /// The seconds elapsed on the clock of the current element, written on every tick.
+    elapsed: Signal<f64>,
+    /// Counts the countdowns started, so that a delayed start can tell whether it still applies.
+    countdown_starts: Signal<usize>,
+    /// Whether the countdown of the current element is waiting for its delayed automatic start.
+    countdown_start_pending: Signal<bool>,
+}
+
+impl PhaseClock {
+    /// The seconds elapsed on the clock of `element_idx`.
+    fn seconds(&self, element_idx: usize, timer: &TimerService) -> f64 {
+        match *self.bar.peek() {
+            Some(bar) if bar.element_idx == element_idx => bar.seconds(),
+            _ => timer.elapsed_exact(),
+        }
+    }
+
+    /// Whether the clock of `element_idx` is its bar rather than its countdown.
+    fn has_bar_clock(&self, element_idx: usize) -> bool {
+        matches!(*self.bar.peek(), Some(bar) if bar.element_idx == element_idx)
+    }
+
+    fn bar_is_running(&self, element_idx: usize) -> bool {
+        self.bar
+            .read()
+            .is_some_and(|bar| bar.element_idx == element_idx && bar.is_running())
+    }
+
+    /// Starts the bar clock of `element_idx`, or holds it where it stands.
+    fn toggle_bar(&mut self, element_idx: usize) {
+        let bar = match *self.bar.peek() {
+            Some(bar) if bar.element_idx == element_idx => bar.toggled(),
+            _ => BarClock::started(element_idx),
+        };
+        self.bar.set(Some(bar));
+    }
+}
+
+/// The clock of a set performed against its bar, which the user starts and holds by tapping it.
+#[derive(Clone, Copy)]
+struct BarClock {
+    element_idx: usize,
+    elapsed: f64,
+    started_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl BarClock {
+    fn started(element_idx: usize) -> Self {
+        Self {
+            element_idx,
+            elapsed: 0.,
+            started_at: Some(chrono::Utc::now()),
+        }
+    }
+
+    fn is_running(&self) -> bool {
+        self.started_at.is_some()
+    }
+
+    fn seconds(&self) -> f64 {
+        self.elapsed
+            + self.started_at.map_or(0., |started_at| {
+                #[allow(clippy::cast_precision_loss)]
+                let seconds = chrono::Utc::now()
+                    .signed_duration_since(started_at)
+                    .num_milliseconds() as f64
+                    / 1000.;
+                seconds
+            })
+    }
+
+    fn toggled(self) -> Self {
+        if self.is_running() {
+            Self {
+                elapsed: self.seconds(),
+                started_at: None,
+                ..self
+            }
+        } else {
+            Self {
+                started_at: Some(chrono::Utc::now()),
+                ..self
+            }
+        }
+    }
+}
+
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn lead_in_ms() -> u32 {
+    (METRONOME_START_DELAY * 1000.) as u32
 }
 
 /// Per-set focus state of the training session form.
@@ -641,6 +896,7 @@ fn view_form(
     cache: Cache,
     mut element_elements: Signal<HashMap<usize, web_sys::Element>>,
     expanded_history: Signal<HashSet<usize>>,
+    phase_clock: PhaseClock,
 ) -> Element {
     let sections = training_session.compute_sections();
     let section_element_offsets = sections
@@ -780,6 +1036,7 @@ fn view_form(
                 let domain::TrainingSessionElement::Set {
                     target_reps,
                     target_tempo,
+                    automatic,
                     ..
                 } = element
                 else {
@@ -788,9 +1045,10 @@ fn view_form(
                 field_values
                     .get(&(first_element_idx + i))
                     .is_some_and(|set_field_values| {
-                        timer_target_time(
+                        countdown_total(
                             *target_reps,
-                            target_tempo.seconds_per_rep(),
+                            *target_tempo,
+                            *automatic,
                             set_field_values,
                             focus,
                         )
@@ -802,7 +1060,7 @@ fn view_form(
         let sets = section.elements().iter().enumerate().map(|(i, element)| {
             let element_idx = first_element_idx + i;
             let set = match element {
-                domain::TrainingSessionElement::Set { exercise_id, target_reps, target_tempo, target_weight, target_rpe, .. } => {
+                domain::TrainingSessionElement::Set { exercise_id, target_reps, target_tempo, target_weight, target_rpe, automatic, .. } => {
                     let set_index = set_indices[&element_idx];
                     let set_field_values = &field_values.read()[&element_idx];
 
@@ -844,8 +1102,9 @@ fn view_form(
                     }
 
                     let number = exercise_number(exercise_id, &exercise_ids);
+                    let recorded = (*target_reps, target_tempo.seconds_per_rep(), *target_weight);
 
-                    match timer_target_time(*target_reps, target_tempo.seconds_per_rep(), set_field_values, focus) {
+                    match countdown_total(*target_reps, *target_tempo, *automatic, set_field_values, focus) {
                         None => rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
@@ -979,11 +1238,26 @@ fn view_form(
                                     }
                                 }
                             }
+                            if focus.is_focused(element_idx) && target_tempo.non_zero().is_some() {
+                                tr {
+                                    td {}
+                                    td {
+                                        class: "px-1",
+                                        colspan: 4,
+                                        SetTempoBar {
+                                            element_idx,
+                                            target_tempo: *target_tempo,
+                                            phase_clock,
+                                        }
+                                    }
+                                    td {}
+                                }
+                            }
                             if is_current_section {
                                 {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
                             }
                         },
-                        Some(target_time) => rsx! {
+                        Some(total) => rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
                                 td {
@@ -998,10 +1272,17 @@ fn view_form(
                                     class: "p-1",
                                     colspan: 4,
                                     div {
-                                        class: "notification is-link has-text-centered px-6 py-1",
-                                        class: if focus.is_focused(element_idx) { "is-size-1" },
+                                        class: "notification is-link has-text-centered px-6 pt-1",
+                                        // The bottom padding of the focused block is the space above its phase bar
+                                        class: if focus.is_focused(element_idx) { "is-size-1 pb-3 has-phase-bar" } else { "pb-1" },
                                         if focus.is_focused(element_idx) {
-                                            Timer { timer: progress.timer_service() }
+                                            SetCountdown {
+                                                target_reps: *target_reps,
+                                                target_tempo: *target_tempo,
+                                                total,
+                                                progress,
+                                                phase_clock,
+                                            }
                                         } else {
                                             div {
                                                 onclick: move |_| {
@@ -1011,7 +1292,7 @@ fn view_form(
                                                     focus.take_ownership();
                                                     progress.write().set_element_idx(element_idx);
                                                 },
-                                                "{target_time} s"
+                                                "{total} s"
                                             }
                                         }
                                     }
@@ -1023,11 +1304,12 @@ fn view_form(
                                         class: "button is-small",
                                         class: if focus.is_focused(element_idx) { "is-link is-outlined" },
                                         disabled: focus.other_session_running(),
-                                        onclick: eh!(mut training_session; target_time; {
+                                        onclick: eh!(mut training_session; recorded; {
                                             if focus.is_focused(element_idx) {
                                                 progress.write().set_element_idx(element_idx + 1);
                                                 if let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
-                                                    set_field_values.time.validated = Ok(target_time);
+                                                    let (reps, time, weight) = recorded;
+                                                    set_field_values.fill(reps, time, weight);
                                                 }
                                                 modify_training_session_elements(&mut training_session, &field_values.read());
                                                 spawn(async move {
@@ -1171,23 +1453,120 @@ fn view_form(
     }
 }
 
-/// The target time of a set that is performed with a timer instead of input fields.
-///
-/// Returns `None` for a set that is performed with input fields.
-fn timer_target_time(
+/// The seconds a set is counted down for, or `None` when it is rendered with its input fields.
+fn countdown_total(
     target_reps: domain::Reps,
-    target_time: domain::Time,
+    target_tempo: domain::Tempo,
+    automatic: bool,
     set_field_values: &SetFieldValues,
     focus: SetFocus,
-) -> Option<domain::Time> {
-    if set_field_values.is_empty()
-        && !set_field_values.changed()
-        && target_reps.non_zero().is_none()
-        && !focus.other_session_running()
-    {
-        target_time.non_zero()
+) -> Option<u32> {
+    if !set_field_values.is_unperformed() || focus.other_session_running() {
+        return None;
+    }
+    countdown_seconds(target_reps, target_tempo, automatic)
+}
+
+/// The seconds a countdown of a set runs for, whatever the set already carries.
+///
+/// A set that prescribes repetitions is counted down only when it starts automatically.
+fn countdown_seconds(
+    target_reps: domain::Reps,
+    target_tempo: domain::Tempo,
+    automatic: bool,
+) -> Option<u32> {
+    let seconds_per_rep = u32::from(target_tempo.seconds_per_rep().non_zero()?);
+    match target_reps.non_zero() {
+        Some(reps) => automatic.then(|| u32::from(reps) * seconds_per_rep),
+        None => Some(seconds_per_rep),
+    }
+}
+
+/// The countdown of a set, showing the phase it is in and how far it has got.
+#[component]
+fn SetCountdown(
+    target_reps: domain::Reps,
+    target_tempo: domain::Tempo,
+    total: u32,
+    progress: Store<Progress>,
+    phase_clock: PhaseClock,
+) -> Element {
+    let timer = progress.timer_service();
+    // A countdown about to start automatically is not waiting for a tap.
+    let is_running = timer.read().is_active() || *phase_clock.countdown_start_pending.read();
+    // The countdown is set after the set has become current, so the total stands in until then.
+    let remaining = if timer.read().is_set() {
+        timer.read().seconds()
     } else {
-        None
+        i64::from(total)
+    };
+    // The moment the countdown reaches zero already belongs to the next repetition, whose first
+    // phase would replace the one that just ended.
+    #[allow(clippy::cast_precision_loss)]
+    let elapsed = (i64::from(total) - remaining.max(1)).max(0) as f64;
+    let phase = target_tempo.phase_at(elapsed);
+    let repetition = phase.map_or(0, |(repetition, _, _)| repetition) + 1;
+
+    rsx! {
+        div {
+            "data-testid": "countdown",
+            class: if is_running { "" } else { "is-blinking" },
+            onclick: move |_| {
+                let mut countdown_starts = phase_clock.countdown_starts;
+                countdown_starts += 1;
+                let mut start_pending = phase_clock.countdown_start_pending;
+                start_pending.set(false);
+                progress.timer_service().write().start_pause();
+            },
+            div { "{phase.map_or(remaining, |(_, _, remaining)| remaining.ceil() as i64)} s" }
+            if let Some(reps) = target_reps.non_zero() {
+                div { class: "is-size-6", "data-testid": "countdown-detail", "{repetition}/{reps}" }
+            }
+        }
+        PhaseBar {
+            class: "phase-bar-pinned",
+            phases: target_tempo.phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
+            position: target_tempo
+                .phase_at((*phase_clock.elapsed.read()).max(0.))
+                .map(|(_, index, remaining)| (index, remaining)),
+        }
+    }
+}
+
+/// The tempo bar of a set performed with its input fields, which the user starts and holds by
+/// tapping.
+#[component]
+fn SetTempoBar(
+    element_idx: usize,
+    target_tempo: domain::Tempo,
+    phase_clock: PhaseClock,
+) -> Element {
+    let is_running = phase_clock.bar_is_running(element_idx);
+    let has_started = phase_clock
+        .bar
+        .read()
+        .is_some_and(|bar| bar.element_idx == element_idx);
+    let wake_lock = use_hook(|| Rc::new(RefCell::new(None::<Rc<WakeLock>>)));
+    *wake_lock.borrow_mut() = is_running.then(wake_lock::hold);
+
+    rsx! {
+        div {
+            "data-testid": "set-tempo-bar",
+            // Vertical padding, so the thin bar can be hit with a finger
+            class: "py-2",
+            class: if has_started && !is_running { "is-blinking" },
+            onclick: move |_| {
+                let mut phase_clock = phase_clock;
+                phase_clock.toggle_bar(element_idx);
+            },
+            PhaseBar {
+                phases: target_tempo.phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
+                position: has_started
+                    .then(|| target_tempo.phase_at((*phase_clock.elapsed.read()).max(0.)))
+                    .flatten()
+                    .map(|(_, index, remaining)| (index, remaining)),
+            }
+        }
     }
 }
 
@@ -2133,7 +2512,7 @@ mod tests {
     use crate::{
         ongoing_training_session::State,
         test_render::{
-            TestCache, all_attributes_of, all_text_of, cells_of, contains,
+            TestCache, all_attributes_of, all_text_of, attribute_of, cells_of, contains,
             provide_ongoing_training_session, provide_settings, render, rows_of, text_of,
         },
     };
@@ -2289,6 +2668,152 @@ mod tests {
         let html = render_training_session(1, web_app::Settings::default(), timed_session);
 
         assert!(!contains(&html, "column-header"), "{html}");
+    }
+
+    fn tempo_session(
+        phases: &'static [u32],
+        target_reps: u32,
+        automatic: bool,
+        recorded: bool,
+    ) -> impl Fn() -> TestCache + 'static {
+        move || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Squat")])
+                .with_training_sessions(vec![domain::TrainingSession {
+                    id: 1.into(),
+                    routine_id: 1.into(),
+                    date: chrono::Local::now().date_naive(),
+                    notes: String::new(),
+                    elements: vec![domain::TrainingSessionElement::Set {
+                        exercise_id: 1.into(),
+                        reps: if recorded {
+                            domain::Reps::new(target_reps).unwrap()
+                        } else {
+                            domain::Reps::default()
+                        },
+                        time: domain::Time::default(),
+                        weight: domain::Weight::default(),
+                        rpe: domain::RPE::ZERO,
+                        target_reps: domain::Reps::new(target_reps).unwrap(),
+                        target_tempo: domain::Tempo::new(phases).unwrap(),
+                        target_weight: domain::Weight::default(),
+                        target_rpe: domain::RPE::ZERO,
+                        automatic,
+                    }],
+                    exercise_notes: std::collections::BTreeMap::new(),
+                }])
+        }
+    }
+
+    #[test]
+    fn test_a_set_with_a_tempo_shows_the_bar_and_keeps_its_input_fields() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            tempo_session(&[3, 1, 1, 0], 8, false, false),
+        );
+
+        assert!(contains(&html, "set-tempo-bar"), "{html}");
+        assert!(!contains(&html, "countdown"), "{html}");
+        assert!(contains(&html, "column-header"), "{html}");
+    }
+
+    #[test]
+    fn test_an_automatic_set_with_a_tempo_is_counted_down() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            tempo_session(&[3, 1, 1, 0], 8, true, false),
+        );
+
+        assert_eq!(text_of(&html, "countdown-detail"), "1/8");
+        assert!(!contains(&html, "set-tempo-bar"), "{html}");
+    }
+
+    #[test]
+    fn test_a_countdown_without_reps_has_no_detail() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            tempo_session(&[3, 1, 1, 0], 0, true, false),
+        );
+
+        assert!(contains(&html, "countdown"), "{html}");
+        assert!(!contains(&html, "countdown-detail"), "{html}");
+    }
+
+    #[test]
+    fn test_a_countdown_awaiting_its_automatic_start_does_not_blink() {
+        assert_eq!(countdown_class(true), "");
+        assert_eq!(countdown_class(false), "is-blinking");
+    }
+
+    /// Renders a countdown that has not been started and returns its class.
+    fn countdown_class(start_pending: bool) -> String {
+        let html = render(move || rsx! { UnstartedCountdown { start_pending } });
+
+        attribute_of(&html, "countdown", "class")
+    }
+
+    #[component]
+    fn UnstartedCountdown(start_pending: bool) -> Element {
+        let progress = use_store(|| Progress::new(1.into()));
+        let phase_clock = PhaseClock {
+            bar: use_signal(|| None),
+            elapsed: use_signal(|| 0.),
+            countdown_starts: use_signal(|| 0),
+            countdown_start_pending: use_signal(|| start_pending),
+        };
+
+        rsx! {
+            SetCountdown {
+                target_reps: domain::Reps::new(8).unwrap(),
+                target_tempo: domain::Tempo::new(&[3, 1, 1, 0]).unwrap(),
+                total: 40,
+                progress,
+                phase_clock,
+            }
+        }
+    }
+
+    #[test]
+    fn test_a_set_without_a_tempo_keeps_its_input_fields() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            tempo_session(&[], 8, true, false),
+        );
+
+        assert!(!contains(&html, "countdown"), "{html}");
+        assert!(!contains(&html, "set-tempo-bar"), "{html}");
+    }
+
+    #[test]
+    fn test_a_recorded_set_is_neither_counted_down_nor_guided() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            tempo_session(&[3, 1, 1, 0], 8, true, true),
+        );
+
+        assert!(!contains(&html, "countdown"), "{html}");
+        assert!(!contains(&html, "set-tempo-bar"), "{html}");
+    }
+
+    #[test]
+    fn test_a_set_with_a_tempo_is_counted_down_without_the_tut_setting() {
+        for target_reps in [8, 0] {
+            let html = render_training_session(
+                1,
+                web_app::Settings {
+                    show_tut: false,
+                    ..web_app::Settings::default()
+                },
+                tempo_session(&[3, 1, 1, 0], target_reps, true, false),
+            );
+
+            assert!(contains(&html, "countdown"), "{html}");
+        }
     }
 
     #[test]

@@ -85,7 +85,7 @@ enum State {
 /// Asks for the lock again once the page is visible, since the browser drops it while hidden.
 fn listen_for_visibility_changes() {
     VISIBILITY_LISTENER.call_once(|| {
-        let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        let Some(document) = window().and_then(|window| window.document()) else {
             warn!("failed to access document");
             return;
         };
@@ -119,7 +119,7 @@ fn listen_for_visibility_changes() {
 }
 
 fn request_wake_lock() -> Option<js_sys::Promise> {
-    let navigator = web_sys::window()?.navigator();
+    let navigator = window()?.navigator();
     let wake_lock = js_sys::Reflect::get(&navigator, &JsValue::from_str("wakeLock")).ok()?;
     let request = js_sys::Reflect::get(&wake_lock, &JsValue::from_str("request"))
         .ok()?
@@ -130,6 +130,15 @@ fn request_wake_lock() -> Option<js_sys::Promise> {
         .ok()?
         .dyn_into::<js_sys::Promise>()
         .ok()
+}
+
+/// The window, or `None` off wasm, where accessing the browser APIs panics.
+fn window() -> Option<web_sys::Window> {
+    if cfg!(target_arch = "wasm32") {
+        web_sys::window()
+    } else {
+        None
+    }
 }
 
 fn release(sentinel: &JsValue) {

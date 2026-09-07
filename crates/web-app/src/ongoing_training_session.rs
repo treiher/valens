@@ -44,6 +44,15 @@ impl OngoingTrainingSession {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum TimerState {
     Unset,
-    Active { target_time: DateTime<Utc> },
-    Paused { time: i64 },
+    Active {
+        target_time: DateTime<Utc>,
+        /// The time the countdown was set to, absent in sessions stored before it was recorded.
+        #[serde(default)]
+        total: Option<i64>,
+    },
+    Paused {
+        time: i64,
+        #[serde(default)]
+        total: Option<i64>,
+    },
 }

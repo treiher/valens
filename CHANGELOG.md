@@ -14,10 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Sets of the recent sessions of an exercise, shown on demand below the values of a set
     - Filling of the sets of an exercise from the drop set calculator
     - Target tempo of a set
+    - Visualization of the running phase of the tempo under a set, which is started and held by tapping it
 - Routines page: Editing of the notes of a routine
 - Routine page:
     - Notes of a routine
     - Tempo of an activity
+    - Automatic start of the timer for an activity that prescribes repetitions
 - Exercises page:
     - Properties of custom exercises, copied from the catalog when an exercise is added from it
     - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
@@ -46,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Option to calculate drop sets, only shown if at least two sets of the exercise are in the same series of sets without a rest
     - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
     - Values of a set, showing the time after the other values
+    - Values recorded when a set advances on its own or is confirmed by hand, which now include the repetitions and the weight its routine prescribes
+    - Countdown of a set, which now starts after the same short delay as the first beep and no longer runs for a set that is already recorded
+    - Blinking of the countdown of a paused set, which now dims it instead of hiding it
 - Routine page:
     - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
     - Time of an activity, which is now given as a tempo

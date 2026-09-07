@@ -265,7 +265,10 @@ mod tests {
                 start_time: DateTime::<Utc>::from_timestamp(1_700_000_000, 0).unwrap(),
                 element_idx: 2,
                 element_start_time: DateTime::<Utc>::from_timestamp(1_700_000_060, 0).unwrap(),
-                timer_state: TimerState::Paused { time: 30 },
+                timer_state: TimerState::Paused {
+                    time: 30,
+                    total: Some(60),
+                },
             }
         }
 

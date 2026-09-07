@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import re
 import uuid
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
-from .base import BasePage, Dialog
+from .base import BasePage, Dialog, phase_bar_fills
 from .exercises import ExerciseListDialog
 from .utils import get_text, parse_float, parse_int
 
@@ -137,6 +138,30 @@ class TrainingSessionPage(BasePage):
     @property
     def countdown(self) -> Locator:
         return self.page.get_by_test_id("countdown")
+
+    def click_set_tempo_bar(self, index: int = 0) -> None:
+        self.page.get_by_test_id("set-tempo-bar").nth(index).click()
+
+    def expect_set_tempo_bar(self) -> None:
+        expect(self.page.get_by_test_id("set-tempo-bar")).to_be_visible()
+
+    def get_phase_bar_fills(self) -> list[float]:
+        return phase_bar_fills(self.page)
+
+    def expect_phase_bar(self, segments: int) -> None:
+        bar = self.page.get_by_test_id("phase-bar")
+        expect(bar).to_be_visible()
+        expect(bar.locator("> div")).to_have_count(segments)
+
+    def expect_set_tempo_bar_running(self, *, running: bool) -> None:
+        bar = self.page.get_by_test_id("set-tempo-bar")
+        if running:
+            expect(bar).not_to_have_class(re.compile(r"is-blinking"))
+        else:
+            expect(bar).to_have_class(re.compile(r"is-blinking"))
+
+    def get_set_values(self) -> list[str]:
+        return [get_text(value) for value in self.page.get_by_test_id("set-value").all()]
 
     def get_notes(self) -> str:
         self.expect_edit_mode()

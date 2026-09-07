@@ -163,6 +163,21 @@ html {
     position: absolute;
     left: 0;
     bottom: 0;
+
+    .phase-bar-segment {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.35);
+    }
+
+    .phase-bar-fill {
+        background: rgba(255, 255, 255, 0.95);
+    }
+}
+
+.notification.has-phase-bar {
+    position: relative;
+    // Clip the rounded corners of the phase bar pinned to the bottom edge
+    overflow: hidden;
 }
 
 .notification-bar {
@@ -338,7 +353,7 @@ div.is-calendar {
 // Blinking
 
 .is-blinking {
-  animation: blink 1s steps(1, end) infinite;
+    animation: blink 1s ease-in-out infinite;
 }
 
 @keyframes blink {
@@ -346,10 +361,18 @@ div.is-calendar {
         opacity: 1;
     }
     50% {
-        opacity: 0;
+        opacity: 0.2;
     }
     100% {
         opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    // Stay dimmed instead of pulsing, so that the state is still indicated
+    .is-blinking {
+        animation: none;
+        opacity: 0.2;
     }
 }
 

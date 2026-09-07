@@ -254,10 +254,10 @@ class RoutinePage(BasePage):
         dialog.get_by_test_id("input-rpe").fill(rpe)
         self.dialog.save()
 
-    def set_automatic(self, section_idx: int, activity_idx: int) -> None:
+    def set_automatic(self, section_idx: int, activity_idx: int, *, automatic: bool = True) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
         dialog.get_by_test_id("button-select-automatic").get_by_text(
-            "Automatic", exact=True
+            "Automatic" if automatic else "Manual", exact=True
         ).click()
         self.dialog.save()
 

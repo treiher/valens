@@ -42,9 +42,7 @@ class MetronomeTimerStopwatchDialog(BaseDialog):
 
     def expect_metronome_tempo(self, *phases: str) -> None:
         for index, phase in enumerate(phases):
-            expect(self.dialog.root.get_by_test_id(f"metronome-tempo-{index}")).to_have_value(
-                phase
-            )
+            expect(self.dialog.root.get_by_test_id(f"metronome-tempo-{index}")).to_have_value(phase)
 
     def get_metronome_bar_fills(self) -> list[float]:
         return phase_bar_fills(self.dialog.root)

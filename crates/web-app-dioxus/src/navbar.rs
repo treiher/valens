@@ -9,8 +9,11 @@ use log::warn;
 use valens_domain as domain;
 
 use crate::{
-    DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
-    audio::{Metronome, MutableTimer, Stopwatch, StopwatchService, TICK_INTERVAL_MS, TimerService},
+    DROP_SET_CALCULATOR, ONE_REP_MAX_CALCULATOR, Route,
+    audio::{
+        Metronome, MetronomeService, MutableTimer, Stopwatch, StopwatchService, TICK_INTERVAL_MS,
+        TimerService,
+    },
     dialog::{
         about::AboutDialog, admin::AdminDialog, drop_set::DropSetCalculator,
         one_rep_max::OneRepMaxCalculator, profile::ProfileDialog, settings::SettingsDialog,
@@ -50,16 +53,17 @@ pub fn Navbar() -> Element {
 
     let mut stopwatch = use_signal(StopwatchService::new);
     let mut timer = use_signal(|| TimerService::new(60));
+    let mut metronome = use_store(MetronomeService::new);
     use_effect(move || {
-        METRONOME.write().set_beep_volume(settings.beep_volume());
+        metronome.write().set_beep_volume(settings.beep_volume());
         timer.write().set_beep_volume(settings.beep_volume());
     });
     use_coroutine(move |_: UnboundedReceiver<()>| async move {
         let mut interval = IntervalStream::new(TICK_INTERVAL_MS);
         while interval.next().await.is_some() {
             // Writing on every tick would re-render the navigation bar ten times a second.
-            if METRONOME.peek().is_active() {
-                METRONOME.write().update();
+            if metronome.peek().is_active() {
+                metronome.write().update();
             }
             if stopwatch.peek().is_active() {
                 stopwatch.write().update();
@@ -235,6 +239,7 @@ pub fn Navbar() -> Element {
 
         if metronome_time_stopwatch_visible() {
             MetronomeTimerStopwatch {
+                metronome,
                 stopwatch,
                 timer,
                 on_close: move |_| { metronome_time_stopwatch_visible.set(false); }
@@ -344,6 +349,7 @@ fn ActivityBarNavigate(route: Route) -> Element {
 
 #[component]
 fn MetronomeTimerStopwatch(
+    metronome: Store<MetronomeService>,
     stopwatch: Signal<StopwatchService>,
     timer: Signal<TimerService>,
     on_close: EventHandler<MouseEvent>,
@@ -355,7 +361,7 @@ fn MetronomeTimerStopwatch(
                 label { class: "subtitle", "Metronome" }
                 div {
                     class: "container has-text-centered p-4",
-                    Metronome {}
+                    Metronome { metronome }
                 }
             }
             div { class: "block",

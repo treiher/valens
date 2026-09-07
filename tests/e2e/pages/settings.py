@@ -21,12 +21,6 @@ class SettingsDialog(BaseDialog):
     def choose_theme(self, theme: str) -> None:
         self.dialog.root.get_by_test_id(f"settings-theme-{theme}").click()
 
-    def toggle_metronome(self) -> None:
-        self.dialog.root.get_by_test_id("settings-metronome").click()
-
-    def expect_metronome(self, state: str) -> None:
-        expect(self.dialog.root.get_by_test_id("settings-metronome")).to_have_text(state)
-
     def toggle_notifications(self) -> None:
         self.notifications_button.click()
 

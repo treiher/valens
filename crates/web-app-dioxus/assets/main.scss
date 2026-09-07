@@ -120,6 +120,51 @@ html {
 
 // Notification bar pinned below the fixed top navbar
 
+// Phases of a repetition, drawn from a position the page computes
+.phase-bar {
+    display: flex;
+    gap: 2px;
+    width: 100%;
+    padding: 0 0.25rem 0.25rem;
+}
+
+.phase-bar-segment {
+    flex-basis: 0;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 2px;
+    // Keep a short phase visible next to the long ones
+    min-width: 2px;
+    background: rgba(128, 128, 128, 0.3);
+}
+
+// A phase of zero seconds is passed instantly and therefore has no width
+.phase-bar-segment-empty {
+    min-width: 0;
+}
+
+.phase-bar-fill {
+    height: 100%;
+    background: var(--bulma-link);
+    // Bridge the interval at which the position is written, so the fill grows instead of stepping
+    transition: width 0.1s linear;
+
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
+}
+
+.phase-bar-fill-empty {
+    transition: none;
+}
+
+// Placement of a phase bar along the bottom edge of a notification
+.phase-bar-pinned {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+}
+
 .notification-bar {
     position: fixed;
     left: 0;

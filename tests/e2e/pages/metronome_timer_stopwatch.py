@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import expect
 
-from .base import BaseDialog
+from .base import BaseDialog, phase_bar_fills
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator
@@ -29,8 +29,31 @@ class MetronomeTimerStopwatchDialog(BaseDialog):
             self.dialog.root.get_by_test_id("metronome-play").get_by_test_id(f"icon-{icon}")
         ).to_be_visible()
 
-    def expect_metronome_interval(self, seconds: int) -> None:
-        expect(self.dialog.root.get_by_test_id("metronome-interval")).to_have_value(str(seconds))
+    def expect_metronome_playable(self, *, playable: bool) -> None:
+        play = self.dialog.root.get_by_test_id("metronome-play")
+        if playable:
+            expect(play).to_be_enabled()
+        else:
+            expect(play).to_be_disabled()
+
+    def set_metronome_tempo(self, *phases: str) -> None:
+        for index, phase in enumerate(phases):
+            self.dialog.root.get_by_test_id(f"metronome-tempo-{index}").fill(phase)
+
+    def expect_metronome_tempo(self, *phases: str) -> None:
+        for index, phase in enumerate(phases):
+            expect(self.dialog.root.get_by_test_id(f"metronome-tempo-{index}")).to_have_value(
+                phase
+            )
+
+    def get_metronome_bar_fills(self) -> list[float]:
+        return phase_bar_fills(self.dialog.root)
+
+    def expect_metronome_bar(self, segments: int) -> None:
+        expect(self.dialog.root.get_by_test_id("phase-bar")).to_be_visible()
+        expect(self.dialog.root.get_by_test_id("phase-bar").locator("> div")).to_have_count(
+            segments
+        )
 
     # Stopwatch
 

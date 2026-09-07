@@ -159,6 +159,63 @@ pub fn ActivityBar(children: Element) -> Element {
     }
 }
 
+/// The phases of a repetition as a bar, the passed phases full, the running one filling up.
+///
+/// The widths of the segments are proportional to the durations of the phases, so that a phase of
+/// zero seconds has no width.
+#[component]
+pub fn PhaseBar(
+    phases: Vec<u32>,
+    /// The index of the running phase and the seconds remaining in it, or `None` while the tempo
+    /// is not running.
+    position: Option<(usize, f64)>,
+    class: Option<String>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    rsx! {
+        div {
+            class: "phase-bar",
+            class: if let Some(class) = &class { "{class}" },
+            "data-testid": "phase-bar",
+            ..attributes,
+            for (index, phase) in phases.iter().enumerate() {
+                {
+                    let fill = phase_fill(*phase, index, position);
+                    rsx! {
+                        div {
+                            class: "phase-bar-segment",
+                            class: if *phase == 0 { "phase-bar-segment-empty" },
+                            style: "flex-grow: {phase}",
+                            div {
+                                class: "phase-bar-fill",
+                                "data-testid": "phase-bar-fill",
+                                // An emptied segment is cleared at once rather than drained backwards
+                                class: if fill == 0. { "phase-bar-fill-empty" },
+                                style: "width: {fill}%",
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The percentage of a segment that is filled at `position`.
+fn phase_fill(phase: u32, index: usize, position: Option<(usize, f64)>) -> f64 {
+    let Some((running, remaining)) = position else {
+        return 0.;
+    };
+    if index < running {
+        return 100.;
+    }
+    if index > running || phase == 0 {
+        return 0.;
+    }
+    let duration = f64::from(phase);
+    ((duration - remaining) / duration * 100.).clamp(0., 100.)
+}
+
 /// Compact inline error, framed by the surrounding content.
 #[component]
 pub fn Error(message: String) -> Element {
@@ -689,7 +746,7 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::test_render::{all_text_of, contains, render, rows_of, text_of};
+    use crate::test_render::{all_text_of, attribute_of, contains, render, rows_of, text_of};
 
     use super::*;
 
@@ -760,6 +817,20 @@ mod tests {
         assert!(contains(&html, "dialog-close"));
         assert_eq!(text_of(&html, "dialog-cancel"), "Cancel");
         assert_eq!(text_of(&html, "dialog-save"), "Save");
+    }
+
+    #[test]
+    fn test_a_phase_bar_keeps_its_own_class_next_to_the_one_it_is_given() {
+        let html = render(|| {
+            rsx! {
+                PhaseBar { class: "phase-bar-pinned", phases: vec![3, 1], position: Some((0, 1.5)) }
+            }
+        });
+
+        assert_eq!(
+            attribute_of(&html, "phase-bar", "class"),
+            "phase-bar phase-bar-pinned"
+        );
     }
 
     #[test]

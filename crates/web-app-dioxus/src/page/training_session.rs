@@ -12,7 +12,7 @@ use valens_domain::{self as domain, TrainingSessionService};
 use valens_web_app as web_app;
 
 use crate::{
-    DOMAIN_SERVICE, DROP_SET_CALCULATOR, METRONOME, ONE_REP_MAX_CALCULATOR, Route,
+    DOMAIN_SERVICE, DROP_SET_CALCULATOR, ONE_REP_MAX_CALCULATOR, Route,
     audio::{TICK_INTERVAL_MS, Timer, TimerService},
     cache::{Cache, CacheState},
     dialog::{drop_set::DropSetCalculator, one_rep_max::OneRepMaxCalculatorState},
@@ -232,40 +232,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     let mut has_unsaved_changes = use_unsaved_changes();
     use_effect(move || {
         has_unsaved_changes.set(field_values.read().iter().any(|(_, v)| v.changed()));
-    });
-
-    // Reconfigure the automatic metronome only when the current element changes,
-    // so that manual adjustments persist until the next element.
-    use_effect(move || {
-        let element_idx = *progress.element_idx().read();
-        if !settings.automatic_metronome() {
-            return;
-        }
-        if let Some(training_session) = training_session()
-            && let Some(element) = training_session.elements.get(element_idx)
-        {
-            match element {
-                domain::TrainingSessionElement::Set {
-                    target_reps,
-                    target_tempo,
-                    ..
-                } => {
-                    METRONOME.write().pause();
-                    if let Some(target_time) = target_tempo.seconds_per_rep().non_zero()
-                        && target_reps.non_zero().is_some()
-                    {
-                        METRONOME.with_mut(|metronome| {
-                            metronome.set_interval(target_time.into());
-                            metronome.set_stressed_beat(1);
-                            metronome.start();
-                        });
-                    }
-                }
-                domain::TrainingSessionElement::Rest { .. } => {
-                    METRONOME.write().pause();
-                }
-            }
-        }
     });
 
     use_effect(move || {

@@ -143,7 +143,6 @@ mod tests {
             let settings = Settings {
                 beep_volume: 42,
                 theme: Theme::Dark,
-                automatic_metronome: true,
                 notifications: true,
                 show_rpe: false,
                 show_tut: false,

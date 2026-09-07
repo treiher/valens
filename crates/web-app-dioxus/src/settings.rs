@@ -61,14 +61,6 @@ impl Settings {
         self.settings.read().theme.resolve(PREFERS_DARK_SCHEME())
     }
 
-    pub fn automatic_metronome(&self) -> bool {
-        self.settings.read().automatic_metronome
-    }
-
-    pub fn set_automatic_metronome(&mut self, automatic_metronome: bool) {
-        self.settings.write().automatic_metronome = automatic_metronome;
-    }
-
     pub fn notifications(&self) -> bool {
         self.settings.read().notifications
     }

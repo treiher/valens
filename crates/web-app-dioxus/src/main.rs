@@ -12,7 +12,6 @@ use valens_domain as domain;
 use valens_storage as storage;
 use valens_web_app as web_app;
 
-use audio::MetronomeService;
 use dialog::{drop_set::DropSetCalculatorState, one_rep_max::OneRepMaxCalculatorState};
 use notification::NotificationBar;
 use routing::Route;
@@ -36,6 +35,7 @@ mod routing;
 mod session;
 mod settings;
 mod synchronization;
+mod tempo;
 #[cfg(test)]
 mod test_render;
 mod ui;
@@ -85,7 +85,6 @@ static DATA_CHANGED: GlobalSignal<usize> = Signal::global(|| 0);
 // A plain `Mutex` is used instead of a signal because it is written in `main` before the
 // Dioxus runtime, which backs global signals, exists.
 static LOGIN_LINK_TOKEN: Mutex<Option<String>> = Mutex::new(None);
-static METRONOME: GlobalSignal<MetronomeService> = Signal::global(MetronomeService::new);
 static ONE_REP_MAX_CALCULATOR: GlobalSignal<OneRepMaxCalculatorState> =
     Signal::global(|| OneRepMaxCalculatorState::new(5, 100.0));
 static DROP_SET_CALCULATOR: GlobalSignal<DropSetCalculatorState> =

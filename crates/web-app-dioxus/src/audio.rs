@@ -7,7 +7,7 @@ use std::{
 
 use chrono::{DateTime, Duration, Utc};
 use dioxus::prelude::*;
-use log::{error, warn};
+use log::warn;
 use web_sys::{
     self,
     wasm_bindgen::{JsCast, closure::Closure},
@@ -15,79 +15,71 @@ use web_sys::{
 
 use valens_web_app as web_app;
 
+use valens_domain as domain;
+
 use crate::{
-    METRONOME,
+    tempo::{phase_fields, playable_tempo, update_phase_field, validate_tempo},
     ui::{
-        element::Icon,
-        form::{SelectField, SelectOption},
+        element::{Icon, PhaseBar},
+        form::PhaseFields,
     },
     wake_lock::{self, WakeLock},
 };
 
+/// The phases of the metronome, the segmented bar showing the running one and the play button.
 #[component]
-pub fn Metronome() -> Element {
+pub fn Metronome(metronome: Store<MetronomeService>) -> Element {
+    let mut phases = use_signal(|| phase_fields(&metronome.peek().tempo()));
+    let is_playable = playable_tempo(&phases.read()).is_some();
+
     rsx! {
+        PhaseFields {
+            label: "Tempo",
+            unit: "s",
+            phases: phases.read().iter().map(|field| field.input.clone()).collect::<Vec<_>>(),
+            field_errors: phases.read().iter().map(|field| field.validated.clone().err()).collect::<Vec<_>>(),
+            error: validate_tempo(&phases.read()).err(),
+            has_changed: false,
+            field_testid: "metronome-tempo",
+            on_input: move |(index, value): (usize, String)| {
+                update_phase_field(&mut phases.write()[index], &value);
+                // Playing the previous tempo would contradict the fields it is taken from.
+                match playable_tempo(&phases.read()) {
+                    Some(tempo) => metronome.write().set_tempo(tempo),
+                    None => metronome.write().pause(),
+                }
+            },
+        }
+        MetronomeControls { metronome, is_playable }
+    }
+}
+
+/// The part of the metronome that moves while it plays.
+#[component]
+fn MetronomeControls(metronome: Store<MetronomeService>, is_playable: bool) -> Element {
+    let is_active = metronome.read().is_active();
+    let _wake_lock = use_hook(|| Rc::new(RefCell::new(None::<Rc<WakeLock>>)));
+    *_wake_lock.borrow_mut() = is_active.then(wake_lock::hold);
+
+    rsx! {
+        PhaseBar {
+            class: "mb-2",
+            phases: metronome.read().tempo().phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
+            position: metronome.read().position().map(|(_, index, remaining)| (index, remaining)),
+        }
         div {
             class: "field is-grouped is-grouped-centered",
-            div {
-                class: "mx-3",
-                SelectField {
-                    label: "Interval".to_string(),
-                    "data-testid": "metronome-interval",
-                    options: (1..=60).map(|i| {
-                        rsx! {
-                            SelectOption {
-                                text: i.to_string(),
-                                value: i.to_string(),
-                                selected: i == METRONOME.read().interval,
-                            }
-                        }
-                    }).collect::<Vec<_>>(),
-                    has_changed: false,
-                    on_change: move |event: FormEvent| {
-                        match event.value().parse::<u32>() {
-                            Ok(v) => METRONOME.write().interval = v,
-                            Err(e) => error!("failed to parse metronome interval: {e}"),
-                        }
-                    }
-                }
-            }
-            div {
-                class: "mx-3",
-                SelectField {
-                    label: "Stress".to_string(),
-                    options: (1..=12).map(|i| {
-                        rsx! {
-                            SelectOption {
-                                text: i.to_string(),
-                                value: i.to_string(),
-                                selected: i == METRONOME.read().stressed_beat,
-                            }
-                        }
-                    }).collect::<Vec<_>>(),
-                    has_changed: false,
-                    on_change: move |event: FormEvent| {
-                        match event.value().parse::<u32>() {
-                            Ok(v) => METRONOME.write().stressed_beat = v,
-                            Err(e) => error!("failed to parse metronome stressed beat: {e}"),
-                        }
-                    }
-                }
-            }
-            div {
-                class: "field mx-3",
-                label { class: "label", "\u{a0}" }
-                div { class: "control",
-                    button {
-                        class: "button",
-                        r#type: "button",
-                        "data-testid": "metronome-play",
-                        onclick: move |_| METRONOME.write().start_pause(),
-                        if METRONOME.read().is_active() {
-                            Icon { name: "pause" }
-                        } else {
-                            Icon { name: "play" }
-                        }
+            div { class: "control",
+                button {
+                    class: "button",
+                    r#type: "button",
+                    disabled: !is_playable,
+                    "data-testid": "metronome-play",
+                    onclick: move |_| metronome.write().start_pause(),
+                    if is_active {
+                        Icon { name: "pause" }
+                    } else {
+                        Icon { name: "play" }
                     }
                 }
             }
@@ -104,27 +96,37 @@ pub const TICK_INTERVAL_MS: u32 = 100;
 const METRONOME_LOOKAHEAD: f64 = 0.5;
 
 /// Delay between starting the metronome and its first beat.
-const METRONOME_START_DELAY: f64 = 0.5;
+pub const METRONOME_START_DELAY: f64 = 0.5;
 
-#[derive(Clone)]
+/// Frequency of the beat opening each phase of a repetition, descending in roughly equal steps.
+///
+/// The pitch says which phase is running, and the highest one marks the opening of a repetition.
+const PHASE_BEEP_FREQUENCIES: [f32; domain::Tempo::MAX_PHASES] = [1000., 800., 630., 500.];
+
+#[derive(Store, Clone)]
 pub struct MetronomeService {
-    interval: u32,
-    stressed_beat: u32,
-    beat_number: u32,
-    next_beat_time: f64,
+    tempo: domain::Tempo,
+    /// Audio clock time the tempo started at, and the wall clock moment it was derived from.
+    anchor: Option<f64>,
+    start_time: Option<DateTime<Utc>>,
+    /// The next beat that has not been handed to the audio graph yet.
+    next_beat: u32,
     is_active: bool,
     beep_volume: u8,
+    // Shared between clones so that a stale clone cannot cancel the beeps of the live instance.
+    pending: Rc<RefCell<PendingBeeps>>,
 }
 
 impl MetronomeService {
     pub fn new() -> Self {
         Self {
-            interval: 1,
-            stressed_beat: 1,
-            beat_number: 0,
-            next_beat_time: 0.,
+            tempo: domain::Tempo::new(&[1]).unwrap(),
+            anchor: None,
+            start_time: None,
+            next_beat: 0,
             is_active: false,
             beep_volume: 100,
+            pending: Rc::default(),
         }
     }
 
@@ -132,85 +134,197 @@ impl MetronomeService {
         self.is_active
     }
 
-    pub fn start(&mut self) {
+    pub fn tempo(&self) -> domain::Tempo {
+        self.tempo
+    }
+
+    /// Starts the tempo `elapsed` seconds into its first repetition.
+    ///
+    /// A negative value places the start that far in the future.
+    pub fn start(&mut self, elapsed: f64) {
         resume_audio_context();
         self.is_active = true;
-        if let Some(now) = audio_context_time() {
-            self.beat_number = 0;
-            self.next_beat_time = now + METRONOME_START_DELAY;
-        }
+        self.anchor_at(elapsed);
     }
 
     pub fn pause(&mut self) {
         self.is_active = false;
+        self.cancel_pending();
     }
 
     pub fn start_pause(&mut self) {
         if self.is_active() {
             self.pause();
         } else {
-            self.start();
+            self.start(-METRONOME_START_DELAY);
         }
     }
 
-    pub fn set_interval(&mut self, interval: u32) {
-        self.interval = interval;
-    }
-
-    pub fn set_stressed_beat(&mut self, stressed_beat: u32) {
-        self.stressed_beat = stressed_beat;
+    pub fn set_tempo(&mut self, tempo: domain::Tempo) {
+        if self.tempo == tempo {
+            return;
+        }
+        self.tempo = tempo;
+        if self.is_active {
+            self.anchor_at(0.);
+        }
     }
 
     pub fn set_beep_volume(&mut self, beep_volume: u8) {
         self.beep_volume = beep_volume;
     }
 
+    /// The running repetition, the index of the phase within it and the seconds remaining in that
+    /// phase, taken from the audio clock.
+    pub fn position(&self) -> Option<(u32, usize, f64)> {
+        if !self.is_active {
+            return None;
+        }
+        let elapsed = audio_context_time()? - self.anchor?;
+        self.tempo.phase_at(elapsed.max(0.))
+    }
+
     pub fn update(&mut self) {
-        // The loop below would never terminate at an interval of zero.
-        if !self.is_active() || self.interval == 0 {
+        if !self.is_active || self.tempo.phases().is_empty() {
             return;
         }
 
         let Some(now) = audio_context_time() else {
             return;
         };
-        (self.next_beat_time, self.beat_number) =
-            resync(self.next_beat_time, now, self.interval, self.beat_number);
-        while self.next_beat_time < now + METRONOME_LOOKAHEAD {
-            if let Err(err) = play_beep(
-                if self.beat_number.is_multiple_of(self.stressed_beat) {
-                    1000.
-                } else {
-                    500.
-                },
-                self.next_beat_time,
-                0.05,
-                self.beep_volume,
-            ) {
-                warn!("failed to play beep: {err:?}");
+
+        // The audio clock stops while the context is suspended, so the anchor is taken anew once
+        // it and the wall clock disagree.
+        let Some(elapsed_since_start) = self.start_time.map(elapsed_seconds) else {
+            return;
+        };
+        if needs_reanchor(self.anchor, now - elapsed_since_start) {
+            self.cancel_pending();
+            self.anchor = Some(now - elapsed_since_start);
+            self.next_beat = self.beat_at_or_after(elapsed_since_start);
+        }
+
+        let Some(anchor) = self.anchor else {
+            return;
+        };
+        let elapsed = now - anchor;
+        if self
+            .tempo
+            .beat_at(self.next_beat)
+            .is_some_and(|(time, _)| time < elapsed)
+        {
+            self.next_beat = self.beat_at_or_after(elapsed);
+        }
+
+        let (beats, next_beat) =
+            scheduled_beats(&self.tempo, self.next_beat, elapsed + METRONOME_LOOKAHEAD);
+        self.next_beat = next_beat;
+
+        let mut pending = self.pending.borrow_mut();
+        pending.forget_played(now);
+        for (time, frequency) in beats {
+            match play_beep(frequency, anchor + time, 0.05, self.beep_volume) {
+                Ok(Some(source)) => pending.push(anchor + time, source),
+                Ok(None) => {}
+                Err(err) => warn!("failed to play beep: {err:?}"),
             }
-            self.next_beat_time += f64::from(self.interval);
-            self.beat_number += 1;
+        }
+    }
+
+    fn cancel_pending(&self) {
+        if let Some(now) = audio_context_time() {
+            self.pending.borrow_mut().cancel(now);
+        }
+    }
+
+    fn anchor_at(&mut self, elapsed: f64) {
+        self.cancel_pending();
+        self.start_time = Some(Utc::now() - Duration::milliseconds(milliseconds(elapsed)));
+        self.anchor = audio_context_time().map(|now| now - elapsed);
+        // A tempo started by a countdown is anchored only once the countdown has been observed as
+        // running, which on a slow device happens later than `BEAT_TOLERANCE`.
+        self.next_beat = if elapsed < START_TOLERANCE {
+            0
+        } else {
+            self.beat_at_or_after(elapsed)
+        };
+    }
+
+    /// The number of the first beat falling at or after `elapsed`.
+    fn beat_at_or_after(&self, elapsed: f64) -> u32 {
+        let Some((repetition, index, _)) = self.tempo.phase_at(elapsed.max(0.)) else {
+            return 0;
+        };
+        #[allow(clippy::cast_possible_truncation)]
+        let mut beat = repetition * self.tempo.phases().len() as u32 + index as u32;
+        let due = elapsed - BEAT_TOLERANCE;
+        // Beats of a phase of zero seconds share the moment of the phase that runs then.
+        while beat > 0
+            && self
+                .tempo
+                .beat_at(beat - 1)
+                .is_some_and(|(time, _)| time >= due)
+        {
+            beat -= 1;
+        }
+        if self
+            .tempo
+            .beat_at(beat)
+            .is_some_and(|(time, _)| time >= due)
+        {
+            beat
+        } else {
+            beat.saturating_add(1)
         }
     }
 }
 
-/// Skips the beats missed while the main thread was stalled.
-///
-/// Returns the next beat at or after `now` and the number of the beat sounding then, so that the
-/// stress pattern is preserved.
-fn resync(next_beat_time: f64, now: f64, interval: u32, beat_number: u32) -> (f64, u32) {
-    if next_beat_time >= now || interval == 0 {
-        return (next_beat_time, beat_number);
+impl Default for MetronomeService {
+    fn default() -> Self {
+        Self::new()
     }
-    let interval = f64::from(interval);
-    let missed_beats = ((now - next_beat_time) / interval).ceil();
-    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let missed_beat_count = missed_beats.min(f64::from(u32::MAX)) as u32;
-    (
-        next_beat_time + missed_beats * interval,
-        beat_number.saturating_add(missed_beat_count),
-    )
+}
+
+/// Whether the audio clock has drifted away from the wall clock far enough to be anchored anew.
+fn needs_reanchor(anchor: Option<f64>, expected_anchor: f64) -> bool {
+    !matches!(anchor, Some(anchor) if (anchor - expected_anchor).abs() <= DRIFT_THRESHOLD)
+}
+
+/// The beats that sound between `first_beat` and `until` seconds after the start of the tempo,
+/// with their frequencies, and the beat that follows them.
+///
+/// The frequency follows the phase the beat opens, whichever of the phases before it are skipped.
+fn scheduled_beats(tempo: &domain::Tempo, first_beat: u32, until: f64) -> (Vec<(f64, f32)>, u32) {
+    #[allow(clippy::cast_possible_truncation)]
+    let phases_per_rep = tempo.phases().len() as u32;
+    let mut beats = vec![];
+    let mut beat = first_beat;
+    while let Some((time, sounds)) = tempo.beat_at(beat)
+        && time < until
+    {
+        if sounds {
+            beats.push((
+                time,
+                PHASE_BEEP_FREQUENCIES[(beat % phases_per_rep) as usize],
+            ));
+        }
+        beat = beat.saturating_add(1);
+    }
+    (beats, beat)
+}
+
+fn elapsed_seconds(start_time: DateTime<Utc>) -> f64 {
+    #[allow(clippy::cast_precision_loss)]
+    let seconds = Utc::now()
+        .signed_duration_since(start_time)
+        .num_milliseconds() as f64
+        / 1000.;
+    seconds
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn milliseconds(seconds: f64) -> i64 {
+    (seconds * 1000.) as i64
 }
 
 #[component]
@@ -353,6 +467,16 @@ const SCHEDULE_LOOKAHEAD: f64 = 15.;
 
 /// How long the screen is kept on after a countdown has reached zero.
 const WAKE_LOCK_GRACE_PERIOD: i64 = 60;
+
+/// Tolerance within which a beat that has just passed still counts as due.
+///
+/// The elapsed time an anchor is placed at is taken a moment after the tempo started, which would
+/// otherwise drop the beat opening the repetition.
+const BEAT_TOLERANCE: f64 = 0.05;
+
+/// Elapsed time within which an anchored tempo still counts as starting at its first beat.
+#[allow(clippy::cast_precision_loss)]
+const START_TOLERANCE: f64 = TICK_INTERVAL_MS as f64 / 1000.;
 
 /// Deviation between the audio clock and the wall clock above which the schedule is anchored anew.
 ///
@@ -589,7 +713,7 @@ impl From<TimerService> for web_app::TimerState {
 struct Schedule {
     expiry: Option<f64>,
     scheduled_until: f64,
-    pending: Vec<(f64, web_sys::AudioBufferSourceNode)>,
+    pending: PendingBeeps,
 }
 
 impl Schedule {
@@ -615,7 +739,7 @@ impl Schedule {
         }
         for beep in scheduled_beeps(expiry, from, to) {
             match play_beep(beep.frequency, beep.start, beep.length, volume) {
-                Ok(Some(source)) => self.pending.push((beep.start, source)),
+                Ok(Some(source)) => self.pending.push(beep.start, source),
                 Ok(None) => {}
                 Err(err) => warn!("failed to play beep: {err:?}"),
             }
@@ -629,20 +753,53 @@ impl Schedule {
         self.extend(now, volume);
     }
 
+    fn cancel_pending(&mut self, now: f64) {
+        // The beeps of a countdown that has expired are kept, so that the final beep sounds even
+        // when the countdown is replaced at that moment.
+        if matches!(self.expiry, Some(expiry) if now >= expiry - DRIFT_THRESHOLD) {
+            self.pending.forget();
+        } else {
+            self.pending.cancel(now);
+        }
+    }
+}
+
+/// Beeps handed to the audio graph that are not over yet.
+#[derive(Default)]
+struct PendingBeeps(Vec<(f64, web_sys::AudioBufferSourceNode)>);
+
+impl PendingBeeps {
+    fn push(&mut self, start: f64, source: web_sys::AudioBufferSourceNode) {
+        self.0.push((start, source));
+    }
+
     /// Stops the beeps that have not started yet and forgets all of them.
     ///
-    /// A beep already sounding is left to finish, since stopping it would cut it mid-envelope. The
-    /// beeps of a countdown that has expired are kept as well, so that the final beep sounds even
-    /// when the countdown is replaced at that moment.
-    fn cancel_pending(&mut self, now: f64) {
-        let expired = matches!(self.expiry, Some(expiry) if now >= expiry - DRIFT_THRESHOLD);
-        for (start, source) in self.pending.drain(..) {
-            if !expired
-                && start > now
+    /// A beep already sounding is left to finish, since stopping it would cut it mid-envelope.
+    fn cancel(&mut self, now: f64) {
+        for (start, source) in self.0.drain(..) {
+            if start > now
                 && let Err(err) = scheduled(&source).stop()
             {
                 warn!("failed to stop beep: {err:?}");
             }
+        }
+    }
+
+    fn forget(&mut self) {
+        self.0.clear();
+    }
+
+    /// Forgets the beeps that have started, which can no longer be stopped.
+    fn forget_played(&mut self, now: f64) {
+        self.0.retain(|(start, _)| *start > now);
+    }
+}
+
+impl Drop for PendingBeeps {
+    fn drop(&mut self) {
+        if let Some(now) = audio_context_time() {
+            self.cancel(now);
         }
     }
 }
@@ -929,7 +1086,138 @@ fn PlayResetButtons(
 mod tests {
     use assert_approx_eq::assert_approx_eq;
 
-    use super::{SCHEDULE_LOOKAHEAD, beep_samples, resync, scheduled_beeps};
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+    use valens_domain as domain;
+
+    use super::{
+        DRIFT_THRESHOLD, MetronomeService, PHASE_BEEP_FREQUENCIES, SCHEDULE_LOOKAHEAD,
+        beep_samples, needs_reanchor, scheduled_beats, scheduled_beeps,
+    };
+
+    fn metronome(phases: &[u32]) -> MetronomeService {
+        let mut metronome = MetronomeService::new();
+        metronome.set_tempo(domain::Tempo::new(phases).unwrap());
+        metronome
+    }
+
+    #[rstest]
+    #[case::start(&[3, 1, 1, 0], 0., 0)]
+    #[case::within_the_first_phase(&[3, 1, 1, 0], 0.5, 1)]
+    #[case::at_a_beat(&[3, 1, 1, 0], 3., 1)]
+    #[case::after_a_stall(&[3, 1, 1, 0], 12.5, 9)]
+    #[case::single_phase(&[1], 4.5, 5)]
+    #[case::first_phase_of_zero(&[0, 2], 0., 0)]
+    #[case::just_after_a_beat(&[3, 1, 1, 0], 0.01, 0)]
+    fn test_beat_at_or_after(#[case] phases: &[u32], #[case] elapsed: f64, #[case] expected: u32) {
+        assert_eq!(metronome(phases).beat_at_or_after(elapsed), expected);
+    }
+
+    #[rstest]
+    #[case::delayed_start(0.08, 0)]
+    #[case::within_the_first_phase(0.5, 1)]
+    fn test_anchor_at_keeps_the_opening_beat_of_a_delayed_start(
+        #[case] elapsed: f64,
+        #[case] expected: u32,
+    ) {
+        let mut metronome = metronome(&[3, 1, 1, 0]);
+
+        metronome.anchor_at(elapsed);
+
+        assert_eq!(metronome.next_beat, expected);
+    }
+
+    #[rstest]
+    #[case::unanchored(None, 10., true)]
+    #[case::in_step(Some(10.), 10. + DRIFT_THRESHOLD / 2., false)]
+    #[case::drifted(Some(10.), 10. + DRIFT_THRESHOLD * 2., true)]
+    fn test_needs_reanchor(
+        #[case] anchor: Option<f64>,
+        #[case] expected_anchor: f64,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(needs_reanchor(anchor, expected_anchor), expected);
+    }
+
+    #[rstest]
+    fn test_scheduled_beats_take_the_pitch_of_the_phase_they_open() {
+        let tempo = domain::Tempo::new(&[3, 1]).unwrap();
+
+        assert_eq!(
+            scheduled_beats(&tempo, 0, 8.),
+            (
+                vec![
+                    (0., PHASE_BEEP_FREQUENCIES[0]),
+                    (3., PHASE_BEEP_FREQUENCIES[1]),
+                    (4., PHASE_BEEP_FREQUENCIES[0]),
+                    (7., PHASE_BEEP_FREQUENCIES[1]),
+                ],
+                4
+            )
+        );
+    }
+
+    #[rstest]
+    fn test_scheduled_beats_of_a_single_phase_share_one_pitch() {
+        let tempo = domain::Tempo::new(&[1]).unwrap();
+
+        assert_eq!(
+            scheduled_beats(&tempo, 0, 3.),
+            (
+                vec![
+                    (0., PHASE_BEEP_FREQUENCIES[0]),
+                    (1., PHASE_BEEP_FREQUENCIES[0]),
+                    (2., PHASE_BEEP_FREQUENCIES[0]),
+                ],
+                3
+            )
+        );
+    }
+
+    #[rstest]
+    fn test_scheduled_beats_of_four_phases_descend_within_a_repetition() {
+        let tempo = domain::Tempo::new(&[3, 1, 1, 1]).unwrap();
+
+        assert_eq!(
+            scheduled_beats(&tempo, 0, 6.),
+            (
+                vec![
+                    (0., PHASE_BEEP_FREQUENCIES[0]),
+                    (3., PHASE_BEEP_FREQUENCIES[1]),
+                    (4., PHASE_BEEP_FREQUENCIES[2]),
+                    (5., PHASE_BEEP_FREQUENCIES[3]),
+                ],
+                4
+            )
+        );
+    }
+
+    #[rstest]
+    fn test_scheduled_beats_of_a_repetition_opening_on_a_zero_phase() {
+        let tempo = domain::Tempo::new(&[0, 2]).unwrap();
+
+        assert_eq!(
+            scheduled_beats(&tempo, 0, 4.),
+            (
+                vec![
+                    (0., PHASE_BEEP_FREQUENCIES[0]),
+                    (2., PHASE_BEEP_FREQUENCIES[0])
+                ],
+                4
+            )
+        );
+    }
+
+    #[rstest]
+    fn test_scheduled_beats_after_a_stall_skips_the_missed_beats() {
+        let tempo = domain::Tempo::new(&[1]).unwrap();
+        let metronome = metronome(&[1]);
+
+        assert_eq!(
+            scheduled_beats(&tempo, metronome.beat_at_or_after(10.5), 12.),
+            (vec![(11., PHASE_BEEP_FREQUENCIES[0])], 12)
+        );
+    }
 
     #[test]
     fn beep_samples_are_faded_in_and_out() {
@@ -1018,15 +1306,5 @@ mod tests {
             }
         }
         assert_eq!(starts.len(), 5);
-    }
-
-    #[test]
-    fn resync_skips_missed_beats() {
-        assert_eq!(resync(10., 25.5, 2, 3), (26., 11));
-    }
-
-    #[test]
-    fn resync_keeps_upcoming_beat() {
-        assert_eq!(resync(10., 9.5, 2, 3), (10., 3));
     }
 }

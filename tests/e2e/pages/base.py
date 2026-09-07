@@ -16,6 +16,14 @@ def wait_until_idle(page: Page) -> None:
     page.locator(".is-loading").wait_for(state="detached")
 
 
+def phase_bar_fills(root: Page | Locator) -> list[float]:
+    """Return the width of the filled part of each phase, in pixels."""
+    return [
+        box["width"] if (box := fill.bounding_box()) else 0.0
+        for fill in root.get_by_test_id("phase-bar-fill").all()
+    ]
+
+
 class BasePage:
     def __init__(self, page: Page, base_url: str | None = None) -> None:
         self.page = page

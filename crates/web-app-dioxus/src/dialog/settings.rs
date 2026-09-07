@@ -119,24 +119,6 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                 onclick: {
                     move |_| {
                         let mut settings = settings;
-                        settings.set_automatic_metronome(!settings.automatic_metronome());
-                        async move {
-                            settings.save().await;
-                        }
-                    }
-                },
-                h1 { class: "subtitle", "Metronome" }
-                if settings.automatic_metronome() {
-                    button { class: "button is-link", "data-testid": "settings-metronome", "Automatic" }
-                } else {
-                    button { class: "button", "data-testid": "settings-metronome", "Manual" }
-                }
-            }
-            p {
-                class: "mb-5",
-                onclick: {
-                    move |_| {
-                        let mut settings = settings;
                         settings.set_show_rpe(!settings.show_rpe());
                         async move {
                             settings.save().await;
@@ -268,14 +250,12 @@ mod tests {
     #[test]
     fn test_every_toggle_shows_the_stored_setting() {
         let html = render_settings(web_app::Settings {
-            automatic_metronome: true,
             show_rpe: true,
             show_tut: false,
             scroll_snapping: true,
             ..web_app::Settings::default()
         });
 
-        assert_eq!(text_of(&html, "settings-metronome"), "Automatic");
         assert_eq!(text_of(&html, "settings-rpe"), "Enabled");
         assert_eq!(text_of(&html, "settings-tut"), "Disabled");
         assert_eq!(text_of(&html, "settings-scroll-snapping"), "Enabled");

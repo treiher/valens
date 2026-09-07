@@ -17,7 +17,6 @@ pub trait SettingsRepository {
 pub struct Settings {
     pub beep_volume: u8,
     pub theme: Theme,
-    pub automatic_metronome: bool,
     pub notifications: bool,
     pub show_rpe: bool,
     pub show_tut: bool,
@@ -30,7 +29,6 @@ impl Default for Settings {
         Self {
             beep_volume: 80,
             theme: Theme::System,
-            automatic_metronome: false,
             notifications: false,
             show_rpe: true,
             show_tut: true,

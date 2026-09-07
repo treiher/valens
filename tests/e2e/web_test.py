@@ -1716,44 +1716,6 @@ def test_training_session_paused_countdown_survives_a_reload(page: Page) -> None
     p.expect_countdown_seconds(paused)
 
 
-def test_training_session_automatic_metronome(page: Page) -> None:
-    routine = USER.routines[0]
-
-    login(page)
-
-    # The metronome follows a set that has both a target time and target reps
-    r = RoutinePage(page, routine.id)
-    r.goto()
-    r.set_reps(0, 0, "10")
-    r.set_tempo(0, 0, "60")
-    r.wait_until_idle()
-
-    settings = SettingsDialog(page)
-    settings.open()
-    settings.toggle_metronome()
-    settings.expect_metronome("Automatic")
-    settings.close()
-
-    training_sessions = TrainingSessionsPage(page)
-    training_sessions.goto()
-    training_sessions.add_training_session(routine.name)
-
-    p = TrainingSessionPage(page, 0)
-    p.expect_page()
-
-    tool = MetronomeTimerStopwatchDialog(page)
-    tool.open()
-
-    tool.expect_metronome_active(active=True)
-    tool.expect_metronome_interval(60)
-
-    tool.close()
-    p.activate_set_action()
-
-    tool.open()
-    tool.expect_metronome_active(active=False)
-
-
 def test_training_session_in_progress_survives_a_reload_on_another_page(page: Page) -> None:
     routine = USER.routines[1]
 
@@ -3335,6 +3297,42 @@ def test_navbar_metronome_starts_and_pauses(page: Page) -> None:
 
     dialog.start_pause_metronome()
     dialog.expect_metronome_active(active=False)
+
+
+def test_navbar_metronome_plays_a_tempo(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.set_metronome_tempo("3", "1", "1", "0")
+    dialog.expect_metronome_tempo("3", "1", "1", "0")
+    dialog.expect_metronome_bar(4)
+
+    dialog.start_pause_metronome()
+    dialog.expect_metronome_active(active=True)
+
+    # The bar follows the tempo the metronome plays
+    page.wait_for_timeout(1500)
+    assert dialog.get_metronome_bar_fills()[0] > 0
+
+
+def test_navbar_metronome_stops_for_a_tempo_it_cannot_play(page: Page) -> None:
+    login(page)
+    HomePage(page).expect_page()
+    dialog = MetronomeTimerStopwatchDialog(page)
+    dialog.open()
+
+    dialog.set_metronome_tempo("3", "1", "1", "0")
+    dialog.start_pause_metronome()
+    dialog.expect_metronome_active(active=True)
+
+    dialog.set_metronome_tempo("1000")
+    dialog.expect_metronome_active(active=False)
+    dialog.expect_metronome_playable(playable=False)
+
+    dialog.set_metronome_tempo("3")
+    dialog.expect_metronome_playable(playable=True)
 
 
 def test_navbar_1rm_calculator(page: Page) -> None:

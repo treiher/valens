@@ -16,6 +16,7 @@ use crate::{
     notification::notify,
     page,
     settings::Settings,
+    tempo::{phase_fields, update_phase_field, validate_tempo},
     ui::{
         drag_and_drop,
         element::{
@@ -1174,42 +1175,6 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
     }
 }
 
-/// Creates a field value per phase slot, the absent phases being empty.
-fn phase_fields(tempo: &domain::Tempo) -> Vec<FieldValue<domain::Time>> {
-    (0..domain::Tempo::MAX_PHASES)
-        .map(|index| match tempo.phases().get(index) {
-            Some(phase) => FieldValue::new(*phase),
-            None => FieldValue::new_with_empty_default(domain::Time::default()),
-        })
-        .collect()
-}
-
-fn update_phase_field(field: &mut FieldValue<domain::Time>, value: &str) {
-    field.input = value.to_string();
-    field.validated = if field.input.is_empty() {
-        Ok(domain::Time::default())
-    } else {
-        domain::Time::try_from(field.input.as_ref()).map_err(|err| err.to_string())
-    };
-}
-
-/// Builds the tempo of the phase fields, an empty field before a filled one being a phase of zero
-/// seconds and a tempo summing to zero being the empty tempo.
-fn validate_tempo(fields: &[FieldValue<domain::Time>]) -> Result<domain::Tempo, String> {
-    let Some(last) = fields.iter().rposition(|field| !field.input.is_empty()) else {
-        return Ok(domain::Tempo::default());
-    };
-    let phases = fields[..=last]
-        .iter()
-        .map(|field| u32::from(field.validated.clone().unwrap_or_default()))
-        .collect::<Vec<_>>();
-    match domain::Tempo::new(&phases) {
-        Ok(tempo) => Ok(tempo),
-        Err(domain::TempoError::Zero) => Ok(domain::Tempo::default()),
-        Err(err) => Err(err.to_string()),
-    }
-}
-
 async fn modify_routine_sections(
     routine: domain::Routine,
     cache: Cache,
@@ -1351,7 +1316,6 @@ mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
-    use rstest::rstest;
 
     use crate::test_render::{TestCache, all_text_of, contains, provide_settings, render, text_of};
 
@@ -1423,37 +1387,6 @@ mod tests {
 
         assert_eq!(text_of(&with_tempo(true), "set-tempo"), "3·1·1·0");
         assert_eq!(text_of(&with_tempo(false), "set-tempo"), "3·1·1·0");
-    }
-
-    #[rstest]
-    #[case::empty(&["", "", "", ""], Ok(&[][..]))]
-    #[case::single_phase(&["4", "", "", ""], Ok(&[4][..]))]
-    #[case::trailing_empty_field(&["3", "1", "1", ""], Ok(&[3, 1, 1][..]))]
-    #[case::zero_phase_before_a_filled_one(&["3", "", "1", ""], Ok(&[3, 0, 1][..]))]
-    #[case::trailing_zero(&["3", "1", "1", "0"], Ok(&[3, 1, 1, 0][..]))]
-    #[case::zeros(&["0", "0", "", ""], Ok(&[][..]))]
-    #[case::sum_out_of_range(&["999", "1", "", ""], Err("tempo must not be longer than 999 s"))]
-    fn test_validate_tempo(#[case] inputs: &[&str], #[case] expected: Result<&[u32], &str>) {
-        let fields = inputs
-            .iter()
-            .map(|input| {
-                let mut field = FieldValue::<domain::Time>::default();
-                update_phase_field(&mut field, input);
-                field
-            })
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            validate_tempo(&fields).map(|tempo| tempo
-                .phases()
-                .iter()
-                .copied()
-                .map(u32::from)
-                .collect::<Vec<_>>()),
-            expected
-                .map(<[u32]>::to_vec)
-                .map_err(std::string::ToString::to_string)
-        );
     }
 
     #[test]

@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
     - Notes of an exercise
 - Settings dialog: Beep at the selected volume when the beep volume is changed
+- Metronome dialog:
+    - Visualization of the running phase of the tempo
+    - Screen kept awake while the dialog is open and the metronome plays
 
 ### Changed
 
@@ -54,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Muscles of an exercise cycling through primary before secondary
     - Values of a set, showing the time after the other values
 - Catalog exercise page: Order of the properties of an exercise, showing the muscles first
+- Metronome dialog: Metronome, which is now set as a tempo, beeps each phase of a repetition at a pitch of its own and is no longer set by a training session
+
+### Removed
+
+- Settings dialog: Automatic metronome setting
 
 ### Fixed
 

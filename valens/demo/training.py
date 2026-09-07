@@ -707,10 +707,11 @@ def _rated(performed: _Set, offset: float) -> _Set:
 
 
 def _duration(definition: ExerciseDefinition, count: int) -> int | None:
+    """Return the seconds a single repetition takes, or the seconds of a hold."""
     if not definition.type.time:
         return None
     if definition.type.reps:
-        return count * SECONDS_PER_REP
+        return SECONDS_PER_REP
     return count
 
 

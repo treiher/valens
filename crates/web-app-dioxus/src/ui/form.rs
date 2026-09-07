@@ -103,6 +103,72 @@ pub fn InputField(
     }
 }
 
+/// A row of numeric fields, one per phase of a tempo, with the unit inside the last field.
+///
+/// A trailing empty field means the phase is absent, an empty field before a filled one a phase of
+/// zero seconds.
+#[component]
+pub fn PhaseFields(
+    label: String,
+    help: Option<String>,
+    unit: String,
+    phases: Vec<String>,
+    /// Error of the field at the same index.
+    field_errors: Vec<Option<String>>,
+    /// Error of the row as a whole.
+    error: Option<String>,
+    has_changed: bool,
+    field_testid: String,
+    on_input: EventHandler<(usize, String)>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    let last_index = phases.len().saturating_sub(1);
+    // The row error stands for the tempo the fields make up, so a field error is shown only while
+    // there is none.
+    let has_row_error = error.as_ref().is_some_and(|error| !error.is_empty());
+    let error = error
+        .or_else(|| field_errors.iter().flatten().next().cloned())
+        .filter(|error| !error.is_empty())
+        .map(|error| capitalized(&error));
+    rsx! {
+        div {
+            class: "field",
+            ..attributes,
+            label { class: "label", "{label}" }
+            div {
+                class: "field has-addons is-align-items-center mb-0",
+                for (index, phase) in phases.iter().enumerate() {
+                    div {
+                        class: "control is-expanded",
+                        class: if index == last_index { "has-icons-right" },
+                        input {
+                            class: "input has-text-right",
+                            class: if field_errors.get(index).is_some_and(Option::is_some) || has_row_error { "is-danger" },
+                            class: if has_changed { "is-info" },
+                            inputmode: "numeric",
+                            value: "{phase}",
+                            oninput: move |event: FormEvent| on_input.call((index, event.value())),
+                            "data-testid": "{field_testid}-{index}",
+                        }
+                        if index == last_index {
+                            span { class: "icon is-right", "{unit}" }
+                        }
+                    }
+                }
+            }
+            if let Some(ref error) = error {
+                p {
+                    class: "help is-danger",
+                    "data-testid": "{field_testid}-error",
+                    "{error}"
+                }
+            } else if let Some(ref help) = help {
+                p { class: "help", "{help}" }
+            }
+        }
+    }
+}
+
 #[component]
 pub fn TextAreaField(
     value: String,
@@ -404,7 +470,115 @@ pub fn MultiToggleTags(multi_toggle: Signal<MultiToggle>) -> Element {
 mod tests {
     use pretty_assertions::assert_eq;
 
+    use crate::test_render::{attribute_of, contains, render, text_of};
+
     use super::*;
+
+    fn render_phase_fields(field_errors: Vec<Option<String>>, error: Option<String>) -> String {
+        render(move || {
+            let field_errors = field_errors.clone();
+            let error = error.clone();
+            rsx! {
+                PhaseFields {
+                    label: "Tempo",
+                    help: "Optionally split into the phases of a tempo",
+                    unit: "s",
+                    phases: vec!["1000".to_string(), String::new()],
+                    field_errors,
+                    error,
+                    has_changed: false,
+                    field_testid: "input-tempo",
+                    on_input: move |_| {},
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn test_phase_fields_show_the_error_of_a_field() {
+        let html = render_phase_fields(
+            vec![Some("time must not be longer than 999 s".into()), None],
+            None,
+        );
+
+        assert_eq!(
+            text_of(&html, "input-tempo-error"),
+            "Time must not be longer than 999 s"
+        );
+    }
+
+    #[test]
+    fn test_phase_fields_show_the_error_of_the_row_before_the_error_of_a_field() {
+        let html = render_phase_fields(
+            vec![Some("time must not be longer than 999 s".into()), None],
+            Some("tempo must not be longer than 999 s".into()),
+        );
+
+        assert_eq!(
+            text_of(&html, "input-tempo-error"),
+            "Tempo must not be longer than 999 s"
+        );
+    }
+
+    #[test]
+    fn test_phase_fields_mark_only_the_field_its_error_belongs_to() {
+        let html = render_phase_fields(
+            vec![Some("time must not be longer than 999 s".into()), None],
+            None,
+        );
+
+        assert!(
+            attribute_of(&html, "input-tempo-0", "class").contains("is-danger"),
+            "{html}"
+        );
+        assert!(
+            !attribute_of(&html, "input-tempo-1", "class").contains("is-danger"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn test_phase_fields_mark_every_field_of_a_row_in_error() {
+        let html = render_phase_fields(
+            vec![None, None],
+            Some("tempo must not be longer than 999 s".into()),
+        );
+
+        assert!(
+            attribute_of(&html, "input-tempo-1", "class").contains("is-danger"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn test_phase_fields_show_no_error_without_one() {
+        let html = render_phase_fields(vec![None, None], None);
+
+        assert!(!contains(&html, "input-tempo-error"), "{html}");
+    }
+
+    #[test]
+    fn test_phase_fields_show_the_help_without_an_error() {
+        let html = render_phase_fields(vec![None, None], None);
+
+        assert!(
+            html.contains("Optionally split into the phases of a tempo"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn test_phase_fields_replace_the_help_by_an_error() {
+        let html = render_phase_fields(
+            vec![None, None],
+            Some("tempo must not be longer than 999 s".into()),
+        );
+
+        assert!(
+            !html.contains("Optionally split into the phases of a tempo"),
+            "{html}"
+        );
+    }
 
     #[test]
     fn test_field_value_new() {

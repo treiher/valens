@@ -4,6 +4,7 @@ import datetime
 import enum
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     Constraint,
     Date,
@@ -403,8 +404,8 @@ class RoutineActivity(RoutinePart):
     __table_args__ = (
         CheckConstraint("typeof(reps) = 'integer'", name="reps_type_integer"),
         CheckConstraint(column("reps") >= 0, name="reps_ge_0"),
-        CheckConstraint("typeof(time) = 'integer'", name="time_type_integer"),
-        CheckConstraint(column("time") >= 0, name="time_ge_0"),
+        CheckConstraint("json_valid(tempo)", name="tempo_valid_json"),
+        CheckConstraint("json_type(tempo) = 'array'", name="tempo_type_array"),
         CheckConstraint("typeof(weight) = 'real'", name="weight_type_real"),
         CheckConstraint(column("weight") >= 0, name="weight_ge_0"),
         CheckConstraint("typeof(rpe) = 'real'", name="rpe_type_real"),
@@ -416,7 +417,7 @@ class RoutineActivity(RoutinePart):
     id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
     exercise_id: Mapped[int | None] = mapped_column(ForeignKey("exercise.id", ondelete="CASCADE"))
     reps: Mapped[int]
-    time: Mapped[int]
+    tempo: Mapped[list[int]] = mapped_column(JSON)
     weight: Mapped[float]
     rpe: Mapped[float]
     automatic: Mapped[bool]
@@ -592,8 +593,12 @@ class WorkoutSet(WorkoutElement):
             name="target_reps_type_integer_or_null",
         ),
         CheckConstraint(
-            "typeof(target_time) = 'integer' or typeof(target_time) = 'null'",
-            name="target_time_type_integer_or_null",
+            "json_valid(target_tempo) or target_tempo is null",
+            name="target_tempo_valid_json_or_null",
+        ),
+        CheckConstraint(
+            "json_type(target_tempo) = 'array' or target_tempo is null",
+            name="target_tempo_type_array_or_null",
         ),
         CheckConstraint(
             "typeof(target_weight) = 'real' or typeof(target_weight) = 'null'",
@@ -611,7 +616,7 @@ class WorkoutSet(WorkoutElement):
         CheckConstraint(column("rpe") > 0, name="rpe_gt_0"),
         CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
         CheckConstraint(column("target_reps") > 0, name="target_reps_gt_0"),
-        CheckConstraint(column("target_time") > 0, name="target_time_gt_0"),
+        CheckConstraint("json_array_length(target_tempo) > 0", name="target_tempo_length_gt_0"),
         CheckConstraint(column("target_weight") > 0, name="target_weight_gt_0"),
         CheckConstraint(column("target_rpe") > 0, name="target_rpe_gt_0"),
         CheckConstraint(column("target_rpe") <= 10, name="target_rpe_le_10"),
@@ -632,7 +637,7 @@ class WorkoutSet(WorkoutElement):
     weight: Mapped[float | None]
     rpe: Mapped[float | None]
     target_reps: Mapped[int | None]
-    target_time: Mapped[int | None]
+    target_tempo: Mapped[list[int] | None] = mapped_column(JSON(none_as_null=True))
     target_weight: Mapped[float | None]
     target_rpe: Mapped[float | None]
 

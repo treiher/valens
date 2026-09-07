@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    fmt::Write,
     ops::RangeInclusive,
     str::FromStr,
 };
@@ -12,8 +11,8 @@ use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, MuscleID, RPE, ReadError, Reps, RoutineID,
-    Stimulus, SyncError, Time, TrainingStats, UpdateError, ValidationError, Weight, one_rep_max,
-    training_stats,
+    Stimulus, SyncError, Tempo, Time, TrainingStats, UpdateError, ValidationError, Weight,
+    one_rep_max, training::values_to_string, training_stats,
 };
 
 #[allow(async_fn_in_trait)]
@@ -531,7 +530,7 @@ impl TrainingSession {
                 TrainingSessionElement::Set {
                     exercise_id,
                     target_reps,
-                    target_time,
+                    target_tempo,
                     target_weight,
                     target_rpe,
                     automatic,
@@ -544,7 +543,7 @@ impl TrainingSession {
                         weight: Weight::default(),
                         rpe: RPE::default(),
                         target_reps: *target_reps,
-                        target_time: *target_time,
+                        target_tempo: *target_tempo,
                         target_weight: *target_weight,
                         target_rpe: *target_rpe,
                         automatic: *automatic,
@@ -598,7 +597,7 @@ impl TrainingSession {
                         weight: Weight::default(),
                         rpe: RPE::default(),
                         target_reps: Reps::default(),
-                        target_time: Time::default(),
+                        target_tempo: Tempo::default(),
                         target_weight: Weight::default(),
                         target_rpe: RPE::default(),
                         automatic: false,
@@ -616,7 +615,7 @@ impl TrainingSession {
                 weight: Weight::default(),
                 rpe: RPE::default(),
                 target_reps: Reps::default(),
-                target_time: Time::default(),
+                target_tempo: Tempo::default(),
                 target_weight: Weight::default(),
                 target_rpe: RPE::default(),
                 automatic: false,
@@ -651,7 +650,7 @@ impl TrainingSession {
                     weight,
                     rpe,
                     target_reps,
-                    target_time,
+                    target_tempo,
                     target_weight,
                     target_rpe,
                     automatic,
@@ -665,7 +664,7 @@ impl TrainingSession {
                             weight: *weight,
                             rpe: *rpe,
                             target_reps: *target_reps,
-                            target_time: *target_time,
+                            target_tempo: *target_tempo,
                             target_weight: *target_weight,
                             target_rpe: *target_rpe,
                             automatic: *automatic,
@@ -755,7 +754,7 @@ impl TrainingSession {
             weight: Weight::default(),
             rpe: RPE::default(),
             target_reps: Reps::default(),
-            target_time: Time::default(),
+            target_tempo: Tempo::default(),
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
@@ -1094,7 +1093,7 @@ pub enum TrainingSessionElement {
         weight: Weight,
         rpe: RPE,
         target_reps: Reps,
-        target_time: Time,
+        target_tempo: Tempo,
         target_weight: Weight,
         target_rpe: RPE,
         automatic: bool,
@@ -1169,21 +1168,24 @@ impl TrainingSessionElement {
     }
 
     #[must_use]
-    pub fn target_to_string(&self, show_tut: bool, show_rpe: bool) -> String {
+    pub fn target_to_string(&self, show_rpe: bool) -> String {
         match self {
             TrainingSessionElement::Set {
                 target_reps,
-                target_time,
+                target_tempo,
                 target_weight,
                 target_rpe,
                 ..
-            } => Set {
-                reps: *target_reps,
-                time: *target_time,
-                weight: *target_weight,
-                rpe: *target_rpe,
-            }
-            .to_string(show_tut, show_rpe),
+            } => values_to_string(
+                target_reps.non_zero(),
+                target_weight.non_zero(),
+                if show_rpe {
+                    target_rpe.non_zero()
+                } else {
+                    None
+                },
+                &target_tempo.to_string(),
+            ),
             TrainingSessionElement::Rest { .. } => String::new(),
         }
     }
@@ -1200,27 +1202,15 @@ pub struct Set {
 impl Set {
     #[must_use]
     pub fn to_string(&self, show_tut: bool, show_rpe: bool) -> String {
-        let mut parts = vec![];
-
-        if self.reps > Reps::default() {
-            parts.push(self.reps.to_string());
-        }
-
-        if show_tut && self.time > Time::default() {
-            parts.push(format!("{} s", self.time));
-        }
-
-        if self.weight > Weight::default() {
-            parts.push(format!("{} kg", self.weight));
-        }
-
-        let mut result = parts.join(" × ");
-
-        if show_rpe && self.rpe > RPE::ZERO {
-            let _ = write!(result, " @ {}", self.rpe);
-        }
-
-        result
+        values_to_string(
+            self.reps.non_zero(),
+            self.weight.non_zero(),
+            if show_rpe { self.rpe.non_zero() } else { None },
+            &match self.time.non_zero() {
+                Some(time) if show_tut => format!("{time} s"),
+                _ => String::new(),
+            },
+        )
     }
 }
 
@@ -1308,7 +1298,7 @@ mod tests {
                     weight: Weight::new(30.0).unwrap(),
                     rpe: RPE::EIGHT,
                     target_reps: Reps::new(8).unwrap(),
-                    target_time: Time::new(4).unwrap(),
+                    target_tempo: Tempo::new(&[4]).unwrap(),
                     target_weight: Weight::new(40.0).unwrap(),
                     target_rpe: RPE::NINE,
                     automatic: false,
@@ -1324,7 +1314,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::FOUR,
                     target_reps: Reps::default(),
-                    target_time: Time::default(),
+                    target_tempo: Tempo::default(),
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
@@ -1340,7 +1330,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::default(),
                     target_reps: Reps::default(),
-                    target_time: Time::default(),
+                    target_tempo: Tempo::default(),
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
@@ -1363,7 +1353,7 @@ mod tests {
                     TrainingSessionElement::Set {
                         exercise_id,
                         target_reps,
-                        target_time,
+                        target_tempo,
                         target_weight,
                         target_rpe,
                         automatic,
@@ -1375,7 +1365,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::default(),
                         target_reps: *target_reps,
-                        target_time: *target_time,
+                        target_tempo: *target_tempo,
                         target_weight: *target_weight,
                         target_rpe: *target_rpe,
                         automatic: *automatic,
@@ -1533,7 +1523,7 @@ mod tests {
                 weight: Weight::new(100.0).unwrap(),
                 rpe: RPE::default(),
                 target_reps: Reps::default(),
-                target_time: Time::default(),
+                target_tempo: Tempo::default(),
                 target_weight: Weight::default(),
                 target_rpe: RPE::default(),
                 automatic: false,
@@ -1563,7 +1553,7 @@ mod tests {
                     weight: Weight::new(100.0).unwrap(),
                     rpe: RPE::default(),
                     target_reps: Reps::default(),
-                    target_time: Time::default(),
+                    target_tempo: Tempo::default(),
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
@@ -1575,7 +1565,7 @@ mod tests {
                     weight: Weight::new(105.0).unwrap(),
                     rpe: RPE::default(),
                     target_reps: Reps::default(),
-                    target_time: Time::default(),
+                    target_tempo: Tempo::default(),
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
@@ -3710,7 +3700,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::default(),
             target_reps: Reps::new(entry_id).unwrap(),
-            target_time: Time::default(),
+            target_tempo: Tempo::default(),
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
@@ -3732,7 +3722,7 @@ mod tests {
             weight: Weight::new(weight).unwrap(),
             rpe,
             target_reps: Reps::default(),
-            target_time: Time::default(),
+            target_tempo: Tempo::default(),
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
@@ -3969,9 +3959,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case::all_shown(true, true, "10 × 3 s × 30 kg @ 8")]
+    #[case::all_shown(true, true, "10 × 30 kg @ 8 (3 s)")]
     #[case::without_tut(false, true, "10 × 30 kg @ 8")]
-    #[case::without_rpe(true, false, "10 × 3 s × 30 kg")]
+    #[case::without_rpe(true, false, "10 × 30 kg (3 s)")]
     #[case::without_tut_and_rpe(false, false, "10 × 30 kg")]
     fn test_set_to_string(#[case] show_tut: bool, #[case] show_rpe: bool, #[case] expected: &str) {
         let set = Set {
@@ -3982,6 +3972,30 @@ mod tests {
         };
 
         assert_eq!(set.to_string(show_tut, show_rpe), expected);
+    }
+
+    #[test]
+    fn test_set_to_string_without_time() {
+        let set = Set {
+            reps: Reps::new(10).unwrap(),
+            time: Time::default(),
+            weight: Weight::new(30.0).unwrap(),
+            rpe: RPE::EIGHT,
+        };
+
+        assert_eq!(set.to_string(true, true), "10 × 30 kg @ 8");
+    }
+
+    #[test]
+    fn test_set_to_string_of_a_hold() {
+        let set = Set {
+            reps: Reps::default(),
+            time: Time::new(60).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::EIGHT,
+        };
+
+        assert_eq!(set.to_string(true, true), "60 s @ 8");
     }
 
     #[test]
@@ -3997,6 +4011,18 @@ mod tests {
     }
 
     #[test]
+    fn test_set_to_string_with_only_an_rpe() {
+        let set = Set {
+            reps: Reps::default(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::EIGHT,
+        };
+
+        assert_eq!(set.to_string(true, true), "@ 8");
+    }
+
+    #[test]
     fn test_training_session_element_to_string() {
         let element = TrainingSessionElement::Set {
             exercise_id: 1.into(),
@@ -4005,20 +4031,39 @@ mod tests {
             weight: Weight::new(30.0).unwrap(),
             rpe: RPE::EIGHT,
             target_reps: Reps::new(8).unwrap(),
-            target_time: Time::new(4).unwrap(),
+            target_tempo: Tempo::new(&[4]).unwrap(),
             target_weight: Weight::new(40.0).unwrap(),
             target_rpe: RPE::NINE,
             automatic: false,
         };
 
-        assert_eq!(element.to_string(true, true), "10 × 3 s × 30 kg @ 8");
-        assert_eq!(element.target_to_string(true, true), "8 × 4 s × 40 kg @ 9");
+        assert_eq!(element.to_string(true, true), "10 × 30 kg @ 8 (3 s)");
+        assert_eq!(element.target_to_string(true), "8 × 40 kg @ 9 (4 s)");
+    }
+
+    #[test]
+    fn test_training_session_element_target_to_string_of_a_subdivided_tempo() {
+        let element = TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            reps: Reps::default(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::default(),
+            target_reps: Reps::new(8).unwrap(),
+            target_tempo: Tempo::new(&[3, 1, 1, 0]).unwrap(),
+            target_weight: Weight::new(40.0).unwrap(),
+            target_rpe: RPE::NINE,
+            automatic: false,
+        };
+
+        assert_eq!(element.target_to_string(true), "8 × 40 kg @ 9 (3·1·1·0)");
+        assert_eq!(element.target_to_string(false), "8 × 40 kg (3·1·1·0)");
     }
 
     #[test]
     fn test_training_session_element_to_string_of_rest() {
         assert_eq!(rest(60).to_string(true, true), "");
-        assert_eq!(rest(60).target_to_string(true, true), "");
+        assert_eq!(rest(60).target_to_string(true), "");
     }
 
     #[test]

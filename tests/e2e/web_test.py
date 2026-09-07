@@ -1597,7 +1597,7 @@ def test_training_session_numbering_of_time_based_sets(page: Page) -> None:
     r.goto()
     r.remove(0, 1)
     r.add_exercise(0, other_exercise)
-    r.set_time(0, 1, "20")
+    r.set_tempo(0, 1, "20")
     r.wait_until_idle()
 
     training_sessions = TrainingSessionsPage(page)
@@ -1619,8 +1619,8 @@ def test_training_session_countdown_advances_the_focus(page: Page) -> None:
     # their own. The section has several rounds, so the set is reached again after the rest.
     r = RoutinePage(page, routine.id)
     r.goto()
-    r.set_time(0, 0, "1")
-    r.set_time(0, 1, "2")
+    r.set_tempo(0, 0, "1")
+    r.set_rest_time(0, 1, "2")
     r.wait_until_idle()
 
     training_sessions = TrainingSessionsPage(page)
@@ -1643,7 +1643,7 @@ def test_training_session_set_countdown_records_the_target_time(page: Page) -> N
     # The set of this routine is automatic, so its countdown starts on its own
     r = RoutinePage(page, routine.id)
     r.goto()
-    r.set_time(0, 0, "2")
+    r.set_tempo(0, 0, "2")
     r.wait_until_idle()
 
     training_sessions = TrainingSessionsPage(page)
@@ -1670,7 +1670,7 @@ def test_training_session_countdown_survives_a_reload(page: Page) -> None:
 
     r = RoutinePage(page, routine.id)
     r.goto()
-    r.set_time(0, 1, "60")
+    r.set_rest_time(0, 1, "60")
     r.wait_until_idle()
 
     training_sessions = TrainingSessionsPage(page)
@@ -1697,7 +1697,7 @@ def test_training_session_paused_countdown_survives_a_reload(page: Page) -> None
 
     r = RoutinePage(page, routine.id)
     r.goto()
-    r.set_time(0, 0, "60")
+    r.set_tempo(0, 0, "60")
     r.wait_until_idle()
 
     training_sessions = TrainingSessionsPage(page)
@@ -1725,7 +1725,7 @@ def test_training_session_automatic_metronome(page: Page) -> None:
     r = RoutinePage(page, routine.id)
     r.goto()
     r.set_reps(0, 0, "10")
-    r.set_time(0, 0, "60")
+    r.set_tempo(0, 0, "60")
     r.wait_until_idle()
 
     settings = SettingsDialog(page)
@@ -1870,20 +1870,20 @@ def test_routine_edit(page: Page) -> None:
     p.set_rounds(0, 8)
     p.replace_exercise(0, 0, exercise_2)
     p.set_reps(0, 0, "10")
-    p.set_time(0, 0, "4")
+    p.set_tempo(0, 0, "4")
     p.set_weight(0, 0, "18")
     p.set_rpe(0, 0, "8")
 
     sections = p.get_sections()
     section = sections[0]
     assert section.rounds == 8
-    assert section.get_set_at(0) == RoutineSet(exercise_2, 10, 4.0, 18.0, 8.0)
+    assert section.get_set_at(0) == RoutineSet(exercise_2, 10, "4 s", 18.0, 8.0)
     assert section.get_rest_at(1) == RoutineRest(30)
 
     p.set_rounds(0, 8)
     p.replace_exercise(0, 0, exercise_1)
     p.set_reps(0, 0, "")
-    p.set_time(0, 0, "60")
+    p.set_tempo(0, 0, "60")
     p.set_weight(0, 0, "5.5")
     p.set_rpe(0, 0, "8.5")
     p.set_automatic(0, 0)
@@ -1891,7 +1891,7 @@ def test_routine_edit(page: Page) -> None:
     sections = p.get_sections()
     section = sections[0]
     assert section.rounds == 8
-    assert section.get_set_at(0) == RoutineSet(exercise_1, None, 60.0, 5.5, 8.5)
+    assert section.get_set_at(0) == RoutineSet(exercise_1, None, "60 s", 5.5, 8.5)
     assert section.get_rest_at(1) == RoutineRest(30)
 
 

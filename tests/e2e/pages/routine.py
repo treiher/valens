@@ -233,7 +233,13 @@ class RoutinePage(BasePage):
         dialog.get_by_test_id("input-reps").fill(reps)
         self.dialog.save()
 
-    def set_time(self, section_idx: int, activity_idx: int, time: str) -> None:
+    def set_tempo(self, section_idx: int, activity_idx: int, *phases: str) -> None:
+        dialog = self._open_edit_dialog(section_idx, activity_idx)
+        for index, phase in enumerate(phases):
+            dialog.get_by_test_id(f"input-tempo-{index}").fill(phase)
+        self.dialog.save()
+
+    def set_rest_time(self, section_idx: int, activity_idx: int, time: str) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
         dialog.get_by_test_id("input-time").fill(time)
         self.dialog.save()
@@ -332,7 +338,7 @@ class RoutinePart:
 class RoutineSet(RoutinePart):
     exercise_name: str
     reps: int | None = None
-    time: float | None = None
+    tempo: str | None = None
     weight: float | None = None
     rpe: float | None = None
 
@@ -345,9 +351,8 @@ class RoutineSet(RoutinePart):
         reps_text = reps_elem.inner_text().strip() if reps_elem.is_visible() else ""
         reps = int(reps_text) if reps_text else None
 
-        time_elem = element.locator('[data-testid="set-time"]').first
-        time_text = time_elem.inner_text().strip() if time_elem.is_visible() else ""
-        time_val = parse_float(time_text)
+        tempo_elem = element.locator('[data-testid="set-tempo"]').first
+        tempo = tempo_elem.inner_text().strip() if tempo_elem.is_visible() else None
 
         weight_elem = element.locator('[data-testid="set-weight"]').first
         weight_text = weight_elem.inner_text().strip() if weight_elem.is_visible() else ""
@@ -360,7 +365,7 @@ class RoutineSet(RoutinePart):
         return cls(
             exercise_name=exercise_name,
             reps=reps,
-            time=time_val,
+            tempo=tempo,
             weight=weight,
             rpe=rpe,
         )

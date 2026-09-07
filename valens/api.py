@@ -63,6 +63,7 @@ from valens.limits import (
     SKINFOLD_MIN,
     STIMULUS_MAX,
     STIMULUS_MIN,
+    TEMPO_PHASES_MAX,
     TIME_MAX,
     WEEKDAY_MAX,
     WEEKDAY_MIN,
@@ -245,7 +246,9 @@ def to_routine_activity(  # type: ignore[explicit-any]
         position=position,
         exercise_id=to_optional_id(json["exercise_id"], "exercise_id"),
         reps=to_int(json["reps"], "reps", 0, REPS_MAX),
-        time=to_int(json["time"], "time", 0, TIME_MAX),
+        tempo=to_tempo(
+            json["tempo"], "tempo", TEMPO_PHASES_MAX if json["exercise_id"] is not None else 1
+        ),
         weight=to_weight(json["weight"], "weight", 0.0),
         rpe=to_rpe(json["rpe"], "rpe"),
         automatic=to_bool(json["automatic"], "automatic"),
@@ -263,7 +266,7 @@ def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # 
                 weight=to_optional_weight(element["weight"], "weight", WEIGHT_RESOLUTION),
                 rpe=to_optional_rpe(element["rpe"], "rpe"),
                 target_reps=to_optional_int(element["target_reps"], "target_reps", 1, REPS_MAX),
-                target_time=to_optional_int(element["target_time"], "target_time", 1, TIME_MAX),
+                target_tempo=to_optional_tempo(element["target_tempo"], "target_tempo"),
                 target_weight=to_optional_weight(
                     element["target_weight"], "target_weight", WEIGHT_RESOLUTION
                 ),
@@ -474,6 +477,28 @@ def to_optional_id(json: object, what: str) -> int | None:
 
 def to_id(json: object, what: str) -> int:
     return to_int(json, what, 1, MAX_ID)
+
+
+def to_optional_tempo(json: object, what: str) -> list[int] | None:
+    if json is None:
+        return None
+    value = to_tempo(json, what, TEMPO_PHASES_MAX)
+    if not value:
+        raise DeserializationError(f"{what} must not be empty")
+    return value
+
+
+def to_tempo(json: object, what: str, max_phases: int) -> list[int]:
+    if not isinstance(json, list):
+        raise DeserializationError(f"{what} must be a list")
+    if len(json) > max_phases:
+        raise DeserializationError(f"{what} must not have more than {max_phases} phases")
+    phases = [to_int(phase, what, 0, TIME_MAX) for phase in json]
+    if phases and sum(phases) == 0:
+        raise DeserializationError(f"{what} must be longer than 0")
+    if sum(phases) > TIME_MAX:
+        raise DeserializationError(f"{what} must not be longer than {TIME_MAX}")
+    return phases
 
 
 def to_optional_int(json: object, what: str, minimum: int, maximum: int) -> int | None:

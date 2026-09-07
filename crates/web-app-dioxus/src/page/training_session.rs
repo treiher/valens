@@ -247,11 +247,11 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             match element {
                 domain::TrainingSessionElement::Set {
                     target_reps,
-                    target_time,
+                    target_tempo,
                     ..
                 } => {
                     METRONOME.write().pause();
-                    if let Some(target_time) = target_time.non_zero()
+                    if let Some(target_time) = target_tempo.seconds_per_rep().non_zero()
                         && target_reps.non_zero().is_some()
                     {
                         METRONOME.with_mut(|metronome| {
@@ -275,11 +275,11 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         {
             match element {
                 domain::TrainingSessionElement::Set {
-                    target_time,
+                    target_tempo,
                     automatic,
                     ..
                 } => {
-                    if let Some(target_time) = target_time.non_zero() {
+                    if let Some(target_time) = target_tempo.seconds_per_rep().non_zero() {
                         if progress.timer_service().read().is_set() {
                             if progress.timer_service().read().seconds() <= 0 {
                                 progress.write().set_element_idx(element_idx + 1);
@@ -813,7 +813,7 @@ fn view_form(
             section.elements().iter().enumerate().any(|(i, element)| {
                 let domain::TrainingSessionElement::Set {
                     target_reps,
-                    target_time,
+                    target_tempo,
                     ..
                 } = element
                 else {
@@ -822,8 +822,13 @@ fn view_form(
                 field_values
                     .get(&(first_element_idx + i))
                     .is_some_and(|set_field_values| {
-                        timer_target_time(*target_reps, *target_time, set_field_values, focus)
-                            .is_none()
+                        timer_target_time(
+                            *target_reps,
+                            target_tempo.seconds_per_rep(),
+                            set_field_values,
+                            focus,
+                        )
+                        .is_none()
                     })
             })
         };
@@ -831,7 +836,7 @@ fn view_form(
         let sets = section.elements().iter().enumerate().map(|(i, element)| {
             let element_idx = first_element_idx + i;
             let set = match element {
-                domain::TrainingSessionElement::Set { exercise_id, target_reps, target_time, target_weight, target_rpe, .. } => {
+                domain::TrainingSessionElement::Set { exercise_id, target_reps, target_tempo, target_weight, target_rpe, .. } => {
                     let set_index = set_indices[&element_idx];
                     let set_field_values = &field_values.read()[&element_idx];
 
@@ -851,28 +856,30 @@ fn view_form(
                         Vec::new()
                     };
 
-                    let mut set_buttons: IndexMap<domain::Set, Vec<String>> = IndexMap::new();
+                    let mut set_buttons: IndexMap<domain::Set, SetButton> = IndexMap::new();
                     if show_set_buttons {
-                        if target_reps.non_zero().is_some() || target_time.non_zero().is_some() || target_weight.non_zero().is_some() || target_rpe.non_zero().is_some() {
-                            set_buttons.entry(domain::Set {
+                        if target_reps.non_zero().is_some() || target_tempo.non_zero().is_some() || target_weight.non_zero().is_some() || target_rpe.non_zero().is_some() {
+                            let button = set_buttons.entry(domain::Set {
                                 reps: *target_reps,
-                                time: *target_time,
+                                time: target_tempo.seconds_per_rep(),
                                 weight: *target_weight,
                                 rpe: *target_rpe,
-                            }).or_default().push("bullseye".to_string());
+                            }).or_default();
+                            button.icons.push("bullseye".to_string());
+                            button.label = Some(element.target_to_string(settings.show_rpe()));
                         }
                         let previous_set = set_index.checked_sub(*exercise_counts.get(exercise_id).unwrap_or(&1)).and_then(|previous_set_index| sets_by_exercise.get(exercise_id).and_then(|set| set.get(previous_set_index).and_then(|e| e.set())));
                         if let Some(set) = previous_set {
-                            set_buttons.entry(set).or_default().push("arrow-turn-down".to_string());
+                            set_buttons.entry(set).or_default().icons.push("arrow-turn-down".to_string());
                         }
                         if let Some(domain::Set { reps, time, weight, rpe }) = history.first().and_then(|(_, sets)| sets.get(set_index)).cloned() {
-                            set_buttons.entry(domain::Set { reps, time, weight, rpe }).or_default().push("calendar-minus".to_string());
+                            set_buttons.entry(domain::Set { reps, time, weight, rpe }).or_default().icons.push("calendar-minus".to_string());
                         }
                     }
 
                     let number = exercise_number(exercise_id, &exercise_ids);
 
-                    match timer_target_time(*target_reps, *target_time, set_field_values, focus) {
+                    match timer_target_time(*target_reps, target_tempo.seconds_per_rep(), set_field_values, focus) {
                         None => rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
@@ -1225,7 +1232,7 @@ fn timer_target_time(
 /// Sets that do not share the position of the set are de-emphasized.
 #[allow(clippy::too_many_arguments)]
 fn set_value_buttons(
-    set_buttons: IndexMap<domain::Set, Vec<String>>,
+    set_buttons: IndexMap<domain::Set, SetButton>,
     history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
     set_index: usize,
     element_idx: usize,
@@ -1245,8 +1252,8 @@ fn set_value_buttons(
                 colspan: 4,
                 div {
                     class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
-                    for (set, icons) in set_buttons {
-                        {set_value_button(&set, Some(icons[0].clone()), false, element_idx, field_values, settings)}
+                    for (set, button) in set_buttons {
+                        {set_value_button(&set, Some(button.icons[0].clone()), button.label, false, element_idx, field_values, settings)}
                     }
                     if show_history {
                         {history_caret(is_expanded, element_idx, expanded_history)}
@@ -1268,7 +1275,7 @@ fn set_value_buttons(
                             div {
                                 class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
                                 for (index, set) in sets.iter().cloned().enumerate() {
-                                    {set_value_button(&set, None, sets.len() > set_index && index != set_index, element_idx, field_values, settings)}
+                                    {set_value_button(&set, None, None, sets.len() > set_index && index != set_index, element_idx, field_values, settings)}
                                 }
                             }
                         }
@@ -1279,17 +1286,26 @@ fn set_value_buttons(
     }
 }
 
+/// The icons of a button prefilling a set and the label it carries in place of its values.
+#[derive(Default)]
+struct SetButton {
+    icons: Vec<String>,
+    label: Option<String>,
+}
+
 /// Renders a button that prefills the set of `element_idx` with `set`.
+#[allow(clippy::too_many_arguments)]
 fn set_value_button(
     set: &domain::Set,
     icon: Option<String>,
+    label: Option<String>,
     is_dimmed: bool,
     element_idx: usize,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
     settings: Settings,
 ) -> Element {
     let has_no_icon = icon.is_none();
-    let label = set.to_string(settings.show_tut(), settings.show_rpe());
+    let label = label.unwrap_or_else(|| set.to_string(settings.show_tut(), settings.show_rpe()));
     let label = if label.is_empty() && has_no_icon {
         "–".to_string()
     } else {
@@ -2164,7 +2180,7 @@ mod tests {
             weight: domain::Weight::new(50.0).unwrap(),
             rpe: domain::RPE::new(8.0).unwrap(),
             target_reps: domain::Reps::default(),
-            target_time: domain::Time::default(),
+            target_tempo: domain::Tempo::default(),
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
@@ -2199,7 +2215,7 @@ mod tests {
                     weight: domain::Weight::default(),
                     rpe: domain::RPE::ZERO,
                     target_reps: domain::Reps::new(10).unwrap(),
-                    target_time: domain::Time::default(),
+                    target_tempo: domain::Tempo::default(),
                     target_weight: domain::Weight::default(),
                     target_rpe: domain::RPE::ZERO,
                     automatic: false,
@@ -2223,7 +2239,7 @@ mod tests {
                     weight: domain::Weight::default(),
                     rpe: domain::RPE::ZERO,
                     target_reps: domain::Reps::default(),
-                    target_time: domain::Time::new(60).unwrap(),
+                    target_tempo: domain::Tempo::new(&[60]).unwrap(),
                     target_weight: domain::Weight::default(),
                     target_rpe: domain::RPE::ZERO,
                     automatic: false,
@@ -2352,7 +2368,7 @@ mod tests {
             weight: domain::Weight::default(),
             rpe: domain::RPE::ZERO,
             target_reps: domain::Reps::default(),
-            target_time: domain::Time::default(),
+            target_tempo: domain::Tempo::default(),
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
@@ -2382,7 +2398,7 @@ mod tests {
             weight: domain::Weight::new(weight).unwrap(),
             rpe: domain::RPE::ZERO,
             target_reps: domain::Reps::default(),
-            target_time: domain::Time::default(),
+            target_tempo: domain::Tempo::default(),
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
@@ -2442,7 +2458,10 @@ mod tests {
                     weight: domain::Weight::new(50.0).unwrap(),
                     rpe: domain::RPE::ZERO,
                 },
-                vec!["calendar-minus".to_string()],
+                SetButton {
+                    icons: vec!["calendar-minus".to_string()],
+                    label: None,
+                },
             )])
         } else {
             IndexMap::new()
@@ -2608,7 +2627,7 @@ mod tests {
             weight: domain::Weight::default(),
             rpe: domain::RPE::default(),
             target_reps: domain::Reps::default(),
-            target_time: domain::Time::default(),
+            target_tempo: domain::Tempo::default(),
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::default(),
             automatic: false,
@@ -2626,7 +2645,7 @@ mod tests {
             weight: domain::Weight::default(),
             rpe: domain::RPE::default(),
             target_reps: domain::Reps::default(),
-            target_time: domain::Time::default(),
+            target_tempo: domain::Tempo::default(),
             target_weight: domain::Weight::new(target_weight).unwrap(),
             target_rpe: domain::RPE::default(),
             automatic: false,

@@ -23,7 +23,10 @@ use crate::{
             IconText, Loading, LoadingDialog, LoadingPage, MenuOption, NoData, OptionsMenu,
             SaveDialog, Title,
         },
-        form::{ButtonSelectField, ButtonSelectOption, FieldValue, FieldValueState, InputField},
+        form::{
+            ButtonSelectField, ButtonSelectOption, FieldValue, FieldValueState, InputField,
+            PhaseFields,
+        },
     },
 };
 
@@ -220,7 +223,7 @@ fn view_routine(
     }
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
 fn view_routine_part(
     routine: &Rc<domain::Routine>,
     part: &domain::RoutinePart,
@@ -297,7 +300,7 @@ fn view_routine_part(
         domain::RoutinePart::RoutineActivity {
             exercise_id,
             reps,
-            time,
+            tempo,
             weight,
             rpe,
             automatic,
@@ -343,7 +346,7 @@ fn view_routine_part(
                                     onclick: eh!(mut edit_dialog; routine, path; {
                                         if let Some(domain::RoutinePart::RoutineActivity {
                                             reps,
-                                            time,
+                                            tempo,
                                             weight,
                                             rpe,
                                             automatic,
@@ -351,11 +354,11 @@ fn view_routine_part(
                                         }) = routine.part(&path) {
                                             let routine = (*routine).clone();
                                             let reps = FieldValue::new_with_empty_default(*reps);
-                                            let time = FieldValue::new_with_empty_default(*time);
+                                            let tempo = phase_fields(tempo);
                                             let weight = FieldValue::new_with_empty_default(*weight);
                                             let rpe = FieldValue::new_with_empty_default(*rpe);
                                             let automatic = FieldValue::new(*automatic);
-                                            *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, time, weight, rpe, automatic };
+                                            *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, tempo, weight, rpe, automatic };
                                         }
                                     }),
                                     span {
@@ -363,14 +366,14 @@ fn view_routine_part(
                                         "data-testid": "rest-label",
                                         "Rest"
                                     }
-                                    if *time != domain::Time::default() {
+                                    if tempo.non_zero().is_some() {
                                         span {
                                             class: "icon-text mr-4",
                                             "data-testid": "rest-time",
                                             span {
                                                 class: "mr-2",
                                                 Icon { name: "clock-rotate-left" }
-                                                "{time.to_string()} s"
+                                                "{tempo}"
                                             }
                                         }
                                     }
@@ -393,7 +396,7 @@ fn view_routine_part(
                                 onclick: eh!(mut edit_dialog; routine, path; {
                                     if let Some(domain::RoutinePart::RoutineActivity {
                                         reps,
-                                        time,
+                                        tempo,
                                         weight,
                                         rpe,
                                         automatic,
@@ -401,11 +404,11 @@ fn view_routine_part(
                                     }) = routine.part(&path) {
                                         let routine = (*routine).clone();
                                         let reps = FieldValue::new_with_empty_default(*reps);
-                                        let time = FieldValue::new_with_empty_default(*time);
+                                        let tempo = phase_fields(tempo);
                                         let weight = FieldValue::new_with_empty_default(*weight);
                                         let rpe = FieldValue::new_with_empty_default(*rpe);
                                         let automatic = FieldValue::new(*automatic);
-                                        *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, time, weight, rpe, automatic };
+                                        *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, tempo, weight, rpe, automatic };
                                     }
                                 }),
                                 if *reps != domain::Reps::default() {
@@ -416,17 +419,6 @@ fn view_routine_part(
                                             class: "mr-2",
                                             Icon { name: "rotate-left" }
                                             "{reps}"
-                                        }
-                                    }
-                                }
-                                if *time != domain::Time::default() {
-                                    span {
-                                        class: "icon-text mr-4",
-                                        "data-testid": "set-time",
-                                        span {
-                                            class: "mr-2",
-                                            Icon { name: "clock-rotate-left" }
-                                            "{time} s"
                                         }
                                     }
                                 }
@@ -448,6 +440,17 @@ fn view_routine_part(
                                         span {
                                             class: "mr-2",
                                             "@ {rpe}"
+                                        }
+                                    }
+                                }
+                                if tempo.non_zero().is_some() {
+                                    span {
+                                        class: "icon-text mr-4",
+                                        "data-testid": "set-tempo",
+                                        span {
+                                            class: "mr-2",
+                                            Icon { name: "clock-rotate-left" }
+                                            "{tempo}"
                                         }
                                     }
                                 }
@@ -831,7 +834,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                             }
                                             Some(domain::RoutinePart::RoutineActivity {
                                                 reps,
-                                                time,
+                                                tempo,
                                                 weight,
                                                 rpe,
                                                 automatic,
@@ -839,11 +842,11 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                             }) => {
                                                 let routine = routine.clone();
                                                 let reps = FieldValue::new_with_empty_default(*reps);
-                                                let time = FieldValue::new_with_empty_default(*time);
+                                                let tempo = phase_fields(tempo);
                                                 let weight = FieldValue::new_with_empty_default(*weight);
                                                 let rpe = FieldValue::new_with_empty_default(*rpe);
                                                 let automatic = FieldValue::new(*automatic);
-                                                *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, time, weight, rpe, automatic };
+                                                *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, tempo, weight, rpe, automatic };
                                             }
                                             _ => {}
                                         }
@@ -979,7 +982,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
             routine,
             path,
             reps: reps_field,
-            time: time_field,
+            tempo: tempo_fields,
             weight: weight_field,
             rpe: rpe_field,
             automatic: automatic_field,
@@ -987,27 +990,21 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
             fn validate_automatic(
                 automatic: bool,
                 exercise_id: domain::ExerciseID,
-                reps: Option<domain::Reps>,
-                time: Option<domain::Time>,
+                tempo: Option<domain::Tempo>,
             ) -> Result<bool, String> {
-                if !exercise_id.is_nil() && automatic {
-                    if time.unwrap_or_default() == domain::Time::default() {
-                        Err(
-                            "time must be greater than 0 to enable automatic start of timer"
-                                .to_string(),
-                        )
-                    } else if reps.unwrap_or_default() != domain::Reps::default() {
-                        Err("reps must be undefined to enable automatic start of timer".to_string())
-                    } else {
-                        Ok(automatic)
-                    }
+                if !exercise_id.is_nil()
+                    && automatic
+                    && tempo.unwrap_or_default() == domain::Tempo::default()
+                {
+                    Err("tempo must be set to enable automatic start of timer".to_string())
                 } else {
                     Ok(automatic)
                 }
             }
 
-            let save = eh!(mut routine; path, reps_field, time_field, weight_field, rpe_field, automatic_field, close_dialog; {
-                routine.update_activity(None, reps_field.validated.ok(), time_field.validated.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), automatic_field.validated.ok(), &path);
+            let validated_tempo = validate_tempo(tempo_fields);
+            let save = eh!(mut routine; path, reps_field, validated_tempo, weight_field, rpe_field, automatic_field, close_dialog; {
+                routine.update_activity(None, reps_field.validated.ok(), validated_tempo.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), automatic_field.validated.ok(), &path);
                 modify_routine_sections(routine, cache, close_dialog)
             });
             match routine.part(path) {
@@ -1015,15 +1012,18 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                     let validated_automatic = validate_automatic(
                         automatic_field.input == true.to_string(),
                         *exercise_id,
-                        reps_field.validated.clone().ok(),
-                        time_field.validated.clone().ok(),
+                        validated_tempo.clone().ok(),
                     );
+                    let tempo_field_states = tempo_fields
+                        .iter()
+                        .map(|field| field as &dyn FieldValueState)
+                        .collect::<Vec<_>>();
                     rsx! {
                         SaveDialog {
                             on_close: eh!(mut close_dialog; { close_dialog(); }),
                             on_save: save,
                             is_loading: IS_LOADING(),
-                            disabled: !FieldValue::has_valid_changes(&[reps_field as &dyn FieldValueState, time_field, weight_field, rpe_field, automatic_field]) || validated_automatic.is_err(),
+                            disabled: !FieldValue::has_valid_changes(&[&[reps_field as &dyn FieldValueState, weight_field, rpe_field, automatic_field], &tempo_field_states[..]].concat()) || validated_automatic.is_err() || validated_tempo.is_err(),
                             if !exercise_id.is_nil() {
                                 InputField {
                                     label: "Reps",
@@ -1049,28 +1049,42 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                     "data-testid": "input-reps",
                                 }
                             }
-                            InputField {
-                                label: "Time",
-                                right_icon: rsx! { "s" },
-                                inputmode: "numeric",
-                                value: time_field.input.clone(),
-                                error: if let Err(err) = &time_field.validated { err.clone() },
-                                has_changed: time_field.changed(),
-                                autofocus: exercise_id.is_nil(),
-                                on_input: move |event: FormEvent| {
-                                    async move {
-                                        if let EditDialog::EditActivity { time, .. } =  &mut *edit_dialog.write() {
-                                            time.input = event.value();
-                                            time.validated = if time.input.is_empty() {
-                                                Ok(domain::Time::default())
-                                            } else {
-                                                domain::Time::try_from(time.input.as_ref())
-                                                    .map_err(|err| err.to_string())
-                                            };
+                            if exercise_id.is_nil() {
+                                InputField {
+                                    label: "Time",
+                                    right_icon: rsx! { "s" },
+                                    inputmode: "numeric",
+                                    value: tempo_fields[0].input.clone(),
+                                    error: if let Err(err) = &tempo_fields[0].validated { err.clone() },
+                                    has_changed: tempo_fields[0].changed(),
+                                    autofocus: true,
+                                    on_input: move |event: FormEvent| {
+                                        async move {
+                                            if let EditDialog::EditActivity { tempo, .. } =  &mut *edit_dialog.write() {
+                                                update_phase_field(&mut tempo[0], &event.value());
+                                            }
                                         }
-                                    }
-                                },
-                                "data-testid": "input-time",
+                                    },
+                                    "data-testid": "input-time",
+                                }
+                            } else {
+                                PhaseFields {
+                                    label: "Time per rep",
+                                    help: "Optionally split into the phases of a tempo",
+                                    unit: "s",
+                                    phases: tempo_fields.iter().map(|field| field.input.clone()).collect::<Vec<_>>(),
+                                    field_errors: tempo_fields.iter().map(|field| field.validated.clone().err()).collect::<Vec<_>>(),
+                                    error: if let Err(err) = &validated_tempo { err.clone() },
+                                    has_changed: tempo_fields.iter().any(FieldValueState::changed),
+                                    field_testid: "input-tempo",
+                                    on_input: move |(index, value): (usize, String)| {
+                                        async move {
+                                            if let EditDialog::EditActivity { tempo, .. } =  &mut *edit_dialog.write() {
+                                                update_phase_field(&mut tempo[index], &value);
+                                            }
+                                        }
+                                    },
+                                }
                             }
                             if !exercise_id.is_nil() {
                                 InputField {
@@ -1157,6 +1171,42 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                 }
             }
         }
+    }
+}
+
+/// Creates a field value per phase slot, the absent phases being empty.
+fn phase_fields(tempo: &domain::Tempo) -> Vec<FieldValue<domain::Time>> {
+    (0..domain::Tempo::MAX_PHASES)
+        .map(|index| match tempo.phases().get(index) {
+            Some(phase) => FieldValue::new(*phase),
+            None => FieldValue::new_with_empty_default(domain::Time::default()),
+        })
+        .collect()
+}
+
+fn update_phase_field(field: &mut FieldValue<domain::Time>, value: &str) {
+    field.input = value.to_string();
+    field.validated = if field.input.is_empty() {
+        Ok(domain::Time::default())
+    } else {
+        domain::Time::try_from(field.input.as_ref()).map_err(|err| err.to_string())
+    };
+}
+
+/// Builds the tempo of the phase fields, an empty field before a filled one being a phase of zero
+/// seconds and a tempo summing to zero being the empty tempo.
+fn validate_tempo(fields: &[FieldValue<domain::Time>]) -> Result<domain::Tempo, String> {
+    let Some(last) = fields.iter().rposition(|field| !field.input.is_empty()) else {
+        return Ok(domain::Tempo::default());
+    };
+    let phases = fields[..=last]
+        .iter()
+        .map(|field| u32::from(field.validated.clone().unwrap_or_default()))
+        .collect::<Vec<_>>();
+    match domain::Tempo::new(&phases) {
+        Ok(tempo) => Ok(tempo),
+        Err(domain::TempoError::Zero) => Ok(domain::Tempo::default()),
+        Err(err) => Err(err.to_string()),
     }
 }
 
@@ -1287,7 +1337,7 @@ pub enum EditDialog {
         routine: domain::Routine,
         path: domain::RoutinePartPath,
         reps: FieldValue<domain::Reps>,
-        time: FieldValue<domain::Time>,
+        tempo: Vec<FieldValue<domain::Time>>,
         weight: FieldValue<domain::Weight>,
         rpe: FieldValue<domain::RPE>,
         automatic: FieldValue<bool>,
@@ -1301,6 +1351,7 @@ mod tests {
     use super::*;
 
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
 
     use crate::test_render::{TestCache, all_text_of, contains, provide_settings, render, text_of};
 
@@ -1350,6 +1401,59 @@ mod tests {
 
         assert_eq!(all_text_of(&html, "set-exercise"), vec!["Squat"; 3]);
         assert_eq!(all_text_of(&html, "section-rounds").len(), 3);
+    }
+
+    #[test]
+    fn test_the_tempo_of_an_activity_is_shown_independently_of_the_time_under_tension_setting() {
+        let with_tempo = |show_tut| {
+            render(move || {
+                with_routine()
+                    .with_routines(vec![domain::Routine {
+                        sections: vec![section(vec![activity_with_tempo(8, &[3, 1, 1, 0])])],
+                        ..routine()
+                    }])
+                    .provide();
+                provide_settings(web_app::Settings {
+                    show_tut,
+                    ..web_app::Settings::default()
+                });
+                rsx! { Routine { id: domain::RoutineID::from(1) } }
+            })
+        };
+
+        assert_eq!(text_of(&with_tempo(true), "set-tempo"), "3·1·1·0");
+        assert_eq!(text_of(&with_tempo(false), "set-tempo"), "3·1·1·0");
+    }
+
+    #[rstest]
+    #[case::empty(&["", "", "", ""], Ok(&[][..]))]
+    #[case::single_phase(&["4", "", "", ""], Ok(&[4][..]))]
+    #[case::trailing_empty_field(&["3", "1", "1", ""], Ok(&[3, 1, 1][..]))]
+    #[case::zero_phase_before_a_filled_one(&["3", "", "1", ""], Ok(&[3, 0, 1][..]))]
+    #[case::trailing_zero(&["3", "1", "1", "0"], Ok(&[3, 1, 1, 0][..]))]
+    #[case::zeros(&["0", "0", "", ""], Ok(&[][..]))]
+    #[case::sum_out_of_range(&["999", "1", "", ""], Err("tempo must not be longer than 999 s"))]
+    fn test_validate_tempo(#[case] inputs: &[&str], #[case] expected: Result<&[u32], &str>) {
+        let fields = inputs
+            .iter()
+            .map(|input| {
+                let mut field = FieldValue::<domain::Time>::default();
+                update_phase_field(&mut field, input);
+                field
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            validate_tempo(&fields).map(|tempo| tempo
+                .phases()
+                .iter()
+                .copied()
+                .map(u32::from)
+                .collect::<Vec<_>>()),
+            expected
+                .map(<[u32]>::to_vec)
+                .map_err(std::string::ToString::to_string)
+        );
     }
 
     #[test]
@@ -1415,11 +1519,32 @@ mod tests {
         }
     }
 
+    fn activity_with_tempo(reps: u32, phases: &[u32]) -> domain::RoutinePart {
+        let domain::RoutinePart::RoutineActivity {
+            exercise_id,
+            weight,
+            rpe,
+            automatic,
+            ..
+        } = activity(reps)
+        else {
+            unreachable!()
+        };
+        domain::RoutinePart::RoutineActivity {
+            exercise_id,
+            reps: domain::Reps::new(reps).unwrap(),
+            tempo: domain::Tempo::new(phases).unwrap(),
+            weight,
+            rpe,
+            automatic,
+        }
+    }
+
     fn activity(reps: u32) -> domain::RoutinePart {
         domain::RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: domain::Reps::new(reps).unwrap(),
-            time: domain::Time::default(),
+            tempo: domain::Tempo::default(),
             weight: domain::Weight::default(),
             rpe: domain::RPE::ZERO,
             automatic: false,

@@ -77,8 +77,6 @@ PLYOMETRICS = 2
 PRIMARY = 100
 SECONDARY = 50
 
-SECONDS_PER_REP = 3
-
 # Rest between rounds in seconds, by exercise class
 LONG_REST = 180
 REST = 150
@@ -117,8 +115,15 @@ EXERCISE_NOTES = {
 
 @dataclass(frozen=True)
 class ExerciseType:
+    """
+    The values an exercise is prescribed and performed with.
+
+    `phases` are the seconds of a repetition. An exercise without repetitions is a hold, whose
+    single phase is its duration.
+    """
+
     reps: bool
-    time: bool
+    phases: tuple[int, ...]
     weight: bool
     rpe: bool
 
@@ -149,7 +154,7 @@ class Training:
 # by hand
 EXERCISES = {
     "Barbell Squat": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         (
             (QUADS, PRIMARY),
             (GLUTES, PRIMARY),
@@ -166,7 +171,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Goblet Squat": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         (
             (QUADS, PRIMARY),
             (GLUTES, PRIMARY),
@@ -183,7 +188,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Leg Press": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((QUADS, PRIMARY), (GLUTES, PRIMARY), (ADDUCTORS, PRIMARY), (HAMSTRINGS, SECONDARY)),
         REST,
         force=PUSH,
@@ -194,7 +199,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Barbell Deadlift": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         (
             (GLUTES, PRIMARY),
             (ERECTOR_SPINAE, PRIMARY),
@@ -213,7 +218,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Barbell Romanian Deadlift": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         (
             (GLUTES, PRIMARY),
             (ERECTOR_SPINAE, PRIMARY),
@@ -232,7 +237,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Barbell Hip Thrust": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((GLUTES, PRIMARY), (QUADS, SECONDARY), (ADDUCTORS, SECONDARY)),
         REST,
         force=PUSH,
@@ -243,7 +248,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Seated Leg Curl": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((HAMSTRINGS, PRIMARY),),
         SHORT_REST,
         force=PULL,
@@ -254,7 +259,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Leg Extension": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((QUADS, PRIMARY),),
         SHORT_REST,
         force=PUSH,
@@ -265,7 +270,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Machine Hip Abduction": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((ABDUCTORS, PRIMARY), (GLUTES, SECONDARY)),
         SHORT_REST,
         force=PULL,
@@ -276,7 +281,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Machine Standing Calf Raise": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((CALVES, PRIMARY),),
         SHORT_REST,
         force=PUSH,
@@ -287,7 +292,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Barbell Bench Press": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, SECONDARY)),
         LONG_REST,
         force=PUSH,
@@ -298,7 +303,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Machine Chest Press": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, SECONDARY)),
         REST,
         force=PUSH,
@@ -309,7 +314,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Push Up": ExerciseDefinition(
-        ExerciseType(reps=True, time=True, weight=False, rpe=True),
+        ExerciseType(reps=True, phases=(2, 1), weight=False, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, SECONDARY), (ABS, SECONDARY)),
         SHORT_REST,
         force=PUSH,
@@ -320,7 +325,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Dip": ExerciseDefinition(
-        ExerciseType(reps=True, time=True, weight=False, rpe=True),
+        ExerciseType(reps=True, phases=(1, 1, 1, 0), weight=False, rpe=True),
         ((PECS, PRIMARY), (FRONT_DELTS, PRIMARY), (TRICEPS, PRIMARY)),
         REST,
         force=PUSH,
@@ -331,7 +336,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Barbell Shoulder Press": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((FRONT_DELTS, PRIMARY), (SIDE_DELTS, SECONDARY), (TRICEPS, SECONDARY)),
         LONG_REST,
         force=PUSH,
@@ -342,7 +347,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Dumbbell Shoulder Press": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=False),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=False),
         ((FRONT_DELTS, PRIMARY), (SIDE_DELTS, SECONDARY), (TRICEPS, SECONDARY)),
         REST,
         force=PUSH,
@@ -353,7 +358,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Dumbbell Lateral Raise": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((SIDE_DELTS, PRIMARY), (FRONT_DELTS, SECONDARY)),
         SHORT_REST,
         force=PULL,
@@ -364,7 +369,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Cable Rope Face Pull": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((REAR_DELTS, PRIMARY), (SIDE_DELTS, SECONDARY), (TRAPS, SECONDARY)),
         SHORT_REST,
         force=PULL,
@@ -375,7 +380,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Cable Row": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         (
             (LATS, PRIMARY),
             (TRAPS, PRIMARY),
@@ -392,7 +397,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Lat Pulldown": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         (
             (LATS, PRIMARY),
             (BICEPS, SECONDARY),
@@ -408,7 +413,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Dumbbell Curl": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((BICEPS, PRIMARY),),
         SHORT_REST,
         force=PULL,
@@ -419,7 +424,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Barbell Skull Crusher": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=True, rpe=True),
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         ((TRICEPS, PRIMARY),),
         SHORT_REST,
         force=PUSH,
@@ -430,7 +435,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Crunch": ExerciseDefinition(
-        ExerciseType(reps=True, time=False, weight=False, rpe=False),
+        ExerciseType(reps=True, phases=(), weight=False, rpe=False),
         ((ABS, PRIMARY),),
         SHORT_REST,
         force=PULL,
@@ -441,7 +446,7 @@ EXERCISES = {
         category=STRENGTH,
     ),
     "Plank": ExerciseDefinition(
-        ExerciseType(reps=False, time=True, weight=False, rpe=False),
+        ExerciseType(reps=False, phases=(), weight=False, rpe=False),
         ((ABS, PRIMARY),),
         SHORT_REST,
         force=STATIC,
@@ -471,7 +476,7 @@ class _Set:
     weight: float | None
     rpe: float | None
     target_reps: int | None
-    target_time: int | None
+    target_tempo: list[int]
     target_weight: float | None
     target_rpe: float | None
     rest: int
@@ -688,11 +693,11 @@ def _set(
     return _Set(
         exercise=config.name,
         reps=achieved if definition.type.reps else None,
-        time=_duration(definition, achieved),
+        time=_seconds_per_rep(definition, achieved),
         weight=weight if definition.type.weight else None,
         rpe=rpe if definition.type.rpe else None,
         target_reps=target if definition.type.reps else None,
-        target_time=_duration(definition, target),
+        target_tempo=_tempo(definition, target),
         target_weight=target_weight if definition.type.weight else None,
         target_rpe=config.target_rpe if definition.type.rpe else None,
         rest=definition.rest,
@@ -706,13 +711,15 @@ def _rated(performed: _Set, offset: float) -> _Set:
     return performed
 
 
-def _duration(definition: ExerciseDefinition, count: int) -> int | None:
-    """Return the seconds a single repetition takes, or the seconds of a hold."""
-    if not definition.type.time:
-        return None
+def _tempo(definition: ExerciseDefinition, count: int) -> list[int]:
+    """Return the phases of a repetition, or the single phase of a hold of `count` seconds."""
     if definition.type.reps:
-        return SECONDS_PER_REP
-    return count
+        return list(definition.type.phases)
+    return [count]
+
+
+def _seconds_per_rep(definition: ExerciseDefinition, count: int) -> int | None:
+    return sum(_tempo(definition, count)) or None
 
 
 def _snap(weight: float, increment: float) -> float:
@@ -780,7 +787,7 @@ def _activity(
         position=position,
         exercise=exercise,
         reps=progress.counter if definition.type.reps else 0,
-        time=_duration(definition, progress.counter) or 0,
+        tempo=_tempo(definition, progress.counter),
         weight=progress.load if definition.type.weight else 0.0,
         rpe=config.target_rpe if definition.type.rpe else 0.0,
         automatic=False,
@@ -791,7 +798,7 @@ def _rest(position: int, rest: int) -> RoutineActivity:
     return RoutineActivity(
         position=position,
         reps=0,
-        time=rest,
+        tempo=[rest],
         weight=0.0,
         rpe=0.0,
         automatic=rest <= AUTOMATIC_REST,
@@ -833,7 +840,7 @@ def _elements(record: _Record, exercises: dict[str, Exercise]) -> list[WorkoutEl
                 weight=performed.weight,
                 rpe=performed.rpe,
                 target_reps=performed.target_reps,
-                target_time=performed.target_time,
+                target_tempo=performed.target_tempo or None,
                 target_weight=performed.target_weight,
                 target_rpe=performed.target_rpe,
             )

@@ -1828,7 +1828,7 @@ mod tests {
                 weight: domain::Weight::default(),
                 rpe: domain::RPE::default(),
                 target_reps: domain::Reps::default(),
-                target_time: domain::Time::default(),
+                target_tempo: domain::Tempo::default(),
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,

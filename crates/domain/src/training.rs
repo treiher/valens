@@ -99,20 +99,183 @@ impl TryFrom<&str> for Time {
     }
 }
 
-impl Mul<Reps> for Time {
-    type Output = Time;
-
-    fn mul(self, rhs: Reps) -> Self::Output {
-        Time(self.0 * rhs.0)
-    }
-}
-
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum TimeError {
     #[error("time must be in the range 0 to 999 s")]
     OutOfRange,
     #[error("time must be an integer")]
     ParseError,
+}
+
+/// The phases of a repetition, in the order in which they are performed.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Tempo {
+    phases: [Time; Tempo::MAX_PHASES],
+    len: usize,
+}
+
+impl Tempo {
+    pub const MAX_PHASES: usize = 4;
+
+    pub fn new(phases: &[u32]) -> Result<Self, TempoError> {
+        if phases.len() > Self::MAX_PHASES {
+            return Err(TempoError::TooManyPhases);
+        }
+
+        let mut result = Self::default();
+        for (slot, phase) in result.phases.iter_mut().zip(phases) {
+            *slot = Time::new(*phase).map_err(|_| TempoError::PhaseOutOfRange)?;
+        }
+        result.len = phases.len();
+
+        let sum = phases.iter().sum::<u32>();
+        if !phases.is_empty() && sum == 0 {
+            return Err(TempoError::Zero);
+        }
+        Time::new(sum).map_err(|_| TempoError::OutOfRange)?;
+
+        Ok(result)
+    }
+
+    #[must_use]
+    pub fn phases(&self) -> &[Time] {
+        &self.phases[..self.len]
+    }
+
+    /// Converts into an `Option`, interpreting the empty tempo as unset.
+    #[must_use]
+    pub fn non_zero(self) -> Option<Self> {
+        (self.len > 0).then_some(self)
+    }
+
+    #[must_use]
+    pub fn seconds_per_rep(&self) -> Time {
+        Time(self.phases().iter().map(|phase| phase.0).sum())
+    }
+
+    /// Returns the repetition, the index of the phase within it and the seconds remaining in that
+    /// phase at `elapsed` seconds after the start of the tempo.
+    ///
+    /// A phase of zero seconds is never running and is therefore never reported.
+    #[must_use]
+    pub fn phase_at(&self, elapsed: f64) -> Option<(u32, usize, f64)> {
+        let seconds_per_rep = f64::from(self.seconds_per_rep().0);
+        if seconds_per_rep == 0. {
+            return None;
+        }
+
+        let repetition = (elapsed / seconds_per_rep).floor();
+        let mut remaining = elapsed - repetition * seconds_per_rep;
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let repetition = repetition as u32;
+
+        for (index, phase) in self.phases().iter().enumerate() {
+            let duration = f64::from(phase.0);
+            if remaining < duration {
+                return Some((repetition, index, duration - remaining));
+            }
+            remaining -= duration;
+        }
+
+        Some((repetition, self.len - 1, 0.))
+    }
+
+    /// Returns the seconds after the start of the tempo at which `beat` falls and whether it
+    /// sounds.
+    ///
+    /// The number of a beat is the repetition times the number of phases plus the index of the
+    /// phase within the repetition. Beats falling at the same moment sound once: the beat opening
+    /// a repetition wins such a moment, and among the others the highest-numbered one does.
+    #[must_use]
+    pub fn beat_at(&self, beat: u32) -> Option<(f64, bool)> {
+        if self.len == 0 {
+            return None;
+        }
+
+        #[allow(clippy::cast_possible_truncation)]
+        let phases_per_rep = self.len as u32;
+        let repetition = beat / phases_per_rep;
+        let index = (beat % phases_per_rep) as usize;
+        let before = self.phases()[..index]
+            .iter()
+            .map(|phase| phase.0)
+            .sum::<u32>();
+
+        Some((
+            f64::from(repetition * self.seconds_per_rep().0 + before),
+            index == 0 || (before > 0 && self.phases[index] > Time::default()),
+        ))
+    }
+}
+
+impl fmt::Display for Tempo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.phases() {
+            [] => Ok(()),
+            [phase] => write!(f, "{phase} s"),
+            phases => {
+                for (index, phase) in phases.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, "\u{00b7}")?;
+                    }
+                    write!(f, "{phase}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum TempoError {
+    #[error("phase must be in the range 0 to 999 s")]
+    PhaseOutOfRange,
+    #[error("tempo must not have more than 4 phases")]
+    TooManyPhases,
+    #[error("tempo must be longer than 0 s")]
+    Zero,
+    #[error("tempo must not be longer than 999 s")]
+    OutOfRange,
+}
+
+/// Renders the values of a set or an activity as a single line.
+///
+/// `parenthesized` follows the chain of multiplied quantities in parentheses, or takes its place
+/// when the chain is empty.
+pub(crate) fn values_to_string(
+    reps: Option<Reps>,
+    weight: Option<Weight>,
+    rpe: Option<RPE>,
+    parenthesized: &str,
+) -> String {
+    use std::fmt::Write as _;
+
+    let mut parts = vec![];
+
+    if let Some(reps) = reps {
+        parts.push(reps.to_string());
+    }
+
+    if let Some(weight) = weight {
+        parts.push(format!("{weight} kg"));
+    }
+
+    let mut result = if parts.is_empty() {
+        parenthesized.to_string()
+    } else {
+        parts.join(" \u{00d7} ")
+    };
+
+    if let Some(rpe) = rpe {
+        let separator = if result.is_empty() { "" } else { " " };
+        let _ = write!(result, "{separator}@ {rpe}");
+    }
+
+    if !parts.is_empty() && !parenthesized.is_empty() {
+        let _ = write!(result, " ({parenthesized})");
+    }
+
+    result
 }
 
 #[derive(Debug, Default, Display, Clone, Copy, Into, PartialOrd)]
@@ -507,7 +670,7 @@ mod tests {
                     weight: Weight(30.0),
                     rpe: RPE::EIGHT,
                     target_reps: Reps(8),
-                    target_time: Time(4),
+                    target_tempo: Tempo::new(&[4]).unwrap(),
                     target_weight: Weight(40.0),
                     target_rpe: RPE::NINE,
                     automatic: false,
@@ -523,7 +686,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::FOUR,
                     target_reps: Reps::default(),
-                    target_time: Time::default(),
+                    target_tempo: Tempo::default(),
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
@@ -539,7 +702,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::default(),
                     target_reps: Reps::default(),
-                    target_time: Time::default(),
+                    target_tempo: Tempo::default(),
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
@@ -622,14 +785,101 @@ mod tests {
     }
 
     #[rstest]
-    fn test_time_mul_reps() {
-        assert_eq!(Time(2) * Reps(4), Time(8));
-    }
-
-    #[rstest]
     #[case(Time(8), "8")]
     fn test_time_display(#[case] input: Time, #[case] expected: &str) {
         assert_eq!(input.to_string(), expected);
+    }
+
+    #[rstest]
+    #[case::empty(&[], Ok(&[][..]))]
+    #[case::single(&[4], Ok(&[4][..]))]
+    #[case::four(&[3, 1, 1, 0], Ok(&[3, 1, 1, 0][..]))]
+    #[case::max_phase(&[999], Ok(&[999][..]))]
+    #[case::max_sum(&[996, 1, 1, 1], Ok(&[996, 1, 1, 1][..]))]
+    #[case::phase_out_of_range(&[1000], Err(TempoError::PhaseOutOfRange))]
+    #[case::too_many_phases(&[1, 1, 1, 1, 1], Err(TempoError::TooManyPhases))]
+    #[case::zero(&[0, 0], Err(TempoError::Zero))]
+    #[case::sum_out_of_range(&[999, 1], Err(TempoError::OutOfRange))]
+    fn test_tempo_new(#[case] input: &[u32], #[case] expected: Result<&[u32], TempoError>) {
+        assert_eq!(
+            Tempo::new(input).map(|tempo| tempo
+                .phases()
+                .iter()
+                .map(|phase| u32::from(*phase))
+                .collect::<Vec<_>>()),
+            expected.map(<[u32]>::to_vec)
+        );
+    }
+
+    #[rstest]
+    fn test_tempo_default_is_empty() {
+        assert_eq!(Tempo::default().phases(), &[]);
+        assert_eq!(Tempo::default().seconds_per_rep(), Time(0));
+    }
+
+    #[rstest]
+    #[case::empty(&[], None)]
+    #[case::single(&[4], Some(&[4][..]))]
+    fn test_tempo_non_zero(#[case] input: &[u32], #[case] expected: Option<&[u32]>) {
+        assert_eq!(
+            Tempo::new(input).unwrap().non_zero().map(|tempo| tempo
+                .phases()
+                .iter()
+                .map(|phase| u32::from(*phase))
+                .collect::<Vec<_>>()),
+            expected.map(<[u32]>::to_vec)
+        );
+    }
+
+    #[rstest]
+    #[case(&[], Time(0))]
+    #[case(&[4], Time(4))]
+    #[case(&[3, 1, 1, 0], Time(5))]
+    fn test_tempo_seconds_per_rep(#[case] input: &[u32], #[case] expected: Time) {
+        assert_eq!(Tempo::new(input).unwrap().seconds_per_rep(), expected);
+    }
+
+    #[rstest]
+    #[case::empty(&[], "")]
+    #[case::single(&[4], "4 s")]
+    #[case::two(&[6, 30], "6\u{00b7}30")]
+    #[case::four(&[3, 1, 1, 0], "3\u{00b7}1\u{00b7}1\u{00b7}0")]
+    fn test_tempo_display(#[case] input: &[u32], #[case] expected: &str) {
+        assert_eq!(Tempo::new(input).unwrap().to_string(), expected);
+    }
+
+    #[rstest]
+    #[case::empty(&[], 0., None)]
+    #[case::start(&[3, 1, 1, 0], 0., Some((0, 0, 3.)))]
+    #[case::within_phase(&[3, 1, 1, 0], 0.5, Some((0, 0, 2.5)))]
+    #[case::phase_boundary(&[3, 1, 1, 0], 3., Some((0, 1, 1.)))]
+    #[case::later_repetition(&[3, 1, 1, 0], 12.5, Some((2, 0, 0.5)))]
+    #[case::across_zero_phase(&[3, 0, 1, 1], 3., Some((0, 2, 1.)))]
+    #[case::repetition_boundary(&[3, 1, 1, 0], 5., Some((1, 0, 3.)))]
+    fn test_tempo_phase_at(
+        #[case] phases: &[u32],
+        #[case] elapsed: f64,
+        #[case] expected: Option<(u32, usize, f64)>,
+    ) {
+        assert_eq!(Tempo::new(phases).unwrap().phase_at(elapsed), expected);
+    }
+
+    #[rstest]
+    #[case::empty(&[], 0, None)]
+    #[case::first(&[3, 1, 1, 0], 0, Some((0., true)))]
+    #[case::second(&[3, 1, 1, 0], 1, Some((3., true)))]
+    #[case::later_repetition(&[3, 1, 1, 0], 9, Some((13., true)))]
+    #[case::zero_phase_at_the_end(&[3, 1, 1, 0], 3, Some((5., false)))]
+    #[case::zero_phase_at_the_start(&[0, 3], 1, Some((0., false)))]
+    #[case::repetition_opening_on_a_zero_phase(&[0, 3], 0, Some((0., true)))]
+    #[case::zero_phase_between_filled_ones(&[3, 0, 1], 1, Some((3., false)))]
+    #[case::beat_after_a_zero_phase(&[3, 0, 1], 2, Some((3., true)))]
+    fn test_tempo_beat_at(
+        #[case] phases: &[u32],
+        #[case] beat: u32,
+        #[case] expected: Option<(f64, bool)>,
+    ) {
+        assert_eq!(Tempo::new(phases).unwrap().beat_at(beat), expected);
     }
 
     #[rstest]

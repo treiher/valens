@@ -13,8 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Notes of an exercise
     - Sets of the recent sessions of an exercise, shown on demand below the values of a set
     - Filling of the sets of an exercise from the drop set calculator
+    - Target tempo of a set
 - Routines page: Editing of the notes of a routine
-- Routine page: Notes of a routine
+- Routine page:
+    - Notes of a routine
+    - Tempo of an activity
 - Exercises page:
     - Properties of custom exercises, copied from the catalog when an exercise is added from it
     - Editing of force, mechanic, laterality, assistance, equipment and category of an exercise
@@ -39,11 +42,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Names of the calculator options of an exercise to "Calculate 1RM" and "Calculate drop sets"
     - Option to calculate drop sets, only shown if at least two sets of the exercise are in the same series of sets without a rest
     - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
-- Routine page: Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
+    - Values of a set, showing the time after the other values
+- Routine page:
+    - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
+    - Time of an activity, which is now given as a tempo
+    - Text export, showing the tempo of an activity after the other values
 - Exercises page:
     - Filtering by muscles differentiating between primary and secondary muscles
     - Muscles of an exercise cycling through primary before secondary
-- Exercise page: Muscles of an exercise cycling through primary before secondary
+- Exercise page:
+    - Muscles of an exercise cycling through primary before secondary
+    - Values of a set, showing the time after the other values
 - Catalog exercise page: Order of the properties of an exercise, showing the muscles first
 
 ### Fixed

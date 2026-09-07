@@ -1517,7 +1517,7 @@ pub enum RoutinePart {
     RoutineActivity {
         exercise_id: Option<u64>,
         reps: u32,
-        time: u32,
+        tempo: Vec<u32>,
         weight: f32,
         rpe: f32,
         automatic: bool,
@@ -1534,7 +1534,7 @@ impl From<domain::RoutinePart> for RoutinePart {
             domain::RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
-                time,
+                tempo,
                 weight,
                 rpe,
                 automatic,
@@ -1546,7 +1546,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                     Some(exercise_id.as_u128() as u64)
                 },
                 reps: u32::from(reps),
-                time: u32::from(time),
+                tempo: tempo.phases().iter().copied().map(u32::from).collect(),
                 weight: f32::from(weight),
                 rpe: f32::from(rpe),
                 automatic,
@@ -1565,7 +1565,7 @@ impl From<RoutinePart> for domain::RoutinePart {
             RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
-                time,
+                tempo,
                 weight,
                 rpe,
                 automatic,
@@ -1575,7 +1575,7 @@ impl From<RoutinePart> for domain::RoutinePart {
                     .map(domain::ExerciseID::from)
                     .unwrap_or_default(),
                 reps: domain::Reps::new(reps).unwrap_or_default(),
-                time: domain::Time::new(time).unwrap_or_default(),
+                tempo: to_tempo(&tempo),
                 weight: domain::Weight::new(weight).unwrap_or_default(),
                 rpe: domain::RPE::new(rpe).unwrap_or_default(),
                 automatic,
@@ -1819,7 +1819,7 @@ pub enum TrainingSessionElement {
         weight: Option<f32>,
         rpe: Option<f32>,
         target_reps: Option<u32>,
-        target_time: Option<u32>,
+        target_tempo: Option<Vec<u32>>,
         target_weight: Option<f32>,
         target_rpe: Option<f32>,
         automatic: bool,
@@ -1840,7 +1840,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 weight,
                 rpe,
                 target_reps,
-                target_time,
+                target_tempo,
                 target_weight,
                 target_rpe,
                 automatic,
@@ -1852,7 +1852,9 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 weight: weight.non_zero().map(From::from),
                 rpe: rpe.non_zero().map(From::from),
                 target_reps: target_reps.non_zero().map(From::from),
-                target_time: target_time.non_zero().map(From::from),
+                target_tempo: target_tempo
+                    .non_zero()
+                    .map(|tempo| tempo.phases().iter().copied().map(u32::from).collect()),
                 target_weight: target_weight.non_zero().map(From::from),
                 target_rpe: target_rpe.non_zero().map(From::from),
                 automatic,
@@ -1878,7 +1880,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 weight,
                 rpe,
                 target_reps,
-                target_time,
+                target_tempo,
                 target_weight,
                 target_rpe,
                 automatic,
@@ -1899,8 +1901,8 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 target_reps: target_reps
                     .and_then(|r| domain::Reps::new(r).ok())
                     .unwrap_or_default(),
-                target_time: target_time
-                    .and_then(|t| domain::Time::new(t).ok())
+                target_tempo: target_tempo
+                    .map(|tempo| to_tempo(&tempo))
                     .unwrap_or_default(),
                 target_weight: target_weight
                     .and_then(|w| domain::Weight::new(w).ok())
@@ -1941,6 +1943,18 @@ impl SendRequest for GlooNetSendRequest {
     ) -> Result<gloo_net::http::Response, gloo_net::Error> {
         request.send().await
     }
+}
+
+/// Converts the stored phases into a `Tempo`, replacing a phase out of range by the default and a
+/// rejected list by the empty tempo.
+fn to_tempo(phases: &[u32]) -> domain::Tempo {
+    domain::Tempo::new(
+        &phases
+            .iter()
+            .map(|phase| u32::from(domain::Time::new(*phase).unwrap_or_default()))
+            .collect::<Vec<_>>(),
+    )
+    .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -2315,6 +2329,37 @@ mod tests {
         assert_eq!(deserialized, obj);
     }
 
+    #[rstest]
+    #[case::empty(vec![], &[][..])]
+    #[case::single_phase(vec![4], &[4][..])]
+    #[case::several_phases(vec![3, 1, 1, 0], &[3, 1, 1, 0][..])]
+    #[case::phase_out_of_range(vec![1000, 1], &[0, 1][..])]
+    #[case::rejected_by_the_domain(vec![1, 1, 1, 1, 1], &[][..])]
+    fn test_routine_activity_tempo_from(#[case] tempo: Vec<u32>, #[case] expected: &[u32]) {
+        let domain::RoutinePart::RoutineActivity { tempo, .. } =
+            domain::RoutinePart::from(RoutinePart::RoutineActivity {
+                exercise_id: Some(1),
+                reps: 0,
+                tempo,
+                weight: 0.0,
+                rpe: 0.0,
+                automatic: false,
+            })
+        else {
+            unreachable!()
+        };
+
+        assert_eq!(
+            tempo
+                .phases()
+                .iter()
+                .copied()
+                .map(u32::from)
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
+
     #[test]
     fn test_routine_try_from() {
         assert_eq!(
@@ -2349,7 +2394,7 @@ mod tests {
                 weight: Some(1000.0),
                 rpe: Some(10.5),
                 target_reps: Some(1000),
-                target_time: Some(1000),
+                target_tempo: Some(vec![1000]),
                 target_weight: Some(1000.0),
                 target_rpe: Some(10.5),
                 automatic: false,
@@ -2361,7 +2406,7 @@ mod tests {
                 weight: domain::Weight::default(),
                 rpe: domain::RPE::default(),
                 target_reps: domain::Reps::default(),
-                target_time: domain::Time::default(),
+                target_tempo: domain::Tempo::default(),
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
@@ -2379,7 +2424,7 @@ mod tests {
                 weight: domain::Weight::default(),
                 rpe: domain::RPE::default(),
                 target_reps: domain::Reps::default(),
-                target_time: domain::Time::default(),
+                target_tempo: domain::Tempo::default(),
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
@@ -2391,7 +2436,7 @@ mod tests {
                 weight: None,
                 rpe: None,
                 target_reps: None,
-                target_time: None,
+                target_tempo: None,
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
@@ -2419,7 +2464,7 @@ mod tests {
                 weight: None,
                 rpe: None,
                 target_reps: None,
-                target_time: None,
+                target_tempo: None,
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
@@ -2431,7 +2476,7 @@ mod tests {
                 weight: domain::Weight::default(),
                 rpe: domain::RPE::default(),
                 target_reps: domain::Reps::default(),
-                target_time: domain::Time::default(),
+                target_tempo: domain::Tempo::default(),
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,

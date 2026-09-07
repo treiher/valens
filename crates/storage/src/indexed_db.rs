@@ -19,7 +19,7 @@ pub struct IndexedDB;
 impl IndexedDB {
     async fn open(&self) -> Result<Database, OpenDbError> {
         Database::open("valens")
-            .with_version(4u8)
+            .with_version(5u8)
             .with_on_blocked(|event| {
                 debug!("upgrade of database blocked: {event:?}");
                 Ok(())
@@ -52,11 +52,22 @@ impl IndexedDB {
                 if event.old_version() < 3.0 {
                     db.create_object_store(Store::ETags).build()?;
                 }
-                if event.old_version() >= 3.0 && event.old_version() < 4.0 {
+                if event.old_version() >= 3.0 && event.old_version() < 5.0 {
                     // Discard the ETags, so that the next sync returns the full data instead of a
                     // 304 for data whose format has changed.
                     db.delete_object_store(Store::ETags.as_ref())?;
                     db.create_object_store(Store::ETags).build()?;
+                }
+                if event.old_version() >= 1.0 && event.old_version() < 5.0 {
+                    // Discard the routines and training sessions, whose format has changed.
+                    db.delete_object_store(Store::Routines.as_ref())?;
+                    db.create_object_store(Store::Routines)
+                        .with_key_path(KeyPath::One("id"))
+                        .build()?;
+                    db.delete_object_store(Store::TrainingSessions.as_ref())?;
+                    db.create_object_store(Store::TrainingSessions)
+                        .with_key_path(KeyPath::One("id"))
+                        .build()?;
                 }
                 Ok(())
             })
@@ -1231,7 +1242,7 @@ pub enum RoutinePart {
     RoutineActivity {
         exercise_id: Option<Uuid>,
         reps: u32,
-        time: u32,
+        tempo: Vec<u32>,
         weight: f32,
         rpe: f32,
         automatic: bool,
@@ -1248,7 +1259,7 @@ impl From<domain::RoutinePart> for RoutinePart {
             domain::RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
-                time,
+                tempo,
                 weight,
                 rpe,
                 automatic,
@@ -1260,7 +1271,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                     Some(*exercise_id)
                 },
                 reps: u32::from(reps),
-                time: u32::from(time),
+                tempo: tempo.phases().iter().copied().map(u32::from).collect(),
                 weight: f32::from(weight),
                 rpe: f32::from(rpe),
                 automatic,
@@ -1282,7 +1293,7 @@ impl From<RoutinePart> for domain::RoutinePart {
             RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
-                time,
+                tempo,
                 weight,
                 rpe,
                 automatic,
@@ -1294,10 +1305,7 @@ impl From<RoutinePart> for domain::RoutinePart {
                     domain::Reps::new(reps),
                     "invalid reps in stored routine",
                 ),
-                time: unwrap_or_default_warn(
-                    domain::Time::new(time),
-                    "invalid time in stored routine",
-                ),
+                tempo: to_tempo(&tempo, "invalid tempo in stored routine"),
                 weight: unwrap_or_default_warn(
                     domain::Weight::new(weight),
                     "invalid weight in stored routine",
@@ -1520,7 +1528,7 @@ pub enum TrainingSessionElement {
         weight: Option<f32>,
         rpe: Option<f32>,
         target_reps: Option<u32>,
-        target_time: Option<u32>,
+        target_tempo: Option<Vec<u32>>,
         target_weight: Option<f32>,
         target_rpe: Option<f32>,
         automatic: bool,
@@ -1541,7 +1549,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 weight,
                 rpe,
                 target_reps,
-                target_time,
+                target_tempo,
                 target_weight,
                 target_rpe,
                 automatic,
@@ -1553,7 +1561,9 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 weight: weight.non_zero().map(From::from),
                 rpe: rpe.non_zero().map(From::from),
                 target_reps: target_reps.non_zero().map(From::from),
-                target_time: target_time.non_zero().map(From::from),
+                target_tempo: target_tempo
+                    .non_zero()
+                    .map(|tempo| tempo.phases().iter().copied().map(u32::from).collect()),
                 target_weight: target_weight.non_zero().map(From::from),
                 target_rpe: target_rpe.non_zero().map(From::from),
                 automatic,
@@ -1579,7 +1589,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 weight,
                 rpe,
                 target_reps,
-                target_time,
+                target_tempo,
                 target_weight,
                 target_rpe,
                 automatic,
@@ -1602,10 +1612,8 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                         ok_warn(domain::Reps::new(r), "invalid target reps in stored set")
                     })
                     .unwrap_or_default(),
-                target_time: target_time
-                    .and_then(|t| {
-                        ok_warn(domain::Time::new(t), "invalid target time in stored set")
-                    })
+                target_tempo: target_tempo
+                    .map(|tempo| to_tempo(&tempo, "invalid target tempo in stored set"))
                     .unwrap_or_default(),
                 target_weight: target_weight
                     .and_then(|w| {
@@ -1662,6 +1670,16 @@ where
             None
         }
     }
+}
+
+/// Converts the stored phases into a `Tempo`, replacing a phase out of range by the default and a
+/// rejected list by the empty tempo.
+fn to_tempo(phases: &[u32], message: &str) -> domain::Tempo {
+    let phases = phases
+        .iter()
+        .map(|phase| u32::from(unwrap_or_default_warn(domain::Time::new(*phase), message)))
+        .collect::<Vec<_>>();
+    unwrap_or_default_warn(domain::Tempo::new(&phases), message)
 }
 
 #[cfg(test)]
@@ -1891,6 +1909,37 @@ mod tests {
         assert_eq!(deserialized, obj);
     }
 
+    #[rstest]
+    #[case::empty(vec![], &[][..])]
+    #[case::single_phase(vec![4], &[4][..])]
+    #[case::several_phases(vec![3, 1, 1, 0], &[3, 1, 1, 0][..])]
+    #[case::phase_out_of_range(vec![1000, 1], &[0, 1][..])]
+    #[case::rejected_by_the_domain(vec![1, 1, 1, 1, 1], &[][..])]
+    fn test_routine_activity_tempo_from(#[case] tempo: Vec<u32>, #[case] expected: &[u32]) {
+        let domain::RoutinePart::RoutineActivity { tempo, .. } =
+            domain::RoutinePart::from(RoutinePart::RoutineActivity {
+                exercise_id: Some(Uuid::from_u128(1)),
+                reps: 0,
+                tempo,
+                weight: 0.0,
+                rpe: 0.0,
+                automatic: false,
+            })
+        else {
+            unreachable!()
+        };
+
+        assert_eq!(
+            tempo
+                .phases()
+                .iter()
+                .copied()
+                .map(u32::from)
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
+
     #[test]
     fn test_routine_try_from() {
         assert_eq!(
@@ -1925,7 +1974,7 @@ mod tests {
                 weight: domain::Weight::default(),
                 rpe: domain::RPE::default(),
                 target_reps: domain::Reps::default(),
-                target_time: domain::Time::default(),
+                target_tempo: domain::Tempo::default(),
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
@@ -1937,7 +1986,7 @@ mod tests {
                 weight: None,
                 rpe: None,
                 target_reps: None,
-                target_time: None,
+                target_tempo: None,
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
@@ -1965,7 +2014,7 @@ mod tests {
                 weight: None,
                 rpe: None,
                 target_reps: None,
-                target_time: None,
+                target_tempo: None,
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
@@ -1977,7 +2026,7 @@ mod tests {
                 weight: domain::Weight::default(),
                 rpe: domain::RPE::default(),
                 target_reps: domain::Reps::default(),
-                target_time: domain::Time::default(),
+                target_tempo: domain::Tempo::default(),
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
@@ -2005,7 +2054,7 @@ mod tests {
                 weight: Some(1000.0),
                 rpe: Some(10.5),
                 target_reps: Some(1000),
-                target_time: Some(1000),
+                target_tempo: Some(vec![1000]),
                 target_weight: Some(1000.0),
                 target_rpe: Some(10.5),
                 automatic: false,
@@ -2017,7 +2066,7 @@ mod tests {
                 weight: domain::Weight::default(),
                 rpe: domain::RPE::default(),
                 target_reps: domain::Reps::default(),
-                target_time: domain::Time::default(),
+                target_tempo: domain::Tempo::default(),
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
@@ -2818,12 +2867,16 @@ mod tests {
             );
         }
 
-        /// Create a database as version 3 created it, with an `ETag` and an exercise in it.
-        async fn create_database_version_3() {
+        /// Create a database as version 4 created it, with an `ETag`, an exercise, a routine and
+        /// a training session in it.
+        ///
+        /// Deleting the database blocks while another connection to it is open, so a second test
+        /// creating one of its own would never run.
+        async fn create_database_version_4() {
             Database::delete_by_name("valens").unwrap().await.unwrap();
 
             let db = Database::open("valens")
-                .with_version(3u8)
+                .with_version(4u8)
                 .with_on_upgrade_needed(|_, db| {
                     db.create_object_store(Store::App).build()?;
                     for store in [Store::BodyWeight, Store::BodyFat, Store::Period] {
@@ -2844,7 +2897,15 @@ mod tests {
                 .unwrap();
 
             let transaction = db
-                .transaction([Store::ETags.as_ref(), Store::Exercises.as_ref()].as_slice())
+                .transaction(
+                    [
+                        Store::ETags.as_ref(),
+                        Store::Exercises.as_ref(),
+                        Store::Routines.as_ref(),
+                        Store::TrainingSessions.as_ref(),
+                    ]
+                    .as_slice(),
+                )
                 .with_mode(TransactionMode::Readwrite)
                 .build()
                 .unwrap();
@@ -2865,19 +2926,37 @@ mod tests {
                 .unwrap()
                 .await
                 .unwrap();
+            transaction
+                .object_store(Store::Routines.as_ref())
+                .unwrap()
+                .put(Routine::from(ROUTINE.clone()))
+                .serde()
+                .unwrap()
+                .await
+                .unwrap();
+            transaction
+                .object_store(Store::TrainingSessions.as_ref())
+                .unwrap()
+                .put(TrainingSession::from(TRAINING_SESSION.clone()))
+                .serde()
+                .unwrap()
+                .await
+                .unwrap();
             transaction.commit().await.unwrap();
             db.close();
         }
 
         #[wasm_bindgen_test]
-        async fn test_upgrade_from_version_3_discards_etags() {
-            create_database_version_3().await;
+        async fn test_upgrade_discards_etags_routines_and_training_sessions() {
+            create_database_version_4().await;
 
             assert_eq!(IndexedDB.read_etag("exercises").await.unwrap(), None);
             assert_eq!(
                 IndexedDB.read_exercises().await.unwrap(),
                 vec![EXERCISE.clone()]
             );
+            assert_eq!(IndexedDB.read_routines().await.unwrap(), vec![]);
+            assert_eq!(IndexedDB.read_training_sessions().await.unwrap(), vec![]);
         }
 
         async fn init_session() {

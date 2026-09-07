@@ -48,6 +48,9 @@ REPS_MAX = 999
 # Mirrors `Time` in `crates/domain/src/training.rs`
 TIME_MAX = 999
 
+# Mirrors `Tempo` in `crates/domain/src/training.rs`
+TEMPO_PHASES_MAX = 4
+
 # Mirrors `Weight` in `crates/domain/src/training.rs`
 WEIGHT_MAX = 999.99
 WEIGHT_RESOLUTION = 0.01

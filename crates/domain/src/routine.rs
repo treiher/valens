@@ -9,8 +9,8 @@ use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, MuscleID, Name, Property, RPE, ReadError, Reps,
-    Stimulus, SyncError, Time, TrainingSession, TrainingSessionElement, UpdateError,
-    ValidationError, Weight,
+    Stimulus, SyncError, Tempo, Time, TrainingSession, TrainingSessionElement, UpdateError,
+    ValidationError, Weight, training::values_to_string,
 };
 
 #[allow(async_fn_in_trait)]
@@ -111,7 +111,7 @@ impl Routine {
     }
 
     #[must_use]
-    pub fn to_text(&self, exercises: &[Exercise], show_tut: bool, show_rpe: bool) -> String {
+    pub fn to_text(&self, exercises: &[Exercise], show_rpe: bool) -> String {
         let mut lines = vec![self.name.to_string()];
         if !self.notes.is_empty() {
             lines.push(String::new());
@@ -124,7 +124,7 @@ impl Routine {
                 .map(|n| char::from(b'A'.saturating_add(n)))
                 .filter(char::is_ascii_uppercase)
                 .map_or_else(|| format!("#{}", i + 1), |c| c.to_string());
-            lines.extend(section.to_text_lines(&label, 0, exercises, show_tut, show_rpe));
+            lines.extend(section.to_text_lines(&label, 0, exercises, show_rpe));
         }
         lines.join("\n")
     }
@@ -185,10 +185,10 @@ impl Routine {
         let new_activity = RoutinePart::RoutineActivity {
             exercise_id,
             reps: Reps::default(),
-            time: if exercise_id.is_nil() {
-                Time::new(60).unwrap()
+            tempo: if exercise_id.is_nil() {
+                Tempo::new(&[60]).unwrap()
             } else {
-                Time::default()
+                Tempo::default()
             },
             weight: Weight::default(),
             rpe: RPE::ZERO,
@@ -206,7 +206,7 @@ impl Routine {
         &mut self,
         exercise_id: Option<ExerciseID>,
         reps: Option<Reps>,
-        time: Option<Time>,
+        tempo: Option<Tempo>,
         weight: Option<Weight>,
         rpe: Option<RPE>,
         automatic: Option<bool>,
@@ -214,14 +214,14 @@ impl Routine {
     ) {
         let new_exercise_id = exercise_id;
         let new_reps = reps;
-        let new_time = time;
+        let new_tempo = tempo;
         let new_weight = weight;
         let new_rpe = rpe;
         let new_automatic = automatic;
         if let Some(RoutinePart::RoutineActivity {
             exercise_id,
             reps,
-            time,
+            tempo,
             weight,
             rpe,
             automatic,
@@ -233,8 +233,12 @@ impl Routine {
             if let Some(new_reps) = new_reps {
                 *reps = new_reps;
             }
-            if let Some(new_time) = new_time {
-                *time = new_time;
+            // A tempo of more than one phase belongs to an exercise and is therefore not applied
+            // to a rest.
+            if let Some(new_tempo) = new_tempo
+                && (!exercise_id.is_nil() || new_tempo.phases().len() <= 1)
+            {
+                *tempo = new_tempo;
             }
             if let Some(new_weight) = new_weight {
                 *weight = new_weight;
@@ -458,7 +462,7 @@ pub enum RoutinePart {
     RoutineActivity {
         exercise_id: ExerciseID,
         reps: Reps,
-        time: Time,
+        tempo: Tempo,
         weight: Weight,
         rpe: RPE,
         automatic: bool,
@@ -473,17 +477,13 @@ impl RoutinePart {
                 parts.iter().map(RoutinePart::duration).sum::<Duration>()
                     * r.try_into().unwrap_or_default()
             }
-            RoutinePart::RoutineActivity { reps, time, .. } => {
-                let r = if *reps > Reps::default() {
-                    *reps
-                } else {
-                    Reps::new(1).unwrap()
-                };
-                let t = if *time > Time::default() {
-                    *time
-                } else {
-                    Time::new(4).unwrap()
-                };
+            RoutinePart::RoutineActivity { reps, tempo, .. } => {
+                let r = u32::from(reps.non_zero().unwrap_or(Reps::new(1).unwrap()));
+                let t = u32::from(
+                    tempo
+                        .non_zero()
+                        .map_or(Time::new(4).unwrap(), |tempo| tempo.seconds_per_rep()),
+                );
                 Duration::seconds(i64::from(r * t))
             }
         }
@@ -558,14 +558,14 @@ impl RoutinePart {
             RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
-                time,
+                tempo,
                 weight,
                 rpe,
                 automatic,
             } => {
                 result.push(if exercise_id.is_nil() {
                     TrainingSessionElement::Rest {
-                        target_time: *time,
+                        target_time: tempo.seconds_per_rep(),
                         automatic: *automatic,
                     }
                 } else {
@@ -576,7 +576,7 @@ impl RoutinePart {
                         weight: Weight::default(),
                         rpe: RPE::default(),
                         target_reps: *reps,
-                        target_time: *time,
+                        target_tempo: *tempo,
                         target_weight: *weight,
                         target_rpe: *rpe,
                         automatic: *automatic,
@@ -592,10 +592,8 @@ impl RoutinePart {
         label: &str,
         depth: usize,
         exercises: &[Exercise],
-        show_tut: bool,
         show_rpe: bool,
     ) -> Vec<String> {
-        use std::fmt::Write as _;
         let indent = "  ".repeat(depth);
         let mut lines = vec![];
         match self {
@@ -613,7 +611,6 @@ impl RoutinePart {
                                 &label,
                                 depth + 1,
                                 exercises,
-                                show_tut,
                                 show_rpe,
                             ));
                             lines.push(String::new());
@@ -621,13 +618,7 @@ impl RoutinePart {
                         RoutinePart::RoutineActivity { exercise_id, .. }
                             if exercise_id.is_nil() =>
                         {
-                            lines.extend(part.to_text_lines(
-                                "",
-                                depth + 1,
-                                exercises,
-                                show_tut,
-                                show_rpe,
-                            ));
+                            lines.extend(part.to_text_lines("", depth + 1, exercises, show_rpe));
                         }
                         RoutinePart::RoutineActivity { .. } => {
                             let label = RoutinePart::part_label(label, counter);
@@ -636,7 +627,6 @@ impl RoutinePart {
                                 &label,
                                 depth + 1,
                                 exercises,
-                                show_tut,
                                 show_rpe,
                             ));
                         }
@@ -649,14 +639,14 @@ impl RoutinePart {
             RoutinePart::RoutineActivity {
                 exercise_id,
                 reps,
-                time,
+                tempo,
                 weight,
                 rpe,
                 ..
             } => {
                 if exercise_id.is_nil() {
-                    if *time > Time::default() {
-                        lines.push(format!("{indent}Rest \u{2014} {time} s"));
+                    if let Some(tempo) = tempo.non_zero() {
+                        lines.push(format!("{indent}Rest \u{2014} {tempo}"));
                     } else {
                         lines.push(format!("{indent}Rest"));
                     }
@@ -665,20 +655,12 @@ impl RoutinePart {
                         || format!("Exercise#{}", **exercise_id),
                         |e| e.name.to_string(),
                     );
-                    let mut parts = vec![];
-                    if *reps > Reps::default() {
-                        parts.push(reps.to_string());
-                    }
-                    if show_tut && *time > Time::default() {
-                        parts.push(format!("{time} s"));
-                    }
-                    if *weight > Weight::default() {
-                        parts.push(format!("{weight} kg"));
-                    }
-                    let mut targets = parts.join(" \u{00d7} ");
-                    if show_rpe && *rpe > RPE::ZERO {
-                        let _ = write!(targets, " @ {rpe}");
-                    }
+                    let targets = values_to_string(
+                        reps.non_zero(),
+                        weight.non_zero(),
+                        if show_rpe { rpe.non_zero() } else { None },
+                        &tempo.to_string(),
+                    );
                     if targets.is_empty() {
                         lines.push(format!("{indent}{label} \u{2014} {name}"));
                     } else {
@@ -797,7 +779,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: 1.into(),
                         reps: Reps::new(10).unwrap(),
-                        time: Time::new(2).unwrap(),
+                        tempo: Tempo::new(&[2]).unwrap(),
                         weight: Weight::new(30.0).unwrap(),
                         rpe: RPE::TEN,
                         automatic: false,
@@ -805,7 +787,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
                         reps: Reps::default(),
-                        time: Time::new(60).unwrap(),
+                        tempo: Tempo::new(&[60]).unwrap(),
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: true,
@@ -818,7 +800,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: 2.into(),
                         reps: Reps::new(10).unwrap(),
-                        time: Time::default(),
+                        tempo: Tempo::default(),
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
@@ -826,7 +808,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
                         reps: Reps::default(),
-                        time: Time::new(30).unwrap(),
+                        tempo: Tempo::new(&[30]).unwrap(),
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: true,
@@ -865,6 +847,28 @@ mod tests {
         assert_eq!(ROUTINE.duration(), Duration::seconds(300));
     }
 
+    #[rstest]
+    #[case::without_tempo(Reps::new(8).unwrap(), &[], 32)]
+    #[case::single_phase(Reps::new(8).unwrap(), &[2], 16)]
+    #[case::several_phases(Reps::new(8).unwrap(), &[3, 1, 1, 0], 40)]
+    #[case::without_reps(Reps::default(), &[60], 60)]
+    fn test_routine_part_duration(
+        #[case] reps: Reps,
+        #[case] phases: &[u32],
+        #[case] expected: i64,
+    ) {
+        let part = RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps,
+            tempo: Tempo::new(phases).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: false,
+        };
+
+        assert_eq!(part.duration(), Duration::seconds(expected));
+    }
+
     #[test]
     fn test_routine_num_sets() {
         assert_eq!(ROUTINE.num_sets(), 4);
@@ -875,7 +879,7 @@ mod tests {
         let rest = RoutinePart::RoutineActivity {
             exercise_id: ExerciseID::nil(),
             reps: Reps::default(),
-            time: Time::new(60).unwrap(),
+            tempo: Tempo::new(&[60]).unwrap(),
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: true,
@@ -974,7 +978,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::default(),
                     target_reps: Reps::default(),
-                    target_time: Time::default(),
+                    target_tempo: Tempo::default(),
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
@@ -992,7 +996,7 @@ mod tests {
                 parts: vec![RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::new(1).unwrap(),
-                    time: Time::new(2).unwrap(),
+                    tempo: Tempo::new(&[2]).unwrap(),
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
@@ -1003,7 +1007,7 @@ mod tests {
                 parts: vec![RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::new(2).unwrap(),
-                    time: Time::new(3).unwrap(),
+                    tempo: Tempo::new(&[3]).unwrap(),
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
@@ -1017,7 +1021,7 @@ mod tests {
                 parts: vec![RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::new(1).unwrap(),
-                    time: Time::new(2).unwrap(),
+                    tempo: Tempo::new(&[2]).unwrap(),
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
@@ -1031,7 +1035,7 @@ mod tests {
                 parts: vec![RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::new(2).unwrap(),
-                    time: Time::new(3).unwrap(),
+                    tempo: Tempo::new(&[3]).unwrap(),
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
@@ -1044,7 +1048,7 @@ mod tests {
             RoutinePart::RoutineActivity {
                 exercise_id: ExerciseID::nil(),
                 reps: Reps::new(1).unwrap(),
-                time: Time::new(2).unwrap(),
+                tempo: Tempo::new(&[2]).unwrap(),
                 weight: Weight::new(4.0).unwrap(),
                 rpe: RPE::FIVE,
                 automatic: false,
@@ -1056,7 +1060,7 @@ mod tests {
             RoutinePart::RoutineActivity {
                 exercise_id: ExerciseID::nil(),
                 reps: Reps::new(2).unwrap(),
-                time: Time::new(3).unwrap(),
+                tempo: Tempo::new(&[3]).unwrap(),
                 weight: Weight::new(5.0).unwrap(),
                 rpe: RPE::SIX,
                 automatic: false,
@@ -1073,7 +1077,7 @@ mod tests {
                 RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::new(1).unwrap(),
-                    time: Time::new(2).unwrap(),
+                    tempo: Tempo::new(&[2]).unwrap(),
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
@@ -1083,7 +1087,7 @@ mod tests {
                     parts: vec![RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
                         reps: Reps::new(2).unwrap(),
-                        time: Time::new(3).unwrap(),
+                        tempo: Tempo::new(&[3]).unwrap(),
                         weight: Weight::new(5.0).unwrap(),
                         rpe: RPE::SIX,
                         automatic: false,
@@ -1099,7 +1103,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
                         reps: Reps::new(1).unwrap(),
-                        time: Time::new(2).unwrap(),
+                        tempo: Tempo::new(&[2]).unwrap(),
                         weight: Weight::new(4.0).unwrap(),
                         rpe: RPE::FIVE,
                         automatic: false,
@@ -1109,7 +1113,7 @@ mod tests {
                         parts: vec![RoutinePart::RoutineActivity {
                             exercise_id: ExerciseID::nil(),
                             reps: Reps::new(2).unwrap(),
-                            time: Time::new(3).unwrap(),
+                            tempo: Tempo::new(&[3]).unwrap(),
                             weight: Weight::new(5.0).unwrap(),
                             rpe: RPE::SIX,
                             automatic: false,
@@ -1124,7 +1128,7 @@ mod tests {
             RoutinePart::RoutineActivity {
                 exercise_id: ExerciseID::nil(),
                 reps: Reps::new(1).unwrap(),
-                time: Time::new(2).unwrap(),
+                tempo: Tempo::new(&[2]).unwrap(),
                 weight: Weight::new(4.0).unwrap(),
                 rpe: RPE::FIVE,
                 automatic: false,
@@ -1137,7 +1141,7 @@ mod tests {
                 parts: vec![RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::new(2).unwrap(),
-                    time: Time::new(3).unwrap(),
+                    tempo: Tempo::new(&[3]).unwrap(),
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
@@ -1151,7 +1155,7 @@ mod tests {
             RoutinePart::RoutineActivity {
                 exercise_id: ExerciseID::nil(),
                 reps: Reps::new(2).unwrap(),
-                time: Time::new(3).unwrap(),
+                tempo: Tempo::new(&[3]).unwrap(),
                 weight: Weight::new(5.0).unwrap(),
                 rpe: RPE::SIX,
                 automatic: false,
@@ -1182,7 +1186,7 @@ mod tests {
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(reps).unwrap(),
-            time: Time::default(),
+            tempo: Tempo::default(),
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
@@ -1394,8 +1398,8 @@ mod tests {
     #[test]
     fn test_routine_to_text() {
         assert_eq!(
-            ROUTINE.to_text(&EXERCISES, true, true),
-            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 2 s \u{00d7} 30 kg @ 10\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
+            ROUTINE.to_text(&EXERCISES, true),
+            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 30 kg @ 10 (2 s)\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
         );
     }
 
@@ -1411,7 +1415,7 @@ mod tests {
                 parts: vec![RoutinePart::RoutineActivity {
                     exercise_id: 1.into(),
                     reps: Reps::new(5).unwrap(),
-                    time: Time::default(),
+                    tempo: Tempo::default(),
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: false,
@@ -1419,8 +1423,58 @@ mod tests {
             }],
         };
         assert_eq!(
-            routine.to_text(&EXERCISES, true, true),
+            routine.to_text(&EXERCISES, true),
             "N\n\n[A] 1 set\n  A1 \u{2014} A \u{2014} 5"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_subdivided_tempo() {
+        let routine = Routine {
+            id: 0.into(),
+            name: Name::new("N").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: 1.into(),
+                    reps: Reps::new(8).unwrap(),
+                    tempo: Tempo::new(&[3, 1, 1, 0]).unwrap(),
+                    weight: Weight::new(80.0).unwrap(),
+                    rpe: RPE::EIGHT,
+                    automatic: false,
+                }],
+            }],
+        };
+        assert_eq!(
+            routine.to_text(&EXERCISES, true),
+            "N\n\n[A] 1 set\n  A1 \u{2014} A \u{2014} 8 \u{00d7} 80 kg @ 8 (3\u{00b7}1\u{00b7}1\u{00b7}0)"
+        );
+    }
+
+    #[test]
+    fn test_routine_to_text_hold_with_rpe() {
+        let routine = Routine {
+            id: 0.into(),
+            name: Name::new("N").unwrap(),
+            notes: String::new(),
+            archived: false,
+            sections: vec![RoutinePart::RoutineSection {
+                rounds: Rounds::new(1).unwrap(),
+                parts: vec![RoutinePart::RoutineActivity {
+                    exercise_id: 1.into(),
+                    reps: Reps::default(),
+                    tempo: Tempo::new(&[60]).unwrap(),
+                    weight: Weight::default(),
+                    rpe: RPE::EIGHT,
+                    automatic: false,
+                }],
+            }],
+        };
+        assert_eq!(
+            routine.to_text(&EXERCISES, true),
+            "N\n\n[A] 1 set\n  A1 \u{2014} A \u{2014} 60 s @ 8"
         );
     }
 
@@ -1437,7 +1491,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: 1.into(),
                         reps: Reps::default(),
-                        time: Time::new(30).unwrap(),
+                        tempo: Tempo::new(&[30]).unwrap(),
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
@@ -1445,7 +1499,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
                         reps: Reps::default(),
-                        time: Time::default(),
+                        tempo: Tempo::default(),
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
@@ -1454,7 +1508,7 @@ mod tests {
             }],
         };
         assert_eq!(
-            routine.to_text(&EXERCISES, true, true),
+            routine.to_text(&EXERCISES, true),
             "T\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 30 s\n  Rest"
         );
     }
@@ -1472,7 +1526,7 @@ mod tests {
                     RoutinePart::RoutineActivity {
                         exercise_id: 1.into(),
                         reps: Reps::new(5).unwrap(),
-                        time: Time::default(),
+                        tempo: Tempo::default(),
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
@@ -1483,7 +1537,7 @@ mod tests {
                             RoutinePart::RoutineActivity {
                                 exercise_id: 1.into(),
                                 reps: Reps::new(8).unwrap(),
-                                time: Time::default(),
+                                tempo: Tempo::default(),
                                 weight: Weight::default(),
                                 rpe: RPE::ZERO,
                                 automatic: false,
@@ -1491,7 +1545,7 @@ mod tests {
                             RoutinePart::RoutineActivity {
                                 exercise_id: ExerciseID::nil(),
                                 reps: Reps::default(),
-                                time: Time::new(30).unwrap(),
+                                tempo: Tempo::new(&[30]).unwrap(),
                                 weight: Weight::default(),
                                 rpe: RPE::ZERO,
                                 automatic: false,
@@ -1502,7 +1556,7 @@ mod tests {
             }],
         };
         assert_eq!(
-            routine.to_text(&EXERCISES, true, true),
+            routine.to_text(&EXERCISES, true),
             "N\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 5\n  [A2] 3 sets\n    A2.1 \u{2014} A \u{2014} 8\n    Rest \u{2014} 30 s"
         );
     }
@@ -1519,7 +1573,7 @@ mod tests {
                 parts: vec![RoutinePart::RoutineActivity {
                     exercise_id: 1.into(),
                     reps: Reps::default(),
-                    time: Time::default(),
+                    tempo: Tempo::default(),
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: false,
@@ -1527,24 +1581,16 @@ mod tests {
             }],
         };
         assert_eq!(
-            routine.to_text(&EXERCISES, true, true),
+            routine.to_text(&EXERCISES, true),
             "X\n\n[A] 1 set\n  A1 \u{2014} A"
-        );
-    }
-
-    #[test]
-    fn test_routine_to_text_hide_tut() {
-        assert_eq!(
-            ROUTINE.to_text(&EXERCISES, false, true),
-            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 30 kg @ 10\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
         );
     }
 
     #[test]
     fn test_routine_to_text_hide_rpe() {
         assert_eq!(
-            ROUTINE.to_text(&EXERCISES, true, false),
-            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 2 s \u{00d7} 30 kg\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
+            ROUTINE.to_text(&EXERCISES, false),
+            "A\n\nB\n\n[A] 2 sets\n  A1 \u{2014} A \u{2014} 10 \u{00d7} 30 kg (2 s)\n  Rest \u{2014} 60 s\n\n[B] 2 sets\n  B1 \u{2014} Exercise#00000000-0000-0000-0000-000000000002 \u{2014} 10\n  Rest \u{2014} 30 s"
         );
     }
 
@@ -1563,7 +1609,7 @@ mod tests {
             archived: false,
             sections,
         };
-        let text = routine.to_text(&[], true, true);
+        let text = routine.to_text(&[], true);
         assert!(
             text.contains("[Z] 1 set"),
             "expected label Z for 26th section"
@@ -1737,7 +1783,7 @@ mod tests {
                 vec![RoutinePart::RoutineActivity {
                     exercise_id: 1.into(),
                     reps: Reps::default(),
-                    time: Time::default(),
+                    tempo: Tempo::default(),
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: false,
@@ -1759,7 +1805,7 @@ mod tests {
                 vec![RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::default(),
-                    time: Time::new(60).unwrap(),
+                    tempo: Tempo::new(&[60]).unwrap(),
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
@@ -1787,7 +1833,7 @@ mod tests {
         RoutinePart::RoutineActivity {
             exercise_id: 2.into(),
             reps: Reps::new(1).unwrap(),
-            time: Time::new(2).unwrap(),
+            tempo: Tempo::new(&[2]).unwrap(),
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
@@ -1798,18 +1844,18 @@ mod tests {
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(5).unwrap(),
-            time: Time::new(2).unwrap(),
+            tempo: Tempo::new(&[2]).unwrap(),
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
         },
     )]
-    #[case::time(
-        None, None, Some(Time::new(6).unwrap()), None, None, None,
+    #[case::tempo(
+        None, None, Some(Tempo::new(&[6]).unwrap()), None, None, None,
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(1).unwrap(),
-            time: Time::new(6).unwrap(),
+            tempo: Tempo::new(&[6]).unwrap(),
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
@@ -1820,7 +1866,7 @@ mod tests {
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(1).unwrap(),
-            time: Time::new(2).unwrap(),
+            tempo: Tempo::new(&[2]).unwrap(),
             weight: Weight::new(7.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
@@ -1831,7 +1877,7 @@ mod tests {
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(1).unwrap(),
-            time: Time::new(2).unwrap(),
+            tempo: Tempo::new(&[2]).unwrap(),
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::EIGHT,
             automatic: false,
@@ -1842,7 +1888,7 @@ mod tests {
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(1).unwrap(),
-            time: Time::new(2).unwrap(),
+            tempo: Tempo::new(&[2]).unwrap(),
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: true,
@@ -1853,7 +1899,7 @@ mod tests {
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(1).unwrap(),
-            time: Time::new(2).unwrap(),
+            tempo: Tempo::new(&[2]).unwrap(),
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
@@ -1862,7 +1908,7 @@ mod tests {
     fn test_routine_update_activity(
         #[case] exercise_id: Option<ExerciseID>,
         #[case] reps: Option<Reps>,
-        #[case] time: Option<Time>,
+        #[case] tempo: Option<Tempo>,
         #[case] weight: Option<Weight>,
         #[case] rpe: Option<RPE>,
         #[case] automatic: Option<bool>,
@@ -1873,7 +1919,7 @@ mod tests {
         routine.update_activity(
             exercise_id,
             reps,
-            time,
+            tempo,
             weight,
             rpe,
             automatic,
@@ -1895,11 +1941,51 @@ mod tests {
         assert_eq!(routine.sections, sections);
     }
 
+    #[rstest]
+    #[case::single_phase(&[30], &[30])]
+    #[case::several_phases(&[3, 1], &[60])]
+    fn test_routine_update_activity_of_a_rest(#[case] tempo: &[u32], #[case] expected: &[u32]) {
+        let rest = RoutinePart::RoutineActivity {
+            exercise_id: ExerciseID::nil(),
+            reps: Reps::default(),
+            tempo: Tempo::new(&[60]).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: true,
+        };
+        let mut routine = routine_with_sections(vec![section(1, vec![rest])]);
+
+        routine.update_activity(
+            None,
+            None,
+            Some(Tempo::new(tempo).unwrap()),
+            None,
+            None,
+            None,
+            &vec![0, 0].into(),
+        );
+
+        assert_eq!(
+            routine.sections,
+            vec![section(
+                1,
+                vec![RoutinePart::RoutineActivity {
+                    exercise_id: ExerciseID::nil(),
+                    reps: Reps::default(),
+                    tempo: Tempo::new(expected).unwrap(),
+                    weight: Weight::default(),
+                    rpe: RPE::ZERO,
+                    automatic: true,
+                }]
+            )]
+        );
+    }
+
     fn full_activity() -> RoutinePart {
         RoutinePart::RoutineActivity {
             exercise_id: 1.into(),
             reps: Reps::new(1).unwrap(),
-            time: Time::new(2).unwrap(),
+            tempo: Tempo::new(&[2]).unwrap(),
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
@@ -1981,7 +2067,7 @@ mod tests {
                 RoutinePart::RoutineActivity {
                     exercise_id: ExerciseID::nil(),
                     reps: Reps::default(),
-                    time: Time::new(60).unwrap(),
+                    tempo: Tempo::new(&[60]).unwrap(),
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
@@ -1996,7 +2082,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::default(),
             target_reps: Reps::new(1).unwrap(),
-            target_time: Time::default(),
+            target_tempo: Tempo::default(),
             target_weight: Weight::default(),
             target_rpe: RPE::ZERO,
             automatic: false,
@@ -2198,7 +2284,7 @@ mod tests {
             vec![section(1, vec![activity(1)]), section(1, vec![activity(2)])],
         )]);
 
-        let text = routine.to_text(&EXERCISES, true, true);
+        let text = routine.to_text(&EXERCISES, true);
 
         assert!(text.contains("[A1] 1 set"), "{text}");
         assert!(text.contains("[A2] 1 set"), "{text}");
@@ -2209,14 +2295,14 @@ mod tests {
         let rest = RoutinePart::RoutineActivity {
             exercise_id: ExerciseID::nil(),
             reps: Reps::default(),
-            time: Time::new(60).unwrap(),
+            tempo: Tempo::new(&[60]).unwrap(),
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: true,
         };
         let routine = routine_with_sections(vec![section(1, vec![activity(1), rest, activity(2)])]);
 
-        let text = routine.to_text(&EXERCISES, true, true);
+        let text = routine.to_text(&EXERCISES, true);
 
         assert!(text.contains("A1 \u{2014}"), "{text}");
         assert!(text.contains("A2 \u{2014}"), "{text}");

@@ -300,17 +300,9 @@ pub fn view_dialog(
                                     let settings = consume_context::<Settings>();
                                     let text = match &*consume_context::<Cache>().exercises.read() {
                                         CacheState::Ready(exercises) => {
-                                            routine_for_text.to_text(
-                                                exercises,
-                                                settings.show_tut(),
-                                                settings.show_rpe(),
-                                            )
+                                            routine_for_text.to_text(exercises, settings.show_rpe())
                                         }
-                                        _ => routine_for_text.to_text(
-                                            &[],
-                                            settings.show_tut(),
-                                            settings.show_rpe(),
-                                        ),
+                                        _ => routine_for_text.to_text(&[], settings.show_rpe()),
                                     };
                                     *dialog.write() = RoutineDialog::ShowText(text);
                                 }

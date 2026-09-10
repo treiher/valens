@@ -51,9 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Values recorded when a set advances on its own or is confirmed by hand, which now include the repetitions and the weight its routine prescribes
     - Countdown of a set, which now starts after the same short delay as the first beep and no longer runs for a set that is already recorded
     - Blinking of the countdown of a paused set, which now dims it instead of hiding it
+    - Time and RPE of a set, which are now also shown with their setting disabled if the set records such a value or its routine prescribes one
 - Routine page:
     - Exercise list shown when replacing an exercise, prefiltered by the primary muscles of the replaced exercise
     - Time of an activity, which is now given as a tempo
+    - RPE of an activity, which is now shown under the RPE setting and stays editable while it is set
     - Text export, showing the tempo of an activity after the other values
 - Exercises page:
     - Filtering by muscles differentiating between primary and secondary muscles

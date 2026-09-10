@@ -55,7 +55,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                     Title { "{routine.name}" }
                     {view_summary(routine)}
                     {view_notes(routine, routine_dialog)}
-                    {view_routine(routine, exercises, edit_dialog, drag, cache)}
+                    {view_routine(routine, exercises, edit_dialog, drag, cache, settings)}
                     {drag_and_drop::view_drag_overlay(drag, &DropTarget::Remove)}
                     if let CacheState::Ready(training_sessions) = training_sessions {
                         {view_previous_exercises(routine, training_sessions, exercises)}
@@ -115,7 +115,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                         }
                     }
                     {page::routines::view_dialog(routine_dialog, None)}
-                    {view_edit_dialog(edit_dialog, cache)}
+                    {view_edit_dialog(edit_dialog, cache, settings)}
                     FloatingActionButton {
                         icon: "ellipsis-vertical",
                         on_click: eh!(routine; {
@@ -194,6 +194,7 @@ fn view_routine(
     edit_dialog: Signal<EditDialog>,
     drag: Signal<Option<Drag>>,
     cache: Cache,
+    settings: Settings,
 ) -> Element {
     let routine = Rc::new(routine.clone());
     rsx! {
@@ -203,7 +204,7 @@ fn view_routine(
                 "data-testid": "routine-parts",
                 "data-drop": "sections",
                 for (i, section) in routine.sections.iter().enumerate() {
-                    {view_routine_part(&routine, section, &vec![i].into(), routine.sections.len(), exercises, edit_dialog, drag)}
+                    {view_routine_part(&routine, section, &vec![i].into(), routine.sections.len(), exercises, edit_dialog, drag, settings)}
                 }
             }
             div {
@@ -233,6 +234,7 @@ fn view_routine_part(
     exercises: &[domain::Exercise],
     mut edit_dialog: Signal<EditDialog>,
     drag: Signal<Option<Drag>>,
+    settings: Settings,
 ) -> Element {
     let show_options = {
         let routine = Rc::clone(routine);
@@ -289,7 +291,7 @@ fn view_routine_part(
                             }
                         }
                         for (i, part) in parts.iter().enumerate() {
-                            {view_routine_part(routine, part, &[&[i], &path[..]].concat().into(), parts.len(), exercises, edit_dialog, drag)}
+                            {view_routine_part(routine, part, &[&[i], &path[..]].concat().into(), parts.len(), exercises, edit_dialog, drag, settings)}
                         }
                         if parts.is_empty() {
                             {view_empty_section_drop_zone(routine, path, drag)}
@@ -434,7 +436,7 @@ fn view_routine_part(
                                         }
                                     }
                                 }
-                                if *rpe != domain::RPE::ZERO {
+                                if settings.show_rpe() && *rpe != domain::RPE::ZERO {
                                     span {
                                         class: "icon-text mr-4",
                                         "data-testid": "set-rpe",
@@ -719,7 +721,11 @@ fn view_muscles(routine: &domain::Routine, exercises: &[domain::Exercise]) -> El
     }
 }
 
-fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Element {
+fn view_edit_dialog(
+    mut edit_dialog: Signal<EditDialog>,
+    cache: Cache,
+    settings: Settings,
+) -> Element {
     let close_dialog = move || {
         *edit_dialog.write() = EditDialog::None;
     };
@@ -1111,7 +1117,7 @@ fn view_edit_dialog(mut edit_dialog: Signal<EditDialog>, cache: Cache) -> Elemen
                                     "data-testid": "input-weight",
                                 }
                             }
-                            if !exercise_id.is_nil() {
+                            if !exercise_id.is_nil() && (settings.show_rpe() || !rpe_field.orig.is_empty()) {
                                 InputField {
                                     label: "RPE",
                                     left_icon: rsx! { "@" },
@@ -1390,6 +1396,28 @@ mod tests {
     }
 
     #[test]
+    fn test_the_rpe_of_an_activity_is_shown_under_the_rpe_setting() {
+        let with_rpe = |show_rpe| {
+            render(move || {
+                with_routine()
+                    .with_routines(vec![domain::Routine {
+                        sections: vec![section(vec![activity_with_rpe(8, domain::RPE::NINE)])],
+                        ..routine()
+                    }])
+                    .provide();
+                provide_settings(web_app::Settings {
+                    show_rpe,
+                    ..web_app::Settings::default()
+                });
+                rsx! { Routine { id: domain::RoutineID::from(1) } }
+            })
+        };
+
+        assert_eq!(text_of(&with_rpe(true), "set-rpe"), "@ 9");
+        assert!(!contains(&with_rpe(false), "set-rpe"));
+    }
+
+    #[test]
     fn test_the_notes_are_shown_only_when_there_are_some() {
         let with_notes = render_routine(1, || {
             with_routine().with_routines(vec![domain::Routine {
@@ -1467,6 +1495,27 @@ mod tests {
             exercise_id,
             reps: domain::Reps::new(reps).unwrap(),
             tempo: domain::Tempo::new(phases).unwrap(),
+            weight,
+            rpe,
+            automatic,
+        }
+    }
+
+    fn activity_with_rpe(reps: u32, rpe: domain::RPE) -> domain::RoutinePart {
+        let domain::RoutinePart::RoutineActivity {
+            exercise_id,
+            tempo,
+            weight,
+            automatic,
+            ..
+        } = activity(reps)
+        else {
+            unreachable!()
+        };
+        domain::RoutinePart::RoutineActivity {
+            exercise_id,
+            reps: domain::Reps::new(reps).unwrap(),
+            tempo,
             weight,
             rpe,
             automatic,

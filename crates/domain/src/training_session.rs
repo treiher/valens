@@ -362,6 +362,28 @@ impl TrainingSession {
         )
     }
 
+    /// Whether any set records a time or prescribes a tempo.
+    #[must_use]
+    pub fn has_time(&self) -> bool {
+        self.elements.iter().any(|e| match e {
+            TrainingSessionElement::Set {
+                time, target_tempo, ..
+            } => time.non_zero().is_some() || target_tempo.non_zero().is_some(),
+            TrainingSessionElement::Rest { .. } => false,
+        })
+    }
+
+    /// Whether any set records or prescribes a rating of perceived exertion.
+    #[must_use]
+    pub fn has_rpe(&self) -> bool {
+        self.elements.iter().any(|e| match e {
+            TrainingSessionElement::Set {
+                rpe, target_rpe, ..
+            } => rpe.non_zero().is_some() || target_rpe.non_zero().is_some(),
+            TrainingSessionElement::Rest { .. } => false,
+        })
+    }
+
     #[must_use]
     pub fn one_rep_max(&self, exercise_id: ExerciseID) -> Option<f32> {
         self.elements
@@ -1487,6 +1509,90 @@ mod tests {
         #[case] expected: Option<u32>,
     ) {
         assert_eq!(training_session.tut(), expected);
+    }
+
+    #[rstest]
+    #[case::nothing(Time::default(), Tempo::default(), false)]
+    #[case::recorded_time(Time::new(30).unwrap(), Tempo::default(), true)]
+    #[case::prescribed_tempo(Time::default(), Tempo::new(&[3, 1, 1, 0]).unwrap(), true)]
+    fn test_training_session_has_time(
+        #[case] time: Time,
+        #[case] target_tempo: Tempo,
+        #[case] expected: bool,
+    ) {
+        let TrainingSessionElement::Set {
+            exercise_id,
+            reps,
+            weight,
+            rpe,
+            target_reps,
+            target_weight,
+            target_rpe,
+            automatic,
+            ..
+        } = set(1, 5, 100.0, RPE::ZERO)
+        else {
+            unreachable!()
+        };
+        let training_session = training_session(&[
+            rest(60),
+            TrainingSessionElement::Set {
+                exercise_id,
+                reps,
+                time,
+                weight,
+                rpe,
+                target_reps,
+                target_tempo,
+                target_weight,
+                target_rpe,
+                automatic,
+            },
+        ]);
+
+        assert_eq!(training_session.has_time(), expected);
+    }
+
+    #[rstest]
+    #[case::nothing(RPE::ZERO, RPE::ZERO, false)]
+    #[case::recorded_rpe(RPE::EIGHT, RPE::ZERO, true)]
+    #[case::prescribed_rpe(RPE::ZERO, RPE::NINE, true)]
+    fn test_training_session_has_rpe(
+        #[case] rpe: RPE,
+        #[case] target_rpe: RPE,
+        #[case] expected: bool,
+    ) {
+        let TrainingSessionElement::Set {
+            exercise_id,
+            reps,
+            time,
+            weight,
+            target_reps,
+            target_tempo,
+            target_weight,
+            automatic,
+            ..
+        } = set(1, 5, 100.0, RPE::ZERO)
+        else {
+            unreachable!()
+        };
+        let training_session = training_session(&[
+            rest(60),
+            TrainingSessionElement::Set {
+                exercise_id,
+                reps,
+                time,
+                weight,
+                rpe,
+                target_reps,
+                target_tempo,
+                target_weight,
+                target_rpe,
+                automatic,
+            },
+        ]);
+
+        assert_eq!(training_session.has_rpe(), expected);
     }
 
     #[rstest]

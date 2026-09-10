@@ -558,7 +558,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 if edit() {
                     {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
-                    {view_list(training_session, exercises, settings)},
+                    {view_list(training_session, exercises)},
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
@@ -925,6 +925,8 @@ fn view_form(
         }
     };
     let set_indices = training_session.set_indices();
+    let shows_time = settings.show_tut() || training_session.has_time();
+    let shows_rpe = settings.show_rpe() || training_session.has_rpe();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
         let is_current_section = !focus.show_active_focus
             || section_idx == progress_section_idx
@@ -1090,7 +1092,7 @@ fn view_form(
                                 rpe: *target_rpe,
                             }).or_default();
                             button.icons.push("bullseye".to_string());
-                            button.label = Some(element.target_to_string(settings.show_rpe()));
+                            button.label = Some(element.target_to_string(shows_rpe));
                         }
                         let previous_set = set_index.checked_sub(*exercise_counts.get(exercise_id).unwrap_or(&1)).and_then(|previous_set_index| sets_by_exercise.get(exercise_id).and_then(|set| set.get(previous_set_index).and_then(|e| e.set())));
                         if let Some(set) = previous_set {
@@ -1141,7 +1143,7 @@ fn view_form(
                                 }
                                 td {
                                     class: "p-1 has-text-centered",
-                                    if settings.show_tut() {
+                                    if shows_time {
                                         InputField {
                                             inputmode: "numeric",
                                             "aria-label": "Time (s)",
@@ -1189,7 +1191,7 @@ fn view_form(
                                 }
                                 td {
                                     class: "p-1 has-text-centered",
-                                    if settings.show_rpe() {
+                                    if shows_rpe {
                                         InputField {
                                             inputmode: "decimal",
                                             "aria-label": "RPE",
@@ -1254,7 +1256,7 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
+                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
                             }
                         },
                         Some(total) => rsx! {
@@ -1325,7 +1327,7 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, settings)}
+                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
                             }
                         },
                     }
@@ -1401,13 +1403,13 @@ fn view_form(
                         th {
                             class: COLUMN_HEADER_CLASS,
                             scope: "col",
-                            if settings.show_tut() { "Time (s)" }
+                            if shows_time { "Time (s)" }
                         }
                         th { class: COLUMN_HEADER_CLASS, scope: "col", "Weight (kg)" }
                         th {
                             class: COLUMN_HEADER_CLASS,
                             scope: "col",
-                            if settings.show_rpe() { "RPE" }
+                            if shows_rpe { "RPE" }
                         }
                         td {}
                     }
@@ -1583,7 +1585,8 @@ fn set_value_buttons(
     element_idx: usize,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
     expanded_history: Signal<HashSet<usize>>,
-    settings: Settings,
+    shows_time: bool,
+    shows_rpe: bool,
 ) -> Element {
     let is_expanded = expanded_history.read().contains(&element_idx);
     let show_history = !history.is_empty();
@@ -1598,7 +1601,7 @@ fn set_value_buttons(
                 div {
                     class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
                     for (set, button) in set_buttons {
-                        {set_value_button(&set, Some(button.icons[0].clone()), button.label, false, element_idx, field_values, settings)}
+                        {set_value_button(&set, Some(button.icons[0].clone()), button.label, false, element_idx, field_values, shows_time, shows_rpe)}
                     }
                     if show_history {
                         {history_caret(is_expanded, element_idx, expanded_history)}
@@ -1620,7 +1623,7 @@ fn set_value_buttons(
                             div {
                                 class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
                                 for (index, set) in sets.iter().cloned().enumerate() {
-                                    {set_value_button(&set, None, None, sets.len() > set_index && index != set_index, element_idx, field_values, settings)}
+                                    {set_value_button(&set, None, None, sets.len() > set_index && index != set_index, element_idx, field_values, shows_time, shows_rpe)}
                                 }
                             }
                         }
@@ -1647,10 +1650,11 @@ fn set_value_button(
     is_dimmed: bool,
     element_idx: usize,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
-    settings: Settings,
+    shows_time: bool,
+    shows_rpe: bool,
 ) -> Element {
     let has_no_icon = icon.is_none();
-    let label = label.unwrap_or_else(|| set.to_string(settings.show_tut(), settings.show_rpe()));
+    let label = label.unwrap_or_else(|| set.to_string(shows_time, shows_rpe));
     let label = if label.is_empty() && has_no_icon {
         "–".to_string()
     } else {
@@ -1754,7 +1758,6 @@ fn Notes(notes: Signal<Option<FieldValue<String>>>, edit: ReadSignal<bool>) -> E
 fn view_list(
     training_session: &domain::TrainingSession,
     exercises: &[domain::Exercise],
-    settings: Settings,
 ) -> Element {
     let sections = training_session.compute_sections();
     let rows = sections.iter().map(|section| {
@@ -1810,7 +1813,7 @@ fn view_list(
                         let number = exercise_number(exercise_id, &exercise_ids);
                         rsx! {
                             tr {
-                                if *reps == domain::Reps::default() && (*time == domain::Time::default() || !settings.show_tut()) && *weight == domain::Weight::default() && (*rpe == domain::RPE::ZERO || !settings.show_rpe()) {
+                                if *reps == domain::Reps::default() && *time == domain::Time::default() && *weight == domain::Weight::default() && *rpe == domain::RPE::ZERO {
                                     td {
                                         class: "px-2 has-text-centered",
                                         colspan: 5,
@@ -1840,7 +1843,7 @@ fn view_list(
                                     }
                                     td {
                                         class: "px-2 has-text-right",
-                                        if settings.show_tut() && *time > domain::Time::default() {
+                                        if *time > domain::Time::default() {
                                             "{time} s"
                                         }
                                     }
@@ -1852,7 +1855,7 @@ fn view_list(
                                     }
                                     td {
                                         class: "px-2",
-                                        if settings.show_rpe() && *rpe > domain::RPE::ZERO {
+                                        if *rpe > domain::RPE::ZERO {
                                             " @ {rpe}"
                                         }
                                     }
@@ -2618,7 +2621,7 @@ mod tests {
     }
 
     #[test]
-    fn test_the_recorded_values_follow_the_rpe_and_tut_settings() {
+    fn test_the_recorded_values_are_shown_independently_of_the_rpe_and_tut_settings() {
         let html = render_training_session(
             1,
             web_app::Settings {
@@ -2631,7 +2634,7 @@ mod tests {
 
         assert_eq!(
             rows_of(&html, "session")[1],
-            vec!["", "10 ×", "", "50 kg", ""]
+            vec!["", "10 ×", "30 s", "50 kg", "@ 8"]
         );
     }
 
@@ -2817,6 +2820,63 @@ mod tests {
     }
 
     #[test]
+    fn test_a_prescribed_tempo_shows_the_time_column_without_the_tut_setting() {
+        let html = render_training_session(
+            1,
+            web_app::Settings {
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            tempo_session(&[3, 1, 1, 0], 8, false, false),
+        );
+
+        assert_eq!(
+            cells_of(&html, "column-header"),
+            vec!["", "Reps", "Time (s)", "Weight (kg)", "RPE", ""]
+        );
+    }
+
+    #[test]
+    fn test_a_prescribed_rpe_shows_the_rpe_column_without_the_rpe_setting() {
+        let html = render_training_session(
+            1,
+            web_app::Settings {
+                show_rpe: false,
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            || {
+                TestCache::default()
+                    .with_exercises(vec![exercise(1, "Squat")])
+                    .with_training_sessions(vec![domain::TrainingSession {
+                        id: 1.into(),
+                        routine_id: 1.into(),
+                        date: chrono::Local::now().date_naive(),
+                        notes: String::new(),
+                        elements: vec![domain::TrainingSessionElement::Set {
+                            exercise_id: 1.into(),
+                            reps: domain::Reps::default(),
+                            time: domain::Time::default(),
+                            weight: domain::Weight::default(),
+                            rpe: domain::RPE::ZERO,
+                            target_reps: domain::Reps::new(10).unwrap(),
+                            target_tempo: domain::Tempo::default(),
+                            target_weight: domain::Weight::default(),
+                            target_rpe: domain::RPE::NINE,
+                            automatic: false,
+                        }],
+                        exercise_notes: std::collections::BTreeMap::new(),
+                    }])
+            },
+        );
+
+        assert_eq!(
+            cells_of(&html, "column-header"),
+            vec!["", "Reps", "", "Weight (kg)", "RPE", ""]
+        );
+    }
+
+    #[test]
     fn test_scroll_snapping_follows_the_setting() {
         let with_snapping = render_training_session(
             1,
@@ -2830,6 +2890,67 @@ mod tests {
 
         assert!(with_snapping.contains("element-snap"), "{with_snapping}");
         assert!(!without.contains("element-snap"), "{without}");
+    }
+
+    #[test]
+    fn test_the_offered_values_follow_the_shown_columns() {
+        let html = render_training_session(
+            1,
+            web_app::Settings {
+                show_rpe: false,
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            || {
+                // The time and the RPE are prescribed for another set, so that the columns are
+                // shown although the settings hide them.
+                let prescribing_set = domain::TrainingSessionElement::Set {
+                    exercise_id: 2.into(),
+                    reps: domain::Reps::default(),
+                    time: domain::Time::default(),
+                    weight: domain::Weight::default(),
+                    rpe: domain::RPE::ZERO,
+                    target_reps: domain::Reps::new(10).unwrap(),
+                    target_tempo: domain::Tempo::new(&[3, 1, 1, 0]).unwrap(),
+                    target_weight: domain::Weight::default(),
+                    target_rpe: domain::RPE::NINE,
+                    automatic: false,
+                };
+                let recorded_set = domain::TrainingSessionElement::Set {
+                    exercise_id: 1.into(),
+                    reps: domain::Reps::new(10).unwrap(),
+                    time: domain::Time::new(3).unwrap(),
+                    weight: domain::Weight::new(50.0).unwrap(),
+                    rpe: domain::RPE::EIGHT,
+                    target_reps: domain::Reps::default(),
+                    target_tempo: domain::Tempo::default(),
+                    target_weight: domain::Weight::default(),
+                    target_rpe: domain::RPE::ZERO,
+                    automatic: false,
+                };
+                TestCache::default()
+                    .with_exercises(vec![exercise(1, "Squat"), exercise(2, "Bench Press")])
+                    .with_training_sessions(vec![
+                        earlier_session(2, 7, vec![recorded_set]),
+                        domain::TrainingSession {
+                            id: 1.into(),
+                            routine_id: 1.into(),
+                            date: chrono::Local::now().date_naive(),
+                            notes: String::new(),
+                            elements: vec![planned_set(1), prescribing_set],
+                            exercise_notes: std::collections::BTreeMap::new(),
+                        },
+                    ])
+            },
+        );
+
+        assert_eq!(
+            all_text_of(&html, "set-value"),
+            vec![
+                "10 \u{00d7} 50 kg @ 8 (3 s)",
+                "10 @ 9 (3\u{00b7}1\u{00b7}1\u{00b7}0)"
+            ]
+        );
     }
 
     fn planned_session_with_history(
@@ -2941,6 +3062,7 @@ mod tests {
     ) -> Element {
         let field_values = use_signal(|| HashMap::from([(0, set_field_values(0))]));
         let expanded_history = use_signal(|| HashSet::from([0]));
+        let settings = use_context::<Settings>();
         let set_buttons = if with_set_buttons {
             IndexMap::from([(
                 domain::Set {
@@ -2967,7 +3089,8 @@ mod tests {
                         0,
                         field_values,
                         expanded_history,
-                        use_context::<Settings>(),
+                        settings.show_tut(),
+                        settings.show_rpe(),
                     )}
                 }
             }

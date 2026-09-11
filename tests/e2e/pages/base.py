@@ -119,6 +119,12 @@ class BasePage:
     def expect_no_splash_screen(self) -> None:
         expect(self.page.get_by_test_id("splash")).to_have_count(0)
 
+    def expect_splash_reload_button(self) -> None:
+        expect(self.page.get_by_test_id("splash-reload")).to_be_visible(timeout=35000)
+
+    def reload_from_splash_screen(self) -> None:
+        self.page.get_by_test_id("splash-reload").click()
+
     def expect_dark_theme(self) -> None:
         expect(self.page.locator("html")).to_have_attribute("data-theme", "dark")
 

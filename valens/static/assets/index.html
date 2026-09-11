@@ -6,7 +6,6 @@
         <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="stylesheet" href="/main.css" />
         <link rel="preload" href="/valens-web-app-dioxus_bg.wasm" as="fetch" type="application/wasm" crossorigin="" />
         <link rel="modulepreload" href="/valens-web-app-dioxus.js" />
         <meta charset="utf-8" />
@@ -32,6 +31,20 @@
                 navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
             }
         </script>
+        <script>
+            // A request can stall without failing, which leaves the app starting indefinitely,
+            // so a reload is offered if the app did not start within this time. Without a
+            // controlling service worker, all resources are downloaded, which can take longer.
+            setTimeout(() => {
+                const splash = document.getElementById("loading");
+                if (!splash || splash.classList.contains("is-fading-out")) {
+                    return;
+                }
+                document.getElementById("splash-hint").classList.remove("is-hidden");
+            }, navigator.serviceWorker?.controller ? 10000 : 30000);
+        </script>
+        <!-- A stylesheet that is still loading blocks the scripts following it -->
+        <link rel="stylesheet" href="/main.css" />
     </head>
     <body>
         <div id="loading" data-testid="splash">
@@ -48,8 +61,17 @@
                     </div>
                 </div>
             </section>
-            <div class="splash-hint is-visible-with-delay has-text-centered has-text-grey px-4">
-                If the application does not start, WebAssembly may be disabled or not supported by your browser.
+            <div id="splash-hint" class="splash-hint is-hidden has-text-centered has-text-grey px-4">
+                <p>The application is taking longer than usual to start.</p>
+                <p class="my-4">
+                    <button class="button" data-testid="splash-reload" onclick="location.reload()">
+                        <span class="icon">
+                            <i class="fa fa-arrow-rotate-right"></i>
+                        </span>
+                        <span>Restart</span>
+                    </button>
+                </p>
+                <p>If restarting does not help, WebAssembly may be disabled or not supported by your browser.</p>
             </div>
         </div>
         <div id="main">

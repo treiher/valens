@@ -73,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - App not starting when it is reloaded while offline
+- App not starting after an update on some devices
 - Example data of the demo command stating the time of a whole set instead of the time of a repetition
 - Training session page: Marker of the twenty-first and following exercises of a section
 - Exercises page:

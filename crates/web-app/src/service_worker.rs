@@ -62,7 +62,7 @@ pub enum Update {
     /// The new service worker is installed and waiting for activation.
     Waiting(web_sys::ServiceWorker),
     /// The new service worker is activating without waiting.
-    Activating,
+    Activating(web_sys::ServiceWorker),
 }
 
 /// Check for a new service worker and return the result once it left the `installing` state.
@@ -74,6 +74,8 @@ pub async fn request_update() -> Result<Update, String> {
     let Some(window) = web_sys::window() else {
         return Err("failed to access window".to_string());
     };
+    // A previous reload may have been cancelled by the user.
+    RELOADING.store(false, Ordering::Relaxed);
     let registration = window
         .navigator()
         .service_worker()
@@ -96,71 +98,137 @@ pub async fn request_update() -> Result<Update, String> {
 
     let update = if let Some(waiting) = registration.waiting() {
         Update::Waiting(waiting)
-    } else if let Some(installing) = &installing {
+    } else if let Some(installing) = installing {
         if installing.state() == web_sys::ServiceWorkerState::Redundant {
             return Err("failed to install the new version of the service worker".to_string());
         }
-        Update::Activating
+        Update::Activating(installing)
     } else {
         return Err("no new version of the service worker available".to_string());
     };
 
-    RELOAD_ON_CONTROLLER_CHANGE.store(true, Ordering::Relaxed);
-
     Ok(update)
+}
+
+/// Wait until the service worker is activated.
+///
+/// # Errors
+///
+/// Returns an error if the service worker becomes redundant instead of being activated.
+pub async fn await_activation(service_worker: &web_sys::ServiceWorker) -> Result<(), String> {
+    await_state(service_worker, |state| {
+        matches!(
+            state,
+            web_sys::ServiceWorkerState::Activated | web_sys::ServiceWorkerState::Redundant
+        )
+    })
+    .await;
+    if service_worker.state() == web_sys::ServiceWorkerState::Redundant {
+        return Err("failed to activate the new version of the service worker".to_string());
+    }
+    Ok(())
 }
 
 /// Wait until the service worker leaves the `installing` state.
 async fn await_installation(service_worker: &web_sys::ServiceWorker) {
-    if service_worker.state() != web_sys::ServiceWorkerState::Installing {
+    await_state(service_worker, |state| {
+        state != web_sys::ServiceWorkerState::Installing
+    })
+    .await;
+}
+
+/// Wait until the state of the service worker fulfills the given condition.
+async fn await_state(
+    service_worker: &web_sys::ServiceWorker,
+    reached: fn(web_sys::ServiceWorkerState) -> bool,
+) {
+    if reached(service_worker.state()) {
         return;
     }
-    let promise = js_sys::Promise::new(&mut |resolve, _| {
-        let installing = service_worker.clone();
-        let closure = Closure::wrap(Box::new(move |_: web_sys::Event| {
-            if installing.state() != web_sys::ServiceWorkerState::Installing {
+    let mut resolve = None;
+    let promise = js_sys::Promise::new(&mut |resolve_promise, _| resolve = Some(resolve_promise));
+    let Some(resolve) = resolve else {
+        return;
+    };
+    let changed = service_worker.clone();
+    let listener = StateChangeListener::new(
+        service_worker,
+        Closure::new(move |_: web_sys::Event| {
+            if reached(changed.state()) {
                 let _ = resolve.call0(&JsValue::NULL);
             }
-        }) as Box<dyn FnMut(web_sys::Event)>);
-        service_worker.set_onstatechange(Some(closure.as_ref().unchecked_ref()));
-        closure.forget();
-    });
+        }),
+    );
+    if listener.is_err() {
+        warn!("failed to listen for state changes of the service worker");
+        return;
+    }
     if let Err(err) = JsFuture::from(promise).await {
-        warn!("failed to await installation of the service worker: {err:?}");
+        warn!("failed to await state change of the service worker: {err:?}");
+    }
+}
+
+/// Listener for state changes of a service worker, which is removed when it is dropped.
+///
+/// Each wait registers its own listener, so that concurrent waits on the same service worker do
+/// not replace each other.
+struct StateChangeListener {
+    service_worker: web_sys::ServiceWorker,
+    closure: Closure<dyn FnMut(web_sys::Event)>,
+}
+
+impl StateChangeListener {
+    fn new(
+        service_worker: &web_sys::ServiceWorker,
+        closure: Closure<dyn FnMut(web_sys::Event)>,
+    ) -> Result<Self, JsValue> {
+        service_worker
+            .add_event_listener_with_callback("statechange", closure.as_ref().unchecked_ref())?;
+        Ok(Self {
+            service_worker: service_worker.clone(),
+            closure,
+        })
+    }
+}
+
+impl Drop for StateChangeListener {
+    fn drop(&mut self) {
+        let _ = self.service_worker.remove_event_listener_with_callback(
+            "statechange",
+            self.closure.as_ref().unchecked_ref(),
+        );
     }
 }
 
 static RELOADING: AtomicBool = AtomicBool::new(false);
-static RELOAD_ON_CONTROLLER_CHANGE: AtomicBool = AtomicBool::new(false);
 
-/// Reload the app as soon as another service worker takes control of it.
+/// Reload the app once another service worker has taken control of it and is activated.
 ///
-/// Nothing is done if the app is not controlled by a service worker yet and no update was
-/// requested, as the first service worker takes control without replacing an already running
-/// version of the app.
+/// Nothing is done if the app is not controlled by a service worker yet, as the first service
+/// worker takes control without replacing an already running version of the app.
 pub fn listen_for_controller_change() {
     let Some(window) = web_sys::window() else {
         warn!("failed to access window");
         return;
     };
     let service_worker = window.navigator().service_worker();
-    if service_worker.controller().is_some() {
-        RELOAD_ON_CONTROLLER_CHANGE.store(true, Ordering::Relaxed);
+    if service_worker.controller().is_none() {
+        return;
     }
     let closure = Closure::wrap(Box::new(move |_: web_sys::Event| {
-        if !RELOAD_ON_CONTROLLER_CHANGE.load(Ordering::Relaxed) {
+        // Reloading before the new service worker is activated can leave requests unanswered.
+        let Some(controller) =
+            web_sys::window().and_then(|w| w.navigator().service_worker().controller())
+        else {
+            reload_app();
             return;
-        }
-        if RELOADING.swap(true, Ordering::Relaxed) {
-            return;
-        }
-        if let Some(window) = web_sys::window() {
-            if let Err(err) = window.location().reload() {
-                warn!("failed to reload app: {err:?}");
+        };
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Err(err) = await_activation(&controller).await {
+                warn!("{err}");
             }
-        } else {
-            warn!("failed to access window");
-        }
+            reload_app();
+        });
     }) as Box<dyn FnMut(web_sys::Event)>);
     if let Err(err) = service_worker
         .add_event_listener_with_callback("controllerchange", closure.as_ref().unchecked_ref())
@@ -170,7 +238,16 @@ pub fn listen_for_controller_change() {
     closure.forget();
 }
 
-/// Stop reloading the app when another service worker takes control of it.
-pub fn cancel_reload_on_controller_change() {
-    RELOAD_ON_CONTROLLER_CHANGE.store(false, Ordering::Relaxed);
+/// Reload the app, unless it is already being reloaded.
+pub fn reload_app() {
+    if RELOADING.swap(true, Ordering::Relaxed) {
+        return;
+    }
+    let Some(window) = web_sys::window() else {
+        warn!("failed to access window");
+        return;
+    };
+    if let Err(err) = window.location().reload() {
+        warn!("failed to reload app: {err:?}");
+    }
 }

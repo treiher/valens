@@ -98,9 +98,8 @@ pub fn UpdateNotification() -> Element {
 
 /// Activate the service worker of the new version.
 ///
-/// The app is reloaded by the listener of the `controllerchange` event once the new service
-/// worker has taken control. An update that is not completed by a reload within the timeout is
-/// reported as failed.
+/// The app is reloaded once the new service worker is activated. An update that is not completed
+/// by a reload within the timeout is reported as failed.
 async fn update_app() {
     let timeout = gloo_timers::future::TimeoutFuture::new(UPDATE_TIMEOUT);
     let reason = match select(Box::pin(activate_update()), timeout).await {
@@ -114,22 +113,28 @@ async fn update_app() {
         Either::Left((Err(err), _)) => err,
         Either::Right(((), _)) => "timeout".to_string(),
     };
-    web_app::service_worker::cancel_reload_on_controller_change();
     *UPDATE_STATUS.write() = UpdateStatus::Available;
     notify_warning("update app", reason);
 }
 
-/// Trigger the activation of the service worker of the new version.
+/// Activate the service worker of the new version and reload the app.
+///
+/// The reload is delayed until the new service worker is activated. Requests made while it is
+/// still activating can remain unanswered.
 async fn activate_update() -> Result<(), String> {
-    match web_app::service_worker::request_update().await? {
+    let service_worker = match web_app::service_worker::request_update().await? {
         web_app::service_worker::Update::Waiting(service_worker) => {
             web_app::service_worker::post_to(
                 &service_worker,
                 &web_app::service_worker::OutboundMessage::SkipWaiting,
-            )
+            )?;
+            service_worker
         }
-        web_app::service_worker::Update::Activating => Ok(()),
-    }
+        web_app::service_worker::Update::Activating(service_worker) => service_worker,
+    };
+    web_app::service_worker::await_activation(&service_worker).await?;
+    web_app::service_worker::reload_app();
+    Ok(())
 }
 
 #[component]

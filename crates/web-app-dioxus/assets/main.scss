@@ -499,6 +499,7 @@ $value-field-padding: 0.4em;
     left: 0;
     right: 0;
     bottom: 2rem;
+    animation: 1s forwards fade-in;
 }
 
 .splash-spinner {
@@ -534,12 +535,6 @@ $value-field-padding: 0.4em;
   opacity: 0;
   animation: 1s forwards fade-in;
   animation-delay: 0.5s;
-}
-
-.is-visible-with-delay {
-  opacity: 0;
-  animation: 1s forwards fade-in;
-  animation-delay: 5s;
 }
 
 @keyframes fade-in {

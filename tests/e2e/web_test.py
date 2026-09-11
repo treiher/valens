@@ -3683,6 +3683,7 @@ def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None
 
 RECENT_SESSIONS = 3
 NEW_VERSION = "99.0.0"
+APP_SCRIPT = "valens-web-app-dioxus.js"
 
 CACHED_FILES = [
     "",
@@ -3698,7 +3699,7 @@ CACHED_FILES = [
     "favicon-32x32.png",
     "main.css",
     "manifest.json",
-    "valens-web-app-dioxus.js",
+    APP_SCRIPT,
     "valens-web-app-dioxus_bg.wasm",
 ]
 
@@ -3757,6 +3758,21 @@ def test_offline_reload(page: Page) -> None:
         p.expect_page()
     finally:
         page.context.set_offline(False)
+
+
+def test_stalled_start(page: Page) -> None:
+    p = LoginPage(page)
+
+    page.route(f"**/{APP_SCRIPT}", lambda route: route.abort())
+    try:
+        page.goto(BASE_URL)
+        p.expect_splash_screen()
+        p.expect_splash_reload_button()
+    finally:
+        page.unroute(f"**/{APP_SCRIPT}")
+
+    p.reload_from_splash_screen()
+    p.expect_page()
 
 
 @pytest.fixture

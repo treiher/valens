@@ -166,6 +166,7 @@ fn init_service_worker() {
 fn App() -> Element {
     std::panic::set_hook(Box::new(|info| {
         error!("panic: {info}");
+        remove_splash_screen();
         web_sys::window()
             .and_then(|w| w.document())
             .and_then(|d| d.get_element_by_id("main"))
@@ -189,7 +190,7 @@ fn App() -> Element {
                                             <span class=\"icon\">
                                                 <i class=\"fa fa-arrow-rotate-right\"></i>
                                             </span>
-                                            <span>Reload page</span>
+                                            <span>Restart</span>
                                         </button>
                                         <a class=\"button\" href=\"https://github.com/treiher/valens/issues\" target=\"_blank\">
                                             <span class=\"icon\">
@@ -224,10 +225,7 @@ fn App() -> Element {
 
 /// Fade out the splash screen shown while the app is starting and remove it afterwards.
 fn hide_splash_screen() {
-    let Some(element) = web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.get_element_by_id("loading"))
-    else {
+    let Some(element) = splash_screen() else {
         return;
     };
     if let Err(err) = element.class_list().add_1("is-fading-out") {
@@ -239,6 +237,20 @@ fn hide_splash_screen() {
         TimeoutFuture::new(SPLASH_SCREEN_FADE_OUT_MS).await;
         element.remove();
     });
+}
+
+/// Remove the splash screen shown while the app is starting, so that it does not cover the
+/// content of the app.
+fn remove_splash_screen() {
+    if let Some(element) = splash_screen() {
+        element.remove();
+    }
+}
+
+fn splash_screen() -> Option<web_sys::Element> {
+    web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id("loading"))
 }
 
 fn signal_changed_data() {

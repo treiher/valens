@@ -213,7 +213,7 @@ $(PACKAGE_GENERATED_FILES): DX_RELEASE_DIR := target/dx/valens-web-app-dioxus/re
 $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-party/fontawesome $(shell find crates/ -type f) $(BUILD_DIR)/version
 	mkdir -p $(GENERATED_DIR)
 	rm -rf $(GENERATED_DIR)/*
-	sass crates/web-app-dioxus/assets/main.scss $(GENERATED_DIR)/main.css
+	sass --style=compressed --no-source-map crates/web-app-dioxus/assets/main.scss $(GENERATED_DIR)/main.css
 	sed -e "s#{{VERSION}}#$(VERSION)#" crates/web-app-dioxus/assets/sw.js > $(GENERATED_DIR)/sw.js
 	rm -rf $(DX_RELEASE_DIR)
 	VALENS_VERSION=$(VERSION) dx bundle --release --debug-symbols=false --package valens-web-app-dioxus

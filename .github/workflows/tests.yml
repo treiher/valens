@@ -169,14 +169,14 @@ jobs:
         with:
           enable-cache: true
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
       - name: Determine dioxus-cli version
         run: |
           version=$(sed -n '/^name = "dioxus"$/{n; s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
           [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
           echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2.87.3
+        uses: taiki-e/install-action@v2.87.8
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install Sass
@@ -313,14 +313,14 @@ jobs:
         with:
           enable-cache: true
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
       - name: Determine dioxus-cli version
         run: |
           version=$(sed -n '/^name = "dioxus"$/{n; s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
           [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
           echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2.87.3
+        uses: taiki-e/install-action@v2.87.8
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install Sass
@@ -358,13 +358,13 @@ jobs:
         with:
           enable-cache: true
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           toolchain: stable
           target: wasm32-unknown-unknown
           components: llvm-tools-preview
       - name: Install cargo-llvm-cov, Nextest and dioxus-cli
-        uses: taiki-e/install-action@v2.87.3
+        uses: taiki-e/install-action@v2.87.8
         with:
           tool: cargo-llvm-cov,nextest,dioxus-cli
       - name: Install wasm-pack

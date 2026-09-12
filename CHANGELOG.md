@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Loading screen shown while the app is starting
+- Amount of data transferred, which is reduced by compressing the responses of the server
 - Training session page:
     - Input fields of a set, showing the units in a header line above the sets instead of inside the fields
     - Values of the previous session of an exercise, taken from the last session in which the exercise was performed

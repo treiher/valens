@@ -9,6 +9,7 @@ from shutil import copytree
 from subprocess import PIPE, STDOUT, run
 from tempfile import TemporaryDirectory
 
+import brotli
 import pytest
 from playwright.sync_api import (
     Browser,
@@ -3811,7 +3812,9 @@ def test_update(browser: Browser, replaceable_frontend: Path) -> None:
 
         # Deploy a new release, which replaces the service worker and the server version
         service_worker = replaceable_frontend / "sw.js"
-        service_worker.write_text(service_worker.read_text().replace(version, NEW_VERSION))
+        content = service_worker.read_text().replace(version, NEW_VERSION)
+        service_worker.write_text(content)
+        (replaceable_frontend / "sw.js.br").write_bytes(brotli.compress(content.encode()))
         context.route("**/api/version", lambda route: route.fulfill(json=NEW_VERSION))
         page.reload()
 

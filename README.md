@@ -284,9 +284,6 @@ http {
 
         [...]
 
-        gzip on;
-        gzip_types text/plain text/css text/javascript application/json application/wasm;
-
         location / { try_files $uri @valens; }
         location @valens {
             include uwsgi_params;
@@ -315,9 +312,6 @@ http {
 
         [...]
 
-        gzip on;
-        gzip_types text/plain text/css text/javascript application/json application/wasm;
-
         location / {
             proxy_pass http://127.0.0.1:8000;
         }
@@ -326,10 +320,6 @@ http {
 
 }
 ```
-
-### NGINX Compression
-
-Compression is disabled in NGINX by default and is enabled by the `gzip` directives in the examples above. With compression enabled, the amount of data transferred can be significantly reduced, resulting in a reduction in transfer time, especially on slow networks. [Brotli](https://github.com/google/ngx_brotli) offers better compression ratios than gzip and is supported as an optional NGINX module.
 
 ## Upgrading
 

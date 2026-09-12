@@ -1,5 +1,23 @@
 const CACHE_NAME = "valens-{{VERSION}}";
 
+const CACHED_RESOURCES = [
+    "/",
+    "fonts/Roboto-Bold.woff",
+    "fonts/Roboto-BoldItalic.woff",
+    "fonts/Roboto-Italic.woff",
+    "fonts/Roboto-Regular.woff",
+    "fonts/fa-solid-900.woff2",
+    "images/android-chrome-192x192.png",
+    "images/android-chrome-512x512.png",
+    "images/apple-touch-icon.png",
+    "images/favicon-16x16.png",
+    "images/favicon-32x32.png",
+    "main.css",
+    "manifest.json",
+    "valens-web-app-dioxus.js",
+    "valens-web-app-dioxus_bg.wasm",
+];
+
 self.addEventListener("install", (event) => {
     event.waitUntil(addResourcesToCache());
 });
@@ -68,24 +86,18 @@ self.addEventListener("message", (event) => {
 
 function addResourcesToCache() {
     return caches.open(CACHE_NAME).then((cache) => {
-        return cache.addAll([
-            "/",
-            "fonts/Roboto-Bold.woff",
-            "fonts/Roboto-BoldItalic.woff",
-            "fonts/Roboto-Italic.woff",
-            "fonts/Roboto-Regular.woff",
-            "fonts/fa-solid-900.woff2",
-            "images/android-chrome-192x192.png",
-            "images/android-chrome-512x512.png",
-            "images/apple-touch-icon.png",
-            "images/favicon-16x16.png",
-            "images/favicon-32x32.png",
-            "main.css",
-            "manifest.json",
-            "valens-web-app-dioxus.js",
-            "valens-web-app-dioxus_bg.wasm",
-        ]);
-    })
+        return Promise.all(CACHED_RESOURCES.map(async (resource) => {
+            const response = await fetch(resource);
+            if (!response.ok) {
+                throw new Error(`Request for ${resource} failed with status ${response.status}`);
+            }
+            await cache.put(resource, response);
+        }));
+    }).catch(async (error) => {
+        // An incomplete cache would otherwise remain until the next activation
+        await caches.delete(CACHE_NAME);
+        throw error;
+    });
 };
 
 function deleteDeprecatedCaches() {

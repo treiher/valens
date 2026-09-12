@@ -25,12 +25,14 @@ requires-python = ">=3.10, <4"
 dependencies = [
     "alembic >=1.16, <2",
     "flask >=3, <4",
+    "flask-compress >=1.24, <2",
     "sqlalchemy >=2, <3",
     "webauthn >=2.2, <3",
 ]
 
 [dependency-groups]
 dev = [
+    "brotli >=1, <2", # required by the asset compression and the tests
     "fabric >=3, <4",
     "hatch >=1",
     "mypy >=1",
@@ -215,6 +217,7 @@ plugins = "sqlalchemy.ext.mypy.plugin"
 
 [[tool.mypy.overrides]]
 module = [
+    "brotli.*",
     "pytest_alembic.*",
     "sqlalchemy_repr.*",
 ]

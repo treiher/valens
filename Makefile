@@ -7,7 +7,11 @@ FONTAWESOME_VERSION := 7.2.0
 PYTHON_PACKAGES := valens tests tools fabfile.py
 ASSETS_DIR := valens/static/assets
 GENERATED_DIR := valens/static/generated
-GENERATED_FILES := main.css sw.js valens-web-app-dioxus.js valens-web-app-dioxus_bg.wasm
+BUILT_FILES := main.css sw.js valens-web-app-dioxus.js valens-web-app-dioxus_bg.wasm
+# Compressible files of the assets directory. Their variants are generated as well, so that no
+# variant appears as an untracked file beside a tracked one.
+COMPRESSED_ASSET_FILES := favicon.ico index.html manifest.json
+GENERATED_FILES := $(BUILT_FILES) $(addsuffix .br,$(BUILT_FILES) $(COMPRESSED_ASSET_FILES))
 PACKAGE_GENERATED_FILES := $(addprefix $(GENERATED_DIR)/,$(GENERATED_FILES))
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
@@ -125,9 +129,9 @@ test-frontend:
 
 test-backend:
 	mkdir -p $(GENERATED_DIR)
-	$(foreach f,$(PACKAGE_GENERATED_FILES),test -f $(f) || touch $(f);)
+	$(foreach f,$(filter-out %.br,$(PACKAGE_GENERATED_FILES)),test -f $(f) || touch $(f);)
 	uv run -- pytest -n$(NPROC) -vv --cov=valens --cov-branch --cov-fail-under=100 --cov-report=term-missing:skip-covered tests/backend
-	find $(PACKAGE_GENERATED_FILES) -type f -empty -delete
+	find $(filter-out %.br,$(PACKAGE_GENERATED_FILES)) -type f -empty -delete
 
 test-installation: test-venv
 	$(BUILD_DIR)/venv/bin/valens --version
@@ -210,7 +214,7 @@ $(WHEEL): $(PACKAGE_GENERATED_FILES)
 	uv build
 
 $(PACKAGE_GENERATED_FILES): DX_RELEASE_DIR := target/dx/valens-web-app-dioxus/release/web/public
-$(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-party/fontawesome $(shell find crates/ -type f) $(BUILD_DIR)/version
+$(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-party/fontawesome $(shell find crates/ -type f) $(BUILD_DIR)/version $(addprefix $(ASSETS_DIR)/,$(COMPRESSED_ASSET_FILES))
 	mkdir -p $(GENERATED_DIR)
 	rm -rf $(GENERATED_DIR)/*
 	sass --style=compressed --no-source-map crates/web-app-dioxus/assets/main.scss $(GENERATED_DIR)/main.css
@@ -228,6 +232,9 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	cp $(DX_RELEASE_DIR)/assets/$$wasm $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm
 	@refs=$$(grep -o 'valens-web-app-dioxus_bg[[:alnum:]_-]*\.wasm' $(GENERATED_DIR)/valens-web-app-dioxus.js | sort -u); \
 	[ "$$refs" = "valens-web-app-dioxus_bg.wasm" ] || { echo "Error: $(GENERATED_DIR)/valens-web-app-dioxus.js references unexpected WASM assets:" >&2; echo "$$refs" >&2; exit 1; }
+	uv run -- python tools/compress_assets.py $(GENERATED_DIR) \
+		$(addprefix $(GENERATED_DIR)/,$(BUILT_FILES)) \
+		$(addprefix $(ASSETS_DIR)/,$(COMPRESSED_ASSET_FILES))
 
 .PHONY: container container-script
 

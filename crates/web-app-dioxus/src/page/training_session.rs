@@ -42,6 +42,9 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 /// Number of earlier training sessions whose sets can be shown for an exercise.
 const RECENT_SESSIONS: usize = 3;
 
+/// The sets of an exercise in earlier training sessions, from the most recent to the oldest.
+type SessionSets = Vec<(chrono::NaiveDate, Vec<domain::Set>)>;
+
 const COLUMN_HEADER_CLASS: &str =
     "p-1 has-text-centered is-size-7 has-text-grey has-text-weight-normal";
 
@@ -121,6 +124,36 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         } else {
             None
         }
+    });
+    // Kept apart from the form, which is rendered anew with every tick of the timer.
+    let recent_session_sets_by_exercise = use_memo(move || {
+        let (CacheState::Ready(training_sessions), Some(training_session)) =
+            (&*cache.training_sessions.read(), &*training_session.read())
+        else {
+            return HashMap::new();
+        };
+        DOMAIN_SERVICE()
+            .get_recent_session_sets_by_exercise(
+                training_session,
+                training_sessions,
+                RECENT_SESSIONS,
+            )
+            .into_iter()
+            .map(|(exercise_id, sessions)| {
+                let sessions = sessions
+                    .into_iter()
+                    .map(|(date, sets)| {
+                        (
+                            date,
+                            sets.into_iter()
+                                .filter_map(domain::TrainingSessionElement::set)
+                                .collect(),
+                        )
+                    })
+                    .collect::<SessionSets>();
+                (exercise_id, sessions)
+            })
+            .collect::<HashMap<_, _>>()
     });
     let routine = use_memo(move || {
         if let Some(training_session) = &*training_session.read() {
@@ -556,7 +589,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, exercises, settings, cache, element_elements, expanded_history, phase_clock)},
+                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_session_sets_by_exercise.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
                     {view_list(training_session, exercises)},
                     {view_muscles(training_session, exercises)}
@@ -891,6 +924,7 @@ fn view_form(
     mut edit_dialog: Signal<EditDialog>,
     exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     training_session: &domain::TrainingSession,
+    recent_session_sets_by_exercise: &HashMap<domain::ExerciseID, SessionSets>,
     exercises: &[domain::Exercise],
     settings: Settings,
     cache: Cache,
@@ -911,19 +945,7 @@ fn view_form(
     let progress_section_idx = training_session.section_idx(progress_element_idx);
     let progress_section_idx_lookahead =
         training_session.section_idx_lookahead(progress_element_idx);
-    let training_sessions_cache = &*cache.training_sessions.read();
     let sets_by_exercise = DOMAIN_SERVICE().get_sets_by_exercise(training_session);
-    let recent_session_sets_by_exercise = {
-        if let CacheState::Ready(training_sessions) = training_sessions_cache {
-            DOMAIN_SERVICE().get_recent_session_sets_by_exercise(
-                training_session,
-                training_sessions,
-                RECENT_SESSIONS,
-            )
-        } else {
-            HashMap::new()
-        }
-    };
     let set_indices = training_session.set_indices();
     let shows_time = settings.show_tut() || training_session.has_time();
     let shows_rpe = settings.show_rpe() || training_session.has_rpe();
@@ -1068,18 +1090,12 @@ fn view_form(
 
                     let show_set_buttons = is_current_section && (set_field_values.is_empty() || set_field_values.changed());
 
-                    let history = if show_set_buttons {
+                    let history: &[_] = if show_set_buttons {
                         recent_session_sets_by_exercise
                             .get(exercise_id)
-                            .map(|sessions| {
-                                sessions
-                                    .iter()
-                                    .map(|(date, sets)| (*date, sets.iter().filter_map(|e| e.set()).collect::<Vec<_>>()))
-                                    .collect::<Vec<_>>()
-                            })
-                            .unwrap_or_default()
+                            .map_or(&[], Vec::as_slice)
                     } else {
-                        Vec::new()
+                        &[]
                     };
 
                     let mut set_buttons: IndexMap<domain::Set, SetButton> = IndexMap::new();
@@ -1580,7 +1596,7 @@ fn SetTempoBar(
 #[allow(clippy::too_many_arguments)]
 fn set_value_buttons(
     set_buttons: IndexMap<domain::Set, SetButton>,
-    history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
+    history: &[(chrono::NaiveDate, Vec<domain::Set>)],
     set_index: usize,
     element_idx: usize,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
@@ -1615,7 +1631,7 @@ fn set_value_buttons(
                 td {
                     class: "p-1 has-text-centered",
                     colspan: 4,
-                    for (session_index, (date, sets)) in history.into_iter().enumerate() {
+                    for (session_index, (date, sets)) in history.iter().enumerate() {
                         div {
                             class: if session_index < last_session_index { "mb-2" },
                             "data-testid": "set-history-session",
@@ -3084,7 +3100,7 @@ mod tests {
                 tbody {
                     {set_value_buttons(
                         set_buttons,
-                        history,
+                        &history,
                         set_index,
                         0,
                         field_values,

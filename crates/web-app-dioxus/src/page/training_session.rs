@@ -992,12 +992,12 @@ fn view_form(
                         a {
                             class: "px-1 is-link",
                             "data-testid": "item-options",
-                            onclick: eh!(training_session, first_element_idx; {
+                            onclick: eh!(training_session, first_element_idx, exercise_id; {
                                 *edit_dialog.write() = EditDialog::Options {
                                     training_session: training_session.clone(),
                                     section_idx,
                                     element_idx: first_element_idx,
-                                    exercise_idx: i,
+                                    exercise_id,
                                 }
                             }),
                             Icon { name: "ellipsis-vertical" }
@@ -1951,10 +1951,9 @@ fn view_edit_dialog(
             training_session,
             section_idx,
             element_idx,
-            exercise_idx,
+            exercise_id,
         } => {
-            let sections = training_session.compute_sections();
-            let exercise_id = unique(sections[*section_idx].exercise_ids())[*exercise_idx];
+            let exercise_id = *exercise_id;
             rsx! {
                 if IS_LOADING() {
                     LoadingDialog {}
@@ -2043,9 +2042,9 @@ fn view_edit_dialog(
                                 MenuOption {
                                     icon: "plus".to_string(),
                                     text: "Add same exercise".to_string(),
-                                    on_click: eh!(mut training_session; section_idx, exercise_idx, close_dialog; {
+                                    on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.add_same_exercise(section_idx, exercise_idx);
+                                        training_session.add_exercise(section_idx, exercise_id);
                                         save(training_session, cache, close_dialog)
                                     })
                                 },
@@ -2078,8 +2077,8 @@ fn view_edit_dialog(
                                     icon: "arrow-right-arrow-left".to_string(),
                                     text: "Replace exercise".to_string(),
                                     "data-testid": "options-replace-exercise",
-                                    on_click: eh!(mut edit_dialog; training_session, section_idx, exercise_idx; {
-                                        *edit_dialog.write() = EditDialog::ReplaceExercise { training_session, section_idx, exercise_idx };
+                                    on_click: eh!(mut edit_dialog; training_session, section_idx, exercise_id; {
+                                        *edit_dialog.write() = EditDialog::ReplaceExercise { training_session, section_idx, exercise_id };
                                     })
                                 },
                                 MenuOption {
@@ -2094,9 +2093,10 @@ fn view_edit_dialog(
                                 MenuOption {
                                     icon: "times".to_string(),
                                     text: "Remove exercise".to_string(),
-                                    on_click: eh!(mut training_session; section_idx, exercise_idx, close_dialog; {
+                                    "data-testid": "options-remove-exercise",
+                                    on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.remove_exercise(section_idx, exercise_idx);
+                                        training_session.remove_exercise(section_idx, exercise_id);
                                         save(training_session, cache, close_dialog)
                                     })
                                 },
@@ -2140,7 +2140,7 @@ fn view_edit_dialog(
         EditDialog::ReplaceExercise {
             training_session,
             section_idx,
-            exercise_idx,
+            exercise_id,
         } => {
             rsx! {
                 if IS_LOADING() {
@@ -2152,17 +2152,15 @@ fn view_edit_dialog(
                         no_horizontal_padding: true,
                         page::exercises::ExerciseList {
                             add: false,
-                            filter: page::exercises::replacement_filter(training_session
-                                .exercise_id_at(*section_idx, *exercise_idx)
-                                .unwrap_or_else(domain::ExerciseID::nil), &cache),
+                            filter: page::exercises::replacement_filter(*exercise_id, &cache),
                             on_exercise_click: {
                                 let training_session = training_session.clone();
                                 let section_idx = *section_idx;
-                                let exercise_idx = *exercise_idx;
-                                move |(_, exercise_id)| {
+                                let exercise_id = *exercise_id;
+                                move |(_, replacement)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    training_session.replace_exercise(section_idx, exercise_idx, exercise_id);
+                                    training_session.replace_exercise(section_idx, exercise_id, replacement);
                                     save(training_session, cache, close_dialog)
                                 }
                             },
@@ -2505,7 +2503,7 @@ pub enum EditDialog {
         training_session: domain::TrainingSession,
         section_idx: usize,
         element_idx: usize,
-        exercise_idx: usize,
+        exercise_id: domain::ExerciseID,
     },
     AddExercise {
         training_session: domain::TrainingSession,
@@ -2514,7 +2512,7 @@ pub enum EditDialog {
     ReplaceExercise {
         training_session: domain::TrainingSession,
         section_idx: usize,
-        exercise_idx: usize,
+        exercise_id: domain::ExerciseID,
     },
     AppendExercise {
         training_session: domain::TrainingSession,

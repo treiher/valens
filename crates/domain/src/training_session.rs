@@ -592,14 +592,6 @@ impl TrainingSession {
         self.ensure_sections_contain_set("adding set");
     }
 
-    pub fn add_same_exercise(&mut self, section_idx: usize, exercise_idx: usize) {
-        let section = &self.compute_sections()[section_idx];
-        let exercise_id = section.exercise_ids()[exercise_idx];
-
-        self.add_exercise(section_idx, exercise_id);
-        self.ensure_sections_contain_set("adding same exercise");
-    }
-
     pub fn add_exercise(&mut self, section_idx: usize, exercise_id: ExerciseID) {
         let sections = &self.compute_sections();
         let section = &sections[section_idx];
@@ -651,57 +643,25 @@ impl TrainingSession {
     pub fn replace_exercise(
         &mut self,
         section_idx: usize,
-        exercise_idx: usize,
         exercise_id: ExerciseID,
+        replacement: ExerciseID,
     ) {
         let sections = self.compute_sections();
-        let section = &sections[section_idx];
-        let exercises = section.exercise_ids();
-        let replace_all = exercise_idx == 0
-            && exercises
-                .first()
-                .is_none_or(|first| exercises.iter().all(|id| id == first));
-
-        let mut elements = vec![];
-        let mut idx = 0;
-        for element in section.elements() {
-            match element {
-                TrainingSessionElement::Set {
-                    reps,
-                    time,
-                    weight,
-                    rpe,
-                    target_reps,
-                    target_tempo,
-                    target_weight,
-                    target_rpe,
-                    automatic,
-                    ..
-                } => {
-                    if idx == exercise_idx || replace_all {
-                        elements.push(TrainingSessionElement::Set {
-                            exercise_id,
-                            reps: *reps,
-                            time: *time,
-                            weight: *weight,
-                            rpe: *rpe,
-                            target_reps: *target_reps,
-                            target_tempo: *target_tempo,
-                            target_weight: *target_weight,
-                            target_rpe: *target_rpe,
-                            automatic: *automatic,
-                        });
-                    } else {
-                        elements.push(element.clone());
-                    }
-                    idx += 1;
+        let elements = sections[section_idx]
+            .elements()
+            .iter()
+            .cloned()
+            .map(|mut element| {
+                if let TrainingSessionElement::Set {
+                    exercise_id: id, ..
+                } = &mut element
+                    && *id == exercise_id
+                {
+                    *id = replacement;
                 }
-                TrainingSessionElement::Rest { .. } => {
-                    elements.push(element.clone());
-                    idx = 0;
-                }
-            }
-        }
+                element
+            })
+            .collect();
 
         self.replace_elements_of_section(&sections, section_idx, elements);
         self.ensure_sections_contain_set("replacing exercise");
@@ -719,21 +679,20 @@ impl TrainingSession {
         self.ensure_sections_contain_set("removing set");
     }
 
-    pub fn remove_exercise(&mut self, section_idx: usize, exercise_idx: usize) {
+    pub fn remove_exercise(&mut self, section_idx: usize, exercise_id: ExerciseID) {
         let sections = self.compute_sections();
         let section = &sections[section_idx];
 
         let mut elements = vec![];
         let ids = section.exercise_ids();
         if ids.len() > 1 {
-            let id = ids[exercise_idx];
-            let closes_round = ids.last() == Some(&id);
+            let closes_round = ids.last() == Some(&exercise_id);
             for run in section
                 .elements()
                 .split_inclusive(|element| matches!(element, TrainingSessionElement::Rest { .. }))
             {
                 let removed_idx = run.iter().rposition(|element| {
-                    matches!(element, TrainingSessionElement::Set { exercise_id, .. } if *exercise_id == id)
+                    matches!(element, TrainingSessionElement::Set { exercise_id: id, .. } if *id == exercise_id)
                 });
                 let remaining = run
                     .iter()
@@ -908,14 +867,6 @@ impl TrainingSession {
         }
 
         first..=last
-    }
-
-    /// Returns the exercise at the given position of the given computed section, if any.
-    #[must_use]
-    pub fn exercise_id_at(&self, section_idx: usize, exercise_idx: usize) -> Option<ExerciseID> {
-        self.compute_sections()
-            .get(section_idx)
-            .and_then(|section| section.exercise_ids().get(exercise_idx).copied())
     }
 
     /// Returns the indices of the elements of `exercise_id` in one run of consecutive sets of the
@@ -2452,92 +2403,6 @@ mod tests {
     }
 
     #[test]
-    fn test_training_session_add_same_exercise_first() {
-        let mut training_session = training_session(&[
-            exercise(0, 0),
-            rest(0),
-            exercise(1, 0),
-            rest(1),
-            exercise(2, 1),
-            rest(2),
-            exercise(3, 1),
-            rest(3),
-            exercise(4, 0),
-            rest(4),
-            exercise(5, 0),
-            rest(5),
-        ]);
-        training_session.add_same_exercise(0, 0);
-        assert_eq!(
-            training_session.elements,
-            vec![
-                exercise(0, 0),
-                exercise(0, 0),
-                rest(0),
-                exercise(1, 0),
-                exercise(0, 0),
-                rest(1),
-                exercise(2, 1),
-                rest(2),
-                exercise(3, 1),
-                rest(3),
-                exercise(4, 0),
-                rest(4),
-                exercise(5, 0),
-                rest(5),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_training_session_add_same_exercise_last() {
-        let mut training_session = training_session(&[
-            exercise(0, 0),
-            rest(0),
-            exercise(1, 0),
-            rest(1),
-            exercise(2, 1),
-            rest(2),
-            exercise(3, 1),
-            rest(3),
-            exercise(4, 0),
-            rest(4),
-            exercise(5, 0),
-            rest(5),
-        ]);
-        training_session.add_same_exercise(2, 0);
-        assert_eq!(
-            training_session.elements,
-            vec![
-                exercise(0, 0),
-                rest(0),
-                exercise(1, 0),
-                rest(1),
-                exercise(2, 1),
-                rest(2),
-                exercise(3, 1),
-                rest(3),
-                exercise(4, 0),
-                exercise(0, 0),
-                rest(4),
-                exercise(5, 0),
-                exercise(0, 0),
-                rest(5),
-            ]
-        );
-    }
-
-    #[test]
-    fn test_training_session_add_same_exercise_no_rest() {
-        let mut training_session = training_session(&[exercise(0, 0)]);
-        training_session.add_same_exercise(0, 0);
-        assert_eq!(
-            training_session.elements,
-            vec![exercise(0, 0), exercise(0, 0)]
-        );
-    }
-
-    #[test]
     fn test_training_session_add_exercise_first() {
         let mut training_session = training_session(&[
             exercise(0, 0),
@@ -2739,7 +2604,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.replace_exercise(0, 0, 2.into());
+        training_session.replace_exercise(0, 0.into(), 2.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -2775,7 +2640,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.replace_exercise(2, 0, 2.into());
+        training_session.replace_exercise(2, 0.into(), 2.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -2817,7 +2682,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.replace_exercise(0, 0, 3.into());
+        training_session.replace_exercise(0, 0.into(), 3.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -2859,7 +2724,7 @@ mod tests {
             exercise(7, 2),
             rest(3),
         ]);
-        training_session.replace_exercise(0, 0, 3.into());
+        training_session.replace_exercise(0, 0.into(), 3.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -2875,6 +2740,60 @@ mod tests {
                 exercise(6, 0),
                 exercise(7, 2),
                 rest(3),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_training_session_replace_exercise_repeated_in_a_run() {
+        let mut training_session = training_session(&[
+            exercise(0, 0),
+            exercise(1, 0),
+            exercise(2, 1),
+            rest(0),
+            exercise(3, 0),
+            exercise(4, 0),
+            exercise(5, 1),
+            rest(1),
+        ]);
+        training_session.replace_exercise(0, 1.into(), 2.into());
+        assert_eq!(
+            training_session.elements,
+            vec![
+                exercise(0, 0),
+                exercise(1, 0),
+                exercise(2, 2),
+                rest(0),
+                exercise(3, 0),
+                exercise(4, 0),
+                exercise(5, 2),
+                rest(1),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_training_session_replace_exercise_in_a_round_split_by_a_rest() {
+        let mut training_session = training_session(&[
+            exercise(0, 0),
+            exercise(1, 1),
+            rest(0),
+            exercise(2, 0),
+            rest(1),
+            exercise(3, 1),
+            rest(2),
+        ]);
+        training_session.replace_exercise(0, 1.into(), 2.into());
+        assert_eq!(
+            training_session.elements,
+            vec![
+                exercise(0, 0),
+                exercise(1, 2),
+                rest(0),
+                exercise(2, 0),
+                rest(1),
+                exercise(3, 2),
+                rest(2),
             ]
         );
     }
@@ -2901,7 +2820,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.replace_exercise(1, 1, 3.into());
+        training_session.replace_exercise(1, 2.into(), 3.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -3038,7 +2957,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.remove_exercise(0, 0);
+        training_session.remove_exercise(0, 0.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -3070,7 +2989,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.remove_exercise(2, 0);
+        training_session.remove_exercise(2, 0.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -3108,7 +3027,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.remove_exercise(0, 0);
+        training_session.remove_exercise(0, 0.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -3142,7 +3061,7 @@ mod tests {
             exercise(3, 0),
             rest(1),
         ]);
-        training_session.remove_exercise(0, 0);
+        training_session.remove_exercise(0, 0.into());
         assert_eq!(
             training_session.elements,
             vec![exercise(0, 0), rest(0), exercise(2, 0), rest(1),]
@@ -3171,7 +3090,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.remove_exercise(1, 1);
+        training_session.remove_exercise(1, 2.into());
         assert_eq!(
             training_session.elements,
             vec![
@@ -3219,26 +3138,6 @@ mod tests {
         assert_eq!(
             training_session.elements,
             vec![exercise(0, 1), rest(0), exercise(0, 2)]
-        );
-    }
-
-    #[rstest]
-    #[case(0, 0, Some(ExerciseID::from(1_u128)))]
-    #[case(0, 1, Some(ExerciseID::from(2_u128)))]
-    #[case(1, 0, Some(ExerciseID::from(3_u128)))]
-    #[case(0, 2, None)]
-    #[case(2, 0, None)]
-    fn test_training_session_exercise_id_at(
-        #[case] section_idx: usize,
-        #[case] exercise_idx: usize,
-        #[case] expected: Option<ExerciseID>,
-    ) {
-        let training_session =
-            training_session(&[exercise(0, 1), exercise(1, 2), rest(0), exercise(2, 3)]);
-
-        assert_eq!(
-            training_session.exercise_id_at(section_idx, exercise_idx),
-            expected
         );
     }
 
@@ -4263,13 +4162,15 @@ mod tests {
                     continue;
                 }
                 let section_idx = a % sections.len();
-                let exercises = sections[section_idx].exercise_ids().len();
+                let exercise_ids = sections[section_idx].exercise_ids();
                 match operation {
                     0 => session.add_set(b % session.elements.len()),
                     1 => session.add_exercise(section_idx, (b as u128 % 3 + 1).into()),
-                    2 if exercises > 0 => session.add_same_exercise(section_idx, b % exercises),
+                    2 if !exercise_ids.is_empty() => {
+                        session.replace_exercise(section_idx, exercise_ids[b % exercise_ids.len()], (a as u128 % 3 + 1).into());
+                    }
                     3 => session.remove_set(section_idx),
-                    4 if exercises > 0 => session.remove_exercise(section_idx, b % exercises),
+                    4 if !exercise_ids.is_empty() => session.remove_exercise(section_idx, exercise_ids[b % exercise_ids.len()]),
                     5 => session.move_section_up(section_idx),
                     6 => session.move_section_down(section_idx),
                     _ => {}
@@ -4285,7 +4186,7 @@ mod tests {
     #[case::middle_exercise(1, &[exercise(0, 0), exercise(2, 2), rest(90), exercise(4, 0), rest(30), exercise(6, 2), rest(91)])]
     #[case::closing_exercise(2, &[exercise(0, 0), exercise(1, 1), rest(90), exercise(4, 0), rest(30), exercise(5, 1), rest(91)])]
     fn test_training_session_remove_exercise_keeps_the_rest_closing_a_round(
-        #[case] exercise_idx: usize,
+        #[case] exercise_id: u128,
         #[case] expected: &[TrainingSessionElement],
     ) {
         let mut session = training_session(&[
@@ -4301,9 +4202,37 @@ mod tests {
             rest(91),
         ]);
 
-        session.remove_exercise(0, exercise_idx);
+        session.remove_exercise(0, exercise_id.into());
 
         assert_eq!(session.elements, expected);
+    }
+
+    #[test]
+    fn test_training_session_remove_exercise_repeated_in_a_run_removes_one_set_per_run() {
+        let mut session = training_session(&[
+            exercise(0, 0),
+            exercise(1, 0),
+            exercise(2, 1),
+            rest(0),
+            exercise(3, 0),
+            exercise(4, 0),
+            exercise(5, 1),
+            rest(1),
+        ]);
+
+        session.remove_exercise(0, 0.into());
+
+        assert_eq!(
+            session.elements,
+            [
+                exercise(0, 0),
+                exercise(2, 1),
+                rest(0),
+                exercise(3, 0),
+                exercise(5, 1),
+                rest(1),
+            ]
+        );
     }
 
     #[test]
@@ -4318,7 +4247,7 @@ mod tests {
             rest(60),
         ]);
 
-        session.remove_exercise(0, 1);
+        session.remove_exercise(0, 2.into());
 
         assert_eq!(
             session.elements,

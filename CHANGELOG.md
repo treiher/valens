@@ -76,7 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - App not starting when it is reloaded while offline
 - App not starting after an update on some devices
 - Example data of the demo command stating the time of a whole set instead of the time of a repetition
-- Training session page: Marker of the twenty-first and following exercises of a section
+- Training session page:
+    - Marker of the twenty-first and following exercises of a section
+    - Other exercise being added, replaced or removed from the options of an exercise in a section containing an exercise several times
+    - Sets being left out or wrongly included when replacing an exercise in a section with rests between its exercises
 - Exercises page:
     - Button for applying the filter overflowing the screen when its label is long
     - Muscles selected in the filter being lost when the page is reloaded

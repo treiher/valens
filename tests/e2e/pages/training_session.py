@@ -240,6 +240,11 @@ class TrainingSessionPage(BasePage):
         self.page.get_by_test_id("options-replace-exercise").click()
         self.replace_exercise_dialog.wait_until_open()
 
+    def remove_exercise(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        self.page.get_by_test_id("options-remove-exercise").click()
+        self.wait_until_idle()
+
     def edit_session_exercise_notes(self, note: str, exercise_idx: int = 0) -> None:
         self.open_session_exercise_notes_dialog(exercise_idx)
         self.session_exercise_notes_dialog.set_note(note)

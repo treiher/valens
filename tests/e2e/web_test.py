@@ -1337,6 +1337,19 @@ def test_training_session_replace_exercise_filter(page: Page) -> None:
     assert set(dialog.get_exercises()) == all_exercises
 
 
+def test_training_session_remove_exercise_following_a_repeated_exercise(page: Page) -> None:
+    workout = next(w for w in USER.workouts if w.id == 3)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.remove_exercise(1)
+
+    assert [reps for reps, *_ in p.get_form()] == [9, 8, 7, 6]
+
+
 def test_training_session_1rm_calculator(page: Page) -> None:
     workout = next(w for w in USER.workouts if w.id == 5)
 

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Filling of the sets of an exercise from the drop set calculator
     - Target tempo of a set
     - Visualization of the running phase of the tempo under a set, which is started and held by tapping it
+    - Visualization of the elapsed time of a rest
 - Routines page: Editing of the notes of a routine
 - Routine page:
     - Notes of a routine

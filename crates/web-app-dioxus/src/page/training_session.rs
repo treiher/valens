@@ -1357,11 +1357,20 @@ fn view_form(
                                 td {
                                     class: "p-1",
                                     colspan: 4,
-                                    div {
-                                        class: "notification is-success is-size-1 has-text-centered p-1",
-                                        if target_time.non_zero().is_some() {
+                                    if let Some(target_time) = target_time.non_zero() {
+                                        div {
+                                            // The bottom padding is the space above the phase bar
+                                            class: "notification is-success is-size-1 has-text-centered px-1 pt-1 pb-3 has-phase-bar",
                                             Timer { timer: progress.timer_service() }
-                                        } else {
+                                            PhaseBar {
+                                                class: "phase-bar-pinned",
+                                                phases: vec![u32::from(target_time)],
+                                                position: Some((0, f64::from(u32::from(target_time)) - *phase_clock.elapsed.read())),
+                                            }
+                                        }
+                                    } else {
+                                        div {
+                                            class: "notification is-success is-size-1 has-text-centered p-1",
                                             "Rest"
                                         }
                                     }
@@ -2791,6 +2800,31 @@ mod tests {
                 phase_clock,
             }
         }
+    }
+
+    #[test]
+    fn test_a_current_rest_shows_a_phase_bar_only_with_a_target_time() {
+        for (target_time, has_bar) in [(60, true), (0, false)] {
+            let html = render_training_session(1, web_app::Settings::default(), move || {
+                rest_session(target_time)
+            });
+
+            assert_eq!(contains(&html, "phase-bar"), has_bar, "{html}");
+        }
+    }
+
+    fn rest_session(target_time: u32) -> TestCache {
+        TestCache::default().with_training_sessions(vec![domain::TrainingSession {
+            id: 1.into(),
+            routine_id: 1.into(),
+            date: chrono::Local::now().date_naive(),
+            notes: String::new(),
+            elements: vec![domain::TrainingSessionElement::Rest {
+                target_time: domain::Time::new(target_time).unwrap(),
+                automatic: false,
+            }],
+            exercise_notes: std::collections::BTreeMap::new(),
+        }])
     }
 
     #[test]

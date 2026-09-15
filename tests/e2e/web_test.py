@@ -1649,6 +1649,33 @@ def test_training_session_countdown_advances_the_focus(page: Page) -> None:
     p.expect_countdown_seconds(1)
 
 
+def test_training_session_rest_shows_its_elapsed_time(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_tempo(0, 0, "1")
+    r.set_rest_time(0, 1, "5")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    # The countdown of the set is shorter, so this is the rest
+    p.expect_countdown_seconds(4)
+    p.expect_phase_bar(1)
+
+    before = p.get_phase_bar_fills()[0]
+    page.wait_for_timeout(1000)
+    assert p.get_phase_bar_fills()[0] > before
+
+
 def test_training_session_set_countdown_records_the_target_time(page: Page) -> None:
     routine = USER.routines[1]
 

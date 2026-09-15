@@ -158,7 +158,7 @@ html {
     transition: none;
 }
 
-// Placement of a phase bar along the bottom edge of a notification
+// Placement of a phase bar along the bottom edge of a notification, in the text color of the notification
 .phase-bar-pinned {
     position: absolute;
     left: 0;
@@ -166,11 +166,11 @@ html {
 
     .phase-bar-segment {
         height: 4px;
-        background: rgba(255, 255, 255, 0.35);
+        background: color-mix(in srgb, currentColor 35%, transparent);
     }
 
     .phase-bar-fill {
-        background: rgba(255, 255, 255, 0.95);
+        background: currentColor;
     }
 }
 

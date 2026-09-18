@@ -34,7 +34,7 @@ jobs:
           submodules: recursive
           token: ${{ secrets.AUTOMATION_TOKEN }}
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: Add development environment to PATH
         run: |
           # shellcheck disable=SC2016

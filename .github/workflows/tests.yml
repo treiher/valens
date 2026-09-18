@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -85,7 +85,7 @@ jobs:
         with:
           submodules: recursive
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: Add development environment to PATH
         run: |
           # shellcheck disable=SC2016
@@ -136,7 +136,7 @@ jobs:
         with:
           submodules: recursive
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: Add development environment to PATH
         run: |
           # shellcheck disable=SC2016
@@ -176,7 +176,7 @@ jobs:
           [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
           echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2.87.8
+        uses: taiki-e/install-action@v2.87.13
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install Sass
@@ -195,7 +195,7 @@ jobs:
         with:
           submodules: recursive
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: Add development environment to PATH
         run: |
           # shellcheck disable=SC2016
@@ -244,7 +244,7 @@ jobs:
         with:
           submodules: recursive
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: Add development environment to PATH
         run: |
           # shellcheck disable=SC2016
@@ -274,7 +274,7 @@ jobs:
         with:
           submodules: recursive
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v22
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: Add development environment to PATH
         run: |
           # shellcheck disable=SC2016
@@ -320,7 +320,7 @@ jobs:
           [ -n "$version" ] || { echo "Error: dioxus version could not be determined" >&2; exit 1; }
           echo "DIOXUS_VERSION=$version" >> "$GITHUB_ENV"
       - name: Install dioxus-cli
-        uses: taiki-e/install-action@v2.87.8
+        uses: taiki-e/install-action@v2.87.13
         with:
           tool: dioxus-cli@${{ env.DIOXUS_VERSION }}
       - name: Install Sass
@@ -364,7 +364,7 @@ jobs:
           target: wasm32-unknown-unknown
           components: llvm-tools-preview
       - name: Install cargo-llvm-cov, Nextest and dioxus-cli
-        uses: taiki-e/install-action@v2.87.8
+        uses: taiki-e/install-action@v2.87.13
         with:
           tool: cargo-llvm-cov,nextest,dioxus-cli
       - name: Install wasm-pack

@@ -16,8 +16,27 @@ use valens_domain as domain;
 #[derive(Clone)]
 pub struct IndexedDB;
 
+/// A database connection which is closed when it goes out of scope.
+///
+/// An open connection blocks the upgrade and the deletion of the database.
+struct Connection(Database);
+
+impl std::ops::Deref for Connection {
+    type Target = Database;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Drop for Connection {
+    fn drop(&mut self) {
+        self.0.clone().close();
+    }
+}
+
 impl IndexedDB {
-    async fn open(&self) -> Result<Database, OpenDbError> {
+    async fn open(&self) -> Result<Connection, OpenDbError> {
         Database::open("valens")
             .with_version(5u8)
             .with_on_blocked(|event| {
@@ -72,6 +91,7 @@ impl IndexedDB {
                 Ok(())
             })
             .await
+            .map(Connection)
     }
 
     pub async fn get<K, R, V>(&self, object_store: Store, key: &K) -> Result<R, String>

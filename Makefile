@@ -7,7 +7,7 @@ FONTAWESOME_VERSION := 7.2.0
 PYTHON_PACKAGES := valens tests tools fabfile.py
 ASSETS_DIR := valens/static/assets
 GENERATED_DIR := valens/static/generated
-BUILT_FILES := index.html main.css sw.js valens-web-app-dioxus.js valens-web-app-dioxus_bg.wasm
+BUILT_FILES := index.html main.css sw.js valens-web-app-dioxus.js valens-web-app-dioxus_bg.wasm version
 # Compressible files of the assets directory. Their variants are generated as well, so that no
 # variant appears as an untracked file beside a tracked one.
 COMPRESSED_ASSET_FILES := favicon.ico manifest.json
@@ -219,6 +219,7 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	rm -rf $(GENERATED_DIR)/*
 	sass --style=compressed --no-source-map crates/web-app-dioxus/assets/main.scss $(GENERATED_DIR)/main.css
 	sed -e "s#{{VERSION}}#$(VERSION)#" crates/web-app-dioxus/assets/sw.js > $(GENERATED_DIR)/sw.js
+	printf '%s' '$(VERSION)' > $(GENERATED_DIR)/version
 	# `{app_title}` is the placeholder of `dx` for the title configured in `Dioxus.toml`.
 	sed -e 's#{app_title}#Valens#' \
 		-e 's#<!-- {{PRELOADS}} -->#<link rel="preload" href="/valens-web-app-dioxus_bg.wasm?v=$(VERSION)" as="fetch" type="application/wasm" crossorigin="" /> <link rel="modulepreload" href="/valens-web-app-dioxus.js?v=$(VERSION)" />#' \

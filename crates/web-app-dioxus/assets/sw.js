@@ -1,7 +1,16 @@
-const CACHE_NAME = "valens-{{VERSION}}";
+const VERSION = "{{VERSION}}";
+const CACHE_NAME = `valens-${VERSION}`;
+
+// Resources generated per build, which have to belong to the build of the service worker
+const BUILD_RESOURCES = [
+    "/",
+    `main.css?v=${VERSION}`,
+    `valens-web-app-dioxus.js?v=${VERSION}`,
+    `valens-web-app-dioxus_bg.wasm?v=${VERSION}`,
+];
 
 const CACHED_RESOURCES = [
-    "/",
+    ...BUILD_RESOURCES,
     "fonts/Roboto-Bold.woff",
     "fonts/Roboto-BoldItalic.woff",
     "fonts/Roboto-Italic.woff",
@@ -12,10 +21,7 @@ const CACHED_RESOURCES = [
     "images/apple-touch-icon.png",
     "images/favicon-16x16.png",
     "images/favicon-32x32.png",
-    "main.css?v={{VERSION}}",
     "manifest.json",
-    "valens-web-app-dioxus.js?v={{VERSION}}",
-    "valens-web-app-dioxus_bg.wasm?v={{VERSION}}",
 ];
 
 self.addEventListener("install", (event) => {
@@ -39,7 +45,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
         (async () => {
             try {
-                const cachedResponse = await caches.match(request, { cacheName: CACHE_NAME });
+                // Every route of the app is answered by the app shell, which names the assets of
+                // the build in this cache
+                const cachedResponse = await caches.match(
+                    request.mode === "navigate" ? "/" : request,
+                    { cacheName: CACHE_NAME },
+                );
                 if (cachedResponse) {
                     return cachedResponse;
                 }
@@ -47,17 +58,7 @@ self.addEventListener("fetch", (event) => {
                 console.error(error);
             }
 
-            try {
-                return await fetch(request);
-            } catch (error) {
-                if (request.mode === "navigate") {
-                    const appShell = await caches.match("/", { cacheName: CACHE_NAME });
-                    if (appShell) {
-                        return appShell;
-                    }
-                }
-                throw error;
-            }
+            return fetch(request);
         })(),
     );
 });
@@ -84,20 +85,33 @@ self.addEventListener("message", (event) => {
     }
 });
 
-function addResourcesToCache() {
-    return caches.open(CACHE_NAME).then((cache) => {
-        return Promise.all(CACHED_RESOURCES.map(async (resource) => {
-            const response = await fetch(resource);
-            if (!response.ok) {
-                throw new Error(`Request for ${resource} failed with status ${response.status}`);
-            }
-            await cache.put(resource, response);
-        }));
-    }).catch(async (error) => {
+async function addResourcesToCache() {
+    // A copy of another build in the HTTP cache must not be stored
+    const responses = await Promise.all(CACHED_RESOURCES.map(async (resource) => {
+        const response = await fetch(resource, { cache: "reload" });
+        if (!response.ok) {
+            throw new Error(`Request for ${resource} failed with status ${response.status}`);
+        }
+        return response;
+    }));
+
+    // A deploy during the installation can yield files of different builds. A missing header is
+    // accepted, as it can be stripped by a proxy.
+    CACHED_RESOURCES.forEach((resource, i) => {
+        const version = responses[i].headers.get("Valens-Version");
+        if (BUILD_RESOURCES.includes(resource) && version !== null && version !== VERSION) {
+            throw new Error(`Response for ${resource} belongs to version ${version}`);
+        }
+    });
+
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        await Promise.all(CACHED_RESOURCES.map((resource, i) => cache.put(resource, responses[i])));
+    } catch (error) {
         // An incomplete cache would otherwise remain until the next activation
         await caches.delete(CACHE_NAME);
         throw error;
-    });
+    }
 };
 
 function deleteDeprecatedCaches() {

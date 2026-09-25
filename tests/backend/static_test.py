@@ -112,6 +112,27 @@ def test_versioned_file(static_client: Client, query: str) -> None:
         assert brotli.decompress(resp.get_data()).decode("utf-8") == STYLESHEET
 
 
+@pytest.mark.parametrize(
+    ("route", "accept_encoding"),
+    [
+        ("/", "gzip"),
+        ("/home", "gzip"),
+        ("/main.css", "gzip"),
+        ("/main.css", "br"),
+    ],
+)
+def test_version_header(static_client: Client, route: str, accept_encoding: str) -> None:
+    with closing(static_client.get(route, headers={"Accept-Encoding": accept_encoding})) as resp:
+        assert resp.status_code == HTTPStatus.OK
+        assert resp.headers["Valens-Version"] == version.get()
+
+
+def test_no_version_header_for_asset(static_client: Client) -> None:
+    with closing(static_client.get("/manifest.json", headers={"Accept-Encoding": "br"})) as resp:
+        assert resp.status_code == HTTPStatus.OK
+        assert "Valens-Version" not in resp.headers
+
+
 @pytest.mark.parametrize("accept_encoding", ["gzip", "br;q=0"])
 def test_variant_not_accepted(static_client: Client, accept_encoding: str) -> None:
     with closing(static_client.get("/main.css", headers={"Accept-Encoding": accept_encoding})) as (

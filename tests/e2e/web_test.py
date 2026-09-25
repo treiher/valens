@@ -3844,6 +3844,26 @@ def replaceable_frontend(backend_server: Path) -> Generator[Path, None, None]:
             yield Path(tmp_dir) / "valens" / "static" / "generated"
 
 
+def deploy_release(frontend: Path, version: str) -> None:
+    """Deploy a new release by replacing the version in the files naming it."""
+
+    for name in ["index.html", "sw.js", APP_SCRIPT]:
+        file = frontend / name
+        content = file.read_text().replace(version, NEW_VERSION)
+        file.write_text(content)
+        (frontend / f"{name}.br").write_bytes(brotli.compress(content.encode()))
+
+
+def loaded_app_scripts(page: Page) -> list[str]:
+    return [
+        url
+        for url in page.evaluate(
+            "() => performance.getEntriesByType('resource').map((entry) => entry.name)"
+        )
+        if APP_SCRIPT_URL.search(url)
+    ]
+
+
 @pytest.mark.chromium_only
 def test_update(browser: Browser, replaceable_frontend: Path) -> None:
     context = browser.new_context()
@@ -3855,15 +3875,12 @@ def test_update(browser: Browser, replaceable_frontend: Path) -> None:
         login(page, UPDATE_BASE_URL)
         assert caches(page, UPDATE_BASE_URL) == {f"valens-{version}": CACHED_FILES}
 
-        # Deploy a new release, which replaces the version in the files naming it and the server
-        # version
-        for name in ["index.html", "sw.js", APP_SCRIPT]:
-            file = replaceable_frontend / name
-            content = file.read_text().replace(version, NEW_VERSION)
-            file.write_text(content)
-            (replaceable_frontend / f"{name}.br").write_bytes(brotli.compress(content.encode()))
-        context.route("**/api/version", lambda route: route.fulfill(json=NEW_VERSION))
+        deploy_release(replaceable_frontend, version)
+        (replaceable_frontend / "version").write_text(NEW_VERSION)
         page.reload()
+
+        # The app shell of the installed version is kept until the update is applied
+        assert set(loaded_app_scripts(page)) == {f"{UPDATE_BASE_URL}/{APP_SCRIPT}?v={version}"}
 
         update_dialog = UpdateDialog(page)
         update_dialog.wait_until_open()
@@ -3875,6 +3892,47 @@ def test_update(browser: Browser, replaceable_frontend: Path) -> None:
         update_dialog.defer()
 
         p = HomePage(page)
+        p.expect_page()
+        p.expect_loading_to_be_finished()
+
+        assert caches(page, UPDATE_BASE_URL) == {f"valens-{NEW_VERSION}": CACHED_FILES}
+    finally:
+        context.close()
+
+
+@pytest.mark.chromium_only
+def test_update_during_deploy(browser: Browser, replaceable_frontend: Path) -> None:
+    context = browser.new_context()
+    try:
+        page = context.new_page()
+        version = server_version(page, UPDATE_BASE_URL)
+
+        activate_service_worker(page, UPDATE_BASE_URL)
+        login(page, UPDATE_BASE_URL)
+
+        # The files are marked with the previous version, as if they were served before the
+        # deploy has completed
+        deploy_release(replaceable_frontend, version)
+        context.route("**/api/version", lambda route: route.fulfill(json=NEW_VERSION))
+        page.reload()
+
+        update_dialog = UpdateDialog(page)
+        update_dialog.wait_until_open()
+        update_dialog.update()
+
+        p = HomePage(page)
+        p.notification.expect_warning()
+        p.notification.expect_reason("Failed to install the new version of the service worker")
+        p.notification.expect_action("Update app")
+        update_dialog.wait_until_open()
+        assert caches(page, UPDATE_BASE_URL) == {f"valens-{version}": CACHED_FILES}
+
+        (replaceable_frontend / "version").write_text(NEW_VERSION)
+        with page.expect_event("load"):
+            update_dialog.update()
+
+        update_dialog.wait_until_open()
+        update_dialog.defer()
         p.expect_page()
         p.expect_loading_to_be_finished()
 

@@ -7,7 +7,7 @@ import brotli
 import pytest
 from werkzeug.test import Client
 
-from valens import app
+from valens import app, version
 
 INDEX = "<html></html>"
 STYLESHEET = "body {}"
@@ -96,6 +96,20 @@ def test_variant_sent(static_client: Client, route: str, content: str) -> None:
         assert resp.headers["Content-Encoding"] == "br"
         assert resp.headers["Vary"] == "Accept-Encoding"
         assert brotli.decompress(resp.get_data()).decode("utf-8") == content
+
+
+@pytest.mark.parametrize("query", [f"v={version.get()}", "v=0.1.0"])
+def test_versioned_file(static_client: Client, query: str) -> None:
+    with closing(static_client.get(f"/main.css?{query}")) as resp:
+        assert resp.status_code == HTTPStatus.OK
+        assert resp.get_data().decode("utf-8") == STYLESHEET
+
+    with closing(static_client.get(f"/main.css?{query}", headers={"Accept-Encoding": "br"})) as (
+        resp
+    ):
+        assert resp.status_code == HTTPStatus.OK
+        assert resp.headers["Content-Encoding"] == "br"
+        assert brotli.decompress(resp.get_data()).decode("utf-8") == STYLESHEET
 
 
 @pytest.mark.parametrize("accept_encoding", ["gzip", "br;q=0"])

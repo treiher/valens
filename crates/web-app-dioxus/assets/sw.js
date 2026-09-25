@@ -12,10 +12,10 @@ const CACHED_RESOURCES = [
     "images/apple-touch-icon.png",
     "images/favicon-16x16.png",
     "images/favicon-32x32.png",
-    "main.css",
+    "main.css?v={{VERSION}}",
     "manifest.json",
-    "valens-web-app-dioxus.js",
-    "valens-web-app-dioxus_bg.wasm",
+    "valens-web-app-dioxus.js?v={{VERSION}}",
+    "valens-web-app-dioxus_bg.wasm?v={{VERSION}}",
 ];
 
 self.addEventListener("install", (event) => {

@@ -221,8 +221,9 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	sed -e "s#{{VERSION}}#$(VERSION)#" crates/web-app-dioxus/assets/sw.js > $(GENERATED_DIR)/sw.js
 	# `{app_title}` is the placeholder of `dx` for the title configured in `Dioxus.toml`.
 	sed -e 's#{app_title}#Valens#' \
-		-e 's#<!-- {{PRELOADS}} -->#<link rel="preload" href="/valens-web-app-dioxus_bg.wasm" as="fetch" type="application/wasm" crossorigin="" /> <link rel="modulepreload" href="/valens-web-app-dioxus.js" />#' \
-		-e 's#<!-- {{SCRIPT}} -->#<script type="module" async src="/valens-web-app-dioxus.js"></script>#' \
+		-e 's#<!-- {{PRELOADS}} -->#<link rel="preload" href="/valens-web-app-dioxus_bg.wasm?v=$(VERSION)" as="fetch" type="application/wasm" crossorigin="" /> <link rel="modulepreload" href="/valens-web-app-dioxus.js?v=$(VERSION)" />#' \
+		-e 's#<!-- {{SCRIPT}} -->#<script type="module" async src="/valens-web-app-dioxus.js?v=$(VERSION)"></script>#' \
+		-e 's#href="/main.css"#href="/main.css?v=$(VERSION)"#' \
 		crates/web-app-dioxus/index.html > $(GENERATED_DIR)/index.html
 	rm -rf $(DX_RELEASE_DIR)
 	VALENS_VERSION=$(VERSION) dx bundle --release --debug-symbols=false --package valens-web-app-dioxus
@@ -233,10 +234,14 @@ $(PACKAGE_GENERATED_FILES): third-party/bulma third-party/bulma-slider third-par
 	[ -n "$$js" ] || { echo "Error: JS asset could not be determined" >&2; exit 1; }; \
 	wasm=$$(grep -o 'valens-web-app-dioxus_bg-dx[[:alnum:]_]*\.wasm' $(DX_RELEASE_DIR)/$$js | head -1); \
 	[ -n "$$wasm" ] || { echo "Error: WASM asset could not be determined" >&2; exit 1; }; \
-	sed -e "s#/./assets/#/#" -e "s#-dx[[:alnum:]_]*##" $(DX_RELEASE_DIR)/$$js > $(GENERATED_DIR)/valens-web-app-dioxus.js; \
+	sed -e "s#/./assets/#/#" -e "s#-dx[[:alnum:]_]*##" \
+		-e 's#"/valens-web-app-dioxus_bg.wasm"#"/valens-web-app-dioxus_bg.wasm?v=$(VERSION)"#' \
+		$(DX_RELEASE_DIR)/$$js > $(GENERATED_DIR)/valens-web-app-dioxus.js; \
 	cp $(DX_RELEASE_DIR)/assets/$$wasm $(GENERATED_DIR)/valens-web-app-dioxus_bg.wasm
 	@refs=$$(grep -o 'valens-web-app-dioxus_bg[[:alnum:]_-]*\.wasm' $(GENERATED_DIR)/valens-web-app-dioxus.js | sort -u); \
 	[ "$$refs" = "valens-web-app-dioxus_bg.wasm" ] || { echo "Error: $(GENERATED_DIR)/valens-web-app-dioxus.js references unexpected WASM assets:" >&2; echo "$$refs" >&2; exit 1; }
+	@[ "$$(grep -oF '/valens-web-app-dioxus_bg.wasm?v=$(VERSION)' $(GENERATED_DIR)/valens-web-app-dioxus.js | wc -l)" -eq 1 ] \
+		|| { echo "Error: $(GENERATED_DIR)/valens-web-app-dioxus.js does not reference the versioned WASM asset exactly once" >&2; exit 1; }
 	uv run -- python tools/compress_assets.py $(GENERATED_DIR) \
 		$(addprefix $(GENERATED_DIR)/,$(BUILT_FILES)) \
 		$(addprefix $(ASSETS_DIR)/,$(COMPRESSED_ASSET_FILES))

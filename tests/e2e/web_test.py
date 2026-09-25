@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from itertools import pairwise
@@ -113,11 +114,11 @@ def test_splash_screen(browser: Browser) -> None:
         page = context.new_page()
         p = LoginPage(page)
 
-        page.route("**/*.wasm", lambda route: route.abort())
+        page.route(WASM_MODULE_URL, lambda route: route.abort())
         page.goto(BASE_URL, wait_until="commit")
         p.expect_splash_screen()
 
-        page.unroute("**/*.wasm")
+        page.unroute(WASM_MODULE_URL)
         page.reload()
         p.expect_page()
         p.expect_no_splash_screen()
@@ -133,7 +134,7 @@ def test_splash_screen_theme(browser: Browser) -> None:
         p = LoginPage(page)
         page.add_init_script('localStorage.setItem("settings", \'{"theme":"Dark"}\')')
 
-        page.route("**/*.wasm", lambda route: route.abort())
+        page.route(WASM_MODULE_URL, lambda route: route.abort())
         page.goto(BASE_URL, wait_until="commit")
         p.expect_splash_screen()
         p.expect_dark_theme()
@@ -3725,6 +3726,10 @@ def failed_exercise_add(browser: Browser) -> Generator[ExercisesPage, None, None
 RECENT_SESSIONS = 3
 NEW_VERSION = "99.0.0"
 APP_SCRIPT = "valens-web-app-dioxus.js"
+# The URLs of the generated assets carry the version as a query. Unlike a glob, a regular expression
+# matches it independently of the Playwright version.
+APP_SCRIPT_URL = re.compile(r"/valens-web-app-dioxus\.js(\?|$)")
+WASM_MODULE_URL = re.compile(r"/valens-web-app-dioxus_bg\.wasm(\?|$)")
 
 CACHED_FILES = [
     "",
@@ -3755,7 +3760,7 @@ def caches(page: Page, base_url: str = BASE_URL) -> dict[str, list[str]]:
     client = page.context.new_cdp_session(page)
     return {
         cache["cacheName"]: [
-            entry["requestURL"].split("/")[-1]
+            entry["requestURL"].split("/")[-1].split("?")[0]
             for entry in client.send(
                 "CacheStorage.requestEntries",
                 {"cacheId": cache["cacheId"]},
@@ -3804,13 +3809,13 @@ def test_offline_reload(page: Page) -> None:
 def test_stalled_start(page: Page) -> None:
     p = LoginPage(page)
 
-    page.route(f"**/{APP_SCRIPT}", lambda route: route.abort())
+    page.route(APP_SCRIPT_URL, lambda route: route.abort())
     try:
         page.goto(BASE_URL)
         p.expect_splash_screen()
         p.expect_splash_reload_button()
     finally:
-        page.unroute(f"**/{APP_SCRIPT}")
+        page.unroute(APP_SCRIPT_URL)
 
     p.reload_from_splash_screen()
     p.expect_page()
@@ -3850,11 +3855,13 @@ def test_update(browser: Browser, replaceable_frontend: Path) -> None:
         login(page, UPDATE_BASE_URL)
         assert caches(page, UPDATE_BASE_URL) == {f"valens-{version}": CACHED_FILES}
 
-        # Deploy a new release, which replaces the service worker and the server version
-        service_worker = replaceable_frontend / "sw.js"
-        content = service_worker.read_text().replace(version, NEW_VERSION)
-        service_worker.write_text(content)
-        (replaceable_frontend / "sw.js.br").write_bytes(brotli.compress(content.encode()))
+        # Deploy a new release, which replaces the version in the files naming it and the server
+        # version
+        for name in ["index.html", "sw.js", APP_SCRIPT]:
+            file = replaceable_frontend / name
+            content = file.read_text().replace(version, NEW_VERSION)
+            file.write_text(content)
+            (replaceable_frontend / f"{name}.br").write_bytes(brotli.compress(content.encode()))
         context.route("**/api/version", lambda route: route.fulfill(json=NEW_VERSION))
         page.reload()
 

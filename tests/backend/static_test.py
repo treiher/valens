@@ -12,6 +12,8 @@ from valens import app
 INDEX = "<html></html>"
 STYLESHEET = "body {}"
 NESTED_STYLESHEET = "div {}"
+SERVICE_WORKER = "self.addEventListener();"
+SCRIPT = "export default function () {}"
 
 
 @pytest.fixture(name="client")
@@ -40,10 +42,12 @@ def fixture_static_client(
     (assets / "sub").mkdir()
     generated.mkdir(parents=True)
 
-    (assets / "index.html").write_text(INDEX)
     (assets / "manifest.json").write_text("{}")
     (assets / "sub/main.css").write_text(NESTED_STYLESHEET)
+    (generated / "index.html").write_text(INDEX)
     (generated / "main.css").write_text(STYLESHEET)
+    (generated / "sw.js").write_text(SERVICE_WORKER)
+    (generated / "valens-web-app-dioxus.js").write_text(SCRIPT)
     (generated / "index.html.br").write_bytes(brotli.compress(INDEX.encode()))
     (generated / "main.css.br").write_bytes(brotli.compress(STYLESHEET.encode()))
 
@@ -53,8 +57,8 @@ def fixture_static_client(
 
 
 @pytest.mark.parametrize("route", ["/", "/home"])
-def test_html_routes(client: Client, route: str) -> None:
-    with closing(client.get(route)) as resp:
+def test_html_routes(static_client: Client, route: str) -> None:
+    with closing(static_client.get(route)) as resp:
         assert resp.status_code == HTTPStatus.OK
         assert "</html>" in resp.get_data().decode("utf-8"), resp.content_encoding
 
@@ -68,8 +72,8 @@ def test_html_routes(client: Client, route: str) -> None:
         "/valens-web-app-dioxus.js",
     ],
 )
-def test_static_files(client: Client, route: str) -> None:
-    with closing(client.get(route)) as resp:
+def test_static_files(static_client: Client, route: str) -> None:
+    with closing(static_client.get(route)) as resp:
         assert resp.status_code == HTTPStatus.OK
         assert "</html>" not in resp.get_data().decode("utf-8"), resp.content_encoding
 
@@ -77,8 +81,8 @@ def test_static_files(client: Client, route: str) -> None:
 @pytest.mark.parametrize(
     ("route", "content"),
     [
-        # The index of the assets directory, reached directly, by name and as fallback for a route
-        # of the app.
+        # The index of the generated directory, reached directly, by name and as fallback for a
+        # route of the app.
         ("/", INDEX),
         ("/index.html", INDEX),
         ("/home", INDEX),

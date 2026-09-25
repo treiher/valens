@@ -1,12 +1,12 @@
-<!-- NOTE: This file is only used by `dx serve` during the development. -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <title>{app_title}</title>
         <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png" />
         <link rel="manifest" href="/manifest.json" />
+        <!-- {{PRELOADS}} -->
         <meta charset="utf-8" />
         <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -73,6 +73,8 @@
                 <p>If restarting does not help, WebAssembly may be disabled or not supported by your browser.</p>
             </div>
         </div>
-        <div id="main"></div>
+        <div id="main">
+            <!-- {{SCRIPT}} -->
+        </div>
     </body>
 </html>

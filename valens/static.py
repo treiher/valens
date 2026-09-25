@@ -13,7 +13,7 @@ INDEX = "index.html"
 
 @bp.route("/")
 def root() -> ResponseReturnValue:
-    return _send(ASSETS_DIR, INDEX)
+    return _send(GENERATED_DIR, INDEX)
 
 
 @bp.route("/<path:name>")
@@ -25,7 +25,7 @@ def static(name: str) -> ResponseReturnValue:
             return send_from_directory(directory, name)
         except NotFound:
             continue
-    return _send(ASSETS_DIR, INDEX)
+    return _send(GENERATED_DIR, INDEX)
 
 
 def _send(directory: str, name: str) -> Response:

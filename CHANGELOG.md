@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Error message and reset option shown when the app fails to start
 - Training session page:
     - Notes of an exercise
     - Sets of the recent sessions of an exercise, shown on demand below the values of a set
@@ -62,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exercises page:
     - Filtering by muscles differentiating between primary and secondary muscles
     - Muscles of an exercise cycling through primary before secondary
+    - Name of the filter option for exercises without muscles to "Not Set"
 - Exercise page:
     - Muscles of an exercise cycling through primary before secondary
     - Values of a set, showing the time after the other values
@@ -81,9 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Marker of the twenty-first and following exercises of a section
     - Other exercise being added, replaced or removed from the options of an exercise in a section containing an exercise several times
     - Sets being left out or wrongly included when replacing an exercise in a section with rests between its exercises
+    - Rest being left over when removing an exercise from a section with rests between its exercises
 - Exercises page:
     - Button for applying the filter overflowing the screen when its label is long
-    - Muscles selected in the filter being lost when the page is reloaded
+    - Selections in the filter being lost when the page is reloaded or navigated back to
 
 ## [0.8.0] - 2026-08-24
 

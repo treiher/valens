@@ -9,10 +9,10 @@ Plan your training, follow it and see what it does to your body. A web app you h
 ## Features
 
 - Define training routines
-- Choose from more than 150 exercises or create your own
+- Choose from more than 150 exercises or create your own, and filter them by muscles, equipment and other properties
 - Plan your training days
 - Log repetitions, weight, time and rating of perceived exertion (RPE) for each set
-- Measure your training execution using a stopwatch, timer or metronome
+- Keep the tempo of your repetitions with a metronome and time your training with a stopwatch or timer
 - Follow the current exercise and rest time in notifications
 - Calculate a one-repetition maximum (1RM) or the weights of a drop set
 - Assess the progress for each routine, exercise and muscle
@@ -370,7 +370,7 @@ Browsers withhold a number of features from pages that are not served over HTTPS
 - Signing in with a passkey, unless the app is accessed via `localhost`
 - Notifications outside the app, which are shown by the service worker
 - Copying a routine or a login link to the clipboard
-- Keeping the screen on while a timer is running
+- Keeping the screen on while a timer or the metronome is running
 
 Serving the app over HTTPS enables all of them.
 

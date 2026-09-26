@@ -3809,16 +3809,80 @@ def test_offline_reload(page: Page) -> None:
 def test_stalled_start(page: Page) -> None:
     p = LoginPage(page)
 
-    page.route(APP_SCRIPT_URL, lambda route: route.abort())
-    try:
-        page.goto(BASE_URL)
-        p.expect_splash_screen()
-        p.expect_splash_reload_button()
-    finally:
-        page.unroute(APP_SCRIPT_URL)
+    stalled = True
 
+    # An unanswered request is continued on `unroute`, so it is left pending until the reload
+    # replaces the document. It keeps the load event from firing.
+    def stall(route: Route) -> None:
+        if not stalled:
+            route.continue_()
+
+    page.route(APP_SCRIPT_URL, stall)
+    page.goto(BASE_URL, wait_until="commit")
+    p.expect_splash_screen()
+    p.expect_splash_reload_button()
+
+    stalled = False
     p.reload_from_splash_screen()
     p.expect_page()
+
+
+def test_failed_start(browser: Browser) -> None:
+    # Block the service worker so that `page.route` sees the request for the app script
+    context = browser.new_context(service_workers="block")
+    try:
+        page = context.new_page()
+        login(page)
+        p = HomePage(page)
+        p.expect_page()
+        p.expect_loading_to_be_finished()
+        databases = page.evaluate(
+            "async () => (await indexedDB.databases()).map((database) => database.name)"
+        )
+        assert databases
+        page.evaluate("() => caches.open('broken')")
+        url = page.url
+        page.close()
+
+        # WebKit serves the app script of a reloaded page from its memory cache, bypassing
+        # `page.route`, so the app is started in a new page
+        page = context.new_page()
+        p = HomePage(page)
+        page.route(APP_SCRIPT_URL, lambda route: route.abort())
+        try:
+            page.goto(url)
+            p.expect_splash_failure(re.compile(rf"^failed to load {BASE_URL}/{APP_SCRIPT}\?v="))
+            p.show_splash_details()
+            p.expect_splash_details("not instantiated")
+            p.expect_splash_details(f"failed to load {BASE_URL}/{APP_SCRIPT}")
+        finally:
+            page.unroute(APP_SCRIPT_URL)
+
+        with page.expect_event("load"):
+            p.reset_from_splash_screen()
+        p.expect_page()
+        p.expect_no_splash_screen()
+        p.expect_loading_to_be_finished()
+
+        assert page.evaluate("() => caches.keys()") == []
+        assert (
+            page.evaluate(
+                "async () => (await indexedDB.databases()).map((database) => database.name)"
+            )
+            == databases
+        )
+    finally:
+        context.close()
+
+
+def test_failed_start_without_webassembly(page: Page) -> None:
+    p = LoginPage(page)
+    page.add_init_script("delete globalThis.WebAssembly")
+
+    page.goto(BASE_URL)
+    p.expect_splash_failure(re.compile(r"^ReferenceError: .*WebAssembly"))
+    p.show_splash_details()
+    p.expect_splash_details("not instantiated")
 
 
 @pytest.fixture

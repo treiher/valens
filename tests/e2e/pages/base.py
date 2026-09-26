@@ -8,6 +8,8 @@ from playwright.sync_api import expect
 from tests.e2e.const import BASE_URL
 
 if TYPE_CHECKING:
+    from re import Pattern
+
     from playwright.sync_api import Locator, Page
 
 
@@ -124,6 +126,18 @@ class BasePage:
 
     def reload_from_splash_screen(self) -> None:
         self.page.get_by_test_id("splash-reload").click()
+
+    def expect_splash_failure(self, message: str | Pattern[str]) -> None:
+        expect(self.page.get_by_test_id("splash-failure")).to_have_text(message)
+
+    def reset_from_splash_screen(self) -> None:
+        self.page.get_by_test_id("splash-reset").click()
+
+    def show_splash_details(self) -> None:
+        self.page.get_by_test_id("splash-details-toggle").click()
+
+    def expect_splash_details(self, text: str | Pattern[str]) -> None:
+        expect(self.page.get_by_test_id("splash-details")).to_contain_text(text)
 
     def expect_dark_theme(self) -> None:
         expect(self.page.locator("html")).to_have_attribute("data-theme", "dark")

@@ -498,8 +498,21 @@ $value-field-padding: 0.4em;
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 2rem;
+    bottom: 0;
+    padding-bottom: 2rem;
     animation: 1s forwards fade-in;
+
+    // The expanded details would otherwise overlap the content above
+    &:has(details[open]) {
+        background-color: var(--bulma-scheme-main);
+    }
+}
+
+.splash-details {
+    max-height: 40vh;
+    overflow: auto;
+    text-align: left;
+    white-space: pre-wrap;
 }
 
 .splash-spinner {

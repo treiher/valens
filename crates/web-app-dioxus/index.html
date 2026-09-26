@@ -27,7 +27,113 @@
         </script>
         <script>
             if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+                // The app also starts without a service worker
+                navigator.serviceWorker
+                    .register("/sw.js", { updateViaCache: "none" })
+                    .catch((error) => console.error(error));
+            }
+        </script>
+        <script>
+            // The loader of the app does not handle its own failures, so a failed start is reported
+            // here instead of only by the stall timeout
+            const START_FAILURES = [];
+
+            addEventListener("error", (event) => {
+                if (event instanceof ErrorEvent) {
+                    reportStartFailure(event.message);
+                } else if (isDocumentResource(event.target)) {
+                    reportStartFailure(`failed to load ${event.target.src || event.target.href}`);
+                }
+            }, true);
+
+            addEventListener("unhandledrejection", (event) => {
+                const reason = event.reason;
+                reportStartFailure(reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason));
+            });
+
+            document.addEventListener("DOMContentLoaded", showStartFailure);
+
+            // A failing image or font does not keep the app from starting
+            function isDocumentResource(element) {
+                return element instanceof HTMLScriptElement
+                    || (element instanceof HTMLLinkElement && element.rel === "stylesheet");
+            }
+
+            function reportStartFailure(message) {
+                // Failures after the start are ignored, which can only be determined once the splash
+                // screen has been parsed
+                if (document.readyState !== "loading" && !isStarting()) {
+                    return;
+                }
+                START_FAILURES.push(message);
+                showStartFailure();
+            }
+
+            function showStartFailure() {
+                if (START_FAILURES.length === 0 || document.readyState === "loading" || !isStarting()) {
+                    return;
+                }
+                document.getElementById("splash-failure").textContent = START_FAILURES[0];
+                for (const element of document.querySelectorAll("[data-splash-state]")) {
+                    element.hidden = element.dataset.splashState !== "failed";
+                }
+                document.getElementById("splash-hint").hidden = false;
+                document.getElementById("splash-spinner").classList.add("is-hidden");
+            }
+
+            function isStarting() {
+                const splash = document.getElementById("loading");
+                return splash !== null && !splash.classList.contains("is-fading-out");
+            }
+
+            // A reload can be answered by the same broken caches. The data not yet synchronized is
+            // kept, as it is stored outside of the Cache Storage. WebKit also reuses a failed load
+            // of a resource on the next reload, unless the resource is fetched again beforehand.
+            async function resetApp() {
+                const results = await Promise.allSettled([
+                    (async () => {
+                        const elements = document.querySelectorAll("script[src], link[rel=stylesheet]");
+                        const urls = new Set(Array.from(elements, (element) => element.src || element.href));
+                        await Promise.all(Array.from(urls, (url) => fetch(url, { cache: "reload" })));
+                    })(),
+                    (async () => {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map((key) => caches.delete(key)));
+                    })(),
+                    (async () => {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        await Promise.all(registrations.map((registration) => registration.unregister()));
+                    })(),
+                ]);
+                for (const result of results) {
+                    if (result.status === "rejected") {
+                        console.error(result.reason);
+                    }
+                }
+                location.reload();
+            }
+
+            function showStartDetails() {
+                const resources = performance.getEntriesByType("resource");
+                const lines = [
+                    "Failures",
+                    ...(START_FAILURES.length === 0 ? ["none"] : START_FAILURES),
+                    "",
+                    "Loader",
+                    globalThis.__dx_mainWasm ? "instantiated" : "not instantiated",
+                    "",
+                    "Resources",
+                ];
+                for (const path of ["/main.css", "/valens-web-app-dioxus.js", "/valens-web-app-dioxus_bg.wasm"]) {
+                    const entries = resources.filter((entry) => new URL(entry.name).pathname === path);
+                    if (entries.length === 0) {
+                        lines.push(`${path}: pending`);
+                    }
+                    for (const entry of entries) {
+                        lines.push(`${path}: ${entry.initiatorType}, ${Math.round(entry.duration)} ms`);
+                    }
+                }
+                document.getElementById("splash-details").textContent = lines.join("\n");
             }
         </script>
         <script>
@@ -35,18 +141,17 @@
             // so a reload is offered if the app did not start within this time. Without a
             // controlling service worker, all resources are downloaded, which can take longer.
             setTimeout(() => {
-                const splash = document.getElementById("loading");
-                if (!splash || splash.classList.contains("is-fading-out")) {
-                    return;
+                if (isStarting()) {
+                    document.getElementById("splash-hint").hidden = false;
                 }
-                document.getElementById("splash-hint").classList.remove("is-hidden");
             }, navigator.serviceWorker?.controller ? 10000 : 30000);
         </script>
         <!-- A stylesheet that is still loading blocks the scripts following it -->
         <link rel="stylesheet" href="/main.css" />
     </head>
     <body>
-        <div id="loading" data-testid="splash">
+        <!-- A live region is only announced while it is shown, so it contains the hidden hint -->
+        <div id="loading" data-testid="splash" aria-live="polite">
             <section class="hero is-fullheight">
                 <div class="hero-body">
                     <div class="container has-text-centered">
@@ -55,14 +160,23 @@
                         </figure>
                         <p class="title is-1 mb-5">Valens</p>
                         <div class="splash-indicator is-visible-with-short-delay">
-                            <span class="splash-spinner" role="status" aria-label="Loading app"></span>
+                            <span id="splash-spinner" class="splash-spinner" role="status" aria-label="Loading app"></span>
                         </div>
                     </div>
                 </div>
             </section>
-            <div id="splash-hint" class="splash-hint is-hidden has-text-centered has-text-grey px-4">
-                <p>The application is taking longer than usual to start.</p>
-                <p class="my-4">
+            <!-- Hidden by an attribute, which also applies before the stylesheet is loaded -->
+            <div id="splash-hint" class="splash-hint has-text-centered has-text-grey px-4" hidden>
+                <p data-splash-state="stalled">The application is taking longer than usual to start.</p>
+                <div data-splash-state="failed" hidden>
+                    <p>The application could not be started.</p>
+                    <p id="splash-failure" class="is-family-code is-size-7 mt-2" data-testid="splash-failure"></p>
+                </div>
+                <details class="mt-4 is-size-7" ontoggle="if (this.open) showStartDetails()">
+                    <summary data-testid="splash-details-toggle">Details</summary>
+                    <pre id="splash-details" class="splash-details" data-testid="splash-details"></pre>
+                </details>
+                <p class="my-4" data-splash-state="stalled">
                     <button class="button" data-testid="splash-reload" onclick="location.reload()">
                         <span class="icon">
                             <i class="fa fa-arrow-rotate-right"></i>
@@ -70,7 +184,14 @@
                         <span>Restart</span>
                     </button>
                 </p>
-                <p>If restarting does not help, WebAssembly may be disabled or not supported by your browser.</p>
+                <p class="my-4" data-splash-state="failed" hidden>
+                    <button class="button" data-testid="splash-reset" onclick="resetApp()">
+                        <span class="icon">
+                            <i class="fa fa-arrow-rotate-left"></i>
+                        </span>
+                        <span>Reset</span>
+                    </button>
+                </p>
             </div>
         </div>
         <div id="main">

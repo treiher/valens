@@ -1521,6 +1521,7 @@ pub enum RoutinePart {
         weight: f32,
         rpe: f32,
         automatic: bool,
+        sides: u8,
     },
 }
 
@@ -1538,6 +1539,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                sides,
             } => RoutinePart::RoutineActivity {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: if exercise_id.is_nil() {
@@ -1550,6 +1552,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight: f32::from(weight),
                 rpe: f32::from(rpe),
                 automatic,
+                sides: sides as u8,
             },
         }
     }
@@ -1569,6 +1572,7 @@ impl From<RoutinePart> for domain::RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                sides,
             } => domain::RoutinePart::RoutineActivity {
                 exercise_id: exercise_id
                     .map(u128::from)
@@ -1579,6 +1583,7 @@ impl From<RoutinePart> for domain::RoutinePart {
                 weight: domain::Weight::new(weight).unwrap_or_default(),
                 rpe: domain::RPE::new(rpe).unwrap_or_default(),
                 automatic,
+                sides: domain::Sides::try_from(sides).unwrap_or_default(),
             },
         }
     }
@@ -1814,6 +1819,7 @@ impl From<domain::TrainingSession> for TrainingSessionData {
 pub enum TrainingSessionElement {
     Set {
         exercise_id: u64,
+        side: Option<u8>,
         reps: Option<u32>,
         time: Option<u32>,
         weight: Option<f32>,
@@ -1835,6 +1841,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
         match value {
             domain::TrainingSessionElement::Set {
                 exercise_id,
+                side,
                 reps,
                 time,
                 weight,
@@ -1847,6 +1854,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
             } => TrainingSessionElement::Set {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: exercise_id.as_u128() as u64,
+                side: side.non_zero().map(|side| side as u8),
                 reps: reps.non_zero().map(From::from),
                 time: time.non_zero().map(From::from),
                 weight: weight.non_zero().map(From::from),
@@ -1875,6 +1883,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
         match value {
             TrainingSessionElement::Set {
                 exercise_id,
+                side,
                 reps,
                 time,
                 weight,
@@ -1886,6 +1895,9 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 automatic,
             } => domain::TrainingSessionElement::Set {
                 exercise_id: u128::from(exercise_id).into(),
+                side: side
+                    .and_then(|s| domain::Side::try_from(s).ok())
+                    .unwrap_or_default(),
                 reps: reps
                     .and_then(|r| domain::Reps::new(r).ok())
                     .unwrap_or_default(),
@@ -2344,6 +2356,7 @@ mod tests {
                 weight: 0.0,
                 rpe: 0.0,
                 automatic: false,
+                sides: 1,
             })
         else {
             unreachable!()
@@ -2358,6 +2371,28 @@ mod tests {
                 .collect::<Vec<_>>(),
             expected
         );
+    }
+
+    #[rstest]
+    #[case::combined(1, domain::Sides::Combined)]
+    #[case::per_side(2, domain::Sides::PerSide)]
+    #[case::rejected_by_the_domain(3, domain::Sides::Combined)]
+    fn test_routine_activity_sides_from(#[case] sides: u8, #[case] expected: domain::Sides) {
+        let domain::RoutinePart::RoutineActivity { sides, .. } =
+            domain::RoutinePart::from(RoutinePart::RoutineActivity {
+                exercise_id: Some(1),
+                reps: 0,
+                tempo: vec![],
+                weight: 0.0,
+                rpe: 0.0,
+                automatic: false,
+                sides,
+            })
+        else {
+            unreachable!()
+        };
+
+        assert_eq!(sides, expected);
     }
 
     #[test]
@@ -2389,6 +2424,7 @@ mod tests {
         assert_eq!(
             domain::TrainingSessionElement::from(TrainingSessionElement::Set {
                 exercise_id: 1,
+                side: Some(3),
                 reps: Some(1000),
                 time: Some(1000),
                 weight: Some(1000.0),
@@ -2401,6 +2437,7 @@ mod tests {
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::default(),
                 weight: domain::Weight::default(),
@@ -2419,6 +2456,7 @@ mod tests {
         assert_eq!(
             TrainingSessionElement::from(domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::default(),
                 weight: domain::Weight::default(),
@@ -2431,6 +2469,7 @@ mod tests {
             }),
             TrainingSessionElement::Set {
                 exercise_id: 1,
+                side: None,
                 reps: None,
                 time: None,
                 weight: None,
@@ -2459,6 +2498,7 @@ mod tests {
         assert_eq!(
             domain::TrainingSessionElement::from(TrainingSessionElement::Set {
                 exercise_id: 1,
+                side: None,
                 reps: None,
                 time: None,
                 weight: None,
@@ -2471,6 +2511,7 @@ mod tests {
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::default(),
                 weight: domain::Weight::default(),

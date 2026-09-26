@@ -43,7 +43,11 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 const RECENT_SESSIONS: usize = 3;
 
 /// The sets of an exercise in earlier training sessions, from the most recent to the oldest.
-type SessionSets = Vec<(chrono::NaiveDate, Vec<domain::Set>)>;
+type SessionSets = Vec<(chrono::NaiveDate, Vec<(domain::Side, domain::Set)>)>;
+
+/// The sets of recent sessions offered to a set, each with the index of the set that corresponds
+/// to it.
+type RecentSets = Vec<(chrono::NaiveDate, Vec<domain::Set>, usize)>;
 
 const COLUMN_HEADER_CLASS: &str =
     "p-1 has-text-centered is-size-7 has-text-grey has-text-weight-normal";
@@ -90,8 +94,8 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     let mut progress = use_store(|| Progress::new(id));
     let mut owns_progress = use_signal(|| false);
     let mut resume_attempted = use_signal(|| false);
-    // The elements the drop set calculator fills, `None` while it is closed.
-    let mut drop_set_target: Signal<Option<Vec<usize>>> = use_signal(|| None);
+    // The groups of elements the drop set calculator fills, `None` while it is closed.
+    let mut drop_set_target: Signal<Option<Vec<Vec<usize>>>> = use_signal(|| None);
 
     let ongoing = consume_context::<OngoingTrainingSession>();
     let id_value = id.as_u128();
@@ -146,7 +150,12 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                         (
                             date,
                             sets.into_iter()
-                                .filter_map(domain::TrainingSessionElement::set)
+                                .filter_map(|element| match element {
+                                    domain::TrainingSessionElement::Set { side, .. } => {
+                                        Some((*side, element.set()?))
+                                    }
+                                    domain::TrainingSessionElement::Rest { .. } => None,
+                                })
                                 .collect(),
                         )
                     })
@@ -947,6 +956,7 @@ fn view_form(
         training_session.section_idx_lookahead(progress_element_idx);
     let sets_by_exercise = DOMAIN_SERVICE().get_sets_by_exercise(training_session);
     let set_indices = training_session.set_indices();
+    let side_set_indices = training_session.side_set_indices();
     let shows_time = settings.show_tut() || training_session.has_time();
     let shows_rpe = settings.show_rpe() || training_session.has_rpe();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
@@ -1084,18 +1094,27 @@ fn view_form(
         let sets = section.elements().iter().enumerate().map(|(i, element)| {
             let element_idx = first_element_idx + i;
             let set = match element {
-                domain::TrainingSessionElement::Set { exercise_id, target_reps, target_tempo, target_weight, target_rpe, automatic, .. } => {
+                domain::TrainingSessionElement::Set { exercise_id, side, target_reps, target_tempo, target_weight, target_rpe, automatic, .. } => {
                     let set_index = set_indices[&element_idx];
                     let set_field_values = &field_values.read()[&element_idx];
 
                     let show_set_buttons = is_current_section && (set_field_values.is_empty() || set_field_values.changed());
 
-                    let history: &[_] = if show_set_buttons {
+                    let history: RecentSets = if show_set_buttons {
                         recent_session_sets_by_exercise
                             .get(exercise_id)
-                            .map_or(&[], Vec::as_slice)
+                            .map(|sessions| {
+                                sessions
+                                    .iter()
+                                    .map(|(date, sets)| {
+                                        let (sets, index) = recent_sets(sets, *side, set_index, side_set_indices[&element_idx]);
+                                        (*date, sets, index)
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default()
                     } else {
-                        &[]
+                        vec![]
                     };
 
                     let mut set_buttons: IndexMap<domain::Set, SetButton> = IndexMap::new();
@@ -1114,8 +1133,8 @@ fn view_form(
                         if let Some(set) = previous_set {
                             set_buttons.entry(set).or_default().icons.push("arrow-turn-down".to_string());
                         }
-                        if let Some(domain::Set { reps, time, weight, rpe }) = history.first().and_then(|(_, sets)| sets.get(set_index)).cloned() {
-                            set_buttons.entry(domain::Set { reps, time, weight, rpe }).or_default().icons.push("calendar-minus".to_string());
+                        if let Some(set) = history.first().and_then(|(_, sets, index)| sets.get(*index)).cloned() {
+                            set_buttons.entry(set).or_default().icons.push("calendar-minus".to_string());
                         }
                     }
 
@@ -1133,6 +1152,7 @@ fn view_form(
                                     if let Some(number) = number {
                                         "{exercise_marker(number)}"
                                     }
+                                    {side_marker(*side)}
                                 }
                                 td {
                                     class: "p-1 has-text-centered",
@@ -1272,7 +1292,7 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
+                                {set_value_buttons(set_buttons, &history, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
                             }
                         },
                         Some(total) => rsx! {
@@ -1285,6 +1305,7 @@ fn view_form(
                                     if let Some(number) = number {
                                         "{exercise_marker(number)}"
                                     }
+                                    {side_marker(*side)}
                                 }
                                 td {
                                     class: "p-1",
@@ -1343,7 +1364,7 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                {set_value_buttons(set_buttons, history, set_index, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
+                                {set_value_buttons(set_buttons, &history, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
                             }
                         },
                     }
@@ -1605,8 +1626,7 @@ fn SetTempoBar(
 #[allow(clippy::too_many_arguments)]
 fn set_value_buttons(
     set_buttons: IndexMap<domain::Set, SetButton>,
-    history: &[(chrono::NaiveDate, Vec<domain::Set>)],
-    set_index: usize,
+    history: &RecentSets,
     element_idx: usize,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
     expanded_history: Signal<HashSet<usize>>,
@@ -1640,7 +1660,7 @@ fn set_value_buttons(
                 td {
                     class: "p-1 has-text-centered",
                     colspan: 4,
-                    for (session_index, (date, sets)) in history.iter().enumerate() {
+                    for (session_index, (date, sets, set_index)) in history.iter().enumerate() {
                         div {
                             class: if session_index < last_session_index { "mb-2" },
                             "data-testid": "set-history-session",
@@ -1648,7 +1668,7 @@ fn set_value_buttons(
                             div {
                                 class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
                                 for (index, set) in sets.iter().cloned().enumerate() {
-                                    {set_value_button(&set, None, None, sets.len() > set_index && index != set_index, element_idx, field_values, shows_time, shows_rpe)}
+                                    {set_value_button(&set, None, None, sets.len() > *set_index && index != *set_index, element_idx, field_values, shows_time, shows_rpe)}
                                 }
                             }
                         }
@@ -1664,6 +1684,30 @@ fn set_value_buttons(
 struct SetButton {
     icons: Vec<String>,
     label: Option<String>,
+}
+
+/// Selects the sets of a recent session offered to a set of `side`, together with the index of
+/// the one corresponding to the set.
+///
+/// A set with a side is offered the sets of the same side, indexed by its position among the sets
+/// of its exercise and side, unless the recent session holds no set with a side.
+fn recent_sets(
+    sets: &[(domain::Side, domain::Set)],
+    side: domain::Side,
+    set_index: usize,
+    side_set_index: usize,
+) -> (Vec<domain::Set>, usize) {
+    if side != domain::Side::Unset && sets.iter().any(|(s, _)| *s != domain::Side::Unset) {
+        (
+            sets.iter()
+                .filter(|(s, _)| *s == side)
+                .map(|(_, set)| set.clone())
+                .collect(),
+            side_set_index,
+        )
+    } else {
+        (sets.iter().map(|(_, set)| set.clone()).collect(), set_index)
+    }
 }
 
 /// Renders a button that prefills the set of `element_idx` with `set`.
@@ -1711,6 +1755,18 @@ fn set_value_button(
                 Icon { name: icon, is_small: true }
             }
             span { {label} },
+        }
+    }
+}
+
+/// Renders the side of a set next to the marker of its exercise.
+fn side_marker(side: domain::Side) -> Element {
+    rsx! {
+        if side != domain::Side::Unset {
+            span {
+                "data-testid": "set-side",
+                "{side}"
+            }
         }
     }
 }
@@ -1834,7 +1890,7 @@ fn view_list(
         let sets = section.elements().iter().map(|element| {
             rsx! {
                 match element {
-                    domain::TrainingSessionElement::Set { exercise_id, reps, time, weight, rpe, .. } => {
+                    domain::TrainingSessionElement::Set { exercise_id, side, reps, time, weight, rpe, .. } => {
                         let number = exercise_number(exercise_id, &exercise_ids);
                         rsx! {
                             tr {
@@ -1848,8 +1904,15 @@ fn view_list(
                                                 "{exercise_marker(number)} "
                                             }
                                         }
+                                        if *side != domain::Side::Unset {
+                                            span {
+                                                class: "pr-2",
+                                                "data-testid": "set-side",
+                                                "{side}"
+                                            }
+                                        }
                                         span {
-                                            class: if number.is_some() { "pr-5" },
+                                            class: if number.is_some() || *side != domain::Side::Unset { "pr-5" },
                                             "–"
                                         }
                                     }
@@ -1859,6 +1922,7 @@ fn view_list(
                                         if let Some(number) = number {
                                             "{exercise_marker(number)}"
                                         }
+                                        {side_marker(*side)}
                                     }
                                     td {
                                         class: "px-2 has-text-right",
@@ -1945,7 +2009,7 @@ fn view_edit_dialog(
     mut edit_dialog: Signal<EditDialog>,
     exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
-    drop_set_target: Signal<Option<Vec<usize>>>,
+    drop_set_target: Signal<Option<Vec<Vec<usize>>>>,
     progress: Store<Progress>,
     training_sessions: &[domain::TrainingSession],
     cache: Cache,
@@ -2028,9 +2092,7 @@ fn view_edit_dialog(
                                                 text: "Calculate drop sets".to_string(),
                                                 "data-testid": "options-drop-set",
                                                 on_click: eh!(mut edit_dialog, drop_set_target; training_session, recent_best_set, field_values, elements; {
-                                                    let start_weight = entered_weight_of(&field_values.read(), elements.first().copied())
-                                                        .or_else(|| recent_best_set.map(|(_, weight)| weight))
-                                                        .or_else(|| target_weight_of(&training_session, elements.first().copied()));
+                                                    let start_weight = drop_set_start_weight(&field_values.read(), recent_best_set, &training_session, &elements);
                                                     DROP_SET_CALCULATOR.write().start_weight = start_weight.map_or(0.0, f32::from);
                                                     drop_set_target.set(Some(elements));
                                                     *edit_dialog.write() = EditDialog::None;
@@ -2053,7 +2115,7 @@ fn view_edit_dialog(
                                     text: "Add same exercise".to_string(),
                                     on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.add_exercise(section_idx, exercise_id);
+                                        training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
                                         save(training_session, cache, close_dialog)
                                     })
                                 },
@@ -2136,7 +2198,7 @@ fn view_edit_dialog(
                                 move |(_, exercise_id)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    training_session.add_exercise(section_idx, exercise_id);
+                                    training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
                                     save(training_session, cache, close_dialog)
                                 }
                             },
@@ -2169,7 +2231,7 @@ fn view_edit_dialog(
                                 move |(_, replacement)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    training_session.replace_exercise(section_idx, exercise_id, replacement);
+                                    training_session.replace_exercise(section_idx, exercise_id, replacement, cache.laterality(replacement));
                                     save(training_session, cache, close_dialog)
                                 }
                             },
@@ -2195,7 +2257,7 @@ fn view_edit_dialog(
                                 move |(_, exercise_id)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    training_session.append_exercise(exercise_id);
+                                    training_session.append_exercise(exercise_id, cache.laterality(exercise_id));
                                     save(training_session, cache, close_dialog)
                                 }
                             },
@@ -2219,6 +2281,20 @@ fn view_edit_dialog(
             }
         }
     }
+}
+
+/// Returns the weight the drop sets of `groups` start from, read from the first element of the
+/// first group, as both sets of a pair carry the same weight.
+fn drop_set_start_weight(
+    field_values: &HashMap<usize, SetFieldValues>,
+    recent_best_set: Option<(domain::Reps, domain::Weight)>,
+    training_session: &domain::TrainingSession,
+    groups: &[Vec<usize>],
+) -> Option<domain::Weight> {
+    let first_element_idx = groups.first().and_then(|group| group.first()).copied();
+    entered_weight_of(field_values, first_element_idx)
+        .or_else(|| recent_best_set.map(|(_, weight)| weight))
+        .or_else(|| target_weight_of(training_session, first_element_idx))
 }
 
 /// Returns the target weight of the element at `element_idx`, if it is set.
@@ -2246,18 +2322,21 @@ fn entered_weight_of(
         .and_then(|weight| weight.non_zero())
 }
 
-/// Writes `weights` into the weight fields of `elements`, pairing them in order.
+/// Writes `weights` into the weight fields of the groups of elements, pairing them in order and
+/// giving every element of a group the weight of the group.
 ///
-/// Surplus weights and surplus elements are left alone.
+/// Surplus weights and surplus groups are left alone.
 fn fill_weights(
     field_values: &mut HashMap<usize, SetFieldValues>,
-    elements: &[usize],
+    groups: &[Vec<usize>],
     weights: &[domain::Weight],
 ) {
-    for (element_idx, weight) in elements.iter().zip(weights) {
-        if let Some(set_field_values) = field_values.get_mut(element_idx) {
-            set_field_values.weight.input = weight.to_string();
-            set_field_values.weight.validated = Ok(*weight);
+    for (group, weight) in groups.iter().zip(weights) {
+        for element_idx in group {
+            if let Some(set_field_values) = field_values.get_mut(element_idx) {
+                set_field_values.weight.input = weight.to_string();
+                set_field_values.weight.validated = Ok(*weight);
+            }
         }
     }
 }
@@ -2546,6 +2625,7 @@ mod tests {
     fn recorded_set(exercise_id: u128) -> domain::TrainingSessionElement {
         domain::TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
+            side: domain::Side::Unset,
             reps: domain::Reps::new(10).unwrap(),
             time: domain::Time::new(30).unwrap(),
             weight: domain::Weight::new(50.0).unwrap(),
@@ -2581,6 +2661,7 @@ mod tests {
                 notes: String::new(),
                 elements: vec![domain::TrainingSessionElement::Set {
                     exercise_id: 1.into(),
+                    side: domain::Side::Unset,
                     reps: domain::Reps::default(),
                     time: domain::Time::default(),
                     weight: domain::Weight::default(),
@@ -2605,6 +2686,7 @@ mod tests {
                 notes: String::new(),
                 elements: vec![domain::TrainingSessionElement::Set {
                     exercise_id: 1.into(),
+                    side: domain::Side::Unset,
                     reps: domain::Reps::default(),
                     time: domain::Time::default(),
                     weight: domain::Weight::default(),
@@ -2712,6 +2794,7 @@ mod tests {
                     notes: String::new(),
                     elements: vec![domain::TrainingSessionElement::Set {
                         exercise_id: 1.into(),
+                        side: domain::Side::Unset,
                         reps: if recorded {
                             domain::Reps::new(target_reps).unwrap()
                         } else {
@@ -2903,6 +2986,7 @@ mod tests {
                         notes: String::new(),
                         elements: vec![domain::TrainingSessionElement::Set {
                             exercise_id: 1.into(),
+                            side: domain::Side::Unset,
                             reps: domain::Reps::default(),
                             time: domain::Time::default(),
                             weight: domain::Weight::default(),
@@ -2954,6 +3038,7 @@ mod tests {
                 // shown although the settings hide them.
                 let prescribing_set = domain::TrainingSessionElement::Set {
                     exercise_id: 2.into(),
+                    side: domain::Side::Unset,
                     reps: domain::Reps::default(),
                     time: domain::Time::default(),
                     weight: domain::Weight::default(),
@@ -2966,6 +3051,7 @@ mod tests {
                 };
                 let recorded_set = domain::TrainingSessionElement::Set {
                     exercise_id: 1.into(),
+                    side: domain::Side::Unset,
                     reps: domain::Reps::new(10).unwrap(),
                     time: domain::Time::new(3).unwrap(),
                     weight: domain::Weight::new(50.0).unwrap(),
@@ -3023,6 +3109,7 @@ mod tests {
     fn planned_set(exercise_id: u128) -> domain::TrainingSessionElement {
         domain::TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
+            side: domain::Side::Unset,
             reps: domain::Reps::default(),
             time: domain::Time::default(),
             weight: domain::Weight::default(),
@@ -3053,6 +3140,7 @@ mod tests {
     fn performed_set(exercise_id: u128, weight: f32) -> domain::TrainingSessionElement {
         domain::TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
+            side: domain::Side::Unset,
             reps: domain::Reps::new(10).unwrap(),
             time: domain::Time::default(),
             weight: domain::Weight::new(weight).unwrap(),
@@ -3127,13 +3215,16 @@ mod tests {
         } else {
             IndexMap::new()
         };
+        let history = history
+            .into_iter()
+            .map(|(date, sets)| (date, sets, set_index))
+            .collect::<RecentSets>();
         rsx! {
             table {
                 tbody {
                     {set_value_buttons(
                         set_buttons,
                         &history,
-                        set_index,
                         0,
                         field_values,
                         expanded_history,
@@ -3284,6 +3375,7 @@ mod tests {
     fn set(exercise_id: u128, reps: u32) -> domain::TrainingSessionElement {
         domain::TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
+            side: domain::Side::Unset,
             reps: domain::Reps::new(reps).unwrap(),
             time: domain::Time::default(),
             weight: domain::Weight::default(),
@@ -3302,6 +3394,7 @@ mod tests {
     ) -> domain::TrainingSessionElement {
         domain::TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
+            side: domain::Side::Unset,
             reps: domain::Reps::default(),
             time: domain::Time::default(),
             weight: domain::Weight::default(),
@@ -3345,11 +3438,11 @@ mod tests {
         domain::Weight::new(value).unwrap()
     }
 
-    fn filled_weights(elements: &[usize], weights: &[domain::Weight]) -> Vec<(usize, String)> {
+    fn filled_weights(groups: &[Vec<usize>], weights: &[domain::Weight]) -> Vec<(usize, String)> {
         let mut field_values =
             HashMap::from([(0, set_field_values(10)), (1, set_field_values(10))]);
 
-        fill_weights(&mut field_values, elements, weights);
+        fill_weights(&mut field_values, groups, weights);
 
         let mut filled = field_values
             .into_iter()
@@ -3403,7 +3496,7 @@ mod tests {
     #[test]
     fn test_a_surplus_set_keeps_its_weight() {
         assert_eq!(
-            filled_weights(&[0, 1], &[weight(50.0)]),
+            filled_weights(&[vec![0], vec![1]], &[weight(50.0)]),
             vec![(0, "50".to_string()), (1, "0".to_string())]
         );
     }
@@ -3411,7 +3504,7 @@ mod tests {
     #[test]
     fn test_a_surplus_weight_is_ignored() {
         assert_eq!(
-            filled_weights(&[0], &[weight(50.0), weight(40.0)]),
+            filled_weights(&[vec![0]], &[weight(50.0), weight(40.0)]),
             vec![(0, "50".to_string()), (1, "0".to_string())]
         );
     }
@@ -3419,8 +3512,91 @@ mod tests {
     #[test]
     fn test_an_element_without_fields_is_skipped() {
         assert_eq!(
-            filled_weights(&[2, 1], &[weight(50.0), weight(40.0)]),
+            filled_weights(&[vec![2], vec![1]], &[weight(50.0), weight(40.0)]),
             vec![(0, "0".to_string()), (1, "40".to_string())]
+        );
+    }
+
+    fn reps_set(reps: u32) -> domain::Set {
+        domain::Set {
+            reps: domain::Reps::new(reps).unwrap(),
+            time: domain::Time::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+        }
+    }
+
+    fn sided_recent_set(side: domain::Side, reps: u32) -> (domain::Side, domain::Set) {
+        (side, reps_set(reps))
+    }
+
+    #[test]
+    fn test_a_set_with_a_side_is_offered_the_recent_sets_of_its_side() {
+        let sets = [
+            sided_recent_set(domain::Side::Left, 1),
+            sided_recent_set(domain::Side::Right, 2),
+            sided_recent_set(domain::Side::Left, 3),
+            sided_recent_set(domain::Side::Right, 4),
+        ];
+
+        let (offered, index) = recent_sets(&sets, domain::Side::Right, 3, 1);
+
+        assert_eq!(offered, vec![reps_set(2), reps_set(4)]);
+        assert_eq!(offered[index], reps_set(4));
+    }
+
+    #[test]
+    fn test_a_set_with_a_side_is_offered_every_set_of_a_recent_session_without_sides() {
+        let sets = [
+            sided_recent_set(domain::Side::Unset, 1),
+            sided_recent_set(domain::Side::Unset, 2),
+            sided_recent_set(domain::Side::Unset, 3),
+        ];
+
+        let (offered, index) = recent_sets(&sets, domain::Side::Right, 1, 0);
+
+        assert_eq!(offered, vec![reps_set(1), reps_set(2), reps_set(3)]);
+        assert_eq!(offered[index], reps_set(2));
+    }
+
+    #[test]
+    fn test_a_set_without_a_side_is_offered_every_recent_set() {
+        let sets = [
+            sided_recent_set(domain::Side::Left, 1),
+            sided_recent_set(domain::Side::Right, 2),
+        ];
+
+        assert_eq!(
+            recent_sets(&sets, domain::Side::Unset, 1, 0),
+            (vec![reps_set(1), reps_set(2)], 1)
+        );
+    }
+
+    #[test]
+    fn test_both_elements_of_a_pair_get_the_weight_of_the_group() {
+        assert_eq!(
+            filled_weights(&[vec![0, 1]], &[weight(50.0), weight(40.0)]),
+            vec![(0, "50".to_string()), (1, "50".to_string())]
+        );
+    }
+
+    #[test]
+    fn test_the_start_weight_is_read_from_the_first_element_of_the_first_group() {
+        let mut first = set_field_values(10);
+        first.weight = FieldValue::new(weight(80.0));
+        let mut second = set_field_values(10);
+        second.weight = FieldValue::new(weight(70.0));
+        let field_values = HashMap::from([(1, first), (0, second)]);
+        let training_session = training_session(vec![]);
+
+        assert_eq!(
+            drop_set_start_weight(
+                &field_values,
+                None,
+                &training_session,
+                &[vec![1, 0], vec![2]]
+            ),
+            Some(weight(80.0))
         );
     }
 

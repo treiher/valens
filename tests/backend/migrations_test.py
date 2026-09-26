@@ -144,6 +144,57 @@ def test_upgrade_replaces_time_by_tempo(tmp_path: Path) -> None:
         ).fetchall() == [(1, 4), (2, None), (3, 4)]
 
 
+SIDES_DATA = """
+INSERT INTO user (id, name, sex, role) VALUES (1, 'Alice', 'FEMALE', 'USER');
+INSERT INTO exercise (id, user_id, name) VALUES (1, 1, 'Lunge');
+INSERT INTO routine (id, user_id, name, archived) VALUES (1, 1, 'A', 0);
+INSERT INTO routine_part (id, type, routine_section_id, position)
+    VALUES (1, 'routine_section', NULL, 1), (2, 'routine_activity', 1, 1);
+INSERT INTO routine_section (id, routine_id, rounds) VALUES (1, 1, 1);
+INSERT INTO routine_activity (id, exercise_id, reps, tempo, weight, rpe, automatic)
+    VALUES (2, 1, 8, '[]', 0.0, 0.0, 0);
+INSERT INTO workout (id, user_id, date) VALUES (1, 1, '2002-02-20');
+INSERT INTO workout_element (workout_id, position, type, automatic)
+    VALUES (1, 1, 'workout_set', 0);
+INSERT INTO workout_set (workout_id, position, exercise_id, reps) VALUES (1, 1, 1, 5);
+"""
+
+
+def test_upgrade_adds_sides(tmp_path: Path) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "c7a4e93f6b15")
+
+        connection.executescript(SIDES_DATA)
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "head")
+
+        assert connection.execute("SELECT id, sides FROM routine_activity").fetchall() == [(2, 1)]
+        assert connection.execute("SELECT position, side FROM workout_set").fetchall() == [
+            (1, None)
+        ]
+
+        with app.app_context():
+            downgrade(cfg, "c7a4e93f6b15")
+
+        assert "sides" not in [
+            row[1] for row in connection.execute("PRAGMA table_info(routine_activity)")
+        ]
+        assert "side" not in [
+            row[1] for row in connection.execute("PRAGMA table_info(workout_set)")
+        ]
+        assert connection.execute("SELECT id, reps FROM routine_activity").fetchall() == [(2, 8)]
+
+
 def test_completeness(tmp_path: Path) -> None:
     """Ensure that all constraints defined in the model are added during the upgrade."""
     # Based on alembic-autogen-check (https://github.com/4Catalyzer/alembic-autogen-check)

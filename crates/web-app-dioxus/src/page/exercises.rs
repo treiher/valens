@@ -1823,6 +1823,7 @@ mod tests {
             notes: String::new(),
             elements: vec![domain::TrainingSessionElement::Set {
                 exercise_id: exercise_id.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::default(),
                 weight: domain::Weight::default(),

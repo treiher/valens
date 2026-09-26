@@ -127,6 +127,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::new(30.0).unwrap(),
                         rpe: domain::RPE::TEN,
                         automatic: false,
+                        sides: domain::Sides::Combined,
                     },
                     domain::RoutinePart::RoutineActivity {
                         exercise_id: domain::ExerciseID::nil(),
@@ -135,6 +136,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::default(),
                         rpe: domain::RPE::ZERO,
                         automatic: true,
+                        sides: domain::Sides::Combined,
                     },
                 ],
             },
@@ -148,6 +150,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::default(),
                         rpe: domain::RPE::ZERO,
                         automatic: false,
+                        sides: domain::Sides::Combined,
                     },
                     domain::RoutinePart::RoutineActivity {
                         exercise_id: domain::ExerciseID::nil(),
@@ -156,6 +159,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::default(),
                         rpe: domain::RPE::ZERO,
                         automatic: true,
+                        sides: domain::Sides::Combined,
                     },
                 ],
             },
@@ -178,6 +182,7 @@ pub static ROUTINE_2: std::sync::LazyLock<domain::Routine> =
                     weight: domain::Weight::default(),
                     rpe: domain::RPE::ZERO,
                     automatic: false,
+                    sides: domain::Sides::PerSide,
                 },
                 domain::RoutinePart::RoutineActivity {
                     exercise_id: domain::ExerciseID::nil(),
@@ -186,6 +191,7 @@ pub static ROUTINE_2: std::sync::LazyLock<domain::Routine> =
                     weight: domain::Weight::default(),
                     rpe: domain::RPE::ZERO,
                     automatic: false,
+                    sides: domain::Sides::Combined,
                 },
             ],
         }],
@@ -230,6 +236,7 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
         elements: vec![
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::new(10).unwrap(),
                 time: domain::Time::new(3).unwrap(),
                 weight: domain::Weight::new(30.0).unwrap(),
@@ -246,6 +253,7 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
             },
             domain::TrainingSessionElement::Set {
                 exercise_id: 2.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::new(5).unwrap(),
                 time: domain::Time::new(4).unwrap(),
                 weight: domain::Weight::default(),
@@ -262,6 +270,7 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
             },
             domain::TrainingSessionElement::Set {
                 exercise_id: 2.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::new(60).unwrap(),
                 weight: domain::Weight::default(),
@@ -289,8 +298,22 @@ pub static TRAINING_SESSION_2: std::sync::LazyLock<domain::TrainingSession> =
         elements: vec![
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Left,
                 reps: domain::Reps::new(5).unwrap(),
                 time: domain::Time::new(4).unwrap(),
+                weight: domain::Weight::new(60.0).unwrap(),
+                rpe: domain::RPE::EIGHT,
+                target_reps: domain::Reps::default(),
+                target_tempo: domain::Tempo::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::default(),
+                automatic: false,
+            },
+            domain::TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                side: domain::Side::Right,
+                reps: domain::Reps::new(5).unwrap(),
+                time: domain::Time::new(5).unwrap(),
                 weight: domain::Weight::new(60.0).unwrap(),
                 rpe: domain::RPE::EIGHT,
                 target_reps: domain::Reps::default(),

@@ -127,6 +127,17 @@ impl Cache {
         );
     }
 
+    /// The laterality of an exercise, `None` if it is unset or the exercises are not loaded.
+    pub fn laterality(&self, exercise_id: domain::ExerciseID) -> Option<domain::Laterality> {
+        match &*self.exercises.read() {
+            CacheState::Ready(exercises) => exercises
+                .iter()
+                .find(|e| e.id == exercise_id)
+                .and_then(|e| e.laterality),
+            CacheState::Loading | CacheState::Error(_) => None,
+        }
+    }
+
     /// Reloads the exercises from the local database and awaits completion.
     pub async fn load_exercises(&self) {
         load!(self, exercises, get_exercises, "load exercises");

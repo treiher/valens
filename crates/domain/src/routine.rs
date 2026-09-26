@@ -8,9 +8,9 @@ use derive_more::{Deref, Display, From, Into};
 use uuid::Uuid;
 
 use crate::{
-    CreateError, DeleteError, Exercise, ExerciseID, MuscleID, Name, Property, RPE, ReadError, Reps,
-    Stimulus, SyncError, Tempo, Time, TrainingSession, TrainingSessionElement, UpdateError,
-    ValidationError, Weight, training::values_to_string,
+    CreateError, DeleteError, Exercise, ExerciseID, Laterality, MuscleID, Name, Property, RPE,
+    ReadError, Reps, Sides, Stimulus, SyncError, Tempo, Time, TrainingSession,
+    TrainingSessionElement, UpdateError, ValidationError, Weight, training::values_to_string,
 };
 
 #[allow(async_fn_in_trait)]
@@ -181,7 +181,14 @@ impl Routine {
         }
     }
 
-    pub fn add_activity(&mut self, exercise_id: ExerciseID, path: &RoutinePartPath) {
+    /// Adds an activity of `exercise_id`, performed as the laterality of the exercise calls for,
+    /// or a rest if `exercise_id` is nil.
+    pub fn add_activity(
+        &mut self,
+        exercise_id: ExerciseID,
+        laterality: Option<Laterality>,
+        path: &RoutinePartPath,
+    ) {
         let new_activity = RoutinePart::RoutineActivity {
             exercise_id,
             reps: Reps::default(),
@@ -193,6 +200,11 @@ impl Routine {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: exercise_id.is_nil(),
+            sides: if exercise_id.is_nil() {
+                Sides::Combined
+            } else {
+                Sides::for_laterality(laterality)
+            },
         };
         if let Some(RoutinePart::RoutineSection { parts, .. }) =
             Self::get_mut_part(&mut self.sections, path)
@@ -210,6 +222,7 @@ impl Routine {
         weight: Option<Weight>,
         rpe: Option<RPE>,
         automatic: Option<bool>,
+        sides: Option<Sides>,
         path: &RoutinePartPath,
     ) {
         let new_exercise_id = exercise_id;
@@ -218,6 +231,7 @@ impl Routine {
         let new_weight = weight;
         let new_rpe = rpe;
         let new_automatic = automatic;
+        let new_sides = sides;
         if let Some(RoutinePart::RoutineActivity {
             exercise_id,
             reps,
@@ -225,6 +239,7 @@ impl Routine {
             weight,
             rpe,
             automatic,
+            sides,
         }) = Self::get_mut_part(&mut self.sections, path)
         {
             if let Some(new_exercise_id) = new_exercise_id {
@@ -248,6 +263,12 @@ impl Routine {
             }
             if let Some(new_automatic) = new_automatic {
                 *automatic = new_automatic;
+            }
+            // A rest has no sides.
+            if let Some(new_sides) = new_sides
+                && !exercise_id.is_nil()
+            {
+                *sides = new_sides;
             }
         }
     }
@@ -466,6 +487,7 @@ pub enum RoutinePart {
         weight: Weight,
         rpe: RPE,
         automatic: bool,
+        sides: Sides,
     },
 }
 
@@ -477,14 +499,20 @@ impl RoutinePart {
                 parts.iter().map(RoutinePart::duration).sum::<Duration>()
                     * r.try_into().unwrap_or_default()
             }
-            RoutinePart::RoutineActivity { reps, tempo, .. } => {
+            RoutinePart::RoutineActivity {
+                reps, tempo, sides, ..
+            } => {
                 let r = u32::from(reps.non_zero().unwrap_or(Reps::new(1).unwrap()));
                 let t = u32::from(
                     tempo
                         .non_zero()
                         .map_or(Time::new(4).unwrap(), |tempo| tempo.seconds_per_rep()),
                 );
-                Duration::seconds(i64::from(r * t))
+                let s = match sides {
+                    Sides::Combined => 1,
+                    Sides::PerSide => 2,
+                };
+                Duration::seconds(i64::from(r * t * s))
             }
         }
     }
@@ -562,26 +590,30 @@ impl RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                sides,
             } => {
-                result.push(if exercise_id.is_nil() {
-                    TrainingSessionElement::Rest {
+                if exercise_id.is_nil() {
+                    result.push(TrainingSessionElement::Rest {
                         target_time: tempo.seconds_per_rep(),
                         automatic: *automatic,
-                    }
+                    });
                 } else {
-                    TrainingSessionElement::Set {
-                        exercise_id: *exercise_id,
-                        reps: Reps::default(),
-                        time: Time::default(),
-                        weight: Weight::default(),
-                        rpe: RPE::default(),
-                        target_reps: *reps,
-                        target_tempo: *tempo,
-                        target_weight: *weight,
-                        target_rpe: *rpe,
-                        automatic: *automatic,
+                    for side in sides.sides() {
+                        result.push(TrainingSessionElement::Set {
+                            exercise_id: *exercise_id,
+                            side: *side,
+                            reps: Reps::default(),
+                            time: Time::default(),
+                            weight: Weight::default(),
+                            rpe: RPE::default(),
+                            target_reps: *reps,
+                            target_tempo: *tempo,
+                            target_weight: *weight,
+                            target_rpe: *rpe,
+                            automatic: *automatic,
+                        });
                     }
-                });
+                }
             }
         }
         result
@@ -594,6 +626,8 @@ impl RoutinePart {
         exercises: &[Exercise],
         show_rpe: bool,
     ) -> Vec<String> {
+        use std::fmt::Write as _;
+
         let indent = "  ".repeat(depth);
         let mut lines = vec![];
         match self {
@@ -642,6 +676,7 @@ impl RoutinePart {
                 tempo,
                 weight,
                 rpe,
+                sides,
                 ..
             } => {
                 if exercise_id.is_nil() {
@@ -661,13 +696,14 @@ impl RoutinePart {
                         if show_rpe { rpe.non_zero() } else { None },
                         &tempo.to_string(),
                     );
-                    if targets.is_empty() {
-                        lines.push(format!("{indent}{label} \u{2014} {name}"));
-                    } else {
-                        lines.push(format!(
-                            "{indent}{label} \u{2014} {name} \u{2014} {targets}"
-                        ));
+                    let mut line = format!("{indent}{label} \u{2014} {name}");
+                    if !targets.is_empty() {
+                        let _ = write!(line, " \u{2014} {targets}");
                     }
+                    if *sides == Sides::PerSide {
+                        line.push_str(" \u{2014} per side");
+                    }
+                    lines.push(line);
                 }
             }
         }
@@ -761,7 +797,7 @@ mod tests {
     use rstest::rstest;
 
     use crate::{
-        ExerciseMuscle, Service,
+        ExerciseMuscle, Service, Side,
         tests::{Call, FakeRepository},
     };
 
@@ -783,6 +819,7 @@ mod tests {
                         weight: Weight::new(30.0).unwrap(),
                         rpe: RPE::TEN,
                         automatic: false,
+                        sides: Sides::Combined,
                     },
                     RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
@@ -791,6 +828,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: true,
+                        sides: Sides::Combined,
                     },
                 ],
             },
@@ -804,6 +842,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
+                        sides: Sides::Combined,
                     },
                     RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
@@ -812,6 +851,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: true,
+                        sides: Sides::Combined,
                     },
                 ],
             },
@@ -864,14 +904,29 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
+            sides: Sides::Combined,
         };
 
         assert_eq!(part.duration(), Duration::seconds(expected));
     }
 
     #[test]
+    fn test_routine_part_duration_per_side() {
+        let part = per_side_activity(8);
+
+        assert_eq!(part.duration(), Duration::seconds(64));
+    }
+
+    #[test]
     fn test_routine_num_sets() {
         assert_eq!(ROUTINE.num_sets(), 4);
+    }
+
+    #[test]
+    fn test_routine_num_sets_counts_a_per_side_activity_once() {
+        let routine = routine_with_sections(vec![section(3, vec![per_side_activity(1)])]);
+
+        assert_eq!(routine.num_sets(), 3);
     }
 
     #[test]
@@ -883,6 +938,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: true,
+            sides: Sides::Combined,
         };
         let routine =
             routine_with_sections(vec![section(1, vec![activity(1), rest.clone(), rest])]);
@@ -973,6 +1029,7 @@ mod tests {
                 .iter()
                 .map(|exercise_id| TrainingSessionElement::Set {
                     exercise_id: (*exercise_id).into(),
+                    side: Side::Unset,
                     reps: Reps::default(),
                     time: Time::default(),
                     weight: Weight::default(),
@@ -1000,6 +1057,7 @@ mod tests {
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             },
             RoutinePart::RoutineSection {
@@ -1011,6 +1069,7 @@ mod tests {
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             },
         ];
@@ -1025,6 +1084,7 @@ mod tests {
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             }
         );
@@ -1039,6 +1099,7 @@ mod tests {
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             }
         );
@@ -1052,6 +1113,7 @@ mod tests {
                 weight: Weight::new(4.0).unwrap(),
                 rpe: RPE::FIVE,
                 automatic: false,
+                sides: Sides::Combined,
             },
         );
         assert!(Routine::get_mut_part(&mut sections, &[1, 0]).is_none());
@@ -1064,6 +1126,7 @@ mod tests {
                 weight: Weight::new(5.0).unwrap(),
                 rpe: RPE::SIX,
                 automatic: false,
+                sides: Sides::Combined,
             },
         );
         assert!(Routine::get_mut_part(&mut sections, &[1, 1]).is_none());
@@ -1081,6 +1144,7 @@ mod tests {
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
+                    sides: Sides::Combined,
                 },
                 RoutinePart::RoutineSection {
                     rounds: Rounds::new(2).unwrap(),
@@ -1091,6 +1155,7 @@ mod tests {
                         weight: Weight::new(5.0).unwrap(),
                         rpe: RPE::SIX,
                         automatic: false,
+                        sides: Sides::Combined,
                     }],
                 },
             ],
@@ -1107,6 +1172,7 @@ mod tests {
                         weight: Weight::new(4.0).unwrap(),
                         rpe: RPE::FIVE,
                         automatic: false,
+                        sides: Sides::Combined,
                     },
                     RoutinePart::RoutineSection {
                         rounds: Rounds::new(2).unwrap(),
@@ -1117,6 +1183,7 @@ mod tests {
                             weight: Weight::new(5.0).unwrap(),
                             rpe: RPE::SIX,
                             automatic: false,
+                            sides: Sides::Combined,
                         }],
                     },
                 ],
@@ -1132,6 +1199,7 @@ mod tests {
                 weight: Weight::new(4.0).unwrap(),
                 rpe: RPE::FIVE,
                 automatic: false,
+                sides: Sides::Combined,
             },
         );
         assert_eq!(
@@ -1145,6 +1213,7 @@ mod tests {
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             },
         );
@@ -1159,6 +1228,7 @@ mod tests {
                 weight: Weight::new(5.0).unwrap(),
                 rpe: RPE::SIX,
                 automatic: false,
+                sides: Sides::Combined,
             },
         );
         assert!(Routine::get_mut_part(&mut sections, &[1, 1, 0]).is_none());
@@ -1190,6 +1260,19 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
+            sides: Sides::Combined,
+        }
+    }
+
+    fn per_side_activity(reps: u32) -> RoutinePart {
+        RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: Reps::new(reps).unwrap(),
+            tempo: Tempo::default(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: false,
+            sides: Sides::PerSide,
         }
     }
 
@@ -1419,6 +1502,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             }],
         };
@@ -1444,6 +1528,7 @@ mod tests {
                     weight: Weight::new(80.0).unwrap(),
                     rpe: RPE::EIGHT,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             }],
         };
@@ -1469,6 +1554,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::EIGHT,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             }],
         };
@@ -1495,6 +1581,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
+                        sides: Sides::Combined,
                     },
                     RoutinePart::RoutineActivity {
                         exercise_id: ExerciseID::nil(),
@@ -1503,6 +1590,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
+                        sides: Sides::Combined,
                     },
                 ],
             }],
@@ -1530,6 +1618,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
+                        sides: Sides::Combined,
                     },
                     RoutinePart::RoutineSection {
                         rounds: Rounds::new(3).unwrap(),
@@ -1541,6 +1630,7 @@ mod tests {
                                 weight: Weight::default(),
                                 rpe: RPE::ZERO,
                                 automatic: false,
+                                sides: Sides::Combined,
                             },
                             RoutinePart::RoutineActivity {
                                 exercise_id: ExerciseID::nil(),
@@ -1549,6 +1639,7 @@ mod tests {
                                 weight: Weight::default(),
                                 rpe: RPE::ZERO,
                                 automatic: false,
+                                sides: Sides::Combined,
                             },
                         ],
                     },
@@ -1577,12 +1668,44 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: false,
+                    sides: Sides::Combined,
                 }],
             }],
         };
         assert_eq!(
             routine.to_text(&EXERCISES, true),
             "X\n\n[A] 1 set\n  A1 \u{2014} A"
+        );
+    }
+
+    #[rstest]
+    #[case::without_values(Reps::default(), "  A1 \u{2014} A \u{2014} per side")]
+    #[case::with_values(
+        Reps::new(10).unwrap(),
+        "  A1 \u{2014} A \u{2014} 10 \u{00d7} 20 kg \u{2014} per side"
+    )]
+    fn test_routine_to_text_per_side(#[case] reps: Reps, #[case] expected: &str) {
+        let weight = if reps.non_zero().is_some() {
+            Weight::new(20.0).unwrap()
+        } else {
+            Weight::default()
+        };
+        let routine = routine_with_sections(vec![section(
+            1,
+            vec![RoutinePart::RoutineActivity {
+                exercise_id: 1.into(),
+                reps,
+                tempo: Tempo::default(),
+                weight,
+                rpe: RPE::ZERO,
+                automatic: false,
+                sides: Sides::PerSide,
+            }],
+        )]);
+
+        assert_eq!(
+            routine.to_text(&EXERCISES, true).lines().last(),
+            Some(expected)
         );
     }
 
@@ -1774,7 +1897,7 @@ mod tests {
     fn test_routine_add_activity() {
         let mut routine = routine_with_sections(vec![section(1, vec![])]);
 
-        routine.add_activity(1.into(), &vec![0].into());
+        routine.add_activity(1.into(), None, &vec![0].into());
 
         assert_eq!(
             routine.sections,
@@ -1787,16 +1910,39 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: false,
+                    sides: Sides::Combined,
                 }]
             )]
         );
+    }
+
+    #[rstest]
+    #[case::bilateral(Some(Laterality::Bilateral), Sides::Combined)]
+    #[case::unilateral(Some(Laterality::Unilateral), Sides::PerSide)]
+    #[case::without_laterality(None, Sides::Combined)]
+    fn test_routine_add_activity_derives_the_sides_from_the_laterality(
+        #[case] laterality: Option<Laterality>,
+        #[case] expected: Sides,
+    ) {
+        let mut routine = routine_with_sections(vec![section(1, vec![])]);
+
+        routine.add_activity(1.into(), laterality, &vec![0].into());
+
+        assert!(matches!(
+            routine.part(&vec![0, 0].into()),
+            Some(RoutinePart::RoutineActivity { sides, .. }) if *sides == expected
+        ));
     }
 
     #[test]
     fn test_routine_add_activity_without_exercise_is_an_automatic_rest() {
         let mut routine = routine_with_sections(vec![section(1, vec![])]);
 
-        routine.add_activity(ExerciseID::nil(), &vec![0].into());
+        routine.add_activity(
+            ExerciseID::nil(),
+            Some(Laterality::Unilateral),
+            &vec![0].into(),
+        );
 
         assert_eq!(
             routine.sections,
@@ -1809,6 +1955,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
+                    sides: Sides::Combined,
                 }]
             )]
         );
@@ -1822,7 +1969,7 @@ mod tests {
         let sections = vec![section(1, vec![activity(1)])];
         let mut routine = routine_with_sections(sections.clone());
 
-        routine.add_activity(2.into(), &path);
+        routine.add_activity(2.into(), None, &path);
 
         assert_eq!(routine.sections, sections);
     }
@@ -1837,6 +1984,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            sides: Sides::Combined,
         },
     )]
     #[case::reps(
@@ -1848,6 +1996,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            sides: Sides::Combined,
         },
     )]
     #[case::tempo(
@@ -1859,6 +2008,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            sides: Sides::Combined,
         },
     )]
     #[case::weight(
@@ -1870,6 +2020,7 @@ mod tests {
             weight: Weight::new(7.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            sides: Sides::Combined,
         },
     )]
     #[case::rpe(
@@ -1881,6 +2032,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::EIGHT,
             automatic: false,
+            sides: Sides::Combined,
         },
     )]
     #[case::automatic(
@@ -1892,6 +2044,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: true,
+            sides: Sides::Combined,
         },
     )]
     #[case::nothing(
@@ -1903,6 +2056,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            sides: Sides::Combined,
         },
     )]
     fn test_routine_update_activity(
@@ -1923,10 +2077,32 @@ mod tests {
             weight,
             rpe,
             automatic,
+            None,
             &vec![0, 0].into(),
         );
 
         assert_eq!(routine.sections, vec![section(1, vec![expected])]);
+    }
+
+    #[test]
+    fn test_routine_update_activity_sides() {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity(1)])]);
+
+        routine.update_activity(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(Sides::PerSide),
+            &vec![0, 0].into(),
+        );
+
+        assert_eq!(
+            routine.sections,
+            vec![section(1, vec![per_side_activity(1)])]
+        );
     }
 
     #[rstest]
@@ -1936,7 +2112,7 @@ mod tests {
         let sections = vec![section(1, vec![full_activity()])];
         let mut routine = routine_with_sections(sections.clone());
 
-        routine.update_activity(Some(2.into()), None, None, None, None, None, &path);
+        routine.update_activity(Some(2.into()), None, None, None, None, None, None, &path);
 
         assert_eq!(routine.sections, sections);
     }
@@ -1952,6 +2128,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: true,
+            sides: Sides::Combined,
         };
         let mut routine = routine_with_sections(vec![section(1, vec![rest])]);
 
@@ -1962,6 +2139,7 @@ mod tests {
             None,
             None,
             None,
+            Some(Sides::PerSide),
             &vec![0, 0].into(),
         );
 
@@ -1976,6 +2154,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
+                    sides: Sides::Combined,
                 }]
             )]
         );
@@ -1989,6 +2168,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            sides: Sides::Combined,
         }
     }
 
@@ -2071,12 +2251,14 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
+                    sides: Sides::Combined,
                 },
             ],
         );
 
         let set = TrainingSessionElement::Set {
             exercise_id: 1.into(),
+            side: Side::Unset,
             reps: Reps::default(),
             time: Time::default(),
             weight: Weight::default(),
@@ -2101,6 +2283,35 @@ mod tests {
                 set.clone(),
                 set,
                 rest
+            ]
+        );
+    }
+
+    #[test]
+    fn test_routine_part_to_training_session_elements_per_side() {
+        let part = section(2, vec![per_side_activity(1)]);
+
+        let set = |side| TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            side,
+            reps: Reps::default(),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe: RPE::default(),
+            target_reps: Reps::new(1).unwrap(),
+            target_tempo: Tempo::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::ZERO,
+            automatic: false,
+        };
+
+        assert_eq!(
+            part.to_training_session_elements(),
+            vec![
+                set(Side::Left),
+                set(Side::Right),
+                set(Side::Left),
+                set(Side::Right),
             ]
         );
     }
@@ -2299,6 +2510,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: true,
+            sides: Sides::Combined,
         };
         let routine = routine_with_sections(vec![section(1, vec![activity(1), rest, activity(2)])]);
 

@@ -261,6 +261,16 @@ class RoutinePage(BasePage):
         ).click()
         self.dialog.save()
 
+    def set_sides(self, section_idx: int, activity_idx: int, *, per_side: bool = True) -> None:
+        dialog = self._open_edit_dialog(section_idx, activity_idx)
+        dialog.get_by_test_id("button-select-sides").get_by_text(
+            "Per side" if per_side else "Combined", exact=True
+        ).click()
+        self.dialog.save()
+
+    def get_sides_markers(self) -> list[str]:
+        return [get_text(marker) for marker in self.page.get_by_test_id("set-sides").all()]
+
     def _open_options_menu(self, section_idx: int, activity_idx: int | None = None) -> None:
         if activity_idx is None:
             self.page.get_by_test_id("section-options").nth(section_idx).click()

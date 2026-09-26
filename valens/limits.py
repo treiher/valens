@@ -60,6 +60,13 @@ RPE_MIN = 0
 RPE_MAX = 10
 RPE_RESOLUTION = 0.5
 
+# Mirrors `Sides` in `crates/domain/src/training.rs`
+SIDES_IDS = frozenset({1, 2})
+SIDES_COMBINED = 1
+
+# Mirrors `Side` in `crates/domain/src/training.rs`, whose unset value is the absent value
+SIDE_IDS = frozenset({1, 2})
+
 # Mirrors `Weekday` in `crates/domain/src/schedule.rs`
 WEEKDAY_MIN = 1
 WEEKDAY_MAX = 7

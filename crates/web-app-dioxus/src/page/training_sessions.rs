@@ -17,7 +17,7 @@ use crate::{
     ui::{
         element::{
             DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, LoadingPage, NoWrap,
-            SaveDialog, Table, value_or_dash,
+            SaveDialog, Table, count_to_string, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -119,11 +119,10 @@ fn view_charts(
         .copied()
         .map(|(d, l)| (d, l * domain::TrainingStats::LOAD_RATIO_LOW))
         .collect::<Vec<_>>();
-    #[allow(clippy::cast_precision_loss)]
     let total_7day_set_volume = domain::centered_moving_total(
         &training_sessions
             .iter()
-            .map(|s| (s.date, s.set_volume() as f32))
+            .map(|s| (s.date, s.set_volume()))
             .collect::<Vec<_>>(),
         interval,
         3,
@@ -225,7 +224,7 @@ pub fn view_calendar(
     training_sessions: &[domain::TrainingSession],
     interval: domain::Interval,
 ) -> Element {
-    let mut load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
+    let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     for training_session in training_sessions {
         if (interval.first..=interval.last).contains(&training_session.date) {
             load.entry(training_session.date)
@@ -237,12 +236,12 @@ pub fn view_calendar(
         .values()
         .min_by(|a, b| a.partial_cmp(b).unwrap())
         .copied()
-        .unwrap_or(0);
+        .unwrap_or_default();
     let max = load
         .values()
         .max_by(|a, b| a.partial_cmp(b).unwrap())
         .copied()
-        .unwrap_or(0);
+        .unwrap_or_default();
     let entries = load
         .iter()
         .map(|(date, load)| {
@@ -339,8 +338,8 @@ pub fn view_table(
                     }
                 }
             });
-            data.push(rsx! { "{t.load()}" });
-            data.push(rsx! { "{t.set_volume()}" });
+            data.push(rsx! { {count_to_string(f64::from(t.load()))} });
+            data.push(rsx! { {count_to_string(f64::from(t.set_volume()))} });
             if settings.show_rpe() && has_avg_rpe_data {
                 data.push(rsx! { {value_or_dash(t.avg_rpe())} });
             }
@@ -579,6 +578,7 @@ mod tests {
             notes: String::new(),
             elements: vec![domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::new(10).unwrap(),
                 time: domain::Time::new(30).unwrap(),
                 weight: domain::Weight::default(),

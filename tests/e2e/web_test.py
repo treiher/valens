@@ -1602,7 +1602,10 @@ def test_training_session_numbering_of_time_based_sets(page: Page) -> None:
     routine = USER.routines[1]
     assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
     exercise = str(routine.sections[0].parts[0].exercise.name)
-    other_exercise = next(str(e.name) for e in USER.exercises if str(e.name) != exercise)
+    # An exercise that is not unilateral is added as a single set per round.
+    other_exercise = next(
+        str(e.name) for e in USER.exercises if str(e.name) != exercise and e.laterality != 2
+    )
 
     login(page)
 
@@ -1623,6 +1626,31 @@ def test_training_session_numbering_of_time_based_sets(page: Page) -> None:
     p.expect_page()
 
     assert p.get_set_numbers(4) == ["①", "②", "①", "②"]
+
+
+def test_training_session_of_a_per_side_activity(page: Page) -> None:
+    routine = USER.routines[0]
+
+    login(page)
+
+    # The first activity of the second section is the only one of a unilateral exercise that is
+    # not nested in a further section.
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_sides(1, 0)
+    r.wait_until_idle()
+
+    assert r.get_sides_markers() == ["per side"]
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    expect(page.get_by_test_id("set-number")).to_have_count(12)
+    assert p.get_set_sides() == ["", *["L", "R", "", ""] * 2, "", "", ""]
 
 
 def test_training_session_countdown_advances_the_focus(page: Page) -> None:

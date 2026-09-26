@@ -742,6 +742,14 @@ pub fn value_or_dash(option: Option<impl std::fmt::Display>) -> String {
     }
 }
 
+/// Formats a count that may be fractional, without trailing zeros.
+pub fn count_to_string(count: f64) -> String {
+    format!("{count:.2}")
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -749,6 +757,15 @@ mod tests {
     use crate::test_render::{all_text_of, attribute_of, contains, render, rows_of, text_of};
 
     use super::*;
+
+    #[rstest::rstest]
+    #[case::whole(3.0, "3")]
+    #[case::half(3.5, "3.5")]
+    #[case::quarter(0.25, "0.25")]
+    #[case::zero(0.0, "0")]
+    fn test_count_to_string(#[case] count: f64, #[case] expected: &str) {
+        assert_eq!(count_to_string(count), expected);
+    }
 
     #[test]
     fn test_value_or_dash_renders_a_dash_for_a_missing_value() {

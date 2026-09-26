@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, HashSet},
-    ops::{Add, AddAssign, Mul},
+    ops::{Add, AddAssign, Div, Mul},
     slice::Iter,
     str::FromStr,
     sync::LazyLock,
@@ -503,6 +503,14 @@ impl Add for Stimulus {
 impl AddAssign for Stimulus {
     fn add_assign(&mut self, rhs: Self) {
         *self = Self(self.0 + rhs.0);
+    }
+}
+
+impl Div<u32> for Stimulus {
+    type Output = Stimulus;
+
+    fn div(self, rhs: u32) -> Self::Output {
+        Self(self.0 / rhs)
     }
 }
 

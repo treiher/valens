@@ -6,7 +6,7 @@ use dioxus::prelude::*;
 
 use valens_domain::{self as domain, Property};
 
-use crate::ui::element::TagsWithAddon;
+use crate::ui::element::{TagsWithAddon, count_to_string};
 
 #[component]
 pub fn SetsPerMuscle(stimulus_per_muscle: BTreeMap<domain::MuscleID, domain::Stimulus>) -> Element {
@@ -20,7 +20,7 @@ pub fn SetsPerMuscle(stimulus_per_muscle: BTreeMap<domain::MuscleID, domain::Sti
         let name = muscle.name();
         let description = muscle.description();
         let sets = f64::from(*stimulus) / 100.0;
-        let sets_str = format!("{:.1$}", sets, usize::from(sets.fract() != 0.0));
+        let sets_str = count_to_string(sets);
         if sets > 10.0 {
             groups[0].push((name, description, sets_str, vec!["is-dark"]));
         } else if sets >= 3.0 {

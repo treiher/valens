@@ -122,6 +122,14 @@ class TrainingSessionPage(BasePage):
             for element in self.page.get_by_test_id("set-number").all()[:count]
         ]
 
+    def get_set_sides(self) -> list[str]:
+        return [
+            get_text(number.get_by_test_id("set-side"))
+            if number.get_by_test_id("set-side").count()
+            else ""
+            for number in self.page.get_by_test_id("set-number").all()
+        ]
+
     def countdown_seconds(self) -> int:
         text = self.countdown.inner_text().strip()
         return int(text.removesuffix(" s"))

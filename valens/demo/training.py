@@ -57,6 +57,14 @@ ISOLATION = 2
 BILATERAL = 1
 UNILATERAL = 2
 
+# Sides values mirror `Sides` in `crates/domain/src/training.rs`
+COMBINED = 1
+PER_SIDE = 2
+
+# Side values mirror `Side` in `crates/domain/src/training.rs`
+LEFT = 1
+RIGHT = 2
+
 # Assistance values mirror `Assistance` in `crates/domain/src/exercise.rs`
 UNASSISTED = 1
 ASSISTED = 2
@@ -185,6 +193,17 @@ EXERCISES = {
         laterality=BILATERAL,
         assistance=UNASSISTED,
         equipment=(KETTLEBELL,),
+        category=STRENGTH,
+    ),
+    "Dumbbell Lunge": ExerciseDefinition(
+        ExerciseType(reps=True, phases=(), weight=True, rpe=True),
+        ((QUADS, PRIMARY), (GLUTES, PRIMARY), (ADDUCTORS, PRIMARY)),
+        REST,
+        force=PUSH,
+        mechanic=COMPOUND,
+        laterality=UNILATERAL,
+        assistance=UNASSISTED,
+        equipment=(DUMBBELL,),
         category=STRENGTH,
     ),
     "Leg Press": ExerciseDefinition(
@@ -791,7 +810,13 @@ def _activity(
         weight=progress.load if definition.type.weight else 0.0,
         rpe=config.target_rpe if definition.type.rpe else 0.0,
         automatic=False,
+        sides=_sides(definition),
     )
+
+
+def _sides(definition: ExerciseDefinition) -> int:
+    """Mirror `Sides::for_laterality` in `crates/domain/src/training.rs`."""
+    return PER_SIDE if definition.laterality == UNILATERAL else COMBINED
 
 
 def _rest(position: int, rest: int) -> RoutineActivity:
@@ -831,9 +856,11 @@ def _elements(record: _Record, exercises: dict[str, Exercise]) -> list[WorkoutEl
     elements: list[WorkoutElement] = []
 
     for performed in record.sets:
-        elements.append(
+        per_side = _sides(EXERCISES[performed.exercise]) == PER_SIDE
+        position = len(elements) + 1
+        elements.extend(
             WorkoutSet(
-                position=len(elements) + 1,
+                position=position + offset,
                 exercise=exercises[performed.exercise],
                 reps=performed.reps,
                 time=performed.time,
@@ -843,7 +870,9 @@ def _elements(record: _Record, exercises: dict[str, Exercise]) -> list[WorkoutEl
                 target_tempo=performed.target_tempo or None,
                 target_weight=performed.target_weight,
                 target_rpe=performed.target_rpe,
+                side=side,
             )
+            for offset, side in enumerate((LEFT, RIGHT) if per_side else (None,))
         )
         if record.rests:
             elements.append(

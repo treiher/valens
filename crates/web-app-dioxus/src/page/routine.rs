@@ -307,7 +307,12 @@ fn view_routine_part(
             weight,
             rpe,
             automatic,
+            sides,
         } => {
+            let laterality = exercises
+                .iter()
+                .find(|e| e.id == *exercise_id)
+                .and_then(|e| e.laterality);
             rsx! {
                 div {
                     class: "message mb-0",
@@ -347,22 +352,7 @@ fn view_routine_part(
                                 class: "is-flex is-justify-content-space-between",
                                 div {
                                     onclick: eh!(mut edit_dialog; routine, path; {
-                                        if let Some(domain::RoutinePart::RoutineActivity {
-                                            reps,
-                                            tempo,
-                                            weight,
-                                            rpe,
-                                            automatic,
-                                            ..
-                                        }) = routine.part(&path) {
-                                            let routine = (*routine).clone();
-                                            let reps = FieldValue::new_with_empty_default(*reps);
-                                            let tempo = phase_fields(tempo);
-                                            let weight = FieldValue::new_with_empty_default(*weight);
-                                            let rpe = FieldValue::new_with_empty_default(*rpe);
-                                            let automatic = FieldValue::new(*automatic);
-                                            *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, tempo, weight, rpe, automatic };
-                                        }
+                                        *edit_dialog.write() = edit_activity_dialog(&routine, &path, laterality);
                                     }),
                                     span {
                                         class: "icon-text has-text-weight-bold mr-5",
@@ -397,22 +387,7 @@ fn view_routine_part(
                         if !exercise_id.is_nil() {
                             div {
                                 onclick: eh!(mut edit_dialog; routine, path; {
-                                    if let Some(domain::RoutinePart::RoutineActivity {
-                                        reps,
-                                        tempo,
-                                        weight,
-                                        rpe,
-                                        automatic,
-                                        ..
-                                    }) = routine.part(&path) {
-                                        let routine = (*routine).clone();
-                                        let reps = FieldValue::new_with_empty_default(*reps);
-                                        let tempo = phase_fields(tempo);
-                                        let weight = FieldValue::new_with_empty_default(*weight);
-                                        let rpe = FieldValue::new_with_empty_default(*rpe);
-                                        let automatic = FieldValue::new(*automatic);
-                                        *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, tempo, weight, rpe, automatic };
-                                    }
+                                    *edit_dialog.write() = edit_activity_dialog(&routine, &path, laterality);
                                 }),
                                 if *reps != domain::Reps::default() {
                                     span {
@@ -459,8 +434,15 @@ fn view_routine_part(
                                 }
                                 if *automatic {
                                     span {
-                                        class: "icon",
+                                        class: "icon mr-4",
                                         {automatic_icon()}
+                                    }
+                                }
+                                if *sides == domain::Sides::PerSide {
+                                    span {
+                                        class: "icon-text",
+                                        "data-testid": "set-sides",
+                                        "per side"
                                     }
                                 }
                             }
@@ -642,15 +624,13 @@ fn view_charts(
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut rpe_values: Vec<(NaiveDate, f32)> = vec![];
     for training_session in training_sessions {
-        #[allow(clippy::cast_precision_loss)]
         load.entry(training_session.date)
-            .and_modify(|e| *e += training_session.load() as f32)
-            .or_insert(training_session.load() as f32);
-        #[allow(clippy::cast_precision_loss)]
+            .and_modify(|e| *e += training_session.load())
+            .or_insert(training_session.load());
         set_volume
             .entry(training_session.date)
-            .and_modify(|e| *e += training_session.set_volume() as f32)
-            .or_insert(training_session.set_volume() as f32);
+            .and_modify(|e| *e += training_session.set_volume())
+            .or_insert(training_session.set_volume());
         for element in &training_session.elements {
             if let domain::TrainingSessionElement::Set { rpe, .. } = element
                 && let Some(rpe) = rpe.non_zero()
@@ -773,7 +753,7 @@ fn view_edit_dialog(
                                         text: "Add rest",
                                         "data-testid": "options-add-rest",
                                         on_click: eh!(mut routine; path, close_dialog; {
-                                            routine.add_activity(domain::ExerciseID::nil(), &path);
+                                            routine.add_activity(domain::ExerciseID::nil(), None, &path);
                                             modify_routine_sections(routine, cache, close_dialog)
                                         })
                                     },
@@ -840,20 +820,9 @@ fn view_edit_dialog(
                                                 *edit_dialog.write() = EditDialog::EditSection { routine, path, rounds };
                                             }
                                             Some(domain::RoutinePart::RoutineActivity {
-                                                reps,
-                                                tempo,
-                                                weight,
-                                                rpe,
-                                                automatic,
-                                                ..
+                                                exercise_id, ..
                                             }) => {
-                                                let routine = routine.clone();
-                                                let reps = FieldValue::new_with_empty_default(*reps);
-                                                let tempo = phase_fields(tempo);
-                                                let weight = FieldValue::new_with_empty_default(*weight);
-                                                let rpe = FieldValue::new_with_empty_default(*rpe);
-                                                let automatic = FieldValue::new(*automatic);
-                                                *edit_dialog.write() = EditDialog::EditActivity { routine, path, reps, tempo, weight, rpe, automatic };
+                                                *edit_dialog.write() = edit_activity_dialog(&routine, &path, cache.laterality(*exercise_id));
                                             }
                                             _ => {}
                                         }
@@ -892,7 +861,7 @@ fn view_edit_dialog(
                                 move |(_, id)| {
                                     let mut routine = routine.clone();
                                     let path = path.clone();
-                                    routine.add_activity(id, &path);
+                                    routine.add_activity(id, cache.laterality(id), &path);
                                     modify_routine_sections(routine, cache, close_dialog)
                                 }
                             },
@@ -925,7 +894,8 @@ fn view_edit_dialog(
                                 move |(_, id)| {
                                     let mut routine = routine.clone();
                                     let path = path.clone();
-                                    routine.update_activity(Some(id), None, None, None, None, None, &path);
+                                    let sides = replacement_sides(cache.laterality(id));
+                                    routine.update_activity(Some(id), None, None, None, None, None, sides, &path);
                                     modify_routine_sections(routine, cache, close_dialog)
                                 }
                             },
@@ -993,6 +963,8 @@ fn view_edit_dialog(
             weight: weight_field,
             rpe: rpe_field,
             automatic: automatic_field,
+            sides: sides_field,
+            show_sides,
         } => {
             fn validate_automatic(
                 automatic: bool,
@@ -1010,8 +982,8 @@ fn view_edit_dialog(
             }
 
             let validated_tempo = validate_tempo(tempo_fields);
-            let save = eh!(mut routine; path, reps_field, validated_tempo, weight_field, rpe_field, automatic_field, close_dialog; {
-                routine.update_activity(None, reps_field.validated.ok(), validated_tempo.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), automatic_field.validated.ok(), &path);
+            let save = eh!(mut routine; path, reps_field, validated_tempo, weight_field, rpe_field, automatic_field, sides_field, close_dialog; {
+                routine.update_activity(None, reps_field.validated.ok(), validated_tempo.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), automatic_field.validated.ok(), sides_field.validated.ok(), &path);
                 modify_routine_sections(routine, cache, close_dialog)
             });
             match routine.part(path) {
@@ -1030,7 +1002,7 @@ fn view_edit_dialog(
                             on_close: eh!(mut close_dialog; { close_dialog(); }),
                             on_save: save,
                             is_loading: IS_LOADING(),
-                            disabled: !FieldValue::has_valid_changes(&[&[reps_field as &dyn FieldValueState, weight_field, rpe_field, automatic_field], &tempo_field_states[..]].concat()) || validated_automatic.is_err() || validated_tempo.is_err(),
+                            disabled: !FieldValue::has_valid_changes(&[&[reps_field as &dyn FieldValueState, weight_field, rpe_field, automatic_field, sides_field], &tempo_field_states[..]].concat()) || validated_automatic.is_err() || validated_tempo.is_err(),
                             if !exercise_id.is_nil() {
                                 InputField {
                                     label: "Reps",
@@ -1091,6 +1063,33 @@ fn view_edit_dialog(
                                             }
                                         }
                                     },
+                                }
+                            }
+                            if *show_sides {
+                                ButtonSelectField {
+                                    label: "Sides",
+                                    options: vec![
+                                        ButtonSelectOption {
+                                            text: "Combined".to_string(),
+                                            value: domain::Sides::Combined,
+                                        },
+                                        ButtonSelectOption {
+                                            text: "Per side".to_string(),
+                                            value: domain::Sides::PerSide,
+                                        },
+                                    ],
+                                    selected: sides_field.validated.clone().unwrap_or_default(),
+                                    has_changed: sides_field.changed(),
+                                    on_click: {
+                                        move |(_, value): (_, domain::Sides)| {
+                                            async move {
+                                                if let EditDialog::EditActivity { sides, .. } =  &mut *edit_dialog.write() {
+                                                    *sides = sides_field_value(value, &sides.orig);
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "data-testid": "button-select-sides",
                                 }
                             }
                             if !exercise_id.is_nil() {
@@ -1178,6 +1177,54 @@ fn view_edit_dialog(
                 }
             }
         }
+    }
+}
+
+fn edit_activity_dialog(
+    routine: &domain::Routine,
+    path: &domain::RoutinePartPath,
+    laterality: Option<domain::Laterality>,
+) -> EditDialog {
+    let Some(domain::RoutinePart::RoutineActivity {
+        exercise_id,
+        reps,
+        tempo,
+        weight,
+        rpe,
+        automatic,
+        sides,
+    }) = routine.part(path)
+    else {
+        return EditDialog::None;
+    };
+    EditDialog::EditActivity {
+        routine: routine.clone(),
+        path: path.clone(),
+        reps: FieldValue::new_with_empty_default(*reps),
+        tempo: phase_fields(tempo),
+        weight: FieldValue::new_with_empty_default(*weight),
+        rpe: FieldValue::new_with_empty_default(*rpe),
+        automatic: FieldValue::new(*automatic),
+        sides: sides_field_value(*sides, &(*sides as u8).to_string()),
+        // A per-side activity keeps the field, so that it can be reset after the laterality of
+        // its exercise changed.
+        show_sides: !exercise_id.is_nil()
+            && (laterality == Some(domain::Laterality::Unilateral)
+                || *sides == domain::Sides::PerSide),
+    }
+}
+
+/// The sides of an activity whose exercise is replaced by one of `laterality`, `None` keeping the
+/// sides of the activity if the laterality is unknown.
+fn replacement_sides(laterality: Option<domain::Laterality>) -> Option<domain::Sides> {
+    laterality.map(|laterality| domain::Sides::for_laterality(Some(laterality)))
+}
+
+fn sides_field_value(sides: domain::Sides, orig: &str) -> FieldValue<domain::Sides> {
+    FieldValue {
+        input: (sides as u8).to_string(),
+        validated: Ok(sides),
+        orig: orig.to_string(),
     }
 }
 
@@ -1312,6 +1359,8 @@ pub enum EditDialog {
         weight: FieldValue<domain::Weight>,
         rpe: FieldValue<domain::RPE>,
         automatic: FieldValue<bool>,
+        sides: FieldValue<domain::Sides>,
+        show_sides: bool,
     },
 }
 
@@ -1418,6 +1467,58 @@ mod tests {
     }
 
     #[test]
+    fn test_only_a_per_side_activity_is_marked() {
+        let html = render_routine(1, || {
+            with_routine().with_routines(vec![domain::Routine {
+                sections: vec![section(vec![
+                    activity(1),
+                    activity_with_sides(2, domain::Sides::PerSide),
+                ])],
+                ..routine()
+            }])
+        });
+
+        assert_eq!(all_text_of(&html, "set-sides"), vec!["per side"]);
+    }
+
+    #[rstest::rstest]
+    #[case::unilateral(Some(domain::Laterality::Unilateral), domain::Sides::Combined, true)]
+    #[case::without_laterality(None, domain::Sides::Combined, false)]
+    #[case::without_laterality_already_per_side(None, domain::Sides::PerSide, true)]
+    #[case::bilateral(Some(domain::Laterality::Bilateral), domain::Sides::Combined, false)]
+    #[case::bilateral_already_per_side(
+        Some(domain::Laterality::Bilateral),
+        domain::Sides::PerSide,
+        true
+    )]
+    fn test_the_sides_are_asked_for_a_unilateral_exercise_or_a_per_side_activity(
+        #[case] laterality: Option<domain::Laterality>,
+        #[case] sides: domain::Sides,
+        #[case] expected: bool,
+    ) {
+        let routine = domain::Routine {
+            sections: vec![section(vec![activity_with_sides(1, sides)])],
+            ..routine()
+        };
+
+        assert!(matches!(
+            edit_activity_dialog(&routine, &vec![0, 0].into(), laterality),
+            EditDialog::EditActivity { show_sides, .. } if show_sides == expected
+        ));
+    }
+
+    #[rstest::rstest]
+    #[case::unilateral(Some(domain::Laterality::Unilateral), Some(domain::Sides::PerSide))]
+    #[case::bilateral(Some(domain::Laterality::Bilateral), Some(domain::Sides::Combined))]
+    #[case::unknown(None, None)]
+    fn test_a_replacement_keeps_the_sides_only_without_a_laterality(
+        #[case] laterality: Option<domain::Laterality>,
+        #[case] expected: Option<domain::Sides>,
+    ) {
+        assert_eq!(replacement_sides(laterality), expected);
+    }
+
+    #[test]
     fn test_the_notes_are_shown_only_when_there_are_some() {
         let with_notes = render_routine(1, || {
             with_routine().with_routines(vec![domain::Routine {
@@ -1486,6 +1587,7 @@ mod tests {
             weight,
             rpe,
             automatic,
+            sides,
             ..
         } = activity(reps)
         else {
@@ -1498,6 +1600,7 @@ mod tests {
             weight,
             rpe,
             automatic,
+            sides,
         }
     }
 
@@ -1507,6 +1610,7 @@ mod tests {
             tempo,
             weight,
             automatic,
+            sides,
             ..
         } = activity(reps)
         else {
@@ -1519,6 +1623,19 @@ mod tests {
             weight,
             rpe,
             automatic,
+            sides,
+        }
+    }
+
+    fn activity_with_sides(reps: u32, sides: domain::Sides) -> domain::RoutinePart {
+        domain::RoutinePart::RoutineActivity {
+            exercise_id: 1.into(),
+            reps: domain::Reps::new(reps).unwrap(),
+            tempo: domain::Tempo::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+            automatic: false,
+            sides,
         }
     }
 
@@ -1530,6 +1647,7 @@ mod tests {
             weight: domain::Weight::default(),
             rpe: domain::RPE::ZERO,
             automatic: false,
+            sides: domain::Sides::Combined,
         }
     }
 

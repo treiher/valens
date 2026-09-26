@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    ops::RangeInclusive,
+    ops::{Range, RangeInclusive},
     str::FromStr,
 };
 
@@ -10,9 +10,9 @@ use log::error;
 use uuid::Uuid;
 
 use crate::{
-    CreateError, DeleteError, Exercise, ExerciseID, MuscleID, RPE, ReadError, Reps, RoutineID,
-    Stimulus, SyncError, Tempo, Time, TrainingStats, UpdateError, ValidationError, Weight,
-    one_rep_max, training::values_to_string, training_stats,
+    CreateError, DeleteError, Exercise, ExerciseID, Laterality, MuscleID, RPE, ReadError, Reps,
+    RoutineID, Side, Sides, Stimulus, SyncError, Tempo, Time, TrainingStats, UpdateError,
+    ValidationError, Weight, one_rep_max, training::values_to_string, training_stats,
 };
 
 #[allow(async_fn_in_trait)]
@@ -266,53 +266,29 @@ impl TrainingSession {
             .fold(None, |acc, v| Some(acc.map_or(v, |m: f32| m.max(v))))
     }
 
+    /// The number of sets weighted by their rating, a set with a side counting half.
     #[must_use]
-    pub fn load(&self) -> u32 {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set {
-                    reps, time, rpe, ..
-                } => Some(if let Some(rpe) = rpe.non_zero() {
-                    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                    if rpe > RPE::FIVE {
-                        (2.0_f32).powf(f32::from(rpe) - 5.0).round() as u32
-                    } else {
-                        1
-                    }
-                } else {
-                    u32::from(reps.non_zero().is_some() || time.non_zero().is_some())
-                }),
-                TrainingSessionElement::Rest { .. } => None,
-            })
-            .collect::<Vec<_>>();
-        sets.iter().sum::<u32>()
+    pub fn load(&self) -> f32 {
+        halved(
+            self.elements
+                .iter()
+                .map(|element| halves(element) * set_load(element))
+                .sum(),
+        )
     }
 
+    /// The number of sets that count for the muscle, a set with a side counting half.
     #[must_use]
-    pub fn set_volume(&self) -> u32 {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set {
-                    reps, time, rpe, ..
-                } => {
-                    if rpe.non_zero().unwrap_or(RPE::TEN) >= RPE::SEVEN {
-                        Some(u32::from(
-                            reps.non_zero().is_some() || time.non_zero().is_some(),
-                        ))
-                    } else {
-                        None
-                    }
-                }
-                TrainingSessionElement::Rest { .. } => None,
-            })
-            .collect::<Vec<_>>();
-        sets.iter().sum::<u32>()
+    pub fn set_volume(&self) -> f32 {
+        halved(
+            self.elements
+                .iter()
+                .map(|element| halves(element) * u32::from(counts_for_muscle(element)))
+                .sum(),
+        )
     }
 
+    /// The repetitions times the weight, a set with a side counting in full.
     #[must_use]
     pub fn volume_load(&self) -> u32 {
         let sets = &self
@@ -341,25 +317,15 @@ impl TrainingSession {
         sets.iter().sum::<u32>()
     }
 
+    /// The time under tension, a set with a side counting half, rounded half up.
+    #[must_use]
     pub fn tut(&self) -> Option<u32> {
-        let sets = &self
+        let tuts = self
             .elements
             .iter()
-            .map(|e| match e {
-                TrainingSessionElement::Set { reps, time, .. } => time
-                    .non_zero()
-                    .map(|v| reps.non_zero().unwrap_or(Reps::new(1).unwrap()) * v),
-                TrainingSessionElement::Rest { .. } => None,
-            })
+            .filter_map(|element| Some(halves(element) * set_tut(element)?))
             .collect::<Vec<_>>();
-        if sets.iter().all(Option::is_none) {
-            return None;
-        }
-        Some(
-            sets.iter()
-                .map(|t| u32::from(t.unwrap_or_default()))
-                .sum::<u32>(),
-        )
+        (!tuts.is_empty()).then(|| tuts.iter().sum::<u32>().div_ceil(2))
     }
 
     /// Whether any set records a time or prescribes a tempo.
@@ -431,34 +397,27 @@ impl TrainingSession {
             .map(|(_, reps, weight)| (reps, weight))
     }
 
+    /// The stimulus of the sets that count for the muscle, a set with a side counting half.
     #[must_use]
     pub fn stimulus_per_muscle(&self, exercises: &[Exercise]) -> BTreeMap<MuscleID, Stimulus> {
         let mut result: BTreeMap<MuscleID, Stimulus> = BTreeMap::new();
         for element in &self.elements {
-            if let TrainingSessionElement::Set {
-                exercise_id,
-                reps,
-                time,
-                rpe,
-                ..
-            } = element
+            if !counts_for_muscle(element) {
+                continue;
+            }
+            if let TrainingSessionElement::Set { exercise_id, .. } = element
+                && let Some(exercise) = exercises.iter().find(|e| e.id == *exercise_id)
             {
-                if reps.non_zero().is_none() && time.non_zero().is_none() {
-                    continue;
-                }
-                if let Some(rpe) = rpe.non_zero()
-                    && rpe < RPE::SEVEN
-                {
-                    continue;
-                }
-                if let Some(exercise) = exercises.iter().find(|e| e.id == *exercise_id) {
-                    for (muscle_id, stimulus) in &exercise.muscle_stimulus() {
-                        *result.entry(*muscle_id).or_insert(Stimulus::NONE) += *stimulus;
-                    }
+                for (muscle_id, stimulus) in &exercise.muscle_stimulus() {
+                    *result.entry(*muscle_id).or_insert(Stimulus::NONE) +=
+                        *stimulus * halves(element);
                 }
             }
         }
         result
+            .into_iter()
+            .map(|(muscle_id, stimulus)| (muscle_id, stimulus / 2))
+            .collect()
     }
 
     #[must_use]
@@ -551,6 +510,7 @@ impl TrainingSession {
             match element {
                 TrainingSessionElement::Set {
                     exercise_id,
+                    side,
                     target_reps,
                     target_tempo,
                     target_weight,
@@ -560,6 +520,7 @@ impl TrainingSession {
                 } => {
                     sets.push(TrainingSessionElement::Set {
                         exercise_id: *exercise_id,
+                        side: *side,
                         reps: Reps::default(),
                         time: Time::default(),
                         weight: Weight::default(),
@@ -592,60 +553,51 @@ impl TrainingSession {
         self.ensure_sections_contain_set("adding set");
     }
 
-    pub fn add_exercise(&mut self, section_idx: usize, exercise_id: ExerciseID) {
+    /// Adds sets of `exercise_id` to every round of the section.
+    ///
+    /// The sets are a pair if the sets of the exercise already in a round carry a side, or if the
+    /// round holds none and the laterality calls for a pair.
+    pub fn add_exercise(
+        &mut self,
+        section_idx: usize,
+        exercise_id: ExerciseID,
+        laterality: Option<Laterality>,
+    ) {
         let sections = &self.compute_sections();
         let section = &sections[section_idx];
+        let sides = Sides::for_laterality(laterality);
 
         let mut elements = vec![];
-        for element in section.elements() {
-            let element = element.clone();
-            match element {
-                TrainingSessionElement::Set { .. } => {
-                    elements.push(element);
-                }
-                TrainingSessionElement::Rest { .. } => {
-                    elements.push(TrainingSessionElement::Set {
-                        exercise_id,
-                        reps: Reps::default(),
-                        time: Time::default(),
-                        weight: Weight::default(),
-                        rpe: RPE::default(),
-                        target_reps: Reps::default(),
-                        target_tempo: Tempo::default(),
-                        target_weight: Weight::default(),
-                        target_rpe: RPE::default(),
-                        automatic: false,
-                    });
-                    elements.push(element);
-                }
-            }
-        }
-
-        if let Some(TrainingSessionElement::Set { .. }) = section.elements().last() {
-            elements.push(TrainingSessionElement::Set {
+        for run in section
+            .elements()
+            .split_inclusive(|element| matches!(element, TrainingSessionElement::Rest { .. }))
+        {
+            let (sets, rest) = match run.split_last() {
+                Some((rest @ TrainingSessionElement::Rest { .. }, sets)) => (sets, Some(rest)),
+                _ => (run, None),
+            };
+            elements.extend(sets.iter().cloned());
+            elements.extend(new_sets(
                 exercise_id,
-                reps: Reps::default(),
-                time: Time::default(),
-                weight: Weight::default(),
-                rpe: RPE::default(),
-                target_reps: Reps::default(),
-                target_tempo: Tempo::default(),
-                target_weight: Weight::default(),
-                target_rpe: RPE::default(),
-                automatic: false,
-            });
+                sides_of(sets, exercise_id).unwrap_or(sides),
+            ));
+            elements.extend(rest.cloned());
         }
 
         self.replace_elements_of_section(sections, section_idx, elements);
         self.ensure_sections_contain_set("adding exercise");
     }
 
+    /// Replaces `exercise_id` in the section, removing the sides of its sets unless the
+    /// laterality of the replacement calls for a pair.
     pub fn replace_exercise(
         &mut self,
         section_idx: usize,
         exercise_id: ExerciseID,
         replacement: ExerciseID,
+        laterality: Option<Laterality>,
     ) {
+        let keeps_sides = Sides::for_laterality(laterality) == Sides::PerSide;
         let sections = self.compute_sections();
         let elements = sections[section_idx]
             .elements()
@@ -653,11 +605,16 @@ impl TrainingSession {
             .cloned()
             .map(|mut element| {
                 if let TrainingSessionElement::Set {
-                    exercise_id: id, ..
+                    exercise_id: id,
+                    side,
+                    ..
                 } = &mut element
                     && *id == exercise_id
                 {
                     *id = replacement;
+                    if !keeps_sides {
+                        *side = Side::Unset;
+                    }
                 }
                 element
             })
@@ -679,25 +636,34 @@ impl TrainingSession {
         self.ensure_sections_contain_set("removing set");
     }
 
+    /// Removes the last group of sets of `exercise_id` from every run of the section, or the
+    /// whole section if its first run holds a single group.
     pub fn remove_exercise(&mut self, section_idx: usize, exercise_id: ExerciseID) {
         let sections = self.compute_sections();
         let section = &sections[section_idx];
 
         let mut elements = vec![];
         let ids = section.exercise_ids();
-        if ids.len() > 1 {
+        if groups(&section.elements()[..ids.len()]).len() > 1 {
             let closes_round = ids.last() == Some(&exercise_id);
             for run in section
                 .elements()
                 .split_inclusive(|element| matches!(element, TrainingSessionElement::Rest { .. }))
             {
-                let removed_idx = run.iter().rposition(|element| {
-                    matches!(element, TrainingSessionElement::Set { exercise_id: id, .. } if *id == exercise_id)
-                });
+                let sets = run
+                    .iter()
+                    .take_while(|element| matches!(element, TrainingSessionElement::Set { .. }))
+                    .count();
+                let removed = groups(&run[..sets])
+                    .into_iter()
+                    .rfind(|group| {
+                        matches!(run[group.start], TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id)
+                    })
+                    .unwrap_or_default();
                 let remaining = run
                     .iter()
                     .enumerate()
-                    .filter(|(idx, _)| Some(*idx) != removed_idx)
+                    .filter(|(idx, _)| !removed.contains(idx))
                     .map(|(_, element)| element.clone())
                     .collect::<Vec<_>>();
                 if remaining
@@ -721,25 +687,24 @@ impl TrainingSession {
         self.ensure_sections_contain_set("removing exercise");
     }
 
-    pub fn append_exercise(&mut self, exercise_id: ExerciseID) {
+    /// Appends sets of `exercise_id` to the session.
+    ///
+    /// The sets are a pair if the sets of the exercise in the last run of the session carry a
+    /// side, or if the run holds none and the laterality calls for a pair.
+    pub fn append_exercise(&mut self, exercise_id: ExerciseID, laterality: Option<Laterality>) {
+        let last_run = self
+            .elements
+            .rsplit(|element| matches!(element, TrainingSessionElement::Rest { .. }))
+            .find(|run| !run.is_empty())
+            .unwrap_or_default();
+        let sides = sides_of(last_run, exercise_id).unwrap_or(Sides::for_laterality(laterality));
         if let Some(TrainingSessionElement::Set { .. }) = self.elements.last() {
             self.elements.push(TrainingSessionElement::Rest {
                 target_time: Time::default(),
                 automatic: true,
             });
         }
-        self.elements.push(TrainingSessionElement::Set {
-            exercise_id,
-            reps: Reps::default(),
-            time: Time::default(),
-            weight: Weight::default(),
-            rpe: RPE::default(),
-            target_reps: Reps::default(),
-            target_tempo: Tempo::default(),
-            target_weight: Weight::default(),
-            target_rpe: RPE::default(),
-            automatic: false,
-        });
+        self.elements.extend(new_sets(exercise_id, sides));
         self.ensure_sections_contain_set("appending exercise");
     }
 
@@ -869,50 +834,55 @@ impl TrainingSession {
         first..=last
     }
 
-    /// Returns the indices of the elements of `exercise_id` in one run of consecutive sets of the
-    /// given section, in order.
+    /// Returns the groups of `exercise_id` in one run of consecutive sets of the given section,
+    /// in order, each group as the indices of its elements.
     ///
     /// A run is a maximal sequence of sets not interrupted by a rest. The run containing
     /// `element_idx` is returned, a rest counting towards the run following it. If `element_idx`
-    /// lies outside the runs of the section, the first run is returned.
+    /// lies outside the runs of the section, the first run is returned. A pair of sets forms one
+    /// group and every other set a group of its own.
     #[must_use]
     pub fn run_element_indices(
         &self,
         section_idx: usize,
         exercise_id: ExerciseID,
         element_idx: usize,
-    ) -> Vec<usize> {
+    ) -> Vec<Vec<usize>> {
         if section_idx >= self.section_count() {
             return vec![];
         }
 
-        let mut runs: Vec<Vec<usize>> = vec![];
-        let mut run = vec![];
-        for idx in self.section_range(section_idx) {
+        let section = self.section_range(section_idx);
+        let mut runs: Vec<Range<usize>> = vec![];
+        let mut start = None;
+        for idx in section.clone() {
             match self.elements[idx] {
-                TrainingSessionElement::Set { .. } => run.push(idx),
+                TrainingSessionElement::Set { .. } => {
+                    start.get_or_insert(idx);
+                }
                 TrainingSessionElement::Rest { .. } => {
-                    if !run.is_empty() {
-                        runs.push(std::mem::take(&mut run));
+                    if let Some(start) = start.take() {
+                        runs.push(start..idx);
                     }
                 }
             }
         }
-        if !run.is_empty() {
-            runs.push(run);
+        if let Some(start) = start {
+            runs.push(start..section.end() + 1);
         }
 
         let run = runs
             .iter()
-            .find(|run| run.last().is_some_and(|last| *last >= element_idx))
+            .find(|run| run.end > element_idx)
             .or_else(|| runs.first());
 
         run.map(|run| {
-            run.iter()
-                .copied()
-                .filter(|idx| {
+            groups(&self.elements[run.clone()])
+                .into_iter()
+                .map(|group| (group.start + run.start..group.end + run.start).collect::<Vec<_>>())
+                .filter(|group| {
                     matches!(
-                        self.elements[*idx],
+                        self.elements[group[0]],
                         TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id
                     )
                 })
@@ -932,6 +902,28 @@ impl TrainingSession {
             .filter_map(|(element_idx, element)| match element {
                 TrainingSessionElement::Set { exercise_id, .. } => {
                     let count = counts.entry(*exercise_id).or_default();
+                    let set_index = *count;
+                    *count += 1;
+                    Some((element_idx, set_index))
+                }
+                TrainingSessionElement::Rest { .. } => None,
+            })
+            .collect()
+    }
+
+    /// For every set, its position among the sets of the same exercise and side, keyed by the
+    /// index of the element.
+    #[must_use]
+    pub fn side_set_indices(&self) -> HashMap<usize, usize> {
+        let mut counts: HashMap<(ExerciseID, Side), usize> = HashMap::new();
+        self.elements
+            .iter()
+            .enumerate()
+            .filter_map(|(element_idx, element)| match element {
+                TrainingSessionElement::Set {
+                    exercise_id, side, ..
+                } => {
+                    let count = counts.entry((*exercise_id, *side)).or_default();
                     let set_index = *count;
                     *count += 1;
                     Some((element_idx, set_index))
@@ -1061,6 +1053,7 @@ impl FromStr for TrainingSessionID {
 pub enum TrainingSessionElement {
     Set {
         exercise_id: ExerciseID,
+        side: Side,
         reps: Reps,
         time: Time,
         weight: Weight,
@@ -1230,6 +1223,134 @@ pub fn most_recent_best_set_for_one_rep_max(
         .and_then(|s| s.best_set_for_one_rep_max(exercise_id))
 }
 
+/// The number of halves of a set an element counts as, a set with a side counting as one half.
+fn halves(element: &TrainingSessionElement) -> u32 {
+    match element {
+        TrainingSessionElement::Set {
+            side: Side::Unset, ..
+        }
+        | TrainingSessionElement::Rest { .. } => 2,
+        TrainingSessionElement::Set { .. } => 1,
+    }
+}
+
+#[allow(clippy::cast_precision_loss)]
+fn halved(halves: u32) -> f32 {
+    halves as f32 / 2.
+}
+
+fn set_load(element: &TrainingSessionElement) -> u32 {
+    match element {
+        TrainingSessionElement::Set {
+            reps, time, rpe, ..
+        } => {
+            if let Some(rpe) = rpe.non_zero() {
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                if rpe > RPE::FIVE {
+                    (2.0_f32).powf(f32::from(rpe) - 5.0).round() as u32
+                } else {
+                    1
+                }
+            } else {
+                u32::from(reps.non_zero().is_some() || time.non_zero().is_some())
+            }
+        }
+        TrainingSessionElement::Rest { .. } => 0,
+    }
+}
+
+/// Whether a set records reps or a time with a rating that is unset or at least seven.
+fn counts_for_muscle(element: &TrainingSessionElement) -> bool {
+    match element {
+        TrainingSessionElement::Set {
+            reps, time, rpe, ..
+        } => {
+            rpe.non_zero().unwrap_or(RPE::TEN) >= RPE::SEVEN
+                && (reps.non_zero().is_some() || time.non_zero().is_some())
+        }
+        TrainingSessionElement::Rest { .. } => false,
+    }
+}
+
+fn set_tut(element: &TrainingSessionElement) -> Option<u32> {
+    match element {
+        TrainingSessionElement::Set { reps, time, .. } => time
+            .non_zero()
+            .map(|v| u32::from(reps.non_zero().unwrap_or(Reps::new(1).unwrap()) * v)),
+        TrainingSessionElement::Rest { .. } => None,
+    }
+}
+
+/// Splits a run of sets into groups, a `Left` set directly followed by a `Right` set of the same
+/// exercise forming one group and every other set a group of its own.
+fn groups(run: &[TrainingSessionElement]) -> Vec<Range<usize>> {
+    let mut result = vec![];
+    let mut idx = 0;
+    while idx < run.len() {
+        let len = if let (
+            TrainingSessionElement::Set {
+                exercise_id: left,
+                side: Side::Left,
+                ..
+            },
+            Some(TrainingSessionElement::Set {
+                exercise_id: right,
+                side: Side::Right,
+                ..
+            }),
+        ) = (&run[idx], run.get(idx + 1))
+            && left == right
+        {
+            2
+        } else {
+            1
+        };
+        result.push(idx..idx + len);
+        idx += len;
+    }
+    result
+}
+
+/// Returns how the sets of `exercise_id` among `elements` are performed, or `None` if there is no
+/// such set.
+fn sides_of(elements: &[TrainingSessionElement], exercise_id: ExerciseID) -> Option<Sides> {
+    let sides = elements
+        .iter()
+        .filter_map(|element| match element {
+            TrainingSessionElement::Set {
+                exercise_id: id,
+                side,
+                ..
+            } if *id == exercise_id => Some(*side),
+            TrainingSessionElement::Set { .. } | TrainingSessionElement::Rest { .. } => None,
+        })
+        .collect::<Vec<_>>();
+    if sides.is_empty() {
+        None
+    } else if sides.iter().any(|side| *side != Side::Unset) {
+        Some(Sides::PerSide)
+    } else {
+        Some(Sides::Combined)
+    }
+}
+
+fn new_sets(exercise_id: ExerciseID, sides: Sides) -> Vec<TrainingSessionElement> {
+    let set = |side| TrainingSessionElement::Set {
+        exercise_id,
+        side,
+        reps: Reps::default(),
+        time: Time::default(),
+        weight: Weight::default(),
+        rpe: RPE::default(),
+        target_reps: Reps::default(),
+        target_tempo: Tempo::default(),
+        target_weight: Weight::default(),
+        target_rpe: RPE::default(),
+        automatic: false,
+    };
+    sides.sides().iter().map(|side| set(*side)).collect()
+}
+
 fn next_consecutive_exercise_ids(elements: &[TrainingSessionElement]) -> Vec<ExerciseID> {
     let mut exercise_ids = vec![];
 
@@ -1245,6 +1366,7 @@ fn next_consecutive_exercise_ids(elements: &[TrainingSessionElement]) -> Vec<Exe
 
 #[cfg(test)]
 mod tests {
+    use assert_approx_eq::assert_approx_eq;
     use chrono::{Duration, Local};
     use pretty_assertions::assert_eq;
     use proptest::prelude::*;
@@ -1266,6 +1388,7 @@ mod tests {
             elements: vec![
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
+                    side: Side::Unset,
                     reps: Reps::new(10).unwrap(),
                     time: Time::new(3).unwrap(),
                     weight: Weight::new(30.0).unwrap(),
@@ -1282,6 +1405,7 @@ mod tests {
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 2.into(),
+                    side: Side::Unset,
                     reps: Reps::new(5).unwrap(),
                     time: Time::new(4).unwrap(),
                     weight: Weight::default(),
@@ -1298,6 +1422,7 @@ mod tests {
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 2.into(),
+                    side: Side::Unset,
                     reps: Reps::default(),
                     time: Time::new(60).unwrap(),
                     weight: Weight::default(),
@@ -1333,6 +1458,7 @@ mod tests {
                         ..
                     } => TrainingSessionElement::Set {
                         exercise_id: *exercise_id,
+                        side: Side::Unset,
                         reps: Reps::default(),
                         time: Time::default(),
                         weight: Weight::default(),
@@ -1416,30 +1542,30 @@ mod tests {
     }
 
     #[rstest]
-    #[case(&*TRAINING_SESSION, 10)]
-    #[case(&*EMPTY_TRAINING_SESSION, 0)]
+    #[case(&*TRAINING_SESSION, 10.0)]
+    #[case(&*EMPTY_TRAINING_SESSION, 0.0)]
     fn test_training_session_load(
         #[case] training_session: &TrainingSession,
-        #[case] expected: u32,
+        #[case] expected: f32,
     ) {
-        assert_eq!(training_session.load(), expected);
+        assert_approx_eq!(training_session.load(), expected);
     }
 
     #[rstest]
-    #[case(&*TRAINING_SESSION, 2)]
-    #[case(&*EMPTY_TRAINING_SESSION, 0)]
+    #[case(&*TRAINING_SESSION, 2.0)]
+    #[case(&*EMPTY_TRAINING_SESSION, 0.0)]
     fn test_training_session_set_volume(
         #[case] training_session: &TrainingSession,
-        #[case] expected: u32,
+        #[case] expected: f32,
     ) {
-        assert_eq!(training_session.set_volume(), expected);
+        assert_approx_eq!(training_session.set_volume(), expected);
     }
 
     #[test]
     fn test_training_session_set_volume_treats_unset_rpe_as_maximum() {
         let training_session =
             training_session(&[set(1, 5, 100.0, RPE::ZERO), set(1, 5, 100.0, RPE::FOUR)]);
-        assert_eq!(training_session.set_volume(), 1);
+        assert_approx_eq!(training_session.set_volume(), 1.0);
     }
 
     #[rstest]
@@ -1489,6 +1615,7 @@ mod tests {
             rest(60),
             TrainingSessionElement::Set {
                 exercise_id,
+                side: Side::Unset,
                 reps,
                 time,
                 weight,
@@ -1531,6 +1658,7 @@ mod tests {
             rest(60),
             TrainingSessionElement::Set {
                 exercise_id,
+                side: Side::Unset,
                 reps,
                 time,
                 weight,
@@ -1575,6 +1703,7 @@ mod tests {
             notes: String::new(),
             elements: vec![TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: Side::Unset,
                 reps: Reps::new(30).unwrap(),
                 time: Time::default(),
                 weight: Weight::new(100.0).unwrap(),
@@ -1605,6 +1734,7 @@ mod tests {
             elements: vec![
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
+                    side: Side::Unset,
                     reps: Reps::new(10).unwrap(),
                     time: Time::default(),
                     weight: Weight::new(100.0).unwrap(),
@@ -1617,6 +1747,7 @@ mod tests {
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
+                    side: Side::Unset,
                     reps: Reps::new(8).unwrap(),
                     time: Time::default(),
                     weight: Weight::new(105.0).unwrap(),
@@ -2418,7 +2549,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.add_exercise(0, 2.into());
+        training_session.add_exercise(0, 2.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2456,7 +2587,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.add_exercise(2, 2.into());
+        training_session.add_exercise(2, 2.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2500,7 +2631,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.add_exercise(0, 3.into());
+        training_session.add_exercise(0, 3.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2550,7 +2681,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.add_exercise(1, 3.into());
+        training_session.add_exercise(1, 3.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2581,7 +2712,7 @@ mod tests {
     #[test]
     fn test_training_session_add_exercise_no_rest() {
         let mut training_session = training_session(&[exercise(0, 0)]);
-        training_session.add_exercise(0, 1.into());
+        training_session.add_exercise(0, 1.into(), None);
         assert_eq!(
             training_session.elements,
             vec![exercise(0, 0), exercise(0, 1)]
@@ -2604,7 +2735,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.replace_exercise(0, 0.into(), 2.into());
+        training_session.replace_exercise(0, 0.into(), 2.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2640,7 +2771,7 @@ mod tests {
             exercise(5, 0),
             rest(5),
         ]);
-        training_session.replace_exercise(2, 0.into(), 2.into());
+        training_session.replace_exercise(2, 0.into(), 2.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2682,7 +2813,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.replace_exercise(0, 0.into(), 3.into());
+        training_session.replace_exercise(0, 0.into(), 3.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2724,7 +2855,7 @@ mod tests {
             exercise(7, 2),
             rest(3),
         ]);
-        training_session.replace_exercise(0, 0.into(), 3.into());
+        training_session.replace_exercise(0, 0.into(), 3.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2756,7 +2887,7 @@ mod tests {
             exercise(5, 1),
             rest(1),
         ]);
-        training_session.replace_exercise(0, 1.into(), 2.into());
+        training_session.replace_exercise(0, 1.into(), 2.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2783,7 +2914,7 @@ mod tests {
             exercise(3, 1),
             rest(2),
         ]);
-        training_session.replace_exercise(0, 1.into(), 2.into());
+        training_session.replace_exercise(0, 1.into(), 2.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2820,7 +2951,7 @@ mod tests {
             exercise(11, 2),
             rest(5),
         ]);
-        training_session.replace_exercise(1, 2.into(), 3.into());
+        training_session.replace_exercise(1, 2.into(), 3.into(), None);
         assert_eq!(
             training_session.elements,
             vec![
@@ -3117,14 +3248,14 @@ mod tests {
     #[test]
     fn test_training_session_append_exercise_empty() {
         let mut training_session = training_session(&[]);
-        training_session.append_exercise(1.into());
+        training_session.append_exercise(1.into(), None);
         assert_eq!(training_session.elements, vec![exercise(0, 1)]);
     }
 
     #[test]
     fn test_training_session_append_exercise_same() {
         let mut training_session = training_session(&[exercise(0, 1)]);
-        training_session.append_exercise(1.into());
+        training_session.append_exercise(1.into(), None);
         assert_eq!(
             training_session.elements,
             vec![exercise(0, 1), rest(0), exercise(0, 1)]
@@ -3134,7 +3265,7 @@ mod tests {
     #[test]
     fn test_training_session_append_exercise_different() {
         let mut training_session = training_session(&[exercise(0, 1)]);
-        training_session.append_exercise(2.into());
+        training_session.append_exercise(2.into(), None);
         assert_eq!(
             training_session.elements,
             vec![exercise(0, 1), rest(0), exercise(0, 2)]
@@ -3592,17 +3723,17 @@ mod tests {
     }
 
     #[rstest]
-    #[case::first_round(0, 1, 0, vec![0])]
-    #[case::rest_belongs_to_the_following_round(0, 1, 1, vec![2])]
-    #[case::second_round(0, 1, 2, vec![2])]
-    #[case::trailing_rest_falls_back_to_the_first_round(0, 1, 3, vec![0])]
-    #[case::before_the_section_falls_back_to_the_first_round(1, 2, 0, vec![4])]
-    #[case::after_the_section_falls_back_to_the_first_round(0, 1, 99, vec![0])]
+    #[case::first_round(0, 1, 0, vec![vec![0]])]
+    #[case::rest_belongs_to_the_following_round(0, 1, 1, vec![vec![2]])]
+    #[case::second_round(0, 1, 2, vec![vec![2]])]
+    #[case::trailing_rest_falls_back_to_the_first_round(0, 1, 3, vec![vec![0]])]
+    #[case::before_the_section_falls_back_to_the_first_round(1, 2, 0, vec![vec![4]])]
+    #[case::after_the_section_falls_back_to_the_first_round(0, 1, 99, vec![vec![0]])]
     fn test_training_session_run_element_indices(
         #[case] section_idx: usize,
         #[case] exercise_id: u128,
         #[case] element_idx: usize,
-        #[case] expected: Vec<usize>,
+        #[case] expected: Vec<Vec<usize>>,
     ) {
         let ts = training_session(&[
             exercise(0, 1),
@@ -3619,12 +3750,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case::first_exercise(1, 3, vec![3])]
-    #[case::second_exercise(2, 0, vec![1])]
+    #[case::first_exercise(1, 3, vec![vec![3]])]
+    #[case::second_exercise(2, 0, vec![vec![1]])]
     fn test_training_session_run_element_indices_of_a_superset(
         #[case] exercise_id: u128,
         #[case] element_idx: usize,
-        #[case] expected: Vec<usize>,
+        #[case] expected: Vec<Vec<usize>>,
     ) {
         let ts = training_session(&[
             exercise(0, 1),
@@ -3644,16 +3775,22 @@ mod tests {
     fn test_training_session_run_element_indices_skips_a_leading_rest() {
         let ts = training_session(&[rest(0), exercise(1, 1), rest(1), exercise(2, 1)]);
 
-        assert_eq!(ts.run_element_indices(0, 1.into(), 0), Vec::<usize>::new());
-        assert_eq!(ts.run_element_indices(1, 1.into(), 1), vec![1]);
-        assert_eq!(ts.run_element_indices(1, 1.into(), 2), vec![3]);
+        assert_eq!(
+            ts.run_element_indices(0, 1.into(), 0),
+            Vec::<Vec<usize>>::new()
+        );
+        assert_eq!(ts.run_element_indices(1, 1.into(), 1), vec![vec![1]]);
+        assert_eq!(ts.run_element_indices(1, 1.into(), 2), vec![vec![3]]);
     }
 
     #[test]
     fn test_training_session_run_element_indices_beyond_the_last_section() {
         let ts = training_session(&[exercise(0, 1)]);
 
-        assert_eq!(ts.run_element_indices(1, 1.into(), 0), Vec::<usize>::new());
+        assert_eq!(
+            ts.run_element_indices(1, 1.into(), 0),
+            Vec::<Vec<usize>>::new()
+        );
     }
 
     #[test]
@@ -3665,6 +3802,295 @@ mod tests {
         );
         assert!(training_session(&[rest(60)]).all_sets_recorded());
         assert!(training_session(&[]).all_sets_recorded());
+    }
+
+    #[rstest]
+    #[case::full_pair(&[sided_set(1, Side::Left, 5, RPE::EIGHT), sided_set(1, Side::Right, 5, RPE::EIGHT)], 1.0)]
+    #[case::pair_whose_left_side_is_empty(&[sided_set(1, Side::Left, 0, RPE::ZERO), sided_set(1, Side::Right, 5, RPE::EIGHT)], 0.5)]
+    #[case::unpaired_right_set(&[sided_set(1, Side::Right, 5, RPE::EIGHT)], 0.5)]
+    #[case::pair_with_one_side_below_seven(&[sided_set(1, Side::Left, 5, RPE::SIX), sided_set(1, Side::Right, 5, RPE::EIGHT)], 0.5)]
+    #[case::pair_with_both_sides_below_seven(&[sided_set(1, Side::Left, 5, RPE::SIX), sided_set(1, Side::Right, 5, RPE::SIX)], 0.0)]
+    #[case::sides_split_by_another_exercise(&[sided_set(1, Side::Left, 5, RPE::ZERO), set(2, 5, 0.0, RPE::ZERO), sided_set(1, Side::Right, 5, RPE::ZERO)], 2.0)]
+    #[case::side_less_sets(&[set(1, 5, 0.0, RPE::ZERO), set(1, 5, 0.0, RPE::ZERO)], 2.0)]
+    fn test_training_session_set_volume_of_sets_with_a_side(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] expected: f32,
+    ) {
+        assert_approx_eq!(training_session(elements).set_volume(), expected);
+    }
+
+    #[test]
+    fn test_training_session_stimulus_per_muscle_counts_a_set_with_a_side_half() {
+        let exercises = [Exercise {
+            id: 1.into(),
+            name: Name::new("A").unwrap(),
+            notes: String::new(),
+            muscles: vec![ExerciseMuscle {
+                muscle_id: MuscleID::Quads,
+                stimulus: Stimulus::PRIMARY,
+            }],
+            force: None,
+            mechanic: None,
+            laterality: Some(Laterality::Unilateral),
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }];
+        let session = training_session(&[
+            sided_set(1, Side::Left, 5, RPE::EIGHT),
+            sided_set(1, Side::Right, 5, RPE::EIGHT),
+            sided_set(1, Side::Left, 5, RPE::SIX),
+            sided_set(1, Side::Right, 5, RPE::EIGHT),
+        ]);
+
+        assert_eq!(
+            session.stimulus_per_muscle(&exercises),
+            BTreeMap::from([(MuscleID::Quads, Stimulus::PRIMARY * 3 / 2)])
+        );
+    }
+
+    #[test]
+    fn test_training_session_load_of_sets_with_a_side() {
+        let session = training_session(&[
+            sided_set(1, Side::Left, 5, RPE::EIGHT),
+            sided_set(1, Side::Right, 5, RPE::NINE),
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+        ]);
+
+        assert_approx_eq!(session.load(), 12.5);
+    }
+
+    #[rstest]
+    #[case::different_times(3, 4, Some(18))]
+    #[case::empty_side(0, 4, Some(10))]
+    #[case::no_time(0, 0, None)]
+    fn test_training_session_tut_of_sets_with_a_side(
+        #[case] left_time: u32,
+        #[case] right_time: u32,
+        #[case] expected: Option<u32>,
+    ) {
+        let timed = |side, time| TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            side,
+            reps: Reps::new(5).unwrap(),
+            time: Time::new(time).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            target_reps: Reps::default(),
+            target_tempo: Tempo::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::default(),
+            automatic: false,
+        };
+        let session =
+            training_session(&[timed(Side::Left, left_time), timed(Side::Right, right_time)]);
+
+        assert_eq!(session.tut(), expected);
+    }
+
+    #[test]
+    fn test_training_session_side_set_indices_of_a_session_of_pairs() {
+        let session = training_session(&[
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            rest(60),
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            set(1, 5, 0.0, RPE::ZERO),
+        ]);
+
+        assert_eq!(
+            session.side_set_indices(),
+            HashMap::from([(0, 0), (1, 0), (3, 1), (4, 1), (5, 0)])
+        );
+    }
+
+    #[rstest]
+    #[case::unilateral(Some(Laterality::Unilateral), vec![sided_set(2, Side::Left, 0, RPE::ZERO), sided_set(2, Side::Right, 0, RPE::ZERO)])]
+    #[case::bilateral(Some(Laterality::Bilateral), vec![set(2, 0, 0.0, RPE::ZERO)])]
+    fn test_training_session_add_exercise_of_a_laterality(
+        #[case] laterality: Option<Laterality>,
+        #[case] added: Vec<TrainingSessionElement>,
+    ) {
+        let mut session = training_session(&[
+            set(1, 5, 0.0, RPE::ZERO),
+            rest(60),
+            set(1, 5, 0.0, RPE::ZERO),
+            rest(60),
+        ]);
+
+        session.add_exercise(0, 2.into(), laterality);
+
+        let round = [vec![set(1, 5, 0.0, RPE::ZERO)], added, vec![rest(60)]].concat();
+        assert_eq!(session.elements, [round.clone(), round].concat());
+    }
+
+    #[test]
+    fn test_training_session_add_exercise_held_side_less() {
+        let mut session = training_session(&[set(1, 5, 0.0, RPE::ZERO), rest(60)]);
+
+        session.add_exercise(0, 1.into(), Some(Laterality::Unilateral));
+
+        assert_eq!(
+            session.elements,
+            [
+                set(1, 5, 0.0, RPE::ZERO),
+                set(1, 0, 0.0, RPE::ZERO),
+                rest(60)
+            ]
+        );
+    }
+
+    #[rstest]
+    #[case::unilateral(Some(Laterality::Unilateral), vec![sided_set(2, Side::Left, 0, RPE::ZERO), sided_set(2, Side::Right, 0, RPE::ZERO)])]
+    #[case::bilateral(Some(Laterality::Bilateral), vec![set(2, 0, 0.0, RPE::ZERO)])]
+    fn test_training_session_append_exercise_of_a_laterality(
+        #[case] laterality: Option<Laterality>,
+        #[case] appended: Vec<TrainingSessionElement>,
+    ) {
+        let mut session = training_session(&[set(1, 5, 0.0, RPE::ZERO)]);
+
+        session.append_exercise(2.into(), laterality);
+
+        assert_eq!(
+            session.elements,
+            [vec![set(1, 5, 0.0, RPE::ZERO), rest(0)], appended].concat()
+        );
+    }
+
+    #[test]
+    fn test_training_session_append_exercise_held_side_less() {
+        let mut session = training_session(&[set(1, 5, 0.0, RPE::ZERO), rest(60)]);
+
+        session.append_exercise(1.into(), Some(Laterality::Unilateral));
+
+        assert_eq!(
+            session.elements,
+            [
+                set(1, 5, 0.0, RPE::ZERO),
+                rest(60),
+                set(1, 0, 0.0, RPE::ZERO)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_training_session_replace_exercise_of_side_less_sets_by_a_unilateral_exercise() {
+        let mut session = training_session(&[set(1, 5, 0.0, RPE::ZERO), rest(60)]);
+
+        session.replace_exercise(0, 1.into(), 2.into(), Some(Laterality::Unilateral));
+
+        assert_eq!(session.elements, [set(2, 5, 0.0, RPE::ZERO), rest(60)]);
+    }
+
+    #[rstest]
+    #[case::bilateral(Some(Laterality::Bilateral), Side::Unset, Side::Unset)]
+    #[case::unilateral(Some(Laterality::Unilateral), Side::Left, Side::Right)]
+    fn test_training_session_replace_exercise_of_a_pair(
+        #[case] laterality: Option<Laterality>,
+        #[case] first: Side,
+        #[case] second: Side,
+    ) {
+        let mut session = training_session(&[
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            rest(60),
+        ]);
+
+        session.replace_exercise(0, 1.into(), 2.into(), laterality);
+
+        assert_eq!(
+            session.elements,
+            [
+                sided_set(2, first, 5, RPE::ZERO),
+                sided_set(2, second, 5, RPE::ZERO),
+                rest(60)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_training_session_remove_exercise_of_a_pair_in_a_superset() {
+        let mut session = training_session(&[
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            set(2, 5, 0.0, RPE::ZERO),
+            rest(60),
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            set(2, 5, 0.0, RPE::ZERO),
+            rest(60),
+        ]);
+
+        session.remove_exercise(0, 1.into());
+
+        assert_eq!(
+            session.elements,
+            [
+                set(2, 5, 0.0, RPE::ZERO),
+                rest(60),
+                set(2, 5, 0.0, RPE::ZERO),
+                rest(60)
+            ]
+        );
+    }
+
+    #[test]
+    fn test_training_session_remove_exercise_of_a_lone_pair_removes_the_section() {
+        let mut session = training_session(&[
+            set(2, 5, 0.0, RPE::ZERO),
+            rest(60),
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            rest(60),
+        ]);
+
+        session.remove_exercise(1, 1.into());
+
+        assert_eq!(session.elements, [set(2, 5, 0.0, RPE::ZERO), rest(60)]);
+    }
+
+    #[test]
+    fn test_training_session_add_set_of_a_per_side_section() {
+        let mut session = training_session(&[
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            rest(60),
+        ]);
+
+        session.add_set(0);
+
+        assert_eq!(
+            session.elements,
+            [
+                sided_set(1, Side::Left, 5, RPE::ZERO),
+                sided_set(1, Side::Right, 5, RPE::ZERO),
+                rest(60),
+                sided_set(1, Side::Left, 0, RPE::ZERO),
+                sided_set(1, Side::Right, 0, RPE::ZERO),
+                rest(60),
+            ]
+        );
+    }
+
+    #[rstest]
+    #[case::pair(1, vec![vec![0, 1], vec![3]])]
+    #[case::superset_partner(2, vec![vec![2]])]
+    fn test_training_session_run_element_indices_of_a_run_holding_a_pair(
+        #[case] exercise_id: u128,
+        #[case] expected: Vec<Vec<usize>>,
+    ) {
+        let session = training_session(&[
+            sided_set(1, Side::Left, 5, RPE::ZERO),
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            set(2, 5, 0.0, RPE::ZERO),
+            set(1, 5, 0.0, RPE::ZERO),
+        ]);
+
+        assert_eq!(
+            session.run_element_indices(0, exercise_id.into(), 0),
+            expected
+        );
     }
 
     fn training_session(elements: &[TrainingSessionElement]) -> TrainingSession {
@@ -3700,6 +4126,7 @@ mod tests {
     fn exercise(entry_id: u32, exercise_id: u128) -> TrainingSessionElement {
         TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
+            side: Side::Unset,
             reps: Reps::default(),
             time: Time::default(),
             weight: Weight::default(),
@@ -3722,9 +4149,26 @@ mod tests {
     fn set(exercise_id: u128, reps: u32, weight: f32, rpe: RPE) -> TrainingSessionElement {
         TrainingSessionElement::Set {
             exercise_id: exercise_id.into(),
+            side: Side::Unset,
             reps: Reps::new(reps).unwrap(),
             time: Time::default(),
             weight: Weight::new(weight).unwrap(),
+            rpe,
+            target_reps: Reps::default(),
+            target_tempo: Tempo::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::default(),
+            automatic: false,
+        }
+    }
+
+    fn sided_set(exercise_id: u128, side: Side, reps: u32, rpe: RPE) -> TrainingSessionElement {
+        TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            side,
+            reps: Reps::new(reps).unwrap(),
+            time: Time::default(),
+            weight: Weight::default(),
             rpe,
             target_reps: Reps::default(),
             target_tempo: Tempo::default(),
@@ -4031,6 +4475,7 @@ mod tests {
     fn test_training_session_element_to_string() {
         let element = TrainingSessionElement::Set {
             exercise_id: 1.into(),
+            side: Side::Unset,
             reps: Reps::new(10).unwrap(),
             time: Time::new(3).unwrap(),
             weight: Weight::new(30.0).unwrap(),
@@ -4050,6 +4495,7 @@ mod tests {
     fn test_training_session_element_target_to_string_of_a_subdivided_tempo() {
         let element = TrainingSessionElement::Set {
             exercise_id: 1.into(),
+            side: Side::Unset,
             reps: Reps::default(),
             time: Time::default(),
             weight: Weight::default(),
@@ -4115,13 +4561,17 @@ mod tests {
     }
 
     fn any_session() -> impl Strategy<Value = TrainingSession> {
-        prop::collection::vec(prop::option::of(1u128..4), 1..10)
+        prop::collection::vec(prop::option::of((1u128..4, any::<bool>())), 1..10)
             .prop_map(|slots| {
                 let mut elements: Vec<TrainingSessionElement> = vec![];
                 for slot in slots {
                     match slot {
-                        Some(exercise_id) => {
+                        Some((exercise_id, false)) => {
                             elements.push(set(exercise_id, 5, 100.0, RPE::ZERO));
+                        }
+                        Some((exercise_id, true)) => {
+                            elements.push(sided_set(exercise_id, Side::Left, 5, RPE::ZERO));
+                            elements.push(sided_set(exercise_id, Side::Right, 5, RPE::ZERO));
                         }
                         None => {
                             if matches!(elements.last(), Some(TrainingSessionElement::Set { .. })) {
@@ -4163,11 +4613,12 @@ mod tests {
                 }
                 let section_idx = a % sections.len();
                 let exercise_ids = sections[section_idx].exercise_ids();
+                let laterality = [None, Some(Laterality::Bilateral), Some(Laterality::Unilateral)][a % 3];
                 match operation {
                     0 => session.add_set(b % session.elements.len()),
-                    1 => session.add_exercise(section_idx, (b as u128 % 3 + 1).into()),
+                    1 => session.add_exercise(section_idx, (b as u128 % 3 + 1).into(), laterality),
                     2 if !exercise_ids.is_empty() => {
-                        session.replace_exercise(section_idx, exercise_ids[b % exercise_ids.len()], (a as u128 % 3 + 1).into());
+                        session.replace_exercise(section_idx, exercise_ids[b % exercise_ids.len()], (a as u128 % 3 + 1).into(), laterality);
                     }
                     3 => session.remove_set(section_idx),
                     4 if !exercise_ids.is_empty() => session.remove_exercise(section_idx, exercise_ids[b % exercise_ids.len()]),

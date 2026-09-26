@@ -66,6 +66,9 @@ INVALID_ROUTINE_ACTIVITY_FIELDS: list[dict[str, object]] = [
     {"rpe": 10.5},
     {"rpe": 7.3},
     {"automatic": 1},
+    {"sides": "1"},
+    {"sides": 0},
+    {"sides": 3},
 ]
 
 INVALID_WORKOUT_FIELDS: list[dict[str, object]] = [
@@ -91,6 +94,9 @@ INVALID_WORKOUT_SET_FIELDS: list[dict[str, object]] = [
     {"target_tempo": [1000]},
     {"target_tempo": [1, 1, 1, 1, 1]},
     {"target_tempo": [0, 0]},
+    {"side": "1"},
+    {"side": 0},
+    {"side": 3},
 ]
 
 
@@ -418,6 +424,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                     **invalid_activity_field,
                                 }
                             ],
@@ -445,6 +452,32 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ),
+        (
+            "post",
+            "/api/routines",
+            {
+                "name": "R",
+                "notes": None,
+                "archived": False,
+                "sections": [
+                    {
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "exercise_id": None,
+                                "reps": 0,
+                                "tempo": [60],
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                                "sides": 2,
                             }
                         ],
                     }
@@ -585,6 +618,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                             **invalid_set_field,
                         }
                     ],
@@ -1141,6 +1175,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1149,6 +1184,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -1162,6 +1198,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1170,6 +1207,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -1181,6 +1219,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                         {
                                             "exercise_id": None,
@@ -1189,6 +1228,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -1204,6 +1244,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1212,6 +1253,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -1233,6 +1275,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1241,6 +1284,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         }
@@ -1269,6 +1313,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -1281,6 +1326,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -1293,6 +1339,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
@@ -1314,6 +1361,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -1326,6 +1374,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -1338,6 +1387,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -1350,6 +1400,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -1362,6 +1413,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -1383,6 +1435,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -1405,6 +1458,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -1417,6 +1471,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -1579,6 +1634,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 2,
                             },
                             {
                                 "rounds": 2,
@@ -1590,6 +1646,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": True,
+                                        "sides": 1,
                                     },
                                     {
                                         "exercise_id": 1,
@@ -1598,6 +1655,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": True,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -1613,6 +1671,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -1621,6 +1680,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -1643,6 +1703,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 2,
                                 },
                                 {
                                     "rounds": 2,
@@ -1654,6 +1715,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": True,
+                                            "sides": 1,
                                         },
                                         {
                                             "exercise_id": 1,
@@ -1662,6 +1724,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": True,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -1677,6 +1740,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1685,6 +1749,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -1706,6 +1771,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1714,6 +1780,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -1727,6 +1794,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1735,6 +1803,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -1746,6 +1815,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                         {
                                             "exercise_id": None,
@@ -1754,6 +1824,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -1769,6 +1840,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1777,6 +1849,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -1798,6 +1871,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -1806,6 +1880,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         }
@@ -1858,6 +1933,7 @@ def test_create(
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "target_time": 60,
@@ -1874,6 +1950,7 @@ def test_create(
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": 1,
                     },
                     {
                         "target_time": 120,
@@ -1890,6 +1967,7 @@ def test_create(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": 2,
                     },
                 ],
                 "exercise_notes": [],
@@ -1923,6 +2001,7 @@ def test_create(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     }
                 ],
                 "exercise_notes": [
@@ -1962,6 +2041,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
                 {
                     "exercise_id": 1,
@@ -1974,6 +2054,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
                 {
                     "exercise_id": 1,
@@ -1986,6 +2067,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
             ],
         },
@@ -2007,6 +2089,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
                 {
                     "exercise_id": 3,
@@ -2019,6 +2102,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
                 {
                     "exercise_id": 3,
@@ -2031,6 +2115,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
                 {
                     "exercise_id": 6,
@@ -2043,6 +2128,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
                 {
                     "exercise_id": 6,
@@ -2055,6 +2141,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
             ],
         },
@@ -2076,6 +2163,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
             ],
         },
@@ -2097,6 +2185,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
                 {
                     "exercise_id": 6,
@@ -2109,6 +2198,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "side": None,
                 },
             ],
         },
@@ -2147,6 +2237,7 @@ def _workout_with_exercise(exercise_id: int) -> dict[str, object]:
                 "target_weight": None,
                 "target_rpe": None,
                 "automatic": False,
+                "side": None,
             }
         ],
         "exercise_notes": [],
@@ -2169,6 +2260,7 @@ def _routine_with_exercise(exercise_id: int) -> dict[str, object]:
                         "weight": 0.0,
                         "rpe": 0.0,
                         "automatic": False,
+                        "sides": 1,
                     }
                 ],
             }
@@ -2422,6 +2514,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "rounds": 2,
@@ -2433,6 +2526,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -2448,6 +2542,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -2456,6 +2551,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -2477,6 +2573,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "rounds": 2,
@@ -2488,6 +2585,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -2503,6 +2601,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -2511,6 +2610,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -2533,6 +2633,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -2544,6 +2645,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -2559,6 +2661,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -2567,6 +2670,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -2588,6 +2692,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -2596,6 +2701,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         }
@@ -2627,6 +2733,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -2639,6 +2746,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
                 "exercise_notes": [],
@@ -2661,6 +2769,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -2673,6 +2782,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -2694,6 +2804,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": 8,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -2706,6 +2817,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": 10,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -2727,6 +2839,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -2739,6 +2852,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -2751,6 +2865,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -2763,6 +2878,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -2775,6 +2891,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -2796,6 +2913,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -2818,6 +2936,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -2830,6 +2949,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -2853,6 +2973,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -2865,6 +2986,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -2877,6 +2999,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
                 "exercise_notes": [{"exercise_id": 1, "notes": "Good range of motion"}],
@@ -2899,6 +3022,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -2911,6 +3035,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -2923,6 +3048,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -2945,6 +3071,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -2957,6 +3084,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -2969,6 +3097,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -2989,6 +3118,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -3001,6 +3131,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -3013,6 +3144,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -3025,6 +3157,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -3037,6 +3170,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -3058,6 +3192,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -3080,6 +3215,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -3092,6 +3228,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -3158,6 +3295,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3166,6 +3304,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3179,6 +3318,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3187,6 +3327,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "rounds": 2,
@@ -3198,6 +3339,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                     {
                                         "exercise_id": None,
@@ -3206,6 +3348,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -3221,6 +3364,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3229,6 +3373,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3251,6 +3396,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3259,6 +3405,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -3272,6 +3419,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3280,6 +3428,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -3291,6 +3440,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                         {
                                             "exercise_id": None,
@@ -3299,6 +3449,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -3314,6 +3465,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3322,6 +3474,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -3343,6 +3496,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3351,6 +3505,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         }
@@ -3382,6 +3537,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3390,6 +3546,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3403,6 +3560,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3411,6 +3569,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "rounds": 2,
@@ -3422,6 +3581,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                     {
                                         "exercise_id": None,
@@ -3430,6 +3590,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -3445,6 +3606,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3453,6 +3615,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3475,6 +3638,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3483,6 +3647,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -3496,6 +3661,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3504,6 +3670,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -3515,6 +3682,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                         {
                                             "exercise_id": None,
@@ -3523,6 +3691,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -3538,6 +3707,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3546,6 +3716,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -3567,6 +3738,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3575,6 +3747,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         }
@@ -3607,6 +3780,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3615,6 +3789,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3628,6 +3803,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3636,6 +3812,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "rounds": 2,
@@ -3647,6 +3824,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                     {
                                         "exercise_id": None,
@@ -3655,6 +3833,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -3670,6 +3849,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3678,6 +3858,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3700,6 +3881,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3708,6 +3890,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -3721,6 +3904,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3729,6 +3913,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -3740,6 +3925,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                         {
                                             "exercise_id": None,
@@ -3748,6 +3934,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -3763,6 +3950,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3771,6 +3959,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -3792,6 +3981,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3800,6 +3990,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         }
@@ -3824,6 +4015,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "rounds": 2,
@@ -3835,6 +4027,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -3850,6 +4043,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3858,6 +4052,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3879,6 +4074,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "sides": 1,
                             },
                             {
                                 "rounds": 2,
@@ -3890,6 +4086,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "sides": 1,
                                     },
                                 ],
                             },
@@ -3905,6 +4102,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                             {
                                 "exercise_id": None,
@@ -3913,6 +4111,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "sides": 1,
                             },
                         ],
                     },
@@ -3935,6 +4134,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -3946,6 +4146,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -3961,6 +4162,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3969,6 +4171,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -3990,6 +4193,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -3998,6 +4202,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         }
@@ -4029,6 +4234,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4041,6 +4247,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4053,6 +4260,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -4074,6 +4282,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -4086,6 +4295,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -4098,6 +4308,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
@@ -4119,6 +4330,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4131,6 +4343,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4143,6 +4356,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4155,6 +4369,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4167,6 +4382,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4188,6 +4404,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4210,6 +4427,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4222,6 +4440,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -4251,6 +4470,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4263,6 +4483,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4275,6 +4496,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -4296,6 +4518,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -4308,6 +4531,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -4320,6 +4544,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
@@ -4341,6 +4566,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4353,6 +4579,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4365,6 +4592,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4377,6 +4605,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4389,6 +4618,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4410,6 +4640,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4432,6 +4663,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4444,6 +4676,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -4465,6 +4698,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "target_time": 120,
@@ -4481,6 +4715,7 @@ def test_replace(
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -4502,6 +4737,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "target_time": 120,
@@ -4518,6 +4754,7 @@ def test_replace(
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -4539,6 +4776,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": 8,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "target_time": 120,
@@ -4555,6 +4793,7 @@ def test_replace(
                             "target_weight": 10,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
@@ -4576,6 +4815,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4588,6 +4828,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4600,6 +4841,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4612,6 +4854,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4624,6 +4867,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4645,6 +4889,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4667,6 +4912,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4679,6 +4925,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -4708,6 +4955,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4720,6 +4968,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4732,6 +4981,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -4754,6 +5004,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -4766,6 +5017,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -4778,6 +5030,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -4798,6 +5051,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4810,6 +5064,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -4822,6 +5077,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4834,6 +5090,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4846,6 +5103,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4867,6 +5125,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -4889,6 +5148,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -4901,6 +5161,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -4930,6 +5191,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4942,6 +5204,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                     {
                         "exercise_id": 1,
@@ -4954,6 +5217,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "side": None,
                     },
                 ],
             },
@@ -4976,6 +5240,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -4988,6 +5253,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -5000,6 +5266,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -5020,6 +5287,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -5032,6 +5300,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 3,
@@ -5044,6 +5313,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -5056,6 +5326,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -5068,6 +5339,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -5089,6 +5361,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -5111,6 +5384,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -5123,6 +5397,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },
@@ -5229,6 +5504,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -5237,6 +5513,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -5250,6 +5527,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -5258,6 +5536,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "sides": 1,
                                 },
                                 {
                                     "rounds": 2,
@@ -5269,6 +5548,7 @@ def test_modify(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                         {
                                             "exercise_id": None,
@@ -5277,6 +5557,7 @@ def test_modify(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "sides": 1,
                                         },
                                     ],
                                 },
@@ -5292,6 +5573,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                                 {
                                     "exercise_id": None,
@@ -5300,6 +5582,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "sides": 1,
                                 },
                             ],
                         },
@@ -5327,6 +5610,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -5339,6 +5623,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 1,
@@ -5351,6 +5636,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
@@ -5372,6 +5658,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                     "exercise_notes": [],
@@ -5394,6 +5681,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                         {
                             "exercise_id": 6,
@@ -5406,6 +5694,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "side": None,
                         },
                     ],
                 },

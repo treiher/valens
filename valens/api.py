@@ -59,6 +59,9 @@ from valens.limits import (
     RPE_MAX,
     RPE_MIN,
     RPE_RESOLUTION,
+    SIDE_IDS,
+    SIDES_COMBINED,
+    SIDES_IDS,
     SKINFOLD_MAX,
     SKINFOLD_MIN,
     STIMULUS_MAX,
@@ -252,6 +255,11 @@ def to_routine_activity(  # type: ignore[explicit-any]
         weight=to_weight(json["weight"], "weight", 0.0),
         rpe=to_rpe(json["rpe"], "rpe"),
         automatic=to_bool(json["automatic"], "automatic"),
+        sides=to_property_id(
+            json["sides"],
+            "sides",
+            SIDES_IDS if json["exercise_id"] is not None else frozenset({SIDES_COMBINED}),
+        ),
     )
 
 
@@ -271,6 +279,7 @@ def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # 
                     element["target_weight"], "target_weight", WEIGHT_RESOLUTION
                 ),
                 target_rpe=to_optional_rpe(element["target_rpe"], "target_rpe"),
+                side=to_optional_property_id(element["side"], "side", SIDE_IDS),
                 automatic=to_bool(element["automatic"], "automatic"),
             )
             if "exercise_id" in element

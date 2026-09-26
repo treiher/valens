@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Counting of a set with a side as half a set in the load, the set volume and the time under tension
+- Training session page:
+    - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set
+    - Values of the recent sessions offered to a set with a side, taken from the sets of the same side
+- Routine page: Sides of an activity, which prescribe a unilateral exercise per side
+
 ## [0.9.0] - 2026-09-26
 
 ### Added
@@ -447,6 +457,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial version of web app
 
+[Unreleased]: https://github.com/treiher/valens/compare/v0.9.0...HEAD
 [0.9.0]: https://github.com/treiher/valens/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/treiher/valens/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/treiher/valens/compare/v0.6.0...v0.7.0

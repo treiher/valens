@@ -12,6 +12,7 @@ Plan your training, follow it and see what it does to your body. A web app you h
 - Choose from more than 150 exercises or create your own, and filter them by muscles, equipment and other properties
 - Plan your training days
 - Log repetitions, weight, time and rating of perceived exertion (RPE) for each set
+- Prescribe a unilateral exercise per side and log each side separately
 - Keep the tempo of your repetitions with a metronome and time your training with a stopwatch or timer
 - Follow the current exercise and rest time in notifications
 - Calculate a one-repetition maximum (1RM) or the weights of a drop set

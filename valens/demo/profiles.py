@@ -170,6 +170,7 @@ ALICE = Profile(
         ExerciseConfig("Leg Press", start_load=100.0, increment=5.0),
         ExerciseConfig("Machine Hip Abduction", start_load=30.0, increment=2.0, rep_range=(12, 15)),
         ExerciseConfig("Push Up", rep_range=(8, 20)),
+        ExerciseConfig("Dumbbell Lunge", start_load=10.0, increment=1.0),
     ],
     routines=[
         RoutinePlan(
@@ -187,6 +188,7 @@ ALICE = Profile(
             (
                 Section(("Barbell Squat",), 4),
                 Section(("Barbell Romanian Deadlift",), 3),
+                Section(("Dumbbell Lunge",), 3),
                 Section(("Leg Extension",), 3),
                 Section(("Machine Standing Calf Raise",), 3),
             ),

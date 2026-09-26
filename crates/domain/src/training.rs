@@ -8,7 +8,7 @@ use std::{
     ops::Mul,
 };
 
-use crate::TrainingSession;
+use crate::{Laterality, TrainingSession};
 
 #[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, Eq, PartialOrd, Hash)]
 pub struct Reps(u32);
@@ -266,6 +266,107 @@ pub enum TempoError {
     Zero,
     #[error("tempo must not be longer than 999 s")]
     OutOfRange,
+}
+
+/// How an activity is performed: with both sides at once or with each side in a set of its own.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Sides {
+    #[default]
+    Combined = 1,
+    PerSide = 2,
+}
+
+impl Sides {
+    #[must_use]
+    pub fn for_laterality(laterality: Option<Laterality>) -> Self {
+        match laterality {
+            Some(Laterality::Unilateral) => Sides::PerSide,
+            Some(Laterality::Bilateral) | None => Sides::Combined,
+        }
+    }
+
+    /// The sides of the sets of an activity, in order.
+    #[must_use]
+    pub fn sides(self) -> &'static [Side] {
+        match self {
+            Sides::Combined => &[Side::Unset],
+            Sides::PerSide => &[Side::Left, Side::Right],
+        }
+    }
+}
+
+impl TryFrom<u8> for Sides {
+    type Error = SidesError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        [Sides::Combined, Sides::PerSide]
+            .into_iter()
+            .find(|sides| *sides as u8 == value)
+            .ok_or(SidesError::Invalid)
+    }
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum SidesError {
+    #[error("invalid sides")]
+    Invalid,
+}
+
+/// The side a set belongs to.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Side {
+    #[default]
+    Unset = 0,
+    Left = 1,
+    Right = 2,
+}
+
+impl Side {
+    /// Converts into an `Option`, interpreting `Unset` as unset.
+    #[must_use]
+    pub fn non_zero(self) -> Option<Self> {
+        (self != Self::Unset).then_some(self)
+    }
+}
+
+impl TryFrom<u8> for Side {
+    type Error = SideError;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        [Side::Left, Side::Right]
+            .into_iter()
+            .find(|side| *side as u8 == value)
+            .ok_or(SideError::Invalid)
+    }
+}
+
+impl TryFrom<&str> for Side {
+    type Error = SideError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "" => Ok(Side::Unset),
+            "L" => Ok(Side::Left),
+            "R" => Ok(Side::Right),
+            _ => Err(SideError::Invalid),
+        }
+    }
+}
+
+impl fmt::Display for Side {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Side::Unset => Ok(()),
+            Side::Left => write!(f, "L"),
+            Side::Right => write!(f, "R"),
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum SideError {
+    #[error("invalid side")]
+    Invalid,
 }
 
 /// Renders the values of a set or an activity as a single line.
@@ -526,11 +627,10 @@ fn weighted_sum_of_load(
     }
 
     for t in training_sessions {
-        #[allow(clippy::cast_precision_loss)]
         result
             .entry(t.date)
-            .and_modify(|e| *e += t.load() as f32)
-            .or_insert(t.load() as f32);
+            .and_modify(|e| *e += t.load())
+            .or_insert(t.load());
     }
 
     #[allow(clippy::cast_precision_loss)]
@@ -695,6 +795,7 @@ mod tests {
             elements: vec![
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
+                    side: Side::Unset,
                     reps: Reps(10),
                     time: Time(3),
                     weight: Weight(30.0),
@@ -711,6 +812,7 @@ mod tests {
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 2.into(),
+                    side: Side::Unset,
                     reps: Reps(5),
                     time: Time(4),
                     weight: Weight::default(),
@@ -727,6 +829,7 @@ mod tests {
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 2.into(),
+                    side: Side::Unset,
                     reps: Reps::default(),
                     time: Time(60),
                     weight: Weight::default(),
@@ -1011,6 +1114,57 @@ mod tests {
         assert_eq!(RIR::from(rpe), expected);
     }
 
+    #[test]
+    fn test_sides_try_from_u8() {
+        for sides in [Sides::Combined, Sides::PerSide] {
+            assert_eq!(Sides::try_from(sides as u8), Ok(sides));
+        }
+        assert_eq!(Sides::try_from(0), Err(SidesError::Invalid));
+        assert_eq!(Sides::try_from(3), Err(SidesError::Invalid));
+    }
+
+    #[test]
+    fn test_sides_default() {
+        assert_eq!(Sides::default(), Sides::Combined);
+    }
+
+    #[rstest]
+    #[case::bilateral(Some(Laterality::Bilateral), Sides::Combined)]
+    #[case::unilateral(Some(Laterality::Unilateral), Sides::PerSide)]
+    #[case::unset(None, Sides::Combined)]
+    fn test_sides_for_laterality(#[case] laterality: Option<Laterality>, #[case] expected: Sides) {
+        assert_eq!(Sides::for_laterality(laterality), expected);
+    }
+
+    #[test]
+    fn test_side_try_from_u8() {
+        for side in [Side::Left, Side::Right] {
+            assert_eq!(Side::try_from(side as u8), Ok(side));
+        }
+        assert_eq!(Side::try_from(0), Err(SideError::Invalid));
+        assert_eq!(Side::try_from(3), Err(SideError::Invalid));
+    }
+
+    #[rstest]
+    #[case::unset(Side::Unset, "", None)]
+    #[case::left(Side::Left, "L", Some(Side::Left))]
+    #[case::right(Side::Right, "R", Some(Side::Right))]
+    fn test_side(#[case] side: Side, #[case] text: &str, #[case] non_zero: Option<Side>) {
+        assert_eq!(side.to_string(), text);
+        assert_eq!(Side::try_from(text), Ok(side));
+        assert_eq!(side.non_zero(), non_zero);
+    }
+
+    #[test]
+    fn test_side_default() {
+        assert_eq!(Side::default(), Side::Unset);
+    }
+
+    #[test]
+    fn test_side_try_from_invalid_str() {
+        assert_eq!(Side::try_from("X"), Err(SideError::Invalid));
+    }
+
     #[rstest]
     #[case(RIR(20), "2")]
     #[case(RIR(25), "2.5")]
@@ -1101,6 +1255,33 @@ mod tests {
             training_stats(&[&TRAINING_SESSION, &later]),
             training_stats(&[&later, &TRAINING_SESSION])
         );
+    }
+
+    #[test]
+    fn test_training_stats_of_a_session_holding_a_pair() {
+        let set = |side, rpe| TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            side,
+            reps: Reps(10),
+            time: Time::default(),
+            weight: Weight::default(),
+            rpe,
+            target_reps: Reps::default(),
+            target_tempo: Tempo::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::default(),
+            automatic: false,
+        };
+        let pair = TrainingSession {
+            elements: vec![set(Side::Left, RPE::NINE), set(Side::Right, RPE::NINE)],
+            ..TRAINING_SESSION.clone()
+        };
+        let single_set = TrainingSession {
+            elements: vec![set(Side::Unset, RPE::NINE)],
+            ..TRAINING_SESSION.clone()
+        };
+
+        assert_eq!(training_stats(&[&pair]), training_stats(&[&single_set]));
     }
 
     #[rstest]

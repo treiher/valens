@@ -412,6 +412,10 @@ class RoutineActivity(RoutinePart):
         # Bounds mirror `RPE` in `crates/domain/src/training.rs`
         CheckConstraint(column("rpe") >= 0, name="rpe_ge_0"),
         CheckConstraint(column("rpe") <= 10, name="rpe_le_10"),
+        CheckConstraint("typeof(sides) = 'integer'", name="sides_type_integer"),
+        # Bounds mirror `Sides` in `crates/domain/src/training.rs`
+        CheckConstraint(column("sides") >= 1, name="sides_ge_1"),
+        CheckConstraint(column("sides") <= 2, name="sides_le_2"),
     )
 
     id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
@@ -421,6 +425,7 @@ class RoutineActivity(RoutinePart):
     weight: Mapped[float]
     rpe: Mapped[float]
     automatic: Mapped[bool]
+    sides: Mapped[int] = mapped_column(default=1)
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="routine_activities")
 
@@ -608,6 +613,10 @@ class WorkoutSet(WorkoutElement):
             "typeof(target_rpe) = 'real' or typeof(target_rpe) = 'null'",
             name="target_rpe_type_real_or_null",
         ),
+        CheckConstraint(
+            "typeof(side) = 'integer' or typeof(side) = 'null'",
+            name="side_type_integer_or_null",
+        ),
         CheckConstraint(column("position") > 0, name="position_gt_0"),
         CheckConstraint(column("reps") > 0, name="reps_gt_0"),
         CheckConstraint(column("time") > 0, name="time_gt_0"),
@@ -620,6 +629,10 @@ class WorkoutSet(WorkoutElement):
         CheckConstraint(column("target_weight") > 0, name="target_weight_gt_0"),
         CheckConstraint(column("target_rpe") > 0, name="target_rpe_gt_0"),
         CheckConstraint(column("target_rpe") <= 10, name="target_rpe_le_10"),
+        # Bounds mirror `Side` in `crates/domain/src/training.rs`, whose unset value is stored as
+        # NULL
+        CheckConstraint(column("side") >= 1, name="side_ge_1"),
+        CheckConstraint(column("side") <= 2, name="side_le_2"),
         ForeignKeyConstraint(
             ["workout_id", "position"],
             [WorkoutElement.workout_id, WorkoutElement.position],
@@ -640,6 +653,7 @@ class WorkoutSet(WorkoutElement):
     target_tempo: Mapped[list[int] | None] = mapped_column(JSON(none_as_null=True))
     target_weight: Mapped[float | None]
     target_rpe: Mapped[float | None]
+    side: Mapped[int | None]
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="sets")
 

@@ -241,11 +241,10 @@ fn view_charts(
     let mut estimated_max_reps_by_date: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut one_rep_max_by_date: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     for training_session in training_sessions {
-        #[allow(clippy::cast_precision_loss)]
         set_volume
             .entry(training_session.date)
-            .and_modify(|e| *e += training_session.set_volume() as f32)
-            .or_insert(training_session.set_volume() as f32);
+            .and_modify(|e| *e += training_session.set_volume())
+            .or_insert(training_session.set_volume());
         #[allow(clippy::cast_precision_loss)]
         volume_load
             .entry(training_session.date)

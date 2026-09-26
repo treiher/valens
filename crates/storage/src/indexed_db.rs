@@ -1266,7 +1266,13 @@ pub enum RoutinePart {
         weight: f32,
         rpe: f32,
         automatic: bool,
+        #[serde(default = "combined")]
+        sides: u8,
     },
+}
+
+fn combined() -> u8 {
+    domain::Sides::Combined as u8
 }
 
 impl From<domain::RoutinePart> for RoutinePart {
@@ -1283,6 +1289,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                sides,
             } => RoutinePart::RoutineActivity {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: if exercise_id.is_nil() {
@@ -1295,6 +1302,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight: f32::from(weight),
                 rpe: f32::from(rpe),
                 automatic,
+                sides: sides as u8,
             },
         }
     }
@@ -1317,6 +1325,7 @@ impl From<RoutinePart> for domain::RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                sides,
             } => domain::RoutinePart::RoutineActivity {
                 exercise_id: exercise_id
                     .map(domain::ExerciseID::from)
@@ -1332,6 +1341,10 @@ impl From<RoutinePart> for domain::RoutinePart {
                 ),
                 rpe: unwrap_or_default_warn(domain::RPE::new(rpe), "invalid RPE in stored routine"),
                 automatic,
+                sides: unwrap_or_default_warn(
+                    domain::Sides::try_from(sides),
+                    "invalid sides in stored routine",
+                ),
             },
         }
     }
@@ -1543,6 +1556,8 @@ impl From<TrainingSession> for domain::TrainingSession {
 pub enum TrainingSessionElement {
     Set {
         exercise_id: Uuid,
+        #[serde(default)]
+        side: Option<u8>,
         reps: Option<u32>,
         time: Option<u32>,
         weight: Option<f32>,
@@ -1564,6 +1579,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
         match value {
             domain::TrainingSessionElement::Set {
                 exercise_id,
+                side,
                 reps,
                 time,
                 weight,
@@ -1576,6 +1592,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
             } => TrainingSessionElement::Set {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: *exercise_id,
+                side: side.non_zero().map(|side| side as u8),
                 reps: reps.non_zero().map(From::from),
                 time: time.non_zero().map(From::from),
                 weight: weight.non_zero().map(From::from),
@@ -1604,6 +1621,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
         match value {
             TrainingSessionElement::Set {
                 exercise_id,
+                side,
                 reps,
                 time,
                 weight,
@@ -1615,6 +1633,9 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 automatic,
             } => domain::TrainingSessionElement::Set {
                 exercise_id: exercise_id.into(),
+                side: side
+                    .and_then(|s| ok_warn(domain::Side::try_from(s), "invalid side in stored set"))
+                    .unwrap_or_default(),
                 reps: reps
                     .and_then(|r| ok_warn(domain::Reps::new(r), "invalid reps in stored set"))
                     .unwrap_or_default(),
@@ -1944,6 +1965,7 @@ mod tests {
                 weight: 0.0,
                 rpe: 0.0,
                 automatic: false,
+                sides: 1,
             })
         else {
             unreachable!()
@@ -1958,6 +1980,28 @@ mod tests {
                 .collect::<Vec<_>>(),
             expected
         );
+    }
+
+    #[rstest]
+    #[case::combined(1, domain::Sides::Combined)]
+    #[case::per_side(2, domain::Sides::PerSide)]
+    #[case::rejected_by_the_domain(3, domain::Sides::Combined)]
+    fn test_routine_activity_sides_from(#[case] sides: u8, #[case] expected: domain::Sides) {
+        let domain::RoutinePart::RoutineActivity { sides, .. } =
+            domain::RoutinePart::from(RoutinePart::RoutineActivity {
+                exercise_id: Some(Uuid::from_u128(1)),
+                reps: 0,
+                tempo: vec![],
+                weight: 0.0,
+                rpe: 0.0,
+                automatic: false,
+                sides,
+            })
+        else {
+            unreachable!()
+        };
+
+        assert_eq!(sides, expected);
     }
 
     #[test]
@@ -1977,6 +2021,52 @@ mod tests {
     }
 
     #[test]
+    fn test_routine_part_stored_without_sides() {
+        let stored = json!({
+            "exercise_id": Uuid::from_u128(1),
+            "reps": 0,
+            "tempo": [],
+            "weight": 0.0,
+            "rpe": 0.0,
+            "automatic": false,
+        });
+
+        assert!(matches!(
+            domain::RoutinePart::from(serde_json::from_value::<RoutinePart>(stored).unwrap()),
+            domain::RoutinePart::RoutineActivity {
+                sides: domain::Sides::Combined,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_training_session_element_stored_without_side() {
+        let stored = json!({
+            "exercise_id": Uuid::from_u128(1),
+            "reps": 5,
+            "time": null,
+            "weight": null,
+            "rpe": null,
+            "target_reps": null,
+            "target_tempo": null,
+            "target_weight": null,
+            "target_rpe": null,
+            "automatic": false,
+        });
+
+        assert!(matches!(
+            domain::TrainingSessionElement::from(
+                serde_json::from_value::<TrainingSessionElement>(stored).unwrap()
+            ),
+            domain::TrainingSessionElement::Set {
+                side: domain::Side::Unset,
+                ..
+            }
+        ));
+    }
+
+    #[test]
     fn test_training_session_from() {
         assert_eq!(
             domain::TrainingSession::from(TrainingSession::from(TRAINING_SESSION.clone())),
@@ -1989,6 +2079,7 @@ mod tests {
         assert_eq!(
             TrainingSessionElement::from(domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::default(),
                 weight: domain::Weight::default(),
@@ -2001,6 +2092,7 @@ mod tests {
             }),
             TrainingSessionElement::Set {
                 exercise_id: Uuid::from_u128(1),
+                side: None,
                 reps: None,
                 time: None,
                 weight: None,
@@ -2029,6 +2121,7 @@ mod tests {
         assert_eq!(
             domain::TrainingSessionElement::from(TrainingSessionElement::Set {
                 exercise_id: Uuid::from_u128(1),
+                side: None,
                 reps: None,
                 time: None,
                 weight: None,
@@ -2041,6 +2134,7 @@ mod tests {
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::default(),
                 weight: domain::Weight::default(),
@@ -2069,6 +2163,7 @@ mod tests {
         assert_eq!(
             domain::TrainingSessionElement::from(TrainingSessionElement::Set {
                 exercise_id: Uuid::from_u128(1),
+                side: Some(3),
                 reps: Some(1000),
                 time: Some(1000),
                 weight: Some(1000.0),
@@ -2081,6 +2176,7 @@ mod tests {
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
+                side: domain::Side::Unset,
                 reps: domain::Reps::default(),
                 time: domain::Time::default(),
                 weight: domain::Weight::default(),

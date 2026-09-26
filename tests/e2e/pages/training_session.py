@@ -14,6 +14,20 @@ if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
 
 
+def parse_set(text: str) -> tuple[int | None, int | None, float | None, float | None]:
+    """Parse the values of a set in the form they are shown in one cell."""
+    reps = re.match(r"^(\d+)(?![\d.]| s| kg)", text)
+    time = re.search(r"(\d+) s\b", text)
+    weight = re.search(r"([\d.]+) kg", text)
+    rpe = re.search(r"@ ([\d.]+)", text)
+    return (
+        int(reps.group(1)) if reps else None,
+        int(time.group(1)) if time else None,
+        float(weight.group(1)) if weight else None,
+        float(rpe.group(1)) if rpe else None,
+    )
+
+
 class TrainingSessionPage(BasePage):
     def __init__(self, page: Page, session_id: int, base_url: str | None = None) -> None:
         super().__init__(page, base_url)
@@ -57,17 +71,29 @@ class TrainingSessionPage(BasePage):
 
     def get_sets(self) -> list[tuple[int | None, int | None, float | None, float | None]]:
         self.expect_view_mode()
+        sets: list[tuple[int | None, int | None, float | None, float | None]] = []
+        for row in self.page.locator("table tr").all():
+            sides = row.get_by_test_id("set-side-values").all()
+            if sides:
+                texts = [get_text(side) for side in sides]
+                sets.extend(parse_set(text) for text in texts if text not in {"", "\u2013"})
+                continue
+            tds = [td.inner_text().strip() for td in row.locator("td").all()]
+            if len(tds) == 5:
+                sets.append(
+                    (parse_int(tds[1]), parse_int(tds[2]), parse_float(tds[3]), parse_float(tds[4]))
+                )
+        return sets
+
+    def get_side_rows(self) -> list[list[str]]:
+        self.expect_view_mode()
         return [
-            (
-                parse_int(tds[1]),
-                parse_int(tds[2]),
-                parse_float(tds[3]),
-                parse_float(tds[4]),
-            )
-            for row in self.page.locator("table tr").all()
-            for tds in [[td.inner_text().strip() for td in row.locator("td").all()]]
-            if len(tds) == 5
+            [get_text(side) for side in row.get_by_test_id("set-side-values").all()]
+            for row in self.page.get_by_test_id("set-sides-row").all()
         ]
+
+    def tap_set_marker(self, index: int) -> None:
+        self.page.get_by_test_id("set-number").nth(index).click()
 
     def get_form(self) -> list[tuple[int | None, int | None, float | None, float | None]]:
         self.expect_edit_mode()
@@ -247,6 +273,12 @@ class TrainingSessionPage(BasePage):
         self.open_exercise_options(exercise_idx)
         self.page.get_by_test_id("options-replace-exercise").click()
         self.replace_exercise_dialog.wait_until_open()
+
+    def replace_exercise(self, name: str, exercise_idx: int = 0) -> None:
+        self.open_replace_exercise_dialog(exercise_idx)
+        self.replace_exercise_dialog.clear_filter()
+        self.replace_exercise_dialog.select_exercise(name)
+        self.wait_until_idle()
 
     def remove_exercise(self, exercise_idx: int = 0) -> None:
         self.open_exercise_options(exercise_idx)

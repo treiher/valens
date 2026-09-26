@@ -130,10 +130,7 @@ impl Cache {
     /// The laterality of an exercise, `None` if it is unset or the exercises are not loaded.
     pub fn laterality(&self, exercise_id: domain::ExerciseID) -> Option<domain::Laterality> {
         match &*self.exercises.read() {
-            CacheState::Ready(exercises) => exercises
-                .iter()
-                .find(|e| e.id == exercise_id)
-                .and_then(|e| e.laterality),
+            CacheState::Ready(exercises) => laterality(exercises, exercise_id),
             CacheState::Loading | CacheState::Error(_) => None,
         }
     }
@@ -159,6 +156,17 @@ pub enum CacheState<T> {
     Loading,
     Error(domain::ReadError),
     Ready(T),
+}
+
+/// The laterality of an exercise, `None` if it is unset or the exercise is unknown.
+pub fn laterality(
+    exercises: &[domain::Exercise],
+    exercise_id: domain::ExerciseID,
+) -> Option<domain::Laterality> {
+    exercises
+        .iter()
+        .find(|e| e.id == exercise_id)
+        .and_then(|e| e.laterality)
 }
 
 #[cfg(test)]

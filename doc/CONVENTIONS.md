@@ -9,7 +9,7 @@ Cross-cutting decisions for changes to Valens that are not enforced by tooling. 
 ## Terminology
 
 - UI text uses "training session", never "workout". The REST API and the database schema predate this decision and keep `workout` in routes and model names. The two vocabularies coexist deliberately; new user-facing text always uses "training session".
-- The *sides* of a routine activity state whether it is performed with both sides at once or *per side*. A per-side activity is prescribed once and recorded as a *pair*, a left and a right set of the same exercise, each carrying its *side*.
+- The *sides* of a routine activity state whether it is performed with both sides at once or *per side*. A per-side activity is prescribed once and recorded as a *pair*, a left and a right set of the same exercise directly following each other in either order, each carrying its *side*.
 
 ## Error messages
 

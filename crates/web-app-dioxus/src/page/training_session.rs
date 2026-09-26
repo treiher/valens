@@ -16,7 +16,7 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, DROP_SET_CALCULATOR, ONE_REP_MAX_CALCULATOR, Route,
     audio::{METRONOME_START_DELAY, MetronomeService, TICK_INTERVAL_MS, Timer, TimerService},
-    cache::{Cache, CacheState},
+    cache::{self, Cache, CacheState},
     dialog::{drop_set::DropSetCalculator, one_rep_max::OneRepMaxCalculatorState},
     eh,
     loading::LoadingFlag,
@@ -42,14 +42,11 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 /// Number of earlier training sessions whose sets can be shown for an exercise.
 const RECENT_SESSIONS: usize = 3;
 
-/// The sets of an exercise in earlier training sessions, from the most recent to the oldest.
-type SessionSets = Vec<(chrono::NaiveDate, Vec<(domain::Side, domain::Set)>)>;
+/// The sets of a recent session offered to a set, with the index of the one that corresponds to
+/// it.
+type RecentSession = (chrono::NaiveDate, Rc<[domain::Set]>, Option<usize>);
 
-/// The sets of recent sessions offered to a set, each with the index of the set that corresponds
-/// to it.
-type RecentSets = Vec<(chrono::NaiveDate, Vec<domain::Set>, usize)>;
-
-const COLUMN_HEADER_CLASS: &str =
+pub(crate) const COLUMN_HEADER_CLASS: &str =
     "p-1 has-text-centered is-size-7 has-text-grey has-text-weight-normal";
 
 /// Renders a training session and drives its *ongoing* state.
@@ -130,39 +127,55 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         }
     });
     // Kept apart from the form, which is rendered anew with every tick of the timer.
-    let recent_session_sets_by_exercise = use_memo(move || {
+    let recent_sessions_by_element = use_memo(move || {
         let (CacheState::Ready(training_sessions), Some(training_session)) =
             (&*cache.training_sessions.read(), &*training_session.read())
         else {
             return HashMap::new();
         };
-        DOMAIN_SERVICE()
-            .get_recent_session_sets_by_exercise(
-                training_session,
-                training_sessions,
-                RECENT_SESSIONS,
-            )
-            .into_iter()
-            .map(|(exercise_id, sessions)| {
-                let sessions = sessions
-                    .into_iter()
-                    .map(|(date, sets)| {
+        let recent_sets_by_exercise = DOMAIN_SERVICE().get_recent_session_sets_by_exercise(
+            training_session,
+            training_sessions,
+            RECENT_SESSIONS,
+        );
+        let set_indices = training_session.set_indices();
+        let group_indices = training_session.group_indices();
+        let mut offered_sets = HashMap::new();
+        let mut result = HashMap::new();
+        for (element_idx, element) in training_session.elements.iter().enumerate() {
+            let domain::TrainingSessionElement::Set { exercise_id, .. } = element else {
+                continue;
+            };
+            let Some(recent_sets) = recent_sets_by_exercise.get(exercise_id) else {
+                continue;
+            };
+            // The side entered for the set can differ from its stored side.
+            for side in [domain::Side::Unset, domain::Side::Left, domain::Side::Right] {
+                let sessions = offered_sets
+                    .entry((*exercise_id, side))
+                    .or_insert_with(|| {
+                        recent_sets
+                            .iter()
+                            .map(|(date, sets)| {
+                                let offered = domain::OfferedSets::new(sets, side);
+                                let shared: Rc<[domain::Set]> = offered.sets().into();
+                                (*date, shared, offered)
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .iter()
+                    .map(|(date, sets, offered)| {
                         (
-                            date,
-                            sets.into_iter()
-                                .filter_map(|element| match element {
-                                    domain::TrainingSessionElement::Set { side, .. } => {
-                                        Some((*side, element.set()?))
-                                    }
-                                    domain::TrainingSessionElement::Rest { .. } => None,
-                                })
-                                .collect(),
+                            *date,
+                            sets.clone(),
+                            offered.index(group_indices[&element_idx], set_indices[&element_idx]),
                         )
                     })
-                    .collect::<SessionSets>();
-                (exercise_id, sessions)
-            })
-            .collect::<HashMap<_, _>>()
+                    .collect::<Vec<RecentSession>>();
+                result.insert((element_idx, side), sessions);
+            }
+        }
+        result
     });
     let routine = use_memo(move || {
         if let Some(training_session) = &*training_session.read() {
@@ -253,7 +266,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             if metronome.peek().is_active() {
                 metronome.write().update();
             }
-            // Only the segmented bar moves between two seconds, so it alone reads this.
+            // Only the phase bars move between two seconds, so only they read this.
             let mut elapsed = phase_clock.elapsed;
             let value = phase_clock.seconds(*progress.element_idx().peek(), &timer.peek());
             if (*elapsed.peek() - value).abs() > f64::EPSILON {
@@ -275,6 +288,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     .enumerate()
                     .filter_map(|(idx, element)| {
                         if let domain::TrainingSessionElement::Set {
+                            side,
                             reps,
                             time,
                             weight,
@@ -289,6 +303,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                                     time: FieldValue::new_with_empty_default(time),
                                     weight: FieldValue::new_with_empty_default(weight),
                                     rpe: FieldValue::new_with_empty_default(rpe),
+                                    side: FieldValue::new(side),
                                 },
                             ))
                         } else {
@@ -598,7 +613,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_session_sets_by_exercise.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
+                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
                     {view_list(training_session, exercises)},
                     {view_muscles(training_session, exercises)}
@@ -744,6 +759,7 @@ struct SetFieldValues {
     time: FieldValue<domain::Time>,
     weight: FieldValue<domain::Weight>,
     rpe: FieldValue<domain::RPE>,
+    side: FieldValue<domain::Side>,
 }
 
 impl SetFieldValues {
@@ -756,16 +772,52 @@ impl SetFieldValues {
         fill_field(&mut self.weight, weight);
     }
 
+    /// Advances the side through none, left and right.
+    fn cycle_side(&mut self) {
+        let side = match self.side.validated.clone().unwrap_or_default() {
+            domain::Side::Unset => domain::Side::Left,
+            domain::Side::Left => domain::Side::Right,
+            domain::Side::Right => domain::Side::Unset,
+        };
+        self.side.input = side.to_string();
+        self.side.validated = Ok(side);
+    }
+
     fn valid(&self) -> bool {
-        self.reps.valid() && self.time.valid() && self.weight.valid() && self.rpe.valid()
+        self.reps.valid()
+            && self.time.valid()
+            && self.weight.valid()
+            && self.rpe.valid()
+            && self.side.valid()
     }
 
     fn changed(&self) -> bool {
+        self.values_changed() || self.side.changed()
+    }
+
+    /// Whether a value differs from the recorded one, leaving the side aside.
+    fn values_changed(&self) -> bool {
         self.reps.changed() || self.time.changed() || self.weight.changed() || self.rpe.changed()
     }
 
     fn has_valid_changes(&self) -> bool {
-        FieldValue::has_valid_changes(&[&self.reps, &self.time, &self.weight, &self.rpe])
+        FieldValue::has_valid_changes(&[
+            &self.reps,
+            &self.time,
+            &self.weight,
+            &self.rpe,
+            &self.side,
+        ])
+    }
+
+    /// Whether the buttons filling the values of the set are offered.
+    fn offers_values(&self) -> bool {
+        self.is_empty() || self.values_changed()
+    }
+
+    /// Whether the action of the set saves changes rather than activating it.
+    fn has_pending_save(&self) -> bool {
+        !self.is_unperformed() && self.has_valid_changes()
     }
 
     fn is_empty(&self) -> bool {
@@ -777,7 +829,7 @@ impl SetFieldValues {
 
     /// Whether the set carries neither recorded nor entered values.
     fn is_unperformed(&self) -> bool {
-        self.is_empty() && !self.changed()
+        self.is_empty() && !self.values_changed()
     }
 }
 
@@ -933,7 +985,7 @@ fn view_form(
     mut edit_dialog: Signal<EditDialog>,
     exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     training_session: &domain::TrainingSession,
-    recent_session_sets_by_exercise: &HashMap<domain::ExerciseID, SessionSets>,
+    recent_sessions_by_element: &HashMap<(usize, domain::Side), Vec<RecentSession>>,
     exercises: &[domain::Exercise],
     settings: Settings,
     cache: Cache,
@@ -956,7 +1008,6 @@ fn view_form(
         training_session.section_idx_lookahead(progress_element_idx);
     let sets_by_exercise = DOMAIN_SERVICE().get_sets_by_exercise(training_session);
     let set_indices = training_session.set_indices();
-    let side_set_indices = training_session.side_set_indices();
     let shows_time = settings.show_tut() || training_session.has_time();
     let shows_rpe = settings.show_rpe() || training_session.has_rpe();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
@@ -1098,23 +1149,13 @@ fn view_form(
                     let set_index = set_indices[&element_idx];
                     let set_field_values = &field_values.read()[&element_idx];
 
-                    let show_set_buttons = is_current_section && (set_field_values.is_empty() || set_field_values.changed());
+                    let show_set_buttons = is_current_section && set_field_values.offers_values();
+                    let entered_side = set_field_values.side.validated.clone().unwrap_or_default();
 
-                    let history: RecentSets = if show_set_buttons {
-                        recent_session_sets_by_exercise
-                            .get(exercise_id)
-                            .map(|sessions| {
-                                sessions
-                                    .iter()
-                                    .map(|(date, sets)| {
-                                        let (sets, index) = recent_sets(sets, *side, set_index, side_set_indices[&element_idx]);
-                                        (*date, sets, index)
-                                    })
-                                    .collect()
-                            })
-                            .unwrap_or_default()
+                    let history: &[RecentSession] = if show_set_buttons {
+                        recent_sessions_by_element.get(&(element_idx, entered_side)).map_or(&[], Vec::as_slice)
                     } else {
-                        vec![]
+                        &[]
                     };
 
                     let mut set_buttons: IndexMap<domain::Set, SetButton> = IndexMap::new();
@@ -1133,27 +1174,52 @@ fn view_form(
                         if let Some(set) = previous_set {
                             set_buttons.entry(set).or_default().icons.push("arrow-turn-down".to_string());
                         }
-                        if let Some(set) = history.first().and_then(|(_, sets, index)| sets.get(*index)).cloned() {
+                        if let Some(set) = history.first().and_then(|(_, sets, index)| sets.get((*index)?)).cloned() {
                             set_buttons.entry(set).or_default().icons.push("calendar-minus".to_string());
                         }
                     }
 
                     let number = exercise_number(exercise_id, &exercise_ids);
                     let recorded = (*target_reps, target_tempo.seconds_per_rep(), *target_weight);
+                    let side_changed = set_field_values.side.changed();
+                    let is_unilateral = cache::laterality(exercises, *exercise_id) == Some(domain::Laterality::Unilateral);
+                    // A side can be set where a marker invites it and cleared wherever it is set.
+                    let cycles_side = is_unilateral || *side != domain::Side::Unset || entered_side != domain::Side::Unset;
+                    let set_marker = rsx! {
+                        td {
+                            class: "p-1",
+                            class: if cycles_side { "is-clickable" },
+                            style: "vertical-align: middle",
+                            "data-testid": "set-number",
+                            onclick: move |_| {
+                                if cycles_side && let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
+                                    set_field_values.cycle_side();
+                                }
+                            },
+                            if let Some(number) = number {
+                                "{exercise_marker(number)}"
+                            }
+                            if entered_side != domain::Side::Unset {
+                                span {
+                                    class: if side_changed { "has-text-info" },
+                                    "data-testid": "set-side",
+                                    "{entered_side}"
+                                }
+                            } else if is_unilateral || side_changed {
+                                span {
+                                    class: if side_changed { "has-text-info" } else { "has-text-grey" },
+                                    "data-testid": "set-side",
+                                    "–"
+                                }
+                            }
+                        }
+                    };
 
                     match countdown_total(*target_reps, *target_tempo, *automatic, set_field_values, focus) {
                         None => rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
-                                td {
-                                    class: "p-1",
-                                    style: "vertical-align: middle",
-                                    "data-testid": "set-number",
-                                    if let Some(number) = number {
-                                        "{exercise_marker(number)}"
-                                    }
-                                    {side_marker(*side)}
-                                }
+                                {set_marker.clone()}
                                 td {
                                     class: "p-1 has-text-centered",
                                     InputField {
@@ -1253,14 +1319,14 @@ fn view_form(
                                 td {
                                     class: "p-1",
                                     style: "vertical-align: middle",
-                                    if set_field_values.valid() && !(set_field_values.is_empty() && !set_field_values.changed() && focus.is_focused(element_idx)) {
+                                    if set_field_values.valid() && !(set_field_values.is_unperformed() && focus.is_focused(element_idx)) {
                                         button {
                                             class: "button is-small",
-                                            class: if set_field_values.has_valid_changes() { "is-link is-outlined" } else if !set_field_values.is_empty() { "is-ghost" },
+                                            class: if set_field_values.has_pending_save() { "is-link is-outlined" } else if !set_field_values.is_empty() { "is-ghost" },
                                             "data-testid": "set-action",
-                                            disabled: focus.other_session_running() && set_field_values.is_empty() && !set_field_values.changed(),
+                                            disabled: focus.other_session_running() && set_field_values.is_unperformed(),
                                             onclick: eh!(mut training_session; field_values, set_field_values; {
-                                                if set_field_values.is_empty() && !set_field_values.changed() {
+                                                if set_field_values.is_unperformed() {
                                                     focus.take_ownership();
                                                     progress.write().set_element_idx(element_idx);
                                                 } else {
@@ -1271,7 +1337,7 @@ fn view_form(
                                                     });
                                                 }
                                             }),
-                                            Icon { name: if set_field_values.is_empty() && !set_field_values.changed() { "angles-left" } else { "check" } }
+                                            Icon { name: if set_field_values.is_unperformed() { "angles-left" } else { "check" } }
                                         }
                                     }
                                 }
@@ -1292,21 +1358,13 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                {set_value_buttons(set_buttons, &history, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
+                                {set_value_buttons(set_buttons, history, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
                             }
                         },
                         Some(total) => rsx! {
                             tr {
                                 class: if is_current_section { "" } else { "is-semitransparent" },
-                                td {
-                                    class: "p-1",
-                                    style: "vertical-align: middle",
-                                    "data-testid": "set-number",
-                                    if let Some(number) = number {
-                                        "{exercise_marker(number)}"
-                                    }
-                                    {side_marker(*side)}
-                                }
+                                {set_marker.clone()}
                                 td {
                                     class: "p-1",
                                     colspan: 4,
@@ -1364,7 +1422,7 @@ fn view_form(
                                 }
                             }
                             if is_current_section {
-                                {set_value_buttons(set_buttons, &history, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
+                                {set_value_buttons(set_buttons, history, element_idx, field_values, expanded_history, shows_time, shows_rpe)}
                             }
                         },
                     }
@@ -1542,6 +1600,7 @@ fn SetCountdown(
     let timer = progress.timer_service();
     // A countdown about to start automatically is not waiting for a tap.
     let is_running = timer.read().is_active() || *phase_clock.countdown_start_pending.read();
+
     // The countdown is set after the set has become current, so the total stands in until then.
     let remaining = if timer.read().is_set() {
         timer.read().seconds()
@@ -1626,7 +1685,7 @@ fn SetTempoBar(
 #[allow(clippy::too_many_arguments)]
 fn set_value_buttons(
     set_buttons: IndexMap<domain::Set, SetButton>,
-    history: &RecentSets,
+    history: &[RecentSession],
     element_idx: usize,
     field_values: Signal<HashMap<usize, SetFieldValues>>,
     expanded_history: Signal<HashSet<usize>>,
@@ -1668,7 +1727,7 @@ fn set_value_buttons(
                             div {
                                 class: "is-flex is-flex-wrap-wrap is-justify-content-center is-flex-gap-row-gap-1",
                                 for (index, set) in sets.iter().cloned().enumerate() {
-                                    {set_value_button(&set, None, None, sets.len() > *set_index && index != *set_index, element_idx, field_values, shows_time, shows_rpe)}
+                                    {set_value_button(&set, None, None, set_index.is_some_and(|set_index| index != set_index), element_idx, field_values, shows_time, shows_rpe)}
                                 }
                             }
                         }
@@ -1684,30 +1743,6 @@ fn set_value_buttons(
 struct SetButton {
     icons: Vec<String>,
     label: Option<String>,
-}
-
-/// Selects the sets of a recent session offered to a set of `side`, together with the index of
-/// the one corresponding to the set.
-///
-/// A set with a side is offered the sets of the same side, indexed by its position among the sets
-/// of its exercise and side, unless the recent session holds no set with a side.
-fn recent_sets(
-    sets: &[(domain::Side, domain::Set)],
-    side: domain::Side,
-    set_index: usize,
-    side_set_index: usize,
-) -> (Vec<domain::Set>, usize) {
-    if side != domain::Side::Unset && sets.iter().any(|(s, _)| *s != domain::Side::Unset) {
-        (
-            sets.iter()
-                .filter(|(s, _)| *s == side)
-                .map(|(_, set)| set.clone())
-                .collect(),
-            side_set_index,
-        )
-    } else {
-        (sets.iter().map(|(_, set)| set.clone()).collect(), set_index)
-    }
 }
 
 /// Renders a button that prefills the set of `element_idx` with `set`.
@@ -1755,18 +1790,6 @@ fn set_value_button(
                 Icon { name: icon, is_small: true }
             }
             span { {label} },
-        }
-    }
-}
-
-/// Renders the side of a set next to the marker of its exercise.
-fn side_marker(side: domain::Side) -> Element {
-    rsx! {
-        if side != domain::Side::Unset {
-            span {
-                "data-testid": "set-side",
-                "{side}"
-            }
         }
     }
 }
@@ -1887,10 +1910,54 @@ fn view_list(
             }
         });
 
-        let sets = section.elements().iter().map(|element| {
+        let groups = section.groups();
+        let first_sides_group = groups
+            .iter()
+            .position(|group| matches!(group, domain::ElementGroup::Sides { .. }));
+        let sets = groups.into_iter().enumerate().map(|(group_idx, group)| {
+            let element = match group {
+                domain::ElementGroup::Sides { left, right } => {
+                    let number = left
+                        .or(right)
+                        .and_then(|element| match element {
+                            domain::TrainingSessionElement::Set { exercise_id, .. } => {
+                                exercise_number(exercise_id, &exercise_ids)
+                            }
+                            domain::TrainingSessionElement::Rest { .. } => None,
+                        });
+                    return rsx! {
+                        if first_sides_group == Some(group_idx) {
+                            tr {
+                                "data-testid": "side-header",
+                                td {}
+                                th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Left" }
+                                th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Right" }
+                            }
+                        }
+                        tr {
+                            "data-testid": "set-sides-row",
+                            td {
+                                class: "px-2 has-text-centered",
+                                if let Some(number) = number {
+                                    "{exercise_marker(number)}"
+                                }
+                            }
+                            for element in [left, right] {
+                                td {
+                                    class: "px-2 has-text-centered",
+                                    colspan: 2,
+                                    "data-testid": "set-side-values",
+                                    {element.map(side_cell).unwrap_or_default()}
+                                }
+                            }
+                        }
+                    };
+                }
+                domain::ElementGroup::Single(element) => element,
+            };
             rsx! {
                 match element {
-                    domain::TrainingSessionElement::Set { exercise_id, side, reps, time, weight, rpe, .. } => {
+                    domain::TrainingSessionElement::Set { exercise_id, reps, time, weight, rpe, .. } => {
                         let number = exercise_number(exercise_id, &exercise_ids);
                         rsx! {
                             tr {
@@ -1904,15 +1971,8 @@ fn view_list(
                                                 "{exercise_marker(number)} "
                                             }
                                         }
-                                        if *side != domain::Side::Unset {
-                                            span {
-                                                class: "pr-2",
-                                                "data-testid": "set-side",
-                                                "{side}"
-                                            }
-                                        }
                                         span {
-                                            class: if number.is_some() || *side != domain::Side::Unset { "pr-5" },
+                                            class: if number.is_some() { "pr-5" },
                                             "–"
                                         }
                                     }
@@ -1922,7 +1982,6 @@ fn view_list(
                                         if let Some(number) = number {
                                             "{exercise_marker(number)}"
                                         }
-                                        {side_marker(*side)}
                                     }
                                     td {
                                         class: "px-2 has-text-right",
@@ -1984,6 +2043,16 @@ fn view_list(
                 }
             }
         }
+    }
+}
+
+/// The values of a set with a side, stating the time and the rating whenever they are set.
+fn side_cell(element: &domain::TrainingSessionElement) -> String {
+    let values = element.to_string(true, true);
+    if values.is_empty() {
+        "–".to_string()
+    } else {
+        values
     }
 }
 
@@ -2231,8 +2300,20 @@ fn view_edit_dialog(
                                 move |(_, replacement)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    training_session.replace_exercise(section_idx, exercise_id, replacement, cache.laterality(replacement));
-                                    save(training_session, cache, close_dialog)
+                                    let moved_to = training_session.replace_exercise(section_idx, exercise_id, replacement, cache.laterality(replacement));
+                                    let mut close_dialog = close_dialog;
+                                    async move {
+                                        if store(training_session).await {
+                                            cache.load_training_sessions().await;
+                                            // Shifted before the guide reacts to the reloaded session, as a position
+                                            // past its end would end the ongoing training session.
+                                            let element_idx = progress.read().element_idx;
+                                            if let Some(&moved_to) = moved_to.get(element_idx) {
+                                                progress.element_idx().set(moved_to);
+                                            }
+                                        }
+                                        close_dialog();
+                                    }
                                 }
                             },
                             on_catalog_click: |_| {}
@@ -2477,6 +2558,7 @@ fn modify_training_session_elements(
 ) {
     for (element_idx, element) in &mut training_session.elements.iter_mut().enumerate() {
         if let domain::TrainingSessionElement::Set {
+            side,
             reps,
             time,
             weight,
@@ -2485,6 +2567,7 @@ fn modify_training_session_elements(
         } = element
             && let Some(set_field_values) = field_values.get(&element_idx)
         {
+            *side = set_field_values.side.validated.clone().unwrap_or_default();
             *reps = set_field_values.reps.validated.clone().unwrap_or_default();
             *time = set_field_values.time.validated.clone().unwrap_or_default();
             *weight = set_field_values
@@ -2502,6 +2585,14 @@ async fn save(
     cache: Cache,
     mut close_dialog: impl FnMut(),
 ) {
+    if store(training_session).await {
+        cache.refresh_training_sessions();
+    }
+    close_dialog();
+}
+
+/// Returns whether the training session was stored.
+async fn store(training_session: domain::TrainingSession) -> bool {
     let _loading = LoadingFlag::set(&IS_LOADING);
     match DOMAIN_SERVICE()
         .modify_training_session(
@@ -2512,14 +2603,12 @@ async fn save(
         )
         .await
     {
-        Ok(_) => {
-            cache.refresh_training_sessions();
-        }
+        Ok(_) => true,
         Err(err) => {
             notify("modify training session", &err);
+            false
         }
     }
-    close_dialog();
 }
 
 #[derive(Store, Clone)]
@@ -2722,6 +2811,82 @@ mod tests {
         assert_eq!(
             rows_of(&html, "session")[1],
             vec!["", "10 ×", "30 s", "50 kg", "@ 8"]
+        );
+    }
+
+    #[test]
+    fn test_a_set_with_a_side_is_shown_in_the_column_of_its_side() {
+        let sided = |side| {
+            let mut set = recorded_set(1);
+            if let domain::TrainingSessionElement::Set { side: set_side, .. } = &mut set {
+                *set_side = side;
+            }
+            set
+        };
+        let html = render_training_session(1, web_app::Settings::default(), move || {
+            recorded_session().with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![
+                    sided(domain::Side::Left),
+                    sided(domain::Side::Right),
+                    sided(domain::Side::Left),
+                    recorded_set(1),
+                    sided(domain::Side::Right),
+                ],
+                exercise_notes: std::collections::BTreeMap::new(),
+            }])
+        });
+
+        assert_eq!(
+            rows_of(&html, "session")[1..],
+            [
+                vec!["", "Left", "Right"],
+                vec!["", "10 × 50 kg @ 8 (30 s)", "10 × 50 kg @ 8 (30 s)"],
+                vec!["", "10 × 50 kg @ 8 (30 s)", ""],
+                vec!["", "10 ×", "30 s", "50 kg", "@ 8"],
+                vec!["", "", "10 × 50 kg @ 8 (30 s)"],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_a_right_set_directly_followed_by_its_left_set_shares_one_row_left_first() {
+        let sided = |side, reps| {
+            let mut set = recorded_set(1);
+            if let domain::TrainingSessionElement::Set {
+                side: set_side,
+                reps: set_reps,
+                ..
+            } = &mut set
+            {
+                *set_side = side;
+                *set_reps = domain::Reps::new(reps).unwrap();
+            }
+            set
+        };
+        let html = render_training_session(1, web_app::Settings::default(), move || {
+            recorded_session().with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![
+                    sided(domain::Side::Right, 11),
+                    sided(domain::Side::Left, 12),
+                ],
+                exercise_notes: std::collections::BTreeMap::new(),
+            }])
+        });
+
+        assert_eq!(
+            rows_of(&html, "session")[1..],
+            [
+                vec!["", "Left", "Right"],
+                vec!["", "12 × 50 kg @ 8 (30 s)", "11 × 50 kg @ 8 (30 s)"]
+            ]
         );
     }
 
@@ -3193,7 +3358,7 @@ mod tests {
     #[component]
     fn ExpandedHistory(
         history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
-        set_index: usize,
+        set_index: Option<usize>,
         with_set_buttons: bool,
     ) -> Element {
         let field_values = use_signal(|| HashMap::from([(0, set_field_values(0))]));
@@ -3217,8 +3382,8 @@ mod tests {
         };
         let history = history
             .into_iter()
-            .map(|(date, sets)| (date, sets, set_index))
-            .collect::<RecentSets>();
+            .map(|(date, sets)| (date, sets.into(), set_index))
+            .collect::<Vec<RecentSession>>();
         rsx! {
             table {
                 tbody {
@@ -3238,14 +3403,14 @@ mod tests {
 
     fn render_expanded_history(
         history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
-        set_index: usize,
+        set_index: Option<usize>,
     ) -> String {
         render_expanded_history_with_set_buttons(history, set_index, true)
     }
 
     fn render_expanded_history_with_set_buttons(
         history: Vec<(chrono::NaiveDate, Vec<domain::Set>)>,
-        set_index: usize,
+        set_index: Option<usize>,
         with_set_buttons: bool,
     ) -> String {
         render(move || {
@@ -3282,7 +3447,7 @@ mod tests {
                     vec![recent_set(47.5)],
                 ),
             ],
-            0,
+            Some(0),
         );
 
         assert_eq!(
@@ -3298,7 +3463,7 @@ mod tests {
                 chrono::NaiveDate::from_ymd_opt(2026, 8, 28).unwrap(),
                 vec![recent_set(50.0), recent_set(52.5), recent_set(55.0)],
             )],
-            1,
+            Some(1),
         );
 
         assert_eq!(
@@ -3317,7 +3482,7 @@ mod tests {
                 chrono::NaiveDate::from_ymd_opt(2026, 8, 28).unwrap(),
                 vec![recent_set(50.0)],
             )],
-            0,
+            Some(0),
             false,
         );
 
@@ -3335,7 +3500,7 @@ mod tests {
                 chrono::NaiveDate::from_ymd_opt(2026, 8, 28).unwrap(),
                 vec![recent_set(50.0), recent_set(52.5)],
             )],
-            2,
+            None,
         );
 
         assert_eq!(
@@ -3431,7 +3596,62 @@ mod tests {
             time: FieldValue::new(domain::Time::default()),
             weight: FieldValue::new(domain::Weight::default()),
             rpe: FieldValue::new(domain::RPE::default()),
+            side: FieldValue::new(domain::Side::Unset),
         }
+    }
+
+    fn unperformed_set_field_values() -> SetFieldValues {
+        SetFieldValues {
+            reps: FieldValue::new_with_empty_default(domain::Reps::default()),
+            time: FieldValue::new_with_empty_default(domain::Time::default()),
+            weight: FieldValue::new_with_empty_default(domain::Weight::default()),
+            rpe: FieldValue::new_with_empty_default(domain::RPE::default()),
+            side: FieldValue::new(domain::Side::Unset),
+        }
+    }
+
+    #[test]
+    fn test_the_side_cycles_through_none_left_and_right() {
+        let mut values = unperformed_set_field_values();
+
+        let sides = (0..3)
+            .map(|_| {
+                values.cycle_side();
+                values.side.validated.clone().unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            sides,
+            [domain::Side::Left, domain::Side::Right, domain::Side::Unset]
+        );
+        assert!(!values.changed());
+    }
+
+    #[test]
+    fn test_a_side_changed_on_an_unperformed_set_is_saved_but_keeps_it_unperformed() {
+        let mut values = unperformed_set_field_values();
+
+        values.cycle_side();
+
+        assert!(values.is_empty());
+        assert!(values.is_unperformed());
+        assert!(values.changed());
+        assert!(values.has_valid_changes());
+        assert!(!values.has_pending_save());
+    }
+
+    #[test]
+    fn test_a_side_changed_on_a_recorded_set_offers_no_values() {
+        let mut values = set_field_values(10);
+
+        values.cycle_side();
+
+        assert!(!values.is_unperformed());
+        assert!(!values.values_changed());
+        assert!(values.changed());
+        assert!(!values.offers_values());
+        assert!(values.has_pending_save());
     }
 
     fn weight(value: f32) -> domain::Weight {
@@ -3514,61 +3734,6 @@ mod tests {
         assert_eq!(
             filled_weights(&[vec![2], vec![1]], &[weight(50.0), weight(40.0)]),
             vec![(0, "0".to_string()), (1, "40".to_string())]
-        );
-    }
-
-    fn reps_set(reps: u32) -> domain::Set {
-        domain::Set {
-            reps: domain::Reps::new(reps).unwrap(),
-            time: domain::Time::default(),
-            weight: domain::Weight::default(),
-            rpe: domain::RPE::ZERO,
-        }
-    }
-
-    fn sided_recent_set(side: domain::Side, reps: u32) -> (domain::Side, domain::Set) {
-        (side, reps_set(reps))
-    }
-
-    #[test]
-    fn test_a_set_with_a_side_is_offered_the_recent_sets_of_its_side() {
-        let sets = [
-            sided_recent_set(domain::Side::Left, 1),
-            sided_recent_set(domain::Side::Right, 2),
-            sided_recent_set(domain::Side::Left, 3),
-            sided_recent_set(domain::Side::Right, 4),
-        ];
-
-        let (offered, index) = recent_sets(&sets, domain::Side::Right, 3, 1);
-
-        assert_eq!(offered, vec![reps_set(2), reps_set(4)]);
-        assert_eq!(offered[index], reps_set(4));
-    }
-
-    #[test]
-    fn test_a_set_with_a_side_is_offered_every_set_of_a_recent_session_without_sides() {
-        let sets = [
-            sided_recent_set(domain::Side::Unset, 1),
-            sided_recent_set(domain::Side::Unset, 2),
-            sided_recent_set(domain::Side::Unset, 3),
-        ];
-
-        let (offered, index) = recent_sets(&sets, domain::Side::Right, 1, 0);
-
-        assert_eq!(offered, vec![reps_set(1), reps_set(2), reps_set(3)]);
-        assert_eq!(offered[index], reps_set(2));
-    }
-
-    #[test]
-    fn test_a_set_without_a_side_is_offered_every_recent_set() {
-        let sets = [
-            sided_recent_set(domain::Side::Left, 1),
-            sided_recent_set(domain::Side::Right, 2),
-        ];
-
-        assert_eq!(
-            recent_sets(&sets, domain::Side::Unset, 1, 0),
-            (vec![reps_set(1), reps_set(2)], 1)
         );
     }
 

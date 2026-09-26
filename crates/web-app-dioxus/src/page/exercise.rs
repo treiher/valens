@@ -55,27 +55,13 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                     {view_notes(exercise, exercise_dialog)}
                     match (&*cache.training_sessions.read(), &*cache.routines.read()) {
                         (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => {
-                            let training_sessions = training_sessions
+                            let sessions_with_exercise = training_sessions
                                 .iter()
                                 .filter(|t| t.exercises().contains(&id))
-                                .map(|t| domain::TrainingSession {
-                                    id: t.id,
-                                    routine_id: t.routine_id,
-                                    date: t.date,
-                                    notes: t.notes.clone(),
-                                    elements: t
-                                        .elements
-                                        .iter()
-                                        .filter(|e| match e {
-                                            domain::TrainingSessionElement::Set { exercise_id, .. } => {
-                                                *exercise_id == id
-                                            }
-                                            domain::TrainingSessionElement::Rest { .. } => false,
-                                        })
-                                    .cloned()
-                                        .collect::<Vec<_>>(),
-                                    exercise_notes: t.exercise_notes.clone(),
-                                })
+                                .collect::<Vec<_>>();
+                            let training_sessions = sessions_with_exercise
+                                .iter()
+                                .map(|t| t.restricted_to(id))
                             .collect::<Vec<_>>();
                             if training_sessions.is_empty() {
                                 rsx! {
@@ -99,6 +85,10 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                                     .filter(|t| t.date >= interval.first && t.date <= interval.last)
                                     .cloned()
                                     .collect::<Vec<_>>();
+                                let sessions_with_exercise = sessions_with_exercise
+                                    .into_iter()
+                                    .filter(|t| t.date >= interval.first && t.date <= interval.last)
+                                    .collect::<Vec<_>>();
                                 rsx! {
                                     IntervalControl { current_interval, all },
                                     if training_sessions.is_empty() {
@@ -107,7 +97,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                                         {view_charts(id, &training_sessions, interval, settings)}
                                         {view_calendar(&training_sessions, interval)}
                                         {page::training_sessions::view_table(&training_sessions, routines, interval, training_dialog, settings)}
-                                        {view_sets(id, &training_sessions, routines, settings)}
+                                        {view_sets(id, &sessions_with_exercise, routines, settings)}
                                         {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                                     }
                                 }
@@ -481,9 +471,14 @@ fn view_notes(
     }
 }
 
+/// Renders the sets of an exercise per training session, the sets of a session holding sets with
+/// a side in a left and a right column.
+///
+/// The training sessions carry all their elements, since a left and a right set form a pair only
+/// where they directly follow each other in the whole session.
 fn view_sets(
     exercise_id: domain::ExerciseID,
-    training_sessions: &[domain::TrainingSession],
+    training_sessions: &[&domain::TrainingSession],
     routines: &[domain::Routine],
     settings: Settings,
 ) -> Element {
@@ -495,17 +490,55 @@ fn view_sets(
             .get(&exercise_id)
             .cloned()
             .unwrap_or_default();
-        let sets = t.elements.iter().filter_map(|e| {
-            if let domain::TrainingSessionElement::Set { .. } = e {
-                Some(rsx! {
-                    div {
-                        NoWrap { {e.to_string(settings.show_tut(), settings.show_rpe())} }
+        let rows = t.set_history_rows(exercise_id);
+        let has_sides = rows
+            .iter()
+            .any(|row| matches!(row, domain::SetHistoryRow::Sides { .. }));
+        let values = |set: &Option<domain::Set>| {
+            set.as_ref()
+                .map(|set| set.to_string(settings.show_tut(), settings.show_rpe()))
+                .unwrap_or_default()
+        };
+        let sets = if has_sides {
+            rsx! {
+                table {
+                    class: "mx-auto",
+                    "data-testid": "set-history-sides",
+                    tr {
+                        th { class: page::training_session::COLUMN_HEADER_CLASS, "Left" }
+                        th { class: page::training_session::COLUMN_HEADER_CLASS, "Right" }
                     }
-                })
-            } else {
-                None
+                    for row in rows {
+                        tr {
+                            match row {
+                                domain::SetHistoryRow::Sides { left, right } => rsx! {
+                                    td { class: "px-2 has-text-centered", NoWrap { {values(&left)} } }
+                                    td { class: "px-2 has-text-centered", NoWrap { {values(&right)} } }
+                                },
+                                domain::SetHistoryRow::Combined(set) => rsx! {
+                                    td {
+                                        class: "px-2 has-text-centered",
+                                        colspan: 2,
+                                        NoWrap { {values(&Some(set))} }
+                                    }
+                                },
+                            }
+                        }
+                    }
+                }
             }
-        });
+        } else {
+            rsx! {
+                for row in rows {
+                    if let domain::SetHistoryRow::Combined(set) = row {
+                        div {
+                            "data-testid": "set-history-set",
+                            NoWrap { {values(&Some(set))} }
+                        }
+                    }
+                }
+            }
+        };
         [
             rsx! {
                 div {
@@ -538,9 +571,7 @@ fn view_sets(
             rsx! {
                 div {
                     class: "block has-text-centered",
-                    for s in sets {
-                        {s}
-                    }
+                    {sets}
                 }
             },
         ]
@@ -557,7 +588,9 @@ fn view_sets(
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::test_render::{TestCache, contains, provide_settings, render, text_of};
+    use crate::test_render::{
+        TestCache, all_text_of, contains, provide_settings, render, rows_of, text_of,
+    };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
         domain::Exercise {
@@ -617,6 +650,68 @@ mod tests {
 
         assert_eq!(text_of(&html, "no-data"), "No data");
         assert!(!contains(&html, "chart"));
+    }
+
+    fn performed_set(side: domain::Side, reps: u32) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            side,
+            reps: domain::Reps::new(reps).unwrap(),
+            time: domain::Time::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+            target_reps: domain::Reps::default(),
+            target_tempo: domain::Tempo::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    fn render_exercise_with_sets(elements: Vec<domain::TrainingSessionElement>) -> String {
+        render_exercise(1, move || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Lunge")])
+                .with_training_sessions(vec![domain::TrainingSession {
+                    id: 1.into(),
+                    routine_id: domain::RoutineID::nil(),
+                    date: chrono::Local::now().date_naive(),
+                    notes: String::new(),
+                    elements: elements.clone(),
+                    exercise_notes: BTreeMap::new(),
+                }])
+        })
+    }
+
+    #[test]
+    fn test_the_set_history_shows_the_sides_in_a_left_and_a_right_column() {
+        let html = render_exercise_with_sets(vec![
+            performed_set(domain::Side::Left, 10),
+            performed_set(domain::Side::Right, 9),
+            performed_set(domain::Side::Right, 8),
+            performed_set(domain::Side::Unset, 7),
+        ]);
+
+        assert_eq!(
+            rows_of(&html, "set-history-sides"),
+            vec![
+                vec!["Left", "Right"],
+                vec!["10", "9"],
+                vec!["", "8"],
+                vec!["7"],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_the_set_history_without_sides_is_a_single_column() {
+        let html = render_exercise_with_sets(vec![
+            performed_set(domain::Side::Unset, 10),
+            performed_set(domain::Side::Unset, 9),
+        ]);
+
+        assert!(!contains(&html, "set-history-sides"));
+        assert_eq!(all_text_of(&html, "set-history-set"), vec!["10", "9"]);
     }
 
     #[test]

@@ -1650,7 +1650,99 @@ def test_training_session_of_a_per_side_activity(page: Page) -> None:
     p.expect_page()
 
     expect(page.get_by_test_id("set-number")).to_have_count(12)
-    assert p.get_set_sides() == ["", *["L", "R", "", ""] * 2, "", "", ""]
+    assert p.get_set_sides() == ["", *["L", "R", "\u2013", "\u2013"] * 2, "", "", ""]
+
+
+def test_training_session_side_of_a_recorded_set(page: Page) -> None:
+    workout = USER.workouts[0]
+    exercise = next(e for e in USER.exercises if e.laterality == 2)
+    set_count = len(workout.elements)
+
+    login(page)
+
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.expect_page()
+    p.view()
+    sets = p.get_sets()
+    p.edit()
+
+    # A side-less set of a unilateral exercise shows a placeholder, which cycles through the sides.
+    expect(page.get_by_test_id("set-number")).to_have_count(set_count)
+    assert p.get_set_sides() == ["", "\u2013", "\u2013"]
+    p.tap_set_marker(1)
+    p.tap_set_marker(2)
+    p.tap_set_marker(2)
+    assert p.get_set_sides() == ["", "L", "R"]
+    p.save()
+    p.view()
+
+    assert p.get_sets() == sets
+    assert len(p.get_side_rows()) == 1
+
+    exercise_page = ExercisePage(page, exercise.id)
+    exercise_page.goto()
+    exercise_page.expect_page()
+
+    rows = exercise_page.get_set_history_sides()
+    assert rows[0] == ["Left", "Right"]
+    assert len(rows[1]) == 2
+
+
+def test_training_session_offered_values_follow_the_side_on_screen(page: Page) -> None:
+    workout = USER.workouts[0]
+
+    login(page)
+
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.expect_page()
+    p.edit()
+    p.tap_set_marker(1)
+    p.tap_set_marker(2)
+    p.tap_set_marker(2)
+    assert p.get_set_sides() == ["", "L", "R"]
+    p.save()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(
+        next(r.name for r in USER.routines if r.id == workout.routine_id)
+    )
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.activate_set_action(1)
+
+    # A side-less set is offered the left set of the earlier session.
+    assert p.get_set_values() == ["9 @ 8.5 (4 s)"]
+    p.tap_set_marker(1)
+    p.tap_set_marker(1)
+
+    assert p.get_set_values() == ["60 s @ 9"]
+
+
+def test_training_session_replace_exercise_by_a_unilateral_exercise(page: Page) -> None:
+    workout = USER.workouts[0]
+    exercise = next(e for e in USER.exercises if e.laterality == 2)
+
+    login(page)
+
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.expect_page()
+    p.view()
+    replaced_set = p.get_sets()[0]
+    p.edit()
+
+    # The side-less set of the replaced exercise becomes a pair whose sides take its values.
+    p.replace_exercise(str(exercise.name))
+    expect(page.get_by_test_id("set-number")).to_have_count(4)
+    assert p.get_set_sides() == ["L", "R", "\u2013", "\u2013"]
+    p.view()
+
+    assert p.get_sets()[:2] == [replaced_set, replaced_set]
+    assert len(p.get_side_rows()) == 1
 
 
 def test_training_session_countdown_advances_the_focus(page: Page) -> None:

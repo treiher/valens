@@ -11,9 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Counting of a set with a side as half a set in the load, the set volume and the time under tension
 - Training session page:
-    - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set
-    - Values of the recent sessions offered to a set with a side, taken from the sets of the same side
+    - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set and changed by tapping it
+    - Left and right column of the sets, a left and a right set directly following each other sharing one row
 - Routine page: Sides of an activity, which prescribe a unilateral exercise per side
+- Exercise page: Left and right column in the set history, showing the two sets of a pair side by side
 
 ## [0.9.0] - 2026-09-26
 

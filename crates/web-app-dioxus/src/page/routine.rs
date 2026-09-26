@@ -8,7 +8,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, Route,
-    cache::{Cache, CacheState},
+    cache::{self, Cache, CacheState},
     chart::{Chart, IntervalControl},
     eh,
     loading::LoadingFlag,
@@ -309,10 +309,7 @@ fn view_routine_part(
             automatic,
             sides,
         } => {
-            let laterality = exercises
-                .iter()
-                .find(|e| e.id == *exercise_id)
-                .and_then(|e| e.laterality);
+            let laterality = cache::laterality(exercises, *exercise_id);
             rsx! {
                 div {
                     class: "message mb-0",

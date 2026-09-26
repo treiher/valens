@@ -25,6 +25,12 @@ class ExercisePage(BasePage):
         assert self.exercise_id is not None
         return f"/exercise/{uuid.UUID(int=self.exercise_id)}"
 
+    def get_set_history_sides(self) -> list[list[str]]:
+        return [
+            [get_text(cell) for cell in row.locator("th, td").all()]
+            for row in self.page.get_by_test_id("set-history-sides").locator("tr").all()
+        ]
+
     def session_exercise_notes(self) -> Locator:
         return self.page.get_by_test_id("session-exercise-notes")
 

@@ -327,6 +327,15 @@ impl Side {
     pub fn non_zero(self) -> Option<Self> {
         (self != Self::Unset).then_some(self)
     }
+
+    /// Whether the sides are the left and the right side, in either order.
+    #[must_use]
+    pub fn opposes(self, other: Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::Left, Self::Right) | (Self::Right, Self::Left)
+        )
+    }
 }
 
 impl TryFrom<u8> for Side {
@@ -337,19 +346,6 @@ impl TryFrom<u8> for Side {
             .into_iter()
             .find(|side| *side as u8 == value)
             .ok_or(SideError::Invalid)
-    }
-}
-
-impl TryFrom<&str> for Side {
-    type Error = SideError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value {
-            "" => Ok(Side::Unset),
-            "L" => Ok(Side::Left),
-            "R" => Ok(Side::Right),
-            _ => Err(SideError::Invalid),
-        }
     }
 }
 
@@ -1151,18 +1147,24 @@ mod tests {
     #[case::right(Side::Right, "R", Some(Side::Right))]
     fn test_side(#[case] side: Side, #[case] text: &str, #[case] non_zero: Option<Side>) {
         assert_eq!(side.to_string(), text);
-        assert_eq!(Side::try_from(text), Ok(side));
         assert_eq!(side.non_zero(), non_zero);
+    }
+
+    #[rstest]
+    #[case::left_right(Side::Left, Side::Right, true)]
+    #[case::right_left(Side::Right, Side::Left, true)]
+    #[case::left_left(Side::Left, Side::Left, false)]
+    #[case::right_right(Side::Right, Side::Right, false)]
+    #[case::unset_left(Side::Unset, Side::Left, false)]
+    #[case::right_unset(Side::Right, Side::Unset, false)]
+    #[case::unset_unset(Side::Unset, Side::Unset, false)]
+    fn test_side_opposes(#[case] side: Side, #[case] other: Side, #[case] expected: bool) {
+        assert_eq!(side.opposes(other), expected);
     }
 
     #[test]
     fn test_side_default() {
         assert_eq!(Side::default(), Side::Unset);
-    }
-
-    #[test]
-    fn test_side_try_from_invalid_str() {
-        assert_eq!(Side::try_from("X"), Err(SideError::Invalid));
     }
 
     #[rstest]

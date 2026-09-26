@@ -22,6 +22,11 @@ class ExerciseListDialog(Dialog):
     def get_filter_tags(self) -> list[str]:
         return [tag.inner_text().strip() for tag in self.root.get_by_test_id("filter-tag").all()]
 
+    def select_exercise(self, name: str) -> None:
+        self.root.get_by_test_id("exercise-item").filter(
+            has_text=re.compile(f"^{re.escape(name)}$")
+        ).click()
+
     def clear_filter(self) -> None:
         for tag in self.get_filter_tags():
             self.remove_filter_tag(tag)

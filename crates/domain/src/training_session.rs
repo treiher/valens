@@ -1040,6 +1040,14 @@ impl TrainingSession {
             .collect()
     }
 
+    /// Whether the element at `element_idx` is the second set of a pair.
+    #[must_use]
+    pub fn completes_pair(&self, element_idx: usize) -> bool {
+        groups(&self.elements)
+            .iter()
+            .any(|group| group.len() == 2 && group.end == element_idx + 1)
+    }
+
     /// Returns the sets in order, grouped as by `groups`.
     fn paired_sets(&self) -> Vec<&[TrainingSessionElement]> {
         groups(&self.elements)
@@ -4448,7 +4456,7 @@ mod tests {
         session.replace_exercise(0, 1.into(), 2.into(), laterality);
 
         assert_eq!(session.elements, expected);
-        assert_eq!(session.group_indices()[&0], session.group_indices()[&1]);
+        assert!(session.completes_pair(1));
     }
 
     #[rstest]
@@ -4691,6 +4699,22 @@ mod tests {
                 ElementGroup::Single(&elements[7]),
             ]
         );
+    }
+
+    #[rstest]
+    #[case::first_set_of_a_pair(0, false)]
+    #[case::second_set_of_a_pair(1, true)]
+    #[case::opposite_side_after_a_pair(2, false)]
+    #[case::rest(3, false)]
+    fn test_training_session_completes_pair(#[case] element_idx: usize, #[case] expected: bool) {
+        let session = training_session(&[
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            sided_set(1, Side::Left, 6, RPE::ZERO),
+            sided_set(1, Side::Right, 7, RPE::ZERO),
+            rest(60),
+        ]);
+
+        assert_eq!(session.completes_pair(element_idx), expected);
     }
 
     #[test]

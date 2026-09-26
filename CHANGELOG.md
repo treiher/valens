@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Training session page:
     - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set and changed by tapping it
     - Left and right column of the sets, a left and a right set directly following each other sharing one row
+    - Pause before the second set of a pair
 - Routine page: Sides of an activity, which prescribe a unilateral exercise per side
 - Exercise page: Left and right column in the set history, showing the two sets of a pair side by side
 

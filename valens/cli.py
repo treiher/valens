@@ -42,7 +42,7 @@ def main() -> int:
     parser_run.add_argument(
         "--public",
         action="store_true",
-        help="make the server publicly available (sould be only used on a trusted network)",
+        help="make the server publicly available (should only be used on a trusted network)",
     )
     parser_run.add_argument(
         "--port",

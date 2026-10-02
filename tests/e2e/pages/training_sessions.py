@@ -30,6 +30,10 @@ class TrainingSessionsPage(BasePage):
         self.dialog.set_routine(name)
         self.dialog.save()
 
+    def get_column(self, header: str) -> list[str]:
+        """Return the values of a column of the table, newest session first."""
+        return self.table.get_column(header)
+
     def delete_training_session(self, index: int) -> None:
         self.delete_item(index)
         self.dialog.delete()

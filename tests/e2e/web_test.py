@@ -4,7 +4,7 @@ import os
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from itertools import pairwise
 from pathlib import Path
 from shutil import copytree
@@ -958,6 +958,64 @@ def test_training_sessions_add(page: Page) -> None:
     training_sessions_page.expect_page()
     assert training_sessions_page.table.get_value(1, 1, 1) == date
     assert training_sessions_page.table.get_value(1, 1, 2) == routine
+
+
+def stretching_workout() -> models.Workout:
+    routine_id = next(r.id for r in USER.routines if r.name == "Stretching")
+    workout = next(w for w in USER.workouts if w.routine_id == routine_id)
+    assert all(
+        isinstance(s, models.WorkoutSet) and s.exercise.name == "Exercise 7"
+        for s in workout.elements
+    ), "test data must contain a session of only a stretch-only exercise"
+    return workout
+
+
+def test_training_sessions_stretch_columns(page: Page) -> None:
+    workout = stretching_workout()
+    row = sorted((w.date for w in USER.workouts), reverse=True).index(workout.date)
+
+    login(page)
+    p = TrainingSessionsPage(page)
+    p.goto()
+
+    p.table.expect_value(1, row + 1, 1, str(workout.date))
+
+    assert p.get_column("Set volume")[row] == "0"
+    assert p.get_column("Stretch sets")[row] == "2"
+    assert p.get_column("Stretch (min)")[row] == "2.5"
+    assert p.get_column("Stretch sets")[row - 1] == "0"
+
+
+def test_exercise_stretch_sets(page: Page) -> None:
+    workout = stretching_workout()
+    exercise = next(s.exercise for s in workout.elements if isinstance(s, models.WorkoutSet))
+    row = sorted(
+        (
+            w.date
+            for w in USER.workouts
+            if any(isinstance(s, models.WorkoutSet) and s.exercise == exercise for s in w.elements)
+        ),
+        reverse=True,
+    ).index(workout.date)
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+
+    p.expect_chart_label("Stretch sets")
+    assert p.table.get_column("Stretch sets")[row] == "2"
+    assert "Set volume" not in p.table.get_headers()
+    assert "Volume load" not in p.table.get_headers()
+
+
+def test_training_session_stretch_per_muscle(page: Page) -> None:
+    workout = stretching_workout()
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+
+    p.expect_stretch_per_muscle("Hamstrings", "2", "2.5")
 
 
 def test_training_sessions_delete(page: Page) -> None:
@@ -2077,8 +2135,19 @@ def test_training_session_in_progress_survives_a_reload_on_another_page(page: Pa
     p.expect_page()
 
 
+def routine_names_by_last_use() -> list[str]:
+    """Return the names of the routines in the order of the routines page."""
+
+    def last_use(routine: models.Routine) -> tuple[bool, date | int]:
+        dates = [w.date for w in USER.workouts if w.routine_id == routine.id]
+        return (True, max(dates)) if dates else (False, routine.id)
+
+    return [r.name for r in sorted(USER.routines, key=last_use, reverse=True)]
+
+
 def test_routines_add(page: Page) -> None:
-    name = USER.routines[-1].name
+    first_unused = len({w.routine_id for w in USER.workouts if w.routine_id})
+    name = routine_names_by_last_use()[first_unused]
     new_name = "New Routine"
 
     assert name != new_name
@@ -2091,7 +2160,7 @@ def test_routines_add(page: Page) -> None:
 
     p.dialog.cancel()
 
-    p.table.expect_value(1, 2, 1, name)
+    p.table.expect_value(1, first_unused + 1, 1, name)
 
     p.fab().click()
     p.dialog.wait_until_open()
@@ -2099,11 +2168,11 @@ def test_routines_add(page: Page) -> None:
     p.dialog.set_name(new_name)
     p.dialog.save()
 
-    p.table.expect_value(1, 2, 1, new_name)
+    p.table.expect_value(1, first_unused + 1, 1, new_name)
 
 
 def test_routines_edit(page: Page) -> None:
-    name = str(USER.routines[-2].name)
+    name = routine_names_by_last_use()[0]
     new_name = "Changed Routine"
 
     assert name != new_name
@@ -2128,8 +2197,7 @@ def test_routines_edit(page: Page) -> None:
 
 
 def test_routines_delete(page: Page) -> None:
-    name_1 = str(USER.routines[-1].name)
-    name_2 = str(USER.routines[-2].name)
+    name_2, name_1 = routine_names_by_last_use()[:2]
 
     login(page)
     p = RoutinesPage(page)
@@ -3451,6 +3519,10 @@ def test_exercises_delete(page: Page) -> None:
 
     p.table.expect_value(1, 1, 1, current_name_3)
 
+    for _ in current_exercises[3:]:
+        p.delete_item(1)
+        p.dialog.delete()
+
     previous_name = sorted(PREVIOUS_WORKOUT_EXERCISES)[0]
 
     p.table.expect_value(2, 1, 1, previous_name)
@@ -3504,6 +3576,32 @@ def test_exercise_change_muscles(page: Page) -> None:
     p.cycle_muscle("Neck", "worked")
 
     p.expect_muscle("Neck")
+
+
+def test_routine_stretch_per_muscle(page: Page) -> None:
+    routine = next(r for r in USER.routines if r.name == "Stretching")
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    p.expect_stretch_per_muscle("Hamstrings", "2", "2")
+
+
+def test_muscles_stretched_charts(page: Page) -> None:
+    login(page)
+    p = MusclesPage(page)
+    p.goto()
+    # The page reads the data once, which the first synchronization after the login replaces
+    p.navbar.expect_synchronization_to_be_finished()
+    p.reload()
+
+    p.expect_chart_label("7-day set volume")
+
+    p.select_kind("stretched")
+
+    p.expect_chart_label("7-day stretch sets")
+    p.expect_chart_label("7-day time under stretch (min)")
 
 
 def test_exercise_change_stretched_muscles(page: Page) -> None:

@@ -750,6 +750,13 @@ pub fn count_to_string(count: f64) -> String {
         .to_string()
 }
 
+/// Formats a duration in seconds as minutes with at most one decimal, without a trailing zero.
+pub fn minutes_to_string(seconds: f32) -> String {
+    format!("{:.1}", seconds / 60.)
+        .trim_end_matches(".0")
+        .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -765,6 +772,16 @@ mod tests {
     #[case::zero(0.0, "0")]
     fn test_count_to_string(#[case] count: f64, #[case] expected: &str) {
         assert_eq!(count_to_string(count), expected);
+    }
+
+    #[rstest::rstest]
+    #[case::whole(120.0, "2")]
+    #[case::fraction(270.0, "4.5")]
+    #[case::rounded(100.0, "1.7")]
+    #[case::rounded_to_whole(119.0, "2")]
+    #[case::zero(0.0, "0")]
+    fn test_minutes_to_string(#[case] seconds: f32, #[case] expected: &str) {
+        assert_eq!(minutes_to_string(seconds), expected);
     }
 
     #[test]

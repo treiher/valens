@@ -120,3 +120,13 @@ def get_focused_selection(input_field: Locator) -> str:
 # Keep the pointer away from the viewport edges where dragging triggers auto-scrolling
 def scroll_to_center(locator: Locator) -> None:
     locator.evaluate("element => element.scrollIntoView({block: 'center', behavior: 'instant'})")
+
+
+def expect_stretch_per_muscle(page: Page, muscle: str, sets: str, minutes: str) -> None:
+    """Expect the stretch blocks to state the sets and the minutes of a stretched muscle."""
+    expect(page.get_by_test_id("stretch-sets-per-muscle")).to_contain_text(
+        re.compile(rf"{re.escape(muscle)}\s*{re.escape(sets)}(?![\d.])")
+    )
+    expect(page.get_by_test_id("stretch-time-per-muscle")).to_contain_text(
+        re.compile(rf"{re.escape(muscle)}\s*{re.escape(minutes)} min")
+    )

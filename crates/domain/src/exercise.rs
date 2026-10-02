@@ -121,6 +121,23 @@ impl Exercise {
     }
 }
 
+/// The IDs of the stretch-only exercises.
+#[derive(Deref, Debug, Default, Clone, PartialEq, Eq)]
+pub struct StretchOnlyExercises(HashSet<ExerciseID>);
+
+impl StretchOnlyExercises {
+    #[must_use]
+    pub fn new(exercises: &[Exercise]) -> Self {
+        Self(
+            exercises
+                .iter()
+                .filter(|e| e.is_stretch_only())
+                .map(|e| e.id)
+                .collect(),
+        )
+    }
+}
+
 /// A property of an exercise.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ExerciseProperty {
@@ -576,6 +593,14 @@ impl Stimulus {
             return Err(StimulusError::OutOfRange(value));
         }
         Ok(Self(value))
+    }
+
+    /// The stimulus as a fraction of the primary stimulus.
+    #[must_use]
+    pub fn fraction(self) -> f32 {
+        #[allow(clippy::cast_precision_loss)]
+        let value = self.0 as f32;
+        value / 100.
     }
 }
 

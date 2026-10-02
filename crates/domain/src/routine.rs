@@ -9,8 +9,9 @@ use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, Laterality, MuscleID, Name, Property, RPE,
-    ReadError, Reps, Sides, Stimulus, SyncError, Tempo, Time, TrainingSession,
-    TrainingSessionElement, UpdateError, ValidationError, Weight, training::values_to_string,
+    ReadError, Reps, Sides, Stimulus, Stretch, StretchOnlyExercises, SyncError, Tempo, Time,
+    TrainingSession, TrainingSessionElement, UpdateError, ValidationError, Weight,
+    training::values_to_string,
 };
 
 #[allow(async_fn_in_trait)]
@@ -92,8 +93,38 @@ impl Routine {
         self.sections.iter().map(RoutinePart::duration).sum()
     }
 
+    #[must_use]
     pub fn num_sets(&self) -> u32 {
-        self.sections.iter().map(RoutinePart::num_sets).sum()
+        self.sections
+            .iter()
+            .map(|s| s.num_sets(&|id| !id.is_nil()))
+            .sum()
+    }
+
+    /// The number of sets of stretch-only exercises.
+    #[must_use]
+    pub fn num_stretch_sets(&self, stretch_only: &StretchOnlyExercises) -> u32 {
+        self.sections
+            .iter()
+            .map(|s| s.num_sets(&|id| stretch_only.contains(&id)))
+            .sum()
+    }
+
+    /// The stretch per stretched muscle, its sets and its time weighted by the level of the
+    /// stretch.
+    ///
+    /// The time of an activity is its reps multiplied by the seconds per rep of its tempo, counted
+    /// once for a per-side activity. An activity without a tempo has no time. Only muscles with a
+    /// stretch are included.
+    #[must_use]
+    pub fn stretch_per_muscle(&self, exercises: &[Exercise]) -> BTreeMap<MuscleID, Stretch> {
+        let mut result = BTreeMap::new();
+        for section in &self.sections {
+            for (muscle_id, stretch) in section.stretch_per_muscle(exercises) {
+                *result.entry(muscle_id).or_default() += stretch;
+            }
+        }
+        result
     }
 
     #[must_use]
@@ -517,13 +548,52 @@ impl RoutinePart {
         }
     }
 
-    pub fn num_sets(&self) -> u32 {
+    /// The number of activities of the exercises `counts` selects, multiplied by the rounds.
+    fn num_sets(&self, counts: &impl Fn(ExerciseID) -> bool) -> u32 {
         match self {
             RoutinePart::RoutineSection { rounds, parts } => {
                 let r: u32 = (*rounds).into();
-                parts.iter().map(RoutinePart::num_sets).sum::<u32>() * r
+                parts.iter().map(|p| p.num_sets(counts)).sum::<u32>() * r
             }
-            RoutinePart::RoutineActivity { exercise_id, .. } => (!exercise_id.is_nil()).into(),
+            RoutinePart::RoutineActivity { exercise_id, .. } => counts(*exercise_id).into(),
+        }
+    }
+
+    fn stretch_per_muscle(&self, exercises: &[Exercise]) -> BTreeMap<MuscleID, Stretch> {
+        match self {
+            RoutinePart::RoutineSection { rounds, parts } => {
+                let mut result: BTreeMap<MuscleID, Stretch> = BTreeMap::new();
+                #[allow(clippy::cast_precision_loss)]
+                let r = u32::from(*rounds) as f32;
+                for part in parts {
+                    for (muscle_id, stretch) in part.stretch_per_muscle(exercises) {
+                        *result.entry(muscle_id).or_default() += stretch * r;
+                    }
+                }
+                result
+            }
+            RoutinePart::RoutineActivity {
+                exercise_id,
+                reps,
+                tempo,
+                ..
+            } => {
+                let Some(exercise) = exercises.iter().find(|e| e.id == *exercise_id) else {
+                    return BTreeMap::new();
+                };
+                let r = u32::from(reps.non_zero().unwrap_or(Reps::new(1).unwrap()));
+                #[allow(clippy::cast_precision_loss)]
+                let seconds = tempo
+                    .non_zero()
+                    .map_or(0, |tempo| r * u32::from(tempo.seconds_per_rep()))
+                    as f32;
+                let activity = Stretch { sets: 1., seconds };
+                exercise
+                    .muscle_stretch()
+                    .into_iter()
+                    .map(|(muscle_id, stretch)| (muscle_id, activity * stretch.fraction()))
+                    .collect()
+            }
         }
     }
 
@@ -946,6 +1016,122 @@ mod tests {
             routine_with_sections(vec![section(1, vec![activity(1), rest.clone(), rest])]);
 
         assert_eq!(routine.num_sets(), 1);
+    }
+
+    /// A stretch-only exercise 2 and a hybrid exercise 3.
+    static STRETCH_EXERCISES: std::sync::LazyLock<Vec<Exercise>> = std::sync::LazyLock::new(|| {
+        vec![
+            Exercise {
+                muscles: vec![
+                    ExerciseMuscle {
+                        muscle_id: MuscleID::Hamstrings,
+                        stimulus: Stimulus::NONE,
+                        stretch: Stimulus::PRIMARY,
+                    },
+                    ExerciseMuscle {
+                        muscle_id: MuscleID::Calves,
+                        stimulus: Stimulus::NONE,
+                        stretch: Stimulus::SECONDARY,
+                    },
+                ],
+                ..named_exercise(2, "Stretch")
+            },
+            Exercise {
+                muscles: vec![
+                    ExerciseMuscle {
+                        muscle_id: MuscleID::ErectorSpinae,
+                        stimulus: Stimulus::PRIMARY,
+                        stretch: Stimulus::NONE,
+                    },
+                    ExerciseMuscle {
+                        muscle_id: MuscleID::Hamstrings,
+                        stimulus: Stimulus::NONE,
+                        stretch: Stimulus::PRIMARY,
+                    },
+                ],
+                ..named_exercise(3, "Hybrid")
+            },
+        ]
+    });
+
+    fn hold(exercise_id: u128, seconds: u32, sides: Sides) -> RoutinePart {
+        RoutinePart::RoutineActivity {
+            exercise_id: exercise_id.into(),
+            reps: Reps::default(),
+            tempo: Tempo::new(&[seconds]).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: false,
+            sides,
+        }
+    }
+
+    #[test]
+    fn test_routine_num_stretch_sets_counts_only_stretch_only_activities() {
+        let routine = routine_with_sections(vec![section(
+            2,
+            vec![hold(2, 30, Sides::Combined), hold(3, 30, Sides::Combined)],
+        )]);
+
+        assert_eq!(routine.num_sets(), 4);
+        assert_eq!(
+            routine.num_stretch_sets(&StretchOnlyExercises::new(&STRETCH_EXERCISES)),
+            2
+        );
+    }
+
+    #[test]
+    fn test_routine_num_stretch_sets_counts_a_per_side_activity_once() {
+        let routine = routine_with_sections(vec![
+            section(3, vec![hold(2, 30, Sides::PerSide)]),
+            hold(2, 30, Sides::Combined),
+        ]);
+
+        assert_eq!(
+            routine.num_stretch_sets(&StretchOnlyExercises::new(&STRETCH_EXERCISES)),
+            4
+        );
+        assert_eq!(routine.num_sets(), 4);
+    }
+
+    #[test]
+    fn test_routine_stretch_per_muscle() {
+        let routine = routine_with_sections(vec![
+            section(
+                2,
+                vec![hold(2, 60, Sides::Combined), hold(2, 40, Sides::PerSide)],
+            ),
+            RoutinePart::RoutineActivity {
+                exercise_id: 3.into(),
+                reps: Reps::new(5).unwrap(),
+                tempo: Tempo::default(),
+                weight: Weight::default(),
+                rpe: RPE::ZERO,
+                automatic: false,
+                sides: Sides::Combined,
+            },
+            hold(1, 60, Sides::Combined),
+        ]);
+
+        assert_eq!(
+            routine.stretch_per_muscle(&STRETCH_EXERCISES),
+            BTreeMap::from([
+                (
+                    MuscleID::Hamstrings,
+                    Stretch {
+                        sets: 5.,
+                        seconds: 200.
+                    }
+                ),
+                (
+                    MuscleID::Calves,
+                    Stretch {
+                        sets: 2.,
+                        seconds: 100.
+                    }
+                ),
+            ])
+        );
     }
 
     #[test]

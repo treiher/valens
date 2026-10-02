@@ -185,6 +185,18 @@ impl TestCache {
     }
 
     #[must_use]
+    pub fn with_unread_exercises(mut self) -> Self {
+        self.exercises = CacheState::Loading;
+        self
+    }
+
+    #[must_use]
+    pub fn with_unreadable_exercises(mut self) -> Self {
+        self.exercises = error();
+        self
+    }
+
+    #[must_use]
     pub fn with_routines(mut self, routines: Vec<domain::Routine>) -> Self {
         self.routines = CacheState::Ready(routines);
         self

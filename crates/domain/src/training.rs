@@ -8,7 +8,7 @@ use std::{
     ops::Mul,
 };
 
-use crate::{Laterality, TrainingSession};
+use crate::{Laterality, StretchOnlyExercises, TrainingSession};
 
 #[derive(Debug, Default, Display, Clone, Copy, Into, PartialEq, Eq, PartialOrd, Hash)]
 pub struct Reps(u32);
@@ -595,9 +595,38 @@ impl TrainingStats {
     }
 }
 
+/// The stretch sets and the time under stretch in seconds a muscle receives, both weighted by the
+/// level of the stretch.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Stretch {
+    pub sets: f32,
+    pub seconds: f32,
+}
+
+impl std::ops::AddAssign for Stretch {
+    fn add_assign(&mut self, rhs: Self) {
+        self.sets += rhs.sets;
+        self.seconds += rhs.seconds;
+    }
+}
+
+impl std::ops::Mul<f32> for Stretch {
+    type Output = Stretch;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Stretch {
+            sets: self.sets * rhs,
+            seconds: self.seconds * rhs,
+        }
+    }
+}
+
 #[must_use]
-pub fn training_stats(training_sessions: &[&TrainingSession]) -> TrainingStats {
-    let short_term_load = weighted_sum_of_load(training_sessions, 7);
+pub fn training_stats(
+    training_sessions: &[&TrainingSession],
+    stretch_only: &StretchOnlyExercises,
+) -> TrainingStats {
+    let short_term_load = weighted_sum_of_load(training_sessions, stretch_only, 7);
     let long_term_load = average_weighted_sum_of_load(&short_term_load, 28);
     TrainingStats {
         short_term_load,
@@ -607,6 +636,7 @@ pub fn training_stats(training_sessions: &[&TrainingSession]) -> TrainingStats {
 
 fn weighted_sum_of_load(
     training_sessions: &[&TrainingSession],
+    stretch_only: &StretchOnlyExercises,
     window_size: usize,
 ) -> Vec<(NaiveDate, f32)> {
     let mut result: BTreeMap<NaiveDate, f32> = BTreeMap::new();
@@ -623,10 +653,7 @@ fn weighted_sum_of_load(
     }
 
     for t in training_sessions {
-        result
-            .entry(t.date)
-            .and_modify(|e| *e += t.load())
-            .or_insert(t.load());
+        *result.entry(t.date).or_default() += t.load(stretch_only);
     }
 
     #[allow(clippy::cast_precision_loss)]
@@ -1237,7 +1264,7 @@ mod tests {
         #[case] long_term_load: Vec<(NaiveDate, f32)>,
     ) {
         assert_eq!(
-            training_stats(training_sessions),
+            training_stats(training_sessions, &StretchOnlyExercises::default()),
             TrainingStats {
                 short_term_load,
                 long_term_load
@@ -1254,8 +1281,14 @@ mod tests {
         };
 
         assert_eq!(
-            training_stats(&[&TRAINING_SESSION, &later]),
-            training_stats(&[&later, &TRAINING_SESSION])
+            training_stats(
+                &[&TRAINING_SESSION, &later],
+                &StretchOnlyExercises::default()
+            ),
+            training_stats(
+                &[&later, &TRAINING_SESSION],
+                &StretchOnlyExercises::default()
+            )
         );
     }
 
@@ -1283,7 +1316,10 @@ mod tests {
             ..TRAINING_SESSION.clone()
         };
 
-        assert_eq!(training_stats(&[&pair]), training_stats(&[&single_set]));
+        assert_eq!(
+            training_stats(&[&pair], &StretchOnlyExercises::default()),
+            training_stats(&[&single_set], &StretchOnlyExercises::default())
+        );
     }
 
     #[rstest]

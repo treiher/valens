@@ -10,7 +10,9 @@ use crate::{
     Route,
     cache::{Cache, CacheState},
     chart::{Calendar, Chart, IntervalControl},
-    eh, page,
+    eh,
+    muscle::view_muscles_caption,
+    page,
     settings::Settings,
     ui::element::{
         Block, CenteredBlock, CenteredTags, ElementWithDescription, Error, ErrorPage,
@@ -32,6 +34,14 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
             if let Some(exercise) = exercise {
                 let muscles = exercise.muscle_stimulus().into_iter().collect::<Vec<_>>();
                 let stretch = exercise.muscle_stretch().into_iter().collect::<Vec<_>>();
+                // A hold without its time reads as an empty set.
+                let show_time = settings.show_tut() || exercise.is_stretch_only();
+                let stretch_only = domain::StretchOnlyExercises::new(exercises);
+                let stretch_metrics = if exercise.is_stretch_only() {
+                    page::training_sessions::StretchMetrics::Only
+                } else {
+                    page::training_sessions::StretchMetrics::Include
+                };
                 let has_properties = exercise.force.is_some()
                     || exercise.mechanic.is_some()
                     || exercise.laterality.is_some()
@@ -96,10 +106,10 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                                     if training_sessions.is_empty() {
                                         NoData {}
                                     } else {
-                                        {view_charts(id, &training_sessions, interval, settings)}
-                                        {view_calendar(&training_sessions, interval)}
-                                        {page::training_sessions::view_table(&training_sessions, routines, interval, training_dialog, settings)}
-                                        {view_sets(id, &sessions_with_exercise, routines, settings)}
+                                        {view_charts(id, &training_sessions, &stretch_only, interval, show_time, settings)}
+                                        {view_calendar(id, &training_sessions, &stretch_only, interval)}
+                                        {page::training_sessions::view_table(&training_sessions, &stretch_only, stretch_metrics, show_time, routines, interval, training_dialog, settings)}
+                                        {view_sets(id, &sessions_with_exercise, routines, show_time, settings)}
                                         {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                                     }
                                 }
@@ -192,16 +202,6 @@ pub fn view_exercise_properties(
     }
 }
 
-fn view_muscles_caption(caption: &str) -> Element {
-    rsx! {
-        p {
-            class: "is-size-7 has-text-centered mb-2",
-            "data-testid": "muscles-caption",
-            {caption}
-        }
-    }
-}
-
 pub fn view_muscles<M, I, S>(muscles: M, test_id: &str) -> Element
 where
     M: IntoIterator<Item = (I, S)>,
@@ -245,12 +245,15 @@ pub fn stimulus_level_class(level: domain::StimulusLevel) -> &'static str {
 fn view_charts(
     exercise_id: domain::ExerciseID,
     training_sessions: &[domain::TrainingSession],
+    stretch_only: &domain::StretchOnlyExercises,
     interval: domain::Interval,
+    show_time: bool,
     settings: Settings,
 ) -> Element {
     let params = web_app::chart::PlotParams::primary_range(0., 10.);
 
-    let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let is_stretch_only = stretch_only.contains(&exercise_id);
+    let mut sets: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut volume_load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut tut: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut reps_values: Vec<(NaiveDate, f32)> = vec![];
@@ -259,10 +262,8 @@ fn view_charts(
     let mut estimated_max_reps_by_date: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut one_rep_max_by_date: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     for training_session in training_sessions {
-        set_volume
-            .entry(training_session.date)
-            .and_modify(|e| *e += training_session.set_volume())
-            .or_insert(training_session.set_volume());
+        *sets.entry(training_session.date).or_default() +=
+            sets_of(training_session, stretch_only, is_stretch_only);
         #[allow(clippy::cast_precision_loss)]
         volume_load
             .entry(training_session.date)
@@ -375,7 +376,7 @@ fn view_charts(
             interval,
             no_data_label: false,
         }
-        if settings.show_tut() {
+        if show_time {
             Chart {
                 series: time_series,
                 interval,
@@ -384,9 +385,9 @@ fn view_charts(
         }
         Chart {
             series: vec![web_app::chart::LabeledSeries::new(
-                "Set volume",
+                if is_stretch_only { "Stretch sets" } else { "Set volume" },
                 web_app::chart::PlotData {
-                    values_high: set_volume.into_iter().collect::<Vec<_>>(),
+                    values_high: sets.into_iter().collect::<Vec<_>>(),
                     values_low: None,
                     plots: web_app::chart::plot_area_with_border(
                         web_app::chart::COLOR_SET_VOLUME,
@@ -397,22 +398,24 @@ fn view_charts(
             interval,
             no_data_label: false,
         }
-        Chart {
-            series: vec![web_app::chart::LabeledSeries::new(
-                "Volume load",
-                web_app::chart::PlotData {
-                    values_high: volume_load.into_iter().collect::<Vec<_>>(),
-                    values_low: None,
-                    plots: web_app::chart::plot_area_with_border(
-                        web_app::chart::COLOR_VOLUME_LOAD,
-                    ),
-                    params,
-                },
-            )],
-            interval,
-            no_data_label: false,
+        if !is_stretch_only {
+            Chart {
+                series: vec![web_app::chart::LabeledSeries::new(
+                    "Volume load",
+                    web_app::chart::PlotData {
+                        values_high: volume_load.into_iter().collect::<Vec<_>>(),
+                        values_low: None,
+                        plots: web_app::chart::plot_area_with_border(
+                            web_app::chart::COLOR_VOLUME_LOAD,
+                        ),
+                        params,
+                    },
+                )],
+                interval,
+                no_data_label: false,
+            }
         }
-        if settings.show_tut() {
+        if show_time {
             Chart {
                 series: vec![web_app::chart::LabeledSeries::new(
                     "Time under tension (s)",
@@ -433,36 +436,37 @@ fn view_charts(
 }
 
 fn view_calendar(
+    exercise_id: domain::ExerciseID,
     training_sessions: &[domain::TrainingSession],
+    stretch_only: &domain::StretchOnlyExercises,
     interval: domain::Interval,
 ) -> Element {
-    let mut volume_load: BTreeMap<NaiveDate, u32> = BTreeMap::new();
+    let is_stretch_only = stretch_only.contains(&exercise_id);
+    let mut sets: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     for training_session in training_sessions {
         if (interval.first..=interval.last).contains(&training_session.date) {
-            volume_load
-                .entry(training_session.date)
-                .and_modify(|e| *e += training_session.volume_load())
-                .or_insert(training_session.volume_load());
+            *sets.entry(training_session.date).or_default() +=
+                sets_of(training_session, stretch_only, is_stretch_only);
         }
     }
-    let min = volume_load
+    let min = sets
         .values()
         .min_by(|a, b| a.partial_cmp(b).unwrap())
         .copied()
-        .unwrap_or(0);
-    let max = volume_load
+        .unwrap_or_default();
+    let max = sets
         .values()
         .max_by(|a, b| a.partial_cmp(b).unwrap())
         .copied()
-        .unwrap_or(0);
-    let entries = volume_load
+        .unwrap_or_default();
+    let entries = sets
         .iter()
-        .map(|(date, volume_load)| {
+        .map(|(date, sets)| {
             (
                 *date,
-                web_app::chart::COLOR_VOLUME_LOAD,
+                web_app::chart::COLOR_SET_VOLUME,
                 if max > min {
-                    (f64::from(volume_load - min) / f64::from(max - min)) * 0.8 + 0.2
+                    (f64::from(sets - min) / f64::from(max - min)) * 0.8 + 0.2
                 } else {
                     1.0
                 },
@@ -472,6 +476,19 @@ fn view_calendar(
 
     rsx! {
         Calendar { entries, interval }
+    }
+}
+
+/// The stretch sets of a session for a stretch-only exercise, its set volume otherwise.
+fn sets_of(
+    training_session: &domain::TrainingSession,
+    stretch_only: &domain::StretchOnlyExercises,
+    is_stretch_only: bool,
+) -> f32 {
+    if is_stretch_only {
+        training_session.stretch_sets(stretch_only)
+    } else {
+        training_session.set_volume()
     }
 }
 
@@ -508,6 +525,7 @@ fn view_sets(
     exercise_id: domain::ExerciseID,
     training_sessions: &[&domain::TrainingSession],
     routines: &[domain::Routine],
+    show_time: bool,
     settings: Settings,
 ) -> Element {
     let blocks = training_sessions.iter().rev().flat_map(|t| {
@@ -524,7 +542,7 @@ fn view_sets(
             .any(|row| matches!(row, domain::SetHistoryRow::Sides { .. }));
         let values = |set: &Option<domain::Set>| {
             set.as_ref()
-                .map(|set| set.to_string(settings.show_tut(), settings.show_rpe()))
+                .map(|set| set.to_string(show_time, settings.show_rpe()))
                 .unwrap_or_default()
         };
         let sets = if has_sides {
@@ -805,6 +823,84 @@ mod tests {
 
         assert!(!contains(&html, "set-history-sides"));
         assert_eq!(all_text_of(&html, "set-history-set"), vec!["10", "9"]);
+    }
+
+    /// Render the page of an exercise stretching the hamstrings and working them at `stimulus`,
+    /// with a 60 s hold and TUT hidden.
+    fn render_stretch(stimulus: domain::Stimulus) -> String {
+        render(move || {
+            TestCache::default()
+                .with_exercises(vec![domain::Exercise {
+                    muscles: vec![domain::ExerciseMuscle {
+                        muscle_id: domain::MuscleID::Hamstrings,
+                        stimulus,
+                        stretch: domain::Stimulus::PRIMARY,
+                    }],
+                    ..exercise(1, "Forward Fold")
+                }])
+                .with_training_sessions(vec![domain::TrainingSession {
+                    id: 1.into(),
+                    routine_id: domain::RoutineID::nil(),
+                    date: chrono::Local::now().date_naive(),
+                    notes: String::new(),
+                    elements: vec![domain::TrainingSessionElement::Set {
+                        exercise_id: 1.into(),
+                        side: domain::Side::Unset,
+                        reps: domain::Reps::default(),
+                        time: domain::Time::new(60).unwrap(),
+                        weight: domain::Weight::default(),
+                        rpe: domain::RPE::ZERO,
+                        target_reps: domain::Reps::default(),
+                        target_tempo: domain::Tempo::default(),
+                        target_weight: domain::Weight::default(),
+                        target_rpe: domain::RPE::ZERO,
+                        automatic: false,
+                    }],
+                    exercise_notes: BTreeMap::new(),
+                }])
+                .provide();
+            provide_settings(web_app::Settings {
+                show_tut: false,
+                ..web_app::Settings::default()
+            });
+            rsx! { Exercise { id: domain::ExerciseID::from(1) } }
+        })
+    }
+
+    #[rstest::rstest]
+    #[case::stretch(domain::Stimulus::NONE, true)]
+    #[case::hybrid(domain::Stimulus::PRIMARY, false)]
+    fn test_the_time_of_a_stretch_is_shown_with_tut_hidden(
+        #[case] stimulus: domain::Stimulus,
+        #[case] expected: bool,
+    ) {
+        let html = render_stretch(stimulus);
+        let head = &rows_of(&html, "table")[0];
+
+        assert_eq!(text_of(&html, "set-history-set").contains("60 s"), expected);
+        assert_eq!(html.contains("Time under tension (s)"), expected);
+        assert_eq!(head.contains(&"TUT".to_string()), expected);
+        assert_eq!(head.contains(&"Time (s)".to_string()), expected);
+    }
+
+    #[rstest::rstest]
+    #[case::stretch(domain::Stimulus::NONE, true)]
+    #[case::hybrid(domain::Stimulus::PRIMARY, false)]
+    fn test_stretch_sets_replace_the_volume_metrics_of_a_stretch(
+        #[case] stimulus: domain::Stimulus,
+        #[case] is_stretch_only: bool,
+    ) {
+        let html = render_stretch(stimulus);
+        let table = rows_of(&html, "table");
+        let column = |name: &str| table[0].iter().position(|h| h == name);
+
+        assert_eq!(html.contains("Stretch sets"), is_stretch_only);
+        assert_eq!(html.contains("Set volume"), !is_stretch_only);
+        assert_eq!(html.contains("Volume load"), !is_stretch_only);
+        assert!(!html.contains("Time under stretch (min)"));
+        if is_stretch_only {
+            assert_eq!(table[1][column("Stretch sets").unwrap()], "1");
+        }
     }
 
     #[test]

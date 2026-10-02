@@ -31,6 +31,61 @@ UNSET_EXERCISE_PROPERTIES: dict[str, object] = {
     "category": None,
 }
 
+STRETCH_EXERCISE: dict[str, object] = {
+    "id": 7,
+    "name": "Exercise 7",
+    "muscles": [{"muscle_id": 82, "stimulus": 0, "stretch": 100}],
+    **UNSET_EXERCISE_PROPERTIES,
+    "category": 3,
+}
+
+STRETCH_ROUTINE: dict[str, object] = {
+    "id": 5,
+    "name": "Stretching",
+    "notes": None,
+    "archived": False,
+    "sections": [
+        {
+            "rounds": 2,
+            "parts": [
+                {
+                    "exercise_id": 7,
+                    "reps": 0,
+                    "tempo": [60],
+                    "weight": 0.0,
+                    "rpe": 0.0,
+                    "automatic": False,
+                    "sides": 1,
+                },
+            ],
+        }
+    ],
+}
+
+STRETCH_WORKOUT: dict[str, object] = {
+    "id": 6,
+    "date": "2002-02-23",
+    "notes": None,
+    "routine_id": 5,
+    "exercise_notes": [],
+    "elements": [
+        {
+            "exercise_id": 7,
+            "reps": None,
+            "time": time,
+            "weight": None,
+            "rpe": None,
+            "target_reps": None,
+            "target_tempo": None,
+            "target_weight": None,
+            "target_rpe": None,
+            "automatic": False,
+            "side": None,
+        }
+        for time in (60, 90)
+    ],
+}
+
 EXERCISE_1_PROPERTIES: dict[str, object] = {
     "notes": None,
     "force": 1,
@@ -1179,6 +1234,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                     "notes": "Exercise 3 Notes\nSecond line",
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                STRETCH_EXERCISE,
                 {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
             ],
         ),
@@ -1317,6 +1373,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                         }
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
         ),
         (
@@ -1502,6 +1559,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
         ),
     ],
@@ -1599,7 +1657,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
         (
             "/api/exercises",
             {
-                "id": 7,
+                "id": 8,
                 "name": "New Exercise",
                 "notes": "New Notes",
                 "muscles": [
@@ -1628,8 +1686,9 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "notes": "Exercise 3 Notes\nSecond line",
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                STRETCH_EXERCISE,
                 {
-                    "id": 7,
+                    "id": 8,
                     "name": "New Exercise",
                     "notes": "New Notes",
                     "muscles": [
@@ -1649,7 +1708,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
         (
             "/api/routines",
             {
-                "id": 5,
+                "id": 6,
                 "name": "New Routine",
                 "notes": "Something New",
                 "archived": True,
@@ -1718,7 +1777,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
             },
             [
                 {
-                    "id": 5,
+                    "id": 6,
                     "name": "New Routine",
                     "notes": "Something New",
                     "archived": True,
@@ -1916,6 +1975,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                         }
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
         ),
     ],
@@ -2002,7 +2062,7 @@ def test_create(
                 ],
                 "exercise_notes": [],
             },
-            {"id": 6},
+            {"id": 7},
         ),
         (
             {
@@ -2012,7 +2072,7 @@ def test_create(
                 "elements": [],
                 "exercise_notes": [],
             },
-            {"id": 6},
+            {"id": 7},
         ),
         (
             {
@@ -2038,7 +2098,7 @@ def test_create(
                     {"exercise_id": 1, "notes": "Felt pain in right knee"},
                 ],
             },
-            {"id": 6},
+            {"id": 7},
         ),
     ],
 )
@@ -2232,6 +2292,7 @@ def test_create_workout(
                 },
             ],
         },
+        STRETCH_WORKOUT,
         created,
     ]
 
@@ -2382,7 +2443,7 @@ def test_create_exercise_with_stretch(client: Client) -> None:
     resp = client.post("/api/exercises", json=data)
 
     assert resp.status_code == HTTPStatus.CREATED
-    assert resp.json == {"id": 7, **data}
+    assert resp.json == {"id": 8, **data}
 
 
 @pytest.mark.parametrize("method", ["post", "put"])
@@ -2584,6 +2645,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     "notes": "Exercise 3 Notes\nSecond line",
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                STRETCH_EXERCISE,
                 {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
             ],
             {
@@ -2802,6 +2864,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         }
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
             {
                 "id": 3,
@@ -3048,6 +3111,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
             None,
         ),
@@ -3327,6 +3391,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
             None,
         ),
@@ -3606,6 +3671,7 @@ def test_replace(
                         }
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
             {
                 "name": "R2",
@@ -3848,6 +3914,7 @@ def test_replace(
                         }
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
             {
                 "name": "R2",
@@ -4091,6 +4158,7 @@ def test_replace(
                         }
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
             {
                 "name": "R2",
@@ -4303,6 +4371,7 @@ def test_replace(
                         }
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
             {"name": "R2", "notes": "", "archived": False, "sections": []},
         ),
@@ -4539,6 +4608,7 @@ def test_replace(
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
             None,
         ),
@@ -4775,6 +4845,7 @@ def test_replace(
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
             None,
         ),
@@ -5024,6 +5095,7 @@ def test_replace(
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
             None,
         ),
@@ -5260,6 +5332,7 @@ def test_replace(
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
             None,
         ),
@@ -5496,6 +5569,7 @@ def test_replace(
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
             None,
         ),
@@ -5577,6 +5651,7 @@ def test_modify(
                     **EXERCISE_1_PROPERTIES,
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
+                STRETCH_EXERCISE,
                 {"id": 5, "name": "Unused Exercise", "muscles": [], **UNSET_EXERCISE_PROPERTIES},
             ],
         ),
@@ -5683,6 +5758,7 @@ def test_modify(
                         },
                     ],
                 },
+                STRETCH_ROUTINE,
             ],
         ),
         (
@@ -5793,6 +5869,7 @@ def test_modify(
                         },
                     ],
                 },
+                STRETCH_WORKOUT,
             ],
         ),
     ],

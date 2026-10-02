@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     hash::Hash,
     rc::Rc,
 };
@@ -1091,7 +1091,13 @@ fn view_form(
         training_session.section_idx_lookahead(progress_element_idx);
     let sets_by_exercise = DOMAIN_SERVICE().get_sets_by_exercise(training_session);
     let set_indices = training_session.set_indices();
-    let shows_time = settings.show_tut() || training_session.has_time();
+    // A stretch has no dose without its time.
+    let shows_time = settings.show_tut() || training_session.has_time() || {
+        let session_exercises = training_session.exercises();
+        exercises
+            .iter()
+            .any(|e| e.is_stretch_only() && session_exercises.contains(&e.id))
+    };
     let shows_rpe = settings.show_rpe() || training_session.has_rpe();
     let rows = sections.iter().enumerate().map(|(section_idx, section)| {
         let is_current_section = !focus.show_active_focus
@@ -2165,15 +2171,17 @@ fn view_muscles(
     training_session: &domain::TrainingSession,
     exercises: &[domain::Exercise],
 ) -> Element {
-    let stimulus_per_muscle = training_session.stimulus_per_muscle(exercises);
-    if stimulus_per_muscle.is_empty() {
-        rsx! {}
-    } else {
-        rsx! {
-            CenteredBlock {
-                Title { "Hard sets per muscle" },
-                SetsPerMuscle { stimulus_per_muscle: stimulus_per_muscle.clone() }
-            }
+    let stretch_per_muscle =
+        if training_session.stretch_sets(&domain::StretchOnlyExercises::new(exercises)) > 0. {
+            training_session.stretch_per_muscle(exercises)
+        } else {
+            BTreeMap::new()
+        };
+    rsx! {
+        SetsPerMuscle {
+            stimulus_per_muscle: training_session.stimulus_per_muscle(exercises),
+            stretch_per_muscle,
+            worked_caption: "Worked (hard sets)",
         }
     }
 }
@@ -3319,6 +3327,118 @@ mod tests {
         assert_eq!(
             cells_of(&html, "column-header"),
             vec!["", "Reps", "Time (s)", "Weight (kg)", "RPE", ""]
+        );
+    }
+
+    fn stretch_session(
+        muscles: Vec<domain::ExerciseMuscle>,
+        time: u32,
+    ) -> impl Fn() -> TestCache + 'static {
+        move || {
+            TestCache::default()
+                .with_exercises(vec![domain::Exercise {
+                    muscles: muscles.clone(),
+                    ..exercise(1, "Forward Fold")
+                }])
+                .with_training_sessions(vec![domain::TrainingSession {
+                    id: 1.into(),
+                    routine_id: 1.into(),
+                    date: chrono::Local::now().date_naive(),
+                    notes: String::new(),
+                    elements: vec![domain::TrainingSessionElement::Set {
+                        exercise_id: 1.into(),
+                        side: domain::Side::Unset,
+                        reps: domain::Reps::default(),
+                        time: domain::Time::new(time).unwrap(),
+                        weight: domain::Weight::default(),
+                        rpe: domain::RPE::ZERO,
+                        target_reps: domain::Reps::default(),
+                        target_tempo: domain::Tempo::default(),
+                        target_weight: domain::Weight::default(),
+                        target_rpe: domain::RPE::ZERO,
+                        automatic: false,
+                    }],
+                    exercise_notes: std::collections::BTreeMap::new(),
+                }])
+        }
+    }
+
+    fn stretched(muscle_id: domain::MuscleID) -> domain::ExerciseMuscle {
+        domain::ExerciseMuscle {
+            muscle_id,
+            stimulus: domain::Stimulus::NONE,
+            stretch: domain::Stimulus::PRIMARY,
+        }
+    }
+
+    fn worked(muscle_id: domain::MuscleID) -> domain::ExerciseMuscle {
+        domain::ExerciseMuscle {
+            muscle_id,
+            stimulus: domain::Stimulus::PRIMARY,
+            stretch: domain::Stimulus::NONE,
+        }
+    }
+
+    #[test]
+    fn test_the_stretch_per_muscle_of_a_session_with_a_stretch_is_shown() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            stretch_session(vec![stretched(domain::MuscleID::Hamstrings)], 90),
+        );
+
+        assert_eq!(
+            text_of(&html, "stretch-sets-per-muscle"),
+            "Hamstrings1Back of thighs"
+        );
+        assert_eq!(
+            text_of(&html, "stretch-time-per-muscle"),
+            "Hamstrings1.5 minBack of thighs"
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::hybrid(
+        vec![worked(domain::MuscleID::ErectorSpinae), stretched(domain::MuscleID::Hamstrings)],
+        90
+    )]
+    #[case::unrecorded_stretch(vec![stretched(domain::MuscleID::Hamstrings)], 0)]
+    fn test_no_stretch_per_muscle_is_shown_without_stretch_sets(
+        #[case] muscles: Vec<domain::ExerciseMuscle>,
+        #[case] time: u32,
+    ) {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            stretch_session(muscles, time),
+        );
+
+        assert!(!contains(&html, "stretch-sets-per-muscle"));
+        assert!(!contains(&html, "stretch-time-per-muscle"));
+    }
+
+    #[rstest::rstest]
+    #[case::stretch(vec![stretched(domain::MuscleID::Hamstrings)], true)]
+    #[case::hybrid(
+        vec![worked(domain::MuscleID::ErectorSpinae), stretched(domain::MuscleID::Hamstrings)],
+        false
+    )]
+    fn test_an_unprescribed_stretch_shows_the_time_column_without_the_tut_setting(
+        #[case] muscles: Vec<domain::ExerciseMuscle>,
+        #[case] expected: bool,
+    ) {
+        let html = render_training_session(
+            1,
+            web_app::Settings {
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            stretch_session(muscles, 0),
+        );
+
+        assert_eq!(
+            cells_of(&html, "column-header").contains(&"Time (s)".to_string()),
+            expected
         );
     }
 

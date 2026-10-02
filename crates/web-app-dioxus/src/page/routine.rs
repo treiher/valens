@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, rc::Rc};
+use std::{borrow::Cow, collections::BTreeMap, rc::Rc};
 
 use chrono::NaiveDate;
 use dioxus::prelude::*;
@@ -9,7 +9,7 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{self, Cache, CacheState},
-    chart::{Chart, IntervalControl},
+    chart::{Chart, IntervalControl, view_stretch_charts},
     eh,
     loading::LoadingFlag,
     muscle::SetsPerMuscle,
@@ -51,6 +51,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
         (CacheState::Ready(routines), training_sessions, CacheState::Ready(exercises)) => {
             let routine = routines.iter().find(|e| e.id == id);
             if let Some(routine) = routine {
+                let stretch_only = domain::StretchOnlyExercises::new(exercises);
                 rsx! {
                     Title { "{routine.name}" }
                     {view_summary(routine)}
@@ -60,7 +61,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                     if let CacheState::Ready(training_sessions) = training_sessions {
                         {view_previous_exercises(routine, training_sessions, exercises)}
                     }
-                    {view_muscles(routine, exercises)}
+                    {view_muscles(routine, exercises, &stretch_only)}
                     match training_sessions {
                         CacheState::Ready(training_sessions) => {
                             let training_sessions = training_sessions.iter()
@@ -89,6 +90,7 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                                     .filter(|t| t.date >= interval.first && t.date <= interval.last)
                                     .cloned()
                                     .collect::<Vec<_>>();
+                                let metric_sessions = page::training_sessions::without_stretch_only_sets(&training_sessions, &stretch_only);
                                 rsx! {
                                     CenteredBlock {
                                         Title { "Training sessions" },
@@ -96,9 +98,9 @@ pub fn Routine(id: domain::RoutineID) -> Element {
                                         if training_sessions.is_empty() {
                                             NoData {}
                                         } else {
-                                            {view_charts(&training_sessions, interval, settings)}
-                                            {page::training_sessions::view_calendar(&training_sessions, interval)}
-                                            {page::training_sessions::view_table(&training_sessions, routines, interval, training_dialog, settings)}
+                                            {view_charts(&training_sessions, &metric_sessions, &stretch_only, interval, settings)}
+                                            {page::training_sessions::view_calendar(&training_sessions, &stretch_only, interval)}
+                                            {page::training_sessions::view_table(&training_sessions, &stretch_only, page::training_sessions::StretchMetrics::Exclude(&metric_sessions), settings.show_tut(), routines, interval, training_dialog, settings)}
                                             {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                                         }
                                     }
@@ -611,6 +613,8 @@ fn view_previous_exercises(
 
 fn view_charts(
     training_sessions: &[domain::TrainingSession],
+    metric_sessions: &[Cow<'_, domain::TrainingSession>],
+    stretch_only: &domain::StretchOnlyExercises,
     interval: domain::Interval,
     settings: Settings,
 ) -> Element {
@@ -619,11 +623,16 @@ fn view_charts(
 
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut set_volume: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut stretch_sets: BTreeMap<NaiveDate, f32> = BTreeMap::new();
+    let mut stretch_minutes: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut rpe_values: Vec<(NaiveDate, f32)> = vec![];
-    for training_session in training_sessions {
-        load.entry(training_session.date)
-            .and_modify(|e| *e += training_session.load())
-            .or_insert(training_session.load());
+    for (training_session, metric_session) in training_sessions.iter().zip(metric_sessions) {
+        *load.entry(training_session.date).or_default() += training_session.load(stretch_only);
+        *stretch_sets.entry(training_session.date).or_default() +=
+            training_session.stretch_sets(stretch_only);
+        *stretch_minutes.entry(training_session.date).or_default() +=
+            training_session.stretch_time(stretch_only) / 60.;
+        let training_session = metric_session;
         set_volume
             .entry(training_session.date)
             .and_modify(|e| *e += training_session.set_volume())
@@ -681,19 +690,37 @@ fn view_charts(
                 no_data_label: false,
             }
         }
+        if stretch_sets
+            .iter()
+            .any(|(date, sets)| (interval.first..=interval.last).contains(date) && *sets > 0.)
+        {
+            {view_stretch_charts(
+                "Stretch sets",
+                stretch_sets.into_iter().collect(),
+                "Time under stretch (min)",
+                stretch_minutes.into_iter().collect(),
+                interval,
+                false,
+            )}
+        }
     }
 }
 
-fn view_muscles(routine: &domain::Routine, exercises: &[domain::Exercise]) -> Element {
-    let stimulus_per_muscle = routine.stimulus_per_muscle(exercises);
-    if stimulus_per_muscle.is_empty() {
-        rsx! {}
+fn view_muscles(
+    routine: &domain::Routine,
+    exercises: &[domain::Exercise],
+    stretch_only: &domain::StretchOnlyExercises,
+) -> Element {
+    let stretch_per_muscle = if routine.num_stretch_sets(stretch_only) > 0 {
+        routine.stretch_per_muscle(exercises)
     } else {
-        rsx! {
-            CenteredBlock {
-                Title { "Sets per muscle" },
-                SetsPerMuscle { stimulus_per_muscle: stimulus_per_muscle.clone() }
-            }
+        BTreeMap::new()
+    };
+    rsx! {
+        SetsPerMuscle {
+            stimulus_per_muscle: routine.stimulus_per_muscle(exercises),
+            stretch_per_muscle,
+            worked_caption: "Worked",
         }
     }
 }
@@ -979,6 +1006,11 @@ fn view_edit_dialog(
             }
 
             let validated_tempo = validate_tempo(tempo_fields);
+            // Without reps, the single repetition is a hold.
+            let is_hold = reps_field
+                .validated
+                .as_ref()
+                .is_ok_and(|reps| reps.non_zero().is_none());
             let save = eh!(mut routine; path, reps_field, validated_tempo, weight_field, rpe_field, automatic_field, sides_field, close_dialog; {
                 routine.update_activity(None, reps_field.validated.ok(), validated_tempo.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), automatic_field.validated.ok(), sides_field.validated.ok(), &path);
                 modify_routine_sections(routine, cache, close_dialog)
@@ -1045,8 +1077,8 @@ fn view_edit_dialog(
                                 }
                             } else {
                                 PhaseFields {
-                                    label: "Time per rep",
-                                    help: "Optionally split into the phases of a tempo",
+                                    label: if is_hold { "Time" } else { "Time per rep" },
+                                    help: (!is_hold).then(|| "Optionally split into the phases of a tempo".to_string()),
                                     unit: "s",
                                     phases: tempo_fields.iter().map(|field| field.input.clone()).collect::<Vec<_>>(),
                                     field_errors: tempo_fields.iter().map(|field| field.validated.clone().err()).collect::<Vec<_>>(),
@@ -1369,7 +1401,9 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
-    use crate::test_render::{TestCache, all_text_of, contains, provide_settings, render, text_of};
+    use crate::test_render::{
+        TestCache, all_text_of, contains, provide_settings, render, rows_of, text_of,
+    };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
         domain::Exercise {
@@ -1646,6 +1680,145 @@ mod tests {
             automatic: false,
             sides: domain::Sides::Combined,
         }
+    }
+
+    fn stretch(id: u128) -> domain::Exercise {
+        domain::Exercise {
+            muscles: vec![domain::ExerciseMuscle {
+                muscle_id: domain::MuscleID::Hamstrings,
+                stimulus: domain::Stimulus::NONE,
+                stretch: domain::Stimulus::PRIMARY,
+            }],
+            ..exercise(id, "Forward Fold")
+        }
+    }
+
+    fn hold(exercise_id: u128, seconds: u32) -> domain::RoutinePart {
+        domain::RoutinePart::RoutineActivity {
+            exercise_id: exercise_id.into(),
+            reps: domain::Reps::default(),
+            tempo: domain::Tempo::new(&[seconds]).unwrap(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+            automatic: false,
+            sides: domain::Sides::Combined,
+        }
+    }
+
+    fn timed_set(exercise_id: u128, reps: u32, time: u32) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            side: domain::Side::Unset,
+            reps: domain::Reps::new(reps).unwrap(),
+            time: domain::Time::new(time).unwrap(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+            target_reps: domain::Reps::default(),
+            target_tempo: domain::Tempo::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    fn with_stretching_routine(elements: Vec<domain::TrainingSessionElement>) -> TestCache {
+        TestCache::default()
+            .with_routines(vec![domain::Routine {
+                sections: vec![section(vec![hold(2, 60), hold(2, 60)])],
+                ..routine()
+            }])
+            .with_exercises(vec![exercise(1, "Squat"), stretch(2)])
+            .with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements,
+                exercise_notes: std::collections::BTreeMap::new(),
+            }])
+    }
+
+    #[test]
+    fn test_the_summary_of_a_stretching_routine_counts_its_stretch_sets() {
+        let html = render_routine(1, || with_stretching_routine(vec![]));
+
+        assert_eq!(
+            all_text_of(&html, "data-box")[0..2],
+            ["Duration~ 2 min", "Sets2"]
+        );
+        assert_eq!(
+            text_of(&html, "stretch-sets-per-muscle"),
+            "Hamstrings2Back of thighs"
+        );
+        assert_eq!(
+            text_of(&html, "stretch-time-per-muscle"),
+            "Hamstrings2 minBack of thighs"
+        );
+    }
+
+    #[test]
+    fn test_a_routine_without_stretches_shows_no_stretch() {
+        let html = render_routine(1, with_routine);
+
+        assert!(!contains(&html, "stretch-sets-per-muscle"));
+    }
+
+    #[test]
+    fn test_the_stretch_sets_of_the_sessions_are_shown_in_columns_and_a_chart() {
+        let html = render_routine(1, || {
+            with_stretching_routine(vec![timed_set(2, 0, 60), timed_set(1, 5, 0)])
+        });
+        let rows = rows_of(&html, "table");
+
+        assert_eq!(
+            rows[0][rows[0].len() - 3..],
+            ["Stretch sets", "Stretch (min)", ""]
+        );
+        assert_eq!(rows[1][2..4], ["2", "1"]);
+        assert_eq!(rows[1][rows[1].len() - 3..rows[1].len() - 1], ["1", "1"]);
+        assert!(html.contains("Time under stretch (min)</span>"), "{html}");
+    }
+
+    #[test]
+    fn test_without_stretch_sets_no_stretch_columns_and_chart_are_shown() {
+        let html = render_routine(1, || with_stretching_routine(vec![timed_set(1, 5, 0)]));
+
+        assert!(!rows_of(&html, "table")[0].contains(&"Stretch sets".to_string()));
+        assert!(!html.contains("Time under stretch (min)"));
+    }
+
+    #[rstest::rstest]
+    #[case::without_reps(0, "Time", false)]
+    #[case::with_reps(5, "Time per rep", true)]
+    fn test_the_time_of_an_activity_is_labelled_by_its_reps(
+        #[case] reps: u32,
+        #[case] label: &str,
+        #[case] has_help: bool,
+    ) {
+        let html = render(move || {
+            with_routine()
+                .with_routines(vec![domain::Routine {
+                    sections: vec![section(vec![activity_with_tempo(reps, &[30])])],
+                    ..routine()
+                }])
+                .provide();
+            provide_settings(web_app::Settings::default());
+            rsx! { ActivityDialog {} }
+        });
+
+        assert!(html.contains(&format!(">{label}</label>")), "{html}");
+        assert_eq!(html.contains("Optionally split"), has_help);
+    }
+
+    #[component]
+    fn ActivityDialog() -> Element {
+        let cache = consume_context::<Cache>();
+        let routine = match &*cache.routines.read() {
+            CacheState::Ready(routines) => routines[0].clone(),
+            CacheState::Loading | CacheState::Error(_) => unreachable!(),
+        };
+        let dialog = use_signal(|| edit_activity_dialog(&routine, &vec![0, 0].into(), None));
+        view_edit_dialog(dialog, cache, use_context::<Settings>())
     }
 
     #[test]

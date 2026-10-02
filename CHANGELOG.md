@@ -10,11 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Counting of a set with a side as half a set in the load, the set volume and the time under tension
+- Training sessions page: Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
 - Training session page:
     - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set and changed by tapping it
     - Left and right column of the sets, a left and a right set directly following each other sharing one row
     - Pause before the second set of a pair
-- Routine page: Sides of an activity, which prescribe a unilateral exercise per side
+    - Stretch sets and time under stretch per muscle
+- Routine page:
+    - Sides of an activity, which prescribe a unilateral exercise per side
+    - Stretch sets and time under stretch per muscle
+    - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
 - Exercises page:
     - Stretched muscles of an exercise, edited next to the worked muscles
     - Filtering of exercises by their stretched muscles
@@ -23,13 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exercise page:
     - Left and right column in the set history, showing the two sets of a pair side by side
     - Stretched muscles of the exercise, shown in a row of their own
+    - Stretch sets of an exercise that only stretches, replacing its volume metrics, with the time of its sets shown even if the time under tension is hidden
 - Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
-- Muscles page: Hip flexors and hip rotators
+- Muscles page:
+    - Hip flexors and hip rotators
+    - Weekly stretch sets and time under stretch per muscle
 
 ### Changed
 
+- Home page: Training load, counting the sets of exercises that only stretch as one, whatever their RPE
+- Routine page:
+    - Label of the time of an activity without repetitions, which reads "Time"
+    - Sets per muscle, leaving out muscles without sets
 - Exercises page: Legend of the primary and secondary muscles in the filter and properties dialogs, shown once above all muscles as the order in which tapping a muscle changes its level
-- Exercise page: Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
+- Exercise page:
+    - Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
+    - Shading of the days in the calendar by the set volume instead of the volume load, or by the stretch sets for an exercise that only stretches
 
 ### Fixed
 

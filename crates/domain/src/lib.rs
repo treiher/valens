@@ -17,8 +17,8 @@ pub use exercise::{
     CategoryError, Equipment, EquipmentError, Exercise, ExerciseFilter, ExerciseID, ExerciseMuscle,
     ExerciseProperties, ExerciseProperty, ExerciseRepository, ExerciseService, Force, ForceError,
     Laterality, LateralityError, Mechanic, MechanicError, MuscleID, MuscleIDError, Property,
-    PropertyChange, PropertyValue, Stimulus, StimulusError, StimulusLevel, catalog_update,
-    catalog_updates, name_or_none,
+    PropertyChange, PropertyValue, Stimulus, StimulusError, StimulusLevel, StretchOnlyExercises,
+    catalog_update, catalog_updates, name_or_none,
 };
 pub use ffmi::ffmi;
 pub use name::{Name, NameError};
@@ -41,9 +41,9 @@ pub use statistics::{
     centered_moving_total, init_interval, value_based_centered_moving_average,
 };
 pub use training::{
-    RIR, RPE, Reps, Side, SideError, Sides, SidesError, Tempo, TempoError, Time, TrainingStats,
-    Weight, drop_set_weights, one_rep_max, reps_for_percentage, round_drop_to_increment,
-    training_stats,
+    RIR, RPE, Reps, Side, SideError, Sides, SidesError, Stretch, Tempo, TempoError, Time,
+    TrainingStats, Weight, drop_set_weights, one_rep_max, reps_for_percentage,
+    round_drop_to_increment, training_stats,
 };
 pub use training_session::{
     ElementGroup, ElementMap, ElementMove, OfferedSets, RecentSessionSets, Set, SetHistoryRow,

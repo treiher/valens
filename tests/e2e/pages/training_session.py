@@ -8,7 +8,7 @@ from playwright.sync_api import expect
 
 from .base import BasePage, Dialog, phase_bar_fills
 from .exercises import ExerciseListDialog
-from .utils import get_text, parse_float, parse_int
+from .utils import expect_stretch_per_muscle, get_text, parse_float, parse_int
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
@@ -44,6 +44,9 @@ class TrainingSessionPage(BasePage):
     @property
     def path(self) -> str:
         return f"/training_session/{uuid.UUID(int=self.session_id)}"
+
+    def expect_stretch_per_muscle(self, muscle: str, sets: str, minutes: str) -> None:
+        expect_stretch_per_muscle(self.page, muscle, sets, minutes)
 
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Training session")

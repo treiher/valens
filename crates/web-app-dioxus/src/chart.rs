@@ -254,6 +254,38 @@ pub fn Chart(
     }
 }
 
+/// Show the stretch sets and the time under stretch in minutes in a chart each.
+pub fn view_stretch_charts(
+    sets_label: &str,
+    sets: Vec<(NaiveDate, f32)>,
+    time_label: &str,
+    minutes: Vec<(NaiveDate, f32)>,
+    interval: domain::Interval,
+    no_data_label: bool,
+) -> Element {
+    let chart = |label: &str, values, color| {
+        rsx! {
+            Chart {
+                series: vec![web_app::chart::LabeledSeries::new(
+                    label,
+                    web_app::chart::PlotData {
+                        values_high: values,
+                        values_low: None,
+                        plots: web_app::chart::plot_area_with_border(color),
+                        params: web_app::chart::PlotParams::primary_range(0., 10.),
+                    },
+                )],
+                interval,
+                no_data_label,
+            }
+        }
+    };
+    rsx! {
+        {chart(sets_label, sets, web_app::chart::COLOR_SET_VOLUME)}
+        {chart(time_label, minutes, web_app::chart::COLOR_TUT)}
+    }
+}
+
 static WINDOW_WIDTH: GlobalSignal<u32> = Signal::global(window_width);
 static RESIZE_LISTENER: std::sync::Once = std::sync::Once::new();
 
@@ -523,6 +555,8 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
+    use crate::test_render::{provide_settings, render_settled};
+
     use super::*;
 
     fn date(day: u32) -> NaiveDate {
@@ -651,5 +685,27 @@ mod tests {
         assert_eq!(format_value(-0.001), "0");
         assert_eq!(format_value(-0.25), "-0.25");
         assert_eq!(format_value(-5.0), "-5");
+    }
+
+    #[test]
+    fn test_the_stretch_sets_and_the_stretch_time_are_shown_in_a_chart_each() {
+        let html = render_settled(|| {
+            provide_settings(web_app::Settings::default());
+            view_stretch_charts(
+                "Stretch sets",
+                vec![(date(1), 2.)],
+                "Time under stretch (min)",
+                vec![(date(1), 1.5)],
+                interval(1, 31),
+                false,
+            )
+        });
+        let document = scraper::Html::parse_fragment(&html);
+        let headers = document
+            .select(&scraper::Selector::parse("h1").unwrap())
+            .map(|h| h.text().collect::<String>())
+            .collect::<Vec<_>>();
+
+        assert_eq!(headers, ["Stretch sets", "Time under stretch (min)"]);
     }
 }

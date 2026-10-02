@@ -62,6 +62,13 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 4")
     exercise_5 = Exercise(id=5, user_id=1, name="Unused Exercise")
     exercise_6 = Exercise(id=6, user_id=1, name="Exercise 6")
+    exercise_7 = Exercise(
+        id=7,
+        user_id=1,
+        name="Exercise 7",
+        category=3,
+        muscles=[ExerciseMuscle(user_id=1, muscle_id=82, stimulus=0, stretch=100)],
+    )
 
     return [
         User(
@@ -109,6 +116,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                 exercise_3,
                 exercise_5,
                 exercise_6,
+                exercise_7,
             ],
             routines=[
                 Routine(
@@ -254,6 +262,31 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                     ],
                     archived=False,
                 ),
+                Routine(
+                    id=5,
+                    user_id=1,
+                    name="Stretching",
+                    notes=None,
+                    sections=[
+                        RoutineSection(
+                            position=1,
+                            rounds=2,
+                            parts=[
+                                RoutineActivity(
+                                    position=1,
+                                    exercise=exercise_7,
+                                    reps=0,
+                                    tempo=[60],
+                                    weight=0.0,
+                                    rpe=0.0,
+                                    automatic=False,
+                                    sides=1,
+                                ),
+                            ],
+                        ),
+                    ],
+                    archived=False,
+                ),
             ],
             workouts=[
                 Workout(
@@ -269,6 +302,17 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                     ],
                     exercise_notes=[
                         WorkoutExerciseNote(exercise_id=3, notes="Pain"),
+                    ],
+                ),
+                Workout(
+                    id=6,
+                    user_id=1,
+                    routine_id=5,
+                    date=days_ago(17),
+                    notes=None,
+                    elements=[
+                        WorkoutSet(position=1, exercise=exercise_7, time=60),
+                        WorkoutSet(position=2, exercise=exercise_7, time=90),
                     ],
                 ),
                 Workout(

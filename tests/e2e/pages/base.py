@@ -415,6 +415,10 @@ class Table(PageElement):
         headers = self.root(table_idx).locator("thead th").all()
         return {th.inner_text().strip(): idx for idx, th in enumerate(headers, start=1)}
 
+    def get_column(self, header: str, table_idx: int = 1) -> list[str]:
+        index = self.get_headers(table_idx)[header]
+        return [row[index - 1] for row in self.get_body(table_idx)]
+
     def get_body(self, table_idx: int = 1) -> list[list[str]]:
         # A re-render between reading the rows and reading their cells would yield rows without
         # cells, so both are read in a single evaluation.

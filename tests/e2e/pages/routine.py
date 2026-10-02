@@ -10,6 +10,7 @@ from .base import BasePage, Dialog
 from .exercises import ExerciseListDialog
 from .utils import (
     drop_on_remove_zone,
+    expect_stretch_per_muscle,
     get_focused_selection,
     get_text,
     hover_after_last,
@@ -39,6 +40,9 @@ class RoutinePage(BasePage):
 
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Routine")
+
+    def expect_stretch_per_muscle(self, muscle: str, sets: str, minutes: str) -> None:
+        expect_stretch_per_muscle(self.page, muscle, sets, minutes)
 
     def get_sections(self) -> list[RoutineSection]:
         sections_data = []

@@ -7,7 +7,7 @@ use crate::{
     cache::{Cache, CacheState},
     current_date::current_date,
     loading::LoadingFlag,
-    page::training_sessions::start_training_session,
+    page::training_sessions::{start_training_session, stretch_only_exercises},
     session::Session,
     ui::element::{Block, Error, Icon, Loading, LoadingDialog, Title},
 };
@@ -72,9 +72,13 @@ pub fn Home() -> Element {
         }
     });
 
-    let training_subtitle = match &*cache.training_sessions.read() {
-        CacheState::Ready(training_sessions) => {
-            let training_stats = DOMAIN_SERVICE().get_training_stats(training_sessions);
+    let training_subtitle = match (
+        &*cache.training_sessions.read(),
+        stretch_only_exercises(&cache.exercises.read()),
+    ) {
+        (CacheState::Ready(training_sessions), Some(stretch_only)) => {
+            let training_stats =
+                DOMAIN_SERVICE().get_training_stats(training_sessions, &stretch_only);
             training_stats.load_ratio().map(|load_ratio| {
                 let load = String::from(if load_ratio > domain::TrainingStats::LOAD_RATIO_HIGH {
                     "high load"
@@ -95,8 +99,8 @@ pub fn Home() -> Element {
                 }
             })
         }
-        CacheState::Error(err) => Some(rsx! { Error { message: "{err}" } }),
-        CacheState::Loading => Some(rsx! { Loading {} }),
+        (CacheState::Error(err), _) => Some(rsx! { Error { message: "{err}" } }),
+        (CacheState::Loading, _) | (_, None) => Some(rsx! { Loading {} }),
     };
 
     let routines_subtitle = match &*cache.routines.read() {
@@ -439,6 +443,81 @@ mod tests {
             text_of(&html, "home-body-weight-subtitle"),
             "71.5 kg (today)"
         );
+    }
+
+    /// Sets at an RPE of nine of exercise 1, which works a muscle, from five weeks until a week
+    /// ago, and of exercise 2, which only stretches, in the last week.
+    fn lifting_followed_by_stretching() -> TestCache {
+        let today = chrono::Local::now().date_naive();
+        let exercise = |id: u128, stimulus, stretch| domain::Exercise {
+            id: id.into(),
+            name: domain::Name::new(&format!("Exercise {id}")).unwrap(),
+            notes: String::new(),
+            muscles: vec![domain::ExerciseMuscle {
+                muscle_id: domain::MuscleID::Hamstrings,
+                stimulus,
+                stretch,
+            }],
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        };
+        let session = |days_ago: i64, exercise_id: u128| domain::TrainingSession {
+            id: u128::try_from(days_ago).unwrap().into(),
+            routine_id: domain::RoutineID::nil(),
+            date: today - chrono::Duration::days(days_ago),
+            notes: String::new(),
+            elements: vec![domain::TrainingSessionElement::Set {
+                exercise_id: exercise_id.into(),
+                side: domain::Side::Unset,
+                reps: domain::Reps::new(5).unwrap(),
+                time: domain::Time::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::new(9.0).unwrap(),
+                target_reps: domain::Reps::default(),
+                target_tempo: domain::Tempo::default(),
+                target_weight: domain::Weight::default(),
+                target_rpe: domain::RPE::ZERO,
+                automatic: false,
+            }],
+            exercise_notes: std::collections::BTreeMap::new(),
+        };
+        TestCache::default()
+            .with_exercises(vec![
+                exercise(1, domain::Stimulus::PRIMARY, domain::Stimulus::NONE),
+                exercise(2, domain::Stimulus::NONE, domain::Stimulus::PRIMARY),
+            ])
+            .with_training_sessions(
+                (0..35)
+                    .map(|days_ago| session(days_ago, if days_ago < 7 { 2 } else { 1 }))
+                    .collect(),
+            )
+    }
+
+    #[test]
+    fn test_the_load_counts_a_stretch_as_one_set_whatever_its_rpe() {
+        let html = render_home(
+            user(domain::Sex::FEMALE, None),
+            lifting_followed_by_stretching,
+        );
+
+        assert_eq!(
+            text_of(&html, "home-training-sessions-subtitle"),
+            "low load (last today)"
+        );
+    }
+
+    #[test]
+    fn test_the_load_waits_for_the_exercises() {
+        let html = render_home(user(domain::Sex::FEMALE, None), || {
+            lifting_followed_by_stretching().with_unread_exercises()
+        });
+
+        assert!(!text_of(&html, "home-training-sessions-subtitle").contains("load"));
+        assert!(contains(&html, "loading"));
     }
 
     #[test]

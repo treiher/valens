@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::{borrow::Cow, collections::BTreeMap, str::FromStr};
 
 use chrono::{Local, NaiveDate};
 use dioxus::prelude::*;
@@ -9,7 +9,7 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
-    chart::{Calendar, Chart, IntervalControl},
+    chart::{Calendar, Chart, IntervalControl, view_stretch_charts},
     eh,
     notification::{notify, notify_error},
     routing::NavigatorScrollExt,
@@ -17,7 +17,7 @@ use crate::{
     ui::{
         element::{
             DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, LoadingPage, NoWrap,
-            SaveDialog, Table, count_to_string, value_or_dash,
+            SaveDialog, Table, count_to_string, minutes_to_string, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -68,13 +68,19 @@ pub fn TrainingSessions(add: bool) -> Element {
         }
     });
 
-    match (&*cache.training_sessions.read(), &*cache.routines.read()) {
-        (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => {
+    match (
+        &*cache.training_sessions.read(),
+        &*cache.routines.read(),
+        stretch_only_exercises(&cache.exercises.read()),
+    ) {
+        (CacheState::Ready(training_sessions), CacheState::Ready(routines), Some(stretch_only)) => {
+            let interval = *current_interval.read();
+            let metric_sessions = without_stretch_only_sets(training_sessions, &stretch_only);
             rsx! {
                 IntervalControl { current_interval, all }
-                {view_charts(training_sessions, *current_interval.read(), settings)}
-                {view_calendar(training_sessions, *current_interval.read())}
-                {view_table(training_sessions, routines, *current_interval.read(), dialog, settings)}
+                {view_charts(training_sessions, &metric_sessions, &stretch_only, interval, settings)}
+                {view_calendar(training_sessions, &stretch_only, interval)}
+                {view_table(training_sessions, &stretch_only, StretchMetrics::Exclude(&metric_sessions), settings.show_tut(), routines, interval, dialog, settings)}
                 {view_dialog(dialog, training_sessions, routines, Some(Route::TrainingSessions { add: false }))}
                 FloatingActionButton {
                     icon: "plus".to_string(),
@@ -82,21 +88,66 @@ pub fn TrainingSessions(add: bool) -> Element {
                 }
             }
         }
-        (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
+        (CacheState::Error(err), _, _) | (_, CacheState::Error(err), _) => {
             rsx! { ErrorPage { message: "{err}" } }
         }
-        (CacheState::Loading, _) | (_, CacheState::Loading) => {
+        _ => {
             rsx! { LoadingPage {} }
         }
     }
 }
 
+/// The stretch-only exercises, or `None` while the exercises are loading.
+///
+/// If the exercises cannot be read, no exercise is considered stretch-only.
+pub fn stretch_only_exercises(
+    exercises: &CacheState<Vec<domain::Exercise>>,
+) -> Option<domain::StretchOnlyExercises> {
+    match exercises {
+        CacheState::Ready(exercises) => Some(domain::StretchOnlyExercises::new(exercises)),
+        CacheState::Error(_) => Some(domain::StretchOnlyExercises::default()),
+        CacheState::Loading => None,
+    }
+}
+
+/// The sessions without the sets of stretch-only exercises, in the same order.
+pub fn without_stretch_only_sets<'a>(
+    training_sessions: &'a [domain::TrainingSession],
+    stretch_only: &domain::StretchOnlyExercises,
+) -> Vec<Cow<'a, domain::TrainingSession>> {
+    training_sessions
+        .iter()
+        .map(|t| t.without_stretch_only_sets(stretch_only))
+        .collect()
+}
+
 fn view_charts(
     training_sessions: &[domain::TrainingSession],
+    metric_sessions: &[Cow<'_, domain::TrainingSession>],
+    stretch_only: &domain::StretchOnlyExercises,
     interval: domain::Interval,
     settings: Settings,
 ) -> Element {
-    let training_stats = DOMAIN_SERVICE().get_training_stats(training_sessions);
+    let training_stats = DOMAIN_SERVICE().get_training_stats(training_sessions, stretch_only);
+    let has_stretch_sets = training_sessions.iter().any(|s| {
+        (interval.first..=interval.last).contains(&s.date) && s.stretch_sets(stretch_only) > 0.
+    });
+    let stretch_sets = domain::centered_moving_total(
+        &training_sessions
+            .iter()
+            .map(|s| (s.date, s.stretch_sets(stretch_only)))
+            .collect::<Vec<_>>(),
+        interval,
+        3,
+    );
+    let stretch_minutes = domain::centered_moving_total(
+        &training_sessions
+            .iter()
+            .map(|s| (s.date, s.stretch_time(stretch_only) / 60.))
+            .collect::<Vec<_>>(),
+        interval,
+        3,
+    );
     let short_term_load = training_stats
         .short_term_load
         .iter()
@@ -120,14 +171,14 @@ fn view_charts(
         .map(|(d, l)| (d, l * domain::TrainingStats::LOAD_RATIO_LOW))
         .collect::<Vec<_>>();
     let total_7day_set_volume = domain::centered_moving_total(
-        &training_sessions
+        &metric_sessions
             .iter()
             .map(|s| (s.date, s.set_volume()))
             .collect::<Vec<_>>(),
         interval,
         3,
     );
-    let rpe_values = training_sessions
+    let rpe_values = metric_sessions
         .iter()
         .flat_map(|s| {
             s.elements
@@ -217,19 +268,31 @@ fn view_charts(
                 no_data_label: false,
             }
         }
+        if has_stretch_sets {
+            {view_stretch_charts(
+                "7-day stretch sets",
+                stretch_sets,
+                "7-day time under stretch (min)",
+                stretch_minutes,
+                interval,
+                false,
+            )}
+        }
     }
 }
 
 pub fn view_calendar(
     training_sessions: &[domain::TrainingSession],
+    stretch_only: &domain::StretchOnlyExercises,
     interval: domain::Interval,
 ) -> Element {
     let mut load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     for training_session in training_sessions {
         if (interval.first..=interval.last).contains(&training_session.date) {
+            let session_load = training_session.load(stretch_only);
             load.entry(training_session.date)
-                .and_modify(|e| *e += training_session.load())
-                .or_insert(training_session.load());
+                .and_modify(|e| *e += session_load)
+                .or_insert(session_load);
         }
     }
     let min = load
@@ -262,15 +325,54 @@ pub fn view_calendar(
     }
 }
 
+/// How the session table treats the sets of stretch-only exercises.
+#[derive(Clone, Copy)]
+pub enum StretchMetrics<'a> {
+    /// The volume metrics are taken from the given sessions, which leave out the sets and
+    /// correspond to the shown sessions. The sets are shown in stretch columns instead.
+    Exclude(&'a [Cow<'a, domain::TrainingSession>]),
+    /// The sets count like any other set.
+    Include,
+    /// The sets are all stretch-only, so a stretch sets column replaces the volume metrics.
+    Only,
+}
+
+/// Show a row per training session.
+///
+/// `show_time` decides whether the TUT and the time columns are shown.
+#[allow(clippy::too_many_arguments)]
 pub fn view_table(
     training_sessions: &[domain::TrainingSession],
+    stretch_only: &domain::StretchOnlyExercises,
+    stretch_metrics: StretchMetrics<'_>,
+    show_time: bool,
     routines: &[domain::Routine],
     interval: domain::Interval,
     mut dialog: Signal<TrainingDialog>,
     settings: Settings,
 ) -> Element {
+    let borrowed_sessions;
+    let metric_sessions = if let StretchMetrics::Exclude(metric_sessions) = stretch_metrics {
+        metric_sessions
+    } else {
+        borrowed_sessions = training_sessions
+            .iter()
+            .map(Cow::Borrowed)
+            .collect::<Vec<_>>();
+        &borrowed_sessions
+    };
+    let shows_volume = !matches!(stretch_metrics, StretchMetrics::Only);
+    let shows_stretch_sets = match stretch_metrics {
+        StretchMetrics::Exclude(_) => training_sessions.iter().any(|t| {
+            (interval.first..=interval.last).contains(&t.date) && t.stretch_sets(stretch_only) > 0.
+        }),
+        StretchMetrics::Include => false,
+        StretchMetrics::Only => true,
+    };
+    let shows_stretch_time =
+        matches!(stretch_metrics, StretchMetrics::Exclude(_)) && shows_stretch_sets;
     let (has_avg_rpe_data, has_tut_data, has_avg_reps_data, has_avg_weight_data, has_avg_time_data) =
-        training_sessions
+        metric_sessions
             .iter()
             .fold((false, false, false, false, false), |r, t| {
                 (
@@ -283,17 +385,17 @@ pub fn view_table(
             });
 
     let mut head = Vec::with_capacity(12);
-    head.extend_from_slice(&[
-        rsx! {"Date"},
-        rsx! {"Routine"},
-        rsx! {"Load"},
-        rsx! {"Set volume"},
-    ]);
+    head.extend_from_slice(&[rsx! {"Date"}, rsx! {"Routine"}, rsx! {"Load"}]);
+    if shows_volume {
+        head.push(rsx! {"Set volume"});
+    }
     if settings.show_rpe() && has_avg_rpe_data {
         head.push(rsx! {"RPE"});
     }
-    head.push(rsx! {"Volume load"});
-    if settings.show_tut() && has_tut_data {
+    if shows_volume {
+        head.push(rsx! {"Volume load"});
+    }
+    if show_time && has_tut_data {
         head.push(rsx! {"TUT"});
     }
     if has_avg_reps_data {
@@ -305,16 +407,23 @@ pub fn view_table(
     if has_avg_weight_data {
         head.push(rsx! {"Weight (kg)"});
     }
-    if settings.show_tut() && has_avg_time_data {
+    if show_time && has_avg_time_data {
         head.push(rsx! {"Time (s)"});
+    }
+    if shows_stretch_sets {
+        head.push(rsx! {"Stretch sets"});
+    }
+    if shows_stretch_time {
+        head.push(rsx! {"Stretch (min)"});
     }
     head.push(rsx! {});
 
     let body = training_sessions
         .iter()
+        .zip(metric_sessions)
         .rev()
-        .filter(|p| p.date >= interval.first && p.date <= interval.last)
-        .map(|t| {
+        .filter(|(p, _)| p.date >= interval.first && p.date <= interval.last)
+        .map(|(t, m)| {
             let t = t.clone();
             let routine = routines.iter().find(|r| r.id == t.routine_id);
             let routine_id = routine.map(|r| r.id).unwrap_or_default();
@@ -338,21 +447,25 @@ pub fn view_table(
                     }
                 }
             });
-            data.push(rsx! { {count_to_string(f64::from(t.load()))} });
-            data.push(rsx! { {count_to_string(f64::from(t.set_volume()))} });
-            if settings.show_rpe() && has_avg_rpe_data {
-                data.push(rsx! { {value_or_dash(t.avg_rpe())} });
+            data.push(rsx! { {count_to_string(f64::from(t.load(stretch_only)))} });
+            if shows_volume {
+                data.push(rsx! { {count_to_string(f64::from(m.set_volume()))} });
             }
-            data.push(rsx! { "{t.volume_load()}" });
-            if settings.show_tut() && has_tut_data {
-                data.push(rsx! { {value_or_dash(t.tut())} });
+            if settings.show_rpe() && has_avg_rpe_data {
+                data.push(rsx! { {value_or_dash(m.avg_rpe())} });
+            }
+            if shows_volume {
+                data.push(rsx! { "{m.volume_load()}" });
+            }
+            if show_time && has_tut_data {
+                data.push(rsx! { {value_or_dash(m.tut())} });
             }
             if has_avg_reps_data {
-                data.push(rsx! { {value_or_dash(t.avg_reps())} });
+                data.push(rsx! { {value_or_dash(m.avg_reps())} });
             }
             if settings.show_rpe() && has_avg_reps_data && has_avg_rpe_data {
                 data.push(rsx! {
-                    if let (Some(avg_reps), Some(avg_rpe)) = (t.avg_reps(), t.avg_rpe()) {
+                    if let (Some(avg_reps), Some(avg_rpe)) = (m.avg_reps(), m.avg_rpe()) {
                         {format!("{:.1}", avg_reps + f32::from(domain::RIR::from(avg_rpe)))}
                     } else {
                         "-"
@@ -360,10 +473,16 @@ pub fn view_table(
                 });
             }
             if has_avg_weight_data {
-                data.push(rsx! { {value_or_dash(t.avg_weight())} });
+                data.push(rsx! { {value_or_dash(m.avg_weight())} });
             }
-            if settings.show_tut() && has_avg_time_data {
-                data.push(rsx! { {value_or_dash(t.avg_time())} });
+            if show_time && has_avg_time_data {
+                data.push(rsx! { {value_or_dash(m.avg_time())} });
+            }
+            if shows_stretch_sets {
+                data.push(rsx! { {count_to_string(f64::from(t.stretch_sets(stretch_only)))} });
+            }
+            if shows_stretch_time {
+                data.push(rsx! { {minutes_to_string(t.stretch_time(stretch_only))} });
             }
             data.push(rsx! {
                 a {
@@ -651,6 +770,153 @@ mod tests {
         assert!(rows_of(&with_both, "table")[0].contains(&"TUT".to_string()));
         assert!(!rows_of(&without, "table")[0].contains(&"RPE".to_string()));
         assert!(!rows_of(&without, "table")[0].contains(&"TUT".to_string()));
+    }
+
+    fn exercise(id: u128, muscles: Vec<domain::ExerciseMuscle>) -> domain::Exercise {
+        domain::Exercise {
+            id: id.into(),
+            name: domain::Name::new(&format!("Exercise {id}")).unwrap(),
+            notes: String::new(),
+            muscles,
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        }
+    }
+
+    fn muscle(
+        muscle_id: domain::MuscleID,
+        stimulus: domain::Stimulus,
+        stretch: domain::Stimulus,
+    ) -> domain::ExerciseMuscle {
+        domain::ExerciseMuscle {
+            muscle_id,
+            stimulus,
+            stretch,
+        }
+    }
+
+    /// A session of today holding a hybrid exercise 1 and a hold of a stretch-only exercise 2.
+    fn sessions_with_stretch() -> TestCache {
+        stretch_cache(vec![session_with_stretch(1, Local::now().date_naive())])
+    }
+
+    fn session_with_stretch(id: u128, date: NaiveDate) -> domain::TrainingSession {
+        let mut session = training_session(id, date);
+        session.elements.push(domain::TrainingSessionElement::Set {
+            exercise_id: 2.into(),
+            side: domain::Side::Unset,
+            reps: domain::Reps::default(),
+            time: domain::Time::new(90).unwrap(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::new(9.0).unwrap(),
+            target_reps: domain::Reps::default(),
+            target_tempo: domain::Tempo::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        });
+        session
+    }
+
+    /// The `training_sessions` with a hybrid exercise 1 and a stretch-only exercise 2.
+    fn stretch_cache(training_sessions: Vec<domain::TrainingSession>) -> TestCache {
+        TestCache::default()
+            .with_routines(vec![routine()])
+            .with_exercises(vec![
+                exercise(
+                    1,
+                    vec![
+                        muscle(
+                            domain::MuscleID::ErectorSpinae,
+                            domain::Stimulus::PRIMARY,
+                            domain::Stimulus::NONE,
+                        ),
+                        muscle(
+                            domain::MuscleID::Hamstrings,
+                            domain::Stimulus::NONE,
+                            domain::Stimulus::PRIMARY,
+                        ),
+                    ],
+                ),
+                exercise(
+                    2,
+                    vec![muscle(
+                        domain::MuscleID::Hamstrings,
+                        domain::Stimulus::NONE,
+                        domain::Stimulus::PRIMARY,
+                    )],
+                ),
+            ])
+            .with_training_sessions(training_sessions)
+    }
+
+    #[test]
+    fn test_a_stretch_leaves_the_volume_metrics_for_stretch_columns_and_a_chart() {
+        let html = render_training_sessions(web_app::Settings::default(), sessions_with_stretch);
+        let rows = rows_of(&html, "table");
+
+        assert_eq!(
+            rows[0],
+            vec![
+                "Date",
+                "Routine",
+                "Load",
+                "Set volume",
+                "RPE",
+                "Volume load",
+                "TUT",
+                "Reps",
+                "Reps+RIR",
+                "Time (s)",
+                "Stretch sets",
+                "Stretch (min)",
+                "",
+            ]
+        );
+        assert_eq!(
+            rows[1][2..],
+            [
+                "9", "1", "8", "10", "300", "10.0", "12.0", "30.0", "1", "1.5", ""
+            ]
+        );
+        assert!(html.contains("7-day time under stretch (min)"));
+    }
+
+    #[test]
+    fn test_a_stretch_outside_the_interval_shows_no_stretch_columns_and_chart() {
+        let html = render_training_sessions(web_app::Settings::default(), || {
+            let today = Local::now().date_naive();
+            stretch_cache(vec![
+                session_with_stretch(1, today - chrono::Duration::days(365)),
+                training_session(2, today),
+            ])
+        });
+
+        assert!(!rows_of(&html, "table")[0].contains(&"Stretch sets".to_string()));
+        assert!(!html.contains("7-day stretch"));
+    }
+
+    #[test]
+    fn test_with_unreadable_exercises_stretches_count_like_other_sets() {
+        let html = render_training_sessions(web_app::Settings::default(), || {
+            sessions_with_stretch().with_unreadable_exercises()
+        });
+        let rows = rows_of(&html, "table");
+
+        assert!(!rows[0].contains(&"Stretch sets".to_string()));
+        assert_eq!(rows[1][3], "2");
+    }
+
+    #[test]
+    fn test_without_stretch_sets_no_stretch_columns_and_chart_are_shown() {
+        let html = render_training_sessions(web_app::Settings::default(), sessions);
+
+        assert!(!rows_of(&html, "table")[0].contains(&"Stretch sets".to_string()));
+        assert!(!html.contains("7-day stretch"));
     }
 
     #[test]

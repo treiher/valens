@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     iter,
     ops::{Range, RangeInclusive},
@@ -12,8 +13,9 @@ use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, Laterality, MuscleID, RPE, ReadError, Reps,
-    RoutineID, Side, Sides, Stimulus, SyncError, Tempo, Time, TrainingStats, UpdateError,
-    ValidationError, Weight, one_rep_max, training::values_to_string, training_stats,
+    RoutineID, Side, Sides, Stimulus, Stretch, StretchOnlyExercises, SyncError, Tempo, Time,
+    TrainingStats, UpdateError, ValidationError, Weight, one_rep_max, training::values_to_string,
+    training_stats,
 };
 
 #[allow(async_fn_in_trait)]
@@ -51,8 +53,12 @@ pub trait TrainingSessionService {
         }
     }
 
-    fn get_training_stats(&self, training_sessions: &[TrainingSession]) -> TrainingStats {
-        training_stats(&training_sessions.iter().collect::<Vec<_>>())
+    fn get_training_stats(
+        &self,
+        training_sessions: &[TrainingSession],
+        stretch_only: &StretchOnlyExercises,
+    ) -> TrainingStats {
+        training_stats(&training_sessions.iter().collect::<Vec<_>>(), stretch_only)
     }
 
     /// Returns all non-empty sets from the training session, grouped by exercise.
@@ -327,14 +333,95 @@ impl TrainingSession {
     }
 
     /// The number of sets weighted by their rating, a set with a side counting half.
+    ///
+    /// A set of a stretch-only exercise counts one if it records reps or a time, whatever its
+    /// rating.
     #[must_use]
-    pub fn load(&self) -> f32 {
+    pub fn load(&self, stretch_only: &StretchOnlyExercises) -> f32 {
         halved(
             self.elements
                 .iter()
-                .map(|element| halves(element) * set_load(element))
+                .map(|element| {
+                    halves(element)
+                        * if is_set_of(element, stretch_only) {
+                            u32::from(is_recorded(element))
+                        } else {
+                            set_load(element)
+                        }
+                })
                 .sum(),
         )
+    }
+
+    /// The session without the sets of stretch-only exercises.
+    #[must_use]
+    pub fn without_stretch_only_sets(
+        &self,
+        stretch_only: &StretchOnlyExercises,
+    ) -> Cow<'_, TrainingSession> {
+        if !self
+            .elements
+            .iter()
+            .any(|element| is_set_of(element, stretch_only))
+        {
+            return Cow::Borrowed(self);
+        }
+        let mut training_session = self.clone();
+        training_session
+            .elements
+            .retain(|element| !is_set_of(element, stretch_only));
+        Cow::Owned(training_session)
+    }
+
+    /// The number of sets of stretch-only exercises that record reps or a time, a set with a side
+    /// counting half.
+    #[must_use]
+    pub fn stretch_sets(&self, stretch_only: &StretchOnlyExercises) -> f32 {
+        halved(
+            self.elements
+                .iter()
+                .filter(|element| is_set_of(element, stretch_only) && is_recorded(element))
+                .map(halves)
+                .sum(),
+        )
+    }
+
+    /// The time in seconds of the sets of stretch-only exercises, a set with a side counting half.
+    #[must_use]
+    pub fn stretch_time(&self, stretch_only: &StretchOnlyExercises) -> f32 {
+        halved(
+            self.elements
+                .iter()
+                .filter(|element| is_set_of(element, stretch_only))
+                .filter_map(|element| Some(halves(element) * set_tut(element)?))
+                .sum(),
+        )
+    }
+
+    /// The stretch of the sets that record reps or a time per stretched muscle, a set with a side
+    /// counting half.
+    ///
+    /// The sets and the time of a set are weighted by the level of the stretch. Only muscles with a
+    /// stretch are included.
+    #[must_use]
+    pub fn stretch_per_muscle(&self, exercises: &[Exercise]) -> BTreeMap<MuscleID, Stretch> {
+        let mut result: BTreeMap<MuscleID, Stretch> = BTreeMap::new();
+        for element in &self.elements {
+            if !is_recorded(element) {
+                continue;
+            }
+            if let TrainingSessionElement::Set { exercise_id, .. } = element
+                && let Some(exercise) = exercises.iter().find(|e| e.id == *exercise_id)
+            {
+                #[allow(clippy::cast_precision_loss)]
+                let seconds = set_tut(element).unwrap_or_default() as f32;
+                let set = Stretch { sets: 1., seconds } * halved(halves(element));
+                for (muscle_id, stretch) in exercise.muscle_stretch() {
+                    *result.entry(muscle_id).or_default() += set * stretch.fraction();
+                }
+            }
+        }
+        result
     }
 
     /// The number of sets that count for the muscle, a set with a side counting half.
@@ -1511,6 +1598,20 @@ fn set_load(element: &TrainingSessionElement) -> u32 {
     }
 }
 
+fn is_set_of(element: &TrainingSessionElement, exercise_ids: &HashSet<ExerciseID>) -> bool {
+    matches!(element, TrainingSessionElement::Set { exercise_id, .. } if exercise_ids.contains(exercise_id))
+}
+
+/// Whether a set records reps or a time.
+fn is_recorded(element: &TrainingSessionElement) -> bool {
+    match element {
+        TrainingSessionElement::Set { reps, time, .. } => {
+            reps.non_zero().is_some() || time.non_zero().is_some()
+        }
+        TrainingSessionElement::Rest { .. } => false,
+    }
+}
+
 /// Whether a set records reps or a time with a rating that is unset or at least seven.
 fn counts_for_muscle(element: &TrainingSessionElement) -> bool {
     match element {
@@ -1872,7 +1973,10 @@ mod tests {
         #[case] training_session: &TrainingSession,
         #[case] expected: f32,
     ) {
-        assert_approx_eq!(training_session.load(), expected);
+        assert_approx_eq!(
+            training_session.load(&StretchOnlyExercises::default()),
+            expected
+        );
     }
 
     #[rstest]
@@ -2166,6 +2270,134 @@ mod tests {
             category: None,
         }];
         assert_eq!(training_session.stimulus_per_muscle(&exercises), expected);
+    }
+
+    #[test]
+    fn test_training_session_stretch_per_muscle() {
+        let training_session = training_session(&[
+            timed_set(1, Side::Unset, 0, 60, RPE::ZERO),
+            timed_set(2, Side::Unset, 5, 0, RPE::NINE),
+            timed_set(1, Side::Unset, 0, 0, RPE::ZERO),
+            timed_set(1, Side::Unset, 2, 30, RPE::FOUR),
+        ]);
+
+        assert_eq!(
+            training_session.stretch_per_muscle(&stretch_exercises()),
+            BTreeMap::from([
+                (
+                    MuscleID::Calves,
+                    Stretch {
+                        sets: 1.,
+                        seconds: 60.
+                    }
+                ),
+                (
+                    MuscleID::Hamstrings,
+                    Stretch {
+                        sets: 3.,
+                        seconds: 120.
+                    }
+                ),
+            ])
+        );
+    }
+
+    #[rstest]
+    #[case::pair_with_differing_times(
+        &[timed_set(1, Side::Left, 0, 60, RPE::ZERO), timed_set(1, Side::Right, 0, 40, RPE::ZERO)],
+        Stretch { sets: 1., seconds: 50. }
+    )]
+    #[case::pair_with_an_empty_side(
+        &[timed_set(1, Side::Left, 0, 60, RPE::ZERO), timed_set(1, Side::Right, 0, 0, RPE::ZERO)],
+        Stretch { sets: 0.5, seconds: 30. }
+    )]
+    fn test_training_session_stretch_per_muscle_of_sides(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] expected: Stretch,
+    ) {
+        assert_eq!(
+            training_session(elements).stretch_per_muscle(&stretch_exercises())
+                [&MuscleID::Hamstrings],
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case::stretch_and_hybrid(
+        &[
+            timed_set(1, Side::Unset, 0, 60, RPE::ZERO),
+            timed_set(2, Side::Unset, 5, 0, RPE::NINE),
+            timed_set(1, Side::Left, 0, 40, RPE::FOUR),
+            timed_set(1, Side::Right, 0, 20, RPE::ZERO),
+            timed_set(1, Side::Unset, 0, 0, RPE::ZERO),
+        ],
+        2.,
+        90.
+    )]
+    #[case::without_stretch(&[timed_set(2, Side::Unset, 5, 30, RPE::NINE)], 0., 0.)]
+    fn test_training_session_stretch_sets_and_time(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] expected_sets: f32,
+        #[case] expected_time: f32,
+    ) {
+        let training_session = training_session(elements);
+
+        assert_approx_eq!(
+            training_session.stretch_sets(&StretchOnlyExercises::new(&stretch_exercises())),
+            expected_sets
+        );
+        assert_approx_eq!(
+            training_session.stretch_time(&StretchOnlyExercises::new(&stretch_exercises())),
+            expected_time
+        );
+    }
+
+    #[rstest]
+    #[case::stretch_at_rpe_nine(&[timed_set(1, Side::Unset, 0, 60, RPE::NINE)], 1.)]
+    #[case::empty_stretch(&[timed_set(1, Side::Unset, 0, 0, RPE::NINE)], 0.)]
+    #[case::stretch_pair(
+        &[timed_set(1, Side::Left, 0, 60, RPE::NINE), timed_set(1, Side::Right, 0, 60, RPE::NINE)],
+        1.
+    )]
+    #[case::hybrid_at_rpe_nine(&[timed_set(2, Side::Unset, 5, 0, RPE::NINE)], 16.)]
+    fn test_training_session_load_of_stretches(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] expected: f32,
+    ) {
+        assert_approx_eq!(
+            training_session(elements).load(&StretchOnlyExercises::new(&stretch_exercises())),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_training_session_without_stretch_only_sets() {
+        let hybrid = timed_set(2, Side::Unset, 5, 0, RPE::NINE);
+        let training_session = training_session(&[
+            timed_set(1, Side::Unset, 0, 60, RPE::ZERO),
+            rest(60),
+            hybrid.clone(),
+        ]);
+
+        assert_eq!(
+            *training_session
+                .without_stretch_only_sets(&StretchOnlyExercises::new(&stretch_exercises())),
+            TrainingSession {
+                elements: vec![rest(60), hybrid],
+                ..training_session.clone()
+            }
+        );
+    }
+
+    #[test]
+    fn test_training_session_without_stretch_only_sets_keeps_a_session_without_any() {
+        let training_session = training_session(&[timed_set(2, Side::Unset, 5, 0, RPE::NINE)]);
+
+        assert_eq!(
+            *training_session
+                .without_stretch_only_sets(&StretchOnlyExercises::new(&stretch_exercises())),
+            training_session
+        );
     }
 
     #[rstest]
@@ -4389,7 +4621,7 @@ mod tests {
             sided_set(1, Side::Left, 5, RPE::ZERO),
         ]);
 
-        assert_approx_eq!(session.load(), 12.5);
+        assert_approx_eq!(session.load(&StretchOnlyExercises::default()), 12.5);
     }
 
     #[rstest]
@@ -4988,6 +5220,68 @@ mod tests {
         }
     }
 
+    fn timed_set(
+        exercise_id: u128,
+        side: Side,
+        reps: u32,
+        time: u32,
+        rpe: RPE,
+    ) -> TrainingSessionElement {
+        TrainingSessionElement::Set {
+            exercise_id: exercise_id.into(),
+            side,
+            reps: Reps::new(reps).unwrap(),
+            time: Time::new(time).unwrap(),
+            weight: Weight::default(),
+            rpe,
+            target_reps: Reps::default(),
+            target_tempo: Tempo::default(),
+            target_weight: Weight::default(),
+            target_rpe: RPE::default(),
+            automatic: false,
+        }
+    }
+
+    fn muscle(muscle_id: MuscleID, stimulus: Stimulus, stretch: Stimulus) -> ExerciseMuscle {
+        ExerciseMuscle {
+            muscle_id,
+            stimulus,
+            stretch,
+        }
+    }
+
+    /// A stretch-only exercise 1 and a hybrid exercise 2.
+    fn stretch_exercises() -> Vec<Exercise> {
+        let exercise = |id: u128, muscles| Exercise {
+            id: id.into(),
+            name: Name::new("A").unwrap(),
+            notes: String::new(),
+            muscles,
+            force: None,
+            mechanic: None,
+            laterality: None,
+            assistance: None,
+            equipment: vec![],
+            category: None,
+        };
+        vec![
+            exercise(
+                1,
+                vec![
+                    muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY),
+                    muscle(MuscleID::Calves, Stimulus::NONE, Stimulus::SECONDARY),
+                ],
+            ),
+            exercise(
+                2,
+                vec![
+                    muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::NONE),
+                    muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY),
+                ],
+            ),
+        ]
+    }
+
     fn section(elements: &[TrainingSessionElement]) -> TrainingSessionSection {
         TrainingSessionSection(elements.to_vec())
     }
@@ -5017,7 +5311,8 @@ mod tests {
             ..training_session(&[set(1, 5, 100.0, RPE::ZERO), set(1, 5, 100.0, RPE::ZERO)])
         };
 
-        let stats = service.get_training_stats(&[training_session]);
+        let stats =
+            service.get_training_stats(&[training_session], &StretchOnlyExercises::default());
 
         assert_eq!(stats.short_term_load, [(*TODAY, 2.0)]);
         assert_eq!(stats.long_term_load, []);

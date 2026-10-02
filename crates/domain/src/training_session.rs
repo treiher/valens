@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    iter,
     ops::{Range, RangeInclusive},
     str::FromStr,
 };
@@ -545,14 +546,14 @@ impl TrainingSession {
             .collect()
     }
 
-    pub fn add_set(&mut self, element_idx: usize) {
+    pub fn add_set(&mut self, element_idx: usize) -> ElementMap {
         let section_idx = self.section_idx(element_idx);
         let sections = self.compute_sections();
         let Some(section) = sections.get(section_idx) else {
-            return;
+            return ElementMap::unchanged(self.elements.len());
         };
-        let mut section_elements = section.elements().to_vec();
-        let rests = section_elements
+        let rests = section
+            .elements()
             .iter()
             .filter(|e| matches!(e, TrainingSessionElement::Rest { .. }))
             .collect::<Vec<_>>();
@@ -565,7 +566,7 @@ impl TrainingSession {
             }
         };
         let mut sets = vec![];
-        for element in &section_elements {
+        for element in section.elements() {
             match element {
                 TrainingSessionElement::Set {
                     exercise_id,
@@ -597,19 +598,20 @@ impl TrainingSession {
             }
         }
 
+        let mut section_elements =
+            tagged(section.elements(), section_start(&sections, section_idx));
         if matches!(
-            section_elements.last(),
+            section.elements().last(),
             Some(TrainingSessionElement::Set { .. })
         ) {
-            section_elements.push(rest);
-            section_elements.extend(sets);
+            section_elements.extend(untagged([rest]));
+            section_elements.extend(untagged(sets));
         } else {
-            section_elements.extend(sets);
-            section_elements.push(rest);
+            section_elements.extend(untagged(sets));
+            section_elements.extend(untagged([rest]));
         }
 
-        self.replace_elements_of_section(&sections, section_idx, section_elements);
-        self.ensure_sections_contain_set("adding set");
+        self.replace_section(&sections, section_idx, section_elements, "adding set")
     }
 
     /// Adds sets of `exercise_id` to every round of the section.
@@ -621,12 +623,13 @@ impl TrainingSession {
         section_idx: usize,
         exercise_id: ExerciseID,
         laterality: Option<Laterality>,
-    ) {
+    ) -> ElementMap {
         let sections = &self.compute_sections();
         let section = &sections[section_idx];
         let sides = Sides::for_laterality(laterality);
 
         let mut elements = vec![];
+        let mut run_start = section_start(sections, section_idx);
         for run in section
             .elements()
             .split_inclusive(|element| matches!(element, TrainingSessionElement::Rest { .. }))
@@ -635,44 +638,39 @@ impl TrainingSession {
                 Some((rest @ TrainingSessionElement::Rest { .. }, sets)) => (sets, Some(rest)),
                 _ => (run, None),
             };
-            elements.extend(sets.iter().cloned());
-            elements.extend(new_sets(
+            elements.extend(tagged(sets, run_start));
+            elements.extend(untagged(new_sets(
                 exercise_id,
                 sides_of(sets, exercise_id).unwrap_or(sides),
-            ));
-            elements.extend(rest.cloned());
+            )));
+            elements.extend(rest.map(|rest| (Some(run_start + sets.len()), rest.clone())));
+            run_start += run.len();
         }
 
-        self.replace_elements_of_section(sections, section_idx, elements);
-        self.ensure_sections_contain_set("adding exercise");
+        self.replace_section(sections, section_idx, elements, "adding exercise")
     }
 
-    /// Replaces `exercise_id` in the section and returns the index each element moves to, a
-    /// removed element moving to the element following it.
+    /// Replaces `exercise_id` in the section.
     ///
     /// For a unilateral replacement, each side-less set becomes a pair whose sides both take the
     /// values of the set. For a bilateral replacement, each pair becomes its first set with recorded
     /// values, or its first set if none has any, and no set keeps its side. Without a laterality,
-    /// the sides are kept.
+    /// the sides are kept. Sets of the replacement that thereby directly follow each other with
+    /// opposite sides form a pair.
     pub fn replace_exercise(
         &mut self,
         section_idx: usize,
         exercise_id: ExerciseID,
         replacement: ExerciseID,
         laterality: Option<Laterality>,
-    ) -> Vec<usize> {
+    ) -> ElementMap {
         let sections = self.compute_sections();
-        let start = sections[..section_idx]
-            .iter()
-            .map(|section| section.elements().len())
-            .sum::<usize>();
-        let end = start + sections[section_idx].elements().len();
-        let mut elements = self.elements[..start].to_vec();
-        let mut moved_to = (0..start).collect::<Vec<_>>();
+        let start = section_start(&sections, section_idx);
+        let section = sections[section_idx].elements();
 
-        for group in groups(&self.elements[start..end]) {
-            let group = group.start + start..group.end + start;
-            let old = &self.elements[group.clone()];
+        let mut elements = vec![];
+        for group in groups(section) {
+            let old = &section[group.clone()];
             let new = if matches!(
                 old[0],
                 TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id
@@ -681,41 +679,46 @@ impl TrainingSession {
             } else {
                 old.to_vec()
             };
-            let base = elements.len();
-            moved_to.extend((0..old.len()).map(|i| base + i.min(new.len())));
-            elements.extend(new);
+            // The sets of a group take the places of the sets they replace in order, any further
+            // set being new.
+            let origins = group.map(|idx| Some(start + idx)).chain(iter::repeat(None));
+            elements.extend(origins.zip(new));
         }
 
-        let offset = elements.len();
-        moved_to.extend((0..self.elements.len() - end).map(|i| offset + i));
-        elements.extend_from_slice(&self.elements[end..]);
-        self.elements = elements;
-        self.ensure_sections_contain_set("replacing exercise");
-        moved_to
+        self.replace_section(&sections, section_idx, elements, "replacing exercise")
     }
 
-    pub fn remove_set(&mut self, section_idx: usize) {
+    pub fn remove_set(&mut self, section_idx: usize) -> ElementMap {
         let section = self.section_range(section_idx);
         let end = *section.end();
+        let mut first_removed = end + 1;
         for i in section.rev() {
             if i != end && matches!(self.elements[i], TrainingSessionElement::Rest { .. }) {
                 break;
             }
-            self.elements.remove(i);
+            first_removed = i;
         }
-        self.ensure_sections_contain_set("removing set");
+        let removed = first_removed..=end;
+        let elements = tagged(&self.elements, 0)
+            .into_iter()
+            .enumerate()
+            .filter(|(idx, _)| !removed.contains(idx))
+            .map(|(_, element)| element)
+            .collect();
+        self.rebuild(elements, "removing set")
     }
 
     /// Removes the last group of sets of `exercise_id` from every run of the section, or the
     /// whole section if its first run holds a single group.
-    pub fn remove_exercise(&mut self, section_idx: usize, exercise_id: ExerciseID) {
+    pub fn remove_exercise(&mut self, section_idx: usize, exercise_id: ExerciseID) -> ElementMap {
         let sections = self.compute_sections();
         let section = &sections[section_idx];
 
-        let mut elements = vec![];
+        let mut elements: Vec<TaggedElement> = vec![];
         let ids = section.exercise_ids();
         if groups(&section.elements()[..ids.len()]).len() > 1 {
             let closes_round = ids.last() == Some(&exercise_id);
+            let mut run_start = section_start(&sections, section_idx);
             for run in section
                 .elements()
                 .split_inclusive(|element| matches!(element, TrainingSessionElement::Rest { .. }))
@@ -730,22 +733,26 @@ impl TrainingSession {
                         matches!(run[group.start], TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id)
                     })
                     .unwrap_or_default();
-                let remaining = run
-                    .iter()
+                let remaining = tagged(run, run_start)
+                    .into_iter()
                     .enumerate()
                     .filter(|(idx, _)| !removed.contains(idx))
-                    .map(|(_, element)| element.clone())
+                    .map(|(_, element)| element)
                     .collect::<Vec<_>>();
+                run_start += run.len();
                 if remaining
                     .iter()
-                    .any(|element| matches!(element, TrainingSessionElement::Set { .. }))
+                    .any(|(_, element)| matches!(element, TrainingSessionElement::Set { .. }))
                 {
                     elements.extend(remaining);
                     continue;
                 }
                 // Of the rests around an emptied run, the one closing the round is kept.
                 if closes_round {
-                    if matches!(elements.last(), Some(TrainingSessionElement::Rest { .. })) {
+                    if matches!(
+                        elements.last(),
+                        Some((_, TrainingSessionElement::Rest { .. }))
+                    ) {
                         elements.pop();
                     }
                     elements.extend(remaining);
@@ -753,100 +760,139 @@ impl TrainingSession {
             }
         }
 
-        self.replace_elements_of_section(&sections, section_idx, elements);
-        self.ensure_sections_contain_set("removing exercise");
+        self.replace_section(&sections, section_idx, elements, "removing exercise")
     }
 
     /// Appends sets of `exercise_id` to the session.
     ///
     /// The sets are a pair if the sets of the exercise in the last run of the session carry a
     /// side, or if the run holds none and the laterality calls for a pair.
-    pub fn append_exercise(&mut self, exercise_id: ExerciseID, laterality: Option<Laterality>) {
+    pub fn append_exercise(
+        &mut self,
+        exercise_id: ExerciseID,
+        laterality: Option<Laterality>,
+    ) -> ElementMap {
         let last_run = self
             .elements
             .rsplit(|element| matches!(element, TrainingSessionElement::Rest { .. }))
             .find(|run| !run.is_empty())
             .unwrap_or_default();
         let sides = sides_of(last_run, exercise_id).unwrap_or(Sides::for_laterality(laterality));
+        let mut elements = tagged(&self.elements, 0);
         if let Some(TrainingSessionElement::Set { .. }) = self.elements.last() {
-            self.elements.push(TrainingSessionElement::Rest {
+            elements.extend(untagged([TrainingSessionElement::Rest {
                 target_time: Time::default(),
                 automatic: true,
-            });
+            }]));
         }
-        self.elements.extend(new_sets(exercise_id, sides));
-        self.ensure_sections_contain_set("appending exercise");
+        elements.extend(untagged(new_sets(exercise_id, sides)));
+        self.rebuild(elements, "appending exercise")
     }
 
-    pub fn move_section_up(&mut self, section_idx: usize) {
+    pub fn move_section_up(&mut self, section_idx: usize) -> ElementMap {
         if section_idx == 0 {
-            return;
+            return ElementMap::unchanged(self.elements.len());
         }
         let section = self.section_range(section_idx);
         debug_assert!(section.start() <= section.end());
         let previous_section = self.section_range(section_idx - 1);
+        let mut elements = tagged(&self.elements, 0);
         let mut trailing_rest = 0;
         if section.end() + 1 == self.elements.len()
             && let Some(TrainingSessionElement::Set { .. }) = self.elements.last()
         {
-            self.elements.push(TrainingSessionElement::Rest {
+            elements.extend(untagged([TrainingSessionElement::Rest {
                 target_time: Time::default(),
                 automatic: true,
-            });
+            }]));
             trailing_rest += 1;
         }
-        self.elements[*previous_section.start()..=*section.end() + trailing_rest]
+        elements[*previous_section.start()..=*section.end() + trailing_rest]
             .rotate_right(section.end() - section.start() + trailing_rest + 1);
-        self.ensure_sections_contain_set("moving section up");
+        self.rebuild(elements, "moving section up")
     }
 
-    pub fn move_section_down(&mut self, section_idx: usize) {
+    pub fn move_section_down(&mut self, section_idx: usize) -> ElementMap {
         let section = self.section_range(section_idx);
         if *section.end() + 1 == self.elements.len() {
-            return;
+            return ElementMap::unchanged(self.elements.len());
         }
         let subsequent_section = self.section_range(section_idx + 1);
         let section_len = section.end() - section.start() + 1;
         let subsequent_section_len = subsequent_section.end() - subsequent_section.start() + 1;
+        let mut elements = tagged(&self.elements, 0);
         let mut trailing_rest = 0;
         if section.start() + section_len + subsequent_section_len == self.elements.len()
             && let Some(TrainingSessionElement::Set { .. }) = self.elements.last()
         {
-            self.elements.push(TrainingSessionElement::Rest {
+            elements.extend(untagged([TrainingSessionElement::Rest {
                 target_time: Time::default(),
                 automatic: true,
-            });
+            }]));
             trailing_rest += 1;
         }
-        self.elements[*section.start()
+        elements[*section.start()
             ..*section.start() + section_len + subsequent_section_len + trailing_rest]
             .rotate_right(subsequent_section_len + trailing_rest);
-        self.ensure_sections_contain_set("moving section down");
+        self.rebuild(elements, "moving section down")
     }
 
-    fn ensure_sections_contain_set(&mut self, action: &str) {
+    fn replace_section(
+        &mut self,
+        sections: &[TrainingSessionSection],
+        section_idx: usize,
+        elements: Vec<TaggedElement>,
+        action: &str,
+    ) -> ElementMap {
+        let start = section_start(sections, section_idx);
+        let end = start + sections[section_idx].elements().len();
+        let mut all_elements = tagged(&self.elements[..start], 0);
+        all_elements.extend(elements);
+        all_elements.extend(tagged(&self.elements[end..], end));
+        self.rebuild(all_elements, action)
+    }
+
+    /// Replaces the elements by `elements` and returns where the previous elements moved to.
+    ///
+    /// Each element is tagged with its previous index, or with `None` if it is new. Sections
+    /// consisting only of rests are removed.
+    fn rebuild(&mut self, elements: Vec<TaggedElement>, action: &str) -> ElementMap {
+        let previous_len = self.elements.len();
+        let (mut origins, elements): (Vec<_>, Vec<_>) = elements.into_iter().unzip();
+        self.elements = elements;
+
         let sections = self.compute_sections();
-        let has_rest_only_section = sections.iter().any(|s| {
-            !s.elements()
+        let has_set = |section: &TrainingSessionSection| {
+            section
+                .elements()
                 .iter()
                 .any(|e| matches!(e, TrainingSessionElement::Set { .. }))
-        });
-        if has_rest_only_section {
+        };
+        if !sections.iter().all(has_set) {
             debug_assert!(
                 false,
                 "{action} resulted in a section consisting only of rest elements"
             );
             error!("{action} resulted in a section consisting only of rest elements");
+            let mut remaining_origins = origins.into_iter();
+            origins = vec![];
+            for section in &sections {
+                let section_origins = remaining_origins
+                    .by_ref()
+                    .take(section.elements().len())
+                    .collect::<Vec<_>>();
+                if has_set(section) {
+                    origins.extend(section_origins);
+                }
+            }
             self.elements = sections
                 .into_iter()
-                .filter(|s| {
-                    s.elements()
-                        .iter()
-                        .any(|e| matches!(e, TrainingSessionElement::Set { .. }))
-                })
+                .filter(has_set)
                 .flat_map(|s| s.elements().to_vec())
                 .collect();
         }
+
+        ElementMap::new(previous_len, &origins)
     }
 
     #[must_use]
@@ -1119,24 +1165,45 @@ impl TrainingSession {
 
         last_idx
     }
+}
 
-    fn replace_elements_of_section(
-        &mut self,
-        sections: &[TrainingSessionSection],
-        section_idx: usize,
-        elements: Vec<TrainingSessionElement>,
-    ) {
-        self.elements = sections[..section_idx]
-            .iter()
-            .flat_map(|section| section.elements().iter().cloned())
-            .chain(elements)
-            .chain(
-                sections[section_idx + 1..]
-                    .iter()
-                    .flat_map(|section| section.elements().iter().cloned()),
-            )
-            .collect::<Vec<_>>();
+/// Where each element of a session moved to by a change of its elements, by its previous index.
+#[derive(Debug, Clone, PartialEq, Eq, Deref)]
+pub struct ElementMap(Vec<ElementMove>);
+
+impl ElementMap {
+    fn new(previous_len: usize, origins: &[Option<usize>]) -> Self {
+        let mut kept = vec![None; previous_len];
+        for (idx, origin) in origins.iter().enumerate() {
+            if let Some(origin) = origin {
+                kept[*origin] = Some(idx);
+            }
+        }
+        let mut moves = vec![ElementMove::Removed(0); previous_len];
+        let mut following = origins.len();
+        for (origin, kept) in kept.into_iter().enumerate().rev() {
+            moves[origin] = if let Some(idx) = kept {
+                following = following.min(idx);
+                ElementMove::Kept(idx)
+            } else {
+                ElementMove::Removed(following)
+            };
+        }
+        Self(moves)
     }
+
+    fn unchanged(len: usize) -> Self {
+        Self((0..len).map(ElementMove::Kept).collect())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElementMove {
+    /// The element is at the given index.
+    Kept(usize),
+    /// The element was removed. The given index is that of the first kept element that followed
+    /// it, or the number of elements if there is none.
+    Removed(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1565,6 +1632,30 @@ fn sides_of(elements: &[TrainingSessionElement], exercise_id: ExerciseID) -> Opt
     } else {
         Some(Sides::Combined)
     }
+}
+
+/// An element tagged with its previous index, or with `None` if it is new.
+type TaggedElement = (Option<usize>, TrainingSessionElement);
+
+fn tagged(elements: &[TrainingSessionElement], start: usize) -> Vec<TaggedElement> {
+    elements
+        .iter()
+        .enumerate()
+        .map(|(idx, element)| (Some(start + idx), element.clone()))
+        .collect()
+}
+
+fn untagged(
+    elements: impl IntoIterator<Item = TrainingSessionElement>,
+) -> impl Iterator<Item = TaggedElement> {
+    elements.into_iter().map(|element| (None, element))
+}
+
+fn section_start(sections: &[TrainingSessionSection], section_idx: usize) -> usize {
+    sections[..section_idx]
+        .iter()
+        .map(|section| section.elements().len())
+        .sum()
 }
 
 fn new_sets(exercise_id: ExerciseID, sides: Sides) -> Vec<TrainingSessionElement> {
@@ -2153,7 +2244,7 @@ mod tests {
             rest(1),
             exercise(2, 2),
         ]);
-        training_session.move_section_up(1);
+        let map = training_session.move_section_up(1);
         assert_eq!(
             training_session.elements,
             vec![
@@ -2164,6 +2255,7 @@ mod tests {
                 exercise(2, 2),
             ]
         );
+        assert_eq!(*map, [2, 3, 0, 1, 4].map(ElementMove::Kept));
     }
 
     #[test]
@@ -3222,7 +3314,7 @@ mod tests {
             exercise(3, 1),
             rest(3),
         ]);
-        training_session.remove_set(0);
+        let map = training_session.remove_set(0);
         assert_eq!(
             training_session.elements,
             vec![
@@ -3232,6 +3324,19 @@ mod tests {
                 rest(2),
                 exercise(3, 1),
                 rest(3),
+            ]
+        );
+        assert_eq!(
+            *map,
+            [
+                ElementMove::Kept(0),
+                ElementMove::Kept(1),
+                ElementMove::Removed(2),
+                ElementMove::Removed(2),
+                ElementMove::Kept(2),
+                ElementMove::Kept(3),
+                ElementMove::Kept(4),
+                ElementMove::Kept(5),
             ]
         );
     }
@@ -3248,7 +3353,7 @@ mod tests {
             exercise(3, 1),
             rest(3),
         ]);
-        training_session.remove_set(1);
+        let map = training_session.remove_set(1);
         assert_eq!(
             training_session.elements,
             vec![
@@ -3260,6 +3365,7 @@ mod tests {
                 rest(2),
             ]
         );
+        assert_eq!(map[6..], [ElementMove::Removed(6), ElementMove::Removed(6)]);
     }
 
     #[test]
@@ -4422,7 +4528,7 @@ mod tests {
             session.elements,
             [target(2, Side::Left), target(2, Side::Right), rest(60)]
         );
-        assert_eq!(moved_to, [0, 2]);
+        assert_eq!(*moved_to, [ElementMove::Kept(0), ElementMove::Kept(2)]);
     }
 
     #[rstest]
@@ -4463,22 +4569,22 @@ mod tests {
     #[case::bilateral(
         Some(Laterality::Bilateral),
         &[sided_set(2, Side::Unset, 5, RPE::ZERO), rest(60)],
-        &[0, 1, 1]
+        &[ElementMove::Kept(0), ElementMove::Removed(1), ElementMove::Kept(1)]
     )]
     #[case::unset(
         None,
         &[sided_set(2, Side::Left, 5, RPE::ZERO), sided_set(2, Side::Right, 6, RPE::ZERO), rest(60)],
-        &[0, 1, 2]
+        &[ElementMove::Kept(0), ElementMove::Kept(1), ElementMove::Kept(2)]
     )]
     #[case::unilateral(
         Some(Laterality::Unilateral),
         &[sided_set(2, Side::Left, 5, RPE::ZERO), sided_set(2, Side::Right, 6, RPE::ZERO), rest(60)],
-        &[0, 1, 2]
+        &[ElementMove::Kept(0), ElementMove::Kept(1), ElementMove::Kept(2)]
     )]
     fn test_training_session_replace_exercise_of_a_pair(
         #[case] laterality: Option<Laterality>,
         #[case] expected: &[TrainingSessionElement],
-        #[case] expected_moved_to: &[usize],
+        #[case] expected_moved_to: &[ElementMove],
     ) {
         let mut session = training_session(&[
             sided_set(1, Side::Left, 5, RPE::ZERO),
@@ -4489,7 +4595,7 @@ mod tests {
         let moved_to = session.replace_exercise(0, 1.into(), 2.into(), laterality);
 
         assert_eq!(session.elements, expected);
-        assert_eq!(moved_to, expected_moved_to);
+        assert_eq!(*moved_to, expected_moved_to);
     }
 
     #[rstest]
@@ -4523,7 +4629,7 @@ mod tests {
         let moved_to =
             session.replace_exercise(1, 1.into(), 2.into(), Some(Laterality::Unilateral));
 
-        assert_eq!(moved_to, [0, 1, 2, 4, 5, 7, 8]);
+        assert_eq!(*moved_to, [0, 1, 2, 4, 5, 7, 8].map(ElementMove::Kept));
         assert_eq!(session.elements[8], set(3, 5, 0.0, RPE::ZERO));
     }
 
@@ -5334,9 +5440,9 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(256))]
 
         #[test]
-        fn test_training_session_mutations_keep_a_set_in_every_section(
+        fn test_training_session_mutations_keep_a_set_in_every_section_and_map_the_elements(
             session in any_session(),
-            operations in prop::collection::vec((0u8..7, 0usize..8, 0usize..8), 0..8),
+            operations in prop::collection::vec((0u8..8, 0usize..8, 0usize..8), 0..8),
         ) {
             let mut session = session;
 
@@ -5348,51 +5454,52 @@ mod tests {
                 let section_idx = a % sections.len();
                 let exercise_ids = sections[section_idx].exercise_ids();
                 let laterality = [None, Some(Laterality::Bilateral), Some(Laterality::Unilateral)][a % 3];
-                match operation {
+                let previous = session.clone();
+                let mut replaced = None;
+                let map = match operation {
                     0 => session.add_set(b % session.elements.len()),
                     1 => session.add_exercise(section_idx, (b as u128 % 3 + 1).into(), laterality),
                     2 if !exercise_ids.is_empty() => {
-                        session.replace_exercise(section_idx, exercise_ids[b % exercise_ids.len()], (a as u128 % 3 + 1).into(), laterality);
+                        let exercise_id = exercise_ids[b % exercise_ids.len()];
+                        replaced = Some(exercise_id);
+                        session.replace_exercise(section_idx, exercise_id, (a as u128 % 3 + 1).into(), laterality)
                     }
                     3 => session.remove_set(section_idx),
                     4 if !exercise_ids.is_empty() => session.remove_exercise(section_idx, exercise_ids[b % exercise_ids.len()]),
                     5 => session.move_section_up(section_idx),
                     6 => session.move_section_down(section_idx),
-                    _ => {}
-                }
+                    7 => session.append_exercise((b as u128 % 3 + 1).into(), laterality),
+                    _ => continue,
+                };
 
                 prop_assert!(!has_rest_only_section(&session));
+                prop_assert_eq!(map.len(), previous.elements.len());
+                let mut kept = HashSet::new();
+                for (idx, element) in previous.elements.iter().enumerate() {
+                    match map[idx] {
+                        ElementMove::Kept(new_idx) => {
+                            prop_assert!(kept.insert(new_idx));
+                            if !matches!(element, TrainingSessionElement::Set { exercise_id, .. } if Some(*exercise_id) == replaced) {
+                                prop_assert_eq!(&session.elements[new_idx], element);
+                            }
+                        }
+                        ElementMove::Removed(following) => {
+                            prop_assert!(following <= session.elements.len());
+                        }
+                    }
+                }
+                if !matches!(operation, 5 | 6) {
+                    let indices = map.iter().map(|m| match m {
+                        ElementMove::Kept(idx) | ElementMove::Removed(idx) => *idx,
+                    });
+                    prop_assert!(indices.is_sorted());
+                }
             }
         }
     }
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(256))]
-
-        #[test]
-        fn test_training_session_replace_exercise_moves_kept_elements_to_their_index(
-            session in any_session(),
-            a in 0usize..8,
-            b in 0usize..8,
-        ) {
-            let sections = session.compute_sections();
-            let section_idx = a % sections.len();
-            let exercise_ids = sections[section_idx].exercise_ids();
-            prop_assume!(!exercise_ids.is_empty());
-            let exercise_id = exercise_ids[b % exercise_ids.len()];
-            let laterality = [None, Some(Laterality::Bilateral), Some(Laterality::Unilateral)][a % 3];
-            let mut replaced = session.clone();
-
-            let moved_to = replaced.replace_exercise(section_idx, exercise_id, 9.into(), laterality);
-
-            prop_assert_eq!(moved_to.len(), session.elements.len());
-            prop_assert!(moved_to.is_sorted());
-            for (idx, element) in session.elements.iter().enumerate() {
-                if !matches!(element, TrainingSessionElement::Set { exercise_id: id, .. } if *id == exercise_id) {
-                    prop_assert_eq!(&replaced.elements[moved_to[idx]], element);
-                }
-            }
-        }
 
         #[test]
         fn test_training_session_replace_exercise_by_a_unilateral_and_back_by_a_bilateral_exercise(

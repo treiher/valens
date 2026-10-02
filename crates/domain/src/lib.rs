@@ -46,9 +46,9 @@ pub use training::{
     training_stats,
 };
 pub use training_session::{
-    ElementGroup, OfferedSets, RecentSessionSets, Set, SetHistoryRow, TrainingSession,
-    TrainingSessionElement, TrainingSessionID, TrainingSessionRepository, TrainingSessionSection,
-    TrainingSessionService, most_recent_best_set_for_one_rep_max,
+    ElementGroup, ElementMap, ElementMove, OfferedSets, RecentSessionSets, Set, SetHistoryRow,
+    TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,
+    TrainingSessionSection, TrainingSessionService, most_recent_best_set_for_one_rep_max,
 };
 pub use user::{Role, Sex, User, UserID, UserRepository, UserService};
 pub use version::{VersionRepository, VersionService};

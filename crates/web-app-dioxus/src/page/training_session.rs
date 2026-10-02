@@ -7,7 +7,7 @@ use std::{
 
 use dioxus::{prelude::*, web::WebEventExt};
 use futures_util::StreamExt;
-use gloo_timers::future::{IntervalStream, TimeoutFuture};
+use gloo_timers::future::IntervalStream;
 use indexmap::IndexMap;
 
 use valens_domain::{self as domain, TrainingSessionService};
@@ -238,9 +238,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     let phase_clock = PhaseClock {
         bar: use_signal(|| None),
         elapsed: use_signal(|| 0.),
-        countdown_starts: use_signal(|| 0),
-        countdown_start_pending: use_signal(|| false),
-        side_switch_until: use_signal(|| None),
+        start_delay: use_signal(|| None),
     };
     // The bar clock belongs to the element it was started on and does not outlive it.
     use_effect(move || {
@@ -262,6 +260,19 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         let mut interval = IntervalStream::new(TICK_INTERVAL_MS);
         while interval.next().await.is_some() {
             let mut timer = progress.timer_service();
+            let mut start_delay = phase_clock.start_delay;
+            let delay = *start_delay.peek();
+            if let Some(delay) = delay {
+                let remaining = delay.remaining_at(chrono::Utc::now());
+                if remaining <= 0. {
+                    start_delay.set(None);
+                    if timer.peek().is_set() {
+                        timer.write().start();
+                    }
+                } else {
+                    start_delay.set(Some(StartDelay { remaining, ..delay }));
+                }
+            }
             timer.peek().sync();
             // Writing on every tick would re-run the effects reading the timer ten times a second.
             if timer.peek().needs_update() {
@@ -387,16 +398,17 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
 
     use_effect(move || {
         let element_idx = progress.read().element_idx;
-        // Only a set counted down automatically waits for its delayed start.
-        let set_start_pending = move |pending: bool| {
-            let mut start_pending = phase_clock.countdown_start_pending;
-            if *start_pending.peek() != pending {
-                start_pending.set(pending);
-            }
-            // A switch of sides is started anew for the element that has become current.
-            let mut side_switch_until = phase_clock.side_switch_until;
-            if side_switch_until.peek().is_some() {
-                side_switch_until.set(None);
+        // Only a set counted down automatically waits for its delayed start, which is started anew
+        // for the element that has become current.
+        let set_start_delay = move |kind: Option<StartDelayKind>| {
+            let mut start_delay = phase_clock.start_delay;
+            match kind {
+                Some(kind) => start_delay.set(Some(StartDelay::new(kind, chrono::Utc::now()))),
+                None => {
+                    if start_delay.peek().is_some() {
+                        start_delay.set(None);
+                    }
+                }
             }
         };
         if let Some(training_session) = training_session()
@@ -412,11 +424,11 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 } => {
                     let Some(total) = countdown_seconds(*target_reps, *target_tempo, *automatic)
                     else {
-                        set_start_pending(false);
+                        set_start_delay(None);
                         return;
                     };
                     if !current_values_are_unperformed() {
-                        set_start_pending(false);
+                        set_start_delay(None);
                         // Filling a set by hand takes it out of its countdown.
                         if progress.timer_service().peek().is_set() {
                             progress.timer_service().write().unset();
@@ -449,48 +461,22 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                         let mut bar = phase_clock.bar;
                         bar.set(None);
                         progress.timer_service().write().set(i64::from(total));
-                        set_start_pending(*automatic);
-                        if *automatic {
-                            // The countdown starts with the first beep, and a tap within that
-                            // lead-in decides it instead. A switch of sides leaves the time to
-                            // change position.
-                            let wait_ms = if progress.peek().completed_preceding
+                        set_start_delay(automatic.then(|| {
+                            if progress.peek().completed_preceding
                                 && training_session.completes_pair(element_idx)
                             {
-                                let mut side_switch_until = phase_clock.side_switch_until;
-                                side_switch_until.set(Some(
-                                    chrono::Utc::now()
-                                        + chrono::Duration::seconds(i64::from(SIDE_SWITCH_SECONDS)),
-                                ));
-                                // The clock still holds the seconds of the previous element.
-                                let mut elapsed = phase_clock.elapsed;
-                                elapsed.set(-f64::from(SIDE_SWITCH_SECONDS));
-                                SIDE_SWITCH_SECONDS * 1000
+                                StartDelayKind::SideSwitch
                             } else {
-                                lead_in_ms()
-                            };
-                            let starts = *phase_clock.countdown_starts.peek();
-                            let mut start_pending = phase_clock.countdown_start_pending;
-                            let mut side_switch_until = phase_clock.side_switch_until;
-                            spawn(async move {
-                                TimeoutFuture::new(wait_ms).await;
-                                if *progress.element_idx().peek() == element_idx
-                                    && *phase_clock.countdown_starts.peek() == starts
-                                    && progress.timer_service().peek().is_set()
-                                {
-                                    start_pending.set(false);
-                                    side_switch_until.set(None);
-                                    progress.timer_service().write().start();
-                                }
-                            });
-                        }
+                                StartDelayKind::LeadIn
+                            }
+                        }));
                     }
                 }
                 domain::TrainingSessionElement::Rest {
                     target_time,
                     automatic,
                 } => {
-                    set_start_pending(false);
+                    set_start_delay(None);
                     if let Some(target_time) = target_time.non_zero() {
                         if progress.timer_service().read().is_set() {
                             if *automatic && progress.timer_service().read().seconds() <= 0 {
@@ -655,7 +641,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
-                {view_edit_dialog(edit_dialog, exercise_dialog, field_values, drop_set_target, progress, training_sessions, cache)}
+                {view_edit_dialog(edit_dialog, exercise_dialog, field_values, drop_set_target, progress, phase_clock, training_sessions, cache)}
                 if drop_set_target.read().is_some() {
                     DropSetCalculator {
                         on_close: move |_| { drop_set_target.set(None); },
@@ -888,29 +874,15 @@ struct PhaseClock {
     bar: Signal<Option<BarClock>>,
     /// The seconds elapsed on the clock of the current element, written on every tick.
     elapsed: Signal<f64>,
-    /// Counts the countdowns started, so that a delayed start can tell whether it still applies.
-    countdown_starts: Signal<usize>,
-    /// Whether the countdown of the current element is waiting for its delayed automatic start.
-    countdown_start_pending: Signal<bool>,
-    /// The moment the countdown of a set starts on its own after a switch of sides.
-    side_switch_until: Signal<Option<chrono::DateTime<chrono::Utc>>>,
+    /// The wait of the countdown of the current element before it starts on its own.
+    start_delay: Signal<Option<StartDelay>>,
 }
 
 impl PhaseClock {
     /// The seconds elapsed on the clock of `element_idx`.
-    ///
-    /// During a switch of sides, the seconds are negative, counting up to the start of the set.
     fn seconds(&self, element_idx: usize, timer: &TimerService) -> f64 {
-        match (*self.bar.peek(), *self.side_switch_until.peek()) {
-            (Some(bar), _) if bar.element_idx == element_idx => bar.seconds(),
-            (_, Some(until)) => {
-                #[allow(clippy::cast_precision_loss)]
-                let seconds = chrono::Utc::now()
-                    .signed_duration_since(until)
-                    .num_milliseconds() as f64
-                    / 1000.;
-                seconds.min(0.)
-            }
+        match *self.bar.peek() {
+            Some(bar) if bar.element_idx == element_idx => bar.seconds(),
             _ => timer.elapsed_exact(),
         }
     }
@@ -924,6 +896,20 @@ impl PhaseClock {
         self.bar
             .read()
             .is_some_and(|bar| bar.element_idx == element_idx && bar.is_running())
+    }
+
+    /// Moves the bar clock along with its element, which it does not outlive.
+    fn follow(&mut self, map: &domain::ElementMap) {
+        let bar = *self.bar.peek();
+        if let Some(bar) = bar {
+            self.bar.set(match map.get(bar.element_idx) {
+                Some(domain::ElementMove::Kept(element_idx)) => Some(BarClock {
+                    element_idx: *element_idx,
+                    ..bar
+                }),
+                _ => None,
+            });
+        }
     }
 
     /// Starts the bar clock of `element_idx`, or holds it where it stands.
@@ -985,9 +971,49 @@ impl BarClock {
     }
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn lead_in_ms() -> u32 {
-    (METRONOME_START_DELAY * 1000.) as u32
+/// The wait of a countdown before it starts on its own, which a tap on the countdown cuts short.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct StartDelay {
+    kind: StartDelayKind,
+    ends_at: chrono::DateTime<chrono::Utc>,
+    /// The seconds left, written on every tick.
+    remaining: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum StartDelayKind {
+    /// The countdown starts with the first beep.
+    LeadIn,
+    /// The second side of a pair leaves the time to change position.
+    SideSwitch,
+}
+
+impl StartDelay {
+    #[allow(clippy::cast_possible_truncation)]
+    fn new(kind: StartDelayKind, now: chrono::DateTime<chrono::Utc>) -> Self {
+        let seconds = match kind {
+            StartDelayKind::LeadIn => METRONOME_START_DELAY,
+            StartDelayKind::SideSwitch => f64::from(SIDE_SWITCH_SECONDS),
+        };
+        Self {
+            kind,
+            ends_at: now + chrono::Duration::milliseconds((seconds * 1000.) as i64),
+            remaining: seconds,
+        }
+    }
+
+    /// The seconds left at `now`, zero once the delay has ended.
+    fn remaining_at(&self, now: chrono::DateTime<chrono::Utc>) -> f64 {
+        #[allow(clippy::cast_precision_loss)]
+        let remaining = self.ends_at.signed_duration_since(now).num_milliseconds() as f64 / 1000.;
+        remaining.max(0.)
+    }
+
+    /// The whole seconds left, as shown.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    fn remaining_seconds(&self) -> u32 {
+        self.remaining.ceil() as u32
+    }
 }
 
 /// Per-set focus state of the training session form.
@@ -1608,13 +1634,6 @@ fn view_form(
     }
 }
 
-/// The whole seconds left until a set starts after a switch of sides, given the negative
-/// `elapsed` seconds of its clock.
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn side_switch_remaining(elapsed: f64) -> u32 {
-    (-elapsed).clamp(0., f64::from(SIDE_SWITCH_SECONDS)).ceil() as u32
-}
-
 /// The name of a side in a notification, `None` for a set without a side.
 fn side_name(side: domain::Side) -> Option<&'static str> {
     match side {
@@ -1665,9 +1684,9 @@ fn SetCountdown(
 ) -> Element {
     let timer = progress.timer_service();
     // A countdown about to start automatically is not waiting for a tap.
-    let is_running = timer.read().is_active() || *phase_clock.countdown_start_pending.read();
-    let switching_side = phase_clock.side_switch_until.read().is_some();
-    let side_switch_remaining = side_switch_remaining(*phase_clock.elapsed.read());
+    let start_delay = *phase_clock.start_delay.read();
+    let is_running = timer.read().is_active() || start_delay.is_some();
+    let side_switch = start_delay.filter(|delay| delay.kind == StartDelayKind::SideSwitch);
     // The countdown is set after the set has become current, so the total stands in until then.
     let remaining = if timer.read().is_set() {
         timer.read().seconds()
@@ -1686,26 +1705,22 @@ fn SetCountdown(
             "data-testid": "countdown",
             class: if is_running { "" } else { "is-blinking" },
             onclick: move |_| {
-                let mut countdown_starts = phase_clock.countdown_starts;
-                countdown_starts += 1;
-                let mut start_pending = phase_clock.countdown_start_pending;
-                start_pending.set(false);
-                let mut side_switch_until = phase_clock.side_switch_until;
-                side_switch_until.set(None);
+                let mut start_delay = phase_clock.start_delay;
+                start_delay.set(None);
                 progress.timer_service().write().start_pause();
             },
             div { "{phase.map_or(remaining, |(_, _, remaining)| remaining.ceil() as i64)} s" }
-            if switching_side {
-                div { class: "is-size-6", "data-testid": "countdown-detail", "{side_name(side).unwrap_or_default()} side in {side_switch_remaining} s" }
+            if let Some(delay) = side_switch {
+                div { class: "is-size-6", "data-testid": "countdown-detail", "{side_name(side).unwrap_or_default()} side in {delay.remaining_seconds()} s" }
             } else if let Some(reps) = target_reps.non_zero() {
                 div { class: "is-size-6", "data-testid": "countdown-detail", "{repetition}/{reps}" }
             }
         }
-        if switching_side {
+        if let Some(delay) = side_switch {
             PhaseBar {
                 class: "phase-bar-pinned",
                 phases: vec![SIDE_SWITCH_SECONDS],
-                position: Some((0, (-*phase_clock.elapsed.read()).clamp(0., f64::from(SIDE_SWITCH_SECONDS)))),
+                position: Some((0, delay.remaining)),
             }
         } else {
             PhaseBar {
@@ -2159,6 +2174,7 @@ fn view_edit_dialog(
     field_values: Signal<HashMap<usize, SetFieldValues>>,
     drop_set_target: Signal<Option<Vec<Vec<usize>>>>,
     progress: Store<Progress>,
+    phase_clock: PhaseClock,
     training_sessions: &[domain::TrainingSession],
     cache: Cache,
 ) -> Element {
@@ -2254,17 +2270,18 @@ fn view_edit_dialog(
                                     text: "Add set".to_string(),
                                     on_click: eh!(mut training_session; element_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.add_set(element_idx);
-                                        save(training_session, cache, close_dialog)
+                                        let map = training_session.add_set(element_idx);
+                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
                                     icon: "plus".to_string(),
                                     text: "Add same exercise".to_string(),
+                                    "data-testid": "options-add-same-exercise",
                                     on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
-                                        save(training_session, cache, close_dialog)
+                                        let map = training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
+                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2279,8 +2296,8 @@ fn view_edit_dialog(
                                     text: "Move up".to_string(),
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.move_section_up(section_idx);
-                                        save(training_session, cache, close_dialog)
+                                        let map = training_session.move_section_up(section_idx);
+                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2288,8 +2305,8 @@ fn view_edit_dialog(
                                     text: "Move down".to_string(),
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.move_section_down(section_idx);
-                                        save(training_session, cache, close_dialog)
+                                        let map = training_session.move_section_down(section_idx);
+                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2305,8 +2322,8 @@ fn view_edit_dialog(
                                     text: "Remove set".to_string(),
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.remove_set(section_idx);
-                                        save(training_session, cache, close_dialog)
+                                        let map = training_session.remove_set(section_idx);
+                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2315,8 +2332,8 @@ fn view_edit_dialog(
                                     "data-testid": "options-remove-exercise",
                                     on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
-                                        training_session.remove_exercise(section_idx, exercise_id);
-                                        save(training_session, cache, close_dialog)
+                                        let map = training_session.remove_exercise(section_idx, exercise_id);
+                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                     })
                                 },
                             },
@@ -2346,8 +2363,8 @@ fn view_edit_dialog(
                                 move |(_, exercise_id)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
-                                    save(training_session, cache, close_dialog)
+                                    let map = training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
+                                    save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                 }
                             },
                             on_catalog_click: |_| {}
@@ -2379,20 +2396,8 @@ fn view_edit_dialog(
                                 move |(_, replacement)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    let moved_to = training_session.replace_exercise(section_idx, exercise_id, replacement, cache.laterality(replacement));
-                                    let mut close_dialog = close_dialog;
-                                    async move {
-                                        if store(training_session).await {
-                                            cache.load_training_sessions().await;
-                                            // Shifted before the guide reacts to the reloaded session, as a position
-                                            // past its end would end the ongoing training session.
-                                            let element_idx = progress.read().element_idx;
-                                            if let Some(&moved_to) = moved_to.get(element_idx) {
-                                                progress.element_idx().set(moved_to);
-                                            }
-                                        }
-                                        close_dialog();
-                                    }
+                                    let map = training_session.replace_exercise(section_idx, exercise_id, replacement, cache.laterality(replacement));
+                                    save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                 }
                             },
                             on_catalog_click: |_| {}
@@ -2417,8 +2422,8 @@ fn view_edit_dialog(
                                 move |(_, exercise_id)| {
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
-                                    training_session.append_exercise(exercise_id, cache.laterality(exercise_id));
-                                    save(training_session, cache, close_dialog)
+                                    let map = training_session.append_exercise(exercise_id, cache.laterality(exercise_id));
+                                    save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
                                 }
                             },
                             on_catalog_click: |_| {}
@@ -2664,15 +2669,39 @@ async fn save(
     cache: Cache,
     mut close_dialog: impl FnMut(),
 ) {
-    if store(training_session).await {
+    let loading = LoadingFlag::set(&IS_LOADING);
+    let stored = store(training_session).await;
+    drop(loading);
+    if stored {
         cache.refresh_training_sessions();
     }
     close_dialog();
 }
 
+/// Saves a training session whose elements were moved as given by `map`, and moves the current
+/// element along.
+async fn save_moved(
+    training_session: domain::TrainingSession,
+    map: domain::ElementMap,
+    mut progress: Store<Progress>,
+    mut phase_clock: PhaseClock,
+    cache: Cache,
+    mut close_dialog: impl FnMut(),
+) {
+    let loading = LoadingFlag::set(&IS_LOADING);
+    if store(training_session).await {
+        cache.load_training_sessions().await;
+        // Moved before the guide reacts to the reloaded session, as a position past its end would
+        // end the ongoing training session.
+        progress.write().follow(&map);
+        phase_clock.follow(&map);
+    }
+    drop(loading);
+    close_dialog();
+}
+
 /// Returns whether the training session was stored.
 async fn store(training_session: domain::TrainingSession) -> bool {
-    let _loading = LoadingFlag::set(&IS_LOADING);
     match DOMAIN_SERVICE()
         .modify_training_session(
             training_session.id,
@@ -2737,6 +2766,16 @@ impl Progress {
 
     fn reset(&mut self) {
         self.start_time = chrono::Utc::now();
+    }
+
+    /// Follows the current element to where `map` moved it, or starts anew on the element that
+    /// followed it if it was removed.
+    fn follow(&mut self, map: &domain::ElementMap) {
+        match map.get(self.element_idx) {
+            Some(domain::ElementMove::Kept(element_idx)) => self.element_idx = *element_idx,
+            Some(domain::ElementMove::Removed(element_idx)) => self.set_element_idx(*element_idx),
+            None => {}
+        }
     }
 }
 
@@ -3117,7 +3156,7 @@ mod tests {
     /// Renders a countdown that has not been started and returns its class.
     fn countdown_class(start_pending: bool) -> String {
         let html = render(move || {
-            rsx! { UnstartedCountdown { side: domain::Side::Unset, start_pending, switching_side: false, elapsed: 0. } }
+            rsx! { UnstartedCountdown { side: domain::Side::Unset, start_delay: start_pending.then_some(StartDelayKind::LeadIn), remaining: 0.5 } }
         });
 
         attribute_of(&html, "countdown", "class")
@@ -3131,27 +3170,51 @@ mod tests {
         #[case] detail: &str,
     ) {
         let html = render(move || {
-            rsx! { UnstartedCountdown { side, start_pending: true, switching_side: true, elapsed: -2.5 } }
+            rsx! { UnstartedCountdown { side, start_delay: Some(StartDelayKind::SideSwitch), remaining: 2.5 } }
         });
 
         assert_eq!(attribute_of(&html, "countdown", "class"), "");
         assert_eq!(text_of(&html, "countdown-detail"), detail);
     }
 
+    #[test]
+    fn test_a_start_delay_counts_down_to_its_end() {
+        let now = chrono::Utc::now();
+        let delay = StartDelay::new(StartDelayKind::SideSwitch, now);
+
+        assert_approx_eq!(
+            delay.remaining_at(now),
+            f64::from(SIDE_SWITCH_SECONDS),
+            1e-9
+        );
+        assert_approx_eq!(
+            delay.remaining_at(delay.ends_at - chrono::Duration::milliseconds(1500)),
+            1.5,
+            1e-9
+        );
+        assert_approx_eq!(
+            delay.remaining_at(delay.ends_at + chrono::Duration::seconds(1)),
+            0.,
+            1e-9
+        );
+    }
+
     #[component]
     fn UnstartedCountdown(
         side: domain::Side,
-        start_pending: bool,
-        switching_side: bool,
-        elapsed: f64,
+        start_delay: Option<StartDelayKind>,
+        remaining: f64,
     ) -> Element {
         let progress = use_store(|| Progress::new(1.into()));
         let phase_clock = PhaseClock {
             bar: use_signal(|| None),
-            elapsed: use_signal(|| elapsed),
-            countdown_starts: use_signal(|| 0),
-            countdown_start_pending: use_signal(|| start_pending),
-            side_switch_until: use_signal(|| switching_side.then(chrono::Utc::now)),
+            elapsed: use_signal(|| 0.),
+            start_delay: use_signal(|| {
+                start_delay.map(|kind| StartDelay {
+                    remaining,
+                    ..StartDelay::new(kind, chrono::Utc::now())
+                })
+            }),
         };
 
         rsx! {
@@ -3648,6 +3711,7 @@ mod tests {
 
         assert_eq!(text_of(&html, "error-page"), "No connection");
     }
+    use assert_approx_eq::assert_approx_eq;
     use pretty_assertions::assert_eq;
     use rstest::rstest;
 
@@ -3883,6 +3947,49 @@ mod tests {
         progress.set_element_idx(1);
 
         assert!(!progress.completed_preceding);
+    }
+
+    #[test]
+    fn test_the_current_element_keeps_its_start_when_moved() {
+        let mut training_session = training_session(vec![
+            planned_set(1),
+            rest(),
+            planned_set(2),
+            rest(),
+            planned_set(3),
+        ]);
+        let map = training_session.move_section_up(1);
+        let mut progress = Progress::new(1.into());
+        progress.set_element_idx(0);
+        let element_start_time = progress.element_start_time;
+
+        progress.follow(&map);
+
+        assert_eq!(progress.element_idx, 2);
+        assert_eq!(progress.element_start_time, element_start_time);
+    }
+
+    #[test]
+    fn test_the_element_following_a_removed_current_element_starts_anew() {
+        let mut training_session = training_session(vec![
+            planned_set(1),
+            rest(),
+            planned_set(1),
+            rest(),
+            planned_set(2),
+        ]);
+        let map = training_session.remove_set(0);
+        let mut progress = Progress::new(1.into());
+        progress.set_element_idx(2);
+        progress.element_start_time = chrono::DateTime::<chrono::Utc>::default();
+
+        progress.follow(&map);
+
+        assert_eq!(progress.element_idx, 2);
+        assert_ne!(
+            progress.element_start_time,
+            chrono::DateTime::<chrono::Utc>::default()
+        );
     }
 
     #[test]

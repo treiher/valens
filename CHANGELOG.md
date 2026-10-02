@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Routine page: Sides of an activity, which prescribe a unilateral exercise per side
 - Exercise page: Left and right column in the set history, showing the two sets of a pair side by side
 
+### Fixed
+
+- Training session page: Ongoing training session continuing at another set or rest after a set or an exercise is added, moved or removed
+
 ## [0.9.0] - 2026-09-26
 
 ### Added

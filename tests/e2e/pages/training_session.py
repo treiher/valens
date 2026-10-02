@@ -280,6 +280,11 @@ class TrainingSessionPage(BasePage):
         self.replace_exercise_dialog.select_exercise(name)
         self.wait_until_idle()
 
+    def add_same_exercise(self, exercise_idx: int = 0) -> None:
+        self.open_exercise_options(exercise_idx)
+        self.page.get_by_test_id("options-add-same-exercise").click()
+        self.wait_until_idle()
+
     def remove_exercise(self, exercise_idx: int = 0) -> None:
         self.open_exercise_options(exercise_idx)
         self.page.get_by_test_id("options-remove-exercise").click()

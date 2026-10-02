@@ -182,6 +182,41 @@ class TrainingSessionPage(BasePage):
     def get_phase_bar_fills(self) -> list[float]:
         return phase_bar_fills(self.page)
 
+    def expect_phase_bar_fill_to_exceed(self, index: int, width: float) -> None:
+        fill = self.page.get_by_test_id("phase-bar-fill").nth(index).element_handle()
+        self.page.wait_for_function(
+            "([fill, width]) => fill.getBoundingClientRect().width > width", arg=[fill, width]
+        )
+
+    def record_frames(self) -> None:
+        """Record the countdown and the fill of its first phase on every frame."""
+        self.page.evaluate(
+            """() => {
+                window.__frames = [];
+                const record = () => {
+                    const countdown = document.querySelector("[data-testid=countdown]");
+                    const fill = document.querySelector("[data-testid=phase-bar-fill]");
+                    window.__frames.push([
+                        countdown ? countdown.innerText.split("\\n")[0] : "",
+                        fill ? fill.getBoundingClientRect().width : 0,
+                    ]);
+                    requestAnimationFrame(record);
+                };
+                requestAnimationFrame(record);
+            }"""
+        )
+
+    def expect_recorded_countdowns(self, seconds: list[int]) -> None:
+        """Wait until the recorded frames show the countdown at `seconds` in direct succession."""
+        self.page.wait_for_function(
+            """(expected) => window.__frames
+                .map(([text]) => text)
+                .filter((text, i, texts) => text !== "" && text !== texts[i - 1])
+                .join()
+                .includes(expected.join())""",
+            arg=[f"{s} s" for s in seconds],
+        )
+
     def expect_phase_bar(self, segments: int) -> None:
         bar = self.page.get_by_test_id("phase-bar")
         expect(bar).to_be_visible()

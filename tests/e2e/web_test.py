@@ -1765,10 +1765,9 @@ def test_training_session_countdown_advances_the_focus(page: Page) -> None:
 
     p = TrainingSessionPage(page, 0)
     p.expect_page()
+    p.record_frames()
 
-    p.expect_countdown_seconds(1)
-    p.expect_countdown_seconds(2)
-    p.expect_countdown_seconds(1)
+    p.expect_recorded_countdowns([1, 2, 1])
 
 
 def test_training_session_guide_stays_on_a_moved_element(page: Page) -> None:
@@ -1966,8 +1965,7 @@ def test_training_session_countdown_holds_its_position_while_paused(page: Page) 
     assert p.get_phase_bar_fills()[0] == paused
 
     p.start_pause_countdown()
-    page.wait_for_timeout(200)
-    assert p.get_phase_bar_fills()[0] > paused
+    p.expect_phase_bar_fill_to_exceed(0, paused)
 
 
 def test_training_session_countdown_survives_a_reload(page: Page) -> None:

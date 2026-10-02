@@ -31,18 +31,23 @@ class HomePage(BasePage):
         expect(self.ffmi).not_to_contain_text("Set your height in the profile.")
 
     def go_to_training_sessions(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-training-sessions").click()
 
     def go_to_routines(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-routines").click()
 
     def go_to_exercises(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-exercises").click()
 
     def go_to_schedule(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-schedule").click()
 
     def go_to_muscles(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-muscles").click()
 
     def expect_today_entries(self, names: list[str]) -> None:
@@ -58,13 +63,17 @@ class HomePage(BasePage):
         self.page.get_by_test_id("home-today-start").nth(index).click()
 
     def go_to_body_weight(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-body-weight").click()
 
     def go_to_body_fat(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-body-fat").click()
 
     def go_to_ffmi(self) -> None:
+        self.wait_until_idle()
         self.ffmi.click()
 
     def go_to_menstrual_cycle(self) -> None:
+        self.wait_until_idle()
         self.page.get_by_test_id("home-menstrual-cycle").click()

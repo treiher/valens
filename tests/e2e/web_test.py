@@ -1826,6 +1826,33 @@ def test_training_session_rest_shows_its_elapsed_time(page: Page) -> None:
     assert p.get_phase_bar_fills()[0] > before
 
 
+def test_training_session_rest_bar_starts_empty_after_a_set(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_tempo(0, 0, "3")
+    r.set_rest_time(0, 1, "6")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown_seconds(3)
+    p.record_frames()
+    p.expect_countdown_seconds(6)
+
+    # The first frame of the rest does not show the time of the set, apart from a subpixel of
+    # its own
+    rest_fills = [fill for text, fill in p.get_recorded_frames() if text == "6 s"]
+    assert rest_fills[0] < 1
+
+
 def test_training_session_set_countdown_records_the_target_time(page: Page) -> None:
     routine = USER.routines[1]
 

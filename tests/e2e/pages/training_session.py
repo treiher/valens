@@ -217,6 +217,9 @@ class TrainingSessionPage(BasePage):
             arg=[f"{s} s" for s in seconds],
         )
 
+    def get_recorded_frames(self) -> list[tuple[str, float]]:
+        return [(text, fill) for text, fill in self.page.evaluate("window.__frames")]
+
     def expect_phase_bar(self, segments: int) -> None:
         bar = self.page.get_by_test_id("phase-bar")
         expect(bar).to_be_visible()

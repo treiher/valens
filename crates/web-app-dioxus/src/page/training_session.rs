@@ -873,6 +873,9 @@ struct PhaseClock {
     /// The clock of a set performed with its input fields, which has no countdown of its own.
     bar: Signal<Option<BarClock>>,
     /// The seconds elapsed on the clock of the current element, written on every tick.
+    ///
+    /// They lag behind a change of the element until the next tick, so they are only read to
+    /// render anew, see `elapsed`.
     elapsed: Signal<f64>,
     /// The wait of the countdown of the current element before it starts on its own.
     start_delay: Signal<Option<StartDelay>>,
@@ -885,6 +888,12 @@ impl PhaseClock {
             Some(bar) if bar.element_idx == element_idx => bar.seconds(),
             _ => timer.elapsed_exact(),
         }
+    }
+
+    /// The seconds elapsed on the clock of `element_idx`, rendered anew on every tick.
+    fn elapsed(&self, element_idx: usize, timer: &TimerService) -> f64 {
+        self.elapsed.read();
+        self.seconds(element_idx, timer)
     }
 
     /// Whether the clock of `element_idx` is its bar rather than its countdown.
@@ -1425,6 +1434,7 @@ fn view_form(
                                         SetTempoBar {
                                             element_idx,
                                             target_tempo: *target_tempo,
+                                            progress,
                                             phase_clock,
                                         }
                                     }
@@ -1519,7 +1529,7 @@ fn view_form(
                                             PhaseBar {
                                                 class: "phase-bar-pinned",
                                                 phases: vec![u32::from(target_time)],
-                                                position: Some((0, f64::from(u32::from(target_time)) - *phase_clock.elapsed.read())),
+                                                position: Some((0, f64::from(u32::from(target_time)) - phase_clock.elapsed(element_idx, &progress.timer_service().peek()))),
                                             }
                                         }
                                     } else {
@@ -1727,7 +1737,7 @@ fn SetCountdown(
                 class: "phase-bar-pinned",
                 phases: target_tempo.phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
                 position: target_tempo
-                    .phase_at((*phase_clock.elapsed.read()).max(0.))
+                    .phase_at(phase_clock.elapsed(*progress.element_idx().read(), &timer.peek()).max(0.))
                     .map(|(_, index, remaining)| (index, remaining)),
             }
         }
@@ -1740,6 +1750,7 @@ fn SetCountdown(
 fn SetTempoBar(
     element_idx: usize,
     target_tempo: domain::Tempo,
+    progress: Store<Progress>,
     phase_clock: PhaseClock,
 ) -> Element {
     let is_running = phase_clock.bar_is_running(element_idx);
@@ -1763,7 +1774,7 @@ fn SetTempoBar(
             PhaseBar {
                 phases: target_tempo.phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
                 position: has_started
-                    .then(|| target_tempo.phase_at((*phase_clock.elapsed.read()).max(0.)))
+                    .then(|| target_tempo.phase_at(phase_clock.elapsed(element_idx, &progress.timer_service().peek()).max(0.)))
                     .flatten()
                     .map(|(_, index, remaining)| (index, remaining)),
             }

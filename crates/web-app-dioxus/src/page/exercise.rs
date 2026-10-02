@@ -31,6 +31,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
             let exercise = exercises.iter().find(|e| e.id == id);
             if let Some(exercise) = exercise {
                 let muscles = exercise.muscle_stimulus().into_iter().collect::<Vec<_>>();
+                let stretch = exercise.muscle_stretch().into_iter().collect::<Vec<_>>();
                 let has_properties = exercise.force.is_some()
                     || exercise.mechanic.is_some()
                     || exercise.laterality.is_some()
@@ -39,7 +40,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                     || !exercise.equipment.is_empty();
                 rsx! {
                     Title { "{exercise.name}" },
-                    if has_properties || !muscles.is_empty() {
+                    if has_properties || !muscles.is_empty() || !stretch.is_empty() {
                         Block {
                             {view_exercise_properties(
                                 exercise.force,
@@ -48,6 +49,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
                                 exercise.assistance,
                                 &exercise.equipment,
                                 &muscles,
+                                &stretch,
                                 exercise.category,
                             )},
                         }
@@ -135,6 +137,7 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn view_exercise_properties(
     force: Option<domain::Force>,
     mechanic: Option<domain::Mechanic>,
@@ -142,6 +145,7 @@ pub fn view_exercise_properties(
     assistance: Option<domain::Assistance>,
     equipment: &[domain::Equipment],
     muscles: &[(domain::MuscleID, domain::Stimulus)],
+    stretch: &[(domain::MuscleID, domain::Stimulus)],
     category: Option<domain::Category>,
 ) -> Element {
     let names = domain::ExerciseProperty::iter()
@@ -156,7 +160,21 @@ pub fn view_exercise_properties(
         .collect::<Vec<_>>();
     let equipment = equipment.to_vec();
     rsx! {
-        {view_muscles(muscles.iter().map(|(k, v)| (k, v)))}
+        if !muscles.is_empty() || !stretch.is_empty() {
+            div {
+                class: "mb-5",
+                if stretch.is_empty() {
+                    {view_muscles(muscles.iter().map(|(k, v)| (k, v)), "muscle-tag")}
+                } else {
+                    if !muscles.is_empty() {
+                        {view_muscles_caption("Worked muscles")}
+                        {view_muscles(muscles.iter().map(|(k, v)| (k, v)), "muscle-tag")}
+                    }
+                    {view_muscles_caption("Stretched muscles")}
+                    {view_muscles(stretch.iter().map(|(k, v)| (k, v)), "stretch-tag")}
+                }
+            }
+        }
         if !names.is_empty() {
             CenteredTags {
                 for name in names {
@@ -174,7 +192,17 @@ pub fn view_exercise_properties(
     }
 }
 
-pub fn view_muscles<M, I, S>(muscles: M) -> Element
+fn view_muscles_caption(caption: &str) -> Element {
+    rsx! {
+        p {
+            class: "is-size-7 has-text-centered mb-2",
+            "data-testid": "muscles-caption",
+            {caption}
+        }
+    }
+}
+
+pub fn view_muscles<M, I, S>(muscles: M, test_id: &str) -> Element
 where
     M: IntoIterator<Item = (I, S)>,
     I: Borrow<domain::MuscleID>,
@@ -198,7 +226,7 @@ where
                     description: m.description(),
                     span {
                         class: "tag {class}",
-                        "data-testid": "muscle-tag",
+                        "data-testid": test_id,
                         {m.name()}
                     }
                 }
@@ -600,6 +628,7 @@ mod tests {
             muscles: vec![domain::ExerciseMuscle {
                 muscle_id: domain::MuscleID::Pecs,
                 stimulus: domain::Stimulus::PRIMARY,
+                stretch: domain::Stimulus::NONE,
             }],
             force: Some(domain::Force::Push),
             mechanic: None,
@@ -628,6 +657,70 @@ mod tests {
         assert_eq!(text_of(&html, "property-tag"), "Push");
         assert_eq!(text_of(&html, "muscle-tag"), "Pecs");
         assert_eq!(text_of(&html, "exercise-notes"), "some notes");
+    }
+
+    #[test]
+    fn test_without_stretched_muscles_no_captions_are_shown() {
+        let html = render_exercise(1, || {
+            TestCache::default().with_exercises(vec![exercise(1, "Squat")])
+        });
+
+        assert!(!contains(&html, "muscles-caption"));
+        assert!(!contains(&html, "stretch-tag"));
+    }
+
+    #[test]
+    fn test_the_stretched_muscles_are_shown_in_a_row_of_their_own() {
+        let html = render_exercise(1, || {
+            TestCache::default().with_exercises(vec![domain::Exercise {
+                muscles: vec![
+                    domain::ExerciseMuscle {
+                        muscle_id: domain::MuscleID::ErectorSpinae,
+                        stimulus: domain::Stimulus::PRIMARY,
+                        stretch: domain::Stimulus::SECONDARY,
+                    },
+                    domain::ExerciseMuscle {
+                        muscle_id: domain::MuscleID::Hamstrings,
+                        stimulus: domain::Stimulus::NONE,
+                        stretch: domain::Stimulus::PRIMARY,
+                    },
+                ],
+                ..exercise(1, "Jefferson Curl")
+            }])
+        });
+
+        assert_eq!(
+            all_text_of(&html, "muscles-caption"),
+            vec!["Worked muscles", "Stretched muscles"]
+        );
+        assert_eq!(all_text_of(&html, "muscle-tag"), vec!["Erector Spinae"]);
+        assert_eq!(
+            all_text_of(&html, "stretch-tag"),
+            vec!["Hamstrings", "Erector Spinae"]
+        );
+    }
+
+    #[test]
+    fn test_a_stretch_only_exercise_without_other_properties_shows_its_stretched_muscles() {
+        let html = render_exercise(1, || {
+            TestCache::default().with_exercises(vec![domain::Exercise {
+                muscles: vec![domain::ExerciseMuscle {
+                    muscle_id: domain::MuscleID::HipFlexors,
+                    stimulus: domain::Stimulus::NONE,
+                    stretch: domain::Stimulus::PRIMARY,
+                }],
+                force: None,
+                ..exercise(1, "Couch Stretch")
+            }])
+        });
+
+        assert_eq!(
+            all_text_of(&html, "muscles-caption"),
+            vec!["Stretched muscles"]
+        );
+        assert!(!contains(&html, "muscle-tag"));
+        assert!(!contains(&html, "property-tag"));
+        assert_eq!(text_of(&html, "stretch-tag"), "Hip Flexors");
     }
 
     #[test]

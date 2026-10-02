@@ -867,10 +867,12 @@ mod tests {
                 ExerciseMuscle {
                     muscle_id: MuscleID::Pecs,
                     stimulus: Stimulus::PRIMARY,
+                    stretch: Stimulus::NONE,
                 },
                 ExerciseMuscle {
                     muscle_id: MuscleID::FrontDelts,
                     stimulus: Stimulus::SECONDARY,
+                    stretch: Stimulus::NONE,
                 },
             ],
             force: None,
@@ -965,6 +967,8 @@ mod tests {
                 (MuscleID::ErectorSpinae, Stimulus::NONE),
                 (MuscleID::Glutes, Stimulus::NONE),
                 (MuscleID::Abductors, Stimulus::NONE),
+                (MuscleID::HipFlexors, Stimulus::NONE),
+                (MuscleID::HipRotators, Stimulus::NONE),
                 (MuscleID::Quads, Stimulus::NONE),
                 (MuscleID::Hamstrings, Stimulus::NONE),
                 (MuscleID::Adductors, Stimulus::NONE),

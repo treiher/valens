@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import Locator, expect
 
 from .base import BasePage, Dialog
-from .utils import get_text
+from .utils import MUSCLE_SECTIONS, get_text
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -67,9 +67,21 @@ class ExercisePage(BasePage):
     def expect_no_muscle(self, name: str) -> None:
         expect(self.muscle_tag(name)).to_have_count(0)
 
-    def cycle_muscle(self, name: str) -> None:
+    def stretch_tag(self, name: str) -> Locator:
+        return self.page.get_by_test_id("stretch-tag").filter(has_text=name)
+
+    def expect_stretched_muscle(self, name: str) -> None:
+        expect(self.stretch_tag(name)).to_be_visible()
+
+    def expect_no_stretched_muscle(self, name: str) -> None:
+        expect(self.stretch_tag(name)).to_have_count(0)
+
+    def cycle_muscle(self, name: str, kind: str) -> None:
+        """Cycle the level of a muscle of the kind "worked" or "stretched"."""
         self._open_properties_dialog()
-        self.dialog.root.get_by_test_id("multi-toggle-tag").get_by_text(name, exact=True).click()
+        self.dialog.root.get_by_test_id(f"property-section-{MUSCLE_SECTIONS[kind]}").get_by_test_id(
+            "multi-toggle-tag"
+        ).get_by_text(name, exact=True).click()
         self.dialog.save()
         self.wait_until_idle()
 

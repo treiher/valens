@@ -18,8 +18,8 @@ use crate::{
     ui::{
         element::{
             Block, Color, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
-            ItemOptionsButton, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
-            Title,
+            ItemOptionsButton, LoadingPage, MenuOption, NoWrap, OptionsMenu, SaveDialog, SearchBox,
+            Table, Title,
         },
         form::{
             ButtonSelectField, ButtonSelectOption, FieldValue, FieldValueState, InputField,
@@ -198,57 +198,112 @@ macro_rules! view_filter_tags {
 /// With `selected_only`, only the selected muscles are shown and clicking a chip clears the muscle.
 /// Otherwise all muscles are shown and clicking a chip cycles the level.
 fn view_muscle_filter_tags(
-    mut exercise_filter: Signal<domain::ExerciseFilter>,
+    exercise_filter: Signal<domain::ExerciseFilter>,
     selected_only: bool,
 ) -> Element {
-    let mut chips = exercise_filter
-        .read()
-        .muscle_list()
-        .into_iter()
-        .filter(|(_, level)| !selected_only || level.is_some())
-        .map(|(muscle, level)| {
-            let class = match level {
-                Some(level) => {
-                    format!(
-                        "tag is-hoverable {}",
-                        page::exercise::stimulus_level_class(level)
-                    )
-                }
-                None => "tag is-hoverable".to_string(),
-            };
-            rsx! {
-                span {
-                    class: "{class}",
-                    "data-testid": "filter-tag",
-                    onclick: move |_| {
-                        if selected_only {
-                            exercise_filter.write().clear_muscle(Some(muscle));
-                        } else {
-                            exercise_filter.write().toggle_muscle(Some(muscle));
-                        }
-                    },
-                    {muscle.name()}
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-    let not_set = exercise_filter.read().muscles_not_set();
-    if !selected_only || not_set {
-        chips.push(rsx! {
-            span {
-                class: "tag is-hoverable",
-                class: if not_set { "is-link" },
-                "data-testid": "filter-tag",
-                onclick: move |_| exercise_filter.write().toggle_muscle(None),
-                {domain::MuscleID::none_name()}
-            }
-        });
+    let muscles = exercise_filter.read().muscle_list();
+    let mut chips = view_muscle_level_tags(
+        exercise_filter,
+        muscles,
+        selected_only,
+        None,
+        |filter, muscle| filter.clear_muscle(Some(muscle)),
+        |filter, muscle| filter.toggle_muscle(Some(muscle)),
+    );
+    if !selected_only || exercise_filter.read().muscles_not_set() {
+        chips.push(view_muscles_not_set_filter_tag(exercise_filter));
     }
     rsx! {
         for chip in chips {
             {chip}
         }
     }
+}
+
+/// Show the stretched muscles as chips colored by the level at which they are filtered.
+///
+/// With `selected_only`, only the selected muscles are shown, captioned as stretched, and clicking
+/// a chip clears the muscle. Otherwise all muscles are shown and clicking a chip cycles the level.
+/// The "Not Set" chip, which applies to both kinds of muscles, is shown only with `selected_only`
+/// unset, as the worked muscles already show it otherwise.
+fn view_stretch_filter_tags(
+    exercise_filter: Signal<domain::ExerciseFilter>,
+    selected_only: bool,
+) -> Element {
+    let muscles = exercise_filter.read().stretch_list();
+    let mut chips = view_muscle_level_tags(
+        exercise_filter,
+        muscles,
+        selected_only,
+        selected_only.then_some("Stretched"),
+        domain::ExerciseFilter::clear_stretch,
+        domain::ExerciseFilter::toggle_stretch,
+    );
+    if !selected_only {
+        chips.push(view_muscles_not_set_filter_tag(exercise_filter));
+    }
+    rsx! {
+        for chip in chips {
+            {chip}
+        }
+    }
+}
+
+fn view_muscles_not_set_filter_tag(mut exercise_filter: Signal<domain::ExerciseFilter>) -> Element {
+    let not_set = exercise_filter.read().muscles_not_set();
+    rsx! {
+        span {
+            class: "tag is-hoverable",
+            class: if not_set { "is-link" },
+            "data-testid": "filter-tag",
+            onclick: move |_| exercise_filter.write().toggle_muscle(None),
+            {domain::MuscleID::none_name()}
+        }
+    }
+}
+
+/// With `selected_only`, only the muscles with a level are shown and clicking a chip calls `clear`.
+/// Otherwise all muscles are shown and clicking a chip calls `toggle`. A `caption` is attached to
+/// each chip.
+fn view_muscle_level_tags(
+    mut exercise_filter: Signal<domain::ExerciseFilter>,
+    muscles: Vec<(domain::MuscleID, Option<domain::StimulusLevel>)>,
+    selected_only: bool,
+    caption: Option<&'static str>,
+    clear: fn(&mut domain::ExerciseFilter, domain::MuscleID),
+    toggle: fn(&mut domain::ExerciseFilter, domain::MuscleID),
+) -> Vec<Element> {
+    muscles
+        .into_iter()
+        .filter(|(_, level)| !selected_only || level.is_some())
+        .map(|(muscle, level)| {
+            let class = level.map_or("", page::exercise::stimulus_level_class);
+            let onclick = move |_| {
+                let action = if selected_only { clear } else { toggle };
+                action(&mut exercise_filter.write(), muscle);
+            };
+            if let Some(caption) = caption {
+                rsx! {
+                    div {
+                        class: "tags has-addons is-flex-wrap-nowrap mb-0 mr-2",
+                        "data-testid": "filter-tag",
+                        onclick,
+                        span { class: "tag is-hoverable", {caption} }
+                        span { class: "tag is-hoverable {class}", {muscle.name()} }
+                    }
+                }
+            } else {
+                rsx! {
+                    span {
+                        class: "tag is-hoverable {class}",
+                        "data-testid": "filter-tag",
+                        onclick,
+                        {muscle.name()}
+                    }
+                }
+            }
+        })
+        .collect()
 }
 
 fn view_search_box(
@@ -262,7 +317,10 @@ fn view_search_box(
     let name = exercise_filter.read().name.clone();
     let tags = domain::ExerciseProperty::iter()
         .map(|property| match property {
-            domain::ExerciseProperty::Muscles => view_muscle_filter_tags(exercise_filter, true),
+            domain::ExerciseProperty::Muscles => rsx! {
+                {view_muscle_filter_tags(exercise_filter, true)}
+                {view_stretch_filter_tags(exercise_filter, true)}
+            },
             domain::ExerciseProperty::Force => {
                 view_filter_tags!(force_list, toggle_force, exercise_filter, true)
             }
@@ -854,11 +912,11 @@ macro_rules! view_filter_section {
     ($property:expr, $list:ident, $toggle:ident, $exercise_filter:ident) => {{
         let tags = view_filter_tags!($list, $toggle, $exercise_filter, false);
         let name = $property.name();
-        view_filter_block(rsx! { {name} }, name, tags)
+        view_filter_block(name, name, tags)
     }};
 }
 
-fn view_filter_block(label: Element, name: &str, tags: Element) -> Element {
+fn view_filter_block(label: &str, name: &str, tags: Element) -> Element {
     let test_id = format!("filter-section-{}", name.to_lowercase());
     rsx! {
         Block {
@@ -884,30 +942,24 @@ const STIMULUS_LEVELS: [domain::StimulusLevel; 2] = [
     domain::StimulusLevel::Secondary,
 ];
 
-/// Show the stimulus levels with the colors used for the muscle tags.
+/// Show the states a muscle toggle cycles through, colored like the muscle tags.
 fn view_stimulus_level_legend() -> Element {
-    let tags = STIMULUS_LEVELS
-        .into_iter()
-        .enumerate()
-        .map(|(i, level)| {
-            let class = page::exercise::stimulus_level_class(level);
-            rsx! {
-                if i > 0 {
-                    " "
-                }
-                span {
-                    class: "tag {class}",
-                    {level.name()}
+    rsx! {
+        p {
+            class: "is-size-7 mb-3",
+            "data-testid": "stimulus-level-legend",
+            "Tap a muscle: "
+            NoWrap {
+                span { class: "tag is-legend", "Unselected" }
+                for level in STIMULUS_LEVELS {
+                    Icon { name: "arrow-right", is_small: true }
+                    span {
+                        class: "tag is-legend {page::exercise::stimulus_level_class(level)}",
+                        {level.name()}
+                    }
                 }
             }
-        })
-        .collect::<Vec<_>>();
-    rsx! {
-        " ("
-        for tag in tags {
-            {tag}
         }
-        ")"
     }
 }
 
@@ -966,18 +1018,30 @@ fn view_equipment_section(mut selected: Signal<Vec<domain::Equipment>>) -> Eleme
     view_dialog_section(domain::ExerciseProperty::Equipment.name(), chips)
 }
 
-/// Show the muscles as toggles that cycle through the stimulus.
-fn view_muscles_section(multi_toggle: Signal<MultiToggle>) -> Element {
+/// Show the worked and the stretched muscles as toggles that cycle through the levels.
+fn view_muscles_sections(muscles: Signal<MultiToggle>, stretch: Signal<MultiToggle>) -> Element {
     rsx! {
+        {view_stimulus_level_legend()}
         Block {
             label {
                 class: "subtitle",
-                {domain::ExerciseProperty::Muscles.name()}
-                {view_stimulus_level_legend()}
+                "Worked muscles"
             }
             div {
                 class: "container py-3",
-                MultiToggleTags { multi_toggle }
+                "data-testid": "property-section-muscles",
+                MultiToggleTags { multi_toggle: muscles }
+            }
+        }
+        Block {
+            label {
+                class: "subtitle",
+                "Stretched muscles"
+            }
+            div {
+                class: "container py-3",
+                "data-testid": "property-section-stretch",
+                MultiToggleTags { multi_toggle: stretch }
             }
         }
     }
@@ -1004,6 +1068,33 @@ fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
     }
 }
 
+/// A toggle per muscle, set to the level the given value of an entry has.
+fn muscle_toggle(
+    muscles: &[domain::ExerciseMuscle],
+    value: impl Fn(&domain::ExerciseMuscle) -> domain::Stimulus,
+) -> MultiToggle {
+    MultiToggle {
+        states: domain::MuscleID::iter()
+            .map(|m| {
+                (
+                    m.name().to_string(),
+                    muscles
+                        .iter()
+                        .find(|em| em.muscle_id == *m)
+                        .map(|em| {
+                            multi_toggle_state(domain::StimulusLevel::from_stimulus(value(em)))
+                        })
+                        .unwrap_or_default(),
+                )
+            })
+            .collect::<Vec<_>>(),
+        classes: STIMULUS_LEVELS
+            .into_iter()
+            .map(page::exercise::stimulus_level_class)
+            .collect(),
+    }
+}
+
 fn multi_toggle_state(level: Option<domain::StimulusLevel>) -> usize {
     level.map_or(0, |level| {
         STIMULUS_LEVELS
@@ -1024,6 +1115,7 @@ fn stimulus_level(state: usize) -> Option<domain::StimulusLevel> {
 #[derive(Clone, Copy)]
 struct PropertyFields {
     muscles: Signal<MultiToggle>,
+    stretch: Signal<MultiToggle>,
     force: Signal<Option<domain::Force>>,
     mechanic: Signal<Option<domain::Mechanic>>,
     laterality: Signal<Option<domain::Laterality>>,
@@ -1035,29 +1127,8 @@ struct PropertyFields {
 impl PropertyFields {
     fn new(properties: &domain::ExerciseProperties) -> Self {
         PropertyFields {
-            muscles: use_signal(|| MultiToggle {
-                states: domain::MuscleID::iter()
-                    .map(|m| {
-                        (
-                            m.name().to_string(),
-                            properties
-                                .muscles
-                                .iter()
-                                .find(|em| em.muscle_id == *m)
-                                .map(|em| {
-                                    multi_toggle_state(domain::StimulusLevel::from_stimulus(
-                                        em.stimulus,
-                                    ))
-                                })
-                                .unwrap_or_default(),
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-                classes: STIMULUS_LEVELS
-                    .into_iter()
-                    .map(page::exercise::stimulus_level_class)
-                    .collect(),
-            }),
+            muscles: use_signal(|| muscle_toggle(&properties.muscles, |em| em.stimulus)),
+            stretch: use_signal(|| muscle_toggle(&properties.muscles, |em| em.stretch)),
             force: use_signal(|| properties.force),
             mechanic: use_signal(|| properties.mechanic),
             laterality: use_signal(|| properties.laterality),
@@ -1068,21 +1139,21 @@ impl PropertyFields {
     }
 
     fn properties(&self) -> domain::ExerciseProperties {
+        let muscles = self.muscles.read();
+        let stretch = self.stretch.read();
         domain::ExerciseProperties {
-            muscles: self
-                .muscles
-                .read()
-                .states
-                .iter()
-                .enumerate()
-                .filter_map(|(i, (_, state))| {
-                    let level = stimulus_level(*state)?;
-                    domain::MuscleID::iter()
-                        .nth(i)
-                        .map(|muscle_id| domain::ExerciseMuscle {
-                            muscle_id: *muscle_id,
-                            stimulus: level.stimulus(),
-                        })
+            muscles: domain::MuscleID::iter()
+                .zip(muscles.states.iter().zip(&stretch.states))
+                .filter_map(|(muscle_id, ((_, stimulus), (_, stretch)))| {
+                    let stimulus = stimulus_level(*stimulus);
+                    let stretch = stimulus_level(*stretch);
+                    (stimulus.is_some() || stretch.is_some()).then(|| domain::ExerciseMuscle {
+                        muscle_id: *muscle_id,
+                        stimulus: stimulus
+                            .map_or(domain::Stimulus::NONE, domain::StimulusLevel::stimulus),
+                        stretch: stretch
+                            .map_or(domain::Stimulus::NONE, domain::StimulusLevel::stimulus),
+                    })
                 })
                 .collect(),
             force: (self.force)(),
@@ -1097,7 +1168,9 @@ impl PropertyFields {
     fn sections(&self) -> Vec<Element> {
         domain::ExerciseProperty::iter()
             .map(|property| match property {
-                domain::ExerciseProperty::Muscles => view_muscles_section(self.muscles),
+                domain::ExerciseProperty::Muscles => {
+                    view_muscles_sections(self.muscles, self.stretch)
+                }
                 domain::ExerciseProperty::Force => view_property_section(*property, self.force),
                 domain::ExerciseProperty::Mechanic => {
                     view_property_section(*property, self.mechanic)
@@ -1253,14 +1326,19 @@ fn view_filter_dialog(
 
     let sections = domain::ExerciseProperty::iter()
         .map(|property| match property {
-            domain::ExerciseProperty::Muscles => {
-                let name = property.name();
-                view_filter_block(
-                    rsx! { {name} {view_stimulus_level_legend()} },
-                    name,
+            domain::ExerciseProperty::Muscles => rsx! {
+                {view_stimulus_level_legend()}
+                {view_filter_block(
+                    "Worked muscles",
+                    "muscles",
                     view_muscle_filter_tags(exercise_filter, false),
-                )
-            }
+                )}
+                {view_filter_block(
+                    "Stretched muscles",
+                    "stretch",
+                    view_stretch_filter_tags(exercise_filter, false),
+                )}
+            },
             domain::ExerciseProperty::Force => {
                 view_filter_section!(property, force_list, toggle_force, exercise_filter)
             }
@@ -1552,7 +1630,11 @@ fn view_catalog_update(
 }
 
 fn view_property_change(change: &domain::PropertyChange) -> Element {
-    let property = change.property.name();
+    let property = match change.property {
+        domain::ExerciseProperty::Muscles if change.stretched => "Stretched muscles",
+        domain::ExerciseProperty::Muscles => "Worked muscles",
+        _ => change.property.name(),
+    };
     let before = change
         .before
         .iter()
@@ -1644,6 +1726,7 @@ struct ExerciseFilter {
     pub assistance: HashSet<u8>,
     pub equipment: HashSet<u8>,
     pub category: HashSet<u8>,
+    pub stretch: HashSet<(u8, u8)>,
 }
 
 impl ExerciseFilter {
@@ -1691,11 +1774,7 @@ impl From<domain::ExerciseFilter> for ExerciseFilter {
             muscles: value
                 .muscles
                 .iter()
-                .map(|v| match v {
-                    Some((muscle, domain::StimulusLevel::Secondary)) => (*muscle as u8, SECONDARY),
-                    Some((muscle, domain::StimulusLevel::Primary)) => (*muscle as u8, PRIMARY),
-                    None => (NONE, 0),
-                })
+                .map(|v| v.map_or((NONE, 0), encode_muscle))
                 .collect(),
             force: value
                 .force
@@ -1727,7 +1806,15 @@ impl From<domain::ExerciseFilter> for ExerciseFilter {
                 .iter()
                 .map(|v| v.map_or(NONE, |v| v as u8))
                 .collect(),
+            stretch: value.stretch.iter().copied().map(encode_muscle).collect(),
         }
+    }
+}
+
+fn encode_muscle((muscle, level): (domain::MuscleID, domain::StimulusLevel)) -> (u8, u8) {
+    match level {
+        domain::StimulusLevel::Secondary => (muscle as u8, SECONDARY),
+        domain::StimulusLevel::Primary => (muscle as u8, PRIMARY),
     }
 }
 
@@ -1741,6 +1828,11 @@ impl TryFrom<ExerciseFilter> for domain::ExerciseFilter {
         Ok(domain::ExerciseFilter {
             name: value.name,
             muscles: decode_muscles(value.muscles),
+            stretch: value
+                .stretch
+                .into_iter()
+                .filter_map(|(muscle, level)| decode_muscle(muscle, level))
+                .collect(),
             force: decode_values(value.force),
             mechanic: decode_values(value.mechanic),
             laterality: decode_values(value.laterality),
@@ -1761,15 +1853,19 @@ fn decode_muscles(
             if (muscle, level) == (NONE, 0) {
                 return Some(None);
             }
-            let muscle = domain::MuscleID::try_from(muscle).ok()?;
-            let level = match level {
-                SECONDARY => domain::StimulusLevel::Secondary,
-                PRIMARY => domain::StimulusLevel::Primary,
-                _ => return None,
-            };
-            Some(Some((muscle, level)))
+            decode_muscle(muscle, level).map(Some)
         })
         .collect()
+}
+
+fn decode_muscle(muscle: u8, level: u8) -> Option<(domain::MuscleID, domain::StimulusLevel)> {
+    let muscle = domain::MuscleID::try_from(muscle).ok()?;
+    let level = match level {
+        SECONDARY => domain::StimulusLevel::Secondary,
+        PRIMARY => domain::StimulusLevel::Primary,
+        _ => return None,
+    };
+    Some((muscle, level))
 }
 
 /// Decode a filter section, dropping values that are not valid for the property.
@@ -1793,7 +1889,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, all_text_of, contains, render, rows_of, rows_of_nth, text_of,
+        TestCache, all_attributes_of, all_text_of, contains, render, rows_of, rows_of_nth, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -1971,12 +2067,53 @@ mod tests {
             ]
             .into(),
             category: [Some(domain::Category::Plyometrics), None].into(),
+            stretch: [
+                (domain::MuscleID::Hamstrings, domain::StimulusLevel::Primary),
+                (
+                    domain::MuscleID::HipFlexors,
+                    domain::StimulusLevel::Secondary,
+                ),
+            ]
+            .into(),
         };
         let dto = ExerciseFilter::from(exercise_filter.clone());
 
         assert_eq!(
             domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&dto.to_base64())),
             Ok(exercise_filter)
+        );
+    }
+
+    #[test]
+    fn test_exercise_filter_encoded_without_stretch_decodes_to_default() {
+        #[derive(serde::Serialize)]
+        struct EncodedWithoutStretch {
+            name: String,
+            muscles: HashSet<(u8, u8)>,
+            force: HashSet<u8>,
+            mechanic: HashSet<u8>,
+            laterality: HashSet<u8>,
+            assistance: HashSet<u8>,
+            equipment: HashSet<u8>,
+            category: HashSet<u8>,
+        }
+        let encoded = URL_SAFE.encode(
+            postcard::to_allocvec(&EncodedWithoutStretch {
+                name: "Squat".to_string(),
+                muscles: [(domain::MuscleID::Quads as u8, PRIMARY)].into(),
+                force: [domain::Force::Push as u8].into(),
+                mechanic: HashSet::new(),
+                laterality: HashSet::new(),
+                assistance: HashSet::new(),
+                equipment: HashSet::new(),
+                category: [domain::Category::Strength as u8].into(),
+            })
+            .unwrap(),
+        );
+
+        assert_eq!(
+            ExerciseFilter::from_base64(&encoded),
+            ExerciseFilter::default()
         );
     }
 
@@ -1990,6 +2127,7 @@ mod tests {
             ]
             .into(),
             equipment: [0, domain::Equipment::Cable as u8].into(),
+            stretch: [(NONE, 0), (domain::MuscleID::Hamstrings as u8, PRIMARY)].into(),
             ..ExerciseFilter::default()
         };
 
@@ -2002,8 +2140,163 @@ mod tests {
                 ))]
                 .into(),
                 equipment: [Some(domain::Equipment::Cable)].into(),
+                stretch: [(domain::MuscleID::Hamstrings, domain::StimulusLevel::Primary)].into(),
                 ..domain::ExerciseFilter::default()
             })
+        );
+    }
+
+    fn muscle(
+        muscle_id: domain::MuscleID,
+        stimulus: domain::Stimulus,
+        stretch: domain::Stimulus,
+    ) -> domain::ExerciseMuscle {
+        domain::ExerciseMuscle {
+            muscle_id,
+            stimulus,
+            stretch,
+        }
+    }
+
+    #[test]
+    fn test_the_properties_dialog_shows_the_worked_and_the_stretched_muscles() {
+        let html = render(|| {
+            rsx! {
+                ExercisePropertiesDialog {
+                    exercise: domain::Exercise {
+                        muscles: vec![
+                            muscle(
+                                domain::MuscleID::ErectorSpinae,
+                                domain::Stimulus::PRIMARY,
+                                domain::Stimulus::SECONDARY,
+                            ),
+                            muscle(
+                                domain::MuscleID::Hamstrings,
+                                domain::Stimulus::NONE,
+                                domain::Stimulus::PRIMARY,
+                            ),
+                        ],
+                        ..exercise(1, "Jefferson Curl")
+                    },
+                    on_close: |()| {},
+                }
+            }
+        });
+        let state = |muscle_id: domain::MuscleID| {
+            domain::MuscleID::iter()
+                .position(|m| *m == muscle_id)
+                .unwrap()
+        };
+        let states = all_attributes_of(&html, "multi-toggle-tag", "data-state");
+        let (worked, stretched) = states.split_at(domain::MuscleID::iter().count());
+
+        assert!(contains(&html, "property-section-muscles"));
+        assert!(contains(&html, "property-section-stretch"));
+        assert_eq!(worked[state(domain::MuscleID::ErectorSpinae)], "1");
+        assert_eq!(worked[state(domain::MuscleID::Hamstrings)], "0");
+        assert_eq!(stretched[state(domain::MuscleID::ErectorSpinae)], "2");
+        assert_eq!(stretched[state(domain::MuscleID::Hamstrings)], "1");
+    }
+
+    #[component]
+    fn ShownFilterDialog() -> Element {
+        let exercise_filter = use_signal(domain::ExerciseFilter::default);
+        let filter_dialog_shown = use_signal(|| true);
+        view_filter_dialog(exercise_filter, filter_dialog_shown, 0)
+    }
+
+    #[test]
+    fn test_the_filter_dialog_shows_the_worked_and_the_stretched_muscles() {
+        let html = render(|| rsx! { ShownFilterDialog {} });
+
+        assert!(text_of(&html, "filter-section-muscles").contains("Hip Flexors"));
+        assert!(text_of(&html, "filter-section-muscles").contains("Not Set"));
+        assert!(text_of(&html, "filter-section-stretch").contains("Hip Rotators"));
+        assert!(text_of(&html, "filter-section-stretch").contains("Not Set"));
+        assert_legend_precedes_the_muscle_sections(&html, "filter-section-muscles");
+    }
+
+    #[test]
+    fn test_the_properties_dialog_shows_one_legend_for_both_muscle_sections() {
+        let html = render(|| {
+            rsx! {
+                ExercisePropertiesDialog {
+                    exercise: exercise(1, "Jefferson Curl"),
+                    on_close: |()| {},
+                }
+            }
+        });
+
+        assert_legend_precedes_the_muscle_sections(&html, "property-section-muscles");
+    }
+
+    fn assert_legend_precedes_the_muscle_sections(html: &str, worked_section: &str) {
+        assert_eq!(
+            all_text_of(html, "stimulus-level-legend"),
+            vec!["Tap a muscle: UnselectedPrimarySecondary"]
+        );
+        assert!(html.find("stimulus-level-legend").unwrap() < html.find(worked_section).unwrap());
+    }
+
+    #[test]
+    fn test_a_filtered_stretched_muscle_is_shown_as_a_marked_tag() {
+        let filter = ExerciseFilter::from(domain::ExerciseFilter {
+            muscles: HashSet::from([Some((
+                domain::MuscleID::ErectorSpinae,
+                domain::StimulusLevel::Primary,
+            ))]),
+            stretch: HashSet::from([(
+                domain::MuscleID::Hamstrings,
+                domain::StimulusLevel::Primary,
+            )]),
+            ..domain::ExerciseFilter::default()
+        })
+        .to_base64();
+        let html = render_exercises(filter, TestCache::default);
+
+        assert_eq!(
+            all_text_of(&html, "filter-tag"),
+            vec!["Erector Spinae", "StretchedHamstrings"]
+        );
+    }
+
+    #[test]
+    fn test_a_filtered_not_set_muscle_is_shown_as_a_single_tag() {
+        let filter = ExerciseFilter::from(domain::ExerciseFilter {
+            muscles: HashSet::from([None]),
+            ..domain::ExerciseFilter::default()
+        })
+        .to_base64();
+        let html = render_exercises(filter, TestCache::default);
+
+        assert_eq!(all_text_of(&html, "filter-tag"), vec!["Not Set"]);
+    }
+
+    #[rstest::rstest]
+    #[case::worked(false, "Worked muscles")]
+    #[case::stretched(true, "Stretched muscles")]
+    fn test_a_catalog_update_labels_a_change_of_the_muscles_by_their_kind(
+        #[case] stretched: bool,
+        #[case] label: &str,
+    ) {
+        let html = render(move || {
+            view_property_change(&domain::PropertyChange {
+                property: domain::ExerciseProperty::Muscles,
+                stretched,
+                before: vec![domain::PropertyValue {
+                    name: "Biceps",
+                    stimulus: Some(domain::Stimulus::PRIMARY),
+                }],
+                after: vec![domain::PropertyValue {
+                    name: "None",
+                    stimulus: None,
+                }],
+            })
+        });
+
+        assert_eq!(
+            text_of(&html, "catalog-update-change"),
+            format!("{label}BicepsNone")
         );
     }
 }

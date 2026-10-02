@@ -93,12 +93,31 @@ pub struct Exercise {
 }
 
 impl Exercise {
+    /// The worked muscles with their stimulus.
     #[must_use]
     pub fn muscle_stimulus(&self) -> BTreeMap<MuscleID, Stimulus> {
         self.muscles
             .iter()
+            .filter(|m| m.stimulus > Stimulus::NONE)
             .map(|m| (m.muscle_id, m.stimulus))
             .collect()
+    }
+
+    /// The stretched muscles with their stretch.
+    #[must_use]
+    pub fn muscle_stretch(&self) -> BTreeMap<MuscleID, Stimulus> {
+        self.muscles
+            .iter()
+            .filter(|m| m.stretch > Stimulus::NONE)
+            .map(|m| (m.muscle_id, m.stretch))
+            .collect()
+    }
+
+    /// Whether the exercise stretches at least one muscle and works none.
+    #[must_use]
+    pub fn is_stretch_only(&self) -> bool {
+        self.muscles.iter().any(|m| m.stretch > Stimulus::NONE)
+            && self.muscles.iter().all(|m| m.stimulus == Stimulus::NONE)
     }
 }
 
@@ -170,14 +189,7 @@ impl From<&Exercise> for ExerciseProperties {
 impl From<&catalog::Exercise> for ExerciseProperties {
     fn from(value: &catalog::Exercise) -> Self {
         ExerciseProperties {
-            muscles: value
-                .muscles
-                .iter()
-                .map(|(muscle_id, stimulus)| ExerciseMuscle {
-                    muscle_id: *muscle_id,
-                    stimulus: *stimulus,
-                })
-                .collect(),
+            muscles: merge_muscles(value.muscles.iter().copied(), value.stretch.iter().copied()),
             force: Some(value.force),
             mechanic: Some(value.mechanic),
             laterality: Some(value.laterality),
@@ -186,6 +198,27 @@ impl From<&catalog::Exercise> for ExerciseProperties {
             category: Some(value.category),
         }
     }
+}
+
+/// Merge worked and stretched muscles into one entry per muscle, ordered by muscle.
+fn merge_muscles(
+    stimulus: impl Iterator<Item = (MuscleID, Stimulus)>,
+    stretch: impl Iterator<Item = (MuscleID, Stimulus)>,
+) -> Vec<ExerciseMuscle> {
+    let mut muscles = BTreeMap::<MuscleID, ExerciseMuscle>::new();
+    for (muscle_id, stimulus) in stimulus {
+        muscles
+            .entry(muscle_id)
+            .or_insert_with(|| ExerciseMuscle::new(muscle_id))
+            .stimulus = stimulus;
+    }
+    for (muscle_id, stretch) in stretch {
+        muscles
+            .entry(muscle_id)
+            .or_insert_with(|| ExerciseMuscle::new(muscle_id))
+            .stretch = stretch;
+    }
+    muscles.into_values().collect()
 }
 
 /// How the name of an exercise matched the name of a catalog exercise.
@@ -205,6 +238,8 @@ pub enum CatalogUpdateMode {
 }
 
 /// A single value of a property, or the absence of any value.
+///
+/// A muscle carries its stimulus, or its stretch if it is a stretched muscle.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PropertyValue {
     pub name: &'static str,
@@ -212,9 +247,12 @@ pub struct PropertyValue {
 }
 
 /// The values of a property before and after an update.
+///
+/// The worked and the stretched muscles are changed separately.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PropertyChange {
     pub property: ExerciseProperty,
+    pub stretched: bool,
     pub before: Vec<PropertyValue>,
     pub after: Vec<PropertyValue>,
 }
@@ -319,11 +357,7 @@ fn updated_exercise(
 
     match mode {
         CatalogUpdateMode::FillMissing => Exercise {
-            muscles: if exercise.muscles.is_empty() {
-                muscles
-            } else {
-                exercise.muscles.clone()
-            },
+            muscles: filled_muscles(&exercise.muscles, &muscles),
             force: exercise.force.or(force),
             mechanic: exercise.mechanic.or(mechanic),
             laterality: exercise.laterality.or(laterality),
@@ -349,20 +383,50 @@ fn updated_exercise(
     }
 }
 
+/// Fill the worked muscles from the catalog if none is worked and the stretched muscles if none is
+/// stretched.
+fn filled_muscles(
+    muscles: &[ExerciseMuscle],
+    catalog_muscles: &[ExerciseMuscle],
+) -> Vec<ExerciseMuscle> {
+    let source = |fill: bool| if fill { catalog_muscles } else { muscles };
+    let stimulus = source(muscles.iter().all(|m| m.stimulus == Stimulus::NONE));
+    let stretch = source(muscles.iter().all(|m| m.stretch == Stimulus::NONE));
+    merge_muscles(
+        stimulus
+            .iter()
+            .filter(|m| m.stimulus > Stimulus::NONE)
+            .map(|m| (m.muscle_id, m.stimulus)),
+        stretch
+            .iter()
+            .filter(|m| m.stretch > Stimulus::NONE)
+            .map(|m| (m.muscle_id, m.stretch)),
+    )
+}
+
 fn changes(before: &Exercise, after: &Exercise) -> Vec<PropertyChange> {
     ExerciseProperty::iter()
-        .filter_map(|property| {
-            change(
-                *property,
-                property_values(before, *property),
-                property_values(after, *property),
-            )
+        .flat_map(|property| {
+            let kinds: &[bool] = if *property == ExerciseProperty::Muscles {
+                &[false, true]
+            } else {
+                &[false]
+            };
+            kinds.iter().filter_map(|stretched| {
+                change(
+                    *property,
+                    *stretched,
+                    property_values(before, *property, *stretched),
+                    property_values(after, *property, *stretched),
+                )
+            })
         })
         .collect()
 }
 
 fn change(
     property: ExerciseProperty,
+    stretched: bool,
     before: Vec<PropertyValue>,
     after: Vec<PropertyValue>,
 ) -> Option<PropertyChange> {
@@ -371,15 +435,21 @@ fn change(
     } else {
         Some(PropertyChange {
             property,
+            stretched,
             before,
             after,
         })
     }
 }
 
-fn property_values(exercise: &Exercise, property: ExerciseProperty) -> Vec<PropertyValue> {
+fn property_values(
+    exercise: &Exercise,
+    property: ExerciseProperty,
+    stretched: bool,
+) -> Vec<PropertyValue> {
     match property {
-        ExerciseProperty::Muscles => muscle_values(&exercise.muscles),
+        ExerciseProperty::Muscles if stretched => muscle_values(&exercise.muscles, |m| m.stretch),
+        ExerciseProperty::Muscles => muscle_values(&exercise.muscles, |m| m.stimulus),
         ExerciseProperty::Force => scalar_values(exercise.force),
         ExerciseProperty::Mechanic => scalar_values(exercise.mechanic),
         ExerciseProperty::Laterality => scalar_values(exercise.laterality),
@@ -410,14 +480,18 @@ fn equipment_values(equipment: &[Equipment]) -> Vec<PropertyValue> {
     )
 }
 
-/// Determine the values of a set of muscles, ordered by `MuscleID::iter`.
-fn muscle_values(muscles: &[ExerciseMuscle]) -> Vec<PropertyValue> {
+/// Determine the values of the muscles with a nonzero `level`, ordered by `MuscleID::iter`.
+fn muscle_values(
+    muscles: &[ExerciseMuscle],
+    level: fn(&ExerciseMuscle) -> Stimulus,
+) -> Vec<PropertyValue> {
     values(
         MuscleID::iter()
             .filter_map(|muscle_id| muscles.iter().find(|m| m.muscle_id == *muscle_id))
+            .filter(|muscle| level(muscle) > Stimulus::NONE)
             .map(|muscle| PropertyValue {
                 name: muscle.muscle_id.name(),
-                stimulus: Some(muscle.stimulus),
+                stimulus: Some(level(muscle)),
             })
             .collect(),
         MuscleID::none_name(),
@@ -470,12 +544,25 @@ impl FromStr for ExerciseID {
     }
 }
 
+/// A muscle of an exercise, which is worked, stretched or both.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExerciseMuscle {
     pub muscle_id: MuscleID,
     pub stimulus: Stimulus,
+    pub stretch: Stimulus,
 }
 
+impl ExerciseMuscle {
+    fn new(muscle_id: MuscleID) -> Self {
+        Self {
+            muscle_id,
+            stimulus: Stimulus::NONE,
+            stretch: Stimulus::NONE,
+        }
+    }
+}
+
+/// The degree to which a muscle is worked or stretched by an exercise.
 #[derive(Deref, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Stimulus(u32);
 
@@ -587,6 +674,8 @@ pub enum MuscleID {
     // Hips
     Glutes = 71,
     Abductors = 72,
+    HipFlexors = 73,
+    HipRotators = 74,
     // Thighs
     Quads = 81,
     Hamstrings = 82,
@@ -597,7 +686,7 @@ pub enum MuscleID {
 
 impl Property for MuscleID {
     fn iter() -> Iter<'static, MuscleID> {
-        static MUSCLES: [MuscleID; 18] = [
+        static MUSCLES: [MuscleID; 20] = [
             MuscleID::Neck,
             MuscleID::Pecs,
             MuscleID::Traps,
@@ -612,6 +701,8 @@ impl Property for MuscleID {
             MuscleID::ErectorSpinae,
             MuscleID::Glutes,
             MuscleID::Abductors,
+            MuscleID::HipFlexors,
+            MuscleID::HipRotators,
             MuscleID::Quads,
             MuscleID::Hamstrings,
             MuscleID::Adductors,
@@ -636,6 +727,8 @@ impl Property for MuscleID {
             MuscleID::ErectorSpinae => "Erector Spinae",
             MuscleID::Glutes => "Glutes",
             MuscleID::Abductors => "Abductors",
+            MuscleID::HipFlexors => "Hip Flexors",
+            MuscleID::HipRotators => "Hip Rotators",
             MuscleID::Quads => "Quads",
             MuscleID::Hamstrings => "Hamstrings",
             MuscleID::Adductors => "Adductors",
@@ -663,6 +756,8 @@ impl MuscleID {
             MuscleID::ErectorSpinae => "Lower back and spine",
             MuscleID::Glutes => "Buttocks",
             MuscleID::Abductors => "Outside of hips",
+            MuscleID::HipFlexors => "Front of hips",
+            MuscleID::HipRotators => "Deep hip",
             MuscleID::Quads => "Front of thighs",
             MuscleID::Hamstrings => "Back of thighs",
             MuscleID::Adductors => "Inner thighs",
@@ -919,11 +1014,16 @@ pub enum EquipmentError {
 pub enum Category {
     Strength = 1,
     Plyometrics = 2,
+    Flexibility = 3,
 }
 
 impl Property for Category {
     fn iter() -> Iter<'static, Category> {
-        static CATEGORY: [Category; 2] = [Category::Strength, Category::Plyometrics];
+        static CATEGORY: [Category; 3] = [
+            Category::Strength,
+            Category::Plyometrics,
+            Category::Flexibility,
+        ];
         CATEGORY.iter()
     }
 
@@ -931,6 +1031,7 @@ impl Property for Category {
         match self {
             Category::Strength => "Strength",
             Category::Plyometrics => "Plyometrics",
+            Category::Flexibility => "Flexibility",
         }
     }
 }
@@ -956,6 +1057,7 @@ pub enum CategoryError {
 pub struct ExerciseFilter {
     pub name: String,
     pub muscles: HashSet<Option<(MuscleID, StimulusLevel)>>,
+    pub stretch: HashSet<(MuscleID, StimulusLevel)>,
     pub force: HashSet<Option<Force>>,
     pub mechanic: HashSet<Option<Mechanic>>,
     pub laterality: HashSet<Option<Laterality>>,
@@ -965,18 +1067,32 @@ pub struct ExerciseFilter {
 }
 
 impl ExerciseFilter {
-    /// A filter which matches exercises with the same primary muscles.
+    /// A filter which matches exercises with the same primary worked muscles, or with the same
+    /// primary stretched muscles if the exercise has no primary worked muscle.
     #[must_use]
     pub fn primary_muscles_of(exercise: &Exercise) -> Self {
-        Self {
-            muscles: exercise
+        let primary = |stimulus: Stimulus| {
+            StimulusLevel::from_stimulus(stimulus) == Some(StimulusLevel::Primary)
+        };
+        let muscles = exercise
+            .muscles
+            .iter()
+            .filter(|m| primary(m.stimulus))
+            .map(|m| Some((m.muscle_id, StimulusLevel::Primary)))
+            .collect::<HashSet<_>>();
+        let stretch = if muscles.is_empty() {
+            exercise
                 .muscles
                 .iter()
-                .filter(|m| {
-                    StimulusLevel::from_stimulus(m.stimulus) == Some(StimulusLevel::Primary)
-                })
-                .map(|m| Some((m.muscle_id, StimulusLevel::Primary)))
-                .collect(),
+                .filter(|m| primary(m.stretch))
+                .map(|m| (m.muscle_id, StimulusLevel::Primary))
+                .collect()
+        } else {
+            HashSet::new()
+        };
+        Self {
+            muscles,
+            stretch,
             ..Self::default()
         }
     }
@@ -992,14 +1108,21 @@ impl ExerciseFilter {
                     .as_ref()
                     .to_lowercase()
                     .contains(self.name.to_lowercase().trim())
-                    && (self.muscles.is_empty()
-                        || self.muscles.iter().all(|m| match m {
-                            Some((muscle, level)) => e.muscles.iter().any(|em| {
-                                em.muscle_id == *muscle
-                                    && StimulusLevel::from_stimulus(em.stimulus) == Some(*level)
-                            }),
-                            None => e.muscles.is_empty(),
-                        }))
+                    && self.matches_muscles(
+                        |muscle, level| {
+                            e.muscles.iter().any(|em| {
+                                em.muscle_id == muscle
+                                    && StimulusLevel::from_stimulus(em.stimulus) == Some(level)
+                            })
+                        },
+                        |muscle, level| {
+                            e.muscles.iter().any(|em| {
+                                em.muscle_id == muscle
+                                    && StimulusLevel::from_stimulus(em.stretch) == Some(level)
+                            })
+                        },
+                        e.muscles.is_empty(),
+                    )
                     && (self.force.is_empty() || self.force.contains(&e.force))
                     && (self.mechanic.is_empty() || self.mechanic.contains(&e.mechanic))
                     && (self.laterality.is_empty() || self.laterality.contains(&e.laterality))
@@ -1023,14 +1146,11 @@ impl ExerciseFilter {
                     .as_ref()
                     .to_lowercase()
                     .contains(self.name.to_lowercase().trim())
-                    && (self.muscles.is_empty()
-                        || self.muscles.iter().all(|m| match m {
-                            Some((muscle, level)) => e.muscles.iter().any(|(m, stimulus)| {
-                                m == muscle
-                                    && StimulusLevel::from_stimulus(*stimulus) == Some(*level)
-                            }),
-                            None => e.muscles.is_empty(),
-                        }))
+                    && self.matches_muscles(
+                        |muscle, level| contains_muscle(e.muscles, muscle, level),
+                        |muscle, level| contains_muscle(e.stretch, muscle, level),
+                        e.muscles.is_empty() && e.stretch.is_empty(),
+                    )
                     && (self.force.is_empty() || self.force.contains(&Some(e.force)))
                     && (self.mechanic.is_empty() || self.mechanic.contains(&Some(e.mechanic)))
                     && (self.laterality.is_empty() || self.laterality.contains(&Some(e.laterality)))
@@ -1053,20 +1173,15 @@ impl ExerciseFilter {
     /// has any of the selected equipment.
     #[must_use]
     pub fn exercise_properties(&self) -> ExerciseProperties {
-        let mut muscles = self
-            .muscles
-            .iter()
-            .filter_map(|m| {
-                m.map(|(muscle_id, level)| ExerciseMuscle {
-                    muscle_id,
-                    stimulus: level.stimulus(),
-                })
-            })
-            .collect::<Vec<_>>();
-        muscles.sort_by_key(|m| m.muscle_id);
-
         ExerciseProperties {
-            muscles,
+            muscles: merge_muscles(
+                self.muscles
+                    .iter()
+                    .filter_map(|m| m.map(|(muscle_id, level)| (muscle_id, level.stimulus()))),
+                self.stretch
+                    .iter()
+                    .map(|(muscle_id, level)| (*muscle_id, level.stimulus())),
+            ),
             force: first_selected(&self.force),
             mechanic: first_selected(&self.mechanic),
             laterality: first_selected(&self.laterality),
@@ -1080,6 +1195,7 @@ impl ExerciseFilter {
     pub fn is_empty(&self) -> bool {
         self.name.trim().is_empty()
             && self.muscles.is_empty()
+            && self.stretch.is_empty()
             && self.force.is_empty()
             && self.mechanic.is_empty()
             && self.laterality.is_empty()
@@ -1092,6 +1208,13 @@ impl ExerciseFilter {
     pub fn muscle_list(&self) -> Vec<(MuscleID, Option<StimulusLevel>)> {
         MuscleID::iter()
             .map(|muscle| (*muscle, self.muscle_level(*muscle)))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn stretch_list(&self) -> Vec<(MuscleID, Option<StimulusLevel>)> {
+        MuscleID::iter()
+            .map(|muscle| (*muscle, self.stretch_level(*muscle)))
             .collect()
     }
 
@@ -1130,26 +1253,35 @@ impl ExerciseFilter {
         filter_list(&self.category)
     }
 
-    /// Cycle a muscle through no level, primary and secondary, or toggle "Not Set".
+    /// Cycle a worked muscle through no level, primary and secondary, or toggle "Not Set".
     ///
-    /// "Not Set" and the muscles are mutually exclusive.
+    /// "Not Set" excludes the worked and the stretched muscles.
     pub fn toggle_muscle(&mut self, muscle: Option<MuscleID>) {
         let Some(muscle) = muscle else {
             if !self.muscles.remove(&None) {
                 self.muscles.clear();
+                self.stretch.clear();
                 self.muscles.insert(None);
             }
             return;
         };
-        let level = match self.muscle_level(muscle) {
-            None => Some(StimulusLevel::Primary),
-            Some(StimulusLevel::Primary) => Some(StimulusLevel::Secondary),
-            Some(StimulusLevel::Secondary) => None,
-        };
+        let level = next_level(self.muscle_level(muscle));
         self.clear_muscle(Some(muscle));
         if let Some(level) = level {
             self.clear_muscle(None);
             self.muscles.insert(Some((muscle, level)));
+        }
+    }
+
+    /// Cycle a stretched muscle through no level, primary and secondary.
+    ///
+    /// Selecting a stretched muscle removes "Not Set".
+    pub fn toggle_stretch(&mut self, muscle: MuscleID) {
+        let level = next_level(self.stretch_level(muscle));
+        self.clear_stretch(muscle);
+        if let Some(level) = level {
+            self.clear_muscle(None);
+            self.stretch.insert((muscle, level));
         }
     }
 
@@ -1163,6 +1295,11 @@ impl ExerciseFilter {
                 self.muscles.remove(&None);
             }
         }
+    }
+
+    /// Remove a stretched muscle from the selection.
+    pub fn clear_stretch(&mut self, muscle: MuscleID) {
+        self.stretch.retain(|(m, _)| *m != muscle);
     }
 
     pub fn toggle_force(&mut self, force: Option<Force>) {
@@ -1189,12 +1326,52 @@ impl ExerciseFilter {
         toggle(&mut self.category, category);
     }
 
+    /// Whether an exercise has every selected worked and stretched muscle at the selected level.
+    fn matches_muscles(
+        &self,
+        worked: impl Fn(MuscleID, StimulusLevel) -> bool,
+        stretched: impl Fn(MuscleID, StimulusLevel) -> bool,
+        without_muscles: bool,
+    ) -> bool {
+        self.muscles.iter().all(|m| match m {
+            Some((muscle, level)) => worked(*muscle, *level),
+            None => without_muscles,
+        }) && self
+            .stretch
+            .iter()
+            .all(|(muscle, level)| stretched(*muscle, *level))
+    }
+
     fn muscle_level(&self, muscle: MuscleID) -> Option<StimulusLevel> {
         self.muscles.iter().find_map(|m| match m {
             Some((m, level)) if *m == muscle => Some(*level),
             _ => None,
         })
     }
+
+    fn stretch_level(&self, muscle: MuscleID) -> Option<StimulusLevel> {
+        self.stretch
+            .iter()
+            .find_map(|(m, level)| (*m == muscle).then_some(*level))
+    }
+}
+
+fn next_level(level: Option<StimulusLevel>) -> Option<StimulusLevel> {
+    match level {
+        None => Some(StimulusLevel::Primary),
+        Some(StimulusLevel::Primary) => Some(StimulusLevel::Secondary),
+        Some(StimulusLevel::Secondary) => None,
+    }
+}
+
+fn contains_muscle(
+    muscles: &[(MuscleID, Stimulus)],
+    muscle: MuscleID,
+    level: StimulusLevel,
+) -> bool {
+    muscles
+        .iter()
+        .any(|(m, stimulus)| *m == muscle && StimulusLevel::from_stimulus(*stimulus) == Some(level))
 }
 
 fn first_selected<T: Property + Eq + std::hash::Hash + 'static>(
@@ -1262,10 +1439,12 @@ mod tests {
                     ExerciseMuscle {
                         muscle_id: MuscleID::Lats,
                         stimulus: Stimulus::PRIMARY,
+                        stretch: Stimulus::NONE,
                     },
                     ExerciseMuscle {
                         muscle_id: MuscleID::Traps,
                         stimulus: Stimulus::SECONDARY,
+                        stretch: Stimulus::NONE,
                     }
                 ]
             )
@@ -1274,6 +1453,76 @@ mod tests {
                 (MuscleID::Lats, Stimulus::PRIMARY),
                 (MuscleID::Traps, Stimulus::SECONDARY)
             ])
+        );
+    }
+
+    #[test]
+    fn test_exercise_muscle_stimulus_and_stretch_leave_out_the_other_kind() {
+        let exercise = exercise(
+            1,
+            "A",
+            vec![
+                muscle(
+                    MuscleID::ErectorSpinae,
+                    Stimulus::PRIMARY,
+                    Stimulus::SECONDARY,
+                ),
+                muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY),
+                muscle(MuscleID::Glutes, Stimulus::SECONDARY, Stimulus::NONE),
+            ],
+        );
+
+        assert_eq!(
+            exercise.muscle_stimulus(),
+            BTreeMap::from([
+                (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+                (MuscleID::Glutes, Stimulus::SECONDARY),
+            ])
+        );
+        assert_eq!(
+            exercise.muscle_stretch(),
+            BTreeMap::from([
+                (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+                (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            ])
+        );
+    }
+
+    #[rstest]
+    #[case::stretch(vec![muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY)], true)]
+    #[case::hybrid(
+        vec![
+            muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::NONE),
+            muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY),
+        ],
+        false
+    )]
+    #[case::worked(vec![muscle(MuscleID::Pecs, Stimulus::PRIMARY, Stimulus::NONE)], false)]
+    #[case::no_muscles(vec![], false)]
+    fn test_exercise_is_stretch_only(#[case] muscles: Vec<ExerciseMuscle>, #[case] expected: bool) {
+        assert_eq!(exercise(1, "A", muscles).is_stretch_only(), expected);
+    }
+
+    #[test]
+    fn test_merge_muscles() {
+        assert_eq!(
+            merge_muscles(
+                [
+                    (MuscleID::Hamstrings, Stimulus::SECONDARY),
+                    (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+                ]
+                .into_iter(),
+                [
+                    (MuscleID::Hamstrings, Stimulus::PRIMARY),
+                    (MuscleID::Calves, Stimulus::SECONDARY),
+                ]
+                .into_iter(),
+            ),
+            vec![
+                muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::NONE),
+                muscle(MuscleID::Hamstrings, Stimulus::SECONDARY, Stimulus::PRIMARY),
+                muscle(MuscleID::Calves, Stimulus::NONE, Stimulus::SECONDARY),
+            ]
         );
     }
 
@@ -1350,6 +1599,7 @@ mod tests {
                     .map(|(muscle_id, stimulus)| ExerciseMuscle {
                         muscle_id: *muscle_id,
                         stimulus: *stimulus,
+                        stretch: Stimulus::NONE,
                     })
                     .collect(),
                 force: Some(Force::Push),
@@ -1422,6 +1672,7 @@ mod tests {
             update.changes[1],
             PropertyChange {
                 property: ExerciseProperty::Force,
+                stretched: false,
                 before: vec![value(Force::none_name())],
                 after: vec![value(Force::Push.name())],
             }
@@ -1430,6 +1681,7 @@ mod tests {
             update.changes[0],
             PropertyChange {
                 property: ExerciseProperty::Muscles,
+                stretched: false,
                 before: vec![value(MuscleID::none_name())],
                 after: vec![
                     muscle_value(MuscleID::Pecs, Stimulus::PRIMARY),
@@ -1451,6 +1703,7 @@ mod tests {
                 vec![ExerciseMuscle {
                     muscle_id: MuscleID::Biceps,
                     stimulus: Stimulus::PRIMARY,
+                    stretch: Stimulus::NONE,
                 }],
             )
         };
@@ -1483,6 +1736,46 @@ mod tests {
     }
 
     #[test]
+    fn test_catalog_update_fill_missing_fills_muscles_per_role() {
+        let name = "Barbell Romanian Deadlift";
+        let catalog = catalog_exercise(name, 1);
+        let worked = ExerciseMuscle {
+            muscle_id: MuscleID::Biceps,
+            stimulus: Stimulus::PRIMARY,
+            stretch: Stimulus::NONE,
+        };
+        let stretched = ExerciseMuscle {
+            muscle_id: MuscleID::Calves,
+            stimulus: Stimulus::NONE,
+            stretch: Stimulus::SECONDARY,
+        };
+
+        let only_worked = catalog_update(
+            &exercise(1, name, vec![worked.clone()]),
+            CatalogUpdateMode::FillMissing,
+        )
+        .unwrap()
+        .exercise;
+        let only_stretched = catalog_update(
+            &exercise(1, name, vec![stretched.clone()]),
+            CatalogUpdateMode::FillMissing,
+        )
+        .unwrap()
+        .exercise;
+
+        assert_eq!(
+            only_worked.muscle_stimulus(),
+            BTreeMap::from([(worked.muscle_id, worked.stimulus)])
+        );
+        assert_eq!(only_worked.muscle_stretch(), catalog.muscle_stretch());
+        assert_eq!(only_stretched.muscle_stimulus(), catalog.muscle_stimulus());
+        assert_eq!(
+            only_stretched.muscle_stretch(),
+            BTreeMap::from([(stretched.muscle_id, stretched.stretch)])
+        );
+    }
+
+    #[test]
     fn test_catalog_update_replace_all_clears_values_absent_from_catalog() {
         let exercise = Exercise {
             equipment: vec![Equipment::Barbell],
@@ -1496,6 +1789,7 @@ mod tests {
             update.changes,
             vec![PropertyChange {
                 property: ExerciseProperty::Equipment,
+                stretched: false,
                 before: vec![value(Equipment::Barbell.name())],
                 after: vec![value(Equipment::none_name())],
             }]
@@ -1522,14 +1816,17 @@ mod tests {
                 ExerciseMuscle {
                     muscle_id: MuscleID::Pecs,
                     stimulus: Stimulus::SECONDARY,
+                    stretch: Stimulus::NONE,
                 },
                 ExerciseMuscle {
                     muscle_id: MuscleID::FrontDelts,
                     stimulus: Stimulus::PRIMARY,
+                    stretch: Stimulus::NONE,
                 },
                 ExerciseMuscle {
                     muscle_id: MuscleID::Triceps,
                     stimulus: Stimulus::PRIMARY,
+                    stretch: Stimulus::NONE,
                 },
             ],
             ..catalog_exercise("Dip", 1)
@@ -1542,6 +1839,7 @@ mod tests {
             update.changes,
             vec![PropertyChange {
                 property: ExerciseProperty::Muscles,
+                stretched: false,
                 before: vec![
                     muscle_value(MuscleID::Pecs, Stimulus::SECONDARY),
                     muscle_value(MuscleID::FrontDelts, Stimulus::PRIMARY),
@@ -1553,6 +1851,51 @@ mod tests {
                     muscle_value(MuscleID::Triceps, Stimulus::PRIMARY),
                 ],
             }]
+        );
+    }
+
+    #[test]
+    fn test_catalog_update_detects_changed_stretch() {
+        let mut exercise = catalog_exercise("Dip", 1);
+        exercise.muscles[0].stretch = Stimulus::SECONDARY;
+        exercise
+            .muscles
+            .push(muscle(MuscleID::Biceps, Stimulus::NONE, Stimulus::PRIMARY));
+
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+
+        assert_eq!(update.exercise, catalog_exercise("Dip", 1));
+        assert_eq!(
+            update.changes,
+            vec![PropertyChange {
+                property: ExerciseProperty::Muscles,
+                stretched: true,
+                before: vec![
+                    muscle_value(MuscleID::Pecs, Stimulus::SECONDARY),
+                    muscle_value(MuscleID::Biceps, Stimulus::PRIMARY),
+                ],
+                after: vec![value(MuscleID::none_name())],
+            }]
+        );
+    }
+
+    #[test]
+    fn test_catalog_update_lists_the_stretched_muscles_after_the_worked_muscles() {
+        let mut exercise = catalog_exercise("Dip", 1);
+        exercise.muscles[0] = muscle(MuscleID::Pecs, Stimulus::SECONDARY, Stimulus::PRIMARY);
+
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+
+        assert_eq!(
+            update
+                .changes
+                .iter()
+                .map(|c| (c.property, c.stretched))
+                .collect::<Vec<_>>(),
+            [
+                (ExerciseProperty::Muscles, false),
+                (ExerciseProperty::Muscles, true)
+            ]
         );
     }
 
@@ -1672,25 +2015,52 @@ mod tests {
     }
 
     #[rstest]
-    #[case::no_muscles(vec![], [].into())]
+    #[case::no_muscles(vec![], [].into(), [].into())]
     #[case::only_secondary_muscles(
-        vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY }],
+        vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY, stretch: Stimulus::NONE }],
+        [].into(),
         [].into()
     )]
     #[case::primary_and_secondary_muscles(
         vec![
-            ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY },
-            ExerciseMuscle { muscle_id: MuscleID::Triceps, stimulus: Stimulus::PRIMARY },
-            ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY },
+            ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY, stretch: Stimulus::NONE },
+            ExerciseMuscle { muscle_id: MuscleID::Triceps, stimulus: Stimulus::PRIMARY, stretch: Stimulus::NONE },
+            ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY, stretch: Stimulus::NONE },
         ],
         [
             Some((MuscleID::Pecs, StimulusLevel::Primary)),
             Some((MuscleID::Triceps, StimulusLevel::Primary)),
-        ].into()
+        ].into(),
+        [].into()
+    )]
+    #[case::stretch_only(
+        vec![
+            muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY),
+            muscle(MuscleID::ErectorSpinae, Stimulus::NONE, Stimulus::SECONDARY),
+        ],
+        [].into(),
+        [(MuscleID::Hamstrings, StimulusLevel::Primary)].into()
+    )]
+    #[case::hybrid_with_secondary_worked_muscles(
+        vec![
+            muscle(MuscleID::ErectorSpinae, Stimulus::SECONDARY, Stimulus::NONE),
+            muscle(MuscleID::Adductors, Stimulus::NONE, Stimulus::PRIMARY),
+        ],
+        [].into(),
+        [(MuscleID::Adductors, StimulusLevel::Primary)].into()
+    )]
+    #[case::primary_worked_and_stretched_muscle(
+        vec![
+            muscle(MuscleID::Pecs, Stimulus::PRIMARY, Stimulus::PRIMARY),
+            muscle(MuscleID::FrontDelts, Stimulus::SECONDARY, Stimulus::NONE),
+        ],
+        [Some((MuscleID::Pecs, StimulusLevel::Primary))].into(),
+        [].into()
     )]
     fn test_exercise_filter_primary_muscles_of(
         #[case] muscles: Vec<ExerciseMuscle>,
         #[case] expected_muscles: HashSet<Option<(MuscleID, StimulusLevel)>>,
+        #[case] expected_stretch: HashSet<(MuscleID, StimulusLevel)>,
     ) {
         let exercise = exercise(0, "A", muscles);
 
@@ -1700,6 +2070,7 @@ mod tests {
             filter,
             ExerciseFilter {
                 muscles: expected_muscles,
+                stretch: expected_stretch,
                 ..ExerciseFilter::default()
             }
         );
@@ -1725,7 +2096,7 @@ mod tests {
         ExerciseFilter { muscles: [None].into(), ..ExerciseFilter::default() },
         &[
             exercise(0, "Squat", vec![]),
-            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }]),
+            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY, stretch: Stimulus::NONE }]),
         ],
         &[exercise(0, "Squat", vec![])]
     )]
@@ -1733,17 +2104,46 @@ mod tests {
         ExerciseFilter { muscles: [Some((MuscleID::Pecs, StimulusLevel::Primary)), Some((MuscleID::FrontDelts, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
         &[
             exercise(0, "Squat", vec![]),
-            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }]),
+            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY, stretch: Stimulus::NONE }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY, stretch: Stimulus::NONE }]),
         ],
-        &[exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY }])]
+        &[exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY, stretch: Stimulus::NONE }, ExerciseMuscle { muscle_id: MuscleID::FrontDelts, stimulus: Stimulus::SECONDARY, stretch: Stimulus::NONE }])]
     )]
     #[case::muscle_at_other_level(
         ExerciseFilter { muscles: [Some((MuscleID::Pecs, StimulusLevel::Secondary))].into(), ..ExerciseFilter::default() },
         &[
-            exercise(0, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY }]),
-            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY }]),
+            exercise(0, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY, stretch: Stimulus::NONE }]),
+            exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY, stretch: Stimulus::NONE }]),
         ],
-        &[exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY }])]
+        &[exercise(1, "Squat", vec![ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::SECONDARY, stretch: Stimulus::NONE }])]
+    )]
+    #[case::worked_and_stretched_muscles(
+        ExerciseFilter {
+            muscles: [Some((MuscleID::ErectorSpinae, StimulusLevel::Primary))].into(),
+            stretch: [(MuscleID::Hamstrings, StimulusLevel::Primary)].into(),
+            ..ExerciseFilter::default()
+        },
+        &[
+            exercise(0, "Jefferson Curl", vec![muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::NONE), muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY)]),
+            exercise(1, "Back Extension", vec![muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::NONE), muscle(MuscleID::Hamstrings, Stimulus::SECONDARY, Stimulus::NONE)]),
+            exercise(2, "Forward Fold", vec![muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY)]),
+        ],
+        &[exercise(0, "Jefferson Curl", vec![muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::NONE), muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY)])]
+    )]
+    #[case::stretched_muscle_at_other_level(
+        ExerciseFilter { stretch: [(MuscleID::Hamstrings, StimulusLevel::Secondary)].into(), ..ExerciseFilter::default() },
+        &[
+            exercise(0, "A", vec![muscle(MuscleID::Hamstrings, Stimulus::SECONDARY, Stimulus::PRIMARY)]),
+            exercise(1, "B", vec![muscle(MuscleID::Hamstrings, Stimulus::PRIMARY, Stimulus::SECONDARY)]),
+        ],
+        &[exercise(1, "B", vec![muscle(MuscleID::Hamstrings, Stimulus::PRIMARY, Stimulus::SECONDARY)])]
+    )]
+    #[case::no_muscles_excludes_stretched_only_exercise(
+        ExerciseFilter { muscles: [None].into(), ..ExerciseFilter::default() },
+        &[
+            exercise(0, "A", vec![]),
+            exercise(1, "B", vec![muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY)]),
+        ],
+        &[exercise(0, "A", vec![])]
     )]
     fn test_exercise_filter_exercises(
         #[case] filter: ExerciseFilter,
@@ -1836,6 +2236,10 @@ mod tests {
         ExerciseFilter { equipment: [Some(Equipment::Barbell)].into(), ..ExerciseFilter::default() },
         Some("Barbell Ab Rollout")
     )]
+    #[case::stretched_muscle_of_no_catalog_exercise(
+        ExerciseFilter { stretch: [(MuscleID::HipRotators, StimulusLevel::Primary)].into(), ..ExerciseFilter::default() },
+        None
+    )]
     fn test_exercise_catalog(
         #[case] filter: ExerciseFilter,
         #[case] expected_first_name: Option<&str>,
@@ -1867,8 +2271,25 @@ mod tests {
         },
         ExerciseProperties {
             muscles: vec![
-                ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY },
-                ExerciseMuscle { muscle_id: MuscleID::Triceps, stimulus: Stimulus::SECONDARY },
+                ExerciseMuscle { muscle_id: MuscleID::Pecs, stimulus: Stimulus::PRIMARY, stretch: Stimulus::NONE },
+                ExerciseMuscle { muscle_id: MuscleID::Triceps, stimulus: Stimulus::SECONDARY, stretch: Stimulus::NONE },
+            ],
+            ..ExerciseProperties::default()
+        }
+    )]
+    #[case::stretch(
+        ExerciseFilter {
+            muscles: [Some((MuscleID::ErectorSpinae, StimulusLevel::Primary))].into(),
+            stretch: [
+                (MuscleID::Hamstrings, StimulusLevel::Primary),
+                (MuscleID::ErectorSpinae, StimulusLevel::Secondary),
+            ].into(),
+            ..ExerciseFilter::default()
+        },
+        ExerciseProperties {
+            muscles: vec![
+                muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::SECONDARY),
+                muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY),
             ],
             ..ExerciseProperties::default()
         }
@@ -1977,6 +2398,62 @@ mod tests {
         filter.toggle_muscle(Some(MuscleID::Abs));
 
         assert!(filter.muscle_list().iter().all(|(_, l)| l.is_none()));
+    }
+
+    #[test]
+    fn test_exercise_filter_toggle_stretch() {
+        let mut filter = ExerciseFilter::default();
+
+        assert!(filter.stretch_list().iter().all(|(_, l)| l.is_none()));
+
+        filter.toggle_muscle(None);
+        filter.toggle_stretch(MuscleID::Hamstrings);
+
+        assert!(!filter.muscles_not_set());
+        assert!(
+            filter
+                .stretch_list()
+                .contains(&(MuscleID::Hamstrings, Some(StimulusLevel::Primary)))
+        );
+        assert!(filter.muscle_list().iter().all(|(_, l)| l.is_none()));
+
+        filter.toggle_stretch(MuscleID::Hamstrings);
+
+        assert!(
+            filter
+                .stretch_list()
+                .contains(&(MuscleID::Hamstrings, Some(StimulusLevel::Secondary)))
+        );
+
+        filter.toggle_muscle(None);
+
+        assert!(filter.muscles_not_set());
+        assert!(filter.stretch_list().iter().all(|(_, l)| l.is_none()));
+
+        filter.toggle_stretch(MuscleID::Hamstrings);
+        filter.toggle_stretch(MuscleID::Hamstrings);
+        filter.toggle_stretch(MuscleID::Hamstrings);
+
+        assert!(filter.stretch_list().iter().all(|(_, l)| l.is_none()));
+    }
+
+    #[test]
+    fn test_exercise_filter_clear_stretch() {
+        let mut filter = ExerciseFilter {
+            stretch: [
+                (MuscleID::Hamstrings, StimulusLevel::Primary),
+                (MuscleID::Calves, StimulusLevel::Secondary),
+            ]
+            .into(),
+            ..ExerciseFilter::default()
+        };
+
+        filter.clear_stretch(MuscleID::Hamstrings);
+
+        assert_eq!(
+            filter.stretch,
+            [(MuscleID::Calves, StimulusLevel::Secondary)].into()
+        );
     }
 
     #[test]
@@ -2152,6 +2629,14 @@ mod tests {
         }
     }
 
+    fn muscle(muscle_id: MuscleID, stimulus: Stimulus, stretch: Stimulus) -> ExerciseMuscle {
+        ExerciseMuscle {
+            muscle_id,
+            stimulus,
+            stretch,
+        }
+    }
+
     fn assert_distinct_names<T: Property + 'static>() {
         assert_distinct(
             T::iter()
@@ -2278,6 +2763,13 @@ mod tests {
     #[case::muscles(
         ExerciseFilter {
             muscles: [Some((MuscleID::Pecs, StimulusLevel::Primary))].into(),
+            ..ExerciseFilter::default()
+        },
+        false
+    )]
+    #[case::stretch(
+        ExerciseFilter {
+            stretch: [(MuscleID::Hamstrings, StimulusLevel::Primary)].into(),
             ..ExerciseFilter::default()
         },
         false

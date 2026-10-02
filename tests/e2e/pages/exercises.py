@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from .base import BasePage, Dialog, NestedDialog
+from .utils import MUSCLE_SECTIONS
 
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
@@ -92,9 +93,10 @@ class ExercisesPage(BasePage):
             "filter-tag"
         ).filter(has_text=re.compile(f"^{re.escape(name)}$")).click()
 
-    def filter_muscle(self, name: str, level: str) -> None:
+    def filter_muscle(self, name: str, level: str, kind: str) -> None:
+        """Filter by a muscle of the kind "worked" or "stretched"."""
         for _ in range(1 if level == "Primary" else 2):
-            self.toggle_filter("muscles", name)
+            self.toggle_filter(MUSCLE_SECTIONS[kind], name)
 
     def apply_filter(self) -> None:
         self.page.get_by_test_id("filter-show").click()

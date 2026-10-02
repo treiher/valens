@@ -195,6 +195,70 @@ def test_upgrade_adds_sides(tmp_path: Path) -> None:
         assert connection.execute("SELECT id, reps FROM routine_activity").fetchall() == [(2, 8)]
 
 
+STRETCH_BASE_DATA = """
+INSERT INTO user (id, name, sex, role)
+    VALUES (1, 'Alice', 'FEMALE', 'USER'), (2, 'Bob', 'MALE', 'USER'),
+    (3, 'Carol', 'FEMALE', 'USER');
+INSERT INTO exercise (id, user_id, name) VALUES (1, 1, 'Squat'), (2, 2, 'Squat'), (3, 3, 'Squat');
+INSERT INTO exercise_muscle (user_id, exercise_id, muscle_id, stimulus)
+    VALUES (1, 1, 81, 100), (2, 2, 81, 100), (3, 3, 81, 100);
+INSERT INTO data_version (user_id, collection, version) VALUES (1, 'exercises', 4);
+"""
+
+STRETCH_DATA = """
+INSERT INTO exercise (id, user_id, name, category) VALUES (4, 1, 'Couch Stretch', 3);
+INSERT INTO exercise_muscle (user_id, exercise_id, muscle_id, stimulus, stretch)
+    VALUES (1, 4, 82, 0, 100), (1, 4, 73, 0, 100), (1, 1, 74, 50, 0), (2, 2, 82, 50, 50);
+"""
+
+
+def test_upgrade_adds_stretch(tmp_path: Path) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "8d7f1bc0db68")
+
+        connection.executescript(STRETCH_BASE_DATA)
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "head")
+
+        assert connection.execute(
+            "SELECT exercise_id, stretch FROM exercise_muscle ORDER BY exercise_id"
+        ).fetchall() == [(1, 0), (2, 0), (3, 0)]
+
+        connection.executescript(STRETCH_DATA)
+        connection.commit()
+
+        with app.app_context():
+            downgrade(cfg, "8d7f1bc0db68")
+
+        assert "stretch" not in [
+            row[1] for row in connection.execute("PRAGMA table_info(exercise_muscle)")
+        ]
+        assert connection.execute(
+            "SELECT exercise_id, muscle_id, stimulus FROM exercise_muscle"
+            " ORDER BY exercise_id, muscle_id"
+        ).fetchall() == [(1, 81, 100), (2, 81, 100), (2, 82, 50), (3, 81, 100)]
+        assert connection.execute("SELECT id, category FROM exercise ORDER BY id").fetchall() == [
+            (1, None),
+            (2, None),
+            (3, None),
+            (4, None),
+        ]
+        assert connection.execute(
+            "SELECT user_id, version FROM data_version WHERE collection = 'exercises'"
+            " ORDER BY user_id"
+        ).fetchall() == [(1, 5), (2, 1)]
+
+
 def test_completeness(tmp_path: Path) -> None:
     """Ensure that all constraints defined in the model are added during the upgrade."""
     # Based on alembic-autogen-check (https://github.com/4Catalyzer/alembic-autogen-check)

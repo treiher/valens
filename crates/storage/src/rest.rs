@@ -7,6 +7,7 @@ use futures_util::{
 };
 use gloo_net;
 use gloo_timers::future::TimeoutFuture;
+use log::warn;
 use serde_json::{Map, json};
 use thiserror::Error;
 
@@ -1369,8 +1370,9 @@ impl TryFrom<Exercise> for domain::Exercise {
             muscles: value
                 .muscles
                 .into_iter()
-                .map(|m| domain::ExerciseMuscle::try_from(m).map_err(From::from))
-                .collect::<Result<Vec<domain::ExerciseMuscle>, ExerciseError>>()?,
+                .map(ExerciseMuscle::decode)
+                .filter_map(Result::transpose)
+                .collect::<Result<Vec<domain::ExerciseMuscle>, domain::MuscleIDError>>()?,
             force: decode_property(value.force)?,
             mechanic: decode_property(value.mechanic)?,
             laterality: decode_property(value.laterality)?,
@@ -1426,6 +1428,7 @@ pub struct ExerciseData {
 pub struct ExerciseMuscle {
     pub muscle_id: u8,
     pub stimulus: u32,
+    pub stretch: u32,
 }
 
 impl From<domain::ExerciseMuscle> for ExerciseMuscle {
@@ -1433,20 +1436,34 @@ impl From<domain::ExerciseMuscle> for ExerciseMuscle {
         Self {
             muscle_id: value.muscle_id as u8,
             stimulus: *value.stimulus,
+            stretch: *value.stretch,
         }
     }
 }
 
-impl TryFrom<ExerciseMuscle> for domain::ExerciseMuscle {
-    type Error = domain::MuscleIDError;
-
-    fn try_from(value: ExerciseMuscle) -> Result<Self, Self::Error> {
-        let muscle_id = domain::MuscleID::try_from(value.muscle_id)?;
-        Ok(Self {
+impl ExerciseMuscle {
+    /// Read a value out of range as zero and drop an entry left with neither value.
+    fn decode(self) -> Result<Option<domain::ExerciseMuscle>, domain::MuscleIDError> {
+        let muscle_id = domain::MuscleID::try_from(self.muscle_id)?;
+        let stimulus = decode_stimulus(self.stimulus, "invalid stimulus in stored muscle");
+        let stretch = decode_stimulus(self.stretch, "invalid stretch in stored muscle");
+        if stimulus == domain::Stimulus::NONE && stretch == domain::Stimulus::NONE {
+            warn!("muscle without stimulus and stretch in stored exercise");
+            return Ok(None);
+        }
+        Ok(Some(domain::ExerciseMuscle {
             muscle_id,
-            stimulus: domain::Stimulus::new(value.stimulus).unwrap_or(domain::Stimulus::PRIMARY),
-        })
+            stimulus,
+            stretch,
+        }))
     }
+}
+
+fn decode_stimulus(value: u32, context: &str) -> domain::Stimulus {
+    domain::Stimulus::new(value).unwrap_or_else(|e| {
+        warn!("{context}: {e}");
+        domain::Stimulus::NONE
+    })
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
@@ -2326,11 +2343,62 @@ mod tests {
         Exercise { category: Some(0), ..Exercise::from(EXERCISE.clone()) },
         ExerciseError::InvalidCategory(domain::CategoryError::Invalid)
     )]
+    #[case::muscle(
+        Exercise {
+            muscles: vec![ExerciseMuscle { muscle_id: 0, stimulus: 100, stretch: 0 }],
+            ..Exercise::from(EXERCISE.clone())
+        },
+        ExerciseError::InvalidMuscle(domain::MuscleIDError::Invalid)
+    )]
     fn test_exercise_try_from_invalid_property(
         #[case] exercise: Exercise,
         #[case] expected: ExerciseError,
     ) {
         assert_eq!(domain::Exercise::try_from(exercise), Err(expected));
+    }
+
+    #[rstest]
+    #[case::stimulus_out_of_range(101, 50, Some((0, 50)))]
+    #[case::stretch_out_of_range(50, 101, Some((50, 0)))]
+    #[case::neither_value(0, 0, None)]
+    #[case::neither_value_in_range(101, 101, None)]
+    fn test_exercise_try_from_invalid_muscle_values(
+        #[case] stimulus: u32,
+        #[case] stretch: u32,
+        #[case] expected: Option<(u32, u32)>,
+    ) {
+        let exercise = Exercise {
+            muscles: vec![
+                ExerciseMuscle {
+                    muscle_id: domain::MuscleID::Pecs as u8,
+                    stimulus,
+                    stretch,
+                },
+                ExerciseMuscle {
+                    muscle_id: domain::MuscleID::Abs as u8,
+                    stimulus: 100,
+                    stretch: 0,
+                },
+            ],
+            ..Exercise::from(EXERCISE.clone())
+        };
+
+        assert_eq!(
+            domain::Exercise::try_from(exercise).map(|e| e.muscles),
+            Ok(expected
+                .map(|(stimulus, stretch)| domain::ExerciseMuscle {
+                    muscle_id: domain::MuscleID::Pecs,
+                    stimulus: domain::Stimulus::new(stimulus).unwrap(),
+                    stretch: domain::Stimulus::new(stretch).unwrap(),
+                })
+                .into_iter()
+                .chain([domain::ExerciseMuscle {
+                    muscle_id: domain::MuscleID::Abs,
+                    stimulus: domain::Stimulus::PRIMARY,
+                    stretch: domain::Stimulus::NONE,
+                }])
+                .collect())
+        );
     }
 
     #[test]

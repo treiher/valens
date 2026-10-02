@@ -22,6 +22,7 @@ pub fn Catalog(name: String) -> Element {
                         Some(exercise.assistance),
                         exercise.equipment,
                         exercise.muscles,
+                        exercise.stretch,
                         Some(exercise.category),
                     )}
                 }

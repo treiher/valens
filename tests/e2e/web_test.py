@@ -3163,7 +3163,7 @@ def test_exercises_add_with_filter(page: Page) -> None:
 
     p.open_filter()
     p.toggle_filter("force", "Push")
-    p.filter_muscle(muscle, "Primary")
+    p.filter_muscle(muscle, "Primary", "worked")
     p.apply_filter()
 
     p.add_exercise(name, "Compound")
@@ -3177,6 +3177,30 @@ def test_exercises_add_with_filter(page: Page) -> None:
 
     assert exercise_page.get_properties() == ["Push", "Compound"]
     exercise_page.expect_muscle(muscle)
+
+
+def test_exercises_filter_by_worked_and_stretched_muscle(page: Page) -> None:
+    name = "Hybrid Exercise"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+
+    p.open_filter()
+    p.filter_muscle("Erector Spinae", "Primary", "worked")
+    p.filter_muscle("Hamstrings", "Primary", "stretched")
+    p.apply_filter()
+
+    p.add_exercise(name)
+
+    assert {e[0] for e in p.table.get_body(1)} == {name}
+
+    p.open_exercise(name)
+
+    exercise_page = ExercisePage(page)
+    exercise_page.expect_page()
+    exercise_page.expect_muscle("Erector Spinae")
+    exercise_page.expect_stretched_muscle("Hamstrings")
 
 
 def test_exercises_add_from_catalog_with_filtered_out_exercise(page: Page) -> None:
@@ -3328,7 +3352,7 @@ def test_exercises_filter_by_muscle(page: Page) -> None:
     p.goto()
 
     p.open_filter()
-    p.filter_muscle(muscle, "Primary")
+    p.filter_muscle(muscle, "Primary", "worked")
     p.apply_filter()
 
     assert {e[0] for e in p.table.get_body(1)} == {primary.name}
@@ -3336,7 +3360,7 @@ def test_exercises_filter_by_muscle(page: Page) -> None:
     p.goto()
 
     p.open_filter()
-    p.filter_muscle(muscle, "Secondary")
+    p.filter_muscle(muscle, "Secondary", "worked")
     p.apply_filter()
 
     assert {e[0] for e in p.table.get_body(1)} == {secondary.name}
@@ -3477,9 +3501,25 @@ def test_exercise_change_muscles(page: Page) -> None:
 
     p.expect_no_muscle("Neck")
 
-    p.cycle_muscle("Neck")
+    p.cycle_muscle("Neck", "worked")
 
     p.expect_muscle("Neck")
+
+
+def test_exercise_change_stretched_muscles(page: Page) -> None:
+    exercise = next((e for e in USER.exercises if not e.muscles), None)
+    assert exercise is not None, "test data must contain an exercise without muscles"
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+
+    p.expect_no_stretched_muscle("Hamstrings")
+
+    p.cycle_muscle("Hamstrings", "stretched")
+
+    p.expect_stretched_muscle("Hamstrings")
+    p.expect_no_muscle("Hamstrings")
 
 
 def test_exercise_change_properties(page: Page) -> None:

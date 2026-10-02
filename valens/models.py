@@ -259,7 +259,7 @@ class Exercise(Base):
         CheckConstraint(column("assistance") >= 1, name="assistance_ge_1"),
         CheckConstraint(column("assistance") <= 2, name="assistance_le_2"),
         CheckConstraint(column("category") >= 1, name="category_ge_1"),
-        CheckConstraint(column("category") <= 2, name="category_le_2"),
+        CheckConstraint(column("category") <= 3, name="category_le_3"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -295,10 +295,14 @@ class ExerciseMuscle(Base):
         UniqueConstraint("user_id", "exercise_id", "muscle_id"),
         CheckConstraint("typeof(muscle_id) = 'integer'", name="muscle_id_integer"),
         CheckConstraint("typeof(stimulus) = 'integer'", name="stimulus_integer"),
-        # Upper bound mirrors `Stimulus` in `crates/domain/src/exercise.rs`. The domain also
-        # permits 0, which must not be stored.
-        CheckConstraint(column("stimulus") >= 1, name="stimulus_ge_1"),
+        CheckConstraint("typeof(stretch) = 'integer'", name="stretch_integer"),
+        # Bounds mirror `Stimulus` in `crates/domain/src/exercise.rs`. An entry sets at least one
+        # of both values.
+        CheckConstraint(column("stimulus") >= 0, name="stimulus_ge_0"),
         CheckConstraint(column("stimulus") <= 100, name="stimulus_le_100"),
+        CheckConstraint(column("stretch") >= 0, name="stretch_ge_0"),
+        CheckConstraint(column("stretch") <= 100, name="stretch_le_100"),
+        CheckConstraint(column("stimulus") + column("stretch") >= 1, name="stimulus_or_stretch"),
     )
 
     user_id: Mapped[int] = mapped_column(
@@ -309,6 +313,7 @@ class ExerciseMuscle(Base):
     )
     muscle_id: Mapped[int] = mapped_column(Integer, nullable=False, primary_key=True)
     stimulus: Mapped[int] = mapped_column(Integer, nullable=False)
+    stretch: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class ExerciseEquipment(Base):

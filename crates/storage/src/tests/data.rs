@@ -78,16 +78,24 @@ pub static EXERCISE: std::sync::LazyLock<domain::Exercise> =
         id: 1.into(),
         name: domain::Name::new("A").unwrap(),
         notes: String::from("C"),
-        muscles: vec![domain::ExerciseMuscle {
-            muscle_id: domain::MuscleID::Abs,
-            stimulus: domain::Stimulus::PRIMARY,
-        }],
+        muscles: vec![
+            domain::ExerciseMuscle {
+                muscle_id: domain::MuscleID::Abs,
+                stimulus: domain::Stimulus::PRIMARY,
+                stretch: domain::Stimulus::SECONDARY,
+            },
+            domain::ExerciseMuscle {
+                muscle_id: domain::MuscleID::HipFlexors,
+                stimulus: domain::Stimulus::NONE,
+                stretch: domain::Stimulus::PRIMARY,
+            },
+        ],
         force: Some(domain::Force::Pull),
         mechanic: Some(domain::Mechanic::Isolation),
         laterality: Some(domain::Laterality::Unilateral),
         assistance: Some(domain::Assistance::Assisted),
         equipment: vec![domain::Equipment::Cable, domain::Equipment::Dumbbell],
-        category: Some(domain::Category::Strength),
+        category: Some(domain::Category::Flexibility),
     });
 
 pub static EXERCISE_2: std::sync::LazyLock<domain::Exercise> =
@@ -98,6 +106,7 @@ pub static EXERCISE_2: std::sync::LazyLock<domain::Exercise> =
         muscles: vec![domain::ExerciseMuscle {
             muscle_id: domain::MuscleID::Pecs,
             stimulus: domain::Stimulus::PRIMARY,
+            stretch: domain::Stimulus::NONE,
         }],
         force: None,
         mechanic: None,

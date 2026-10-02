@@ -2150,10 +2150,12 @@ mod tests {
                 ExerciseMuscle {
                     muscle_id: MuscleID::Pecs,
                     stimulus: Stimulus::PRIMARY,
+                    stretch: Stimulus::NONE,
                 },
                 ExerciseMuscle {
                     muscle_id: MuscleID::FrontDelts,
                     stimulus: Stimulus::SECONDARY,
+                    stretch: Stimulus::NONE,
                 },
             ],
             force: None,
@@ -2183,6 +2185,7 @@ mod tests {
             muscles: vec![ExerciseMuscle {
                 muscle_id: MuscleID::Pecs,
                 stimulus: Stimulus::PRIMARY,
+                stretch: Stimulus::NONE,
             }],
             force: None,
             mechanic: None,
@@ -4356,6 +4359,7 @@ mod tests {
             muscles: vec![ExerciseMuscle {
                 muscle_id: MuscleID::Quads,
                 stimulus: Stimulus::PRIMARY,
+                stretch: Stimulus::NONE,
             }],
             force: None,
             mechanic: None,

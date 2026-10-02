@@ -514,6 +514,21 @@ def to_optional_int(json: object, what: str, minimum: int, maximum: int) -> int 
     return None if json is None else to_int(json, what, minimum, maximum)
 
 
+def to_exercise_muscles(json: list[dict[str, Any]]) -> dict[int, tuple[int, int]]:  # type: ignore[explicit-any]
+    """Map the muscle IDs of an exercise to their stimulus and stretch."""
+    muscles = {}
+    for m in json:
+        muscle_id = to_property_id(m["muscle_id"], "muscle_id", MUSCLE_IDS)
+        if muscle_id in muscles:
+            raise DeserializationError("muscles must not repeat a muscle")
+        stimulus = to_int(m["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX)
+        stretch = to_int(m["stretch"], "stretch", STIMULUS_MIN, STIMULUS_MAX)
+        if stimulus == 0 and stretch == 0:
+            raise DeserializationError("stimulus or stretch must be positive")
+        muscles[muscle_id] = (stimulus, stretch)
+    return muscles
+
+
 def to_int(json: object, what: str, minimum: int, maximum: int) -> int:
     if isinstance(json, bool) or not isinstance(json, int):
         raise DeserializationError(f"{what} must be an integer")
@@ -1649,10 +1664,11 @@ def create_exercise() -> ResponseReturnValue:
             muscles=[
                 ExerciseMuscle(
                     user_id=session["user_id"],
-                    muscle_id=to_property_id(muscle["muscle_id"], "muscle_id", MUSCLE_IDS),
-                    stimulus=to_int(muscle["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX),
+                    muscle_id=muscle_id,
+                    stimulus=stimulus,
+                    stretch=stretch,
                 )
-                for muscle in data["muscles"]
+                for muscle_id, (stimulus, stretch) in to_exercise_muscles(data["muscles"]).items()
             ],
             equipment=[
                 ExerciseEquipment(user_id=session["user_id"], equipment=equipment)
@@ -1731,24 +1747,21 @@ def replace_exercise(id_: int) -> ResponseReturnValue:
 
 
 def _replace_exercise_muscles(exercise: Exercise, json: list[dict[str, Any]]) -> None:  # type: ignore[explicit-any]
-    muscle_stimulus = {
-        to_property_id(m["muscle_id"], "muscle_id", MUSCLE_IDS): to_int(
-            m["stimulus"], "stimulus", STIMULUS_MIN, STIMULUS_MAX
-        )
-        for m in json
-    }
+    muscles = to_exercise_muscles(json)
 
     for m in exercise.muscles:
-        if m.muscle_id in muscle_stimulus:
-            m.stimulus = muscle_stimulus[m.muscle_id]
+        if m.muscle_id in muscles:
+            m.stimulus, m.stretch = muscles[m.muscle_id]
         else:
             db.session.delete(m)
 
-    for muscle_id, stimulus in muscle_stimulus.items():
+    for muscle_id, (stimulus, stretch) in muscles.items():
         if any(m.muscle_id == muscle_id for m in exercise.muscles):
             continue
         exercise.muscles.append(
-            ExerciseMuscle(user_id=exercise.user_id, muscle_id=muscle_id, stimulus=stimulus)
+            ExerciseMuscle(
+                user_id=exercise.user_id, muscle_id=muscle_id, stimulus=stimulus, stretch=stretch
+            )
         )
 
 

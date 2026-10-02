@@ -303,7 +303,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             "/api/exercises",
             {
                 "name": "A",
-                "muscles": [{"muscle_id": 12, "stimulus": 100}],
+                "muscles": [{"muscle_id": 12, "stimulus": 100, "stretch": 0}],
                 **UNSET_EXERCISE_PROPERTIES,
             },
         ),
@@ -312,7 +312,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             "/api/exercises",
             {
                 "name": "A",
-                "muscles": [{"muscle_id": "11", "stimulus": 100}],
+                "muscles": [{"muscle_id": "11", "stimulus": 100, "stretch": 0}],
                 **UNSET_EXERCISE_PROPERTIES,
             },
         ),
@@ -321,7 +321,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             "/api/exercises",
             {
                 "name": "A",
-                "muscles": [{"muscle_id": 11, "stimulus": 0}],
+                "muscles": [{"muscle_id": 11, "stimulus": 0, "stretch": 0}],
                 **UNSET_EXERCISE_PROPERTIES,
             },
         ),
@@ -330,7 +330,34 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             "/api/exercises",
             {
                 "name": "A",
-                "muscles": [{"muscle_id": 11, "stimulus": 101}],
+                "muscles": [{"muscle_id": 11, "stimulus": 101, "stretch": 0}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        (
+            "post",
+            "/api/exercises",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": 11, "stimulus": 100}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        (
+            "post",
+            "/api/exercises",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": 11, "stimulus": 0, "stretch": 101}],
+                **UNSET_EXERCISE_PROPERTIES,
+            },
+        ),
+        (
+            "post",
+            "/api/exercises",
+            {
+                "name": "A",
+                "muscles": [{"muscle_id": 11, "stimulus": 100, "stretch": -1}],
                 **UNSET_EXERCISE_PROPERTIES,
             },
         ),
@@ -363,7 +390,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
             "/api/exercises/1",
             {
                 "name": "A",
-                "muscles": [{"muscle_id": 12, "stimulus": 100}],
+                "muscles": [{"muscle_id": 12, "stimulus": 100, "stretch": 0}],
                 **UNSET_EXERCISE_PROPERTIES,
             },
         ),
@@ -1141,13 +1168,13 @@ def test_delete_user_last_admin(client: Client) -> None:
                 {
                     "id": 1,
                     "name": "Exercise 1",
-                    "muscles": [{"muscle_id": 11, "stimulus": 100}],
+                    "muscles": [{"muscle_id": 11, "stimulus": 100, "stretch": 0}],
                     **EXERCISE_1_PROPERTIES,
                 },
                 {
                     "id": 3,
                     "name": "Exercise 3",
-                    "muscles": [{"muscle_id": 11, "stimulus": 50}],
+                    "muscles": [{"muscle_id": 11, "stimulus": 50, "stretch": 0}],
                     **UNSET_EXERCISE_PROPERTIES,
                     "notes": "Exercise 3 Notes\nSecond line",
                 },
@@ -1575,7 +1602,10 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                 "id": 7,
                 "name": "New Exercise",
                 "notes": "New Notes",
-                "muscles": [{"muscle_id": 11, "stimulus": 100}, {"muscle_id": 21, "stimulus": 50}],
+                "muscles": [
+                    {"muscle_id": 11, "stimulus": 100, "stretch": 0},
+                    {"muscle_id": 21, "stimulus": 50, "stretch": 0},
+                ],
                 "force": 2,
                 "mechanic": 2,
                 "laterality": 1,
@@ -1587,13 +1617,13 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                 {
                     "id": 1,
                     "name": "Exercise 1",
-                    "muscles": [{"muscle_id": 11, "stimulus": 100}],
+                    "muscles": [{"muscle_id": 11, "stimulus": 100, "stretch": 0}],
                     **EXERCISE_1_PROPERTIES,
                 },
                 {
                     "id": 3,
                     "name": "Exercise 3",
-                    "muscles": [{"muscle_id": 11, "stimulus": 50}],
+                    "muscles": [{"muscle_id": 11, "stimulus": 50, "stretch": 0}],
                     **UNSET_EXERCISE_PROPERTIES,
                     "notes": "Exercise 3 Notes\nSecond line",
                 },
@@ -1603,8 +1633,8 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                     "name": "New Exercise",
                     "notes": "New Notes",
                     "muscles": [
-                        {"muscle_id": 11, "stimulus": 100},
-                        {"muscle_id": 21, "stimulus": 50},
+                        {"muscle_id": 11, "stimulus": 100, "stretch": 0},
+                        {"muscle_id": 21, "stimulus": 50, "stretch": 0},
                     ],
                     "force": 2,
                     "mechanic": 2,
@@ -2335,6 +2365,65 @@ def test_update_routine_rejects_unknown_exercise(client: Client, exercise_id: in
     assert resp.json == {"details": "routine references an unknown exercise"}
 
 
+def test_create_exercise_with_stretch(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+    data = {
+        "name": "Pigeon Stretch",
+        "muscles": [
+            {"muscle_id": 71, "stimulus": 0, "stretch": 50},
+            {"muscle_id": 73, "stimulus": 50, "stretch": 50},
+            {"muscle_id": 74, "stimulus": 0, "stretch": 100},
+        ],
+        **UNSET_EXERCISE_PROPERTIES,
+        "category": 3,
+    }
+
+    resp = client.post("/api/exercises", json=data)
+
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.json == {"id": 7, **data}
+
+
+@pytest.mark.parametrize("method", ["post", "put"])
+def test_exercise_with_repeated_muscle(client: Client, method: str) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = getattr(client, method)(
+        "/api/exercises" if method == "post" else "/api/exercises/1",
+        json={
+            "name": "A",
+            "muscles": [
+                {"muscle_id": 11, "stimulus": 100, "stretch": 0},
+                {"muscle_id": 11, "stimulus": 0, "stretch": 100},
+            ],
+            **UNSET_EXERCISE_PROPERTIES,
+        },
+    )
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": "muscles must not repeat a muscle"}
+
+
+@pytest.mark.parametrize("method", ["post", "put"])
+def test_exercise_muscle_without_stimulus_and_stretch(client: Client, method: str) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = getattr(client, method)(
+        "/api/exercises" if method == "post" else "/api/exercises/1",
+        json={
+            "name": "A",
+            "muscles": [{"muscle_id": 11, "stimulus": 0, "stretch": 0}],
+            **UNSET_EXERCISE_PROPERTIES,
+        },
+    )
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": "stimulus or stretch must be positive"}
+
+
 @pytest.mark.parametrize("notes", [None, ""])
 def test_replace_exercise_clears_notes(client: Client, notes: str | None) -> None:
     tests.utils.init_db_data()
@@ -2344,7 +2433,7 @@ def test_replace_exercise_clears_notes(client: Client, notes: str | None) -> Non
         "/api/exercises/3",
         json={
             "name": "Exercise 3",
-            "muscles": [{"muscle_id": 11, "stimulus": 50}],
+            "muscles": [{"muscle_id": 11, "stimulus": 50, "stretch": 0}],
             **UNSET_EXERCISE_PROPERTIES,
             "notes": notes,
         },
@@ -2354,7 +2443,7 @@ def test_replace_exercise_clears_notes(client: Client, notes: str | None) -> Non
     assert resp.json == {
         "id": 3,
         "name": "Exercise 3",
-        "muscles": [{"muscle_id": 11, "stimulus": 50}],
+        "muscles": [{"muscle_id": 11, "stimulus": 50, "stretch": 0}],
         **UNSET_EXERCISE_PROPERTIES,
         "notes": notes,
     }
@@ -2445,7 +2534,10 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
             {
                 "name": "Changed Exercise",
                 "notes": "Changed Notes",
-                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
+                "muscles": [
+                    {"muscle_id": 11, "stimulus": 50, "stretch": 0},
+                    {"muscle_id": 21, "stimulus": 100, "stretch": 0},
+                ],
                 "force": None,
                 "mechanic": 2,
                 "laterality": 2,
@@ -2457,7 +2549,10 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                 "id": 1,
                 "name": "Changed Exercise",
                 "notes": "Changed Notes",
-                "muscles": [{"muscle_id": 11, "stimulus": 50}, {"muscle_id": 21, "stimulus": 100}],
+                "muscles": [
+                    {"muscle_id": 11, "stimulus": 50, "stretch": 0},
+                    {"muscle_id": 21, "stimulus": 100, "stretch": 0},
+                ],
                 "force": None,
                 "mechanic": 2,
                 "laterality": 2,
@@ -2471,8 +2566,8 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     "name": "Changed Exercise",
                     "notes": "Changed Notes",
                     "muscles": [
-                        {"muscle_id": 11, "stimulus": 50},
-                        {"muscle_id": 21, "stimulus": 100},
+                        {"muscle_id": 11, "stimulus": 50, "stretch": 0},
+                        {"muscle_id": 21, "stimulus": 100, "stretch": 0},
                     ],
                     "force": None,
                     "mechanic": 2,
@@ -2484,7 +2579,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                 {
                     "id": 3,
                     "name": "Exercise 3",
-                    "muscles": [{"muscle_id": 11, "stimulus": 50}],
+                    "muscles": [{"muscle_id": 11, "stimulus": 50, "stretch": 0}],
                     **UNSET_EXERCISE_PROPERTIES,
                     "notes": "Exercise 3 Notes\nSecond line",
                 },
@@ -2493,7 +2588,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
             ],
             {
                 "name": "Exercise 3",
-                "muscles": [{"muscle_id": 11, "stimulus": 50}],
+                "muscles": [{"muscle_id": 11, "stimulus": 50, "stretch": 0}],
                 **UNSET_EXERCISE_PROPERTIES,
             },
         ),
@@ -5478,7 +5573,7 @@ def test_modify(
                 {
                     "id": 1,
                     "name": "Exercise 1",
-                    "muscles": [{"muscle_id": 11, "stimulus": 100}],
+                    "muscles": [{"muscle_id": 11, "stimulus": 100, "stretch": 0}],
                     **EXERCISE_1_PROPERTIES,
                 },
                 {"id": 6, "name": "Exercise 6", "muscles": [], **UNSET_EXERCISE_PROPERTIES},

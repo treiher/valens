@@ -1,7 +1,9 @@
 """Values mirrored from the domain crate, kept in sync by hand."""
 
 # Mirrors `MuscleID` in `crates/domain/src/exercise.rs`
-MUSCLE_IDS = frozenset({1, 11, 21, 22, 31, 32, 33, 41, 42, 51, 61, 62, 71, 72, 81, 82, 83, 91})
+MUSCLE_IDS = frozenset(
+    {1, 11, 21, 22, 31, 32, 33, 41, 42, 51, 61, 62, 71, 72, 73, 74, 81, 82, 83, 91}
+)
 
 # Mirrors `Force` in `crates/domain/src/exercise.rs`
 FORCE_IDS = frozenset({1, 2, 3})
@@ -19,7 +21,7 @@ ASSISTANCE_IDS = frozenset({1, 2})
 EQUIPMENT_IDS = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13})
 
 # Mirrors `Category` in `crates/domain/src/exercise.rs`
-CATEGORY_IDS = frozenset({1, 2})
+CATEGORY_IDS = frozenset({1, 2, 3})
 
 # Mirrors `height` in `crates/domain/src/user.rs`
 HEIGHT_MIN = 1
@@ -33,9 +35,9 @@ SKINFOLD_MAX = 255
 INTENSITY_MIN = 1
 INTENSITY_MAX = 4
 
-# Mirrors `Stimulus` in `crates/domain/src/exercise.rs`. The domain also permits 0, which must
-# not be stored.
-STIMULUS_MIN = 1
+# Mirrors `Stimulus` in `crates/domain/src/exercise.rs`, bounding the stimulus and the stretch of
+# a muscle of an exercise. An entry sets at least one of both values.
+STIMULUS_MIN = 0
 STIMULUS_MAX = 100
 
 # Mirrors `Rounds` in `crates/domain/src/routine.rs`

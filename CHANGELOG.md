@@ -15,7 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Left and right column of the sets, a left and a right set directly following each other sharing one row
     - Pause before the second set of a pair
 - Routine page: Sides of an activity, which prescribe a unilateral exercise per side
-- Exercise page: Left and right column in the set history, showing the two sets of a pair side by side
+- Exercises page:
+    - Stretched muscles of an exercise, edited next to the worked muscles
+    - Filtering of exercises by their stretched muscles
+    - Flexibility category
+    - Hip flexors and hip rotators
+- Exercise page:
+    - Left and right column in the set history, showing the two sets of a pair side by side
+    - Stretched muscles of the exercise, shown in a row of their own
+- Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
+- Muscles page: Hip flexors and hip rotators
+
+### Changed
+
+- Exercises page: Legend of the primary and secondary muscles in the filter and properties dialogs, shown once above all muscles as the order in which tapping a muscle changes its level
+- Exercise page: Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
 
 ### Fixed
 

@@ -8,6 +8,7 @@ use crate::{
 pub struct Exercise {
     pub name: Name,
     pub muscles: &'static [(MuscleID, Stimulus)],
+    pub stretch: &'static [(MuscleID, Stimulus)],
     pub force: Force,
     pub mechanic: Mechanic,
     pub laterality: Laterality,
@@ -21,6 +22,7 @@ impl From<BaseExercise> for Exercise {
         Exercise {
             name: Name::new(value.name).unwrap(),
             muscles: value.muscles,
+            stretch: value.stretch,
             force: value.force,
             mechanic: value.mechanic,
             laterality: value.laterality,
@@ -35,6 +37,7 @@ impl From<BaseExercise> for Exercise {
 struct BaseExercise {
     pub name: &'static str,
     pub muscles: &'static [(MuscleID, Stimulus)],
+    pub stretch: &'static [(MuscleID, Stimulus)],
     pub force: Force,
     pub mechanic: Mechanic,
     pub laterality: Laterality,
@@ -48,6 +51,7 @@ struct BaseExercise {
 pub struct ExerciseVariant {
     pub name: &'static str,
     pub muscles: Option<&'static [(MuscleID, Stimulus)]>,
+    pub stretch: Option<&'static [(MuscleID, Stimulus)]>,
     pub force: Option<Force>,
     pub mechanic: Option<Mechanic>,
     pub laterality: Option<Laterality>,
@@ -61,6 +65,7 @@ impl ExerciseVariant {
         Self {
             name: "",
             muscles: None,
+            stretch: None,
             force: None,
             mechanic: None,
             laterality: None,
@@ -85,6 +90,7 @@ pub(crate) static EXERCISES: std::sync::LazyLock<BTreeMap<Name, Exercise>> =
                     assistance: v.assistance.unwrap_or(e.assistance),
                     equipment: v.equipment.unwrap_or(e.equipment),
                     muscles: v.muscles.unwrap_or(e.muscles),
+                    stretch: v.stretch.unwrap_or(e.stretch),
                     category: v.category.unwrap_or(e.category),
                 })
             }))
@@ -109,6 +115,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Glutes, Stimulus::SECONDARY),
             (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -124,6 +131,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Lats, Stimulus::SECONDARY),
             (MuscleID::Traps, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -135,6 +143,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Kneeling Barbell Ab Rollout",
@@ -153,6 +162,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::FrontDelts, Stimulus::PRIMARY),
             (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -203,6 +213,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[(MuscleID::Biceps, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -276,6 +287,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Traps, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -348,6 +360,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::FrontDelts, Stimulus::PRIMARY),
             (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Dumbbell Floor Press",
@@ -368,6 +381,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Hamstrings, Stimulus::PRIMARY),
             (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -394,6 +408,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Quads, Stimulus::SECONDARY),
             (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Machine Hip Thrust",
@@ -409,6 +424,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[(MuscleID::Triceps, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -444,6 +460,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Lats, Stimulus::PRIMARY),
             (MuscleID::Pecs, Stimulus::PRIMARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Dumbbell Pullover",
@@ -465,6 +482,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Lats, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -491,6 +509,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::SideDelts, Stimulus::SECONDARY),
             (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -526,6 +545,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Traps, Stimulus::PRIMARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -548,6 +568,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[(MuscleID::Triceps, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -575,6 +596,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Adductors, Stimulus::PRIMARY),
             (MuscleID::Calves, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Plyometrics,
         variants: &[
             ExerciseVariant {
@@ -605,6 +627,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Pecs, Stimulus::PRIMARY),
             (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -620,6 +643,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::SideDelts, Stimulus::SECONDARY),
             (MuscleID::Traps, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -637,6 +661,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Biceps, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Cable Flexion Row",
@@ -664,6 +689,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Adductors, Stimulus::SECONDARY),
             (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -675,6 +701,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -697,6 +724,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -712,6 +740,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::FrontDelts, Stimulus::PRIMARY),
             (MuscleID::Triceps, Stimulus::PRIMARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -752,6 +781,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Pecs, Stimulus::PRIMARY),
             (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -780,6 +810,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Biceps, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -794,6 +825,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::SideDelts, Stimulus::PRIMARY),
             (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -819,6 +851,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::RearDelts, Stimulus::PRIMARY),
             (MuscleID::Traps, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -841,6 +874,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
         muscles: &[(MuscleID::Forearms, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Cable Reverse Wrist Curl",
@@ -856,6 +890,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Dumbbell],
         muscles: &[(MuscleID::Forearms, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Cable Wrist Curl",
@@ -874,6 +909,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Glutes, Stimulus::PRIMARY),
             (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Single-Leg Glute Bridge",
@@ -893,6 +929,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::SideDelts, Stimulus::SECONDARY),
             (MuscleID::Triceps, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -904,6 +941,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -930,6 +968,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Biceps, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Ring Row",
@@ -952,6 +991,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Traps, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -968,6 +1008,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::RearDelts, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -979,6 +1020,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[(MuscleID::Quads, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -995,6 +1037,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Adductors, Stimulus::PRIMARY),
             (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -1010,6 +1053,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Glutes, Stimulus::PRIMARY),
             (MuscleID::Adductors, Stimulus::PRIMARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1061,6 +1105,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Glutes, Stimulus::SECONDARY),
             (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Barbell Hack Squat",
@@ -1088,6 +1133,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Abductors, Stimulus::PRIMARY),
             (MuscleID::Glutes, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1112,6 +1158,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[(MuscleID::Adductors, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1136,6 +1183,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[(MuscleID::Calves, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1166,6 +1214,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::FrontDelts, Stimulus::PRIMARY),
             (MuscleID::Triceps, Stimulus::PRIMARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1194,6 +1243,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Biceps, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1216,6 +1266,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -1227,6 +1278,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1254,6 +1306,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Biceps, Stimulus::SECONDARY),
             (MuscleID::Forearms, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1281,6 +1334,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Triceps, Stimulus::SECONDARY),
             (MuscleID::Abs, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1315,6 +1369,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[(MuscleID::Quads, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[],
     },
@@ -1326,6 +1381,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
+        stretch: &[],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Lying Leg Curl",
@@ -1343,6 +1399,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Hamstrings, Stimulus::PRIMARY),
             (MuscleID::Glutes, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1369,6 +1426,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Glutes, Stimulus::PRIMARY),
             (MuscleID::Adductors, Stimulus::PRIMARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1421,6 +1479,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
             (MuscleID::Calves, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1458,6 +1517,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Adductors, Stimulus::PRIMARY),
             (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
+        stretch: &[],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1487,6 +1547,7 @@ mod tests {
             ExerciseVariant {
                 name: "",
                 muscles: None,
+                stretch: None,
                 force: None,
                 mechanic: None,
                 laterality: None,
@@ -1597,30 +1658,24 @@ mod tests {
     #[test]
     fn test_exercise_variants_duplicate_muscles() {
         for exercise in EXERCISE_VARIANTS {
-            let muscles: HashSet<MuscleID> =
-                exercise.muscles.iter().map(|(m, _)| m).copied().collect();
-            assert_eq!(
-                exercise.muscles.len(),
-                muscles.len(),
-                "duplicate muscle entries for \"{}\"",
-                exercise.name
-            );
+            for muscles in [exercise.muscles, exercise.stretch] {
+                assert_distinct_muscles(muscles, exercise.name);
+            }
 
             for variant in exercise.variants {
-                let muscles: HashSet<MuscleID> = variant
-                    .muscles
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|(m, _)| m)
-                    .copied()
-                    .collect();
-                assert_eq!(
-                    variant.muscles.unwrap_or_default().len(),
-                    muscles.len(),
-                    "duplicate muscle entries for \"{}\"",
-                    exercise.name
-                );
+                for muscles in [variant.muscles, variant.stretch] {
+                    assert_distinct_muscles(muscles.unwrap_or_default(), variant.name);
+                }
             }
         }
+    }
+
+    fn assert_distinct_muscles(muscles: &[(MuscleID, Stimulus)], name: &str) {
+        let distinct: HashSet<MuscleID> = muscles.iter().map(|(m, _)| m).copied().collect();
+        assert_eq!(
+            muscles.len(),
+            distinct.len(),
+            "duplicate muscle entries for \"{name}\""
+        );
     }
 }

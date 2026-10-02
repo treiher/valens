@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 from valens import app, demo, limits
+from valens.demo import training as demo_training
 from valens.demo.profiles import PROFILES
+from valens.demo.training import ExerciseDefinition, ExerciseType
 from valens.models import RoutineActivity, Sex, User, Workout, WorkoutSet
 
 TODAY = datetime.date(2002, 3, 12)
@@ -55,6 +57,38 @@ def test_exercises_have_valid_muscles() -> None:
             for muscle in exercise.muscles:
                 assert muscle.muscle_id in limits.MUSCLE_IDS
                 assert limits.STIMULUS_MIN <= muscle.stimulus <= limits.STIMULUS_MAX
+                assert limits.STIMULUS_MIN <= muscle.stretch <= limits.STIMULUS_MAX
+                assert muscle.stimulus + muscle.stretch >= 1
+
+
+def test_muscles_merge_worked_and_stretched_entries() -> None:
+    definition = ExerciseDefinition(
+        ExerciseType(reps=False, phases=(30,), weight=False, rpe=False),
+        (
+            (demo_training.ERECTOR_SPINAE, demo_training.PRIMARY),
+            (demo_training.GLUTES, demo_training.SECONDARY),
+        ),
+        demo_training.REST,
+        force=demo_training.PULL,
+        mechanic=demo_training.COMPOUND,
+        laterality=demo_training.BILATERAL,
+        assistance=demo_training.UNASSISTED,
+        equipment=(),
+        category=demo_training.FLEXIBILITY,
+        stretch=(
+            (demo_training.HAMSTRINGS, demo_training.PRIMARY),
+            (demo_training.ERECTOR_SPINAE, demo_training.SECONDARY),
+        ),
+    )
+
+    assert [
+        (m.user_id, m.muscle_id, m.stimulus, m.stretch)
+        for m in demo_training._muscles(1, definition)  # noqa: SLF001
+    ] == [
+        (1, demo_training.ERECTOR_SPINAE, demo_training.PRIMARY, demo_training.SECONDARY),
+        (1, demo_training.GLUTES, demo_training.SECONDARY, 0),
+        (1, demo_training.HAMSTRINGS, 0, demo_training.PRIMARY),
+    ]
 
 
 def test_body_weight_is_plausible() -> None:

@@ -8,6 +8,9 @@ from playwright.sync_api import expect
 if TYPE_CHECKING:
     from playwright.sync_api import Locator, Page
 
+# The suffixes of the test-ids of the muscle sections in the property and filter dialogs
+MUSCLE_SECTIONS = {"worked": "muscles", "stretched": "stretch"}
+
 
 def parse_int(text: str) -> int | None:
     try:

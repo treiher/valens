@@ -448,6 +448,7 @@ pub fn MultiToggleTags(multi_toggle: Signal<MultiToggle>) -> Element {
                 span {
                     class: "tag is-hoverable {class}",
                     "data-testid": "multi-toggle-tag",
+                    "data-state": "{state}",
                     onclick: move |_| {
                         multi_toggle.write().advance(i);
                     },

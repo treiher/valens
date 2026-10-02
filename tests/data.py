@@ -45,7 +45,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
         laterality=2,
         assistance=1,
         category=1,
-        muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=100)],
+        muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=100, stretch=0)],
         equipment=[
             ExerciseEquipment(user_id=1, equipment=1),
             ExerciseEquipment(user_id=1, equipment=4),
@@ -57,7 +57,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
         user_id=1,
         name="Exercise 3",
         notes="Exercise 3 Notes\nSecond line",
-        muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=50)],
+        muscles=[ExerciseMuscle(user_id=1, muscle_id=11, stimulus=50, stretch=0)],
     )
     exercise_4 = Exercise(id=4, user_id=2, name="Exercise 4")
     exercise_5 = Exercise(id=5, user_id=1, name="Unused Exercise")

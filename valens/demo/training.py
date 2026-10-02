@@ -39,6 +39,8 @@ ABS = 61
 ERECTOR_SPINAE = 62
 GLUTES = 71
 ABDUCTORS = 72
+HIP_FLEXORS = 73
+HIP_ROTATORS = 74
 QUADS = 81
 HAMSTRINGS = 82
 ADDUCTORS = 83
@@ -80,6 +82,7 @@ PARALLEL_BARS = 9
 # Category values mirror `Category` in `crates/domain/src/exercise.rs`
 STRENGTH = 1
 PLYOMETRICS = 2
+FLEXIBILITY = 3
 
 # Stimulus values mirror `Stimulus` in `crates/domain/src/exercise.rs`
 PRIMARY = 100
@@ -147,6 +150,7 @@ class ExerciseDefinition:
     assistance: int
     equipment: tuple[int, ...]
     category: int
+    stretch: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass
@@ -534,10 +538,7 @@ def training(profile: Profile, today: datetime.date, rng: random.Random) -> Trai
             laterality=EXERCISES[name].laterality,
             assistance=EXERCISES[name].assistance,
             category=EXERCISES[name].category,
-            muscles=[
-                ExerciseMuscle(user_id=profile.id, muscle_id=muscle, stimulus=stimulus)
-                for muscle, stimulus in EXERCISES[name].muscles
-            ],
+            muscles=_muscles(profile.id, EXERCISES[name]),
             equipment=[
                 ExerciseEquipment(user_id=profile.id, equipment=equipment)
                 for equipment in EXERCISES[name].equipment
@@ -555,6 +556,21 @@ def training(profile: Profile, today: datetime.date, rng: random.Random) -> Trai
         schedule_rotations=rotations,
         schedule_slots=slots,
     )
+
+
+def _muscles(user_id: int, definition: ExerciseDefinition) -> list[ExerciseMuscle]:
+    """Merge the worked and stretched muscles into one entry per muscle."""
+    stimulus = dict(definition.muscles)
+    stretch = dict(definition.stretch)
+    return [
+        ExerciseMuscle(
+            user_id=user_id,
+            muscle_id=muscle,
+            stimulus=stimulus.get(muscle, 0),
+            stretch=stretch.get(muscle, 0),
+        )
+        for muscle in dict.fromkeys([*stimulus, *stretch])
+    ]
 
 
 def _sessions(profile: Profile, today: datetime.date, rng: random.Random) -> list[_Session]:

@@ -7,7 +7,7 @@ use crate::{
     cache::{Cache, CacheState},
     eh,
     notification::{notify, notify_error},
-    routing::NavigatorScrollExt,
+    routing::{NavigatorScrollExt, RoutineTab},
     settings::Settings,
     ui::{
         element::{
@@ -121,7 +121,7 @@ fn view_list(
             vec![
                 rsx! {
                     Link {
-                        to: Route::Routine { id: r.id },
+                        to: Route::Routine { id: r.id, tab: RoutineTab::Routine },
                         "{r.name}"
                     }
                 },
@@ -141,7 +141,7 @@ fn view_list(
             vec![
                 rsx! {
                     Link {
-                        to: Route::Routine { id: r.id },
+                        to: Route::Routine { id: r.id, tab: RoutineTab::Routine },
                         "{r.name}"
                     }
                 },
@@ -581,7 +581,13 @@ mod tests {
         });
 
         assert!(
-            html.contains(&format!("href=\"{}\"", Route::Routine { id: 1.into() })),
+            html.contains(&format!(
+                "href=\"{}\"",
+                Route::Routine {
+                    id: 1.into(),
+                    tab: RoutineTab::Routine
+                }
+            )),
             "{html}"
         );
     }

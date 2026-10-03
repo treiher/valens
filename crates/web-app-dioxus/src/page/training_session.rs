@@ -24,6 +24,7 @@ use crate::{
     notification::notify,
     ongoing_training_session::OngoingTrainingSession,
     page,
+    routing::{ExerciseTab, RoutineTab},
     settings::Settings,
     ui::{
         element::{
@@ -628,7 +629,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                         Title {
                             class: "has-text-link",
                             Link {
-                                to: Route::Routine { id: routine.id },
+                                to: Route::Routine { id: routine.id, tab: RoutineTab::Routine },
                                 "{routine.name}"
                             }
                         }
@@ -1139,7 +1140,7 @@ fn view_form(
                         Link {
                             class: "px-1",
                             "data-testid": "exercise-name",
-                            to: Route::Exercise { id: *id },
+                            to: Route::Exercise { id: *id, tab: ExerciseTab::Exercise },
                             "{name}"
                         }
                         a {
@@ -2022,7 +2023,7 @@ fn view_list(
                         Link {
                             class: "px-1",
                             "data-testid": "exercise-name",
-                            to: Route::Exercise { id },
+                            to: Route::Exercise { id, tab: ExerciseTab::Exercise },
                             "{name}"
                         }
                     }

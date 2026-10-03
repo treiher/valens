@@ -327,6 +327,16 @@ def goto_page(create: Callable[[Page], BasePage]) -> Callable[[Page], BasePage]:
     return goto
 
 
+def goto_tab(create: Callable[[Page], BasePage], tab: str) -> Callable[[Page], BasePage]:
+    def goto(page: Page) -> BasePage:
+        p = create(page)
+        p.goto()
+        p.select_tab(tab)
+        return p
+
+    return goto
+
+
 NARROW_SCREEN_PAGES: list[tuple[str, Callable[[Page], BasePage]]] = [
     ("home", goto_page(HomePage)),
     ("training_sessions", goto_page(TrainingSessionsPage)),
@@ -336,9 +346,18 @@ NARROW_SCREEN_PAGES: list[tuple[str, Callable[[Page], BasePage]]] = [
     ("schedule", goto_page(SchedulePage)),
     ("routines", goto_page(RoutinesPage)),
     ("routine", goto_page(lambda page: RoutinePage(page, USER.routines[-1].id))),
+    (
+        "routine_sessions",
+        goto_tab(lambda page: RoutinePage(page, USER.routines[-1].id), "sessions"),
+    ),
     ("routine_activity_edit_dialog", goto_routine_activity_edit_dialog),
     ("exercises", goto_page(ExercisesPage)),
     ("exercise", goto_page(lambda page: ExercisePage(page, USER.exercises[0].id))),
+    (
+        "exercise_sessions",
+        goto_tab(lambda page: ExercisePage(page, USER.exercises[0].id), "sessions"),
+    ),
+    ("exercise_charts", goto_tab(lambda page: ExercisePage(page, USER.exercises[0].id), "charts")),
     ("catalog", goto_page(lambda page: CatalogPage(page, "Barbell Bench Press"))),
     ("body_weight", goto_page(BodyWeightPage)),
     ("body_fat", goto_page(BodyFatPage)),
@@ -1003,7 +1022,9 @@ def test_exercise_stretch_sets(page: Page) -> None:
     p = ExercisePage(page, exercise.id)
     p.goto()
 
+    p.select_tab("charts")
     p.expect_chart_label("Stretch sets")
+    p.select_tab("sessions")
     assert p.table.get_column("Stretch sets")[row] == "2"
     assert "Set volume" not in p.table.get_headers()
     assert "Volume load" not in p.table.get_headers()
@@ -1392,6 +1413,7 @@ def test_training_session_session_exercise_notes(page: Page) -> None:
 
     exercise_page = ExercisePage(page, exercise.id)
     exercise_page.goto()
+    exercise_page.select_tab("sessions")
     expect(exercise_page.session_exercise_notes().filter(has_text=earlier_note)).to_have_count(2)
 
 
@@ -1413,7 +1435,9 @@ def test_training_session_measurement(page: Page) -> None:
 
     exercise_page = ExercisePage(page, exercise.id)
     exercise_page.goto()
+    exercise_page.select_tab("sessions")
     expect(exercise_page.session_exercise_measurements().filter(has_text="-12.5")).to_have_count(1)
+    exercise_page.select_tab("charts")
     exercise_page.expect_chart_label("Measurement")
 
     p.goto()
@@ -1927,6 +1951,7 @@ def test_training_session_side_of_a_recorded_set(page: Page) -> None:
     exercise_page = ExercisePage(page, exercise.id)
     exercise_page.goto()
     exercise_page.expect_page()
+    exercise_page.select_tab("sessions")
 
     rows = exercise_page.get_set_history_sides()
     assert rows[0] == ["Left", "Right"]
@@ -3064,6 +3089,27 @@ def test_settings_dialog_with_denied_notification_permission(page: Page) -> None
     settings.expect_notifications("Not allowed in browser settings")
 
 
+def test_routine_tabs(page: Page) -> None:
+    routine = USER.routines[0]
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+    p.expect_tab("routine")
+    assert p.get_sections()
+
+    p.select_tab("sessions")
+    assert "Load" in p.table.get_headers()
+
+    p.select_tab("charts")
+    p.expect_chart_label("Set volume")
+
+    p.reload()
+
+    p.expect_tab("charts")
+    p.expect_chart_label("Set volume")
+
+
 def test_routine_delete_training_session(page: Page) -> None:
     routine = USER.routines[0]
     workouts = sorted(
@@ -3075,6 +3121,7 @@ def test_routine_delete_training_session(page: Page) -> None:
     login(page)
     p = RoutinePage(page, routine.id)
     p.goto()
+    p.select_tab("sessions")
 
     p.wait_for_link(workout_1)
     p.wait_for_link(workout_2)
@@ -3725,6 +3772,27 @@ def test_exercises_delete(page: Page) -> None:
     assert p.table.get_body(1) == [[previous_name, ""]]
 
 
+def test_exercise_tabs(page: Page) -> None:
+    exercise = sorted(USER.exercises, key=lambda x: x.name)[1]
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+    p.expect_tab("exercise")
+    assert p.get_muscles()
+
+    p.select_tab("sessions")
+    assert "Load" in p.table.get_headers()
+
+    p.select_tab("charts")
+    p.expect_chart_label("Set volume")
+
+    p.reload()
+
+    p.expect_tab("charts")
+    p.expect_chart_label("Set volume")
+
+
 def test_exercise_delete_workout(page: Page) -> None:
     exercise = sorted(USER.exercises, key=lambda x: x.name)[1]
     workouts = sorted({ws.workout for ws in exercise.sets}, key=lambda x: x.date)
@@ -3734,6 +3802,7 @@ def test_exercise_delete_workout(page: Page) -> None:
     login(page)
     p = ExercisePage(page, exercise.id)
     p.goto()
+    p.select_tab("sessions")
 
     p.table.expect_value(1, 1, 1, workout_1)
 

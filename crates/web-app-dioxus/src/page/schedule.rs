@@ -10,6 +10,7 @@ use crate::{
     eh,
     loading::LoadingFlag,
     notification::{notify, notify_error},
+    routing::RoutineTab,
     ui::{
         drag_and_drop,
         element::{
@@ -100,7 +101,7 @@ fn view_slots(
         .map(|slot| match slot {
             domain::ScheduleSlot::Routine(routine_id) => rsx! {
                 Link {
-                    to: Route::Routine { id: routine_id },
+                    to: Route::Routine { id: routine_id, tab: RoutineTab::Routine },
                     "data-testid": "slot-name",
                     {routine_name(routines, routine_id)}
                 }
@@ -207,7 +208,7 @@ fn view_rotation_routines(
         .map(|routine_id| {
             rsx! {
                 Link {
-                    to: Route::Routine { id: *routine_id },
+                    to: Route::Routine { id: *routine_id, tab: RoutineTab::Routine },
                     "data-testid": "rotation-routine-name",
                     {routine_name(routines, *routine_id)}
                 }

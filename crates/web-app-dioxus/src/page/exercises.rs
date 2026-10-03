@@ -14,7 +14,7 @@ use crate::{
     eh,
     notification::notify,
     page,
-    routing::NavigatorScrollExt,
+    routing::{ExerciseTab, NavigatorScrollExt},
     ui::{
         element::{
             Block, Color, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
@@ -66,7 +66,7 @@ pub fn Exercises(add: bool, filter: String) -> Element {
             add,
             filter: domain::ExerciseFilter::try_from(ExerciseFilter::from_base64(&filter))
                 .unwrap_or_default(),
-            on_exercise_click: move |(_, id)| { navigator().push(Route::Exercise { id }); },
+            on_exercise_click: move |(_, id)| { navigator().push(Route::Exercise { id, tab: ExerciseTab::Exercise }); },
             on_catalog_click: move |(_, name)| { navigator().push(Route::Catalog { name }); },
             exercises_page: true,
         }

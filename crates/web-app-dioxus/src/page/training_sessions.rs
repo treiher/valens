@@ -13,7 +13,7 @@ use crate::{
     eh,
     notification::{notify, notify_error},
     page::training_charts,
-    routing::{NavigatorScrollExt, TrainingSessionsTab},
+    routing::{NavigatorScrollExt, RoutineTab, TrainingSessionsTab},
     settings::Settings,
     ui::{
         element::{
@@ -323,7 +323,7 @@ pub fn view_table(
                     "-"
                 } else {
                     Link {
-                        to: Route::Routine { id: routine_id },
+                        to: Route::Routine { id: routine_id, tab: RoutineTab::Routine },
                         match routine {
                             Some(routine) => rsx! { {routine.name.to_string()} },
                             None => rsx! { "-" }

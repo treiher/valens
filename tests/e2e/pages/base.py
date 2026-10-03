@@ -61,6 +61,17 @@ class BasePage:
     def wait_until_idle(self) -> None:
         wait_until_idle(self.page)
 
+    def select_tab(self, tab: str) -> None:
+        """Select the tab of the page named `tab` in lowercase."""
+        self.page.get_by_test_id(f"tab-{tab}").click()
+        self.expect_tab(tab)
+
+    def expect_tab(self, tab: str) -> None:
+        expect(self.page.get_by_test_id(f"tab-{tab}")).to_have_attribute("data-selected", "true")
+
+    def expect_chart_label(self, label: str) -> None:
+        expect(self.page.get_by_text(label, exact=True).first).to_be_visible()
+
     @property
     def horizontal_overflow(self) -> int:
         """Number of pixels by which the page is wider than the viewport."""

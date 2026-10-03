@@ -37,14 +37,14 @@ pub enum Route {
             TrainingSession { id: domain::TrainingSessionID },
             #[route("/routines?:add&:search")]
             Routines { add: bool, search: String },
-            #[route("/routine/:id")]
-            Routine { id: domain::RoutineID },
+            #[route("/routine/:id/:..tab")]
+            Routine { id: domain::RoutineID, tab: RoutineTab },
             #[route("/schedule")]
             Schedule {},
             #[route("/exercises?:add&:filter")]
             Exercises { add: bool, filter: String },
-            #[route("/exercise/:id")]
-            Exercise { id: domain::ExerciseID },
+            #[route("/exercise/:id/:..tab")]
+            Exercise { id: domain::ExerciseID, tab: ExerciseTab },
             #[route("/catalog/:name")]
             Catalog { name: String },
             #[route("/body_weight?:add")]
@@ -152,6 +152,16 @@ page_tabs!(
     TrainingSessionsTab { Sessions, Charts => "charts" }
 );
 
+page_tabs!(
+    /// A tab of the routine page.
+    RoutineTab { Routine, Sessions => "sessions", Charts => "charts" }
+);
+
+page_tabs!(
+    /// A tab of the exercise page.
+    ExerciseTab { Exercise, Sessions => "sessions", Charts => "charts" }
+);
+
 pub trait NavigatorScrollExt {
     fn replace_preserving_scroll<R: Routable + 'static>(&self, route: R);
 }
@@ -201,13 +211,19 @@ mod tests {
                 add: false,
                 search: String::new(),
             },
-            Route::Routine { id: 1.into() },
+            Route::Routine {
+                id: 1.into(),
+                tab: RoutineTab::Routine,
+            },
             Route::Schedule {},
             Route::Exercises {
                 add: false,
                 filter: String::new(),
             },
-            Route::Exercise { id: 1.into() },
+            Route::Exercise {
+                id: 1.into(),
+                tab: ExerciseTab::Exercise,
+            },
             Route::Catalog {
                 name: String::new(),
             },

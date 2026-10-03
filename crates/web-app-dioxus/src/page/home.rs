@@ -8,7 +8,7 @@ use crate::{
     current_date::current_date,
     loading::LoadingFlag,
     page::training_sessions::{start_training_session, stretch_only_exercises},
-    routing::TrainingSessionsTab,
+    routing::{RoutineTab, TrainingSessionsTab},
     session::Session,
     ui::element::{Block, Error, Icon, Loading, LoadingDialog, Title},
 };
@@ -264,7 +264,7 @@ fn view_today(pending: &[(domain::Routine, Option<String>)], today: chrono::Naiv
                         div {
                             Link {
                                 class: "title is-size-5 has-text-link",
-                                to: Route::Routine { id: routine.id },
+                                to: Route::Routine { id: routine.id, tab: RoutineTab::Routine },
                                 "data-testid": "home-today-routine",
                                 "{routine.name}"
                             }

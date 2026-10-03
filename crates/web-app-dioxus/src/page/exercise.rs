@@ -13,17 +13,18 @@ use crate::{
     eh,
     muscle::view_muscles_caption,
     page,
+    routing::{ExerciseTab, NavigatorScrollExt, RoutineTab},
     settings::Settings,
     ui::element::{
         Block, CenteredBlock, CenteredTags, ElementWithDescription, Error, ErrorPage,
-        FloatingActionButton, Loading, LoadingPage, NoData, NoWrap, Title,
+        FloatingActionButton, Loading, LoadingPage, NoData, NoWrap, Tabs, Title,
     },
 };
 
 #[component]
-pub fn Exercise(id: domain::ExerciseID) -> Element {
+pub fn Exercise(id: domain::ExerciseID, tab: ExerciseTab) -> Element {
     let cache = consume_context::<Cache>();
-    let mut current_interval = use_signal(domain::Interval::default);
+    let current_interval = use_signal(domain::Interval::default);
     let settings = use_context::<Settings>();
     let mut exercise_dialog = use_signal(|| page::exercises::ExerciseDialog::None);
     let training_dialog = use_signal(|| page::training_sessions::TrainingDialog::None);
@@ -32,98 +33,28 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
         CacheState::Ready(exercises) => {
             let exercise = exercises.iter().find(|e| e.id == id);
             if let Some(exercise) = exercise {
-                let muscles = exercise.muscle_stimulus().into_iter().collect::<Vec<_>>();
-                let stretch = exercise.muscle_stretch().into_iter().collect::<Vec<_>>();
-                // A hold without its time reads as an empty set.
-                let show_time = settings.show_tut() || exercise.is_stretch_only();
-                let stretch_only = domain::StretchOnlyExercises::new(exercises);
-                let stretch_metrics = if exercise.is_stretch_only() {
-                    page::training_sessions::StretchMetrics::Only
-                } else {
-                    page::training_sessions::StretchMetrics::Include
+                let content = match tab {
+                    ExerciseTab::Exercise => view_exercise(exercise, exercise_dialog),
+                    ExerciseTab::Sessions | ExerciseTab::Charts => view_training_sessions(
+                        exercise,
+                        exercises,
+                        tab,
+                        &cache,
+                        current_interval,
+                        training_dialog,
+                        settings,
+                    ),
                 };
-                let has_properties = exercise.force.is_some()
-                    || exercise.mechanic.is_some()
-                    || exercise.laterality.is_some()
-                    || exercise.assistance.is_some()
-                    || exercise.category.is_some()
-                    || !exercise.equipment.is_empty();
                 rsx! {
                     Title { "{exercise.name}" },
-                    if has_properties || !muscles.is_empty() || !stretch.is_empty() {
-                        Block {
-                            {view_exercise_properties(
-                                exercise.force,
-                                exercise.mechanic,
-                                exercise.laterality,
-                                exercise.assistance,
-                                &exercise.equipment,
-                                &muscles,
-                                &stretch,
-                                exercise.category,
-                            )},
-                        }
+                    Tabs {
+                        tabs: vec![("Exercise", ExerciseTab::Exercise), ("Sessions", ExerciseTab::Sessions), ("Charts", ExerciseTab::Charts)],
+                        selected: tab,
+                        on_select: move |tab| {
+                            navigator().replace_preserving_scroll(Route::Exercise { id, tab });
+                        },
                     }
-                    {view_notes(exercise, exercise_dialog)}
-                    match (&*cache.training_sessions.read(), &*cache.routines.read()) {
-                        (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => {
-                            let sessions_with_exercise = training_sessions
-                                .iter()
-                                .filter(|t| t.exercises().contains(&id))
-                                .collect::<Vec<_>>();
-                            let training_sessions = sessions_with_exercise
-                                .iter()
-                                .map(|t| t.restricted_to(id))
-                            .collect::<Vec<_>>();
-                            if training_sessions.is_empty() {
-                                rsx! {
-                                    NoData {}
-                                }
-                            } else {
-                                let dates = training_sessions
-                                    .iter()
-                                    .map(|ts| ts.date)
-                                    .collect::<Vec<_>>();
-                                let all = domain::Interval {
-                                    first: dates.iter().min().copied().unwrap_or_default(),
-                                    last: dates.iter().max().copied().unwrap_or_default(),
-                                };
-                                if *current_interval.read() == domain::Interval::default() {
-                                    current_interval.set(domain::init_interval(&dates, domain::DefaultInterval::_3M));
-                                }
-                                let interval = *current_interval.read();
-                                let training_sessions = training_sessions
-                                    .iter()
-                                    .filter(|t| t.date >= interval.first && t.date <= interval.last)
-                                    .cloned()
-                                    .collect::<Vec<_>>();
-                                let sessions_with_exercise = sessions_with_exercise
-                                    .into_iter()
-                                    .filter(|t| t.date >= interval.first && t.date <= interval.last)
-                                    .collect::<Vec<_>>();
-                                rsx! {
-                                    IntervalControl { current_interval, all },
-                                    if training_sessions.is_empty() {
-                                        NoData {}
-                                    } else {
-                                        {view_charts(id, &training_sessions, &stretch_only, interval, show_time, settings)}
-                                        {view_calendar(id, &training_sessions, &stretch_only, interval)}
-                                        {page::training_sessions::view_table(&training_sessions, &stretch_only, stretch_metrics, show_time, routines, interval, training_dialog, settings)}
-                                        {view_sets(id, &sessions_with_exercise, routines, show_time, settings)}
-                                        {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
-                                    }
-                                }
-                            }
-                        }
-                        (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
-                            rsx! { Error { message: "{err}" } }
-                        }
-                        (CacheState::Loading, _) | (_, CacheState::Loading) => {
-                            rsx! {
-                                Loading {}
-                            }
-                        }
-                    }
+                    {content}
                     {page::exercises::view_dialog(exercise_dialog, None)}
                     FloatingActionButton {
                         icon: "edit".to_string(),
@@ -143,6 +74,121 @@ pub fn Exercise(id: domain::ExerciseID) -> Element {
         }
         CacheState::Loading => {
             rsx! { LoadingPage {} }
+        }
+    }
+}
+
+/// Show the properties, the muscles and the notes of the exercise.
+fn view_exercise(
+    exercise: &domain::Exercise,
+    exercise_dialog: Signal<page::exercises::ExerciseDialog>,
+) -> Element {
+    let muscles = exercise.muscle_stimulus().into_iter().collect::<Vec<_>>();
+    let stretch = exercise.muscle_stretch().into_iter().collect::<Vec<_>>();
+    let has_properties = exercise.force.is_some()
+        || exercise.mechanic.is_some()
+        || exercise.laterality.is_some()
+        || exercise.assistance.is_some()
+        || exercise.category.is_some()
+        || !exercise.equipment.is_empty();
+    let has_muscles = !muscles.is_empty() || !stretch.is_empty();
+    if !has_properties && !has_muscles && exercise.notes.is_empty() {
+        return rsx! { NoData {} };
+    }
+    rsx! {
+        if has_properties || has_muscles {
+            Block {
+                {view_exercise_properties(
+                    exercise.force,
+                    exercise.mechanic,
+                    exercise.laterality,
+                    exercise.assistance,
+                    &exercise.equipment,
+                    &muscles,
+                    &stretch,
+                    exercise.category,
+                )},
+            }
+        }
+        {view_notes(exercise, exercise_dialog)}
+    }
+}
+
+/// Show the sessions holding the exercise and its sets on the sessions tab, and their charts on
+/// the charts tab.
+fn view_training_sessions(
+    exercise: &domain::Exercise,
+    exercises: &[domain::Exercise],
+    tab: ExerciseTab,
+    cache: &Cache,
+    mut current_interval: Signal<domain::Interval>,
+    training_dialog: Signal<page::training_sessions::TrainingDialog>,
+    settings: Settings,
+) -> Element {
+    let id = exercise.id;
+    // A hold without its time reads as an empty set.
+    let show_time = settings.show_tut() || exercise.is_stretch_only();
+    let stretch_only = domain::StretchOnlyExercises::new(exercises);
+    let stretch_metrics = if exercise.is_stretch_only() {
+        page::training_sessions::StretchMetrics::Only
+    } else {
+        page::training_sessions::StretchMetrics::Include
+    };
+    match (&*cache.training_sessions.read(), &*cache.routines.read()) {
+        (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => {
+            let sessions_with_exercise = training_sessions
+                .iter()
+                .filter(|t| t.exercises().contains(&id))
+                .collect::<Vec<_>>();
+            let training_sessions = sessions_with_exercise
+                .iter()
+                .map(|t| t.restricted_to(id))
+                .collect::<Vec<_>>();
+            if training_sessions.is_empty() {
+                return rsx! { NoData {} };
+            }
+            let dates = training_sessions
+                .iter()
+                .map(|ts| ts.date)
+                .collect::<Vec<_>>();
+            let all = domain::Interval {
+                first: dates.iter().min().copied().unwrap_or_default(),
+                last: dates.iter().max().copied().unwrap_or_default(),
+            };
+            if *current_interval.read() == domain::Interval::default() {
+                current_interval.set(domain::init_interval(&dates, domain::DefaultInterval::_3M));
+            }
+            let interval = *current_interval.read();
+            let training_sessions = training_sessions
+                .iter()
+                .filter(|t| t.date >= interval.first && t.date <= interval.last)
+                .cloned()
+                .collect::<Vec<_>>();
+            let sessions_with_exercise = sessions_with_exercise
+                .into_iter()
+                .filter(|t| t.date >= interval.first && t.date <= interval.last)
+                .collect::<Vec<_>>();
+            rsx! {
+                IntervalControl { current_interval, all },
+                if training_sessions.is_empty() {
+                    NoData {}
+                } else if tab == ExerciseTab::Charts {
+                    {view_charts(id, &training_sessions, &stretch_only, interval, show_time, settings)}
+                } else {
+                    {view_calendar(id, &training_sessions, &stretch_only, interval)}
+                    {page::training_sessions::view_table(&training_sessions, &stretch_only, stretch_metrics, show_time, routines, interval, training_dialog, settings)}
+                    {view_sets(id, &sessions_with_exercise, routines, show_time, settings)}
+                    {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
+                }
+            }
+        }
+        (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
+            rsx! { Error { message: "{err}" } }
+        }
+        (CacheState::Loading, _) | (_, CacheState::Loading) => {
+            rsx! {
+                Loading {}
+            }
         }
     }
 }
@@ -647,7 +693,7 @@ fn view_sets(
                         "-"
                     } else {
                         Link {
-                            to: Route::Routine { id: routine_id },
+                            to: Route::Routine { id: routine_id, tab: RoutineTab::Routine },
                             match routine {
                                 Some(routine) => rsx! { {routine.name.to_string()} },
                                 None => rsx! { "-" }
@@ -693,7 +739,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, all_text_of, contains, provide_settings, render, rows_of, text_of,
+        TestCache, all_text_of, attribute_of, contains, provide_settings, render, rows_of, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -716,10 +762,14 @@ mod tests {
     }
 
     fn render_exercise(id: u128, cache: impl Fn() -> TestCache + 'static) -> String {
+        render_tab(id, ExerciseTab::Exercise, cache)
+    }
+
+    fn render_tab(id: u128, tab: ExerciseTab, cache: impl Fn() -> TestCache + 'static) -> String {
         render(move || {
             cache().provide();
             provide_settings(web_app::Settings::default());
-            rsx! { Exercise { id: domain::ExerciseID::from(id) } }
+            rsx! { Exercise { id: domain::ExerciseID::from(id), tab } }
         })
     }
 
@@ -812,13 +862,66 @@ mod tests {
     }
 
     #[test]
-    fn test_without_training_sessions_no_data_is_reported() {
+    fn test_without_properties_muscles_and_notes_no_data_is_reported() {
         let html = render_exercise(1, || {
+            TestCache::default().with_exercises(vec![domain::Exercise {
+                notes: String::new(),
+                muscles: vec![],
+                force: None,
+                ..exercise(1, "Squat")
+            }])
+        });
+
+        assert_eq!(attribute_of(&html, "tab-exercise", "data-selected"), "true");
+        assert_eq!(text_of(&html, "no-data"), "No data");
+    }
+
+    #[rstest::rstest]
+    fn test_without_training_sessions_no_data_is_reported(
+        #[values(ExerciseTab::Sessions, ExerciseTab::Charts)] tab: ExerciseTab,
+    ) {
+        let html = render_tab(1, tab, || {
             TestCache::default().with_exercises(vec![exercise(1, "Squat")])
         });
 
         assert_eq!(text_of(&html, "no-data"), "No data");
         assert!(!contains(&html, "chart"));
+    }
+
+    fn with_a_set() -> TestCache {
+        TestCache::default()
+            .with_exercises(vec![exercise(1, "Squat")])
+            .with_training_sessions(vec![session_with_measurements(1, &[])])
+    }
+
+    #[test]
+    fn test_the_exercise_tab_shows_the_exercise_and_no_sessions() {
+        let html = render_exercise(1, with_a_set);
+
+        assert!(contains(&html, "muscle-tag"));
+        assert!(!contains(&html, "table"));
+        assert!(!contains(&html, "chart"));
+    }
+
+    #[test]
+    fn test_the_sessions_tab_shows_the_sessions_and_sets_and_no_exercise() {
+        let html = render_tab(1, ExerciseTab::Sessions, with_a_set);
+
+        assert_eq!(attribute_of(&html, "tab-sessions", "data-selected"), "true");
+        assert!(contains(&html, "table"));
+        assert!(contains(&html, "set-history-set"));
+        assert!(!contains(&html, "chart"));
+        assert!(!contains(&html, "muscle-tag"));
+    }
+
+    #[test]
+    fn test_the_charts_tab_shows_the_charts_and_no_exercise() {
+        let html = render_tab(1, ExerciseTab::Charts, with_a_set);
+
+        assert_eq!(attribute_of(&html, "tab-charts", "data-selected"), "true");
+        assert!(contains(&html, "chart"));
+        assert!(!contains(&html, "table"));
+        assert!(!contains(&html, "muscle-tag"));
     }
 
     fn performed_set(side: domain::Side, reps: u32) -> domain::TrainingSessionElement {
@@ -838,7 +941,7 @@ mod tests {
     }
 
     fn render_exercise_with_sets(elements: Vec<domain::TrainingSessionElement>) -> String {
-        render_exercise(1, move || {
+        render_tab(1, ExerciseTab::Sessions, move || {
             TestCache::default()
                 .with_exercises(vec![exercise(1, "Lunge")])
                 .with_training_sessions(vec![domain::TrainingSession {
@@ -884,9 +987,9 @@ mod tests {
         assert_eq!(all_text_of(&html, "set-history-set"), vec!["10", "9"]);
     }
 
-    /// Render the page of an exercise stretching the hamstrings and working them at `stimulus`,
-    /// with a 60 s hold and TUT hidden.
-    fn render_stretch(stimulus: domain::Stimulus) -> String {
+    /// Render `tab` of the page of an exercise stretching the hamstrings and working them at
+    /// `stimulus`, with a 60 s hold and TUT hidden.
+    fn render_stretch(stimulus: domain::Stimulus, tab: ExerciseTab) -> String {
         render(move || {
             TestCache::default()
                 .with_exercises(vec![domain::Exercise {
@@ -923,7 +1026,7 @@ mod tests {
                 show_tut: false,
                 ..web_app::Settings::default()
             });
-            rsx! { Exercise { id: domain::ExerciseID::from(1) } }
+            rsx! { Exercise { id: domain::ExerciseID::from(1), tab } }
         })
     }
 
@@ -934,11 +1037,12 @@ mod tests {
         #[case] stimulus: domain::Stimulus,
         #[case] expected: bool,
     ) {
-        let html = render_stretch(stimulus);
+        let html = render_stretch(stimulus, ExerciseTab::Sessions);
+        let charts = render_stretch(stimulus, ExerciseTab::Charts);
         let head = &rows_of(&html, "table")[0];
 
         assert_eq!(text_of(&html, "set-history-set").contains("60 s"), expected);
-        assert_eq!(html.contains("Time under tension (s)"), expected);
+        assert_eq!(charts.contains("Time under tension (s)"), expected);
         assert_eq!(head.contains(&"TUT".to_string()), expected);
         assert_eq!(head.contains(&"Time (s)".to_string()), expected);
     }
@@ -950,7 +1054,7 @@ mod tests {
         #[case] stimulus: domain::Stimulus,
         #[case] is_stretch_only: bool,
     ) {
-        let html = render_stretch(stimulus);
+        let html = render_stretch(stimulus, ExerciseTab::Sessions);
         let table = rows_of(&html, "table");
         let column = |name: &str| table[0].iter().position(|h| h == name);
 
@@ -995,7 +1099,7 @@ mod tests {
         #[case] series: &[&str],
         #[case] row: Option<&str>,
     ) {
-        let html = render_exercise(1, move || {
+        let html = render_tab(1, ExerciseTab::Sessions, move || {
             TestCache::default()
                 .with_exercises(vec![exercise(1, "Pancake Stretch")])
                 .with_training_sessions(vec![session_with_measurements(1, measurements)])

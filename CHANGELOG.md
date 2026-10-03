@@ -46,9 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Routine page:
     - Label of the time of an activity without repetitions, which reads "Time"
     - Sets per muscle, leaving out muscles without sets
+    - Routine, its training sessions and their charts on a tab each
 - Exercises page: Legend of the primary and secondary muscles in the filter and properties dialogs, shown once above all muscles as the order in which tapping a muscle changes its level
 - Exercise page:
     - Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
+    - Properties, muscles and notes of the exercise, its training sessions and their charts on a tab each
     - Shading of the days in the calendar by the set volume instead of the volume load, or by the stretch sets for an exercise that only stretches
 - Catalog exercise page:
     - Stretched muscles of the catalog exercises that stretch a muscle under load

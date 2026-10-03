@@ -13,6 +13,8 @@ BUILT_FILES := index.html main.css sw.js valens-web-app-dioxus.js valens-web-app
 COMPRESSED_ASSET_FILES := favicon.ico manifest.json
 GENERATED_FILES := $(BUILT_FILES) $(addsuffix .br,$(BUILT_FILES) $(COMPRESSED_ASSET_FILES))
 PACKAGE_GENERATED_FILES := $(addprefix $(GENERATED_DIR)/,$(GENERATED_FILES))
+PACKAGE_SOURCE_FILES := pyproject.toml README.md \
+	$(shell find valens -type f -not -path '*/__pycache__/*' -not -path '$(GENERATED_DIR)/*')
 BUILD_DIR := $(PWD)/build
 CONFIG_FILE := $(BUILD_DIR)/config.py
 WEBDRIVER_CONFIG := $(BUILD_DIR)/webdriver.json
@@ -210,7 +212,7 @@ check-readme: $(WHEEL)
 
 dist: $(WHEEL)
 
-$(WHEEL): $(PACKAGE_GENERATED_FILES)
+$(WHEEL): $(PACKAGE_GENERATED_FILES) $(PACKAGE_SOURCE_FILES)
 	uv build
 
 $(PACKAGE_GENERATED_FILES): DX_RELEASE_DIR := target/dx/valens-web-app-dioxus/release/web/public

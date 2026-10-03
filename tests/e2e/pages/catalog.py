@@ -27,4 +27,4 @@ class CatalogPage(BasePage):
         return self.page.get_by_test_id("muscle-tag").all_inner_texts()
 
     def expect_page(self) -> None:
-        expect(self.page_title).to_have_text("Catalog exercise")
+        expect(self.page_title).to_have_text(self.name)

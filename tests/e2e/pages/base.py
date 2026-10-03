@@ -332,6 +332,17 @@ class Navbar(PageElement):
     def go_back(self) -> None:
         self.page.get_by_test_id("navbar-back").click()
 
+    def follow_title_link(self) -> None:
+        self.page.get_by_test_id("page-title-link").click()
+
+    def scroll_title_to_end(self) -> None:
+        self.page.get_by_test_id("page-title").evaluate("e => e.scrollLeft = e.scrollWidth")
+
+    def expect_title_clipped(self, *, start: bool, end: bool) -> None:
+        title = self.page.get_by_test_id("page-title")
+        expect(title).to_have_attribute("data-clipped-start", str(start).lower())
+        expect(title).to_have_attribute("data-clipped-end", str(end).lower())
+
     def logout(self) -> None:
         self._open_menu()
         self.page.get_by_test_id("navbar-logout").click()

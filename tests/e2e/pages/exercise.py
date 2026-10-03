@@ -104,7 +104,7 @@ class ExercisePage(BasePage):
         self.dialog.wait_until_open()
 
     def expect_page(self) -> None:
-        expect(self.page.get_by_test_id("page-title")).to_have_text("Exercise")
+        expect(self.page).to_have_url(re.compile(r"/exercise/[^/]+(/[a-z]+)?$"))
 
 
 class ExerciseNotesDialog(Dialog):

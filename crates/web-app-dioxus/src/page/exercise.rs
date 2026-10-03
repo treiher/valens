@@ -17,7 +17,7 @@ use crate::{
     settings::Settings,
     ui::element::{
         Block, CenteredBlock, CenteredTags, ElementWithDescription, Error, ErrorPage,
-        FloatingActionButton, Loading, LoadingPage, NoData, NoWrap, Tabs, Title,
+        FloatingActionButton, Loading, LoadingPage, NoData, NoWrap, Tabs,
     },
 };
 
@@ -46,13 +46,13 @@ pub fn Exercise(id: domain::ExerciseID, tab: ExerciseTab) -> Element {
                     ),
                 };
                 rsx! {
-                    Title { "{exercise.name}" },
                     Tabs {
                         tabs: vec![("Exercise", ExerciseTab::Exercise), ("Sessions", ExerciseTab::Sessions), ("Charts", ExerciseTab::Charts)],
                         selected: tab,
                         on_select: move |tab| {
                             navigator().replace_preserving_scroll(Route::Exercise { id, tab });
                         },
+                        is_page_top: true,
                     }
                     {content}
                     {page::exercises::view_dialog(exercise_dialog, None)}
@@ -774,12 +774,11 @@ mod tests {
     }
 
     #[test]
-    fn test_the_name_properties_and_notes_are_shown() {
+    fn test_the_properties_and_notes_are_shown() {
         let html = render_exercise(1, || {
             TestCache::default().with_exercises(vec![exercise(1, "Squat")])
         });
 
-        assert_eq!(text_of(&html, "title"), "Squat");
         assert_eq!(text_of(&html, "property-tag"), "Push");
         assert_eq!(text_of(&html, "muscle-tag"), "Pecs");
         assert_eq!(text_of(&html, "exercise-notes"), "some notes");

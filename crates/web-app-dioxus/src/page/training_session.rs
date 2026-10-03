@@ -24,7 +24,7 @@ use crate::{
     notification::notify,
     ongoing_training_session::OngoingTrainingSession,
     page,
-    routing::{ExerciseTab, RoutineTab},
+    routing::ExerciseTab,
     settings::Settings,
     ui::{
         element::{
@@ -180,20 +180,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             }
         }
         result
-    });
-    let routine = use_memo(move || {
-        if let Some(training_session) = &*training_session.read() {
-            if let CacheState::Ready(routines) = &*cache.routines.read() {
-                routines
-                    .iter()
-                    .find(|e| e.id == training_session.routine_id)
-                    .cloned()
-            } else {
-                None
-            }
-        } else {
-            None
-        }
     });
 
     use_effect(move || {
@@ -623,18 +609,6 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 show_active_focus,
             };
             rsx! {
-                Title { "{training_session.date}" }
-                if let Some(routine) = &*routine.read() {
-                    Block {
-                        Title {
-                            class: "has-text-link",
-                            Link {
-                                to: Route::Routine { id: routine.id, tab: RoutineTab::Routine },
-                                "{routine.name}"
-                            }
-                        }
-                    }
-                }
                 if edit() {
                     {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {

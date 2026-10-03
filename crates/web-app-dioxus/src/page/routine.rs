@@ -76,13 +76,13 @@ pub fn Routine(id: domain::RoutineID, tab: RoutineTab) -> Element {
                     ),
                 };
                 rsx! {
-                    Title { "{routine.name}" }
                     Tabs {
                         tabs: vec![("Routine", RoutineTab::Routine), ("Sessions", RoutineTab::Sessions), ("Charts", RoutineTab::Charts)],
                         selected: tab,
                         on_select: move |tab| {
                             navigator().replace_preserving_scroll(Route::Routine { id, tab });
                         },
+                        is_page_top: true,
                     }
                     {content}
                     {page::routines::view_dialog(routine_dialog, None)}
@@ -1477,10 +1477,9 @@ mod tests {
     }
 
     #[test]
-    fn test_the_name_and_the_summary_are_shown() {
+    fn test_the_summary_is_shown() {
         let html = render_routine(1, with_routine);
 
-        assert_eq!(text_of(&html, "title"), "A");
         assert_eq!(
             all_text_of(&html, "data-box")[0..2],
             ["Duration~ 0 min", "Sets3"]

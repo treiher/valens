@@ -1,6 +1,6 @@
 //! Navigation bar.
 
-use dioxus::prelude::*;
+use dioxus::{prelude::*, web::WebEventExt};
 
 use futures_util::StreamExt;
 use gloo_timers::future::IntervalStream;
@@ -14,6 +14,7 @@ use crate::{
         Metronome, MetronomeService, MutableTimer, Stopwatch, StopwatchService, TICK_INTERVAL_MS,
         TimerService,
     },
+    cache::Cache,
     dialog::{
         about::AboutDialog, admin::AdminDialog, drop_set::DropSetCalculator,
         one_rep_max::OneRepMaxCalculator, profile::ProfileDialog, settings::SettingsDialog,
@@ -77,7 +78,6 @@ pub fn Navbar() -> Element {
 
     let user = session.user();
     let route = use_route::<Route>();
-    let page_title = page_title(&route, &user.name);
     let go_up_target = go_up_target(&route);
 
     let mut synchronization = consume_context::<Synchronization>();
@@ -105,7 +105,7 @@ pub fn Navbar() -> Element {
                             name: "chevron-left",
                         }
                     }
-                    div { class: "navbar-item is-size-5", "data-testid": "page-title", "{page_title}" }
+                    NavbarTitle { route: route.clone(), user_name: user.name.clone() }
                     div { class: "mx-auto" }
                     if synchronization.in_progress() {
                         a {
@@ -309,6 +309,61 @@ fn set_body_class(name: &str, present: bool) {
     }
 }
 
+/// The title of the page, scrolled horizontally if it exceeds the available width, with a fade at
+/// each edge beyond which a part is hidden.
+#[component]
+fn NavbarTitle(route: Route, user_name: domain::Name) -> Element {
+    let cache = consume_context::<Cache>();
+    let title = page_title(&route, &user_name, &cache);
+    let element = use_signal(|| None::<web_sys::Element>);
+    let mut clipped = use_signal(|| (false, false));
+    let mut update_clipped = move || {
+        if let Some(element) = &*element.peek() {
+            clipped.set(clipped_edges(element));
+        }
+    };
+    use_effect(use_reactive((&title,), move |_| {
+        if let Some(element) = &*element.peek() {
+            element.set_scroll_left(0);
+        }
+        update_clipped();
+    }));
+    let (clipped_start, clipped_end) = clipped();
+
+    rsx! {
+        div {
+            class: "navbar-item is-size-5 navbar-title",
+            "data-testid": "page-title",
+            "data-clipped-start": "{clipped_start}",
+            "data-clipped-end": "{clipped_end}",
+            onmounted: move |event| {
+                let mut element = element;
+                element.set(event.data().try_as_web_event());
+                update_clipped();
+            },
+            onscroll: move |_| update_clipped(),
+            onresize: move |_| update_clipped(),
+            span {
+                "{title.text}"
+                if let Some((name, to)) = &title.link {
+                    " · "
+                    Link { "data-testid": "page-title-link", to: to.clone(), "{name}" }
+                }
+            }
+        }
+    }
+}
+
+/// Whether a part of the content of `element` is scrolled out of view at its start and at its end.
+fn clipped_edges(element: &web_sys::Element) -> (bool, bool) {
+    let scroll_left = element.scroll_left();
+    // The scroll position is truncated to whole pixels, so the end may be reached one pixel short
+    (
+        scroll_left > 0,
+        scroll_left + element.client_width() < element.scroll_width() - 1,
+    )
+}
+
 #[component]
 fn ActivityBarNavigate(route: Route) -> Element {
     let ongoing = consume_context::<OngoingTrainingSession>();
@@ -379,5 +434,116 @@ fn MetronomeTimerStopwatch(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use pretty_assertions::assert_eq;
+    use rstest::rstest;
+
+    use crate::{
+        routing::{ExerciseTab, RoutineTab},
+        test_render::{TestCache, attribute_of, contains, render, text_of},
+    };
+
+    use super::*;
+
+    #[rstest]
+    #[case::exercise(Route::Exercise { id: 1.into(), tab: ExerciseTab::Charts }, "Squat")]
+    #[case::routine(Route::Routine { id: 1.into(), tab: RoutineTab::Sessions }, "A")]
+    #[case::catalog(Route::Catalog { name: "Back Extension".to_string() }, "Back Extension")]
+    fn test_a_page_of_a_single_entry_is_titled_by_the_entry(
+        #[case] route: Route,
+        #[case] title: &str,
+    ) {
+        let html = render_title(route, with_entries);
+
+        assert_eq!(text_of(&html, "page-title"), title);
+    }
+
+    #[rstest]
+    #[case::exercise_loading(Route::Exercise { id: 1.into(), tab: ExerciseTab::Exercise }, TestCache::loading, "Exercise")]
+    #[case::exercise_missing(Route::Exercise { id: 2.into(), tab: ExerciseTab::Exercise }, with_entries, "Exercise")]
+    #[case::routine_loading(Route::Routine { id: 1.into(), tab: RoutineTab::Routine }, TestCache::loading, "Routine")]
+    #[case::routine_missing(Route::Routine { id: 2.into(), tab: RoutineTab::Routine }, with_entries, "Routine")]
+    #[case::training_session_loading(Route::TrainingSession { id: 1.into() }, TestCache::loading, "Training session")]
+    #[case::training_session_missing(Route::TrainingSession { id: 2.into() }, with_entries, "Training session")]
+    #[case::catalog_missing(Route::Catalog { name: "Unknown".to_string() }, with_entries, "Catalog exercise")]
+    fn test_a_page_of_an_unavailable_entry_is_titled_by_the_kind_of_page(
+        #[case] route: Route,
+        #[case] cache: fn() -> TestCache,
+        #[case] title: &str,
+    ) {
+        let html = render_title(route, cache);
+
+        assert_eq!(text_of(&html, "page-title"), title);
+    }
+
+    #[test]
+    fn test_a_training_session_is_titled_by_its_date_and_routine_linking_to_the_routine() {
+        let html = render_title(Route::TrainingSession { id: 1.into() }, with_entries);
+
+        assert_eq!(text_of(&html, "page-title"), "2026-10-04 · A");
+        assert_eq!(
+            attribute_of(&html, "page-title-link", "href"),
+            Route::Routine {
+                id: 1.into(),
+                tab: RoutineTab::Routine
+            }
+            .to_string()
+        );
+    }
+
+    #[test]
+    fn test_a_training_session_without_routine_is_titled_by_its_date() {
+        let html = render_title(Route::TrainingSession { id: 1.into() }, || {
+            with_entries().with_routines(vec![])
+        });
+
+        assert_eq!(text_of(&html, "page-title"), "2026-10-04");
+        assert!(!contains(&html, "page-title-link"));
+    }
+
+    fn render_title(route: Route, cache: impl Fn() -> TestCache + 'static) -> String {
+        render(move || {
+            cache().provide();
+            rsx! {
+                NavbarTitle { route: route.clone(), user_name: domain::Name::new("Alice").unwrap() }
+            }
+        })
+    }
+
+    fn with_entries() -> TestCache {
+        TestCache::default()
+            .with_exercises(vec![domain::Exercise {
+                id: 1.into(),
+                name: domain::Name::new("Squat").unwrap(),
+                notes: String::new(),
+                muscles: vec![],
+                force: None,
+                mechanic: None,
+                laterality: None,
+                assistance: None,
+                equipment: vec![],
+                category: None,
+            }])
+            .with_routines(vec![domain::Routine {
+                id: 1.into(),
+                name: domain::Name::new("A").unwrap(),
+                notes: String::new(),
+                archived: false,
+                sections: vec![],
+            }])
+            .with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: NaiveDate::from_ymd_opt(2026, 10, 4).unwrap(),
+                notes: String::new(),
+                elements: vec![],
+                exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
+            }])
     }
 }

@@ -4,16 +4,14 @@ use valens_domain as domain;
 
 use crate::{
     page,
-    ui::element::{Block, ErrorPage, Title},
+    ui::element::{Block, ErrorPage},
 };
 
 #[component]
 pub fn Catalog(name: String) -> Element {
-    let exercises = domain::ExerciseFilter::default().catalog();
     if let Ok(name) = domain::Name::new(&name) {
-        if let Some(exercise) = exercises.get(&name) {
+        if let Some(exercise) = domain::catalog::exercise(&name) {
             rsx! {
-                Title { "{exercise.name}" }
                 Block {
                     {page::exercise::view_exercise_properties(
                         Some(exercise.force),
@@ -49,7 +47,6 @@ mod tests {
             rsx! { Catalog { name: "Back Extension".to_string() } }
         });
 
-        assert_eq!(text_of(&html, "title"), "Back Extension");
         assert!(all_text_of(&html, "property-tag").contains(&"Pull".to_string()));
         assert!(all_text_of(&html, "muscle-tag").contains(&"Erector Spinae".to_string()));
     }

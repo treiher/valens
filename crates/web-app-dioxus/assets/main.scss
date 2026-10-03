@@ -65,6 +65,14 @@ html {
     -webkit-text-size-adjust: 100%;
 }
 
+// Focus ring in the color of the navbar text, as the link color has too little contrast to the
+// primary color
+.navbar.is-primary {
+    --bulma-focus-h: 0deg;
+    --bulma-focus-s: 0%;
+    --bulma-focus-l: 100%;
+}
+
 // Hamburger menu without JavaScript
 
 // Fix hamburger button position
@@ -90,6 +98,42 @@ html {
 // Display menu when it's checked
 .navbar-burger-toggle:checked ~ .navbar-menu {
     display: block;
+}
+
+// Page title in the navigation bar, scrolled horizontally instead of wrapped
+
+.navbar-item.navbar-title {
+    flex-shrink: 1;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+    --fade-start: 0px;
+    --fade-end: 0px;
+    mask-image: linear-gradient(
+        to right,
+        transparent,
+        black var(--fade-start),
+        black calc(100% - var(--fade-end)),
+        transparent
+    );
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    &[data-clipped-start="true"] {
+        --fade-start: 1.5rem;
+    }
+
+    &[data-clipped-end="true"] {
+        --fade-end: 1.5rem;
+    }
+
+    a {
+        color: inherit;
+        text-decoration: underline;
+    }
 }
 
 // Floating Action Button (FAB)

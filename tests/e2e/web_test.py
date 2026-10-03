@@ -388,6 +388,44 @@ def expect_no_horizontal_overflow(p: BasePage, name: str) -> None:
         pytest.fail(f"{name} is {p.horizontal_overflow} px wider than the screen")
 
 
+def test_long_page_title_scrolls(page: Page) -> None:
+    page.set_viewport_size(NARROW_VIEWPORT)
+    name = routine_names_by_last_use()[0]
+    routine = next(r for r in USER.routines if r.name == name)
+    long_name = "Full body strength and conditioning for the off season"
+
+    login(page)
+    routines_page = RoutinesPage(page)
+    routines_page.goto()
+    routines_page.rename_item(0)
+    routines_page.dialog.set_name(long_name)
+    routines_page.dialog.save()
+
+    p = RoutinePage(page, routine.id)
+    p.goto()
+    expect(p.page_title).to_have_text(long_name)
+    p.navbar.expect_title_clipped(start=False, end=True)
+
+    p.navbar.scroll_title_to_end()
+    p.navbar.expect_title_clipped(start=True, end=False)
+
+
+def test_training_session_title_links_to_the_routine(page: Page) -> None:
+    routine = USER.routines[0]
+    workout = next(w for w in USER.workouts if w.routine_id == routine.id)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    expect(p.page_title).to_have_text(f"{workout.date} · {routine.name}")
+
+    p.navbar.follow_title_link()
+
+    routine_page = RoutinePage(page, routine.id)
+    routine_page.expect_page()
+    expect(routine_page.page_title).to_have_text(routine.name)
+
+
 def test_ffmi_requires_height(page: Page) -> None:
     login_page = LoginPage(page)
     login_page.goto()

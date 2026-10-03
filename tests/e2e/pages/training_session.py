@@ -49,7 +49,7 @@ class TrainingSessionPage(BasePage):
         expect_stretch_per_muscle(self.page, muscle, sets, minutes)
 
     def expect_page(self) -> None:
-        expect(self.page.get_by_test_id("page-title")).to_have_text("Training session")
+        expect(self.page).to_have_url(re.compile(r"/training_session/[^/]+$"))
 
     def expect_view_mode(self) -> None:
         expect(self.page.get_by_test_id("session-notes")).to_be_hidden()

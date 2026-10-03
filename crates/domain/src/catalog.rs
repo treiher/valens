@@ -102,6 +102,11 @@ pub(crate) static EXERCISES: std::sync::LazyLock<BTreeMap<Name, Exercise>> =
             .collect::<BTreeMap<_, _>>()
     });
 
+#[must_use]
+pub fn exercise(name: &Name) -> Option<&'static Exercise> {
+    EXERCISES.get(name)
+}
+
 const EXERCISE_VARIANTS: [BaseExercise; 107] = [
     BaseExercise {
         name: "90-90 Hip Stretch",
@@ -2467,6 +2472,12 @@ mod tests {
                 category: None,
             }
         );
+    }
+
+    #[test]
+    fn test_exercise() {
+        assert!(exercise(&Name::new("Arm Circle").unwrap()).is_some());
+        assert!(exercise(&Name::new("Unknown").unwrap()).is_none());
     }
 
     #[test]

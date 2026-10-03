@@ -10,6 +10,7 @@ use web_sys::wasm_bindgen::{JsCast, prelude::Closure};
 use valens_domain as domain;
 
 use crate::{
+    cache::{Cache, CacheState},
     navbar::Navbar,
     page::{
         body_fat::BodyFat, body_weight::BodyWeight, catalog::Catalog, exercise::Exercise,
@@ -60,25 +61,86 @@ pub enum Route {
         NotFound { route: Vec<String> },
 }
 
-/// The title the navigation bar shows for `route`.
+/// The title the navigation bar shows for a route.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PageTitle {
+    pub text: String,
+    /// A trailing part of the title that links to a related page.
+    pub link: Option<(String, Route)>,
+}
+
+impl From<String> for PageTitle {
+    fn from(text: String) -> Self {
+        Self { text, link: None }
+    }
+}
+
+impl From<&str> for PageTitle {
+    fn from(text: &str) -> Self {
+        text.to_string().into()
+    }
+}
+
+/// The title the navigation bar shows for `route`. A page of a single entry is titled by the entry,
+/// or by the kind of page while the entry is not loaded or does not exist.
 #[must_use]
-pub fn page_title(route: &Route, user_name: &domain::Name) -> String {
+pub fn page_title(route: &Route, user_name: &domain::Name, cache: &Cache) -> PageTitle {
     match route {
-        Route::Login {} => "Valens".to_string(),
-        Route::Home {} => user_name.to_string(),
-        Route::TrainingSessions { .. } => "Training sessions".to_string(),
-        Route::TrainingSession { .. } => "Training session".to_string(),
-        Route::Routines { .. } => "Routines".to_string(),
-        Route::Routine { .. } => "Routine".to_string(),
-        Route::Schedule {} => "Schedule".to_string(),
-        Route::Exercises { .. } => "Exercises".to_string(),
-        Route::Exercise { .. } => "Exercise".to_string(),
-        Route::Catalog { .. } => "Catalog exercise".to_string(),
-        Route::BodyWeight { .. } => "Body weight".to_string(),
-        Route::BodyFat { .. } => "Body fat".to_string(),
-        Route::Ffmi {} => "FFMI".to_string(),
-        Route::MenstrualCycle { .. } => "Menstrual cycle".to_string(),
-        Route::NotFound { .. } => String::new(),
+        Route::Login {} => "Valens".into(),
+        Route::Home {} => user_name.to_string().into(),
+        Route::TrainingSessions { .. } => "Training sessions".into(),
+        Route::TrainingSession { id } => {
+            training_session_title(*id, cache).unwrap_or_else(|| "Training session".into())
+        }
+        Route::Routines { .. } => "Routines".into(),
+        Route::Routine { id, .. } => ready(&cache.routines.read())
+            .iter()
+            .find(|r| r.id == *id)
+            .map_or_else(|| "Routine".into(), |r| r.name.to_string().into()),
+        Route::Schedule {} => "Schedule".into(),
+        Route::Exercises { .. } => "Exercises".into(),
+        Route::Exercise { id, .. } => ready(&cache.exercises.read())
+            .iter()
+            .find(|e| e.id == *id)
+            .map_or_else(|| "Exercise".into(), |e| e.name.to_string().into()),
+        Route::Catalog { name } => domain::Name::new(name)
+            .ok()
+            .and_then(|name| domain::catalog::exercise(&name))
+            .map_or_else(|| "Catalog exercise".into(), |e| e.name.to_string().into()),
+        Route::BodyWeight { .. } => "Body weight".into(),
+        Route::BodyFat { .. } => "Body fat".into(),
+        Route::Ffmi {} => "FFMI".into(),
+        Route::MenstrualCycle { .. } => "Menstrual cycle".into(),
+        Route::NotFound { .. } => "".into(),
+    }
+}
+
+fn training_session_title(id: domain::TrainingSessionID, cache: &Cache) -> Option<PageTitle> {
+    let training_sessions = cache.training_sessions.read();
+    let training_session = ready(&training_sessions).iter().find(|t| t.id == id)?;
+    let routines = cache.routines.read();
+    let link = ready(&routines)
+        .iter()
+        .find(|r| r.id == training_session.routine_id)
+        .map(|r| {
+            (
+                r.name.to_string(),
+                Route::Routine {
+                    id: r.id,
+                    tab: RoutineTab::Routine,
+                },
+            )
+        });
+    Some(PageTitle {
+        text: training_session.date.to_string(),
+        link,
+    })
+}
+
+fn ready<T>(state: &CacheState<Vec<T>>) -> &[T] {
+    match state {
+        CacheState::Ready(entries) => entries,
+        CacheState::Loading | CacheState::Error(_) => &[],
     }
 }
 

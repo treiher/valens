@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -39,7 +40,7 @@ class RoutinePage(BasePage):
         return f"/routine/{uuid.UUID(int=self.routine_id)}"
 
     def expect_page(self) -> None:
-        expect(self.page.get_by_test_id("page-title")).to_have_text("Routine")
+        expect(self.page).to_have_url(re.compile(r"/routine/[^/]+(/[a-z]+)?$"))
 
     def expect_stretch_per_muscle(self, muscle: str, sets: str, minutes: str) -> None:
         expect_stretch_per_muscle(self.page, muscle, sets, minutes)

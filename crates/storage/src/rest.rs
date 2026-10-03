@@ -1018,6 +1018,7 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
                     notes,
                     elements,
                     exercise_notes: BTreeMap::new(),
+                    exercise_measurements: BTreeMap::new(),
                 })),
             )
             .await?;
@@ -1030,6 +1031,9 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
         exercise_notes: Option<BTreeMap<domain::ExerciseID, String>>,
+        exercise_measurements: Option<
+            BTreeMap<(domain::ExerciseID, domain::Side), domain::Measurement>,
+        >,
     ) -> Result<domain::TrainingSession, domain::UpdateError> {
         let mut content = Map::new();
         if let Some(notes) = notes {
@@ -1058,6 +1062,12 @@ impl<S: SendRequest> domain::TrainingSessionRepository for REST<S> {
                         })
                         .collect::<Vec<_>>()
                 ),
+            );
+        }
+        if let Some(exercise_measurements) = exercise_measurements {
+            content.insert(
+                "exercise_measurements".into(),
+                json!(encode_measurements(&exercise_measurements)),
             );
         }
         let r: TrainingSession = self
@@ -1735,14 +1745,12 @@ pub struct ExerciseNote {
     pub notes: String,
 }
 
+/// The measurement of an exercise and side, the unset side encoded as zero.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
-pub struct TrainingSession {
-    pub id: u128,
-    pub routine_id: Option<u128>,
-    pub date: NaiveDate,
-    pub notes: Option<String>,
-    pub elements: Vec<TrainingSessionElement>,
-    pub exercise_notes: Vec<ExerciseNote>,
+pub struct ExerciseMeasurement {
+    pub exercise_id: u128,
+    pub side: u8,
+    pub value: f64,
 }
 
 impl From<domain::TrainingSession> for TrainingSession {
@@ -1769,6 +1777,7 @@ impl From<domain::TrainingSession> for TrainingSession {
                     notes: v,
                 })
                 .collect(),
+            exercise_measurements: encode_measurements(&value.exercise_measurements),
         }
     }
 }
@@ -1791,6 +1800,7 @@ impl From<TrainingSession> for domain::TrainingSession {
                 .filter(|n| !n.notes.is_empty())
                 .map(|n| (n.exercise_id.into(), n.notes))
                 .collect(),
+            exercise_measurements: decode_measurements(value.exercise_measurements),
         }
     }
 }
@@ -1802,6 +1812,7 @@ pub struct TrainingSessionData {
     pub notes: Option<String>,
     pub elements: Vec<TrainingSessionElement>,
     pub exercise_notes: Vec<ExerciseNote>,
+    pub exercise_measurements: Vec<ExerciseMeasurement>,
 }
 
 impl From<domain::TrainingSession> for TrainingSessionData {
@@ -1827,8 +1838,55 @@ impl From<domain::TrainingSession> for TrainingSessionData {
                     notes: v,
                 })
                 .collect(),
+            exercise_measurements: encode_measurements(&value.exercise_measurements),
         }
     }
+}
+
+/// Decode the measurements, dropping one the domain rejects.
+fn decode_measurements(
+    measurements: Vec<ExerciseMeasurement>,
+) -> BTreeMap<(domain::ExerciseID, domain::Side), domain::Measurement> {
+    measurements
+        .into_iter()
+        .filter_map(|m| {
+            let side = if m.side == domain::Side::Unset as u8 {
+                domain::Side::Unset
+            } else {
+                domain::Side::try_from(m.side)
+                    .inspect_err(|e| warn!("invalid side in stored measurement: {e}"))
+                    .ok()?
+            };
+            let value = domain::Measurement::new(m.value)
+                .inspect_err(|e| warn!("invalid value in stored measurement: {e}"))
+                .ok()?;
+            Some(((m.exercise_id.into(), side), value))
+        })
+        .collect()
+}
+
+fn encode_measurements(
+    measurements: &BTreeMap<(domain::ExerciseID, domain::Side), domain::Measurement>,
+) -> Vec<ExerciseMeasurement> {
+    measurements
+        .iter()
+        .map(|((exercise_id, side), value)| ExerciseMeasurement {
+            exercise_id: exercise_id.as_u128(),
+            side: *side as u8,
+            value: f64::from(*value),
+        })
+        .collect()
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+pub struct TrainingSession {
+    pub id: u128,
+    pub routine_id: Option<u128>,
+    pub date: NaiveDate,
+    pub notes: Option<String>,
+    pub elements: Vec<TrainingSessionElement>,
+    pub exercise_notes: Vec<ExerciseNote>,
+    pub exercise_measurements: Vec<ExerciseMeasurement>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
@@ -2484,6 +2542,39 @@ mod tests {
         assert_eq!(
             domain::TrainingSession::from(TrainingSession::from(TRAINING_SESSION.clone())),
             TRAINING_SESSION.clone()
+        );
+    }
+
+    #[test]
+    fn test_training_session_from_drops_measurements_the_domain_rejects() {
+        let measurement = |side: u8, value: f64| ExerciseMeasurement {
+            exercise_id: 1,
+            side,
+            value,
+        };
+        let training_session = TrainingSession {
+            exercise_measurements: vec![
+                measurement(0, 1.5),
+                measurement(1, -2.0),
+                measurement(3, 1.0),
+                measurement(2, 1.005),
+                measurement(2, 10_000.0),
+            ],
+            ..TrainingSession::from(TRAINING_SESSION.clone())
+        };
+
+        assert_eq!(
+            domain::TrainingSession::from(training_session).exercise_measurements,
+            BTreeMap::from([
+                (
+                    (1.into(), domain::Side::Unset),
+                    domain::Measurement::new(1.5).unwrap()
+                ),
+                (
+                    (1.into(), domain::Side::Left),
+                    domain::Measurement::new(-2.0).unwrap()
+                ),
+            ])
         );
     }
 
@@ -3213,7 +3304,8 @@ mod tests {
                     TRAINING_SESSION.id,
                     Some(TRAINING_SESSION.notes.clone()),
                     Some(TRAINING_SESSION.elements.clone()),
-                    None
+                    None,
+                    Some(TRAINING_SESSION.exercise_measurements.clone()),
                 )
                 .await
                 .unwrap(),
@@ -3239,6 +3331,7 @@ mod tests {
                     Some(session_with_note.notes.clone()),
                     Some(session_with_note.elements.clone()),
                     Some(session_with_note.exercise_notes.clone()),
+                    None,
                 )
                 .await
                 .unwrap(),

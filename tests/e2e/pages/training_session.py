@@ -342,6 +342,16 @@ class TrainingSessionPage(BasePage):
         self.page.get_by_test_id("options-show-session-notes").click()
         self.session_exercise_notes_dialog.wait_until_open()
 
+    def get_session_exercise_measurement(self, exercise_idx: int = 0) -> str:
+        return get_text(self.page.get_by_test_id("session-exercise-measurement").nth(exercise_idx))
+
+    def click_session_exercise_measurement(self, exercise_idx: int = 0) -> None:
+        self.page.get_by_test_id("session-exercise-measurement").nth(exercise_idx).click()
+        self.session_exercise_notes_dialog.wait_until_open()
+
+    def expect_no_session_exercise_measurement(self) -> None:
+        expect(self.page.get_by_test_id("session-exercise-measurement")).to_have_count(0)
+
     def get_session_exercise_notes(self, exercise_idx: int = 0) -> str:
         return (
             self.page.get_by_test_id("session-exercise-notes")
@@ -382,6 +392,33 @@ class SessionExerciseNotesDialog(Dialog):
 
     def reuse_previous_note(self, idx: int = 0) -> None:
         self.root.get_by_test_id("session-exercise-notes-reuse").nth(idx).click()
+
+    def measurement_input(self, field: str = "measurement") -> Locator:
+        """Return the field "measurement", "left" or "right"."""
+        return self.root.get_by_test_id(f"session-exercise-measurement-input-{field}")
+
+    def get_measurement(self, field: str = "measurement") -> str:
+        return self.measurement_input(field).input_value()
+
+    def set_measurement(self, value: str, field: str = "measurement") -> None:
+        self.measurement_input(field).fill(value)
+
+    def type_measurement(self, text: str, field: str = "measurement") -> None:
+        """Replace the value key by key, as `fill` refuses text a number field rejects."""
+        self.measurement_input(field).select_text()
+        self.measurement_input(field).press_sequentially(text)
+
+    def get_previous_measurements(self) -> list[str]:
+        return [
+            element.inner_text().strip()
+            for element in self.root.get_by_test_id("previous-session-exercise-measurement").all()
+        ]
+
+    def reuse_previous_measurement(self, idx: int = 0) -> None:
+        self.root.get_by_test_id("session-exercise-measurement-reuse").nth(idx).click()
+
+    def expect_save_disabled(self) -> None:
+        expect(self.root.get_by_test_id("dialog-save")).to_be_disabled()
 
 
 class ExerciseNotesDialog(Dialog):

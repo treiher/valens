@@ -464,6 +464,61 @@ pub enum WeightError {
     ParseError,
 }
 
+/// A signed, unitless value with two decimals, such as a reach, a height, a distance or a time.
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Measurement(f64);
+
+impl Measurement {
+    const MAX: f64 = 9999.99;
+
+    pub fn new(value: f64) -> Result<Self, MeasurementError> {
+        if !(-Self::MAX..=Self::MAX).contains(&value) {
+            return Err(MeasurementError::OutOfRange);
+        }
+        #[allow(clippy::float_cmp)]
+        if (value * 100.0).round() / 100.0 != value {
+            return Err(MeasurementError::InvalidResolution);
+        }
+        Ok(Self(value))
+    }
+}
+
+impl From<Measurement> for f64 {
+    fn from(value: Measurement) -> Self {
+        value.0
+    }
+}
+
+impl TryFrom<&str> for Measurement {
+    type Error = MeasurementError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.replace(',', ".").parse::<f64>() {
+            Ok(parsed_value) => Measurement::new(parsed_value),
+            Err(_) => Err(MeasurementError::ParseError),
+        }
+    }
+}
+
+/// Up to two decimals, without trailing zeros.
+impl fmt::Display for Measurement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = format!("{:.2}", self.0);
+        let value = value.trim_end_matches('0').trim_end_matches('.');
+        write!(f, "{}", if value == "-0" { "0" } else { value })
+    }
+}
+
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum MeasurementError {
+    #[error("measurement must be a multiple of 0.01")]
+    InvalidResolution,
+    #[error("measurement must be in the range -9999.99 to 9999.99")]
+    OutOfRange,
+    #[error("measurement must be a decimal")]
+    ParseError,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Hash)]
 pub struct RPE(u8);
 
@@ -806,6 +861,37 @@ mod tests {
 
     use super::*;
 
+    #[rstest]
+    #[case::zero(0.0, Ok(0.0))]
+    #[case::negative(-12.5, Ok(-12.5))]
+    #[case::upper_bound(9999.99, Ok(9999.99))]
+    #[case::lower_bound(-9999.99, Ok(-9999.99))]
+    #[case::above_upper_bound(10000.0, Err(MeasurementError::OutOfRange))]
+    #[case::below_lower_bound(-10000.0, Err(MeasurementError::OutOfRange))]
+    #[case::finer_resolution(1.005, Err(MeasurementError::InvalidResolution))]
+    #[case::finer_resolution_of_a_negative(-1.005, Err(MeasurementError::InvalidResolution))]
+    #[case::nan(f64::NAN, Err(MeasurementError::OutOfRange))]
+    fn test_measurement_new(#[case] value: f64, #[case] expected: Result<f64, MeasurementError>) {
+        assert_eq!(Measurement::new(value).map(f64::from), expected);
+    }
+
+    #[rstest]
+    #[case("12.5", Ok("12.5"))]
+    #[case("-3,25", Ok("-3.25"))]
+    #[case("10.00", Ok("10"))]
+    #[case("-0", Ok("0"))]
+    #[case("1.5.0", Err(MeasurementError::ParseError))]
+    #[case("", Err(MeasurementError::ParseError))]
+    fn test_measurement_try_from_str(
+        #[case] value: &str,
+        #[case] expected: Result<&str, MeasurementError>,
+    ) {
+        assert_eq!(
+            Measurement::try_from(value).map(|m| m.to_string()),
+            expected.map(str::to_string)
+        );
+    }
+
     static TODAY: std::sync::LazyLock<NaiveDate> =
         std::sync::LazyLock::new(|| Local::now().date_naive());
 
@@ -869,6 +955,7 @@ mod tests {
                 },
             ],
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         });
 
     #[rstest]

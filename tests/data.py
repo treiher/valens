@@ -19,6 +19,7 @@ from valens.models import (
     Sex,
     User,
     Workout,
+    WorkoutExerciseMeasurement,
     WorkoutExerciseNote,
     WorkoutSet,
 )
@@ -313,6 +314,9 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                     elements=[
                         WorkoutSet(position=1, exercise=exercise_7, time=60),
                         WorkoutSet(position=2, exercise=exercise_7, time=90),
+                    ],
+                    exercise_measurements=[
+                        WorkoutExerciseMeasurement(exercise_id=7, side=0, value=-12.5),
                     ],
                 ),
                 Workout(

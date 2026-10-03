@@ -26,6 +26,9 @@ pub const COLOR_TUT: usize = 2;
 pub const COLOR_REPS: usize = 4;
 pub const COLOR_WEIGHT: usize = 8;
 pub const COLOR_TIME: usize = 5;
+pub const COLOR_MEASUREMENT: usize = 9;
+pub const COLOR_MEASUREMENT_LEFT: usize = 10;
+pub const COLOR_MEASUREMENT_RIGHT: usize = 11;
 
 pub const OPACITY_CIRCLE: f64 = 0.9;
 pub const OPACITY_LINE: f64 = 0.9;
@@ -41,7 +44,6 @@ pub const FONT: (&str, u32) = ("Roboto", 11);
 
 #[derive(Clone, PartialEq)]
 pub enum PlotType {
-    #[allow(dead_code)]
     Circle(usize, f64, u32),
     Line(usize, f64, u32),
     DottedLine(usize, f64, u32),
@@ -52,6 +54,14 @@ pub enum PlotType {
 #[must_use]
 pub fn plot_line(color: usize) -> Vec<PlotType> {
     vec![PlotType::Line(color, OPACITY_LINE, WIDTH_LINE)]
+}
+
+#[must_use]
+pub fn plot_line_with_markers(color: usize) -> Vec<PlotType> {
+    vec![
+        PlotType::Line(color, OPACITY_LINE, WIDTH_LINE),
+        PlotType::Circle(color, OPACITY_CIRCLE, SIZE_CIRCLE),
+    ]
 }
 
 #[must_use]
@@ -173,25 +183,23 @@ struct Bounds {
 }
 
 impl Bounds {
+    /// The minimum, extended by a margin unless the axis starts at zero.
     fn min_with_margin(self) -> f32 {
-        assert!(0. <= self.min);
         assert!(self.min <= self.max);
 
-        if self.min <= f32::EPSILON {
+        if self.min.abs() <= f32::EPSILON {
             return self.min;
         }
         self.min - self.margin()
     }
 
     fn max_with_margin(self) -> f32 {
-        assert!(0. <= self.min);
         assert!(self.min <= self.max);
 
         self.max + self.margin()
     }
 
     fn margin(self) -> f32 {
-        assert!(0. <= self.min);
         assert!(self.min <= self.max);
 
         if (self.max - self.min).abs() > f32::EPSILON {
@@ -645,10 +653,12 @@ pub fn rgba_color(color: usize, opacity: f64) -> String {
     format!("rgba({r}, {g}, {b}, {opacity})")
 }
 
+/// Whether no series holds a value, a series of zeros drawn with markers holding values.
 fn all_zeros(data: &[PlotData]) -> bool {
     data.iter()
         .map(|v| {
-            v.values_high.iter().all(|(_, v)| *v == 0.0)
+            !v.plots.iter().any(|p| matches!(p, PlotType::Circle(..)))
+                && v.values_high.iter().all(|(_, v)| *v == 0.0)
                 && v.values_low
                     .as_ref()
                     .is_none_or(|v| v.iter().all(|(_, v)| *v == 0.0))
@@ -681,7 +691,7 @@ fn determine_y_bounds(data: &[PlotData]) -> (Option<Bounds>, Option<Bounds>) {
             .iter()
             .chain(plot.values_low.iter().flatten())
             .map(|(_, v)| *v)
-            .fold(plot.params.y_max_opt.unwrap_or(0.), f32::max);
+            .fold(plot.params.y_max_opt.unwrap_or(f32::MIN), f32::max);
 
         assert!(min <= max, "min={min}, max={max}");
 
@@ -753,6 +763,18 @@ mod tests {
         assert_approx_eq!(primary.min, 3.0);
         assert_approx_eq!(primary.max, 7.0);
         assert!(secondary.is_none());
+    }
+
+    #[test]
+    fn test_determine_y_bounds_of_negative_values() {
+        let (primary, _) = determine_y_bounds(&[plot_data(
+            &[(date(1), -8.0), (date(2), -6.5)],
+            PlotParams::default(),
+        )]);
+
+        let primary = primary.unwrap();
+        assert_approx_eq!(primary.min, -8.0);
+        assert_approx_eq!(primary.max, -6.5);
     }
 
     #[test]
@@ -932,6 +954,42 @@ mod tests {
         )
         .unwrap()
         .unwrap()
+    }
+
+    #[test]
+    fn test_plot_of_measurements() {
+        // Negative values, values spanning zero and zeros
+        for values in [[-3.0, -1.5], [-3.0, 2.5], [0.0, 0.0]] {
+            let result = plot(
+                &[PlotData {
+                    plots: plot_line_with_markers(COLOR_MEASUREMENT),
+                    ..plot_data(
+                        &[(date(1), values[0]), (date(5), values[1])],
+                        PlotParams::default(),
+                    )
+                }],
+                domain::Interval {
+                    first: date(1),
+                    last: date(5),
+                },
+                Theme::Light,
+                NARROW_WINDOW,
+            )
+            .unwrap()
+            .unwrap();
+
+            for sample in &result.series[0].high {
+                assert!(sample.y >= result.area.top && sample.y <= result.area.bottom);
+            }
+        }
+    }
+
+    #[test]
+    fn test_all_zeros_of_a_marker_series_of_zeros() {
+        assert!(!all_zeros(&[PlotData {
+            plots: plot_line_with_markers(0),
+            ..plot_data(&[(date(1), 0.0)], PlotParams::default())
+        }]));
     }
 
     #[test]

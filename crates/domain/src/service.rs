@@ -6,10 +6,10 @@ use crate::{
     Assistance, AuthMethod, AuthRepository, AuthService, BodyFat, BodyFatRepository,
     BodyFatService, BodyWeight, BodyWeightRepository, Category, CreateError, CurrentCycle, Cycle,
     DeleteError, Equipment, Exercise, ExerciseID, ExerciseMuscle, ExerciseRepository,
-    ExerciseService, Force, Laterality, Mechanic, Name, Passkey, PasskeyID, Period,
+    ExerciseService, Force, Laterality, Measurement, Mechanic, Name, Passkey, PasskeyID, Period,
     PeriodRepository, PeriodService, ReadError, Role, Routine, RoutineID, RoutinePart,
     RoutineRepository, RoutineService, Schedule, ScheduleRepository, ScheduleService,
-    SessionRepository, SessionService, Sex, SignOut, SyncError, TrainingSession,
+    SessionRepository, SessionService, Sex, Side, SignOut, SyncError, TrainingSession,
     TrainingSessionElement, TrainingSessionID, TrainingSessionRepository, TrainingSessionService,
     UpdateError, User, UserID, UserRepository, UserService, VersionRepository, VersionService,
     body_weight::BodyWeightService, current_cycle, cycles,
@@ -294,9 +294,10 @@ impl<R: TrainingSessionRepository> TrainingSessionService for Service<R> {
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
         exercise_notes: Option<BTreeMap<ExerciseID, String>>,
+        exercise_measurements: Option<BTreeMap<(ExerciseID, Side), Measurement>>,
     ) -> Result<TrainingSession, UpdateError> {
         self.repository
-            .modify_training_session(id, notes, elements, exercise_notes)
+            .modify_training_session(id, notes, elements, exercise_notes, exercise_measurements)
             .await
     }
 
@@ -570,6 +571,7 @@ mod tests {
             notes: String::new(),
             elements: vec![],
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         }
     }
 

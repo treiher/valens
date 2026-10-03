@@ -28,7 +28,7 @@ use crate::{
     ui::{
         element::{
             ActivityBar, Block, CenteredBlock, Color, Dialog, ErrorPage, FloatingActionButton,
-            Icon, Loading, LoadingDialog, LoadingPage, MenuOption, OptionsMenu, PhaseBar,
+            Icon, IconText, Loading, LoadingDialog, LoadingPage, MenuOption, OptionsMenu, PhaseBar,
             SaveDialog, Title,
         },
         form::{FieldValue, FieldValueState, InputField, TextAreaField},
@@ -637,7 +637,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 if edit() {
                     {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
-                    {view_list(training_session, exercises)},
+                    {view_list(edit_dialog, training_session, exercises)},
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
@@ -1117,15 +1117,18 @@ fn view_form(
             let notes_are_empty = notes.is_empty();
             let note = training_session.exercise_notes.get(id).cloned().unwrap_or_default();
             let note_is_empty = note.is_empty();
+            let measurements = training_session.measurements_of(*id);
+            let measurements_are_empty = measurements.is_empty();
             let exercise_id = *id;
             let is_last_exercise = i == exercise_ids_len - 1;
+            let is_last_row_before_note = is_last_exercise && note_is_empty;
             rsx! {
                 tr {
                     class: if is_current_section { "" } else { "is-semitransparent" },
                     td {
                         class: "has-text-centered has-text-weight-bold",
                         class: if i == 0 { "pt-2" },
-                        class: if is_last_exercise && notes_are_empty && note_is_empty { "pb-1" },
+                        class: if is_last_row_before_note && notes_are_empty && measurements_are_empty { "pb-1" },
                         colspan: 6,
                         if let Some(number) = number {
                             span{
@@ -1159,7 +1162,7 @@ fn view_form(
                         class: if is_current_section { "" } else { "is-semitransparent" },
                         td {
                             class: "px-2",
-                            class: if is_last_exercise && note_is_empty { "pb-1" },
+                            class: if is_last_row_before_note && measurements_are_empty { "pb-1" },
                             colspan: 6,
                             div {
                                 class: "is-clickable is-italic is-size-7 has-text-grey has-text-centered is-preserving-line-breaks",
@@ -1175,6 +1178,22 @@ fn view_form(
                                 }),
                                 { notes.clone() }
                             }
+                        }
+                    }
+                }
+                if !measurements_are_empty {
+                    tr {
+                        class: if is_current_section { "" } else { "is-semitransparent" },
+                        td {
+                            class: "px-2",
+                            class: if is_last_row_before_note { "pb-1" },
+                            colspan: 6,
+                            {view_measurement_row(&measurements, Some(eh!(mut edit_dialog; training_session; {
+                                *edit_dialog.write() = EditDialog::SessionExerciseNotes {
+                                    training_session,
+                                    exercise_id,
+                                };
+                            })))}
                         }
                     }
                 }
@@ -1971,6 +1990,7 @@ fn Notes(notes: Signal<Option<FieldValue<String>>>, edit: ReadSignal<bool>) -> E
 }
 
 fn view_list(
+    edit_dialog: Signal<EditDialog>,
     training_session: &domain::TrainingSession,
     exercises: &[domain::Exercise],
 ) -> Element {
@@ -1983,12 +2003,15 @@ fn view_list(
             let number = exercise_number(&id, &exercise_ids);
             let note = training_session.exercise_notes.get(&id).cloned().unwrap_or_default();
             let note_is_empty = note.is_empty();
+            let measurements = training_session.measurements_of(id);
+            let measurements_are_empty = measurements.is_empty();
+            let is_last_row_before_note = i == exercise_ids_len - 1 && note_is_empty;
             rsx! {
                 tr {
                     td {
                         class: "has-text-centered has-text-weight-bold",
                         class: if i == 0 { "pt-2" },
-                        class: if i == exercise_ids_len - 1 && note_is_empty { "pb-1" },
+                        class: if is_last_row_before_note && measurements_are_empty { "pb-1" },
                         colspan: 5,
                         if let Some(number) = number {
                             span{
@@ -2004,6 +2027,21 @@ fn view_list(
                         }
                     }
                 }
+                if !measurements_are_empty {
+                    tr {
+                        td {
+                            class: "px-2",
+                            class: if is_last_row_before_note { "pb-1" },
+                            colspan: 5,
+                            {view_measurement_row(&measurements, Some(eh!(mut edit_dialog; training_session; {
+                                *edit_dialog.write() = EditDialog::SessionExerciseNotes {
+                                    training_session,
+                                    exercise_id: id,
+                                };
+                            })))}
+                        }
+                    }
+                }
                 if !note_is_empty {
                     tr {
                         td {
@@ -2011,8 +2049,14 @@ fn view_list(
                             class: if i == exercise_ids_len - 1 { "pb-1" },
                             colspan: 5,
                             div {
-                                class: "is-italic has-text-centered",
+                                class: "is-clickable is-italic has-text-centered",
                                 "data-testid": "session-exercise-notes",
+                                onclick: eh!(mut edit_dialog; training_session; {
+                                    *edit_dialog.write() = EditDialog::SessionExerciseNotes {
+                                        training_session,
+                                        exercise_id: id,
+                                    };
+                                }),
                                 { note }
                             }
                         }
@@ -2239,7 +2283,7 @@ fn view_edit_dialog(
                                 },
                                 MenuOption {
                                     icon: "file-lines".to_string(),
-                                    text: "Show notes for this session".to_string(),
+                                    text: "Edit measurement and session notes".to_string(),
                                     "data-testid": "options-show-session-notes",
                                     on_click: eh!(mut edit_dialog; training_session, exercise_id; {
                                         *edit_dialog.write() = EditDialog::SessionExerciseNotes { training_session, exercise_id };
@@ -2459,7 +2503,7 @@ fn view_edit_dialog(
                 SessionExerciseNotesDialog {
                     training_session: training_session.clone(),
                     exercise_id: *exercise_id,
-                    on_save: move |ts| save(ts, cache, close_dialog),
+                    on_save: move |training_session| save(training_session, cache, close_dialog),
                     on_close: eh!(mut close_dialog; { close_dialog(); }),
                 }
             }
@@ -2540,28 +2584,73 @@ fn SessionExerciseNotesDialog(
         .unwrap_or_default();
     let mut note_input = use_signal(|| note.clone());
     let mut textarea_element = use_signal(|| None::<web_sys::HtmlTextAreaElement>);
-    let changed = note_input.read().trim() != note.trim();
-    let previous_notes: Vec<(chrono::NaiveDate, String, String)> =
+    let stored_measurements = training_session.measurements_of(exercise_id);
+    let mut measurement_fields = use_signal(|| {
+        training_session
+            .measurement_sides(exercise_id)
+            .into_iter()
+            .map(|side| {
+                (
+                    side,
+                    FieldValue::from_option(stored_measurements.get(&side).copied()),
+                )
+            })
+            .collect::<BTreeMap<_, _>>()
+    });
+    let mut measurement_elements =
+        use_signal(BTreeMap::<domain::Side, web_sys::HtmlInputElement>::new);
+    let changed = note_input.read().trim() != note.trim()
+        || measurement_fields
+            .read()
+            .values()
+            .any(FieldValueState::changed);
+    let valid = measurement_fields
+        .read()
+        .values()
+        .all(FieldValueState::valid);
+    let sides = measurement_fields
+        .read()
+        .keys()
+        .copied()
+        .collect::<Vec<_>>();
+    let routine_name = |routines: &[domain::Routine], routine_id: domain::RoutineID| {
+        routines
+            .iter()
+            .find(|routine| routine.id == routine_id)
+            .map_or_else(|| "-".to_string(), |routine| routine.name.to_string())
+    };
+    let (previous_notes, previous_measurements) =
         match (&*cache.training_sessions.read(), &*cache.routines.read()) {
-            (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => training_session
-                .previous_exercise_notes(exercise_id, training_sessions)
-                .into_iter()
-                .map(|previous_note| {
-                    (
-                        previous_note.date,
-                        routines
-                            .iter()
-                            .find(|routine| routine.id == previous_note.routine_id)
-                            .map_or_else(|| "-".to_string(), |routine| routine.name.to_string()),
-                        previous_note.note,
-                    )
-                })
-                .collect(),
-            _ => vec![],
+            (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => (
+                training_session
+                    .previous_exercise_notes(exercise_id, training_sessions)
+                    .into_iter()
+                    .map(|previous_note| {
+                        (
+                            previous_note.date,
+                            routine_name(routines, previous_note.routine_id),
+                            previous_note.note,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                training_session
+                    .previous_exercise_measurements(exercise_id, training_sessions)
+                    .into_iter()
+                    .map(|previous| {
+                        (
+                            previous.date,
+                            routine_name(routines, previous.routine_id),
+                            previous.values,
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            _ => (vec![], vec![]),
         };
+    let fields = measurement_fields.read().clone();
     rsx! {
         SaveDialog {
-            title: rsx! { "Notes for this session" },
+            title: rsx! { "Measurement and session notes" },
             on_close,
             on_save: eh!(mut training_session; exercise_id; {
                 let note = note_input.read().trim().to_string();
@@ -2570,13 +2659,51 @@ fn SessionExerciseNotesDialog(
                 } else {
                     training_session.exercise_notes.insert(exercise_id, note);
                 }
+                for (side, field) in measurement_fields.read().iter() {
+                    match field.validated {
+                        Ok(Some(measurement)) => {
+                            training_session
+                                .exercise_measurements
+                                .insert((exercise_id, *side), measurement);
+                        }
+                        Ok(None) | Err(_) => {
+                            training_session
+                                .exercise_measurements
+                                .remove(&(exercise_id, *side));
+                        }
+                    }
+                }
                 on_save.call(training_session);
             }),
             is_loading: IS_LOADING(),
-            disabled: IS_LOADING() || !changed,
+            disabled: IS_LOADING() || !changed || !valid,
+            for (side, field) in fields {
+                InputField {
+                    label: measurement_label(side),
+                    r#type: "number",
+                    step: "0.01",
+                    value: field.input.clone(),
+                    error: if let Err(err) = &field.validated { err.clone() },
+                    has_changed: field.changed(),
+                    "data-testid": "session-exercise-measurement-input-{measurement_label(side).to_lowercase()}",
+                    on_input: move |event: FormEvent| {
+                        let bad_input = measurement_elements
+                            .read()
+                            .get(&side)
+                            .is_some_and(|input| input.validity().bad_input());
+                        if let Some(field) = measurement_fields.write().get_mut(&side) {
+                            update_measurement_field(field, &event.value(), bad_input);
+                        }
+                    },
+                    on_mounted: move |input: web_sys::HtmlInputElement| {
+                        measurement_elements.write().insert(side, input);
+                    },
+                }
+            }
             TextAreaField {
+                label: "Notes",
                 value: note.clone(),
-                has_changed: changed,
+                has_changed: note_input.read().trim() != note.trim(),
                 autofocus: true,
                 "data-testid": "session-exercise-notes-input",
                 on_input: move |event: FormEvent| {
@@ -2586,12 +2713,41 @@ fn SessionExerciseNotesDialog(
                     textarea_element.set(Some(textarea));
                 },
             }
+            for (date, routine_name, values) in previous_measurements {
+                div {
+                    div {
+                        class: "block has-text-centered has-text-weight-bold mb-1",
+                        "{date} {routine_name}"
+                    }
+                    div {
+                        class: "is-relative has-text-centered mb-2",
+                        "data-testid": "previous-session-exercise-measurement",
+                        {measurement_values_to_string(&values)}
+                        if values.keys().copied().eq(sides.iter().copied()) {
+                            button {
+                                class: "button is-overlay-top-right p-0 mr-2",
+                                r#type: "button",
+                                "data-testid": "session-exercise-measurement-reuse",
+                                onclick: move |_| {
+                                    reuse_measurements(&mut measurement_fields.write(), &values);
+                                    for (side, value) in &values {
+                                        if let Some(input) = measurement_elements.read().get(side) {
+                                            input.set_value(&value.to_string());
+                                        }
+                                    }
+                                },
+                                Icon { name: "reply".to_string() }
+                            }
+                        }
+                    }
+                }
+            }
             if !previous_notes.is_empty() {
                 for (date, routine_name, note) in previous_notes {
                     div {
                         div {
                             class: "block has-text-centered has-text-weight-bold mb-1",
-                            "{date} {routine_name}"
+                            "{date} {routine_name}"
                         }
                         div {
                             class: "is-relative is-italic has-text-centered mb-2",
@@ -2615,6 +2771,86 @@ fn SessionExerciseNotesDialog(
             }
         }
     }
+}
+
+fn measurement_label(side: domain::Side) -> &'static str {
+    match side {
+        domain::Side::Unset => "Measurement",
+        domain::Side::Left => "Left",
+        domain::Side::Right => "Right",
+    }
+}
+
+/// Update a measurement field by an input.
+///
+/// The browser reads content of a number field it cannot parse as an empty value, so such an
+/// input is marked as invalid while the field keeps its previous input, rather than being read as
+/// a removed value.
+fn update_measurement_field(
+    field: &mut FieldValue<Option<domain::Measurement>>,
+    value: &str,
+    bad_input: bool,
+) {
+    if bad_input {
+        field.validated = Err(domain::MeasurementError::ParseError.to_string());
+        return;
+    }
+    value.clone_into(&mut field.input);
+    field.validated = if value.trim().is_empty() {
+        Ok(None)
+    } else {
+        domain::Measurement::try_from(value)
+            .map(Some)
+            .map_err(|err| err.to_string())
+    };
+}
+
+fn reuse_measurements(
+    fields: &mut BTreeMap<domain::Side, FieldValue<Option<domain::Measurement>>>,
+    values: &BTreeMap<domain::Side, domain::Measurement>,
+) {
+    for (side, value) in values {
+        if let Some(field) = fields.get_mut(side) {
+            field.input = value.to_string();
+            field.validated = Ok(Some(*value));
+        }
+    }
+}
+
+/// Show the measurement of an exercise, opening the dialog of `on_click` when clicked.
+pub fn view_measurement_row(
+    values: &BTreeMap<domain::Side, domain::Measurement>,
+    mut on_click: Option<impl FnMut(MouseEvent) + 'static>,
+) -> Element {
+    let text = measurement_values_to_string(values);
+    rsx! {
+        div {
+            class: "has-text-centered",
+            class: if on_click.is_some() { "is-clickable" },
+            "data-testid": "session-exercise-measurement",
+            "aria-label": "Measurement",
+            onclick: move |event| {
+                if let Some(on_click) = &mut on_click {
+                    on_click(event);
+                }
+            },
+            IconText { icon: "ruler-horizontal", "{text}" }
+        }
+    }
+}
+
+/// The values of a measurement in the order of the sides, as in `4.5 · L 12.5 · R 10`.
+pub fn measurement_values_to_string(
+    values: &BTreeMap<domain::Side, domain::Measurement>,
+) -> String {
+    values
+        .iter()
+        .map(|(side, value)| match side {
+            domain::Side::Unset => value.to_string(),
+            domain::Side::Left | domain::Side::Right => format!("{side} {value}"),
+        })
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
 
 fn unique<T: Copy + Eq + Hash>(mut vec: Vec<T>) -> Vec<T> {
@@ -2727,6 +2963,7 @@ async fn store(training_session: domain::TrainingSession) -> bool {
             Some(training_session.notes),
             Some(training_session.elements),
             Some(training_session.exercise_notes),
+            Some(training_session.exercise_measurements),
         )
         .await
     {
@@ -2887,6 +3124,7 @@ mod tests {
                 notes: String::new(),
                 elements: vec![recorded_set(1), recorded_set(1)],
                 exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
             }])
     }
 
@@ -2912,6 +3150,7 @@ mod tests {
                     automatic: false,
                 }],
                 exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
             }])
     }
 
@@ -2937,6 +3176,7 @@ mod tests {
                     automatic: false,
                 }],
                 exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
             }])
     }
 
@@ -2987,6 +3227,7 @@ mod tests {
                     sided(domain::Side::Right),
                 ],
                 exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
             }])
         });
 
@@ -3028,6 +3269,7 @@ mod tests {
                     sided(domain::Side::Left, 12),
                 ],
                 exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
             }])
         });
 
@@ -3125,6 +3367,7 @@ mod tests {
                         automatic,
                     }],
                     exercise_notes: std::collections::BTreeMap::new(),
+                    exercise_measurements: std::collections::BTreeMap::new(),
                 }])
         }
     }
@@ -3270,6 +3513,7 @@ mod tests {
                 automatic: false,
             }],
             exercise_notes: std::collections::BTreeMap::new(),
+            exercise_measurements: std::collections::BTreeMap::new(),
         }])
     }
 
@@ -3359,6 +3603,7 @@ mod tests {
                         automatic: false,
                     }],
                     exercise_notes: std::collections::BTreeMap::new(),
+                    exercise_measurements: std::collections::BTreeMap::new(),
                 }])
         }
     }
@@ -3473,6 +3718,7 @@ mod tests {
                             automatic: false,
                         }],
                         exercise_notes: std::collections::BTreeMap::new(),
+                        exercise_measurements: std::collections::BTreeMap::new(),
                     }])
             },
         );
@@ -3548,6 +3794,7 @@ mod tests {
                             notes: String::new(),
                             elements: vec![planned_set(1), prescribing_set],
                             exercise_notes: std::collections::BTreeMap::new(),
+                            exercise_measurements: std::collections::BTreeMap::new(),
                         },
                     ])
             },
@@ -3574,6 +3821,7 @@ mod tests {
                 notes: String::new(),
                 elements: vec![planned_set(1)],
                 exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
             });
             TestCache::default()
                 .with_exercises(vec![exercise(1, "Squat")])
@@ -3609,6 +3857,7 @@ mod tests {
             notes: String::new(),
             elements,
             exercise_notes: std::collections::BTreeMap::new(),
+            exercise_measurements: std::collections::BTreeMap::new(),
         }
     }
 
@@ -3898,6 +4147,7 @@ mod tests {
             notes: String::new(),
             elements,
             exercise_notes: std::collections::BTreeMap::new(),
+            exercise_measurements: std::collections::BTreeMap::new(),
         }
     }
 
@@ -4246,5 +4496,239 @@ mod tests {
     #[case(99, "(100)")]
     fn test_exercise_marker(#[case] number: u32, #[case] expected: &str) {
         assert_eq!(exercise_marker(number), expected);
+    }
+
+    fn measurement(value: f64) -> domain::Measurement {
+        domain::Measurement::new(value).unwrap()
+    }
+
+    fn session_with_measurements(
+        id: u128,
+        days_ago: i64,
+        sides: &[domain::Side],
+        measurements: &[(domain::Side, f64)],
+    ) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: id.into(),
+            routine_id: 1.into(),
+            date: chrono::Local::now().date_naive() - chrono::Duration::days(days_ago),
+            notes: String::new(),
+            elements: sides
+                .iter()
+                .map(|side| {
+                    let mut set = recorded_set(1);
+                    if let domain::TrainingSessionElement::Set { side: s, .. } = &mut set {
+                        *s = *side;
+                    }
+                    set
+                })
+                .collect(),
+            exercise_notes: std::collections::BTreeMap::new(),
+            exercise_measurements: measurements
+                .iter()
+                .map(|(side, value)| ((1.into(), *side), measurement(*value)))
+                .collect(),
+        }
+    }
+
+    #[rstest]
+    #[case::without_measurement(&[], None)]
+    #[case::side_less(&[(domain::Side::Unset, -4.5)], Some("-4.5"))]
+    #[case::per_side(
+        &[(domain::Side::Left, 12.5), (domain::Side::Right, 10.0)],
+        Some("L 12.5 · R 10")
+    )]
+    #[case::both_forms(
+        &[(domain::Side::Unset, 4.5), (domain::Side::Left, 12.5), (domain::Side::Right, 10.0)],
+        Some("4.5 · L 12.5 · R 10")
+    )]
+    fn test_the_measurement_of_an_exercise_is_shown_in_a_row(
+        #[case] measurements: &'static [(domain::Side, f64)],
+        #[case] expected: Option<&str>,
+    ) {
+        let html = render_training_session(1, web_app::Settings::default(), move || {
+            recorded_session().with_training_sessions(vec![session_with_measurements(
+                1,
+                0,
+                &[domain::Side::Unset],
+                measurements,
+            )])
+        });
+
+        assert_eq!(
+            contains(&html, "session-exercise-measurement")
+                .then(|| text_of(&html, "session-exercise-measurement")),
+            expected.map(str::to_string)
+        );
+        if expected.is_some() {
+            assert_eq!(
+                attribute_of(&html, "session-exercise-measurement", "aria-label"),
+                "Measurement"
+            );
+        }
+    }
+
+    fn render_measurement_dialog(
+        session: domain::TrainingSession,
+        previous: Vec<domain::TrainingSession>,
+    ) -> String {
+        render(move || {
+            let mut sessions = previous.clone();
+            sessions.push(session.clone());
+            recorded_session()
+                .with_routines(vec![domain::Routine {
+                    id: 1.into(),
+                    name: domain::Name::new("R").unwrap(),
+                    notes: String::new(),
+                    archived: false,
+                    sections: vec![],
+                }])
+                .with_training_sessions(sessions)
+                .provide();
+            rsx! {
+                SessionExerciseNotesDialog {
+                    training_session: session.clone(),
+                    exercise_id: domain::ExerciseID::from(1),
+                    on_save: |_| {},
+                    on_close: |_| {},
+                }
+            }
+        })
+    }
+
+    #[rstest]
+    #[case::sets_without_side(&[domain::Side::Unset], &[], &["Measurement"])]
+    #[case::sets_with_side(&[domain::Side::Left, domain::Side::Right], &[], &["Left", "Right"])]
+    #[case::stored_value_per_side(
+        &[domain::Side::Unset],
+        &[(domain::Side::Right, 1.0)],
+        &["Measurement", "Right"]
+    )]
+    fn test_the_measurement_fields_follow_the_sides_of_the_sets(
+        #[case] sides: &'static [domain::Side],
+        #[case] measurements: &'static [(domain::Side, f64)],
+        #[case] expected: &[&str],
+    ) {
+        let html =
+            render_measurement_dialog(session_with_measurements(1, 0, sides, measurements), vec![]);
+
+        for label in ["Measurement", "Left", "Right"] {
+            assert_eq!(
+                contains(
+                    &html,
+                    &format!(
+                        "session-exercise-measurement-input-{}",
+                        label.to_lowercase()
+                    )
+                ),
+                expected.contains(&label),
+                "{label}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_a_previous_measurement_offers_a_reuse_only_for_matching_sides() {
+        let html = render_measurement_dialog(
+            session_with_measurements(1, 0, &[domain::Side::Unset], &[]),
+            vec![
+                session_with_measurements(
+                    2,
+                    2,
+                    &[domain::Side::Unset],
+                    &[(domain::Side::Unset, 3.0)],
+                ),
+                session_with_measurements(
+                    3,
+                    1,
+                    &[domain::Side::Left],
+                    &[(domain::Side::Left, 2.0), (domain::Side::Right, 1.5)],
+                ),
+            ],
+        );
+
+        assert_eq!(
+            all_text_of(&html, "previous-session-exercise-measurement"),
+            vec!["L 2 · R 1.5", "3"]
+        );
+        assert_eq!(
+            all_text_of(&html, "session-exercise-measurement-reuse").len(),
+            1
+        );
+    }
+
+    fn measurement_field(input: &str) -> FieldValue<Option<domain::Measurement>> {
+        FieldValue {
+            input: input.to_string(),
+            validated: Ok(None),
+            orig: String::new(),
+        }
+    }
+
+    #[rstest]
+    #[case::negative("-12.5", Ok(Some(-12.5)))]
+    #[case::empty("", Ok(None))]
+    #[case::finer_resolution("1.005", Err("measurement must be a multiple of 0.01"))]
+    fn test_update_measurement_field(
+        #[case] value: &str,
+        #[case] expected: Result<Option<f64>, &str>,
+    ) {
+        let mut field = measurement_field("1");
+
+        update_measurement_field(&mut field, value, false);
+
+        assert_eq!(field.input, value);
+        assert_eq!(
+            field.validated,
+            expected
+                .map(|value| value.map(measurement))
+                .map_err(str::to_string)
+        );
+    }
+
+    #[test]
+    fn test_update_measurement_field_with_bad_input_keeps_the_input() {
+        let mut field = measurement_field("-");
+
+        update_measurement_field(&mut field, "", true);
+
+        assert_eq!(field.input, "-");
+        assert_eq!(
+            field.validated,
+            Err("measurement must be a decimal".to_string())
+        );
+    }
+
+    #[rstest]
+    #[case::one_field(&[domain::Side::Unset], &[(domain::Side::Unset, 4.5)])]
+    #[case::both_fields(
+        &[domain::Side::Left, domain::Side::Right],
+        &[(domain::Side::Left, 2.0), (domain::Side::Right, -1.5)]
+    )]
+    fn test_reuse_measurements(
+        #[case] sides: &[domain::Side],
+        #[case] values: &[(domain::Side, f64)],
+    ) {
+        let mut fields = sides
+            .iter()
+            .map(|side| (*side, measurement_field("-")))
+            .collect::<BTreeMap<_, _>>();
+        let values = values
+            .iter()
+            .map(|(side, value)| (*side, measurement(*value)))
+            .collect::<BTreeMap<_, _>>();
+
+        reuse_measurements(&mut fields, &values);
+
+        assert_eq!(
+            fields
+                .into_iter()
+                .map(|(side, field)| (side, field.input, field.validated))
+                .collect::<Vec<_>>(),
+            values
+                .into_iter()
+                .map(|(side, value)| (side, value.to_string(), Ok(Some(value))))
+                .collect::<Vec<_>>()
+        );
     }
 }

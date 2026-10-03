@@ -1341,6 +1341,137 @@ def test_training_session_session_exercise_notes(page: Page) -> None:
     expect(exercise_page.session_exercise_notes().filter(has_text=earlier_note)).to_have_count(2)
 
 
+def test_training_session_measurement(page: Page) -> None:
+    workout = USER.workouts[-2]
+    exercise = next(e.exercise for e in workout.elements if isinstance(e, models.WorkoutSet))
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.open_session_exercise_notes_dialog()
+    p.session_exercise_notes_dialog.set_measurement("-12.5")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    assert p.get_session_exercise_measurement() == "-12.5"
+
+    exercise_page = ExercisePage(page, exercise.id)
+    exercise_page.goto()
+    expect(exercise_page.session_exercise_measurements().filter(has_text="-12.5")).to_have_count(1)
+    exercise_page.expect_chart_label("Measurement")
+
+    p.goto()
+    p.edit()
+    p.open_session_exercise_notes_dialog()
+    p.session_exercise_notes_dialog.set_measurement("")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    p.expect_no_session_exercise_measurement()
+
+
+def test_training_session_measurement_and_notes_in_view_mode(page: Page) -> None:
+    workout = USER.workouts[-2]
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    p.open_session_exercise_notes_dialog()
+    p.session_exercise_notes_dialog.set_measurement("12.5")
+    p.session_exercise_notes_dialog.set_note("Test note")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+    p.view()
+
+    p.click_session_exercise_measurement()
+    assert p.session_exercise_notes_dialog.get_measurement() == "12.5"
+    p.session_exercise_notes_dialog.set_measurement("10")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    p.expect_view_mode()
+    assert p.get_session_exercise_measurement() == "10"
+
+    p.click_session_exercise_notes()
+    assert p.session_exercise_notes_dialog.get_note() == "Test note"
+    p.session_exercise_notes_dialog.set_note("Updated note")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    p.expect_view_mode()
+    assert p.get_session_exercise_notes() == "Updated note"
+
+
+def test_training_session_measurement_per_side(page: Page) -> None:
+    workout = USER.workouts[0]
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+    p.tap_set_marker(1)
+    p.tap_set_marker(2)
+    p.tap_set_marker(2)
+    p.save()
+    p.edit()
+
+    p.open_session_exercise_notes_dialog(1)
+    p.session_exercise_notes_dialog.set_measurement("12.5", "left")
+    p.session_exercise_notes_dialog.set_measurement("10", "right")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    assert p.get_session_exercise_measurement() == "L 12.5 \u00b7 R 10"
+
+
+def start_stretching_session(page: Page) -> TrainingSessionPage:
+    training_sessions_page = TrainingSessionsPage(page)
+    training_sessions_page.goto()
+    training_sessions_page.add_training_session("Stretching")
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.edit()
+    return p
+
+
+def test_training_session_reuse_previous_measurement(page: Page) -> None:
+    previous = next(m.value for w in USER.workouts for m in w.exercise_measurements if m.side == 0)
+
+    login(page)
+    p = start_stretching_session(page)
+
+    p.open_session_exercise_notes_dialog()
+    assert p.session_exercise_notes_dialog.get_previous_measurements()[0] == f"{previous:g}"
+
+    p.session_exercise_notes_dialog.type_measurement("1-")
+    p.session_exercise_notes_dialog.reuse_previous_measurement()
+
+    assert p.session_exercise_notes_dialog.get_measurement() == f"{previous:g}"
+
+
+# WebKit clears a number field whose content it cannot parse.
+@pytest.mark.webkit_incompatible
+def test_training_session_rejected_measurement(page: Page) -> None:
+    login(page)
+    p = start_stretching_session(page)
+
+    p.open_session_exercise_notes_dialog()
+    p.session_exercise_notes_dialog.set_measurement("3.5")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    p.open_session_exercise_notes_dialog()
+    p.session_exercise_notes_dialog.type_measurement("1-")
+    p.session_exercise_notes_dialog.expect_save_disabled()
+    p.session_exercise_notes_dialog.cancel()
+
+    assert p.get_session_exercise_measurement() == "3.5"
+
+
 def test_training_session_exercise_notes(page: Page) -> None:
     workout = USER.workouts[0]
     exercise = next(e.exercise for e in workout.elements if isinstance(e, models.WorkoutSet))

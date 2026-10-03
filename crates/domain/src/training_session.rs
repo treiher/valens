@@ -12,10 +12,10 @@ use log::error;
 use uuid::Uuid;
 
 use crate::{
-    CreateError, DeleteError, Exercise, ExerciseID, Laterality, MuscleID, RPE, ReadError, Reps,
-    RoutineID, Side, Sides, Stimulus, Stretch, StretchOnlyExercises, SyncError, Tempo, Time,
-    TrainingStats, UpdateError, ValidationError, Weight, one_rep_max, training::values_to_string,
-    training_stats,
+    CreateError, DeleteError, Exercise, ExerciseID, Laterality, Measurement, MuscleID, RPE,
+    ReadError, Reps, RoutineID, Side, Sides, Stimulus, Stretch, StretchOnlyExercises, SyncError,
+    Tempo, Time, TrainingStats, UpdateError, ValidationError, Weight, one_rep_max,
+    training::values_to_string, training_stats,
 };
 
 #[allow(async_fn_in_trait)]
@@ -35,6 +35,7 @@ pub trait TrainingSessionService {
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
         exercise_notes: Option<BTreeMap<ExerciseID, String>>,
+        exercise_measurements: Option<BTreeMap<(ExerciseID, Side), Measurement>>,
     ) -> Result<TrainingSession, UpdateError>;
     async fn delete_training_session(&self, id: TrainingSessionID) -> Result<(), DeleteError>;
 
@@ -167,6 +168,7 @@ pub trait TrainingSessionRepository {
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
         exercise_notes: Option<BTreeMap<ExerciseID, String>>,
+        exercise_measurements: Option<BTreeMap<(ExerciseID, Side), Measurement>>,
     ) -> Result<TrainingSession, UpdateError>;
     async fn delete_training_session(&self, id: TrainingSessionID) -> Result<(), DeleteError>;
 }
@@ -238,6 +240,8 @@ pub struct TrainingSession {
     pub notes: String,
     pub elements: Vec<TrainingSessionElement>,
     pub exercise_notes: BTreeMap<ExerciseID, String>,
+    /// The measurement of an exercise and side, [`Side::Unset`] keying that of a bilateral exercise.
+    pub exercise_measurements: BTreeMap<(ExerciseID, Side), Measurement>,
 }
 
 impl TrainingSession {
@@ -772,7 +776,21 @@ impl TrainingSession {
             elements.extend(origins.zip(new));
         }
 
-        self.replace_section(&sections, section_idx, elements, "replacing exercise")
+        let note = self.exercise_notes.remove(&exercise_id);
+        let measurements = self.measurements_of(exercise_id);
+        let element_map =
+            self.replace_section(&sections, section_idx, elements, "replacing exercise");
+        if self.exercises().contains(&exercise_id) {
+            self.add_exercise_entries(exercise_id, note, measurements);
+        } else {
+            let sides = self.set_sides(replacement);
+            let measurements = measurements
+                .into_iter()
+                .filter(|(side, _)| sides.contains(side))
+                .collect();
+            self.add_exercise_entries(replacement, note, measurements);
+        }
+        element_map
     }
 
     pub fn remove_set(&mut self, section_idx: usize) -> ElementMap {
@@ -848,6 +866,97 @@ impl TrainingSession {
         }
 
         self.replace_section(&sections, section_idx, elements, "removing exercise")
+    }
+
+    /// Adds a note and measurements to `exercise_id`, keeping those it already holds.
+    fn add_exercise_entries(
+        &mut self,
+        exercise_id: ExerciseID,
+        note: Option<String>,
+        measurements: BTreeMap<Side, Measurement>,
+    ) {
+        if let Some(note) = note {
+            self.exercise_notes.entry(exercise_id).or_insert(note);
+        }
+        for (side, measurement) in measurements {
+            self.exercise_measurements
+                .entry((exercise_id, side))
+                .or_insert(measurement);
+        }
+    }
+
+    /// Drops the notes and measurements of exercises without a set.
+    fn drop_entries_of_absent_exercises(&mut self) {
+        let exercises = self.exercises();
+        self.exercise_notes.retain(|id, _| exercises.contains(id));
+        self.exercise_measurements
+            .retain(|(id, _), _| exercises.contains(id));
+    }
+
+    /// The sides the measurement of an exercise is recorded for.
+    ///
+    /// These are the left and the right side if any set of the exercise carries a side, no side
+    /// otherwise, and every side holding a stored value, ordered as [`Side`].
+    #[must_use]
+    pub fn measurement_sides(&self, exercise_id: ExerciseID) -> Vec<Side> {
+        let mut sides = self.set_sides(exercise_id);
+        sides.extend(
+            self.exercise_measurements
+                .keys()
+                .filter(|(id, _)| *id == exercise_id)
+                .map(|(_, side)| *side),
+        );
+        sides.into_iter().collect()
+    }
+
+    /// The left and the right side if any set of the exercise carries a side, no side otherwise.
+    fn set_sides(&self, exercise_id: ExerciseID) -> BTreeSet<Side> {
+        let has_sides = self.elements.iter().any(|element| {
+            matches!(
+                element,
+                TrainingSessionElement::Set { exercise_id: id, side, .. }
+                    if *id == exercise_id && *side != Side::Unset
+            )
+        });
+        if has_sides {
+            BTreeSet::from([Side::Left, Side::Right])
+        } else {
+            BTreeSet::from([Side::Unset])
+        }
+    }
+
+    /// The measurements of an exercise in up to three earlier sessions, newest first.
+    #[must_use]
+    pub fn previous_exercise_measurements(
+        &self,
+        exercise_id: ExerciseID,
+        training_sessions: &[TrainingSession],
+    ) -> Vec<PreviousExerciseMeasurement> {
+        let mut measurements = training_sessions
+            .iter()
+            .filter(|session| session.id != self.id && session.date < self.date)
+            .filter_map(|session| {
+                let values = session.measurements_of(exercise_id);
+                (!values.is_empty()).then_some(PreviousExerciseMeasurement {
+                    date: session.date,
+                    routine_id: session.routine_id,
+                    values,
+                })
+            })
+            .collect::<Vec<_>>();
+        measurements.sort_by_key(|measurement| std::cmp::Reverse(measurement.date));
+        measurements.truncate(3);
+        measurements
+    }
+
+    /// The measurements of an exercise by side.
+    #[must_use]
+    pub fn measurements_of(&self, exercise_id: ExerciseID) -> BTreeMap<Side, Measurement> {
+        self.exercise_measurements
+            .iter()
+            .filter(|((id, _), _)| *id == exercise_id)
+            .map(|((_, side), measurement)| (*side, *measurement))
+            .collect()
     }
 
     /// Appends sets of `exercise_id` to the session.
@@ -979,6 +1088,7 @@ impl TrainingSession {
                 .collect();
         }
 
+        self.drop_entries_of_absent_exercises();
         ElementMap::new(previous_len, &origins)
     }
 
@@ -1152,6 +1262,7 @@ impl TrainingSession {
             notes: self.notes.clone(),
             elements,
             exercise_notes: self.exercise_notes.clone(),
+            exercise_measurements: self.exercise_measurements.clone(),
         }
     }
 
@@ -1298,6 +1409,13 @@ pub struct PreviousExerciseNote {
     pub date: NaiveDate,
     pub routine_id: RoutineID,
     pub note: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PreviousExerciseMeasurement {
+    pub date: NaiveDate,
+    pub routine_id: RoutineID,
+    pub values: BTreeMap<Side, Measurement>,
 }
 
 #[derive(Deref, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -1864,6 +1982,7 @@ mod tests {
                 },
             ],
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         });
 
     static EMPTY_TRAINING_SESSION: std::sync::LazyLock<TrainingSession> =
@@ -2143,6 +2262,7 @@ mod tests {
                 automatic: false,
             }],
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         };
         assert_eq!(
             training_session
@@ -2188,6 +2308,7 @@ mod tests {
                 },
             ],
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         };
         assert_eq!(
             training_session
@@ -3644,6 +3765,255 @@ mod tests {
         let mut training_session = training_session(&[exercise(0, 0), rest(0), exercise(1, 1)]);
         training_session.remove_set(1);
         assert_eq!(training_session.elements, vec![exercise(0, 0), rest(0)]);
+    }
+
+    fn measurement(value: f64) -> Measurement {
+        Measurement::new(value).unwrap()
+    }
+
+    /// Sections of exercise 0, exercise 1 and exercise 0 again, with a note and a measurement of
+    /// either exercise.
+    fn session_with_entries() -> TrainingSession {
+        TrainingSession {
+            exercise_notes: BTreeMap::from([
+                (0.into(), "A".to_string()),
+                (1.into(), "B".to_string()),
+            ]),
+            exercise_measurements: BTreeMap::from([
+                ((0.into(), Side::Unset), measurement(1.0)),
+                ((1.into(), Side::Left), measurement(2.0)),
+                ((1.into(), Side::Right), measurement(3.0)),
+            ]),
+            ..training_session(&[
+                exercise(0, 0),
+                rest(0),
+                exercise(1, 1),
+                rest(1),
+                exercise(2, 0),
+                rest(2),
+            ])
+        }
+    }
+
+    #[test]
+    fn test_training_session_remove_exercise_keeps_entries_while_a_set_is_left() {
+        let mut training_session = session_with_entries();
+
+        training_session.remove_exercise(0, 0.into());
+
+        assert_eq!(
+            training_session.exercise_notes,
+            session_with_entries().exercise_notes
+        );
+        assert_eq!(
+            training_session.exercise_measurements,
+            session_with_entries().exercise_measurements
+        );
+
+        training_session.remove_exercise(1, 0.into());
+
+        assert_eq!(
+            training_session.exercise_notes,
+            BTreeMap::from([(1.into(), "B".to_string())])
+        );
+        assert_eq!(
+            training_session.exercise_measurements,
+            BTreeMap::from([
+                ((1.into(), Side::Left), measurement(2.0)),
+                ((1.into(), Side::Right), measurement(3.0)),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_training_session_remove_set_drops_entries_of_the_last_set() {
+        let mut training_session = session_with_entries();
+
+        training_session.remove_set(1);
+
+        assert_eq!(
+            training_session.exercise_notes,
+            BTreeMap::from([(0.into(), "A".to_string())])
+        );
+        assert_eq!(
+            training_session.exercise_measurements,
+            BTreeMap::from([((0.into(), Side::Unset), measurement(1.0))])
+        );
+    }
+
+    #[test]
+    fn test_training_session_replace_exercise_moves_entries() {
+        let mut training_session = TrainingSession {
+            exercise_measurements: BTreeMap::from([((1.into(), Side::Unset), measurement(2.0))]),
+            ..session_with_entries()
+        };
+
+        training_session.replace_exercise(1, 1.into(), 2.into(), None);
+
+        assert_eq!(
+            training_session.exercise_notes,
+            BTreeMap::from([(0.into(), "A".to_string()), (2.into(), "B".to_string())])
+        );
+        assert_eq!(
+            training_session.exercise_measurements,
+            BTreeMap::from([((2.into(), Side::Unset), measurement(2.0))])
+        );
+    }
+
+    #[test]
+    fn test_training_session_replace_exercise_keeps_entries_of_the_replacement() {
+        let mut training_session = TrainingSession {
+            exercise_notes: BTreeMap::from([
+                (1.into(), "B".to_string()),
+                (2.into(), "C".to_string()),
+            ]),
+            exercise_measurements: BTreeMap::from([
+                ((1.into(), Side::Unset), measurement(2.0)),
+                ((2.into(), Side::Unset), measurement(4.0)),
+            ]),
+            ..session_with_entries()
+        };
+        training_session.elements.push(exercise(3, 2));
+
+        training_session.replace_exercise(1, 1.into(), 2.into(), None);
+
+        assert_eq!(
+            training_session.exercise_notes,
+            BTreeMap::from([(2.into(), "C".to_string())])
+        );
+        assert_eq!(
+            training_session.exercise_measurements,
+            BTreeMap::from([((2.into(), Side::Unset), measurement(4.0))])
+        );
+    }
+
+    #[rstest]
+    #[case::sides_to_bilateral(Side::Left, None)]
+    #[case::no_side_to_unilateral(Side::Unset, Some(Laterality::Unilateral))]
+    fn test_training_session_replace_exercise_drops_measurements_of_other_sides(
+        #[case] side: Side,
+        #[case] laterality: Option<Laterality>,
+    ) {
+        let mut training_session = TrainingSession {
+            exercise_measurements: BTreeMap::from([((1.into(), side), measurement(2.0))]),
+            ..session_with_entries()
+        };
+
+        training_session.replace_exercise(1, 1.into(), 2.into(), laterality);
+
+        assert_eq!(training_session.exercise_measurements, BTreeMap::new());
+    }
+
+    #[test]
+    fn test_training_session_replace_exercise_keeps_entries_while_a_set_is_left() {
+        let mut training_session = session_with_entries();
+
+        training_session.replace_exercise(0, 0.into(), 2.into(), None);
+
+        assert_eq!(
+            training_session.exercise_notes,
+            session_with_entries().exercise_notes
+        );
+        assert_eq!(
+            training_session.exercise_measurements,
+            session_with_entries().exercise_measurements
+        );
+    }
+
+    #[rstest]
+    #[case::sets_without_side(&[Side::Unset], &[], &[Side::Unset])]
+    #[case::sets_with_side(&[Side::Left, Side::Right], &[], &[Side::Left, Side::Right])]
+    #[case::sets_without_side_and_a_value_per_side(
+        &[Side::Unset],
+        &[Side::Left],
+        &[Side::Unset, Side::Left]
+    )]
+    #[case::sets_with_side_and_a_value_without(
+        &[Side::Left],
+        &[Side::Unset],
+        &[Side::Unset, Side::Left, Side::Right]
+    )]
+    fn test_training_session_measurement_sides(
+        #[case] set_sides: &[Side],
+        #[case] stored_sides: &[Side],
+        #[case] expected: &[Side],
+    ) {
+        let training_session = TrainingSession {
+            exercise_measurements: stored_sides
+                .iter()
+                .map(|side| ((1.into(), *side), measurement(1.0)))
+                .collect(),
+            ..training_session(
+                &set_sides
+                    .iter()
+                    .map(|side| sided_set(1, *side, 5, RPE::ZERO))
+                    .chain([sided_set(2, Side::Left, 5, RPE::ZERO)])
+                    .collect::<Vec<_>>(),
+            )
+        };
+
+        assert_eq!(training_session.measurement_sides(1.into()), expected);
+    }
+
+    #[test]
+    fn test_training_session_previous_exercise_measurements() {
+        let session = |id: u128, days_ago: i64, values: &[(u128, Side, f64)]| TrainingSession {
+            id: id.into(),
+            date: *TODAY - Duration::days(days_ago),
+            exercise_measurements: values
+                .iter()
+                .map(|(exercise_id, side, value)| {
+                    (((*exercise_id).into(), *side), measurement(*value))
+                })
+                .collect(),
+            ..training_session(&[])
+        };
+        let current = session(1, 0, &[(1, Side::Unset, 5.0)]);
+        let sessions = [
+            session(2, 5, &[(1, Side::Unset, 5.0)]),
+            session(3, 1, &[(1, Side::Left, 1.5), (1, Side::Right, -2.0)]),
+            session(4, 2, &[(2, Side::Unset, 7.0)]),
+            session(5, 3, &[(1, Side::Unset, 5.0)]),
+            session(6, 4, &[(1, Side::Unset, 4.0)]),
+            session(7, -1, &[(1, Side::Unset, 6.0)]),
+            session(1, 0, &[(1, Side::Unset, 5.0)]),
+        ];
+
+        assert_eq!(
+            current.previous_exercise_measurements(1.into(), &sessions),
+            vec![
+                PreviousExerciseMeasurement {
+                    date: *TODAY - Duration::days(1),
+                    routine_id: 0.into(),
+                    values: BTreeMap::from([
+                        (Side::Left, measurement(1.5)),
+                        (Side::Right, measurement(-2.0)),
+                    ]),
+                },
+                PreviousExerciseMeasurement {
+                    date: *TODAY - Duration::days(3),
+                    routine_id: 0.into(),
+                    values: BTreeMap::from([(Side::Unset, measurement(5.0))]),
+                },
+                PreviousExerciseMeasurement {
+                    date: *TODAY - Duration::days(4),
+                    routine_id: 0.into(),
+                    values: BTreeMap::from([(Side::Unset, measurement(4.0))]),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn test_training_session_restricted_to_keeps_the_measurements() {
+        let training_session = session_with_entries();
+
+        assert_eq!(
+            training_session
+                .restricted_to(1.into())
+                .exercise_measurements,
+            training_session.exercise_measurements
+        );
     }
 
     #[test]
@@ -5143,6 +5513,7 @@ mod tests {
             notes: String::new(),
             elements: elements.to_vec(),
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         }
     }
 
@@ -5162,6 +5533,7 @@ mod tests {
                 .iter()
                 .map(|(id, n)| (*id, (*n).to_string()))
                 .collect(),
+            exercise_measurements: BTreeMap::new(),
         }
     }
 

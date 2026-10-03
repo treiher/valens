@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Left and right column of the sets, a left and a right set directly following each other sharing one row
     - Pause before the second set of a pair
     - Stretch sets and time under stretch per muscle
+    - Measurement of an exercise, per side for an exercise performed per side
 - Routine page:
     - Sides of an activity, which prescribe a unilateral exercise per side
     - Stretch sets and time under stretch per muscle
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Left and right column in the set history, showing the two sets of a pair side by side
     - Stretched muscles of the exercise, shown in a row of their own
     - Stretch sets of an exercise that only stretches, replacing its volume metrics, with the time of its sets shown even if the time under tension is hidden
+    - Measurement in the set history and a chart of the measurements
 - Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
 - Muscles page:
     - Hip flexors and hip rotators
@@ -38,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Home page: Training load, counting the sets of exercises that only stretch as one, whatever their RPE
+- Training session page:
+    - Notes for this session of an exercise, removed with the exercise and moved to its replacement
+    - Name of the session-specific notes of an exercise, which reads "Session notes"
 - Routine page:
     - Label of the time of an activity without repetitions, which reads "Time"
     - Sets per muscle, leaving out muscles without sets

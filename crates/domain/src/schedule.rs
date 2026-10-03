@@ -872,6 +872,7 @@ mod tests {
             notes: String::new(),
             elements: vec![],
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         }
     }
 

@@ -618,6 +618,9 @@ impl<R: Remote, C: Cache> domain::TrainingSessionRepository for CachedREST<R, C>
         notes: Option<String>,
         elements: Option<Vec<domain::TrainingSessionElement>>,
         exercise_notes: Option<std::collections::BTreeMap<domain::ExerciseID, String>>,
+        exercise_measurements: Option<
+            std::collections::BTreeMap<(domain::ExerciseID, domain::Side), domain::Measurement>,
+        >,
     ) -> Result<domain::TrainingSession, domain::UpdateError> {
         execute!(
             self,
@@ -626,7 +629,8 @@ impl<R: Remote, C: Cache> domain::TrainingSessionRepository for CachedREST<R, C>
             id,
             notes,
             elements,
-            exercise_notes
+            exercise_notes,
+            exercise_measurements
         )
     }
 
@@ -992,9 +996,21 @@ mod tests {
                     notes: Option<String>,
                     elements: Option<Vec<domain::TrainingSessionElement>>,
                     exercise_notes: Option<std::collections::BTreeMap<domain::ExerciseID, String>>,
+                    exercise_measurements: Option<
+                        std::collections::BTreeMap<
+                            (domain::ExerciseID, domain::Side),
+                            domain::Measurement,
+                        >,
+                    >,
                 ) -> Result<domain::TrainingSession, domain::UpdateError> {
                     self.repository
-                        .modify_training_session(id, notes, elements, exercise_notes)
+                        .modify_training_session(
+                            id,
+                            notes,
+                            elements,
+                            exercise_notes,
+                            exercise_measurements,
+                        )
                         .await
                 }
 

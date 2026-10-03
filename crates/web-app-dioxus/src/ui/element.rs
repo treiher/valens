@@ -332,7 +332,7 @@ pub fn IconText(
 ) -> Element {
     rsx! {
         span {
-            class: "icon-text",
+            class: "icon-text is-flex-wrap-nowrap",
             class: if let Some(color) = color { "has-text-{color}" },
             onclick: move |evt| {
                 if let Some(event_handler) = on_click {

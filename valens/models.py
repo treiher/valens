@@ -287,6 +287,9 @@ class Exercise(Base):
     exercise_notes: Mapped[list[WorkoutExerciseNote]] = relationship(
         "WorkoutExerciseNote", back_populates="exercise", cascade="all, delete-orphan"
     )
+    exercise_measurements: Mapped[list[WorkoutExerciseMeasurement]] = relationship(
+        "WorkoutExerciseMeasurement", back_populates="exercise", cascade="all, delete-orphan"
+    )
 
 
 class ExerciseMuscle(Base):
@@ -526,6 +529,9 @@ class Workout(Base):
     exercise_notes: Mapped[list[WorkoutExerciseNote]] = relationship(
         "WorkoutExerciseNote", back_populates="workout", cascade="all, delete-orphan"
     )
+    exercise_measurements: Mapped[list[WorkoutExerciseMeasurement]] = relationship(
+        "WorkoutExerciseMeasurement", back_populates="workout", cascade="all, delete-orphan"
+    )
 
 
 class WorkoutExerciseNote(Base):
@@ -541,6 +547,31 @@ class WorkoutExerciseNote(Base):
 
     workout: Mapped[Workout] = relationship("Workout", back_populates="exercise_notes")
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="exercise_notes")
+
+
+class WorkoutExerciseMeasurement(Base):
+    __tablename__ = "workout_exercise_measurement"
+    __table_args__ = (
+        CheckConstraint("typeof(side) = 'integer'", name="side_type_integer"),
+        CheckConstraint("typeof(value) = 'real'", name="value_type_real"),
+        # Bounds mirror `Side` and `Measurement` in `crates/domain/src/training.rs`
+        CheckConstraint(column("side") >= 0, name="side_ge_0"),
+        CheckConstraint(column("side") <= 2, name="side_le_2"),
+        CheckConstraint(column("value") >= -9999.99, name="value_ge_min"),
+        CheckConstraint(column("value") <= 9999.99, name="value_le_max"),
+    )
+
+    workout_id: Mapped[int] = mapped_column(
+        ForeignKey("workout.id", ondelete="CASCADE"), primary_key=True
+    )
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE"), primary_key=True
+    )
+    side: Mapped[int] = mapped_column(Integer, primary_key=True)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+
+    workout: Mapped[Workout] = relationship("Workout", back_populates="exercise_measurements")
+    exercise: Mapped[Exercise] = relationship("Exercise", back_populates="exercise_measurements")
 
 
 class WorkoutElement(Base):

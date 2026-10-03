@@ -296,6 +296,16 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
             },
         ],
         exercise_notes: std::collections::BTreeMap::new(),
+        exercise_measurements: std::collections::BTreeMap::from([
+            (
+                (1.into(), domain::Side::Unset),
+                domain::Measurement::new(-12.5).unwrap(),
+            ),
+            (
+                (2.into(), domain::Side::Left),
+                domain::Measurement::new(9999.99).unwrap(),
+            ),
+        ]),
     });
 
 pub static TRAINING_SESSION_2: std::sync::LazyLock<domain::TrainingSession> =
@@ -337,4 +347,5 @@ pub static TRAINING_SESSION_2: std::sync::LazyLock<domain::TrainingSession> =
             },
         ],
         exercise_notes: std::collections::BTreeMap::new(),
+        exercise_measurements: std::collections::BTreeMap::new(),
     });

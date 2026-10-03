@@ -1931,6 +1931,7 @@ mod tests {
                 automatic: false,
             }],
             exercise_notes: std::collections::BTreeMap::new(),
+            exercise_measurements: std::collections::BTreeMap::new(),
         }
     }
 

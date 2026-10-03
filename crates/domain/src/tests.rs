@@ -8,11 +8,11 @@ use chrono::NaiveDate;
 use crate::{
     Assistance, AuthMethod, AuthRepository, BodyFat, BodyFatRepository, BodyWeight,
     BodyWeightRepository, Category, CreateError, DeleteError, Equipment, Exercise, ExerciseID,
-    ExerciseMuscle, ExerciseRepository, Force, Laterality, Mechanic, Name, Passkey, PasskeyID,
-    Period, PeriodRepository, ReadError, Role, Routine, RoutineID, RoutinePart, RoutineRepository,
-    Schedule, ScheduleRepository, SessionRepository, Sex, SignOut, SyncError, TrainingSession,
-    TrainingSessionElement, TrainingSessionID, TrainingSessionRepository, UpdateError, User,
-    UserID, UserRepository, VersionRepository,
+    ExerciseMuscle, ExerciseRepository, Force, Laterality, Measurement, Mechanic, Name, Passkey,
+    PasskeyID, Period, PeriodRepository, ReadError, Role, Routine, RoutineID, RoutinePart,
+    RoutineRepository, Schedule, ScheduleRepository, SessionRepository, Sex, Side, SignOut,
+    SyncError, TrainingSession, TrainingSessionElement, TrainingSessionID,
+    TrainingSessionRepository, UpdateError, User, UserID, UserRepository, VersionRepository,
 };
 
 /// Repository operation that tests observe in the call log or let fail.
@@ -287,6 +287,7 @@ impl TrainingSessionRepository for FakeRepository {
             notes,
             elements,
             exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
         })
     }
 
@@ -296,6 +297,7 @@ impl TrainingSessionRepository for FakeRepository {
         notes: Option<String>,
         elements: Option<Vec<TrainingSessionElement>>,
         exercise_notes: Option<BTreeMap<ExerciseID, String>>,
+        exercise_measurements: Option<BTreeMap<(ExerciseID, Side), Measurement>>,
     ) -> Result<TrainingSession, UpdateError> {
         Ok(TrainingSession {
             id,
@@ -304,6 +306,7 @@ impl TrainingSessionRepository for FakeRepository {
             notes: notes.unwrap_or_default(),
             elements: elements.unwrap_or_default(),
             exercise_notes: exercise_notes.unwrap_or_default(),
+            exercise_measurements: exercise_measurements.unwrap_or_default(),
         })
     }
 

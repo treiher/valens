@@ -91,6 +91,16 @@ def test_muscles_merge_worked_and_stretched_entries() -> None:
     ]
 
 
+def test_measurements_are_recorded_with_and_without_side() -> None:
+    users = demo.users(TODAY, seed=0)
+
+    sides = {
+        m.side for user in users for workout in user.workouts for m in workout.exercise_measurements
+    }
+
+    assert sides == {0, 1, 2}
+
+
 def test_body_weight_is_plausible() -> None:
     users = demo.users(TODAY, seed=0)
 

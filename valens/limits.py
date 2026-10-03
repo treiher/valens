@@ -69,6 +69,15 @@ SIDES_COMBINED = 1
 # Mirrors `Side` in `crates/domain/src/training.rs`, whose unset value is the absent value
 SIDE_IDS = frozenset({1, 2})
 
+# Mirrors `Side` in `crates/domain/src/training.rs`, whose unset value keys the measurement of a
+# bilateral exercise
+MEASUREMENT_SIDE_IDS = frozenset({0, 1, 2})
+
+# Mirrors `Measurement` in `crates/domain/src/training.rs`
+MEASUREMENT_MIN = -9999.99
+MEASUREMENT_MAX = 9999.99
+MEASUREMENT_RESOLUTION = 0.01
+
 # Mirrors `Weekday` in `crates/domain/src/schedule.rs`
 WEEKDAY_MIN = 1
 WEEKDAY_MAX = 7

@@ -677,6 +677,7 @@ mod tests {
             notes: String::new(),
             elements: vec![],
             exercise_notes: std::collections::BTreeMap::new(),
+            exercise_measurements: std::collections::BTreeMap::new(),
         }
     }
 

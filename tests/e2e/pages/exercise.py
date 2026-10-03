@@ -34,6 +34,12 @@ class ExercisePage(BasePage):
     def session_exercise_notes(self) -> Locator:
         return self.page.get_by_test_id("session-exercise-notes")
 
+    def session_exercise_measurements(self) -> Locator:
+        return self.page.get_by_test_id("session-exercise-measurement")
+
+    def expect_chart_label(self, label: str) -> None:
+        expect(self.page.get_by_text(label, exact=True).first).to_be_visible()
+
     def get_notes(self) -> str:
         return get_text(self.page.get_by_test_id("exercise-notes"))
 

@@ -28,6 +28,7 @@ pub fn InputField(
     r#type: Option<String>,
     inputmode: Option<String>,
     max: Option<String>,
+    step: Option<String>,
     value: String,
     error: Option<String>,
     error_testid: Option<String>,
@@ -36,6 +37,8 @@ pub fn InputField(
     #[props(default)] is_disabled: bool,
     #[props(default)] autofocus: bool,
     on_input: EventHandler<FormEvent>,
+    // Not an `Option`, as Dioxus may drop an optional handler of a field when it re-renders.
+    #[props(default)] on_mounted: EventHandler<web_sys::HtmlInputElement>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     let error = error.and_then(|error| {
@@ -63,16 +66,20 @@ pub fn InputField(
                     r#type: if let Some(r#type) = r#type { r#type } else { "text" },
                     inputmode: if let Some(inputmode) = inputmode { inputmode },
                     max: if let Some(max) = max { max },
+                    step: if let Some(step) = step { step },
                     value: "{value}",
                     oninput: on_input,
                     onmounted: move |event| async move {
                         if autofocus {
                             let _ = event.set_focus(true).await;
-                            if let Some(element) = event.data().try_as_web_event()
-                                && let Some(input) = element.dyn_ref::<web_sys::HtmlInputElement>()
-                            {
+                        }
+                        if let Some(element) = event.data().try_as_web_event()
+                            && let Some(input) = element.dyn_ref::<web_sys::HtmlInputElement>()
+                        {
+                            if autofocus {
                                 input.select();
                             }
+                            on_mounted.call(input.clone());
                         }
                     },
                     ..attributes,
@@ -171,18 +178,20 @@ pub fn PhaseFields(
 
 #[component]
 pub fn TextAreaField(
+    label: Option<String>,
     value: String,
     has_changed: bool,
     /// Focus the text area on mount and place the caret at the end of the text.
     #[props(default)]
     autofocus: bool,
     on_input: EventHandler<FormEvent>,
-    on_mounted: Option<EventHandler<web_sys::HtmlTextAreaElement>>,
+    #[props(default)] on_mounted: EventHandler<web_sys::HtmlTextAreaElement>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
     rsx! {
         div {
             class: "field",
+            if let Some(label) = label { label { class: "label", "{label}" } }
             div {
                 class: "control",
                 textarea {
@@ -201,9 +210,7 @@ pub fn TextAreaField(
                             {
                                 let _ = textarea.set_selection_range(len, len);
                             }
-                            if let Some(on_mounted) = on_mounted {
-                                on_mounted.call(textarea.clone());
-                            }
+                            on_mounted.call(textarea.clone());
                         }
                     },
                     ..attributes,

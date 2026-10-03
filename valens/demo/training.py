@@ -20,6 +20,7 @@ from valens.models import (
     ScheduleSlot,
     Workout,
     WorkoutElement,
+    WorkoutExerciseMeasurement,
     WorkoutExerciseNote,
     WorkoutRest,
     WorkoutSet,
@@ -115,6 +116,11 @@ SESSION_EXERCISE_NOTES = (
     "Grip gave out before the last reps.",
     "Bar path drifted forward on the last round.",
 )
+
+# The measurement of an exercise in its first session and its change per session
+MEASUREMENTS = {"Pike Stretch": (-8.0, 0.05), "Couch Stretch": (10.0, 0.04)}
+# The difference of the right side to the left side of a measurement per side
+RIGHT_MEASUREMENT_OFFSET = 1.5
 
 EXERCISE_NOTES = {
     "Barbell Squat": "High bar, feet shoulder width.\nBelt from the third set on.",
@@ -893,20 +899,40 @@ def _workouts(
     routines: dict[str, Routine],
     exercises: dict[str, Exercise],
 ) -> list[Workout]:
-    return [
-        Workout(
-            user_id=profile.id,
-            date=record.date,
-            notes=record.notes,
-            routine=routines[record.routine],
-            elements=_elements(record, exercises),
-            exercise_notes=[
-                WorkoutExerciseNote(exercise=exercises[name], notes=notes)
-                for name, notes in record.exercise_notes
-            ],
+    measured: dict[str, int] = {}
+    workouts = []
+    for record in records:
+        measurements: list[WorkoutExerciseMeasurement] = []
+        for name in dict.fromkeys(s.exercise for s in record.sets):
+            if name not in MEASUREMENTS:
+                continue
+            first, change = MEASUREMENTS[name]
+            value = round(first + change * measured.get(name, 0), 2)
+            measured[name] = measured.get(name, 0) + 1
+            sides = (
+                [(LEFT, value), (RIGHT, round(value + RIGHT_MEASUREMENT_OFFSET, 2))]
+                if _sides(EXERCISES[name]) == PER_SIDE
+                else [(0, value)]
+            )
+            measurements.extend(
+                WorkoutExerciseMeasurement(exercise=exercises[name], side=side, value=v)
+                for side, v in sides
+            )
+        workouts.append(
+            Workout(
+                user_id=profile.id,
+                date=record.date,
+                notes=record.notes,
+                routine=routines[record.routine],
+                elements=_elements(record, exercises),
+                exercise_notes=[
+                    WorkoutExerciseNote(exercise=exercises[name], notes=notes)
+                    for name, notes in record.exercise_notes
+                ],
+                exercise_measurements=measurements,
+            )
         )
-        for record in records
-    ]
+    return workouts
 
 
 def _elements(record: _Record, exercises: dict[str, Exercise]) -> list[WorkoutElement]:

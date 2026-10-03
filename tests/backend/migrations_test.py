@@ -228,7 +228,7 @@ def test_upgrade_adds_stretch(tmp_path: Path) -> None:
         connection.commit()
 
         with app.app_context():
-            upgrade(cfg, "head")
+            upgrade(cfg, "5b2e9d7c41fa")
 
         assert connection.execute(
             "SELECT exercise_id, stretch FROM exercise_muscle ORDER BY exercise_id"
@@ -257,6 +257,88 @@ def test_upgrade_adds_stretch(tmp_path: Path) -> None:
             "SELECT user_id, version FROM data_version WHERE collection = 'exercises'"
             " ORDER BY user_id"
         ).fetchall() == [(1, 5), (2, 1)]
+
+
+MEASUREMENT_DATA = """
+INSERT INTO user (id, name, sex, role)
+    VALUES (1, 'Alice', 'FEMALE', 'USER'), (2, 'Bob', 'MALE', 'USER');
+INSERT INTO exercise (id, user_id, name) VALUES (1, 1, 'Pancake Stretch'), (2, 2, 'Squat');
+INSERT INTO workout (id, user_id, date) VALUES (1, 1, '2002-02-20'), (2, 2, '2002-02-20');
+INSERT INTO workout_exercise_measurement (workout_id, exercise_id, side, value)
+    VALUES (1, 1, 0, -12.5), (1, 1, 1, 3.0);
+INSERT INTO data_version (user_id, collection, version) VALUES (1, 'workouts', 2);
+"""
+
+
+def test_downgrade_drops_measurements(tmp_path: Path) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "head")
+
+        connection.executescript(MEASUREMENT_DATA)
+        connection.commit()
+
+        with app.app_context():
+            downgrade(cfg, "5b2e9d7c41fa")
+
+        assert "workout_exercise_measurement" not in [
+            row[0] for row in connection.execute("SELECT name FROM sqlite_master")
+        ]
+        assert connection.execute(
+            "SELECT user_id, version FROM data_version WHERE collection = 'workouts'"
+            " ORDER BY user_id"
+        ).fetchall() == [(1, 3)]
+
+
+NOTE_DATA = """
+INSERT INTO user (id, name, sex, role)
+    VALUES (1, 'Alice', 'FEMALE', 'USER'), (2, 'Bob', 'MALE', 'USER'),
+    (3, 'Carol', 'FEMALE', 'USER');
+INSERT INTO exercise (id, user_id, name)
+    VALUES (1, 1, 'Squat'), (2, 1, 'Deadlift'), (3, 2, 'Squat'), (4, 3, 'Squat');
+INSERT INTO workout (id, user_id, date)
+    VALUES (1, 1, '2002-02-20'), (2, 2, '2002-02-20'), (3, 3, '2002-02-20');
+INSERT INTO workout_element (workout_id, position, type, automatic)
+    VALUES (1, 1, 'workout_set', 0), (3, 1, 'workout_set', 0);
+INSERT INTO workout_set (workout_id, position, exercise_id, reps) VALUES (1, 1, 1, 5), (3, 1, 4, 5);
+INSERT INTO workout_exercise_note (workout_id, exercise_id, notes)
+    VALUES (1, 1, 'Kept'), (1, 2, 'Removed'), (2, 3, 'Removed'), (3, 4, 'Kept');
+INSERT INTO data_version (user_id, collection, version) VALUES (1, 'workouts', 2);
+"""
+
+
+def test_upgrade_deletes_notes_of_exercises_without_set(tmp_path: Path) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "9e3c6a1f8b27")
+
+        connection.executescript(NOTE_DATA)
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "c55e237099fd")
+
+        assert connection.execute(
+            "SELECT workout_id, exercise_id FROM workout_exercise_note ORDER BY workout_id"
+        ).fetchall() == [(1, 1), (3, 4)]
+        assert connection.execute(
+            "SELECT user_id, version FROM data_version WHERE collection = 'workouts'"
+            " ORDER BY user_id"
+        ).fetchall() == [(1, 3), (2, 1)]
 
 
 def test_completeness(tmp_path: Path) -> None:

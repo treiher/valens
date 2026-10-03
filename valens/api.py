@@ -51,6 +51,10 @@ from valens.limits import (
     INTENSITY_MAX,
     INTENSITY_MIN,
     LATERALITY_IDS,
+    MEASUREMENT_MAX,
+    MEASUREMENT_MIN,
+    MEASUREMENT_RESOLUTION,
+    MEASUREMENT_SIDE_IDS,
     MECHANIC_IDS,
     MUSCLE_IDS,
     REPS_MAX,
@@ -95,6 +99,7 @@ from valens.models import (
     User,
     Workout,
     WorkoutElement,
+    WorkoutExerciseMeasurement,
     WorkoutExerciseNote,
     WorkoutRest,
     WorkoutSet,
@@ -171,6 +176,10 @@ def _(model: Workout) -> dict[str, object]:
         "exercise_notes": [
             {"exercise_id": n.exercise_id, "notes": n.notes}
             for n in sorted(model.exercise_notes, key=lambda n: n.exercise_id)
+        ],
+        "exercise_measurements": [
+            {"exercise_id": m.exercise_id, "side": m.side, "value": m.value}
+            for m in sorted(model.exercise_measurements, key=lambda m: (m.exercise_id, m.side))
         ],
     }
 
@@ -304,6 +313,26 @@ def to_workout_exercise_notes(json: list[dict[str, Any]]) -> list[WorkoutExercis
     ]
 
 
+def to_workout_exercise_measurements(  # type: ignore[explicit-any]
+    json: list[dict[str, Any]],
+) -> list[WorkoutExerciseMeasurement]:
+    measurements = [
+        WorkoutExerciseMeasurement(
+            exercise_id=to_id(measurement["exercise_id"], "exercise_id"),
+            side=to_property_id(measurement["side"], "side", MEASUREMENT_SIDE_IDS),
+            value=to_measurement(measurement["value"], "measurement"),
+        )
+        for measurement in json
+    ]
+    if len({(m.exercise_id, m.side) for m in measurements}) < len(measurements):
+        raise DeserializationError("exercise_measurements must not repeat an exercise and side")
+    return measurements
+
+
+def to_measurement(json: object, what: str) -> float:
+    return to_multiple(json, what, MEASUREMENT_MIN, MEASUREMENT_MAX, MEASUREMENT_RESOLUTION)
+
+
 def _referenced_exercises_exist(user_id: int, exercise_ids: set[int]) -> bool:
     """Return whether every referenced exercise belongs to the user."""
     if not exercise_ids:
@@ -329,9 +358,7 @@ def _exercise_ids_in_parts(parts: Iterable[RoutinePart]) -> set[int]:
 
 
 def _workout_exercise_ids(workout: Workout) -> set[int]:
-    return {e.exercise_id for e in workout.elements if isinstance(e, WorkoutSet)} | {
-        n.exercise_id for n in workout.exercise_notes
-    }
+    return {e.exercise_id for e in workout.elements if isinstance(e, WorkoutSet)}
 
 
 def schedule_to_dict(
@@ -542,13 +569,7 @@ def to_optional_weight(json: object, what: str, minimum: float) -> float | None:
 
 
 def to_weight(json: object, what: str, minimum: float) -> float:
-    value = to_number(json, what)
-    if not minimum <= value <= WEIGHT_MAX:
-        raise DeserializationError(f"{what} must be in the range {minimum} to {WEIGHT_MAX}")
-    steps = value / WEIGHT_RESOLUTION
-    if abs(steps - round(steps)) > 1e-3:
-        raise DeserializationError(f"{what} must be a multiple of {WEIGHT_RESOLUTION}")
-    return value
+    return to_multiple(json, what, minimum, WEIGHT_MAX, WEIGHT_RESOLUTION)
 
 
 def to_optional_rpe(json: object, what: str) -> float | None:
@@ -561,13 +582,21 @@ def to_optional_rpe(json: object, what: str) -> float | None:
 
 
 def to_rpe(json: object, what: str) -> float:
+    return to_multiple(json, what, RPE_MIN, RPE_MAX, RPE_RESOLUTION)
+
+
+def to_multiple(
+    json: object, what: str, minimum: float, maximum: float, resolution: float
+) -> float:
+    """Return the multiple of `resolution` closest to the number, which must lie in the range."""
     value = to_number(json, what)
-    if not RPE_MIN <= value <= RPE_MAX:
-        raise DeserializationError(f"{what} must be in the range {RPE_MIN} to {RPE_MAX}")
-    steps = value / RPE_RESOLUTION
+    if not minimum <= value <= maximum:
+        raise DeserializationError(f"{what} must be in the range {minimum} to {maximum}")
+    steps = value / resolution
     if abs(steps - round(steps)) > 1e-3:
-        raise DeserializationError(f"{what} must be a multiple of {RPE_RESOLUTION}")
-    return value
+        raise DeserializationError(f"{what} must be a multiple of {resolution}")
+    # Dividing the steps yields the float closest to the multiple, unlike multiplying them.
+    return round(steps) / round(1 / resolution)
 
 
 def to_positive_number(json: object, what: str) -> float:
@@ -2041,7 +2070,11 @@ def read_workouts() -> ResponseReturnValue:
         db.session.execute(
             select(Workout)
             .where(Workout.user_id == session["user_id"])
-            .options(selectinload(Workout.elements), selectinload(Workout.exercise_notes))
+            .options(
+                selectinload(Workout.elements),
+                selectinload(Workout.exercise_notes),
+                selectinload(Workout.exercise_measurements),
+            )
         )
         .scalars()
         .all()
@@ -2080,7 +2113,9 @@ def create_workout() -> ResponseReturnValue:
             notes=to_notes(data["notes"]),
             elements=to_workout_elements(data["elements"]),
             exercise_notes=to_workout_exercise_notes(data["exercise_notes"]),
+            exercise_measurements=to_workout_exercise_measurements(data["exercise_measurements"]),
         )
+        _check_exercise_entries_have_sets(workout)
     except (DeserializationError, NoResultFound, KeyError, TypeError, ValueError) as e:
         return jsonify({"details": str(e)}), HTTPStatus.BAD_REQUEST
 
@@ -2103,22 +2138,36 @@ def create_workout() -> ResponseReturnValue:
 
 
 def _apply_workout_update(workout: Workout, data: dict[str, Any], *, is_put: bool) -> None:  # type: ignore[explicit-any]
-    if "elements" in data or is_put:
-        for e in workout.elements:
-            db.session.delete(e)
-        db.session.flush()
-    if "exercise_notes" in data or is_put:
-        for n in workout.exercise_notes:
-            db.session.delete(n)
+    replaced = [
+        key
+        for key in ("elements", "exercise_notes", "exercise_measurements")
+        if key in data or is_put
+    ]
+    for key in replaced:
+        for child in getattr(workout, key):
+            db.session.delete(child)
         db.session.flush()
     if "date" in data or is_put:
         workout.date = to_date(data["date"])
     if "notes" in data or is_put:
         workout.notes = to_notes(data["notes"])
-    if "elements" in data or is_put:
+    if "elements" in replaced:
         workout.elements = to_workout_elements(data["elements"])
-    if "exercise_notes" in data or is_put:
+    if "exercise_notes" in replaced:
         workout.exercise_notes = to_workout_exercise_notes(data["exercise_notes"])
+    if "exercise_measurements" in replaced:
+        workout.exercise_measurements = to_workout_exercise_measurements(
+            data["exercise_measurements"]
+        )
+    _check_exercise_entries_have_sets(workout)
+
+
+def _check_exercise_entries_have_sets(workout: Workout) -> None:
+    set_exercise_ids = {e.exercise_id for e in workout.elements if isinstance(e, WorkoutSet)}
+    if any(n.exercise_id not in set_exercise_ids for n in workout.exercise_notes):
+        raise DeserializationError("exercise_notes must only contain exercises with a set")
+    if any(m.exercise_id not in set_exercise_ids for m in workout.exercise_measurements):
+        raise DeserializationError("exercise_measurements must only contain exercises with a set")
 
 
 @bp.route("/workouts/<int:id_>", methods=["PUT", "PATCH"])
@@ -2131,7 +2180,11 @@ def update_workout(id_: int) -> ResponseReturnValue:
                 select(Workout)
                 .where(Workout.id == id_)
                 .where(Workout.user_id == session["user_id"])
-                .options(selectinload(Workout.elements), selectinload(Workout.exercise_notes))
+                .options(
+                    selectinload(Workout.elements),
+                    selectinload(Workout.exercise_notes),
+                    selectinload(Workout.exercise_measurements),
+                )
             )
             .scalars()
             .one()

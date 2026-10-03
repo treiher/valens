@@ -41,14 +41,15 @@ pub use statistics::{
     centered_moving_total, init_interval, value_based_centered_moving_average,
 };
 pub use training::{
-    RIR, RPE, Reps, Side, SideError, Sides, SidesError, Stretch, Tempo, TempoError, Time,
-    TrainingStats, Weight, drop_set_weights, one_rep_max, reps_for_percentage,
-    round_drop_to_increment, training_stats,
+    Measurement, MeasurementError, RIR, RPE, Reps, Side, SideError, Sides, SidesError, Stretch,
+    Tempo, TempoError, Time, TrainingStats, Weight, drop_set_weights, one_rep_max,
+    reps_for_percentage, round_drop_to_increment, training_stats,
 };
 pub use training_session::{
-    ElementGroup, ElementMap, ElementMove, OfferedSets, RecentSessionSets, Set, SetHistoryRow,
-    TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,
-    TrainingSessionSection, TrainingSessionService, most_recent_best_set_for_one_rep_max,
+    ElementGroup, ElementMap, ElementMove, OfferedSets, PreviousExerciseMeasurement,
+    RecentSessionSets, Set, SetHistoryRow, TrainingSession, TrainingSessionElement,
+    TrainingSessionID, TrainingSessionRepository, TrainingSessionSection, TrainingSessionService,
+    most_recent_best_set_for_one_rep_max,
 };
 pub use user::{Role, Sex, User, UserID, UserRepository, UserService};
 pub use version::{VersionRepository, VersionService};

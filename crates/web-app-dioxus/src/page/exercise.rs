@@ -357,6 +357,8 @@ fn view_charts(
         );
     }
 
+    let measurement_series = measurement_series(exercise_id, training_sessions);
+
     let time_series = web_app::chart::labeled_min_avg_max(
         "time (s)",
         &time_values,
@@ -366,6 +368,13 @@ fn view_charts(
     );
 
     rsx! {
+        if !measurement_series.is_empty() {
+            Chart {
+                series: measurement_series,
+                interval,
+                no_data_label: false,
+            }
+        }
         Chart {
             series: reps_series,
             interval,
@@ -433,6 +442,45 @@ fn view_charts(
             }
         }
     }
+}
+
+/// A series per side of the measurements, the value of a date taken from its session with the
+/// greatest ID, which is the last created one.
+fn measurement_series(
+    exercise_id: domain::ExerciseID,
+    training_sessions: &[domain::TrainingSession],
+) -> Vec<web_app::chart::LabeledSeries> {
+    let mut training_sessions = training_sessions.iter().collect::<Vec<_>>();
+    training_sessions.sort_by_key(|training_session| training_session.id);
+    let mut values: BTreeMap<domain::Side, BTreeMap<NaiveDate, f32>> = BTreeMap::new();
+    for training_session in training_sessions {
+        for (side, measurement) in training_session.measurements_of(exercise_id) {
+            #[allow(clippy::cast_possible_truncation)]
+            values
+                .entry(side)
+                .or_default()
+                .insert(training_session.date, f64::from(measurement) as f32);
+        }
+    }
+    values
+        .into_iter()
+        .map(|(side, values)| {
+            let (name, color) = match side {
+                domain::Side::Unset => ("Measurement", web_app::chart::COLOR_MEASUREMENT),
+                domain::Side::Left => ("Left", web_app::chart::COLOR_MEASUREMENT_LEFT),
+                domain::Side::Right => ("Right", web_app::chart::COLOR_MEASUREMENT_RIGHT),
+            };
+            web_app::chart::LabeledSeries::new(
+                name,
+                web_app::chart::PlotData {
+                    values_high: values.into_iter().collect(),
+                    values_low: None,
+                    plots: web_app::chart::plot_line_with_markers(color),
+                    params: web_app::chart::PlotParams::default(),
+                },
+            )
+        })
+        .collect()
 }
 
 fn view_calendar(
@@ -536,6 +584,7 @@ fn view_sets(
             .get(&exercise_id)
             .cloned()
             .unwrap_or_default();
+        let measurements = t.measurements_of(exercise_id);
         let rows = t.set_history_rows(exercise_id);
         let has_sides = rows
             .iter()
@@ -604,6 +653,15 @@ fn view_sets(
                                 None => rsx! { "-" }
                             }
                         }
+                    }
+                }
+                if !measurements.is_empty() {
+                    div {
+                        class: "mb-2",
+                        {page::training_session::view_measurement_row(
+                            &measurements,
+                            None::<fn(MouseEvent)>,
+                        )}
                     }
                 }
                 if !note.is_empty() {
@@ -790,6 +848,7 @@ mod tests {
                     notes: String::new(),
                     elements: elements.clone(),
                     exercise_notes: BTreeMap::new(),
+                    exercise_measurements: std::collections::BTreeMap::new(),
                 }])
         })
     }
@@ -857,6 +916,7 @@ mod tests {
                         automatic: false,
                     }],
                     exercise_notes: BTreeMap::new(),
+                    exercise_measurements: std::collections::BTreeMap::new(),
                 }])
                 .provide();
             provide_settings(web_app::Settings {
@@ -901,6 +961,74 @@ mod tests {
         if is_stretch_only {
             assert_eq!(table[1][column("Stretch sets").unwrap()], "1");
         }
+    }
+
+    fn session_with_measurements(
+        id: u128,
+        measurements: &[(domain::Side, f64)],
+    ) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: id.into(),
+            routine_id: domain::RoutineID::nil(),
+            date: chrono::Local::now().date_naive(),
+            notes: String::new(),
+            elements: vec![performed_set(domain::Side::Unset, 5)],
+            exercise_notes: BTreeMap::new(),
+            exercise_measurements: measurements
+                .iter()
+                .map(|(side, value)| ((1.into(), *side), domain::Measurement::new(*value).unwrap()))
+                .collect(),
+        }
+    }
+
+    #[rstest::rstest]
+    #[case::without_measurements(&[], &[], None)]
+    #[case::side_less(&[(domain::Side::Unset, 4.5)], &["Measurement"], Some("4.5"))]
+    #[case::per_side(
+        &[(domain::Side::Left, 12.5), (domain::Side::Right, 10.0)],
+        &["Left", "Right"],
+        Some("L 12.5 · R 10")
+    )]
+    #[case::negative(&[(domain::Side::Unset, -3.25)], &["Measurement"], Some("-3.25"))]
+    fn test_the_measurements_are_shown_in_the_set_history_and_a_chart(
+        #[case] measurements: &'static [(domain::Side, f64)],
+        #[case] series: &[&str],
+        #[case] row: Option<&str>,
+    ) {
+        let html = render_exercise(1, move || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Pancake Stretch")])
+                .with_training_sessions(vec![session_with_measurements(1, measurements)])
+        });
+
+        assert_eq!(
+            contains(&html, "session-exercise-measurement")
+                .then(|| text_of(&html, "session-exercise-measurement")),
+            row.map(str::to_string)
+        );
+        assert_eq!(
+            measurement_series(1.into(), &[session_with_measurements(1, measurements)])
+                .iter()
+                .map(|s| s.name.clone())
+                .collect::<Vec<_>>(),
+            series
+        );
+    }
+
+    #[test]
+    fn test_the_measurement_of_a_date_is_taken_from_its_last_created_session() {
+        let series = measurement_series(
+            1.into(),
+            &[
+                session_with_measurements(2, &[(domain::Side::Unset, 2.0)]),
+                session_with_measurements(1, &[(domain::Side::Unset, 1.0)]),
+            ],
+        );
+
+        assert_eq!(
+            series[0].data[0].values_high,
+            vec![(chrono::Local::now().date_naive(), 2.0)]
+        );
     }
 
     #[test]

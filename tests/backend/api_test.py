@@ -68,6 +68,7 @@ STRETCH_WORKOUT: dict[str, object] = {
     "notes": None,
     "routine_id": 5,
     "exercise_notes": [],
+    "exercise_measurements": [{"exercise_id": 7, "side": 0, "value": -12.5}],
     "elements": [
         {
             "exercise_id": 7,
@@ -675,6 +676,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                     "notes": None,
                     "elements": [],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     **invalid_workout_field,
                 },
             )
@@ -705,6 +707,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                         }
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
             )
             for invalid_set_field in INVALID_WORKOUT_SET_FIELDS
@@ -1427,6 +1430,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 3,
@@ -1501,6 +1505,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -1523,6 +1528,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -1530,6 +1536,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -2061,6 +2068,7 @@ def test_create(
                     },
                 ],
                 "exercise_notes": [],
+                "exercise_measurements": [],
             },
             {"id": 7},
         ),
@@ -2071,6 +2079,7 @@ def test_create(
                 "notes": "",
                 "elements": [],
                 "exercise_notes": [],
+                "exercise_measurements": [],
             },
             {"id": 7},
         ),
@@ -2097,6 +2106,7 @@ def test_create(
                 "exercise_notes": [
                     {"exercise_id": 1, "notes": "Felt pain in right knee"},
                 ],
+                "exercise_measurements": [],
             },
             {"id": 7},
         ),
@@ -2119,6 +2129,7 @@ def test_create_workout(
             "notes": "First Workout",
             "routine_id": 1,
             "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+            "exercise_measurements": [],
             "elements": [
                 {
                     "exercise_id": 3,
@@ -2167,6 +2178,7 @@ def test_create_workout(
             "notes": None,
             "routine_id": None,
             "exercise_notes": [],
+            "exercise_measurements": [],
             "elements": [
                 {
                     "exercise_id": 3,
@@ -2241,6 +2253,7 @@ def test_create_workout(
             "notes": None,
             "routine_id": 1,
             "exercise_notes": [],
+            "exercise_measurements": [],
             "elements": [
                 {
                     "exercise_id": 3,
@@ -2263,6 +2276,7 @@ def test_create_workout(
             "notes": None,
             "routine_id": None,
             "exercise_notes": [],
+            "exercise_measurements": [],
             "elements": [
                 {
                     "exercise_id": 6,
@@ -2311,7 +2325,7 @@ def test_create_workout(
     assert resp.json == result
 
 
-def _workout_with_exercise(exercise_id: int) -> dict[str, object]:
+def _workout_with_exercises(*exercise_ids: int) -> dict[str, object]:
     return {
         "date": "2002-04-01",
         "routine_id": None,
@@ -2330,9 +2344,148 @@ def _workout_with_exercise(exercise_id: int) -> dict[str, object]:
                 "automatic": False,
                 "side": None,
             }
+            for exercise_id in exercise_ids
         ],
         "exercise_notes": [],
+        "exercise_measurements": [],
     }
+
+
+def test_create_workout_with_measurements(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+    measurements = [
+        {"exercise_id": 1, "side": 1, "value": 12.5},
+        {"exercise_id": 1, "side": 2, "value": 9999.99},
+        {"exercise_id": 3, "side": 0, "value": 0.0},
+        {"exercise_id": 3, "side": 1, "value": -9999.99},
+    ]
+
+    resp = client.post(
+        "/api/workouts",
+        json={**_workout_with_exercises(1, 3), "exercise_measurements": measurements},
+    )
+
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.json is not None
+    assert resp.json["exercise_measurements"] == measurements
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0.1 + 0.2, 0.3),
+        (1.000005, 1.0),
+        (-12.499999, -12.5),
+    ],
+)
+def test_create_workout_rounds_measurements(client: Client, value: float, expected: float) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post(
+        "/api/workouts",
+        json={
+            **_workout_with_exercises(1),
+            "exercise_measurements": [{"exercise_id": 1, "side": 0, "value": value}],
+        },
+    )
+
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.json is not None
+    assert resp.json["exercise_measurements"] == [{"exercise_id": 1, "side": 0, "value": expected}]
+
+
+@pytest.mark.parametrize(
+    ("measurement", "details"),
+    [
+        (
+            {"exercise_id": 1, "side": 0, "value": 10000.0},
+            "measurement must be in the range -9999.99 to 9999.99",
+        ),
+        (
+            {"exercise_id": 1, "side": 0, "value": -10000.0},
+            "measurement must be in the range -9999.99 to 9999.99",
+        ),
+        ({"exercise_id": 1, "side": 0, "value": 1.005}, "measurement must be a multiple of 0.01"),
+        ({"exercise_id": 1, "side": 3, "value": 1.0}, "3 is not a valid side"),
+    ],
+)
+def test_create_workout_with_invalid_measurement(
+    client: Client, measurement: dict[str, object], details: str
+) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post(
+        "/api/workouts",
+        json={**_workout_with_exercises(1), "exercise_measurements": [measurement]},
+    )
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": details}
+
+
+def test_create_workout_with_repeated_measurement(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post(
+        "/api/workouts",
+        json={
+            **_workout_with_exercises(1),
+            "exercise_measurements": [
+                {"exercise_id": 1, "side": 1, "value": 1.0},
+                {"exercise_id": 1, "side": 1, "value": 2.0},
+            ],
+        },
+    )
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": "exercise_measurements must not repeat an exercise and side"}
+
+
+def test_create_workout_with_measurement_of_exercise_without_set(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post(
+        "/api/workouts",
+        json={
+            **_workout_with_exercises(1),
+            "exercise_measurements": [{"exercise_id": 3, "side": 0, "value": 1.0}],
+        },
+    )
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": "exercise_measurements must only contain exercises with a set"}
+
+
+def test_modify_workout_removing_measured_exercise_keeping_measurement(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/workouts/6", json={"elements": []})
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": "exercise_measurements must only contain exercises with a set"}
+
+
+def test_modify_workout_without_measurements_keeps_them(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch("/api/workouts/6", json={"notes": "Changed"})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json is not None
+    assert resp.json["exercise_measurements"] == [{"exercise_id": 7, "side": 0, "value": -12.5}]
+
+    resp = client.patch("/api/workouts/6", json={"exercise_measurements": []})
+
+    assert resp.status_code == HTTPStatus.OK
+    assert resp.json is not None
+    assert resp.json["exercise_measurements"] == []
 
 
 def _routine_with_exercise(exercise_id: int) -> dict[str, object]:
@@ -2365,28 +2518,38 @@ def test_create_workout_rejects_unknown_exercise(client: Client, exercise_id: in
     tests.utils.init_db_data()
     assert create_session(client).status_code == HTTPStatus.OK
 
-    resp = client.post("/api/workouts", json=_workout_with_exercise(exercise_id))
+    resp = client.post("/api/workouts", json=_workout_with_exercises(exercise_id))
 
     assert resp.status_code == HTTPStatus.CONFLICT
     assert resp.json == {"details": "workout references an unknown exercise"}
 
 
-@pytest.mark.parametrize("exercise_id", [2, 999])
-def test_create_workout_rejects_unknown_exercise_in_notes(client: Client, exercise_id: int) -> None:
+def test_create_workout_with_note_of_exercise_without_set(client: Client) -> None:
     tests.utils.init_db_data()
     assert create_session(client).status_code == HTTPStatus.OK
 
-    data = {
-        "date": "2002-04-01",
-        "routine_id": None,
-        "notes": None,
-        "elements": [],
-        "exercise_notes": [{"exercise_id": exercise_id, "notes": "note"}],
-    }
-    resp = client.post("/api/workouts", json=data)
+    resp = client.post(
+        "/api/workouts",
+        json={
+            **_workout_with_exercises(1),
+            "exercise_notes": [{"exercise_id": 3, "notes": "note"}],
+        },
+    )
 
-    assert resp.status_code == HTTPStatus.CONFLICT
-    assert resp.json == {"details": "workout references an unknown exercise"}
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": "exercise_notes must only contain exercises with a set"}
+
+
+def test_modify_workout_removing_exercise_keeping_note(client: Client) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.patch(
+        "/api/workouts/1", json={"elements": _workout_with_exercises(1)["elements"]}
+    )
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json == {"details": "exercise_notes must only contain exercises with a set"}
 
 
 @pytest.mark.parametrize("exercise_id", [2, 999])
@@ -2395,7 +2558,8 @@ def test_update_workout_rejects_unknown_exercise(client: Client, exercise_id: in
     assert create_session(client).status_code == HTTPStatus.OK
 
     resp = client.patch(
-        "/api/workouts/1", json={"elements": _workout_with_exercise(exercise_id)["elements"]}
+        "/api/workouts/1",
+        json={"elements": _workout_with_exercises(exercise_id)["elements"], "exercise_notes": []},
     )
 
     assert resp.status_code == HTTPStatus.CONFLICT
@@ -2515,7 +2679,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
     assert create_session(client).status_code == HTTPStatus.OK
 
     # Exercise 5 belongs to Alice but is referenced by none of her workouts
-    resp = client.post("/api/workouts", json=_workout_with_exercise(5))
+    resp = client.post("/api/workouts", json=_workout_with_exercises(5))
 
     assert resp.status_code == HTTPStatus.CREATED
 
@@ -2908,6 +3072,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     },
                 ],
                 "exercise_notes": [],
+                "exercise_measurements": [],
             },
             {
                 "id": 1,
@@ -2915,6 +3080,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                 "date": "2002-02-23",
                 "notes": "",
                 "exercise_notes": [],
+                "exercise_measurements": [],
                 "elements": [
                     {
                         "exercise_id": 1,
@@ -2979,6 +3145,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 3,
@@ -3053,6 +3220,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -3075,6 +3243,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -3082,6 +3251,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -3162,6 +3332,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     },
                 ],
                 "exercise_notes": [{"exercise_id": 1, "notes": "Good range of motion"}],
+                "exercise_measurements": [],
             },
             {
                 "id": 1,
@@ -3169,6 +3340,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                 "date": "2002-01-11",
                 "notes": "First Workout",
                 "exercise_notes": [{"exercise_id": 1, "notes": "Good range of motion"}],
+                "exercise_measurements": [],
                 "elements": [
                     {
                         "exercise_id": 3,
@@ -3218,6 +3390,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     "date": "2002-01-11",
                     "notes": "First Workout",
                     "exercise_notes": [{"exercise_id": 1, "notes": "Good range of motion"}],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 3,
@@ -3333,6 +3506,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -3355,6 +3529,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -3362,6 +3537,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -4386,6 +4562,7 @@ def test_replace(
                 "routine_id": 1,
                 "notes": "First Workout",
                 "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                "exercise_measurements": [],
                 "elements": [
                     {
                         "exercise_id": 3,
@@ -4476,6 +4653,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 3,
@@ -4550,6 +4728,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -4572,6 +4751,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -4579,6 +4759,7 @@ def test_replace(
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -4623,6 +4804,7 @@ def test_replace(
                 "routine_id": 1,
                 "notes": "",
                 "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                "exercise_measurements": [],
                 "elements": [
                     {
                         "exercise_id": 3,
@@ -4713,6 +4895,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 3,
@@ -4787,6 +4970,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -4809,6 +4993,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -4816,6 +5001,7 @@ def test_replace(
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -4884,13 +5070,15 @@ def test_replace(
                         "side": None,
                     },
                 ],
+                "exercise_notes": [],
             },
             {
                 "id": 1,
                 "routine_id": 1,
                 "date": "2002-01-11",
                 "notes": "First Workout",
-                "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                "exercise_notes": [],
+                "exercise_measurements": [],
                 "elements": [
                     {
                         "exercise_id": 1,
@@ -4962,7 +5150,8 @@ def test_replace(
                             "side": None,
                         },
                     ],
-                    "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                    "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 3,
@@ -5037,6 +5226,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -5059,6 +5249,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -5066,6 +5257,7 @@ def test_replace(
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -5103,6 +5295,7 @@ def test_replace(
             "/api/workouts/1",
             {
                 "exercise_notes": [{"exercise_id": 3, "notes": "Knee pain"}],
+                "exercise_measurements": [],
             },
             {
                 "id": 1,
@@ -5110,6 +5303,7 @@ def test_replace(
                 "routine_id": 1,
                 "notes": "First Workout",
                 "exercise_notes": [{"exercise_id": 3, "notes": "Knee pain"}],
+                "exercise_measurements": [],
                 "elements": [
                     {
                         "exercise_id": 3,
@@ -5159,6 +5353,7 @@ def test_replace(
                     "routine_id": 1,
                     "notes": "First Workout",
                     "exercise_notes": [{"exercise_id": 3, "notes": "Knee pain"}],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 3,
@@ -5274,6 +5469,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -5296,6 +5492,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -5303,6 +5500,7 @@ def test_replace(
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -5340,6 +5538,7 @@ def test_replace(
             "/api/workouts/1",
             {
                 "exercise_notes": [{"exercise_id": 1, "notes": ""}],
+                "exercise_measurements": [],
             },
             {
                 "id": 1,
@@ -5347,6 +5546,7 @@ def test_replace(
                 "routine_id": 1,
                 "notes": "First Workout",
                 "exercise_notes": [],
+                "exercise_measurements": [],
                 "elements": [
                     {
                         "exercise_id": 3,
@@ -5396,6 +5596,7 @@ def test_replace(
                     "routine_id": 1,
                     "notes": "First Workout",
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 3,
@@ -5511,6 +5712,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -5533,6 +5735,7 @@ def test_replace(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -5540,6 +5743,7 @@ def test_replace(
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,
@@ -5811,6 +6015,7 @@ def test_modify(
                         },
                     ],
                     "exercise_notes": [{"exercise_id": 3, "notes": "Pain"}],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 4,
@@ -5833,6 +6038,7 @@ def test_modify(
                         },
                     ],
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                 },
                 {
                     "id": 5,
@@ -5840,6 +6046,7 @@ def test_modify(
                     "notes": None,
                     "routine_id": None,
                     "exercise_notes": [],
+                    "exercise_measurements": [],
                     "elements": [
                         {
                             "exercise_id": 6,

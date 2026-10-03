@@ -547,6 +547,13 @@ $value-field-padding: 0.4em;
     to { opacity: 1; }
 }
 
+// Tabs
+
+// Align the labels of tabs at the top of a page with the first element of the other pages
+.tabs.is-page-top {
+  margin-top: -0.5em;
+}
+
 // Visibility
 
 .is-visible-with-short-delay {

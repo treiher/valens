@@ -8,6 +8,7 @@ use crate::{
     current_date::current_date,
     loading::LoadingFlag,
     page::training_sessions::{start_training_session, stretch_only_exercises},
+    routing::TrainingSessionsTab,
     session::Session,
     ui::element::{Block, Error, Icon, Loading, LoadingDialog, Title},
 };
@@ -74,7 +75,11 @@ pub fn Home() -> Element {
 
     let training_subtitle = match (
         &*cache.training_sessions.read(),
-        stretch_only_exercises(&cache.exercises.read()),
+        cache
+            .exercises
+            .read()
+            .loaded()
+            .map(|exercises| stretch_only_exercises(exercises.map(Vec::as_slice))),
     ) {
         (CacheState::Ready(training_sessions), Some(stretch_only)) => {
             let training_stats =
@@ -172,8 +177,8 @@ pub fn Home() -> Element {
             Tile {
                 title: "Training sessions",
                 testid: "home-training-sessions",
-                target: Route::TrainingSessions { add: false },
-                target_add: Some(Route::TrainingSessions { add: true }),
+                target: Route::TrainingSessions { tab: TrainingSessionsTab::Sessions, muscle: None, add: false },
+                target_add: Some(Route::TrainingSessions { tab: TrainingSessionsTab::Sessions, muscle: None, add: true }),
                 subtitle: training_subtitle,
             }
             Tile {
@@ -196,13 +201,6 @@ pub fn Home() -> Element {
                 target: Route::Exercises { add: false, filter: String::new() },
                 target_add: Some(Route::Exercises { add: true, filter: String::new() }),
                 subtitle: exercises_subtitle,
-            }
-            Tile {
-                title: "Muscles",
-                testid: "home-muscles",
-                target: Route::Muscles {},
-                target_add: None,
-                subtitle: None,
             }
         }
         Block {

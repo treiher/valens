@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Counting of a set with a side as half a set in the load, the set volume and the time under tension
-- Training sessions page: Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
+- Training sessions page:
+    - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
+    - Charts of a single muscle, including its stretch sets and time under stretch
 - Training session page:
     - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set and changed by tapping it
     - Left and right column of the sets, a left and a right set directly following each other sharing one row
@@ -33,13 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Stretch sets of an exercise that only stretches, replacing its volume metrics, with the time of its sets shown even if the time under tension is hidden
     - Measurement in the set history and a chart of the measurements
 - Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
-- Muscles page:
-    - Hip flexors and hip rotators
-    - Weekly stretch sets and time under stretch per muscle
 
 ### Changed
 
 - Home page: Training load, counting the sets of exercises that only stretch as one, whatever their RPE
+- Training sessions page: Charts on a tab of their own, next to the calendar and the list of sessions
 - Training session page:
     - Notes for this session of an exercise, removed with the exercise and moved to its replacement
     - Name of the session-specific notes of an exercise, which reads "Session notes"
@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Catalog exercise page:
     - Stretched muscles of the catalog exercises that stretch a muscle under load
     - Hip flexors as a worked muscle and compound mechanic of the leg raises
+
+### Removed
+
+- Muscles page, replaced by the charts of a single muscle on the training sessions page
 
 ### Fixed
 

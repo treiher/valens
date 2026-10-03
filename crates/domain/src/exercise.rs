@@ -136,6 +136,18 @@ impl StretchOnlyExercises {
                 .collect(),
         )
     }
+
+    /// The exercises among these that stretch `muscle`.
+    #[must_use]
+    pub fn stretching(&self, muscle: MuscleID, exercises: &[Exercise]) -> Self {
+        Self(
+            exercises
+                .iter()
+                .filter(|e| self.contains(&e.id) && e.muscle_stretch().contains_key(&muscle))
+                .map(|e| e.id)
+                .collect(),
+        )
+    }
 }
 
 /// A property of an exercise.
@@ -1526,6 +1538,39 @@ mod tests {
     #[case::no_muscles(vec![], false)]
     fn test_exercise_is_stretch_only(#[case] muscles: Vec<ExerciseMuscle>, #[case] expected: bool) {
         assert_eq!(exercise(1, "A", muscles).is_stretch_only(), expected);
+    }
+
+    #[test]
+    fn test_stretch_only_exercises_stretching_a_muscle() {
+        let exercises = [
+            exercise(
+                1,
+                "A",
+                vec![muscle(
+                    MuscleID::Hamstrings,
+                    Stimulus::NONE,
+                    Stimulus::PRIMARY,
+                )],
+            ),
+            exercise(
+                2,
+                "B",
+                vec![muscle(MuscleID::Calves, Stimulus::NONE, Stimulus::PRIMARY)],
+            ),
+            exercise(
+                3,
+                "C",
+                vec![
+                    muscle(MuscleID::ErectorSpinae, Stimulus::PRIMARY, Stimulus::NONE),
+                    muscle(MuscleID::Hamstrings, Stimulus::NONE, Stimulus::PRIMARY),
+                ],
+            ),
+        ];
+
+        assert_eq!(
+            *StretchOnlyExercises::new(&exercises).stretching(MuscleID::Hamstrings, &exercises),
+            HashSet::from([1.into()])
+        );
     }
 
     #[test]

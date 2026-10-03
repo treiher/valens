@@ -150,6 +150,7 @@ def take_screenshots(screenshots: Path, target_dir: Path, today: datetime.date) 
 
         training_page = TrainingSessionsPage(page, base_url)
         training_page.goto()
+        training_page.select_tab("charts")
         page.get_by_text("6M").first.click()
         page.wait_for_timeout(400)
 

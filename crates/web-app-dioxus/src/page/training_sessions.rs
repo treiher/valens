@@ -9,22 +9,28 @@ use valens_web_app as web_app;
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
-    chart::{Calendar, Chart, IntervalControl, view_stretch_charts},
+    chart::{Calendar, IntervalControl},
     eh,
     notification::{notify, notify_error},
-    routing::NavigatorScrollExt,
+    page::training_charts,
+    routing::{NavigatorScrollExt, TrainingSessionsTab},
     settings::Settings,
     ui::{
         element::{
             DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, LoadingPage, NoWrap,
-            SaveDialog, Table, count_to_string, minutes_to_string, value_or_dash,
+            SaveDialog, Table, Tabs, count_to_string, minutes_to_string, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
 };
 
 #[component]
-pub fn TrainingSessions(add: bool) -> Element {
+pub fn TrainingSessions(tab: TrainingSessionsTab, muscle: Option<u8>, add: bool) -> Element {
+    let tab = if add {
+        TrainingSessionsTab::Sessions
+    } else {
+        tab
+    };
     let cache = consume_context::<Cache>();
     let dates = use_memo(move || {
         if let CacheState::Ready(training_session) = &*cache.training_sessions.read() {
@@ -59,7 +65,11 @@ pub fn TrainingSessions(add: bool) -> Element {
                 orig: String::new(),
             },
         });
-        navigator().replace_preserving_scroll(Route::TrainingSessions { add: true });
+        navigator().replace_preserving_scroll(Route::TrainingSessions {
+            tab,
+            muscle,
+            add: true,
+        });
     };
 
     use_future(move || async move {
@@ -71,17 +81,42 @@ pub fn TrainingSessions(add: bool) -> Element {
     match (
         &*cache.training_sessions.read(),
         &*cache.routines.read(),
-        stretch_only_exercises(&cache.exercises.read()),
+        cache.exercises.read().loaded(),
     ) {
-        (CacheState::Ready(training_sessions), CacheState::Ready(routines), Some(stretch_only)) => {
+        (CacheState::Ready(training_sessions), CacheState::Ready(routines), Some(exercises)) => {
+            let exercises = exercises.map(Vec::as_slice);
+            let stretch_only = stretch_only_exercises(exercises);
             let interval = *current_interval.read();
-            let metric_sessions = without_stretch_only_sets(training_sessions, &stretch_only);
+            let content = match tab {
+                TrainingSessionsTab::Sessions => {
+                    let shown_sessions = sessions_in(training_sessions, interval);
+                    let metric_sessions = without_stretch_only_sets(shown_sessions, &stretch_only);
+                    rsx! {
+                        {view_calendar(training_sessions, &stretch_only, interval)}
+                        {view_table(shown_sessions, &stretch_only, StretchMetrics::Exclude(&metric_sessions), settings.show_tut(), routines, interval, dialog, settings)}
+                    }
+                }
+                TrainingSessionsTab::Charts => training_charts::view_charts(
+                    training_sessions,
+                    exercises,
+                    &stretch_only,
+                    muscle.and_then(|muscle| domain::MuscleID::try_from(muscle).ok()),
+                    interval,
+                    settings,
+                ),
+            };
             rsx! {
+                Tabs {
+                    tabs: vec![("Sessions", TrainingSessionsTab::Sessions), ("Charts", TrainingSessionsTab::Charts)],
+                    selected: tab,
+                    on_select: move |tab| {
+                        navigator().replace_preserving_scroll(Route::TrainingSessions { tab, muscle, add: false });
+                    },
+                    is_page_top: true,
+                }
                 IntervalControl { current_interval, all }
-                {view_charts(training_sessions, &metric_sessions, &stretch_only, interval, settings)}
-                {view_calendar(training_sessions, &stretch_only, interval)}
-                {view_table(training_sessions, &stretch_only, StretchMetrics::Exclude(&metric_sessions), settings.show_tut(), routines, interval, dialog, settings)}
-                {view_dialog(dialog, training_sessions, routines, Some(Route::TrainingSessions { add: false }))}
+                {content}
+                {view_dialog(dialog, training_sessions, routines, Some(Route::TrainingSessions { tab, muscle, add: false }))}
                 FloatingActionButton {
                     icon: "plus".to_string(),
                     on_click: move |_| { show_add_dialog() },
@@ -97,17 +132,26 @@ pub fn TrainingSessions(add: bool) -> Element {
     }
 }
 
-/// The stretch-only exercises, or `None` while the exercises are loading.
+/// The stretch-only exercises.
 ///
 /// If the exercises cannot be read, no exercise is considered stretch-only.
 pub fn stretch_only_exercises(
-    exercises: &CacheState<Vec<domain::Exercise>>,
-) -> Option<domain::StretchOnlyExercises> {
+    exercises: Result<&[domain::Exercise], &domain::ReadError>,
+) -> domain::StretchOnlyExercises {
     match exercises {
-        CacheState::Ready(exercises) => Some(domain::StretchOnlyExercises::new(exercises)),
-        CacheState::Error(_) => Some(domain::StretchOnlyExercises::default()),
-        CacheState::Loading => None,
+        Ok(exercises) => domain::StretchOnlyExercises::new(exercises),
+        Err(_) => domain::StretchOnlyExercises::default(),
     }
+}
+
+/// The training sessions of `interval`, from training sessions sorted by date.
+fn sessions_in(
+    training_sessions: &[domain::TrainingSession],
+    interval: domain::Interval,
+) -> &[domain::TrainingSession] {
+    let start = training_sessions.partition_point(|t| t.date < interval.first);
+    let end = training_sessions.partition_point(|t| t.date <= interval.last);
+    &training_sessions[start..end.max(start)]
 }
 
 /// The sessions without the sets of stretch-only exercises, in the same order.
@@ -119,166 +163,6 @@ pub fn without_stretch_only_sets<'a>(
         .iter()
         .map(|t| t.without_stretch_only_sets(stretch_only))
         .collect()
-}
-
-fn view_charts(
-    training_sessions: &[domain::TrainingSession],
-    metric_sessions: &[Cow<'_, domain::TrainingSession>],
-    stretch_only: &domain::StretchOnlyExercises,
-    interval: domain::Interval,
-    settings: Settings,
-) -> Element {
-    let training_stats = DOMAIN_SERVICE().get_training_stats(training_sessions, stretch_only);
-    let has_stretch_sets = training_sessions.iter().any(|s| {
-        (interval.first..=interval.last).contains(&s.date) && s.stretch_sets(stretch_only) > 0.
-    });
-    let stretch_sets = domain::centered_moving_total(
-        &training_sessions
-            .iter()
-            .map(|s| (s.date, s.stretch_sets(stretch_only)))
-            .collect::<Vec<_>>(),
-        interval,
-        3,
-    );
-    let stretch_minutes = domain::centered_moving_total(
-        &training_sessions
-            .iter()
-            .map(|s| (s.date, s.stretch_time(stretch_only) / 60.))
-            .collect::<Vec<_>>(),
-        interval,
-        3,
-    );
-    let short_term_load = training_stats
-        .short_term_load
-        .iter()
-        .filter(|(date, _)| *date >= interval.first && *date <= interval.last)
-        .copied()
-        .collect::<Vec<_>>();
-    let long_term_load = training_stats
-        .long_term_load
-        .iter()
-        .filter(|(date, _)| *date >= interval.first && *date <= interval.last)
-        .copied()
-        .collect::<Vec<_>>();
-    let long_term_load_high = long_term_load
-        .iter()
-        .copied()
-        .map(|(d, l)| (d, l * domain::TrainingStats::LOAD_RATIO_HIGH))
-        .collect::<Vec<_>>();
-    let long_term_load_low = long_term_load
-        .iter()
-        .copied()
-        .map(|(d, l)| (d, l * domain::TrainingStats::LOAD_RATIO_LOW))
-        .collect::<Vec<_>>();
-    let total_7day_set_volume = domain::centered_moving_total(
-        &metric_sessions
-            .iter()
-            .map(|s| (s.date, s.set_volume()))
-            .collect::<Vec<_>>(),
-        interval,
-        3,
-    );
-    let rpe_values = metric_sessions
-        .iter()
-        .flat_map(|s| {
-            s.elements
-                .iter()
-                .filter_map(|e| match e {
-                    domain::TrainingSessionElement::Set { rpe, .. } => {
-                        rpe.non_zero().map(|v| (s.date, v))
-                    }
-                    domain::TrainingSessionElement::Rest { .. } => None,
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    let rpe_params = web_app::chart::PlotParams::primary_range(5., 10.);
-    let avg_rpe_segments: Vec<web_app::chart::PlotData> =
-        domain::centered_moving_average(&rpe_values, interval, 3)
-            .into_iter()
-            .map(|seg| web_app::chart::PlotData {
-                values_high: seg,
-                values_low: None,
-                plots: web_app::chart::plot_line(web_app::chart::COLOR_RPE),
-                params: rpe_params,
-            })
-            .collect();
-    let min_max_rpe_segments: Vec<web_app::chart::PlotData> =
-        domain::centered_moving_min(&rpe_values, interval, 3)
-            .into_iter()
-            .zip(domain::centered_moving_max(&rpe_values, interval, 3))
-            .map(|(min_seg, max_seg)| web_app::chart::PlotData {
-                values_high: min_seg,
-                values_low: Some(max_seg),
-                plots: web_app::chart::plot_area(web_app::chart::COLOR_RPE),
-                params: rpe_params,
-            })
-            .collect();
-
-    let load_params = web_app::chart::PlotParams::primary_range(0., 10.);
-    let show_rpe = settings.show_rpe();
-
-    rsx! {
-        Chart {
-            series: vec![
-                web_app::chart::LabeledSeries::new(
-                    "Short-term load",
-                    web_app::chart::PlotData {
-                        values_high: short_term_load,
-                        values_low: None,
-                        plots: web_app::chart::plot_line(web_app::chart::COLOR_LOAD),
-                        params: load_params,
-                    },
-                ),
-                web_app::chart::LabeledSeries::new(
-                    "Long-term load",
-                    web_app::chart::PlotData {
-                        values_high: long_term_load_high,
-                        values_low: Some(long_term_load_low),
-                        plots: web_app::chart::plot_area(web_app::chart::COLOR_LONG_TERM_LOAD),
-                        params: load_params,
-                    },
-                ),
-            ],
-            interval,
-            no_data_label: false,
-        }
-        Chart {
-            series: vec![web_app::chart::LabeledSeries::new(
-                "7-day set volume",
-                web_app::chart::PlotData {
-                    values_high: total_7day_set_volume,
-                    values_low: None,
-                    plots: web_app::chart::plot_area_with_border(
-                        web_app::chart::COLOR_SET_VOLUME,
-                    ),
-                    params: load_params,
-                },
-            )],
-            interval,
-            no_data_label: false,
-        }
-        if show_rpe {
-            Chart {
-                series: vec![
-                    web_app::chart::LabeledSeries::new("7-day avg. RPE", avg_rpe_segments),
-                    web_app::chart::LabeledSeries::new("7-day min./max. RPE", min_max_rpe_segments),
-                ],
-                interval,
-                no_data_label: false,
-            }
-        }
-        if has_stretch_sets {
-            {view_stretch_charts(
-                "7-day stretch sets",
-                stretch_sets,
-                "7-day time under stretch (min)",
-                stretch_minutes,
-                interval,
-                false,
-            )}
-        }
-    }
 }
 
 pub fn view_calendar(
@@ -685,7 +569,9 @@ pub enum TrainingDialog {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::test_render::{TestCache, contains, provide_settings, render, rows_of, text_of};
+    use crate::test_render::{
+        TestCache, attribute_of, contains, provide_settings, render, rows_of, text_of,
+    };
 
     use super::*;
 
@@ -737,11 +623,84 @@ mod tests {
         settings: web_app::Settings,
         cache: impl Fn() -> TestCache + 'static,
     ) -> String {
+        render_tab(TrainingSessionsTab::Sessions, settings, cache)
+    }
+
+    fn render_charts(cache: impl Fn() -> TestCache + 'static) -> String {
+        render_tab(
+            TrainingSessionsTab::Charts,
+            web_app::Settings::default(),
+            cache,
+        )
+    }
+
+    fn render_tab(
+        tab: TrainingSessionsTab,
+        settings: web_app::Settings,
+        cache: impl Fn() -> TestCache + 'static,
+    ) -> String {
         render(move || {
             cache().provide();
             provide_settings(settings);
-            rsx! { TrainingSessions { add: false } }
+            rsx! { TrainingSessions { tab, muscle: None, add: false } }
         })
+    }
+
+    #[test]
+    fn test_sessions_in_includes_the_first_and_the_last_day() {
+        let day = |d| NaiveDate::from_ymd_opt(2026, 1, d).unwrap();
+        let training_sessions = (1..=5)
+            .map(|d| training_session(u128::from(d), day(d)))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            sessions_in(
+                &training_sessions,
+                domain::Interval {
+                    first: day(2),
+                    last: day(4)
+                }
+            )
+            .iter()
+            .map(|t| t.date)
+            .collect::<Vec<_>>(),
+            vec![day(2), day(3), day(4)]
+        );
+    }
+
+    #[test]
+    fn test_the_sessions_tab_shows_the_table_and_no_chart() {
+        let html = render_training_sessions(web_app::Settings::default(), sessions);
+
+        assert_eq!(attribute_of(&html, "tab-sessions", "data-selected"), "true");
+        assert_eq!(attribute_of(&html, "tab-charts", "data-selected"), "false");
+        assert!(contains(&html, "table"));
+        assert!(!contains(&html, "chart"));
+    }
+
+    #[test]
+    fn test_the_charts_tab_shows_the_charts_and_no_table() {
+        let html = render_charts(sessions);
+
+        assert_eq!(
+            attribute_of(&html, "tab-sessions", "data-selected"),
+            "false"
+        );
+        assert_eq!(attribute_of(&html, "tab-charts", "data-selected"), "true");
+        assert!(contains(&html, "chart"));
+        assert!(!contains(&html, "table"));
+    }
+
+    #[test]
+    fn test_the_add_dialog_opens_the_sessions_tab() {
+        let html = render(move || {
+            sessions().provide();
+            provide_settings(web_app::Settings::default());
+            rsx! { TrainingSessions { tab: TrainingSessionsTab::Charts, muscle: None, add: true } }
+        });
+
+        assert_eq!(attribute_of(&html, "tab-sessions", "data-selected"), "true");
+        assert!(contains(&html, "table"));
     }
 
     #[test]
@@ -856,7 +815,7 @@ mod tests {
     }
 
     #[test]
-    fn test_a_stretch_leaves_the_volume_metrics_for_stretch_columns_and_a_chart() {
+    fn test_a_stretch_leaves_the_volume_metrics_for_stretch_columns() {
         let html = render_training_sessions(web_app::Settings::default(), sessions_with_stretch);
         let rows = rows_of(&html, "table");
 
@@ -884,21 +843,31 @@ mod tests {
                 "9", "1", "8", "10", "300", "10.0", "12.0", "30.0", "1", "1.5", ""
             ]
         );
-        assert!(html.contains("7-day time under stretch (min)"));
     }
 
     #[test]
-    fn test_a_stretch_outside_the_interval_shows_no_stretch_columns_and_chart() {
-        let html = render_training_sessions(web_app::Settings::default(), || {
-            let today = Local::now().date_naive();
-            stretch_cache(vec![
-                session_with_stretch(1, today - chrono::Duration::days(365)),
-                training_session(2, today),
-            ])
-        });
+    fn test_a_stretch_shows_the_stretch_charts() {
+        let html = render_charts(sessions_with_stretch);
 
-        assert!(!rows_of(&html, "table")[0].contains(&"Stretch sets".to_string()));
-        assert!(!html.contains("7-day stretch"));
+        assert!(html.contains("7-day time under stretch (min)"));
+    }
+
+    fn stretch_outside_the_interval() -> TestCache {
+        let today = Local::now().date_naive();
+        stretch_cache(vec![
+            session_with_stretch(1, today - chrono::Duration::days(365)),
+            training_session(2, today),
+        ])
+    }
+
+    #[test]
+    fn test_a_stretch_outside_the_interval_shows_no_stretch_columns_and_charts() {
+        let list =
+            render_training_sessions(web_app::Settings::default(), stretch_outside_the_interval);
+        let charts = render_charts(stretch_outside_the_interval);
+
+        assert!(!rows_of(&list, "table")[0].contains(&"Stretch sets".to_string()));
+        assert!(!charts.contains("7-day stretch"));
     }
 
     #[test]
@@ -913,19 +882,21 @@ mod tests {
     }
 
     #[test]
-    fn test_without_stretch_sets_no_stretch_columns_and_chart_are_shown() {
-        let html = render_training_sessions(web_app::Settings::default(), sessions);
+    fn test_without_stretch_sets_no_stretch_columns_and_charts_are_shown() {
+        let list = render_training_sessions(web_app::Settings::default(), sessions);
+        let charts = render_charts(sessions);
 
-        assert!(!rows_of(&html, "table")[0].contains(&"Stretch sets".to_string()));
-        assert!(!html.contains("7-day stretch"));
+        assert!(!rows_of(&list, "table")[0].contains(&"Stretch sets".to_string()));
+        assert!(!charts.contains("7-day stretch"));
     }
 
     #[test]
-    fn test_without_sessions_no_chart_is_shown() {
-        let html = render_training_sessions(web_app::Settings::default(), TestCache::default);
+    fn test_without_sessions_no_chart_and_an_empty_table_are_shown() {
+        let list = render_training_sessions(web_app::Settings::default(), TestCache::default);
+        let charts = render_charts(TestCache::default);
 
-        assert!(!contains(&html, "chart"));
-        assert_eq!(rows_of(&html, "table").len(), 1);
+        assert_eq!(rows_of(&list, "table").len(), 1);
+        assert!(!contains(&charts, "chart"));
     }
 
     #[test]

@@ -46,10 +46,6 @@ class HomePage(BasePage):
         self.wait_until_idle()
         self.page.get_by_test_id("home-schedule").click()
 
-    def go_to_muscles(self) -> None:
-        self.wait_until_idle()
-        self.page.get_by_test_id("home-muscles").click()
-
     def expect_today_entries(self, names: list[str]) -> None:
         if names:
             expect(self.page.get_by_test_id("home-today-routine")).to_have_text(names)

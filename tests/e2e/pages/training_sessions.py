@@ -38,6 +38,30 @@ class TrainingSessionsPage(BasePage):
         self.delete_item(index)
         self.dialog.delete()
 
+    def select_tab(self, tab: str) -> None:
+        """Select the "sessions" or the "charts" tab."""
+        self.page.get_by_test_id(f"tab-{tab}").click()
+        self.expect_tab(tab)
+
+    def expect_tab(self, tab: str) -> None:
+        expect(self.page.get_by_test_id(f"tab-{tab}")).to_have_attribute("data-selected", "true")
+
+    def select_muscle(self, name: str) -> None:
+        self.page.get_by_test_id("muscle").select_option(label=name)
+        self.expect_muscle(name)
+
+    def expect_muscle(self, name: str) -> None:
+        expect(self.page.get_by_test_id("muscle").locator("option:checked")).to_have_text(name)
+
+    def expect_muscle_description(self, description: str) -> None:
+        expect(self.page.get_by_test_id("muscle-description")).to_have_text(description)
+
+    def expect_chart_label(self, label: str) -> None:
+        expect(self.page.get_by_text(label, exact=True).first).to_be_visible()
+
+    def expect_no_chart_label(self, label: str) -> None:
+        expect(self.page.get_by_text(label, exact=True)).to_have_count(0)
+
 
 class TrainingDialog(Dialog):
     def get_date(self) -> str:

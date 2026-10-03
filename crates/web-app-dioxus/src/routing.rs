@@ -1,4 +1,9 @@
-use dioxus::{prelude::*, router::Navigator};
+use std::{convert::Infallible, fmt};
+
+use dioxus::{
+    prelude::*,
+    router::{FromRouteSegments, Navigator, ToRouteSegments},
+};
 use log::warn;
 use web_sys::wasm_bindgen::{JsCast, prelude::Closure};
 
@@ -9,9 +14,8 @@ use crate::{
     page::{
         body_fat::BodyFat, body_weight::BodyWeight, catalog::Catalog, exercise::Exercise,
         exercises::Exercises, ffmi::Ffmi, home::Home, login::Login,
-        menstrual_cycle::MenstrualCycle, muscles::Muscles, not_found::NotFound, routine::Routine,
-        routines::Routines, schedule::Schedule, training_session::TrainingSession,
-        training_sessions::TrainingSessions,
+        menstrual_cycle::MenstrualCycle, not_found::NotFound, routine::Routine, routines::Routines,
+        schedule::Schedule, training_session::TrainingSession, training_sessions::TrainingSessions,
     },
     session::SessionProvider,
 };
@@ -26,8 +30,9 @@ pub enum Route {
             #[redirect("/", || Route::Home {})]
             #[route("/home")]
             Home {},
-            #[route("/training_sessions?:add")]
-            TrainingSessions { add: bool },
+            // `add` comes last, as an absent last parameter would leave a trailing `&`
+            #[route("/training_sessions/:..tab?:muscle&:add")]
+            TrainingSessions { tab: TrainingSessionsTab, muscle: Option<u8>, add: bool },
             #[route("/training_session/:id")]
             TrainingSession { id: domain::TrainingSessionID },
             #[route("/routines?:add&:search")]
@@ -42,8 +47,6 @@ pub enum Route {
             Exercise { id: domain::ExerciseID },
             #[route("/catalog/:name")]
             Catalog { name: String },
-            #[route("/muscles")]
-            Muscles {},
             #[route("/body_weight?:add")]
             BodyWeight { add: bool },
             #[route("/body_fat?:add")]
@@ -71,7 +74,6 @@ pub fn page_title(route: &Route, user_name: &domain::Name) -> String {
         Route::Exercises { .. } => "Exercises".to_string(),
         Route::Exercise { .. } => "Exercise".to_string(),
         Route::Catalog { .. } => "Catalog exercise".to_string(),
-        Route::Muscles { .. } => "Muscles".to_string(),
         Route::BodyWeight { .. } => "Body weight".to_string(),
         Route::BodyFat { .. } => "Body fat".to_string(),
         Route::Ffmi {} => "FFMI".to_string(),
@@ -89,13 +91,16 @@ pub fn go_up_target(route: &Route) -> Option<Route> {
         | Route::Routines { .. }
         | Route::Schedule {}
         | Route::Exercises { .. }
-        | Route::Muscles { .. }
         | Route::BodyWeight { .. }
         | Route::BodyFat { .. }
         | Route::Ffmi {}
         | Route::MenstrualCycle { .. }
         | Route::NotFound { .. } => Some(Route::Home {}),
-        Route::TrainingSession { .. } => Some(Route::TrainingSessions { add: false }),
+        Route::TrainingSession { .. } => Some(Route::TrainingSessions {
+            tab: TrainingSessionsTab::Sessions,
+            muscle: None,
+            add: false,
+        }),
         Route::Routine { .. } => Some(Route::Routines {
             add: false,
             search: String::new(),
@@ -106,6 +111,46 @@ pub fn go_up_target(route: &Route) -> Option<Route> {
         }),
     }
 }
+
+/// Defines the tabs of a page as an enum for the last segment of a route path. The first tab is the
+/// default, which adds no segment, and every other tab is written as a segment of its given name.
+/// An unknown segment is read as the default.
+macro_rules! page_tabs {
+    ($(#[$meta:meta])* $name:ident { $default:ident $(, $tab:ident => $query:literal)* $(,)? }) => {
+        $(#[$meta])*
+        #[derive(Clone, Copy, Debug, Default, PartialEq)]
+        pub enum $name {
+            #[default]
+            $default,
+            $($tab,)*
+        }
+
+        impl ToRouteSegments for $name {
+            fn display_route_segments(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    $name::$default => Ok(()),
+                    $($name::$tab => write!(f, "/{}", $query),)*
+                }
+            }
+        }
+
+        impl FromRouteSegments for $name {
+            type Err = Infallible;
+
+            fn from_route_segments(segments: &[&str]) -> Result<Self, Self::Err> {
+                Ok(match segments {
+                    $([$query] => $name::$tab,)*
+                    _ => $name::$default,
+                })
+            }
+        }
+    };
+}
+
+page_tabs!(
+    /// A tab of the training sessions page.
+    TrainingSessionsTab { Sessions, Charts => "charts" }
+);
 
 pub trait NavigatorScrollExt {
     fn replace_preserving_scroll<R: Routable + 'static>(&self, route: R);
@@ -146,7 +191,11 @@ mod tests {
         vec![
             Route::Login {},
             Route::Home {},
-            Route::TrainingSessions { add: false },
+            Route::TrainingSessions {
+                tab: TrainingSessionsTab::Sessions,
+                muscle: None,
+                add: false,
+            },
             Route::TrainingSession { id: 1.into() },
             Route::Routines {
                 add: false,
@@ -162,7 +211,6 @@ mod tests {
             Route::Catalog {
                 name: String::new(),
             },
-            Route::Muscles {},
             Route::BodyWeight { add: false },
             Route::BodyFat { add: false },
             Route::Ffmi {},
@@ -184,6 +232,46 @@ mod tests {
             };
             assert_eq!(up, Route::Home {}, "reached from {route:?}");
         }
+    }
+
+    #[test]
+    fn test_only_tabs_other_than_the_first_add_a_segment() {
+        let route = |tab| {
+            Route::TrainingSessions {
+                tab,
+                muscle: Some(7),
+                add: false,
+            }
+            .to_string()
+        };
+
+        assert_eq!(
+            route(TrainingSessionsTab::Sessions),
+            "/training_sessions?muscle=7&add=false"
+        );
+        assert_eq!(
+            route(TrainingSessionsTab::Charts),
+            "/training_sessions/charts?muscle=7&add=false"
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::default("/training_sessions", TrainingSessionsTab::Sessions)]
+    #[case::other("/training_sessions/charts", TrainingSessionsTab::Charts)]
+    #[case::unknown("/training_sessions/x", TrainingSessionsTab::Sessions)]
+    #[case::empty("/training_sessions/", TrainingSessionsTab::Sessions)]
+    fn test_tabs_are_read_from_the_path_and_unknown_segments_as_the_first_tab(
+        #[case] path: &str,
+        #[case] tab: TrainingSessionsTab,
+    ) {
+        assert_eq!(
+            path.parse::<Route>().unwrap(),
+            Route::TrainingSessions {
+                tab,
+                muscle: None,
+                add: false,
+            }
+        );
     }
 
     #[test]

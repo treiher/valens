@@ -158,6 +158,17 @@ pub enum CacheState<T> {
     Ready(T),
 }
 
+impl<T> CacheState<T> {
+    /// The data or the error of reading it, `None` while it is loading.
+    pub fn loaded(&self) -> Option<Result<&T, &domain::ReadError>> {
+        match self {
+            CacheState::Loading => None,
+            CacheState::Error(err) => Some(Err(err)),
+            CacheState::Ready(data) => Some(Ok(data)),
+        }
+    }
+}
+
 /// The laterality of an exercise, `None` if it is unset or the exercise is unknown.
 pub fn laterality(
     exercises: &[domain::Exercise],

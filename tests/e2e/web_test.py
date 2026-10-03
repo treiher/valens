@@ -55,7 +55,6 @@ from .pages import (
     LoginPage,
     MenstrualCyclePage,
     MetronomeTimerStopwatchDialog,
-    MusclesPage,
     OneRepMaxCalculatorDialog,
     ProfileDialog,
     RoutinePage,
@@ -268,12 +267,6 @@ def test_home_links(page: Page) -> None:
     exercises_page.navbar.go_back()
     home_page.expect_page()
 
-    home_page.go_to_muscles()
-    muscles_page = MusclesPage(page)
-    muscles_page.expect_page()
-    muscles_page.navbar.go_back()
-    home_page.expect_page()
-
     home_page.go_to_body_weight()
     body_weight_page = BodyWeightPage(page)
     body_weight_page.expect_page()
@@ -310,6 +303,14 @@ def goto_training_session_form(page: Page) -> BasePage:
     return p
 
 
+def goto_training_charts(page: Page) -> BasePage:
+    p = TrainingSessionsPage(page)
+    p.goto()
+    p.select_tab("charts")
+    p.select_muscle("Hamstrings")
+    return p
+
+
 def goto_routine_activity_edit_dialog(page: Page) -> BasePage:
     p = RoutinePage(page, USER.routines[-1].id)
     p.goto()
@@ -329,6 +330,7 @@ def goto_page(create: Callable[[Page], BasePage]) -> Callable[[Page], BasePage]:
 NARROW_SCREEN_PAGES: list[tuple[str, Callable[[Page], BasePage]]] = [
     ("home", goto_page(HomePage)),
     ("training_sessions", goto_page(TrainingSessionsPage)),
+    ("training_charts", goto_training_charts),
     ("training_session", goto_page(lambda page: TrainingSessionPage(page, USER.workouts[-1].id))),
     ("training_session_form", goto_training_session_form),
     ("schedule", goto_page(SchedulePage)),
@@ -338,7 +340,6 @@ NARROW_SCREEN_PAGES: list[tuple[str, Callable[[Page], BasePage]]] = [
     ("exercises", goto_page(ExercisesPage)),
     ("exercise", goto_page(lambda page: ExercisePage(page, USER.exercises[0].id))),
     ("catalog", goto_page(lambda page: CatalogPage(page, "Barbell Bench Press"))),
-    ("muscles", goto_page(MusclesPage)),
     ("body_weight", goto_page(BodyWeightPage)),
     ("body_fat", goto_page(BodyFatPage)),
     ("menstrual_cycle", goto_page(MenstrualCyclePage)),
@@ -1016,6 +1017,59 @@ def test_training_session_stretch_per_muscle(page: Page) -> None:
     p.goto()
 
     p.expect_stretch_per_muscle("Hamstrings", "2", "2.5")
+
+
+def test_training_sessions_muscle_charts(page: Page) -> None:
+    login(page)
+    p = TrainingSessionsPage(page)
+    p.goto()
+
+    p.select_tab("charts")
+    p.expect_chart_label("Short-term load")
+
+    p.select_muscle("Pecs")
+
+    p.expect_muscle_description("Chest")
+    p.expect_chart_label("7-day set volume")
+    p.expect_no_chart_label("7-day stretch sets")
+    p.expect_no_chart_label("Short-term load")
+
+    p.select_muscle("Hamstrings")
+
+    p.expect_muscle_description("Back of thighs")
+    p.expect_chart_label("7-day stretch sets")
+    p.expect_chart_label("7-day time under stretch (min)")
+    p.expect_no_chart_label("Short-term load")
+
+
+def test_training_sessions_tab_and_muscle_survive_a_reload(page: Page) -> None:
+    login(page)
+    p = TrainingSessionsPage(page)
+    p.goto()
+    p.select_tab("charts")
+    p.select_muscle("Hamstrings")
+
+    p.reload()
+
+    p.expect_tab("charts")
+    p.expect_muscle("Hamstrings")
+
+
+def test_training_sessions_add_dialog_on_the_charts_tab(page: Page) -> None:
+    login(page)
+    p = TrainingSessionsPage(page)
+    p.goto()
+    p.select_tab("charts")
+    p.select_muscle("Hamstrings")
+
+    p.fab().click()
+
+    p.expect_tab("sessions")
+    p.dialog.cancel()
+
+    p.expect_tab("sessions")
+    p.select_tab("charts")
+    p.expect_muscle("Hamstrings")
 
 
 def test_training_sessions_delete(page: Page) -> None:
@@ -3717,22 +3771,6 @@ def test_routine_stretch_per_muscle(page: Page) -> None:
     p.goto()
 
     p.expect_stretch_per_muscle("Hamstrings", "2", "2")
-
-
-def test_muscles_stretched_charts(page: Page) -> None:
-    login(page)
-    p = MusclesPage(page)
-    p.goto()
-    # The page reads the data once, which the first synchronization after the login replaces
-    p.navbar.expect_synchronization_to_be_finished()
-    p.reload()
-
-    p.expect_chart_label("7-day set volume")
-
-    p.select_kind("stretched")
-
-    p.expect_chart_label("7-day stretch sets")
-    p.expect_chart_label("7-day time under stretch (min)")
 
 
 def test_exercise_change_stretched_muscles(page: Page) -> None:

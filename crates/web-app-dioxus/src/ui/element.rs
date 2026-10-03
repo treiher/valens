@@ -575,6 +575,37 @@ pub fn Title(children: Element, class: Option<String>, actions: Option<Element>)
     }
 }
 
+/// Navigation between the views of a page, each tab carrying the test id `tab-<name>` in lowercase.
+#[component]
+pub fn Tabs<T: Clone + PartialEq + 'static>(
+    tabs: Vec<(&'static str, T)>,
+    selected: T,
+    on_select: EventHandler<T>,
+    /// Align the labels with the first element of a page, for tabs at the top of a page.
+    #[props(default)]
+    is_page_top: bool,
+) -> Element {
+    rsx! {
+        div {
+            class: "tabs is-centered",
+            class: if is_page_top { "is-page-top" },
+            ul {
+                for (name, tab) in tabs {
+                    li {
+                        class: if tab == selected { "is-active" },
+                        a {
+                            "data-testid": "tab-{name.to_lowercase()}",
+                            "data-selected": "{tab == selected}",
+                            onclick: move |_| on_select.call(tab.clone()),
+                            "{name}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[component]
 pub fn Table(head: Option<Vec<Element>>, body: Vec<Vec<Element>>) -> Element {
     rsx! {

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Filtering of exercises by their stretched muscles
     - Flexibility category
     - Hip flexors and hip rotators
+    - Stretches and mobility drills of the catalog
 - Exercise page:
     - Left and right column in the set history, showing the two sets of a pair side by side
     - Stretched muscles of the exercise, shown in a row of their own
@@ -44,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exercise page:
     - Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
     - Shading of the days in the calendar by the set volume instead of the volume load, or by the stretch sets for an exercise that only stretches
+- Catalog exercise page:
+    - Stretched muscles of the catalog exercises that stretch a muscle under load
+    - Hip flexors as a worked muscle and compound mechanic of the leg raises
 
 ### Fixed
 

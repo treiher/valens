@@ -55,6 +55,43 @@ mod tests {
     }
 
     #[test]
+    fn test_the_worked_and_the_stretched_muscles_of_a_hybrid_are_shown_in_rows_of_their_own() {
+        let html = render(|| {
+            rsx! { Catalog { name: "Jefferson Curl".to_string() } }
+        });
+
+        assert_eq!(
+            all_text_of(&html, "muscles-caption"),
+            vec!["Worked muscles", "Stretched muscles"]
+        );
+        assert_eq!(
+            all_text_of(&html, "muscle-tag"),
+            vec!["Erector Spinae", "Hamstrings"]
+        );
+        assert_eq!(
+            all_text_of(&html, "stretch-tag"),
+            vec!["Hamstrings", "Erector Spinae"]
+        );
+    }
+
+    #[test]
+    fn test_a_stretch_shows_its_stretched_muscles_alone() {
+        let html = render(|| {
+            rsx! { Catalog { name: "Couch Stretch".to_string() } }
+        });
+
+        assert_eq!(
+            all_text_of(&html, "muscles-caption"),
+            vec!["Stretched muscles"]
+        );
+        assert!(all_text_of(&html, "muscle-tag").is_empty());
+        assert_eq!(
+            all_text_of(&html, "stretch-tag"),
+            vec!["Hip Flexors", "Quads"]
+        );
+    }
+
+    #[test]
     fn test_an_unknown_exercise_is_reported() {
         let html = render(|| {
             rsx! { Catalog { name: "No Such Exercise".to_string() } }

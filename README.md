@@ -9,7 +9,7 @@ Plan your training, follow it and see what it does to your body. A web app you h
 ## Features
 
 - Define training routines
-- Choose from more than 150 exercises or create your own, and filter them by muscles, equipment and other properties
+- Choose from more than 200 exercises or create your own, and filter them by muscles, equipment and other properties
 - Plan your training days
 - Log repetitions, weight, time and rating of perceived exertion (RPE) for each set
 - Prescribe a unilateral exercise per side and log each side separately

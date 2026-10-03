@@ -268,6 +268,9 @@ BOB = Profile(
         ExerciseConfig("Lat Pulldown", start_load=30.0, increment=2.5),
         ExerciseConfig("Leg Press", start_load=80.0, increment=5.0),
         ExerciseConfig("Crunch", rep_range=(10, 20)),
+        ExerciseConfig("Jefferson Curl", start_load=10.0, increment=2.5),
+        ExerciseConfig("Pike Stretch", rep_range=(30, 60), rep_step=5),
+        ExerciseConfig("Couch Stretch", rep_range=(30, 60), rep_step=5),
     ],
     routines=[
         RoutinePlan(
@@ -285,6 +288,9 @@ BOB = Profile(
                 Section(("Barbell Squat",), 3),
                 Section(("Dumbbell Shoulder Press",), 3),
                 Section(("Barbell Deadlift",), 2),
+                Section(("Jefferson Curl",), 2),
+                Section(("Pike Stretch",), 2),
+                Section(("Couch Stretch",), 2),
             ),
         ),
         RoutinePlan(

@@ -1685,6 +1685,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 ExerciseProperty::Muscles,
+                ExerciseProperty::Muscles,
                 ExerciseProperty::Force,
                 ExerciseProperty::Mechanic,
                 ExerciseProperty::Laterality,
@@ -1694,7 +1695,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            update.changes[1],
+            update.changes[2],
             PropertyChange {
                 property: ExerciseProperty::Force,
                 stretched: false,
@@ -1715,6 +1716,18 @@ mod tests {
                 ],
             }
         );
+        assert_eq!(
+            update.changes[1],
+            PropertyChange {
+                property: ExerciseProperty::Muscles,
+                stretched: true,
+                before: vec![value(MuscleID::none_name())],
+                after: vec![
+                    muscle_value(MuscleID::Pecs, Stimulus::SECONDARY),
+                    muscle_value(MuscleID::FrontDelts, Stimulus::SECONDARY),
+                ],
+            }
+        );
     }
 
     #[test]
@@ -1728,7 +1741,7 @@ mod tests {
                 vec![ExerciseMuscle {
                     muscle_id: MuscleID::Biceps,
                     stimulus: Stimulus::PRIMARY,
-                    stretch: Stimulus::NONE,
+                    stretch: Stimulus::PRIMARY,
                 }],
             )
         };
@@ -1836,26 +1849,8 @@ mod tests {
 
     #[test]
     fn test_catalog_update_detects_changed_stimulus() {
-        let exercise = Exercise {
-            muscles: vec![
-                ExerciseMuscle {
-                    muscle_id: MuscleID::Pecs,
-                    stimulus: Stimulus::SECONDARY,
-                    stretch: Stimulus::NONE,
-                },
-                ExerciseMuscle {
-                    muscle_id: MuscleID::FrontDelts,
-                    stimulus: Stimulus::PRIMARY,
-                    stretch: Stimulus::NONE,
-                },
-                ExerciseMuscle {
-                    muscle_id: MuscleID::Triceps,
-                    stimulus: Stimulus::PRIMARY,
-                    stretch: Stimulus::NONE,
-                },
-            ],
-            ..catalog_exercise("Dip", 1)
-        };
+        let mut exercise = catalog_exercise("Dip", 1);
+        exercise.muscles[0].stimulus = Stimulus::SECONDARY;
 
         let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
 
@@ -1882,7 +1877,7 @@ mod tests {
     #[test]
     fn test_catalog_update_detects_changed_stretch() {
         let mut exercise = catalog_exercise("Dip", 1);
-        exercise.muscles[0].stretch = Stimulus::SECONDARY;
+        exercise.muscles[0].stretch = Stimulus::PRIMARY;
         exercise
             .muscles
             .push(muscle(MuscleID::Biceps, Stimulus::NONE, Stimulus::PRIMARY));
@@ -1896,10 +1891,14 @@ mod tests {
                 property: ExerciseProperty::Muscles,
                 stretched: true,
                 before: vec![
-                    muscle_value(MuscleID::Pecs, Stimulus::SECONDARY),
+                    muscle_value(MuscleID::Pecs, Stimulus::PRIMARY),
+                    muscle_value(MuscleID::FrontDelts, Stimulus::SECONDARY),
                     muscle_value(MuscleID::Biceps, Stimulus::PRIMARY),
                 ],
-                after: vec![value(MuscleID::none_name())],
+                after: vec![
+                    muscle_value(MuscleID::Pecs, Stimulus::SECONDARY),
+                    muscle_value(MuscleID::FrontDelts, Stimulus::SECONDARY),
+                ],
             }]
         );
     }
@@ -2255,14 +2254,22 @@ mod tests {
     )]
     #[case::no_equipment(
         ExerciseFilter { equipment: [None].into(), ..ExerciseFilter::default() },
-        Some("Bench Dip")
+        Some("90-90 Hip Stretch")
     )]
     #[case::equipment(
         ExerciseFilter { equipment: [Some(Equipment::Barbell)].into(), ..ExerciseFilter::default() },
         Some("Barbell Ab Rollout")
     )]
-    #[case::stretched_muscle_of_no_catalog_exercise(
+    #[case::stretched_muscle(
         ExerciseFilter { stretch: [(MuscleID::HipRotators, StimulusLevel::Primary)].into(), ..ExerciseFilter::default() },
+        Some("90-90 Hip Stretch")
+    )]
+    #[case::stretched_muscle_of_a_stretch(
+        ExerciseFilter { name: "couch".into(), stretch: [(MuscleID::HipFlexors, StimulusLevel::Primary)].into(), ..ExerciseFilter::default() },
+        Some("Couch Stretch")
+    )]
+    #[case::no_muscles_excludes_a_stretch(
+        ExerciseFilter { name: "couch".into(), muscles: [None].into(), ..ExerciseFilter::default() },
         None
     )]
     fn test_exercise_catalog(

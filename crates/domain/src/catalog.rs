@@ -102,7 +102,69 @@ pub(crate) static EXERCISES: std::sync::LazyLock<BTreeMap<Name, Exercise>> =
             .collect::<BTreeMap<_, _>>()
     });
 
-const EXERCISE_VARIANTS: [BaseExercise; 54] = [
+const EXERCISE_VARIANTS: [BaseExercise; 107] = [
+    BaseExercise {
+        name: "90-90 Hip Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipRotators, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[ExerciseVariant {
+            name: "90-90 Hip Switch",
+            muscles: Some(&[
+                (MuscleID::HipRotators, Stimulus::SECONDARY),
+                (MuscleID::HipFlexors, Stimulus::SECONDARY),
+                (MuscleID::Glutes, Stimulus::SECONDARY),
+            ]),
+            force: Some(Force::Pull),
+            laterality: Some(Laterality::Bilateral),
+            ..ExerciseVariant::default()
+        }],
+    },
+    BaseExercise {
+        name: "Arm Circle",
+        force: Force::Push,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
+            (MuscleID::RearDelts, Stimulus::SECONDARY),
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Back Bridge",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+        ],
+        stretch: &[
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+            (MuscleID::Abs, Stimulus::PRIMARY),
+            (MuscleID::Lats, Stimulus::SECONDARY),
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
     BaseExercise {
         name: "Back Extension",
         force: Force::Pull,
@@ -252,11 +314,13 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             ExerciseVariant {
                 name: "Dumbbell Incline Curl",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[(MuscleID::Biceps, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Dumbbell Lying Curl",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[(MuscleID::Biceps, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -296,18 +360,22 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             },
             ExerciseVariant {
                 name: "Barbell Deficit Romanian Deadlift",
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Barbell Deficit Stiff-Legged Deadlift",
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Barbell Romanian Deadlift",
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Barbell Stiff-Legged Deadlift",
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -323,27 +391,32 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             ExerciseVariant {
                 name: "Dumbbell Deficit Romanian Deadlift",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Dumbbell Deficit Stiff-Legged Deadlift",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Dumbbell Romanian Deadlift",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Dumbbell Stiff-Legged Deadlift",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Kettlebell Single-Leg Deadlift",
                 laterality: Some(Laterality::Unilateral),
                 equipment: Some(&[Equipment::Kettlebell]),
+                stretch: Some(&[(MuscleID::Hamstrings, Stimulus::PRIMARY)]),
                 ..ExerciseVariant::default()
             },
         ],
@@ -381,7 +454,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Hamstrings, Stimulus::PRIMARY),
             (MuscleID::Adductors, Stimulus::SECONDARY),
         ],
-        stretch: &[],
+        stretch: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -424,7 +497,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Barbell],
         muscles: &[(MuscleID::Triceps, Stimulus::PRIMARY)],
-        stretch: &[],
+        stretch: &[(MuscleID::Triceps, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -460,7 +533,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Lats, Stimulus::PRIMARY),
             (MuscleID::Pecs, Stimulus::PRIMARY),
         ],
-        stretch: &[],
+        stretch: &[
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+        ],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Dumbbell Pullover",
@@ -617,6 +693,18 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         ],
     },
     BaseExercise {
+        name: "Butterfly Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::Adductors, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Cable Crossover",
         force: Force::Push,
         mechanic: Mechanic::Isolation,
@@ -627,7 +715,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Pecs, Stimulus::PRIMARY),
             (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
-        stretch: &[],
+        stretch: &[(MuscleID::Pecs, Stimulus::SECONDARY)],
         category: Category::Strength,
         variants: &[],
     },
@@ -677,6 +765,67 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         }],
     },
     BaseExercise {
+        name: "Camel Pose",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+            (MuscleID::Abs, Stimulus::PRIMARY),
+            (MuscleID::Quads, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Cat-Cow",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+            (MuscleID::Abs, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Child's Pose",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Cobra Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Abs, Stimulus::PRIMARY),
+            (MuscleID::HipFlexors, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Cossack Squat",
         force: Force::Push,
         mechanic: Mechanic::Compound,
@@ -689,8 +838,38 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Adductors, Stimulus::SECONDARY),
             (MuscleID::Hamstrings, Stimulus::SECONDARY),
         ],
-        stretch: &[],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
+        ],
         category: Category::Strength,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Couch Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+            (MuscleID::Quads, Stimulus::PRIMARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Cross-Body Shoulder Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::RearDelts, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
         variants: &[],
     },
     BaseExercise {
@@ -729,6 +908,37 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         variants: &[],
     },
     BaseExercise {
+        name: "Dead Hang",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::PullUpBar],
+        muscles: &[(MuscleID::Forearms, Stimulus::SECONDARY)],
+        stretch: &[
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Deep Squat Hold",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Calves, Stimulus::SECONDARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Dip",
         force: Force::Push,
         mechanic: Mechanic::Compound,
@@ -740,7 +950,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::FrontDelts, Stimulus::PRIMARY),
             (MuscleID::Triceps, Stimulus::PRIMARY),
         ],
-        stretch: &[],
+        stretch: &[
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
+        ],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -771,6 +984,37 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         ],
     },
     BaseExercise {
+        name: "Doorway Chest Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Downward Dog",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::Calves, Stimulus::PRIMARY),
+            (MuscleID::Lats, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Dumbbell Fly",
         force: Force::Push,
         mechanic: Mechanic::Isolation,
@@ -781,12 +1025,13 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Pecs, Stimulus::PRIMARY),
             (MuscleID::FrontDelts, Stimulus::SECONDARY),
         ],
-        stretch: &[],
+        stretch: &[(MuscleID::Pecs, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
                 name: "Cable Fly",
                 equipment: Some(&[Equipment::Cable]),
+                stretch: Some(&[(MuscleID::Pecs, Stimulus::SECONDARY)]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -899,6 +1144,65 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         }],
     },
     BaseExercise {
+        name: "Figure-Four Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipRotators, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Frog Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::Adductors, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Front Split",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::Quads, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "German Hang",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::GymnasticRings],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Glute Bridge",
         force: Force::Push,
         mechanic: Mechanic::Isolation,
@@ -916,6 +1220,21 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             laterality: Some(Laterality::Unilateral),
             ..ExerciseVariant::default()
         }],
+    },
+    BaseExercise {
+        name: "Half Split",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::Calves, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
     },
     BaseExercise {
         name: "Handstand Push Up",
@@ -936,11 +1255,14 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
     BaseExercise {
         name: "Hanging Leg Raise",
         force: Force::Pull,
-        mechanic: Mechanic::Isolation,
+        mechanic: Mechanic::Compound,
         laterality: Laterality::Bilateral,
         assistance: Assistance::Unassisted,
         equipment: &[],
-        muscles: &[(MuscleID::Abs, Stimulus::PRIMARY)],
+        muscles: &[
+            (MuscleID::Abs, Stimulus::PRIMARY),
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+        ],
         stretch: &[],
         category: Category::Strength,
         variants: &[
@@ -953,6 +1275,21 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
                 ..ExerciseVariant::default()
             },
         ],
+    },
+    BaseExercise {
+        name: "Horse Stance",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+        ],
+        stretch: &[(MuscleID::Adductors, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
     },
     BaseExercise {
         name: "Inverted Row",
@@ -977,6 +1314,24 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         }],
     },
     BaseExercise {
+        name: "Jefferson Curl",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::Barbell],
+        muscles: &[
+            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
+        ],
+        stretch: &[
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Kettlebell Swing",
         force: Force::Pull,
         mechanic: Mechanic::Compound,
@@ -993,6 +1348,33 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         ],
         stretch: &[],
         category: Category::Strength,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Kneeling Hip Flexor Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::HipFlexors, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Kneeling Lat Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
         variants: &[],
     },
     BaseExercise {
@@ -1042,6 +1424,45 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         variants: &[],
     },
     BaseExercise {
+        name: "Leg Swing",
+        force: Force::Push,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[(MuscleID::HipFlexors, Stimulus::SECONDARY)],
+        stretch: &[
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
+            (MuscleID::HipFlexors, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[ExerciseVariant {
+            name: "Lateral Leg Swing",
+            muscles: Some(&[(MuscleID::Abductors, Stimulus::SECONDARY)]),
+            stretch: Some(&[
+                (MuscleID::Adductors, Stimulus::SECONDARY),
+                (MuscleID::Abductors, Stimulus::SECONDARY),
+            ]),
+            ..ExerciseVariant::default()
+        }],
+    },
+    BaseExercise {
+        name: "Lizard Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Lunge",
         force: Force::Push,
         mechanic: Mechanic::Compound,
@@ -1053,7 +1474,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Glutes, Stimulus::PRIMARY),
             (MuscleID::Adductors, Stimulus::PRIMARY),
         ],
-        stretch: &[],
+        stretch: &[(MuscleID::HipFlexors, Stimulus::SECONDARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1075,6 +1496,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             ExerciseVariant {
                 name: "Dumbbell Side Lunge",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[
+                    (MuscleID::Adductors, Stimulus::PRIMARY),
+                    (MuscleID::Hamstrings, Stimulus::SECONDARY),
+                ]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -1084,6 +1509,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             },
             ExerciseVariant {
                 name: "Side Lunge",
+                stretch: Some(&[
+                    (MuscleID::Adductors, Stimulus::PRIMARY),
+                    (MuscleID::Hamstrings, Stimulus::SECONDARY),
+                ]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -1183,7 +1612,7 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[(MuscleID::Calves, Stimulus::PRIMARY)],
-        stretch: &[],
+        stretch: &[(MuscleID::Calves, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1214,7 +1643,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::FrontDelts, Stimulus::PRIMARY),
             (MuscleID::Triceps, Stimulus::PRIMARY),
         ],
-        stretch: &[],
+        stretch: &[
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
+        ],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
@@ -1259,6 +1691,36 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         ],
     },
     BaseExercise {
+        name: "Neck Flexion Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Neck, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Neck Side Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Neck, Stimulus::PRIMARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Nordic Curl",
         force: Force::Pull,
         mechanic: Mechanic::Isolation,
@@ -1269,6 +1731,156 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         stretch: &[],
         category: Category::Strength,
         variants: &[],
+    },
+    BaseExercise {
+        name: "Overhead Triceps Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Triceps, Stimulus::PRIMARY),
+            (MuscleID::Lats, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Pancake Good Morning",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::Barbell],
+        muscles: &[(MuscleID::ErectorSpinae, Stimulus::SECONDARY)],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[
+            ExerciseVariant {
+                name: "Barbell Straddle Romanian Deadlift",
+                ..ExerciseVariant::default()
+            },
+            ExerciseVariant {
+                name: "Dumbbell Straddle Romanian Deadlift",
+                equipment: Some(&[Equipment::Dumbbell]),
+                ..ExerciseVariant::default()
+            },
+            ExerciseVariant {
+                name: "Standing Straddle Good Morning",
+                ..ExerciseVariant::default()
+            },
+        ],
+    },
+    BaseExercise {
+        name: "Pancake Lift",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+            (MuscleID::Abs, Stimulus::SECONDARY),
+            (MuscleID::Abductors, Stimulus::SECONDARY),
+        ],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[ExerciseVariant {
+            name: "Single-Leg Pancake Lift",
+            laterality: Some(Laterality::Unilateral),
+            ..ExerciseVariant::default()
+        }],
+    },
+    BaseExercise {
+        name: "Pancake Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Pigeon Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipRotators, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+            (MuscleID::HipFlexors, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Pike Good Morning",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::Barbell],
+        muscles: &[(MuscleID::ErectorSpinae, Stimulus::SECONDARY)],
+        stretch: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Pike Lift",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+            (MuscleID::Quads, Stimulus::SECONDARY),
+            (MuscleID::Abs, Stimulus::SECONDARY),
+        ],
+        stretch: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[ExerciseVariant {
+            name: "Single-Leg Pike Lift",
+            laterality: Some(Laterality::Unilateral),
+            ..ExerciseVariant::default()
+        }],
+    },
+    BaseExercise {
+        name: "Pike Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[ExerciseVariant {
+            name: "Single-Leg Pike Stretch",
+            laterality: Some(Laterality::Unilateral),
+            ..ExerciseVariant::default()
+        }],
     },
     BaseExercise {
         name: "Plank",
@@ -1322,6 +1934,22 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         ],
     },
     BaseExercise {
+        name: "Puppy Pose",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Lats, Stimulus::PRIMARY),
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Push Up",
         force: Force::Push,
         mechanic: Mechanic::Compound,
@@ -1369,8 +1997,29 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[],
         muscles: &[(MuscleID::Quads, Stimulus::PRIMARY)],
-        stretch: &[],
+        stretch: &[
+            (MuscleID::Quads, Stimulus::PRIMARY),
+            (MuscleID::HipFlexors, Stimulus::PRIMARY),
+        ],
         category: Category::Strength,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Reverse Tabletop",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+            (MuscleID::Triceps, Stimulus::SECONDARY),
+        ],
+        stretch: &[
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Pecs, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
         variants: &[],
     },
     BaseExercise {
@@ -1381,12 +2030,91 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         assistance: Assistance::Unassisted,
         equipment: &[Equipment::Machine],
         muscles: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
-        stretch: &[],
+        stretch: &[(MuscleID::Hamstrings, Stimulus::PRIMARY)],
         category: Category::Strength,
         variants: &[ExerciseVariant {
             name: "Lying Leg Curl",
+            stretch: Some(&[]),
             ..ExerciseVariant::default()
         }],
+    },
+    BaseExercise {
+        name: "Seated Spinal Twist",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::ErectorSpinae, Stimulus::PRIMARY),
+            (MuscleID::Glutes, Stimulus::SECONDARY),
+            (MuscleID::Abs, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Shoulder Dislocate",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::ResistanceBand],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Lats, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Side Split",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Skin the Cat",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::GymnasticRings],
+        muscles: &[
+            (MuscleID::Lats, Stimulus::SECONDARY),
+            (MuscleID::Abs, Stimulus::SECONDARY),
+        ],
+        stretch: &[
+            (MuscleID::Pecs, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::PRIMARY),
+            (MuscleID::Biceps, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Sleeper Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::RearDelts, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
     },
     BaseExercise {
         name: "Slider Hamstring Curl",
@@ -1426,12 +2154,16 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             (MuscleID::Glutes, Stimulus::PRIMARY),
             (MuscleID::Adductors, Stimulus::PRIMARY),
         ],
-        stretch: &[],
+        stretch: &[(MuscleID::HipFlexors, Stimulus::SECONDARY)],
         category: Category::Strength,
         variants: &[
             ExerciseVariant {
                 name: "Barbell Bulgarian Split Squat",
                 equipment: Some(&[Equipment::Barbell]),
+                stretch: Some(&[
+                    (MuscleID::HipFlexors, Stimulus::PRIMARY),
+                    (MuscleID::Quads, Stimulus::SECONDARY),
+                ]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -1441,11 +2173,19 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             },
             ExerciseVariant {
                 name: "Bulgarian Split Squat",
+                stretch: Some(&[
+                    (MuscleID::HipFlexors, Stimulus::PRIMARY),
+                    (MuscleID::Quads, Stimulus::SECONDARY),
+                ]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
                 name: "Dumbbell Bulgarian Split Squat",
                 equipment: Some(&[Equipment::Dumbbell]),
+                stretch: Some(&[
+                    (MuscleID::HipFlexors, Stimulus::PRIMARY),
+                    (MuscleID::Quads, Stimulus::SECONDARY),
+                ]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -1456,6 +2196,10 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
             ExerciseVariant {
                 name: "Smith Machine Bulgarian Split Squat",
                 equipment: Some(&[Equipment::Machine]),
+                stretch: Some(&[
+                    (MuscleID::HipFlexors, Stimulus::PRIMARY),
+                    (MuscleID::Quads, Stimulus::SECONDARY),
+                ]),
                 ..ExerciseVariant::default()
             },
             ExerciseVariant {
@@ -1505,6 +2249,65 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
         ],
     },
     BaseExercise {
+        name: "Standing Hamstring Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::Calves, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Standing Pike Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+            (MuscleID::Calves, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Standing Quad Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::Quads, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Standing Straddle Hold",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
         name: "Step Up",
         force: Force::Push,
         mechanic: Mechanic::Compound,
@@ -1531,6 +2334,114 @@ const EXERCISE_VARIANTS: [BaseExercise; 54] = [
                 ..ExerciseVariant::default()
             },
         ],
+    },
+    BaseExercise {
+        name: "Thread the Needle",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::RearDelts, Stimulus::PRIMARY),
+            (MuscleID::Lats, Stimulus::SECONDARY),
+            (MuscleID::Traps, Stimulus::SECONDARY),
+            (MuscleID::ErectorSpinae, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Wall Biceps Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::Biceps, Stimulus::PRIMARY),
+            (MuscleID::FrontDelts, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Wall Calf Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::Calves, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[
+            ExerciseVariant {
+                name: "Bent-Knee Wall Calf Stretch",
+                ..ExerciseVariant::default()
+            },
+            ExerciseVariant {
+                name: "Knee-to-Wall Stretch",
+                ..ExerciseVariant::default()
+            },
+        ],
+    },
+    BaseExercise {
+        name: "Weighted Pancake",
+        force: Force::Pull,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Bilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[Equipment::Dumbbell],
+        muscles: &[(MuscleID::ErectorSpinae, Stimulus::SECONDARY)],
+        stretch: &[
+            (MuscleID::Adductors, Stimulus::PRIMARY),
+            (MuscleID::Hamstrings, Stimulus::PRIMARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "World's Greatest Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Compound,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[
+            (MuscleID::HipFlexors, Stimulus::SECONDARY),
+            (MuscleID::Hamstrings, Stimulus::SECONDARY),
+            (MuscleID::Adductors, Stimulus::SECONDARY),
+        ],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Wrist Extensor Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::Forearms, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
+    },
+    BaseExercise {
+        name: "Wrist Flexor Stretch",
+        force: Force::Static,
+        mechanic: Mechanic::Isolation,
+        laterality: Laterality::Unilateral,
+        assistance: Assistance::Unassisted,
+        equipment: &[],
+        muscles: &[],
+        stretch: &[(MuscleID::Forearms, Stimulus::PRIMARY)],
+        category: Category::Flexibility,
+        variants: &[],
     },
 ];
 
@@ -1563,26 +2474,34 @@ mod tests {
         for (name, exercise) in EXERCISES.iter() {
             assert_eq!(*name, exercise.name);
 
-            assert!(match exercise.mechanic {
-                Mechanic::Isolation =>
-                    exercise
-                        .muscles
-                        .iter()
-                        .filter(|(_, s)| *s == Stimulus::PRIMARY)
-                        .collect::<Vec<_>>()
-                        .len()
-                        == 1,
-                Mechanic::Compound =>
-                    !exercise
-                        .muscles
-                        .iter()
-                        .filter(|(_, s)| *s == Stimulus::PRIMARY)
-                        .collect::<Vec<_>>()
-                        .is_empty()
-                        && exercise.muscles.len() > 1,
-            });
+            // The mechanic of a stretch counts the joints held at end range, not its muscles.
+            if exercise.category == Category::Flexibility {
+                assert!(!exercise.stretch.is_empty(), "{name}");
+            } else {
+                assert!(
+                    match exercise.mechanic {
+                        Mechanic::Isolation =>
+                            exercise
+                                .muscles
+                                .iter()
+                                .filter(|(_, s)| *s == Stimulus::PRIMARY)
+                                .collect::<Vec<_>>()
+                                .len()
+                                == 1,
+                        Mechanic::Compound =>
+                            !exercise
+                                .muscles
+                                .iter()
+                                .filter(|(_, s)| *s == Stimulus::PRIMARY)
+                                .collect::<Vec<_>>()
+                                .is_empty()
+                                && exercise.muscles.len() > 1,
+                    },
+                    "{name}"
+                );
+            }
 
-            if name.as_ref().contains("One-") {
+            if name.as_ref().contains("One-") || name.as_ref().contains("Single-Leg") {
                 assert!(exercise.laterality == Laterality::Unilateral);
             }
 

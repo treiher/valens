@@ -180,6 +180,10 @@ class Dialog(PageElement):
     def wait_until_closed(self) -> None:
         self.root.wait_for(state="hidden")
 
+    @property
+    def name_error(self) -> Locator:
+        return self.page.get_by_test_id("dialog-name-error")
+
     def set_name(self, name: str) -> None:
         self.page.get_by_test_id("dialog-name").first.fill(name)
 

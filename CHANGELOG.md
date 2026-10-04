@@ -89,6 +89,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Training session page:
     - Ongoing training session continuing at another set or rest after a set or an exercise is added, moved or removed
     - Progress bar of a set or rest briefly showing the time of the preceding set or rest
+- Routines page: Error shown when opening the dialog for adding a routine
+- Exercises page:
+    - Error shown when opening the dialog for adding an exercise
 
 ## [0.9.0] - 2026-09-26
 

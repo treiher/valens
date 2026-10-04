@@ -34,18 +34,19 @@ macro_rules! show_add_dialog {
         let properties = $properties.clone();
         $(let $filter_string = $filter_string.clone();)?
         move || async move {
-            let validated_name = DOMAIN_SERVICE()
-                .validate_exercise_name(&name, domain::ExerciseID::nil())
-                .await
-                .map_err(|err| err.to_string());
-            *$dialog.write() = ExerciseDialog::Add {
-                name: FieldValue {
+            let name = if name.trim().is_empty() {
+                FieldValue::default()
+            } else {
+                FieldValue {
                     input: name.clone(),
-                    validated: validated_name,
+                    validated: DOMAIN_SERVICE()
+                        .validate_exercise_name(&name, domain::ExerciseID::nil())
+                        .await
+                        .map_err(|err| err.to_string()),
                     orig: name.clone(),
-                },
-                properties,
+                }
             };
+            *$dialog.write() = ExerciseDialog::Add { name, properties };
             $(
                 if $exercises_page {
                     navigator().replace_preserving_scroll(Route::Exercises {
@@ -861,6 +862,7 @@ fn view_name_field(mut dialog: Signal<ExerciseDialog>) -> Element {
         InputField {
             label: "Name".to_string(),
             "data-testid": "dialog-name",
+            error_testid: "dialog-name-error",
             value: input,
             error: if let Err(err) = &validated { err.clone() },
             has_changed: changed,

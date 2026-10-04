@@ -2406,6 +2406,13 @@ def test_routines_add(page: Page) -> None:
     p.fab().click()
     p.dialog.wait_until_open()
 
+    expect(p.dialog.name_error).to_be_hidden()
+
+    p.dialog.set_name(new_name)
+    p.dialog.set_name("")
+
+    expect(p.dialog.name_error).to_be_visible()
+
     p.dialog.cancel()
 
     p.table.expect_value(1, first_unused + 1, 1, name)
@@ -3452,6 +3459,18 @@ def test_exercises_add(page: Page) -> None:
     assert {e[0] for e in p.table.get_body(2)} == expected_previous
 
     p.table.expect_value(1, 1, 1, name)
+
+    p.fab().click()
+    p.dialog.wait_until_open()
+
+    expect(p.dialog.name_error).to_be_hidden()
+
+    p.dialog.set_name(new_name)
+    p.dialog.set_name("")
+
+    expect(p.dialog.name_error).to_be_visible()
+
+    p.dialog.cancel()
 
     p.add_exercise(new_name)
 

@@ -28,17 +28,19 @@ pub fn Routines(add: bool, search: String) -> Element {
     let show_add_dialog = move || {
         let search_term = search_term.clone();
         async move {
-            let validated_name = DOMAIN_SERVICE()
-                .validate_routine_name(&search_term, domain::RoutineID::nil())
-                .await
-                .map_err(|err| err.to_string());
-            *dialog.write() = RoutineDialog::Add {
-                name: FieldValue {
+            let name = if search_term.trim().is_empty() {
+                FieldValue::default()
+            } else {
+                FieldValue {
                     input: search_term.clone(),
-                    validated: validated_name,
+                    validated: DOMAIN_SERVICE()
+                        .validate_routine_name(&search_term, domain::RoutineID::nil())
+                        .await
+                        .map_err(|err| err.to_string()),
                     orig: search_term.clone(),
-                },
+                }
             };
+            *dialog.write() = RoutineDialog::Add { name };
             navigator().replace_preserving_scroll(Route::Routines {
                 add: true,
                 search: search_term,
@@ -397,6 +399,7 @@ pub fn view_dialog(
                 InputField {
                     label: "Name".to_string(),
                     "data-testid": "dialog-name",
+                    error_testid: "dialog-name-error",
                     value: name.input.clone(),
                     error: if let Err(err) = &name.validated { err.clone() },
                     has_changed: name.changed(),

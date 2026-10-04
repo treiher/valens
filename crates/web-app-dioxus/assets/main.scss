@@ -462,6 +462,18 @@ $value-field-padding: 0.4em;
 
 // Text colors
 
+// The strongest contrast to the background in both themes
+.has-text-strong {
+    color: var(--bulma-text-strong) !important;
+}
+
+.tag.is-strong {
+    --bulma-tag-h: var(--bulma-text-h);
+    --bulma-tag-s: var(--bulma-text-s);
+    --bulma-tag-background-l: var(--bulma-text-strong-l);
+    --bulma-tag-color-l: var(--bulma-scheme-main-l);
+}
+
 // Muted in both themes, where the fixed Bulma greys are legible in only one of them
 .has-text-muted {
     color: var(--bulma-border);

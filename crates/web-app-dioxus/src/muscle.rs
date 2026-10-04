@@ -79,9 +79,9 @@ fn worked_tags(
         let sets = f64::from(*stimulus) / 100.0;
         let sets_str = count_to_string(sets);
         if sets > 10.0 {
-            groups[0].push((name, description, sets_str, vec!["is-dark"]));
+            groups[0].push((name, description, sets_str, vec!["is-strong"]));
         } else if sets >= 3.0 {
-            groups[1].push((name, description, sets_str, vec!["is-dark", "is-link"]));
+            groups[1].push((name, description, sets_str, vec!["is-link"]));
         } else {
             groups[2].push((name, description, sets_str, vec!["is-light", "is-link"]));
         }

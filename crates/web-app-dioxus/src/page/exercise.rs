@@ -280,7 +280,7 @@ where
 
 pub fn stimulus_level_class(level: domain::StimulusLevel) -> &'static str {
     match level {
-        domain::StimulusLevel::Primary => "is-dark",
+        domain::StimulusLevel::Primary => "is-strong",
         domain::StimulusLevel::Secondary => "is-link",
     }
 }

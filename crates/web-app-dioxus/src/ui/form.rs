@@ -3,14 +3,29 @@
 use dioxus::{prelude::*, web::WebEventExt};
 use web_sys::wasm_bindgen::JsCast;
 
-use crate::ui::capitalized;
+use crate::ui::{
+    capitalized,
+    element::{ElementWithDescription, Icon},
+};
 
+/// A labeled control, where `info` is shown when hovering or tapping the label.
 #[component]
-pub fn Field(children: Element, label: String) -> Element {
+pub fn Field(children: Element, label: String, info: Option<Element>) -> Element {
     rsx! {
         div {
             class: "field",
-            label { class: "label", "{label}" }
+            label {
+                class: "label",
+                if let Some(info) = info {
+                    ElementWithDescription {
+                        description: info,
+                        span { "{label}" }
+                        Icon { name: "circle-question", is_small: true, class: "ml-2" }
+                    }
+                } else {
+                    "{label}"
+                }
+            }
             div {
                 class: "control",
                 {children}

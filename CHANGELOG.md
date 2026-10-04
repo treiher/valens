@@ -51,10 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Routine, its training sessions and their charts on a tab each
     - Name of the routine in the navigation bar, replacing the title of the page
 - Exercises page:
-    - Legend of the primary and secondary muscles in the filter and properties dialogs, shown once above all muscles as the order in which tapping a muscle changes its level
+    - Legend of the primary and secondary muscles in the add, filter and properties dialogs, shown as the order in which tapping a muscle changes its level in a tooltip of a help icon next to the worked and the stretched muscles
     - Labels of the muscles and properties in the add, filter and properties dialogs, styled like the labels of other input fields
 - Exercise page:
-    - Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
+    - Legend of the primary and secondary muscles in the properties dialog, shown as the order in which tapping a muscle changes its level in a tooltip of a help icon next to the worked and the stretched muscles
     - Labels of the muscles and properties in the properties dialog, styled like the labels of other input fields
     - Properties, muscles and notes of the exercise, each group under a caption of its own, its training sessions and their charts on a tab each
     - Name of the exercise in the navigation bar, replacing the title of the page

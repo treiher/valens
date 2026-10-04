@@ -18,8 +18,8 @@ use crate::{
     ui::{
         element::{
             Block, Color, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
-            ItemOptionsButton, LoadingPage, MenuOption, NoWrap, OptionsMenu, SaveDialog, SearchBox,
-            Table, Title,
+            ItemOptionsButton, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
+            Title,
         },
         form::{
             ButtonSelectField, ButtonSelectOption, Field, FieldValue, FieldValueState, InputField,
@@ -912,15 +912,16 @@ macro_rules! view_filter_section {
     ($property:expr, $list:ident, $toggle:ident, $exercise_filter:ident) => {{
         let tags = view_filter_tags!($list, $toggle, $exercise_filter, false);
         let name = $property.name();
-        view_filter_block(name, name, tags)
+        view_filter_block(name, name, None, tags)
     }};
 }
 
-fn view_filter_block(label: &str, name: &str, tags: Element) -> Element {
+fn view_filter_block(label: &str, name: &str, info: Option<Element>, tags: Element) -> Element {
     let test_id = format!("filter-section-{}", name.to_lowercase());
     rsx! {
         Field {
             label,
+            info,
             div {
                 class: "tags",
                 "data-testid": test_id,
@@ -939,20 +940,28 @@ const STIMULUS_LEVELS: [domain::StimulusLevel; 2] = [
 /// Show the states a muscle toggle cycles through, colored like the muscle tags.
 fn view_stimulus_level_legend() -> Element {
     rsx! {
-        p {
-            class: "is-size-7 mb-3",
+        div {
+            class: "is-size-7 has-text-weight-normal",
             "data-testid": "stimulus-level-legend",
-            "Tap a muscle: "
-            NoWrap {
-                span { class: "tag is-legend", "Unselected" }
+            p { "Tap a muscle to cycle:" }
+            div {
+                class: "is-flex is-align-items-center is-flex-wrap-nowrap",
+                {view_legend_entry("has-text-muted", "Unselected")}
                 for level in STIMULUS_LEVELS {
-                    Icon { name: "arrow-right", is_small: true }
-                    span {
-                        class: "tag is-legend {page::exercise::stimulus_level_class(level)}",
-                        {level.name()}
-                    }
+                    Icon { name: "arrow-right", is_small: true, class: "mx-1" }
+                    {view_legend_entry(&page::exercise::stimulus_level_text_class(level), level.name())}
                 }
             }
+        }
+    }
+}
+
+fn view_legend_entry(color_class: &str, name: &str) -> Element {
+    rsx! {
+        span {
+            class: "icon-text is-flex-wrap-nowrap is-align-items-center",
+            Icon { name: "square", is_small: true, class: color_class }
+            span { {name} }
         }
     }
 }
@@ -1015,9 +1024,9 @@ fn view_equipment_section(mut selected: Signal<Vec<domain::Equipment>>) -> Eleme
 /// Show the worked and the stretched muscles as toggles that cycle through the levels.
 fn view_muscles_sections(muscles: Signal<MultiToggle>, stretch: Signal<MultiToggle>) -> Element {
     rsx! {
-        {view_stimulus_level_legend()}
         Field {
             label: "Worked muscles",
+            info: view_stimulus_level_legend(),
             div {
                 "data-testid": "property-section-muscles",
                 MultiToggleTags { multi_toggle: muscles }
@@ -1025,6 +1034,7 @@ fn view_muscles_sections(muscles: Signal<MultiToggle>, stretch: Signal<MultiTogg
         }
         Field {
             label: "Stretched muscles",
+            info: view_stimulus_level_legend(),
             div {
                 "data-testid": "property-section-stretch",
                 MultiToggleTags { multi_toggle: stretch }
@@ -1307,15 +1317,16 @@ fn view_filter_dialog(
     let sections = domain::ExerciseProperty::iter()
         .map(|property| match property {
             domain::ExerciseProperty::Muscles => rsx! {
-                {view_stimulus_level_legend()}
                 {view_filter_block(
                     "Worked muscles",
                     "muscles",
+                    Some(view_stimulus_level_legend()),
                     view_muscle_filter_tags(exercise_filter, false),
                 )}
                 {view_filter_block(
                     "Stretched muscles",
                     "stretch",
+                    Some(view_stimulus_level_legend()),
                     view_stretch_filter_tags(exercise_filter, false),
                 )}
             },
@@ -2194,11 +2205,11 @@ mod tests {
         assert!(text_of(&html, "filter-section-muscles").contains("Not Set"));
         assert!(text_of(&html, "filter-section-stretch").contains("Hip Rotators"));
         assert!(text_of(&html, "filter-section-stretch").contains("Not Set"));
-        assert_legend_precedes_the_muscle_sections(&html, "filter-section-muscles");
+        assert_each_muscle_section_has_a_legend(&html);
     }
 
     #[test]
-    fn test_the_properties_dialog_shows_one_legend_for_both_muscle_sections() {
+    fn test_the_properties_dialog_shows_a_legend_for_each_muscle_section() {
         let html = render(|| {
             rsx! {
                 ExercisePropertiesDialog {
@@ -2208,15 +2219,14 @@ mod tests {
             }
         });
 
-        assert_legend_precedes_the_muscle_sections(&html, "property-section-muscles");
+        assert_each_muscle_section_has_a_legend(&html);
     }
 
-    fn assert_legend_precedes_the_muscle_sections(html: &str, worked_section: &str) {
+    fn assert_each_muscle_section_has_a_legend(html: &str) {
         assert_eq!(
             all_text_of(html, "stimulus-level-legend"),
-            vec!["Tap a muscle: UnselectedPrimarySecondary"]
+            vec!["Tap a muscle to cycle:UnselectedPrimarySecondary"; 2]
         );
-        assert!(html.find("stimulus-level-legend").unwrap() < html.find(worked_section).unwrap());
     }
 
     #[test]

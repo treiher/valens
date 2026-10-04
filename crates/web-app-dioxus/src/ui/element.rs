@@ -360,7 +360,7 @@ pub fn IconText(
 #[component]
 pub fn ElementWithDescription(
     children: Element,
-    description: String,
+    description: Option<Element>,
     #[props(default)] right_aligned: bool,
 ) -> Element {
     rsx! {
@@ -374,14 +374,14 @@ pub fn ElementWithDescription(
                     {children}
                 }
             }
-            if !description.is_empty() {
+            if let Some(description) = description {
                 div {
                     class: "dropdown-menu has-no-min-width",
                     div {
                         class: "dropdown-content",
                         div {
                             class: "dropdown-item",
-                            "{description}"
+                            {description}
                         }
                     }
                 }
@@ -741,7 +741,7 @@ pub fn TagsWithAddon(
             class: "field is-grouped is-grouped-multiline is-justify-content-center mx-2",
             for (name, description, value, attributes) in tags {
                 ElementWithDescription {
-                    description,
+                    description: (!description.is_empty()).then(|| rsx! { {description} }),
                     TagWithAddon { name, value, attributes },
                 }
             }

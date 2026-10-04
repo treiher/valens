@@ -266,7 +266,7 @@ where
         CenteredTags {
             for (m, class) in muscles {
                 ElementWithDescription {
-                    description: m.description(),
+                    description: (!m.description().is_empty()).then(|| rsx! { {m.description()} }),
                     span {
                         class: "tag {class}",
                         "data-testid": test_id,
@@ -283,6 +283,11 @@ pub fn stimulus_level_class(level: domain::StimulusLevel) -> &'static str {
         domain::StimulusLevel::Primary => "is-dark",
         domain::StimulusLevel::Secondary => "is-link",
     }
+}
+
+/// The text color matching the tag color of [`stimulus_level_class`].
+pub fn stimulus_level_text_class(level: domain::StimulusLevel) -> String {
+    stimulus_level_class(level).replacen("is-", "has-text-", 1)
 }
 
 fn view_charts(

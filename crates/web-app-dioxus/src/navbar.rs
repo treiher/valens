@@ -112,7 +112,7 @@ pub fn Navbar() -> Element {
                             class: "navbar-item is-size-5 mx-1",
                             "data-testid": "navbar-sync-indicator",
                             ElementWithDescription {
-                                description: "Synchronization in progress",
+                                description: rsx! { "Synchronization in progress" },
                                 right_aligned: true,
                                 Icon { name: "rotate fa-pulse" }
                             }

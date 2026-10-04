@@ -15,6 +15,7 @@ Cross-cutting decisions for changes to Valens that are not enforced by tooling. 
 
 ## User interface
 
+- Colors come from the theme, never from fixed shades, so that text stays legible in both the light and the dark theme. Muted and emphasized text use the weak and strong text colors of the theme.
 - A dialog with several parts divides them into sections headed by captions. An action that applies to a section, such as adding an item, sits at the right end of its caption. Pages head their sections with titles, and group content within a section under captions. A page that shows a single compact block of information, such as the details of an exercise, groups it under captions without titles.
 - A setting that takes effect immediately and is either on or off is a switch. A choice between named options, or a value that is saved with a form, is a set of side-by-side buttons, so that changed values can be highlighted until they are saved.
 

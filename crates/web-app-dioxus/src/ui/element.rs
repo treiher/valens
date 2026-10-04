@@ -318,7 +318,7 @@ pub fn NoData(
 pub fn ServerUnreachable() -> Element {
     rsx! {
         div {
-            class: "block has-text-centered has-text-grey-light mb-6",
+            class: "block has-text-centered has-text-weak mb-6",
             "data-testid": "server-unreachable",
             IconText { icon: "plug-circle-xmark", "Server unreachable" }
         }

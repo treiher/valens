@@ -533,7 +533,7 @@ fn view_empty_section_drop_zone(
     rsx! {
         div {
             class: "is-drop-zone is-active has-text-centered px-4 py-3",
-            class: if hovered { "has-text-text-bold" } else { "has-text-grey" },
+            class: if hovered { "has-text-strong" } else { "has-text-weak" },
             "data-drop-state": drag_and_drop::drop_state(hovered),
             "data-testid": "empty-section-drop-zone",
             "Empty section"

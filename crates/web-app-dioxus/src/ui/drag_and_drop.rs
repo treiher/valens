@@ -73,7 +73,7 @@ where
 
     rsx! {
         span {
-            class: "has-text-grey",
+            class: "has-text-weak",
             style: handle_style(pressed),
             "data-testid": "{data_testid}",
             oncontextmenu: |event| event.prevent_default(),

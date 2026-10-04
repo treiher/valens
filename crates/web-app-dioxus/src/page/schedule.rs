@@ -296,7 +296,7 @@ fn view_drag_list(
         if num_items == 0 {
             div {
                 class: "is-drop-zone schedule-tile is-size-7 has-text-centered px-4 py-3",
-                class: if target == Some(empty_target) { "has-text-text-bold" } else { "has-text-grey-light" },
+                class: if target == Some(empty_target) { "has-text-strong" } else { "has-text-weak" },
                 class: if droppable { "is-active" },
                 "data-drop-state": drag_and_drop::drop_state(target == Some(empty_target)),
                 "data-testid": "{labels.empty_testid}",

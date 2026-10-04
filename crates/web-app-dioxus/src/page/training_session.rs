@@ -51,7 +51,7 @@ type RecentSession = (chrono::NaiveDate, Rc<[domain::Set]>, Option<usize>);
 const SIDE_SWITCH_SECONDS: u32 = 5;
 
 pub(crate) const COLUMN_HEADER_CLASS: &str =
-    "p-1 has-text-centered is-size-7 has-text-grey has-text-weight-normal";
+    "p-1 has-text-centered is-size-7 has-text-weak has-text-weight-normal";
 
 /// Renders a training session and drives its *ongoing* state.
 ///
@@ -1140,7 +1140,7 @@ fn view_form(
                             class: if is_last_row_before_note && measurements_are_empty { "pb-1" },
                             colspan: 6,
                             div {
-                                class: "is-clickable is-italic is-size-7 has-text-grey has-text-centered is-preserving-line-breaks",
+                                class: "is-clickable is-italic is-size-7 has-text-weak has-text-centered is-preserving-line-breaks",
                                 "data-testid": "exercise-notes",
                                 onclick: eh!(mut exercise_dialog; {
                                     if let CacheState::Ready(exercises) = &*cache.exercises.read()
@@ -1290,7 +1290,7 @@ fn view_form(
                                 }
                             } else if is_unilateral || side_changed {
                                 span {
-                                    class: if side_changed { "has-text-info" } else { "has-text-grey" },
+                                    class: if side_changed { "has-text-info" } else { "has-text-weak" },
                                     "data-testid": "set-side",
                                     "–"
                                 }

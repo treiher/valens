@@ -270,7 +270,7 @@ fn view_today(pending: &[(domain::Routine, Option<String>)], today: chrono::Naiv
                             }
                             if let Some(rotation_name) = rotation_name {
                                 p {
-                                    class: "is-size-7 has-text-grey",
+                                    class: "is-size-7 has-text-weak",
                                     "data-testid": "home-today-rotation",
                                     "{rotation_name}"
                                 }
@@ -328,7 +328,7 @@ fn Tile(
                         div {
                             a {
                                 class: "title is-size-5",
-                                class: if disabled { "has-text-grey-light" } else { "has-text-link" },
+                                class: if disabled { "has-text-weak" } else { "has-text-link" },
                                 {title}
                             }
                         }
@@ -348,7 +348,7 @@ fn Tile(
                     if let Some(ref subtitle) = subtitle {
                         p {
                             "data-testid": "{testid}-subtitle",
-                            class: if disabled { "has-text-grey" },
+                            class: if disabled { "has-text-weak" },
                             {subtitle}
                         }
                     }

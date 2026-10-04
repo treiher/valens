@@ -18,7 +18,7 @@ pub use exercise::{
     ExerciseProperties, ExerciseProperty, ExerciseRepository, ExerciseService, Force, ForceError,
     Laterality, LateralityError, Mechanic, MechanicError, MuscleID, MuscleIDError, Property,
     PropertyChange, PropertyValue, Stimulus, StimulusError, StimulusLevel, StretchOnlyExercises,
-    catalog_update, catalog_updates, name_or_none,
+    catalog_update, catalog_updates, name_or_none, validate_exercise_name,
 };
 pub use ffmi::ffmi;
 pub use name::{Name, NameError};
@@ -28,7 +28,7 @@ pub use period::{
 };
 pub use routine::{
     Rounds, Routine, RoutineID, RoutinePart, RoutinePartPath, RoutineRepository, RoutineService,
-    routines_sorted_by_last_use,
+    routines_sorted_by_last_use, validate_routine_name,
 };
 pub use schedule::{
     Rotation, RotationError, RotationID, Schedule, ScheduleError, ScheduleRepository,

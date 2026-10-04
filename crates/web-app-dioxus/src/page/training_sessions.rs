@@ -408,7 +408,7 @@ pub fn view_dialog(
         }
     };
 
-    let save = move |_| async move {
+    let save = move |()| async move {
         is_loading! {
             if let TrainingDialog::Add { date, routine_id } = &*dialog.read()
                 && let (Ok(date), Ok(routine_id)) = (date.validated.clone(), routine_id.validated.clone()) {

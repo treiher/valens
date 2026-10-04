@@ -524,7 +524,7 @@ pub fn SaveDialog(
     children: Element,
     title: Option<Element>,
     on_close: EventHandler<MouseEvent>,
-    on_save: EventHandler<MouseEvent>,
+    on_save: EventHandler<()>,
     is_loading: bool,
     disabled: bool,
 ) -> Element {
@@ -532,30 +532,39 @@ pub fn SaveDialog(
         Dialog {
             title,
             on_close,
-            Block {
-                {children}
-            }
-            Block {
-                div {
-                    class: "field is-grouped is-grouped-centered",
-                    div {
-                        class: "control",
-                        onclick: on_close,
-                        button {
-                            class: "button is-light is-soft",
-                            "data-testid": "dialog-cancel",
-                            "Cancel"
-                        }
+            form {
+                onsubmit: move |event| {
+                    event.prevent_default();
+                    if !is_loading && !disabled {
+                        on_save.call(());
                     }
+                },
+                Block {
+                    {children}
+                }
+                Block {
                     div {
-                        class: "control",
-                        button {
-                            class: "button is-primary",
-                            class: if is_loading { "is-loading" },
-                            "data-testid": "dialog-save",
-                            onclick: on_save,
-                            disabled,
-                            "Save"
+                        class: "field is-grouped is-grouped-centered",
+                        div {
+                            class: "control",
+                            onclick: on_close,
+                            button {
+                                class: "button is-light is-soft",
+                                "data-testid": "dialog-cancel",
+                                r#type: "button",
+                                "Cancel"
+                            }
+                        }
+                        div {
+                            class: "control",
+                            button {
+                                class: "button is-primary",
+                                class: if is_loading { "is-loading" },
+                                "data-testid": "dialog-save",
+                                r#type: "submit",
+                                disabled,
+                                "Save"
+                            }
                         }
                     }
                 }
@@ -691,6 +700,7 @@ pub fn OptionsMenu(options: Vec<Element>, on_close: EventHandler<MouseEvent>) ->
                         aria_label: "close",
                         class: "modal-close",
                         "data-testid": "options-menu-close",
+                        r#type: "button",
                         onclick: on_close,
                     }
                 }
@@ -900,7 +910,7 @@ mod tests {
             rsx! {
                 SaveDialog {
                     on_close: move |_| {},
-                    on_save: move |_| {},
+                    on_save: move |()| {},
                     is_loading: false,
                     disabled: false,
                     "content"

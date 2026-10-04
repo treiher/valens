@@ -215,7 +215,7 @@ fn view_dialog(mut dialog: Signal<BodyWeightDialog>) -> Element {
         navigator().replace_preserving_scroll(Route::BodyWeight { add: false });
     };
 
-    let save = move |_| async move {
+    let save = move |()| async move {
         let mut saved = false;
         is_loading! {
             match &*dialog.read() {

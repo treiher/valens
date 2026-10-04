@@ -38,23 +38,28 @@ pub trait RoutineService {
         name: &str,
         id: RoutineID,
     ) -> Result<Name, ValidationError> {
-        match Name::new(name) {
-            Ok(name) => match self.get_routines().await {
-                Ok(routines) => {
-                    if routines.iter().all(|r| r.id == id || r.name != name) {
-                        Ok(name)
-                    } else {
-                        Err(ValidationError::Conflict("name".to_string()))
-                    }
-                }
-                Err(err) => Err(ValidationError::Other(err.into())),
-            },
+        match self.get_routines().await {
+            Ok(routines) => validate_routine_name(name, id, &routines),
             Err(err) => Err(ValidationError::Other(err.into())),
         }
     }
 
     async fn get_routine(&self, id: RoutineID) -> Result<Option<Routine>, ReadError> {
         Ok(self.get_routines().await?.into_iter().find(|e| e.id == id))
+    }
+}
+
+/// Validates the name of the routine `id`, which must not be used by any other of `routines`.
+pub fn validate_routine_name(
+    name: &str,
+    id: RoutineID,
+    routines: &[Routine],
+) -> Result<Name, ValidationError> {
+    let name = Name::new(name).map_err(|err| ValidationError::Other(err.into()))?;
+    if routines.iter().all(|r| r.id == id || r.name != name) {
+        Ok(name)
+    } else {
+        Err(ValidationError::Conflict("name".to_string()))
     }
 }
 

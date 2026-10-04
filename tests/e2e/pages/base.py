@@ -198,6 +198,13 @@ class Dialog(PageElement):
     def click_save(self) -> None:
         self.root.get_by_test_id("dialog-save").click()
 
+    def save_with_enter(self) -> None:
+        self.press_enter_in_name()
+        self.wait_until_closed()
+
+    def press_enter_in_name(self) -> None:
+        self.page.get_by_test_id("dialog-name").first.press("Enter")
+
     def delete(self) -> None:
         self.click_delete()
         self.wait_until_closed()

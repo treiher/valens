@@ -392,7 +392,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
         };
     }
 
-    let save = move |_| async move {
+    let save = move |()| async move {
         let mut saved = false;
         is_loading! {
             match &*dialog.read() {

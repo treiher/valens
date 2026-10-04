@@ -59,7 +59,7 @@ fn Users() -> Element {
         dialog.set(UserDialog::None);
     };
 
-    let save = move |_| async move {
+    let save = move |()| async move {
         let mut saved = false;
         is_loading! {
             match &*dialog.read() {

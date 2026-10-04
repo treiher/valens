@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Counting of a set with a side as half a set in the load, the set volume and the time under tension
+- Saving of dialogs by pressing Enter
 - Training sessions page:
     - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
     - Charts of a single muscle, including its stretch sets and time under stretch

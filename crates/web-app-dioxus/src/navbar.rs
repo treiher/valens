@@ -254,7 +254,7 @@ pub fn Navbar() -> Element {
 
         if profile_visible() {
             ProfileDialog {
-                on_close: move |_| { profile_visible.set(false); }
+                on_close: move |()| { profile_visible.set(false); }
             }
         }
 

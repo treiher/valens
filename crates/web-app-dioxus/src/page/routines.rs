@@ -406,41 +406,19 @@ pub fn view_dialog(
                     autofocus: true,
                     on_input: move |event: FormEvent| {
                         let input = event.value();
+                        let routine_id = match &*dialog.read() {
+                            RoutineDialog::Rename { routine_id, .. } => *routine_id,
+                            _ => domain::RoutineID::nil()
+                        };
+                        let validated_name = validate_name(&input, routine_id);
                         match &mut *dialog.write() {
                             RoutineDialog::Add { name, .. }
                             | RoutineDialog::Copy { name, .. }
                             | RoutineDialog::Rename { name, .. } => {
-                                name.input.clone_from(&input);
+                                name.input = input;
+                                name.validated = validated_name;
                             }
                             _ => {}
-                        }
-                        let routine_id = {
-                            match &*dialog.read() {
-                                RoutineDialog::Rename { routine_id, .. } => *routine_id,
-                                _ => domain::RoutineID::nil()
-                            }
-                        };
-                        async move {
-                            // Debounce the validation to prevent unexpected input field updates
-                            // caused by rapid inputs
-                            gloo_timers::future::sleep(std::time::Duration::from_millis(10)).await;
-                            {
-                                match &*dialog.read() {
-                                    RoutineDialog::Add { name, .. } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. }
-                                        if name.input != input => {
-                                            return;
-                                        }
-                                    _ => {}
-                                }
-                            }
-                            let validated_name = DOMAIN_SERVICE().validate_routine_name(&input, routine_id).await.map_err(|err| err.to_string());
-                            match &mut *dialog.write() {
-                                RoutineDialog::Add { name, .. } | RoutineDialog::Copy { name, .. } | RoutineDialog::Rename { name, .. }
-                                    if name.input == input => {
-                                        name.validated = validated_name;
-                                    }
-                                _ => {}
-                            }
                         }
                     }
                 }
@@ -523,6 +501,19 @@ pub fn view_dialog(
                 }
             }
         }
+    }
+}
+
+/// Validates a routine name against the cached routines.
+///
+/// The check is synchronous, so the dialog never saves the result of an outdated input.
+fn validate_name(input: &str, id: domain::RoutineID) -> Result<domain::Name, String> {
+    match &*consume_context::<Cache>().routines.read() {
+        CacheState::Ready(routines) => {
+            domain::validate_routine_name(input, id, routines).map_err(|err| err.to_string())
+        }
+        CacheState::Error(err) => Err(err.to_string()),
+        CacheState::Loading => Err(String::new()),
     }
 }
 

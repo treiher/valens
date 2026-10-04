@@ -37,23 +37,28 @@ pub trait ExerciseService {
         name: &str,
         id: ExerciseID,
     ) -> Result<Name, ValidationError> {
-        match Name::new(name) {
-            Ok(name) => match self.get_exercises().await {
-                Ok(exercises) => {
-                    if exercises.iter().all(|e| e.id == id || e.name != name) {
-                        Ok(name)
-                    } else {
-                        Err(ValidationError::Conflict("name".to_string()))
-                    }
-                }
-                Err(err) => Err(ValidationError::Other(err.into())),
-            },
+        match self.get_exercises().await {
+            Ok(exercises) => validate_exercise_name(name, id, &exercises),
             Err(err) => Err(ValidationError::Other(err.into())),
         }
     }
 
     async fn get_exercise(&self, id: ExerciseID) -> Result<Option<Exercise>, ReadError> {
         Ok(self.get_exercises().await?.into_iter().find(|e| e.id == id))
+    }
+}
+
+/// Validates the name of the exercise `id`, which must not be used by any other of `exercises`.
+pub fn validate_exercise_name(
+    name: &str,
+    id: ExerciseID,
+    exercises: &[Exercise],
+) -> Result<Name, ValidationError> {
+    let name = Name::new(name).map_err(|err| ValidationError::Other(err.into()))?;
+    if exercises.iter().all(|e| e.id == id || e.name != name) {
+        Ok(name)
+    } else {
+        Err(ValidationError::Conflict("name".to_string()))
     }
 }
 

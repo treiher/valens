@@ -21,7 +21,7 @@ use crate::{
 };
 
 #[component]
-pub fn ProfileDialog(on_close: EventHandler<MouseEvent>) -> Element {
+pub fn ProfileDialog(on_close: EventHandler<()>) -> Element {
     let user = consume_context::<Session>().user();
     let mut name = use_signal(|| FieldValue {
         input: user.name.to_string(),
@@ -35,9 +35,10 @@ pub fn ProfileDialog(on_close: EventHandler<MouseEvent>) -> Element {
     });
     let mut height = use_signal(|| FieldValue::from_option(user.height));
     let mut is_loading = use_signal(|| false);
+    let passkey_dialog = use_signal(|| PasskeyDialog::None);
 
     let user_id = user.id;
-    let save = move |event: MouseEvent| async move {
+    let save = move |()| async move {
         let mut saved = false;
         is_loading.set(true);
         if let (Ok(name), Ok(sex), Ok(height)) = (
@@ -61,14 +62,14 @@ pub fn ProfileDialog(on_close: EventHandler<MouseEvent>) -> Element {
         }
         is_loading.set(false);
         if saved {
-            on_close.call(event);
+            on_close.call(());
         }
     };
 
     rsx! {
         SaveDialog {
             title: rsx! { "Profile" },
-            on_close,
+            on_close: move |_| on_close.call(()),
             on_save: save,
             is_loading: is_loading(),
             disabled: (!name.read().changed() && !sex.read().changed() && !height.read().changed())
@@ -127,19 +128,20 @@ pub fn ProfileDialog(on_close: EventHandler<MouseEvent>) -> Element {
                         .map_err(|err| err.to_string());
                 }
             }
-            Passkeys { user_id }
+            Passkeys { user_id, dialog: passkey_dialog }
         }
+        // Rendered outside of the profile form, as forms must not be nested
+        PasskeyDialogs { user_id, dialog: passkey_dialog }
     }
 }
 
 #[component]
-fn Passkeys(user_id: domain::UserID) -> Element {
+fn Passkeys(user_id: domain::UserID, dialog: Signal<PasskeyDialog>) -> Element {
     let passkeys = use_resource(move || async move {
         let _ = DATA_CHANGED.read();
         DOMAIN_SERVICE().get_passkeys(user_id).await
     });
     let auth_methods = use_resource(|| async { DOMAIN_SERVICE().get_auth_methods().await });
-    let mut dialog = use_signal(|| PasskeyDialog::None);
     let mut is_loading = use_signal(|| false);
 
     // The server does not offer passkey login without `PUBLIC_URL`, so the section is
@@ -157,50 +159,6 @@ fn Passkeys(user_id: domain::UserID) -> Element {
         &*auth_methods.read(),
         Some(Ok(methods)) if !methods.contains(&domain::AuthMethod::Username)
     ) && matches!(&*passkeys.read(), Some(Ok(passkeys)) if passkeys.len() == 1);
-
-    let mut close_dialog = move || {
-        dialog.set(PasskeyDialog::None);
-    };
-
-    let save = move |_| async move {
-        let mut saved = false;
-        is_loading.set(true);
-        if let PasskeyDialog::Rename { id, label } = &*dialog.read()
-            && let Ok(label) = label.validated.clone()
-        {
-            match DOMAIN_SERVICE().rename_passkey(user_id, *id, label).await {
-                Ok(_) => {
-                    saved = true;
-                    signal_changed_data();
-                }
-                Err(err) => {
-                    notify("rename passkey", &err);
-                }
-            }
-        }
-        is_loading.set(false);
-        if saved {
-            close_dialog();
-        }
-    };
-    let delete = move |_| async move {
-        let mut deleted = false;
-        if let PasskeyDialog::Delete(passkey) = &*dialog.read() {
-            is_loading.set(true);
-            match DOMAIN_SERVICE().delete_passkey(user_id, passkey.id).await {
-                Ok(()) => {
-                    deleted = true;
-                    signal_changed_data();
-                }
-                Err(err) => notify("delete passkey", &err),
-            }
-            is_loading.set(false);
-        }
-        if deleted {
-            close_dialog();
-        }
-    };
-    let close = move |_| close_dialog();
 
     rsx! {
         div {
@@ -311,6 +269,62 @@ fn Passkeys(user_id: domain::UserID) -> Element {
                     }
                 }
             },
+            PasskeyDialog::Rename { .. } | PasskeyDialog::Delete(_) => rsx! {},
+        }
+    }
+}
+
+#[component]
+fn PasskeyDialogs(user_id: domain::UserID, dialog: Signal<PasskeyDialog>) -> Element {
+    let mut is_loading = use_signal(|| false);
+
+    let mut close_dialog = move || {
+        dialog.set(PasskeyDialog::None);
+    };
+
+    let save = move |()| async move {
+        let mut saved = false;
+        is_loading.set(true);
+        if let PasskeyDialog::Rename { id, label } = &*dialog.read()
+            && let Ok(label) = label.validated.clone()
+        {
+            match DOMAIN_SERVICE().rename_passkey(user_id, *id, label).await {
+                Ok(_) => {
+                    saved = true;
+                    signal_changed_data();
+                }
+                Err(err) => {
+                    notify("rename passkey", &err);
+                }
+            }
+        }
+        is_loading.set(false);
+        if saved {
+            close_dialog();
+        }
+    };
+    let delete = move |_| async move {
+        let mut deleted = false;
+        if let PasskeyDialog::Delete(passkey) = &*dialog.read() {
+            is_loading.set(true);
+            match DOMAIN_SERVICE().delete_passkey(user_id, passkey.id).await {
+                Ok(()) => {
+                    deleted = true;
+                    signal_changed_data();
+                }
+                Err(err) => notify("delete passkey", &err),
+            }
+            is_loading.set(false);
+        }
+        if deleted {
+            close_dialog();
+        }
+    };
+    let close = move |_| close_dialog();
+
+    rsx! {
+        match &*dialog.read() {
+            PasskeyDialog::None | PasskeyDialog::Options(_) => rsx! {},
             PasskeyDialog::Rename { label, .. } => rsx! {
                 SaveDialog {
                     title: rsx! { "Rename passkey" },
@@ -382,7 +396,7 @@ mod tests {
         render_settled(move || {
             seed_domain_service(repository.clone());
             provide_session(user());
-            rsx! { ProfileDialog { on_close: move |_| {} } }
+            rsx! { ProfileDialog { on_close: move |()| {} } }
         })
     }
 

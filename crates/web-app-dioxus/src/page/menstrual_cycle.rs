@@ -215,7 +215,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
         navigator().replace_preserving_scroll(Route::MenstrualCycle { add: false });
     };
 
-    let save = move |_| async move {
+    let save = move |()| async move {
         let mut saved = false;
         is_loading! {
             match &*dialog.read() {
@@ -361,6 +361,7 @@ fn view_dialog(mut dialog: Signal<PeriodDialog>) -> Element {
                             class: "button mr-2",
                             class: if intensity.validated == Ok(*i) { "is-link" },
                             "data-testid": "intensity-option",
+                            r#type: "button",
                             onclick: move |_| {
                                 match &mut *dialog.write() {
                                     PeriodDialog::Add { intensity, .. }

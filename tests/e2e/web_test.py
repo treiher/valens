@@ -2426,6 +2426,26 @@ def test_routines_add(page: Page) -> None:
     p.table.expect_value(1, first_unused + 1, 1, new_name)
 
 
+def test_routines_add_with_enter_key(page: Page) -> None:
+    first_unused = len({w.routine_id for w in USER.workouts if w.routine_id})
+    new_name = "New Routine"
+
+    login(page)
+    p = RoutinesPage(page)
+    p.goto()
+    p.fab().click()
+    p.dialog.wait_until_open()
+
+    p.dialog.press_enter_in_name()
+
+    expect(p.dialog.root).to_be_visible()
+
+    p.dialog.set_name(new_name)
+    p.dialog.save_with_enter()
+
+    p.table.expect_value(1, first_unused + 1, 1, new_name)
+
+
 def test_routines_edit(page: Page) -> None:
     name = routine_names_by_last_use()[0]
     new_name = "Changed Routine"
@@ -3044,6 +3064,22 @@ def test_routine_notes(page: Page) -> None:
     p.expect_page()
 
     assert p.get_notes() == updated_notes
+
+
+def test_routine_notes_line_break_with_enter_key(page: Page) -> None:
+    routine = USER.routines[0]
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    p.open_notes_dialog()
+    p.notes_dialog.set_notes("")
+    p.notes_dialog.type_notes("First line\nSecond line")
+    p.notes_dialog.save()
+    p.wait_until_idle()
+
+    assert p.get_notes() == "First line\nSecond line"
 
 
 def test_routine_copy_keeps_notes(page: Page) -> None:

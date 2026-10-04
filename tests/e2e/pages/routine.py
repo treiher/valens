@@ -343,6 +343,9 @@ class RoutineNotesDialog(Dialog):
     def set_notes(self, notes: str) -> None:
         self.root.get_by_test_id("routine-notes-input").fill(notes)
 
+    def type_notes(self, notes: str) -> None:
+        self.root.get_by_test_id("routine-notes-input").press_sequentially(notes)
+
 
 @dataclass
 class RoutinePart:

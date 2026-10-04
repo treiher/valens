@@ -585,7 +585,7 @@ pub fn view_dialog(
 
     let save = {
         let close_dialog = close_dialog.clone();
-        move |_| {
+        move |()| {
             let close_dialog = close_dialog.clone();
             async move {
                 let mut saved = false;
@@ -784,7 +784,7 @@ fn AddExerciseDialog(
     let fields = PropertyFields::new(&properties);
     let mut is_loading = use_signal(|| false);
 
-    let save = move |_| async move {
+    let save = move |()| async move {
         let name = match &*dialog.read() {
             ExerciseDialog::Add { name, .. } => name.validated.clone(),
             _ => return,
@@ -869,44 +869,35 @@ fn view_name_field(mut dialog: Signal<ExerciseDialog>) -> Element {
             autofocus: true,
             on_input: move |event: FormEvent| {
                 let input = event.value();
+                let exercise_id = match &*dialog.read() {
+                    ExerciseDialog::Rename { exercise, .. } => exercise.id,
+                    _ => domain::ExerciseID::nil()
+                };
+                let validated_name = validate_name(&input, exercise_id);
                 match &mut *dialog.write() {
                     ExerciseDialog::Add { name, .. }
                     | ExerciseDialog::Copy { name, .. }
                     | ExerciseDialog::Rename { name, .. } => {
-                        name.input.clone_from(&input);
+                        name.input = input;
+                        name.validated = validated_name;
                     }
                     _ => {}
                 }
-                let exercise_id = {
-                    match &*dialog.read() {
-                        ExerciseDialog::Rename { exercise, .. } => exercise.id,
-                        _ => domain::ExerciseID::nil()
-                    }
-                };
-                async move {
-                    // Debounce the validation to prevent unexpected input field updates
-                    // caused by rapid inputs
-                    gloo_timers::future::sleep(std::time::Duration::from_millis(10)).await;
-                    {
-                        match &*dialog.read() {
-                            ExerciseDialog::Add { name, .. } | ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. }
-                                if name.input != input => {
-                                    return;
-                                }
-                            _ => {}
-                        }
-                    }
-                    let validated_name = DOMAIN_SERVICE().validate_exercise_name(&input, exercise_id).await.map_err(|err| err.to_string());
-                    match &mut *dialog.write() {
-                        ExerciseDialog::Add { name, .. } | ExerciseDialog::Copy { name, .. } | ExerciseDialog::Rename { name, .. }
-                            if name.input == input => {
-                                name.validated = validated_name;
-                            }
-                        _ => {}
-                    }
-                }
             }
         }
+    }
+}
+
+/// Validates an exercise name against the cached exercises.
+///
+/// The check is synchronous, so the dialog never saves the result of an outdated input.
+fn validate_name(input: &str, id: domain::ExerciseID) -> Result<domain::Name, String> {
+    match &*consume_context::<Cache>().exercises.read() {
+        CacheState::Ready(exercises) => {
+            domain::validate_exercise_name(input, id, exercises).map_err(|err| err.to_string())
+        }
+        CacheState::Error(err) => Err(err.to_string()),
+        CacheState::Loading => Err(String::new()),
     }
 }
 
@@ -1189,7 +1180,7 @@ fn ExerciseNotesDialog(exercise: domain::Exercise, on_close: EventHandler<()>) -
     let mut is_loading = use_signal(|| false);
     let changed = notes().trim() != orig_notes.trim();
 
-    let save = move |_| {
+    let save = move |()| {
         let exercise = exercise.clone();
         async move {
             let mut saved = false;
@@ -1249,7 +1240,7 @@ fn ExercisePropertiesDialog(exercise: domain::Exercise, on_close: EventHandler<(
         };
     }
 
-    let save = move |_| {
+    let save = move |()| {
         let exercise = exercise.clone();
         async move {
             let domain::ExerciseProperties {

@@ -50,9 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Sets per muscle, leaving out muscles without sets
     - Routine, its training sessions and their charts on a tab each
     - Name of the routine in the navigation bar, replacing the title of the page
-- Exercises page: Legend of the primary and secondary muscles in the filter and properties dialogs, shown once above all muscles as the order in which tapping a muscle changes its level
+- Exercises page:
+    - Legend of the primary and secondary muscles in the filter and properties dialogs, shown once above all muscles as the order in which tapping a muscle changes its level
+    - Labels of the muscles and properties in the add, filter and properties dialogs, styled like the labels of other input fields
 - Exercise page:
     - Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
+    - Labels of the muscles and properties in the properties dialog, styled like the labels of other input fields
     - Properties, muscles and notes of the exercise, each group under a caption of its own, its training sessions and their charts on a tab each
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Shading of the days in the calendar by the set volume instead of the volume load, or by the stretch sets for an exercise that only stretches
@@ -61,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Hip flexors as a worked muscle and compound mechanic of the leg raises
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Muscles and properties of the exercise, each group under a caption of its own
+- Settings dialog: Labels of the settings, styled like the labels of other input fields
 
 ### Removed
 

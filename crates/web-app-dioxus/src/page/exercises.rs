@@ -22,7 +22,7 @@ use crate::{
             Table, Title,
         },
         form::{
-            ButtonSelectField, ButtonSelectOption, FieldValue, FieldValueState, InputField,
+            ButtonSelectField, ButtonSelectOption, Field, FieldValue, FieldValueState, InputField,
             MultiToggle, MultiToggleTags, TextAreaField,
         },
     },
@@ -919,18 +919,12 @@ macro_rules! view_filter_section {
 fn view_filter_block(label: &str, name: &str, tags: Element) -> Element {
     let test_id = format!("filter-section-{}", name.to_lowercase());
     rsx! {
-        Block {
-            label {
-                class: "subtitle",
-                {label}
-            }
+        Field {
+            label,
             div {
-                class: "container py-3",
+                class: "tags",
                 "data-testid": test_id,
-                div {
-                    class: "tags",
-                    {tags}
-                }
+                {tags}
             }
         }
     }
@@ -1022,24 +1016,16 @@ fn view_equipment_section(mut selected: Signal<Vec<domain::Equipment>>) -> Eleme
 fn view_muscles_sections(muscles: Signal<MultiToggle>, stretch: Signal<MultiToggle>) -> Element {
     rsx! {
         {view_stimulus_level_legend()}
-        Block {
-            label {
-                class: "subtitle",
-                "Worked muscles"
-            }
+        Field {
+            label: "Worked muscles",
             div {
-                class: "container py-3",
                 "data-testid": "property-section-muscles",
                 MultiToggleTags { multi_toggle: muscles }
             }
         }
-        Block {
-            label {
-                class: "subtitle",
-                "Stretched muscles"
-            }
+        Field {
+            label: "Stretched muscles",
             div {
-                class: "container py-3",
                 "data-testid": "property-section-stretch",
                 MultiToggleTags { multi_toggle: stretch }
             }
@@ -1050,18 +1036,12 @@ fn view_muscles_sections(muscles: Signal<MultiToggle>, stretch: Signal<MultiTogg
 fn view_dialog_section(title: &str, chips: Vec<Element>) -> Element {
     let title = title.to_string();
     rsx! {
-        Block {
-            label {
-                class: "subtitle",
-                {title}
-            }
+        Field {
+            label: title,
             div {
-                class: "container py-3",
-                div {
-                    class: "tags",
-                    for chip in chips {
-                        {chip}
-                    }
+                class: "tags",
+                for chip in chips {
+                    {chip}
                 }
             }
         }

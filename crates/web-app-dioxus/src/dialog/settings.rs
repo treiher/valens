@@ -6,7 +6,10 @@ use crate::{
     audio,
     notification::notify_error,
     settings::Settings,
-    ui::element::{Dialog, Icon},
+    ui::{
+        element::{Dialog, Icon},
+        form::Field,
+    },
 };
 
 #[component]
@@ -22,9 +25,8 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
         Dialog {
             title: rsx! { "Settings" },
             on_close,
-            p {
-                class: "mb-5",
-                h1 { class: "subtitle", "Beep volume" }
+            Field {
+                label: "Beep volume",
                 input {
                     class: "slider is-fullwidth is-info",
                     max: "100",
@@ -48,9 +50,9 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                     },
                 }
             }
-            p {
-                class: "mb-5",
-                h1 { class: "subtitle", "Theme" }
+            div {
+                class: "field",
+                label { class: "label", "Theme" }
                 div {
                     class: "field has-addons",
                     p {
@@ -114,94 +116,85 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                     }
                 }
             }
-            p {
-                class: "mb-5",
-                onclick: {
-                    move |_| {
+            Field {
+                label: "Rating of Perceived Exertion (RPE)",
+                button {
+                    class: "button",
+                    class: if settings.show_rpe() { "is-link" },
+                    "data-testid": "settings-rpe",
+                    onclick: move |_| {
                         let mut settings = settings;
                         settings.set_show_rpe(!settings.show_rpe());
                         async move {
                             settings.save().await;
                         }
-                    }
-                },
-                h1 { class: "subtitle", "Rating of Perceived Exertion (RPE)" }
-                if settings.show_rpe() {
-                    button { class: "button is-link", "data-testid": "settings-rpe", "Enabled" }
-                } else {
-                    button { class: "button", "data-testid": "settings-rpe", "Disabled" }
+                    },
+                    if settings.show_rpe() { "Enabled" } else { "Disabled" }
                 }
             }
-            p {
-                class: "mb-5",
-                onclick: {
-                    move |_| {
+            Field {
+                label: "Time Under Tension (TUT)",
+                button {
+                    class: "button",
+                    class: if settings.show_tut() { "is-link" },
+                    "data-testid": "settings-tut",
+                    onclick: move |_| {
                         let mut settings = settings;
                         settings.set_show_tut(!settings.show_tut());
                         async move {
                             settings.save().await;
                         }
-                    }
-                },
-                h1 { class: "subtitle", "Time Under Tension (TUT)" }
-                if settings.show_tut() {
-                    button { class: "button is-link", "data-testid": "settings-tut", "Enabled" }
-                } else {
-                    button { class: "button", "data-testid": "settings-tut", "Disabled" }
+                    },
+                    if settings.show_tut() { "Enabled" } else { "Disabled" }
                 }
             }
-            p {
-                class: "mb-5",
-                onclick: {
-                    move |_| {
+            Field {
+                label: "Scroll snapping",
+                button {
+                    class: "button",
+                    class: if settings.scroll_snapping() { "is-link" },
+                    "data-testid": "settings-scroll-snapping",
+                    onclick: move |_| {
                         let mut settings = settings;
                         settings.set_scroll_snapping(!settings.scroll_snapping());
                         async move {
                             settings.save().await;
                         }
-                    }
-                },
-                h1 { class: "subtitle", "Scroll snapping" }
-                if settings.scroll_snapping() {
-                    button { class: "button is-link", "data-testid": "settings-scroll-snapping", "Enabled" }
-                } else {
-                    button { class: "button", "data-testid": "settings-scroll-snapping", "Disabled" }
+                    },
+                    if settings.scroll_snapping() { "Enabled" } else { "Disabled" }
                 }
             }
-            p {
-                onclick: {
-                    move |_| {
-                        let mut settings = settings;
-                        async move {
-                            match notification_permission {
-                                Some(web_sys::NotificationPermission::Granted) => {
-                                    settings.set_notifications(!settings.notifications());
-                                    settings.save().await;
-                                }
-                                Some(web_sys::NotificationPermission::Denied) | None => {
-                                }
-                                _ => {
-                                    match web_app::request_notification_permission().await {
-                                        Ok(web_sys::NotificationPermission::Granted) => {
-                                            settings.set_notifications(true);
-                                        }
-                                        Ok(_) => {}
-                                        Err(err) => {
-                                            notify_error("enable notifications", err);
-                                        }
-                                    }
-                                    settings.save().await;
-                                }
-                            }
-                        }
-                    }
-                },
-                h1 { class: "subtitle", "Notifications" }
+            Field {
+                label: "Notifications",
                 if let Some(permission) = notification_permission {
                     button {
                         class: "button",
                         class: "{notifications_color}",
                         "data-testid": "settings-notifications",
+                        onclick: move |_| {
+                            let mut settings = settings;
+                            async move {
+                                match permission {
+                                    web_sys::NotificationPermission::Granted => {
+                                        settings.set_notifications(!settings.notifications());
+                                        settings.save().await;
+                                    }
+                                    web_sys::NotificationPermission::Denied => {}
+                                    _ => {
+                                        match web_app::request_notification_permission().await {
+                                            Ok(web_sys::NotificationPermission::Granted) => {
+                                                settings.set_notifications(true);
+                                            }
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                notify_error("enable notifications", err);
+                                            }
+                                        }
+                                        settings.save().await;
+                                    }
+                                }
+                            }
+                        },
                         match permission {
                             web_sys::NotificationPermission::Granted => {
                                 if settings.notifications() {

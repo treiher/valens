@@ -1475,6 +1475,20 @@ pub fn most_recent_best_set_for_one_rep_max(
         .and_then(|s| s.best_set_for_one_rep_max(exercise_id))
 }
 
+/// Returns the highest estimated 1RM for `exercise_id` over the sessions dated within `dates`.
+#[must_use]
+pub fn best_one_rep_max_within(
+    sessions: &[TrainingSession],
+    exercise_id: ExerciseID,
+    dates: RangeInclusive<NaiveDate>,
+) -> Option<f32> {
+    sessions
+        .iter()
+        .filter(|s| dates.contains(&s.date))
+        .filter_map(|s| s.one_rep_max(exercise_id))
+        .reduce(f32::max)
+}
+
 /// The number of halves of a set an element counts as, a set with a side counting as one half.
 fn halves(element: &TrainingSessionElement) -> u32 {
     match element {
@@ -4116,6 +4130,53 @@ mod tests {
     #[test]
     fn test_most_recent_best_set_for_one_rep_max_empty() {
         assert_eq!(most_recent_best_set_for_one_rep_max(&[], 1.into()), None);
+    }
+
+    #[test]
+    fn test_best_one_rep_max_within_ignores_sessions_outside_the_dates() {
+        let session = |days_ago, weight| {
+            let mut session = training_session(&[set(1, 1, weight, RPE::ZERO)]);
+            session.date = *TODAY - Duration::days(days_ago);
+            session
+        };
+        assert_eq!(
+            best_one_rep_max_within(
+                &[
+                    session(40, 200.0),
+                    session(30, 100.0),
+                    session(10, 110.0),
+                    session(0, 300.0)
+                ],
+                1.into(),
+                *TODAY - Duration::days(30)..=*TODAY - Duration::days(10)
+            ),
+            Some(110.0)
+        );
+    }
+
+    #[test]
+    fn test_best_one_rep_max_within_takes_the_best_over_sessions_and_sets() {
+        let mut a = training_session(&[set(1, 1, 100.0, RPE::ZERO), set(1, 1, 110.0, RPE::ZERO)]);
+        a.date = *TODAY - Duration::days(5);
+        let mut b = training_session(&[set(1, 1, 105.0, RPE::ZERO), set(2, 1, 300.0, RPE::ZERO)]);
+        b.date = *TODAY;
+        assert_eq!(
+            best_one_rep_max_within(&[a, b], 1.into(), *TODAY - Duration::days(10)..=*TODAY),
+            Some(110.0)
+        );
+    }
+
+    #[test]
+    fn test_best_one_rep_max_within_without_matching_sets() {
+        let session = training_session(&[set(2, 5, 100.0, RPE::ZERO)]);
+        assert_eq!(
+            best_one_rep_max_within(&[session], 1.into(), *TODAY - Duration::days(10)..=*TODAY),
+            None
+        );
+        assert_eq!(
+            best_one_rep_max_within(&[], 1.into(), *TODAY - Duration::days(10)..=*TODAY),
+            None
+        );
     }
 
     #[test]

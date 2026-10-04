@@ -94,6 +94,7 @@ fn main() {
     init_logging();
     init_service_worker();
     init_login_link_token();
+    listen_for_escape();
     dioxus::launch(App);
 }
 
@@ -150,6 +151,42 @@ fn listen_for_login_link() {
         window.add_event_listener_with_callback("hashchange", closure.as_ref().unchecked_ref())
     {
         warn!("failed to listen for login links: {err:?}");
+    }
+    closure.forget();
+}
+
+/// Close the topmost dialog or options menu when Escape is pressed.
+///
+/// Overlays later in the document are shown on top. Clicking the background of the last one closes
+/// it in the same way as a click by the user.
+fn listen_for_escape() {
+    let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        warn!("failed to access document");
+        return;
+    };
+    let closure = Closure::wrap(Box::new({
+        let document = document.clone();
+        move |event: web_sys::KeyboardEvent| {
+            // While composing, Escape discards the unfinished text of the input method
+            if event.key() != "Escape" || event.is_composing() {
+                return;
+            }
+            if let Ok(backgrounds) =
+                document.query_selector_all(".modal.is-active > .modal-background")
+                && let Some(background) = backgrounds
+                    .length()
+                    .checked_sub(1)
+                    .and_then(|index| backgrounds.item(index))
+                && let Some(background) = background.dyn_ref::<web_sys::HtmlElement>()
+            {
+                background.click();
+            }
+        }
+    }) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
+    if let Err(err) =
+        document.add_event_listener_with_callback("keydown", closure.as_ref().unchecked_ref())
+    {
+        warn!("failed to listen for Escape key: {err:?}");
     }
     closure.forget();
 }

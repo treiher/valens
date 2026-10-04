@@ -574,6 +574,19 @@ def test_administration_edit_user_name_selection(page: Page) -> None:
     assert admin.get_user_name_selection(USERNAMES[0]) == USERNAMES[0]
 
 
+def test_administration_nested_dialog_closed_with_escape_key(page: Page) -> None:
+    login(page)
+
+    admin = AdminDialog(page)
+    admin.open()
+    admin.open_edit_user_dialog(USERNAMES[0])
+
+    admin.dialog.close_with_escape()
+    admin.expect_open()
+
+    admin.close_with_escape()
+
+
 def test_role_change_outside_app_without_relogin(page: Page, backend_server: Path) -> None:
     login(page)
 
@@ -2444,6 +2457,31 @@ def test_routines_add_with_enter_key(page: Page) -> None:
     p.dialog.save_with_enter()
 
     p.table.expect_value(1, first_unused + 1, 1, new_name)
+
+
+def test_routines_add_dialog_closed_with_escape_key(page: Page) -> None:
+    first_unused = len({w.routine_id for w in USER.workouts if w.routine_id})
+    name = routine_names_by_last_use()[first_unused]
+
+    login(page)
+    p = RoutinesPage(page)
+    p.goto()
+    p.fab().click()
+    p.dialog.wait_until_open()
+
+    p.dialog.set_name("New Routine")
+    p.dialog.close_with_escape()
+
+    p.table.expect_value(1, first_unused + 1, 1, name)
+
+
+def test_routines_options_menu_closed_with_escape_key(page: Page) -> None:
+    login(page)
+    p = RoutinesPage(page)
+    p.goto()
+
+    p.open_item_options(0)
+    p.close_options_menu_with_escape()
 
 
 def test_routines_edit(page: Page) -> None:

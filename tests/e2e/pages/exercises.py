@@ -103,7 +103,7 @@ class ExercisesPage(BasePage):
         self.dialog.wait_until_closed()
 
     def copy_exercise(self, index: int, name: str) -> None:
-        self._open_item_options(index)
+        self.open_item_options(index)
         self.page.get_by_test_id("options-copy").click()
         self.dialog.set_name(name)
         self.dialog.save()

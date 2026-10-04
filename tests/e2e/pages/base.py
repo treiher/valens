@@ -93,22 +93,22 @@ class BasePage:
         if self.page.get_by_test_id("item-delete").nth(index).is_visible(timeout=1000):
             self.page.get_by_test_id("item-delete").nth(index).click()
         else:
-            self._open_item_options(index)
+            self.open_item_options(index)
             self.page.get_by_test_id("options-delete").click()
         self.wait_until_idle()
 
     def edit_item(self, index: int) -> None:
-        self._open_item_options(index)
+        self.open_item_options(index)
         self.page.get_by_test_id("options-edit").click()
         self.wait_until_idle()
 
     def rename_item(self, index: int) -> None:
-        self._open_item_options(index)
+        self.open_item_options(index)
         self.page.get_by_test_id("options-rename").click()
         self.wait_until_idle()
 
     def copy_item(self, index: int) -> None:
-        self._open_item_options(index)
+        self.open_item_options(index)
         self.page.get_by_test_id("options-copy").click()
         self.wait_until_idle()
 
@@ -159,9 +159,13 @@ class BasePage:
     def expect_fab(self, icon: str) -> None:
         expect(self.fab().get_by_test_id(f"icon-{icon}")).to_be_visible()
 
-    def _open_item_options(self, index: int) -> None:
+    def open_item_options(self, index: int) -> None:
         self.page.get_by_test_id("item-options").nth(index).click()
         self.page.get_by_test_id("options-menu").wait_for(state="visible")
+
+    def close_options_menu_with_escape(self) -> None:
+        self.page.keyboard.press("Escape")
+        self.page.get_by_test_id("options-menu").wait_for(state="hidden")
 
 
 class PageElement:
@@ -218,6 +222,10 @@ class Dialog(PageElement):
 
     def close(self) -> None:
         self.page.get_by_test_id("dialog-close").click()
+        self.wait_until_closed()
+
+    def close_with_escape(self) -> None:
+        self.page.keyboard.press("Escape")
         self.wait_until_closed()
 
 
@@ -420,6 +428,10 @@ class BaseDialog(PageElement):
 
     def close(self) -> None:
         self.page.get_by_test_id("dialog-close").first.click()
+        self.page.get_by_test_id("dialog").first.wait_for(state="hidden")
+
+    def close_with_escape(self) -> None:
+        self.page.keyboard.press("Escape")
         self.page.get_by_test_id("dialog").first.wait_for(state="hidden")
 
     def wait_until_idle(self) -> None:

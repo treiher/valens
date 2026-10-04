@@ -141,7 +141,7 @@ class SchedulePage(BasePage):
     def add_rotation_routine(self, index: int, routine: str) -> None:
         routines = self._rotation(index).get_by_test_id("rotation-routine")
         count = routines.count()
-        self._open_item_options(index)
+        self.open_item_options(index)
         self.page.get_by_test_id("options-add-routine").click()
         self.dialog.wait_until_open()
         self.dialog.root.get_by_test_id("routine-option").filter(has_text=routine).click()

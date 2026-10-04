@@ -13,6 +13,10 @@ Cross-cutting decisions for changes to Valens that are not enforced by tooling. 
 - A *measurement* is a signed, unitless value taken once per exercise, side and training session, such as a reach, a jump height or a distance. It is not called "result" or "range".
 - The *sides* of a routine activity state whether it is performed with both sides at once or *per side*. A per-side activity is prescribed once and recorded as a *pair*, a left and a right set of the same exercise directly following each other in either order, each carrying its *side*.
 
+## User interface
+
+- A setting that takes effect immediately and is either on or off is a switch. A choice between named options, or a value that is saved with a form, is a set of side-by-side buttons, so that changed values can be highlighted until they are saved.
+
 ## Error messages
 
 The mechanisms by which errors are surfaced are described in the [error handling](ARCHITECTURE.md#error-handling) section of the Architecture document.

@@ -64,7 +64,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Hip flexors as a worked muscle and compound mechanic of the leg raises
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Muscles and properties of the exercise, each group under a caption of its own
-- Settings dialog: Labels of the settings, styled like the labels of other input fields
+- Settings dialog:
+    - Labels of the settings, styled like the labels of other input fields
+    - Settings, grouped under captions, each with a description and its control next to its label
+    - On/off settings, shown as switches
+    - Beep volume, renamed to "Volume" and shown as a percentage
 
 ### Removed
 

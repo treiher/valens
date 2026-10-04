@@ -69,6 +69,18 @@ pub fn Caption(children: Element) -> Element {
     }
 }
 
+/// A heading of a group of fields.
+#[component]
+pub fn SectionCaption(children: Element) -> Element {
+    rsx! {
+        p {
+            class: "section-caption",
+            "data-testid": "section-caption",
+            {children}
+        }
+    }
+}
+
 #[component]
 pub fn WhiteBox(children: Element) -> Element {
     rsx! {

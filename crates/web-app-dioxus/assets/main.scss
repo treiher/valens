@@ -322,6 +322,108 @@ body.has-activity-bar {
     white-space: normal;
 }
 
+// Field with its control next to the label
+
+.field.is-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+
+    .label {
+        margin-bottom: 0;
+    }
+
+    > .control {
+        flex: none;
+    }
+}
+
+// Fields separated by dividers
+
+.field-list {
+    > * {
+        padding-block: 0.6rem;
+    }
+
+    > :first-child {
+        padding-top: 0;
+    }
+
+    > * + * {
+        border-top: 1px solid var(--bulma-border-weak);
+    }
+
+    .field {
+        margin-bottom: 0;
+    }
+
+    &:not(:last-child) {
+        margin-bottom: 1.5rem;
+    }
+}
+
+.section-caption {
+    color: var(--bulma-text-weak);
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+// On/off switch
+
+.switch {
+    appearance: none;
+    background-color: var(--bulma-border);
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    display: block;
+    height: 1.75rem;
+    padding: 0;
+    position: relative;
+    transition: background-color 150ms;
+    width: 2.875rem;
+
+    &::after {
+        background-color: $white;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        content: "";
+        height: 1.375rem;
+        left: 0.1875rem;
+        position: absolute;
+        top: 0.1875rem;
+        transition: transform 150ms;
+        width: 1.375rem;
+    }
+
+    &[aria-checked="true"] {
+        background-color: var(--bulma-link);
+
+        &::after {
+            transform: translateX(1.125rem);
+        }
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--bulma-link);
+        outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &,
+        &::after {
+            transition: none;
+        }
+    }
+}
+
 // Flex row gap helper (based on https://github.com/jgthms/bulma/pull/3542)
 
 @each $name, $value in bulma.$spacing-values {

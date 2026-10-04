@@ -1540,10 +1540,12 @@ fn view_mode_selection(
                 options: vec![
                     ButtonSelectOption {
                         text: "Fill in missing values".to_string(),
+                        icon: None,
                         value: domain::CatalogUpdateMode::FillMissing,
                     },
                     ButtonSelectOption {
                         text: "Replace all values".to_string(),
+                        icon: None,
                         value: domain::CatalogUpdateMode::ReplaceAll,
                     },
                 ],

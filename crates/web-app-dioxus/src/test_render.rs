@@ -294,6 +294,25 @@ pub fn text_of_nth(html: &str, test_id: &str, index: usize) -> String {
     ))
 }
 
+/// The text of the selected option inside the element carrying `test_id`, or its label if the
+/// option shows only an icon.
+///
+/// # Panics
+///
+/// Panics if no element carries `test_id`, or if it contains no selected option.
+pub fn selected_text_of(html: &str, test_id: &str) -> String {
+    let document = scraper::Html::parse_fragment(html);
+    let selector = scraper::Selector::parse("[data-selected=\"true\"]").unwrap();
+    let option = element(&document, test_id, 0)
+        .select(&selector)
+        .next()
+        .unwrap_or_else(|| panic!("no selected option in element with test id `{test_id}`"));
+    option
+        .value()
+        .attr("aria-label")
+        .map_or_else(|| text(&option), ToString::to_string)
+}
+
 /// The cells of the table row carrying `test_id`.
 ///
 /// # Panics

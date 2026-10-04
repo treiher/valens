@@ -1138,10 +1138,12 @@ fn view_edit_dialog(
                                     options: vec![
                                         ButtonSelectOption {
                                             text: "Combined".to_string(),
+                                            icon: None,
                                             value: domain::Sides::Combined,
                                         },
                                         ButtonSelectOption {
                                             text: "Per side".to_string(),
+                                            icon: None,
                                             value: domain::Sides::PerSide,
                                         },
                                     ],
@@ -1212,10 +1214,12 @@ fn view_edit_dialog(
                                 options: vec![
                                     ButtonSelectOption {
                                         text: "Automatic".to_string(),
+                                        icon: None,
                                         value: true,
                                     },
                                     ButtonSelectOption {
                                         text: "Manual".to_string(),
+                                        icon: None,
                                         value: false,
                                     },
                                 ],

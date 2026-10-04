@@ -309,35 +309,18 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
             Some(capitalized(&error))
         }
     });
-    let has_error = error.is_some();
     rsx! {
         div {
             class: "field",
             ..attributes,
             label { class: "label", "{label}" }
-            div {
-                class: "field has-addons",
-                for option in options {
-                    div {
-                        class: "control",
-                        class: if is_expanded { "is-expanded" },
-                        div {
-                            class: "button",
-                            class: if is_expanded { "is-fullwidth is-wrapping" },
-                            class: if option.value == selected && has_error { "is-danger" },
-                            class: if option.value == selected && !has_error { "is-link" },
-                            class: if option.value != selected && has_changed { "is-link is-outlined" },
-                            onclick: {
-                                let value = option.value.clone();
-                                move |event| {
-                                    let value = value.clone();
-                                    on_click((event, value));
-                                }
-                            },
-                            {option.text}
-                        }
-                    }
-                }
+            ButtonSelect {
+                options,
+                selected,
+                has_error: error.is_some(),
+                has_changed,
+                is_expanded,
+                on_click,
             }
             if let Some(ref error) = error {
                 p { class: "help is-danger", "{error}" }
@@ -346,9 +329,110 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
     }
 }
 
+/// A row of buttons of which the one of the selected option is highlighted.
+#[component]
+pub fn ButtonSelect<T: Clone + PartialEq + 'static>(
+    options: Vec<ButtonSelectOption<T>>,
+    selected: T,
+    #[props(default)] has_error: bool,
+    #[props(default)] has_changed: bool,
+    /// Distribute the options over the full width, wrapping labels that do not fit.
+    #[props(default)]
+    is_expanded: bool,
+    /// Show only the icon of an option, keeping its text for screen readers and as a tooltip.
+    #[props(default)]
+    is_icon_only: bool,
+    on_click: EventHandler<(MouseEvent, T)>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    rsx! {
+        div {
+            class: "field has-addons",
+            ..attributes,
+            for option in options {
+                div {
+                    class: "control",
+                    class: if is_expanded { "is-expanded" },
+                    div {
+                        class: "button",
+                        class: if is_expanded { "is-fullwidth is-wrapping" },
+                        class: if option.value == selected && has_error { "is-danger" },
+                        class: if option.value == selected && !has_error { "is-link" },
+                        class: if option.value != selected && has_changed { "is-link is-outlined" },
+                        title: if is_icon_only { "{option.text}" },
+                        aria_label: if is_icon_only { "{option.text}" },
+                        "data-selected": "{option.value == selected}",
+                        onclick: {
+                            let value = option.value.clone();
+                            move |event| on_click((event, value.clone()))
+                        },
+                        if let Some(icon) = option.icon {
+                            Icon { name: icon, is_small: true }
+                            if !is_icon_only {
+                                span { "{option.text}" }
+                            }
+                        } else {
+                            "{option.text}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A control next to its label, with `help` below the label.
+#[component]
+pub fn RowField(children: Element, label: String, help: Option<String>) -> Element {
+    rsx! {
+        div {
+            class: "field is-row",
+            div {
+                label { class: "label", "{label}" }
+                if let Some(help) = help {
+                    p { class: "help", "{help}" }
+                }
+            }
+            div {
+                class: "control",
+                {children}
+            }
+        }
+    }
+}
+
+/// An on/off switch next to its label, where `attributes` apply to the switch.
+#[component]
+pub fn SwitchField(
+    label: String,
+    help: Option<String>,
+    is_on: bool,
+    #[props(default)] is_disabled: bool,
+    on_change: EventHandler<bool>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+) -> Element {
+    rsx! {
+        RowField {
+            label: label.clone(),
+            help,
+            button {
+                class: "switch",
+                r#type: "button",
+                role: "switch",
+                aria_checked: "{is_on}",
+                aria_label: "{label}",
+                disabled: is_disabled,
+                onclick: move |_| on_change.call(!is_on),
+                ..attributes,
+            }
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub struct ButtonSelectOption<T> {
     pub text: String,
+    pub icon: Option<&'static str>,
     pub value: T,
 }
 

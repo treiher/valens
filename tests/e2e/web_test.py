@@ -687,15 +687,15 @@ def test_settings_dialog_rpe_survives_a_reload(page: Page) -> None:
     settings.open()
     settings.expect_open()
 
-    settings.expect_rpe("Enabled")
-    settings.toggle_rpe()
-    settings.expect_rpe("Disabled")
+    settings.expect_rpe(enabled=True)
+    settings.disable_rpe()
+    settings.expect_rpe(enabled=False)
     settings.close()
 
     p.reload()
     settings.open()
 
-    settings.expect_rpe("Disabled")
+    settings.expect_rpe(enabled=False)
 
 
 def test_settings_dialog_theme_survives_a_reload(page: Page) -> None:
@@ -704,7 +704,7 @@ def test_settings_dialog_theme_survives_a_reload(page: Page) -> None:
 
     settings = SettingsDialog(page)
     settings.open()
-    settings.choose_theme("dark")
+    settings.choose_theme("Dark")
 
     p.expect_dark_theme()
 
@@ -714,7 +714,7 @@ def test_settings_dialog_theme_survives_a_reload(page: Page) -> None:
     p.expect_dark_theme()
 
     settings.open()
-    settings.choose_theme("system")
+    settings.choose_theme("System")
 
     p.expect_no_theme()
 
@@ -3103,9 +3103,9 @@ def test_settings_dialog_with_granted_notification_permission(page: Page) -> Non
     settings.open()
     settings.expect_open()
 
-    settings.expect_notifications("Disabled")
-    settings.toggle_notifications()
-    settings.expect_notifications("Enabled")
+    settings.expect_notifications(enabled=False)
+    settings.enable_notifications()
+    settings.expect_notifications(enabled=True)
 
 
 # WebKit does not provide the Notifications API.
@@ -3119,12 +3119,9 @@ def test_settings_dialog_with_denied_notification_permission(page: Page) -> None
     settings.open()
     settings.expect_open()
 
-    settings.expect_notifications("Not allowed in browser settings")
+    settings.expect_notifications(enabled=False)
+    settings.expect_notifications_not_allowed()
     settings.expect_notifications_explanation()
-
-    settings.toggle_notifications()
-
-    settings.expect_notifications("Not allowed in browser settings")
 
 
 def test_routine_tabs(page: Page) -> None:

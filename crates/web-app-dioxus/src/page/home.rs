@@ -288,7 +288,7 @@ fn view_today(pending: &[(domain::Routine, Option<String>)], today: chrono::Naiv
                                     });
                                 }
                             },
-                            Icon { name: "play-circle" }
+                            Icon { name: "play" }
                         }
                     }
                 }
@@ -338,9 +338,7 @@ fn Tile(
                                     class: "title is-size-5 has-text-link",
                                     "data-testid": "{testid}-add",
                                     onclick: move |event| { navigator().push(target_add.clone()); event.stop_propagation(); },
-                                    span { class: "icon",
-                                        i { class: "fas fa-plus-circle" }
-                                    }
+                                    Icon { name: "plus" }
                                 }
                             }
                         }

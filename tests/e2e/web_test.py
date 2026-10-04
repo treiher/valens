@@ -4,7 +4,7 @@ import os
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from itertools import pairwise
 from pathlib import Path
 from shutil import copytree
@@ -2079,7 +2079,7 @@ def test_training_session_countdown_advances_the_focus(page: Page) -> None:
 def test_training_session_guide_stays_on_a_moved_element(page: Page) -> None:
     routine = USER.routines[1]
 
-    page.clock.install(time=datetime.now(timezone.utc))
+    page.clock.install(time=datetime.now(UTC))
     login(page)
 
     r = RoutinePage(page, routine.id)
@@ -2097,7 +2097,7 @@ def test_training_session_guide_stays_on_a_moved_element(page: Page) -> None:
 
     # The countdown of the set is shorter, so this is the rest
     p.expect_countdown_seconds(29)
-    page.clock.pause_at(datetime.now(timezone.utc) + timedelta(seconds=1))
+    page.clock.pause_at(datetime.now(UTC) + timedelta(seconds=1))
     seconds = p.countdown_seconds()
 
     # The added set precedes the rest, which stays current and keeps its time

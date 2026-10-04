@@ -7,8 +7,6 @@ Create Date: 2023-04-01
 
 """
 
-from typing import Union
-
 import sqlalchemy as sa
 from alembic import op
 
@@ -18,7 +16,7 @@ branch_labels = None
 depends_on = None
 
 
-check_constraints: list[tuple[str, Union[str, sa.ColumnElement[bool]]]] = [
+check_constraints: list[tuple[str, str | sa.ColumnElement[bool]]] = [
     ("reps_type_integer", "typeof(reps) = 'integer'"),
     ("weight_type_real", "typeof(weight) = 'real'"),
     ("rpe_type_real", "typeof(rpe) = 'real'"),

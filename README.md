@@ -36,7 +36,7 @@ Valens is available as a Python package and as a container image. The package us
 
 ### Python Package
 
-Valens requires Python 3.10 or newer. Install it into a virtual environment, as many distributions do not permit installing packages into the system Python. On Debian and Ubuntu, the `python3-venv` package is needed to create one.
+Valens requires Python 3.11 or newer. Install it into a virtual environment, as many distributions do not permit installing packages into the system Python. On Debian and Ubuntu, the `python3-venv` package is needed to create one.
 
 ```sh
 python3 -m venv ~/.venvs/valens

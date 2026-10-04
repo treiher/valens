@@ -13,7 +13,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -21,7 +20,7 @@ classifiers = [
     "Topic :: Other/Nonlisted Topic",
 ]
 dynamic = ["version", "readme"]
-requires-python = ">=3.10, <4"
+requires-python = ">=3.11, <4"
 dependencies = [
     "alembic >=1.16, <2",
     "flask >=3, <4",
@@ -99,7 +98,7 @@ replacement = '[\1](https://github.com/treiher/valens/blob/v0.9.0/\g<2>)'
 required-version = ">=0.9"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
@@ -180,7 +179,6 @@ ignore = [
     "D212",    # multi-line-summary-first-line
     "E741",    # ambiguous-variable-name
     "N812",    # lowercase-imported-as-non-lowercase
-    "UP007",   # typing-union
     "B011",    # assert-false
     "ARG005",  # unused-lambda-argument
     "PLC0414", # useless-import-alias

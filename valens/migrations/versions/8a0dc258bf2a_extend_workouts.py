@@ -7,8 +7,6 @@ Create Date: 2023-02-16
 
 """
 
-from typing import Union
-
 import sqlalchemy as sa
 from alembic import op
 
@@ -36,7 +34,7 @@ workout_element = sa.table(
     sa.column("automatic", sa.Boolean),
 )
 
-check_constraints: list[tuple[str, Union[str, sa.ColumnElement[bool]]]] = [
+check_constraints: list[tuple[str, str | sa.ColumnElement[bool]]] = [
     (
         "target_reps_type_integer_or_null",
         "typeof(target_reps) = 'integer' or typeof(target_reps) = 'null'",

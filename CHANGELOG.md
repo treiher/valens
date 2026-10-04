@@ -81,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Muscles page, replaced by the charts of a single muscle on the training sessions page
+- Support for Python 3.10
 
 ### Fixed
 

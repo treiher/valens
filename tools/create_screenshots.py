@@ -125,7 +125,7 @@ def take_screenshots(screenshots: Path, target_dir: Path, today: datetime.date) 
         page.set_default_navigation_timeout(5000)
         # The app renders relative to the current date, which must match the date of the demo data.
         page.clock.set_fixed_time(
-            datetime.datetime.combine(today, datetime.time(12), tzinfo=datetime.timezone.utc),
+            datetime.datetime.combine(today, datetime.time(12), tzinfo=datetime.UTC),
         )
 
         def save_screenshot(name: str) -> None:

@@ -4,14 +4,18 @@
 
 import json
 import re
+import tomllib
 from pathlib import Path
 
 PYPROJECT = Path(__file__).parent.parent / "pyproject.toml"
-CLASSIFIER = re.compile(r'"Programming Language :: Python :: (\d+\.\d+)"')
+CLASSIFIER = re.compile(r"Programming Language :: Python :: (\d+\.\d+)")
 
 
 def main() -> None:
-    versions = CLASSIFIER.findall(PYPROJECT.read_text(encoding="utf-8"))
+    with PYPROJECT.open("rb") as f:
+        classifiers = tomllib.load(f)["project"]["classifiers"]
+
+    versions = [m[1] for c in classifiers if (m := CLASSIFIER.fullmatch(c))]
 
     if not versions:
         raise RuntimeError(f"no Python version classifiers found in {PYPROJECT}")

@@ -6,7 +6,9 @@ use dioxus::prelude::*;
 
 use valens_domain::{self as domain, Property};
 
-use crate::ui::element::{CenteredBlock, TagsWithAddon, Title, count_to_string, minutes_to_string};
+use crate::ui::element::{
+    Caption, CenteredBlock, TagsWithAddon, Title, count_to_string, minutes_to_string,
+};
 
 /// Show the sets per worked and per stretched muscle in one block, and the time under stretch per
 /// stretched muscle in another. Muscles without sets are left out.
@@ -32,13 +34,13 @@ pub fn SetsPerMuscle(
             CenteredBlock {
                 Title { "Sets per muscle" }
                 if !worked.is_empty() {
-                    {view_muscles_caption(worked_caption)}
+                    Caption { {worked_caption} }
                     for tags in worked {
                         TagsWithAddon { tags }
                     }
                 }
                 if !stretch_sets.is_empty() {
-                    {view_muscles_caption("Stretched")}
+                    Caption { "Stretched" }
                     div {
                         "data-testid": "stretch-sets-per-muscle",
                         TagsWithAddon { tags: stretch_sets }
@@ -54,16 +56,6 @@ pub fn SetsPerMuscle(
                     TagsWithAddon { tags: stretch_time }
                 }
             }
-        }
-    }
-}
-
-pub fn view_muscles_caption(caption: &str) -> Element {
-    rsx! {
-        p {
-            class: "is-size-7 has-text-centered mb-2",
-            "data-testid": "muscles-caption",
-            {caption}
         }
     }
 }
@@ -181,7 +173,7 @@ mod tests {
         });
 
         assert_eq!(
-            all_text_of(&html, "muscles-caption"),
+            all_text_of(&html, "caption"),
             vec!["Worked (hard sets)", "Stretched"]
         );
     }
@@ -200,7 +192,7 @@ mod tests {
             }
         });
 
-        assert_eq!(all_text_of(&html, "muscles-caption"), vec!["Worked"]);
+        assert_eq!(all_text_of(&html, "caption"), vec!["Worked"]);
         assert!(!contains(&html, "stretch-time-per-muscle"));
     }
 

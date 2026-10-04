@@ -10,13 +10,11 @@ use crate::{
     Route,
     cache::{Cache, CacheState},
     chart::{Calendar, Chart, IntervalControl},
-    eh,
-    muscle::view_muscles_caption,
-    page,
+    eh, page,
     routing::{ExerciseTab, NavigatorScrollExt, RoutineTab},
     settings::Settings,
     ui::element::{
-        Block, CenteredBlock, CenteredTags, ElementWithDescription, Error, ErrorPage,
+        Block, Caption, CenteredBlock, CenteredTags, ElementWithDescription, Error, ErrorPage,
         FloatingActionButton, Loading, LoadingPage, NoData, NoWrap, Tabs,
     },
 };
@@ -96,20 +94,16 @@ fn view_exercise(
         return rsx! { NoData {} };
     }
     rsx! {
-        if has_properties || has_muscles {
-            Block {
-                {view_exercise_properties(
-                    exercise.force,
-                    exercise.mechanic,
-                    exercise.laterality,
-                    exercise.assistance,
-                    &exercise.equipment,
-                    &muscles,
-                    &stretch,
-                    exercise.category,
-                )},
-            }
-        }
+        {view_exercise_properties(
+            exercise.force,
+            exercise.mechanic,
+            exercise.laterality,
+            exercise.assistance,
+            &exercise.equipment,
+            &muscles,
+            &stretch,
+            exercise.category,
+        )},
         {view_notes(exercise, exercise_dialog)}
     }
 }
@@ -216,32 +210,35 @@ pub fn view_exercise_properties(
         .collect::<Vec<_>>();
     let equipment = equipment.to_vec();
     rsx! {
-        if !muscles.is_empty() || !stretch.is_empty() {
-            div {
-                class: "mb-5",
-                if stretch.is_empty() {
-                    {view_muscles(muscles.iter().map(|(k, v)| (k, v)), "muscle-tag")}
-                } else {
-                    if !muscles.is_empty() {
-                        {view_muscles_caption("Worked muscles")}
-                        {view_muscles(muscles.iter().map(|(k, v)| (k, v)), "muscle-tag")}
-                    }
-                    {view_muscles_caption("Stretched muscles")}
-                    {view_muscles(stretch.iter().map(|(k, v)| (k, v)), "stretch-tag")}
-                }
+        if !muscles.is_empty() {
+            Block {
+                Caption { "Worked muscles" }
+                {view_muscles(muscles.iter().map(|(k, v)| (k, v)), "muscle-tag")}
+            }
+        }
+        if !stretch.is_empty() {
+            Block {
+                Caption { "Stretched muscles" }
+                {view_muscles(stretch.iter().map(|(k, v)| (k, v)), "stretch-tag")}
             }
         }
         if !names.is_empty() {
-            CenteredTags {
-                for name in names {
-                    span { class: "tag", "data-testid": "property-tag", {name} }
+            Block {
+                Caption { "Properties" }
+                CenteredTags {
+                    for name in names {
+                        span { class: "tag", "data-testid": "property-tag", {name} }
+                    }
                 }
             }
         }
         if !equipment.is_empty() {
-            CenteredTags {
-                for e in equipment {
-                    span { class: "tag", "data-testid": "property-tag", {e.name()} }
+            Block {
+                Caption { "Equipment" }
+                CenteredTags {
+                    for e in equipment {
+                        span { class: "tag", "data-testid": "property-tag", {e.name()} }
+                    }
                 }
             }
         }
@@ -596,6 +593,7 @@ fn view_notes(
     let notes = exercise.notes.clone();
     rsx! {
         CenteredBlock {
+            Caption { "Notes" }
             div {
                 class: "is-clickable is-italic has-text-centered is-preserving-line-breaks",
                 "data-testid": "exercise-notes",
@@ -785,12 +783,18 @@ mod tests {
     }
 
     #[test]
-    fn test_without_stretched_muscles_no_captions_are_shown() {
+    fn test_each_group_is_captioned() {
         let html = render_exercise(1, || {
-            TestCache::default().with_exercises(vec![exercise(1, "Squat")])
+            TestCache::default().with_exercises(vec![domain::Exercise {
+                equipment: vec![domain::Equipment::Barbell],
+                ..exercise(1, "Squat")
+            }])
         });
 
-        assert!(!contains(&html, "muscles-caption"));
+        assert_eq!(
+            all_text_of(&html, "caption"),
+            vec!["Worked muscles", "Properties", "Equipment", "Notes"]
+        );
         assert!(!contains(&html, "stretch-tag"));
     }
 
@@ -815,8 +819,8 @@ mod tests {
         });
 
         assert_eq!(
-            all_text_of(&html, "muscles-caption"),
-            vec!["Worked muscles", "Stretched muscles"]
+            all_text_of(&html, "caption"),
+            vec!["Worked muscles", "Stretched muscles", "Properties", "Notes"]
         );
         assert_eq!(all_text_of(&html, "muscle-tag"), vec!["Erector Spinae"]);
         assert_eq!(
@@ -840,8 +844,8 @@ mod tests {
         });
 
         assert_eq!(
-            all_text_of(&html, "muscles-caption"),
-            vec!["Stretched muscles"]
+            all_text_of(&html, "caption"),
+            vec!["Stretched muscles", "Notes"]
         );
         assert!(!contains(&html, "muscle-tag"));
         assert!(!contains(&html, "property-tag"));

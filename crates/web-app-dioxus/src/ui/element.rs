@@ -59,6 +59,17 @@ pub fn CenteredTags(children: Element) -> Element {
 }
 
 #[component]
+pub fn Caption(children: Element) -> Element {
+    rsx! {
+        p {
+            class: "is-size-7 has-text-centered mb-2",
+            "data-testid": "caption",
+            {children}
+        }
+    }
+}
+
+#[component]
 pub fn WhiteBox(children: Element) -> Element {
     rsx! {
         div { class: "box", {children} }

@@ -53,13 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exercises page: Legend of the primary and secondary muscles in the filter and properties dialogs, shown once above all muscles as the order in which tapping a muscle changes its level
 - Exercise page:
     - Legend of the primary and secondary muscles in the properties dialog, shown once above all muscles as the order in which tapping a muscle changes its level
-    - Properties, muscles and notes of the exercise, its training sessions and their charts on a tab each
+    - Properties, muscles and notes of the exercise, each group under a caption of its own, its training sessions and their charts on a tab each
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Shading of the days in the calendar by the set volume instead of the volume load, or by the stretch sets for an exercise that only stretches
 - Catalog exercise page:
     - Stretched muscles of the catalog exercises that stretch a muscle under load
     - Hip flexors as a worked muscle and compound mechanic of the leg raises
     - Name of the exercise in the navigation bar, replacing the title of the page
+    - Muscles and properties of the exercise, each group under a caption of its own
 
 ### Removed
 

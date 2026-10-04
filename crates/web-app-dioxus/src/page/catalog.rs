@@ -2,29 +2,22 @@ use dioxus::prelude::*;
 
 use valens_domain as domain;
 
-use crate::{
-    page,
-    ui::element::{Block, ErrorPage},
-};
+use crate::{page, ui::element::ErrorPage};
 
 #[component]
 pub fn Catalog(name: String) -> Element {
     if let Ok(name) = domain::Name::new(&name) {
         if let Some(exercise) = domain::catalog::exercise(&name) {
-            rsx! {
-                Block {
-                    {page::exercise::view_exercise_properties(
-                        Some(exercise.force),
-                        Some(exercise.mechanic),
-                        Some(exercise.laterality),
-                        Some(exercise.assistance),
-                        exercise.equipment,
-                        exercise.muscles,
-                        exercise.stretch,
-                        Some(exercise.category),
-                    )}
-                }
-            }
+            page::exercise::view_exercise_properties(
+                Some(exercise.force),
+                Some(exercise.mechanic),
+                Some(exercise.laterality),
+                Some(exercise.assistance),
+                exercise.equipment,
+                exercise.muscles,
+                exercise.stretch,
+                Some(exercise.category),
+            )
         } else {
             rsx! { ErrorPage { message: "Exercise not found" } }
         }
@@ -58,8 +51,13 @@ mod tests {
         });
 
         assert_eq!(
-            all_text_of(&html, "muscles-caption"),
-            vec!["Worked muscles", "Stretched muscles"]
+            all_text_of(&html, "caption"),
+            vec![
+                "Worked muscles",
+                "Stretched muscles",
+                "Properties",
+                "Equipment"
+            ]
         );
         assert_eq!(
             all_text_of(&html, "muscle-tag"),
@@ -77,10 +75,7 @@ mod tests {
             rsx! { Catalog { name: "Couch Stretch".to_string() } }
         });
 
-        assert_eq!(
-            all_text_of(&html, "muscles-caption"),
-            vec!["Stretched muscles"]
-        );
+        assert!(!all_text_of(&html, "caption").contains(&"Worked muscles".to_string()));
         assert!(all_text_of(&html, "muscle-tag").is_empty());
         assert_eq!(
             all_text_of(&html, "stretch-tag"),

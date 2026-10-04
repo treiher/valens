@@ -93,6 +93,22 @@ impl Settings {
         self.settings.write().scroll_snapping = scroll_snapping;
     }
 
+    pub fn show_estimated_pr(&self) -> bool {
+        self.settings.read().show_estimated_pr
+    }
+
+    pub fn set_show_estimated_pr(&mut self, show_estimated_pr: bool) {
+        self.settings.write().show_estimated_pr = show_estimated_pr;
+    }
+
+    pub fn estimated_pr_months(&self) -> u32 {
+        self.settings.read().estimated_pr_months
+    }
+
+    pub fn set_estimated_pr_months(&mut self, estimated_pr_months: u32) {
+        self.settings.write().estimated_pr_months = estimated_pr_months;
+    }
+
     pub async fn save(&self) {
         if let Err(err) = WEB_APP_SERVICE
             .write()

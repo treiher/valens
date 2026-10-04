@@ -13,8 +13,8 @@ use crate::{
     ui::{
         element::{
             CenteredBlock, Color, DeleteConfirmationDialog, Dialog, Error, Icon, ItemOptionsButton,
-            Loading, MenuOption, Message, OptionsMenu, SaveDialog, ServerUnreachable, Table, Title,
-            value_or_dash,
+            Loading, MenuOption, Message, OptionsMenu, SaveDialog, SectionCaption,
+            ServerUnreachable, Table, value_or_dash,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -131,7 +131,7 @@ fn Users() -> Element {
                             "Passkey login and login links are unavailable because PUBLIC_URL is not set in the server configuration."
                         }
                     }
-                    Title {
+                    SectionCaption {
                         actions: rsx! {
                             a {
                                 "data-testid": "add-user",
@@ -648,6 +648,6 @@ mod tests {
         );
 
         assert!(!contains(&html, "passkey-login-unavailable"));
-        assert_eq!(text_of(&html, "title"), "Users");
+        assert_eq!(text_of(&html, "section-caption"), "Users");
     }
 }

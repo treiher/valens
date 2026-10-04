@@ -14,7 +14,7 @@ use crate::{
     ui::{
         element::{
             DeleteConfirmationDialog, Error, Icon, ItemOptionsButton, Loading, MenuOption, NoData,
-            OptionsMenu, SaveDialog, ServerUnreachable, Title,
+            OptionsMenu, SaveDialog, SectionCaption, ServerUnreachable,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -205,7 +205,7 @@ fn Passkeys(user_id: domain::UserID) -> Element {
     rsx! {
         div {
             class: "mt-5",
-            Title {
+            SectionCaption {
                 actions: rsx! {
                     if matches!(&*passkeys.read(), Some(Ok(_))) {
                         a {

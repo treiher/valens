@@ -24,7 +24,7 @@ use crate::{
     session::{Session, sign_out},
     settings::Settings,
     synchronization::Synchronization,
-    ui::element::{ActivityBar, Dialog, ElementWithDescription, Icon},
+    ui::element::{ActivityBar, Dialog, ElementWithDescription, Icon, SectionCaption},
 };
 
 #[component]
@@ -413,21 +413,21 @@ fn MetronomeTimerStopwatch(
         Dialog {
             on_close,
             div { class: "block",
-                label { class: "subtitle", "Metronome" }
+                SectionCaption { "Metronome" }
                 div {
                     class: "container has-text-centered p-4",
                     Metronome { metronome }
                 }
             }
             div { class: "block",
-                label { class: "subtitle", "Stopwatch" }
+                SectionCaption { "Stopwatch" }
                 div {
                     class: "container has-text-centered p-4",
                     Stopwatch { stopwatch }
                 }
             }
             div { class: "block",
-                label { class: "subtitle", "Timer" }
+                SectionCaption { "Timer" }
                 div {
                     class: "container has-text-centered p-4",
                     MutableTimer { timer }

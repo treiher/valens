@@ -34,7 +34,6 @@ pub fn Metronome(metronome: Store<MetronomeService>) -> Element {
 
     rsx! {
         PhaseFields {
-            label: "Tempo",
             unit: "s",
             phases: phases.read().iter().map(|field| field.input.clone()).collect::<Vec<_>>(),
             field_errors: phases.read().iter().map(|field| field.validated.clone().err()).collect::<Vec<_>>(),

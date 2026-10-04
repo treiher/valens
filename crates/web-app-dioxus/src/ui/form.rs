@@ -131,7 +131,7 @@ pub fn InputField(
 /// zero seconds.
 #[component]
 pub fn PhaseFields(
-    label: String,
+    label: Option<String>,
     help: Option<String>,
     unit: String,
     phases: Vec<String>,
@@ -156,7 +156,7 @@ pub fn PhaseFields(
         div {
             class: "field",
             ..attributes,
-            label { class: "label", "{label}" }
+            if let Some(label) = label { label { class: "label", "{label}" } }
             div {
                 class: "field has-addons is-align-items-center mb-0",
                 for (index, phase) in phases.iter().enumerate() {

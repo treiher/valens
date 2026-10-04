@@ -64,11 +64,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Hip flexors as a worked muscle and compound mechanic of the leg raises
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Muscles and properties of the exercise, each group under a caption of its own
+- Metronome dialog:
+    - Captions of the metronome, the stopwatch and the timer, styled like the captions in the settings dialog
+    - Tempo of the metronome, shown without a label
 - Settings dialog:
     - Labels of the settings, styled like the labels of other input fields
     - Settings, grouped under captions, each with a description and its control next to its label
     - On/off settings, shown as switches
     - Beep volume, renamed to "Volume" and shown as a percentage
+- Profile dialog: Caption of the passkeys, styled like the captions in the settings dialog
+- Administration dialog: Caption of the users, styled like the captions in the settings dialog
+- About dialog:
+    - Captions of the version and the log, styled like the captions in the settings dialog
+    - Note on an empty log
 
 ### Removed
 

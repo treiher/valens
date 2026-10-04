@@ -4,7 +4,9 @@ use valens_web_app::log::Service;
 
 use crate::{
     WEB_APP_SERVICE,
-    ui::element::{Block, CenteredBlock, Color, Dialog, Error, Icon, Message},
+    ui::element::{
+        Block, CenteredBlock, Color, Dialog, Error, Icon, Message, NoData, SectionCaption,
+    },
     update::{UPDATE_STATUS, UpdateStatus, VersionInfo, check_for_updates},
 };
 
@@ -27,7 +29,7 @@ fn Version() -> Element {
     });
     rsx! {
         div { class: "block",
-            label { class: "subtitle", "Version" }
+            SectionCaption { "Version" }
             VersionInfo {}
             if let UpdateStatus::Deferred = UPDATE_STATUS() {
                 CenteredBlock {
@@ -49,11 +51,14 @@ fn Log() -> Element {
     let entries = WEB_APP_SERVICE.read().get_log_entries();
     rsx! {
         div { class: "block",
-            label { class: "subtitle", "Log" }
+            SectionCaption { "Log" }
             Block {
                 div {
                     "data-testid": "log",
                     match entries {
+                        Ok(entries) if entries.is_empty() => rsx! {
+                            NoData { label: "No log entries" }
+                        },
                         Ok(entries) => rsx! {
                             for entry in entries {
                                 {
@@ -129,6 +134,13 @@ mod tests {
         assert_eq!(all_text_of(&html, "log-entry").len(), 2);
         assert!(all_text_of(&html, "log-entry")[0].contains("failed"));
         assert!(html.contains("data-severity=\"error\""), "{html}");
+    }
+
+    #[test]
+    fn test_an_empty_log_is_reported() {
+        let html = render_log(web_app::tests::FakeRepository::default());
+
+        assert_eq!(text_of(&html, "no-data"), "No log entries");
     }
 
     #[test]

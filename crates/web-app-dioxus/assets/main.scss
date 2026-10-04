@@ -363,11 +363,27 @@ body.has-activity-bar {
     }
 }
 
+// Small heading of a section of a dialog or of a group on a page
+
+.caption,
 .section-caption {
     color: var(--bulma-text-weak);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
+}
+
+.section-caption {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+
+    // Enlarge the tap area of an action without changing the layout
+    > div > * {
+        display: inline-flex;
+        margin: -0.5rem;
+        padding: 0.5rem;
+    }
 }
 
 // On/off switch
@@ -574,6 +590,10 @@ $value-field-padding: 0.4em;
     --bulma-tag-s: var(--bulma-text-s);
     --bulma-tag-background-l: var(--bulma-text-strong-l);
     --bulma-tag-color-l: var(--bulma-scheme-main-l);
+}
+
+.has-text-weak {
+    color: var(--bulma-text-weak) !important;
 }
 
 // Muted in both themes, where the fixed Bulma greys are legible in only one of them

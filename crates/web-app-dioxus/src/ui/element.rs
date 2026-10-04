@@ -62,21 +62,23 @@ pub fn CenteredTags(children: Element) -> Element {
 pub fn Caption(children: Element) -> Element {
     rsx! {
         p {
-            class: "is-size-7 has-text-centered mb-2",
+            class: "caption has-text-centered",
             "data-testid": "caption",
             {children}
         }
     }
 }
 
-/// A heading of a group of fields.
+/// A heading of a section of a dialog, with `actions` at its right end.
 #[component]
-pub fn SectionCaption(children: Element) -> Element {
+pub fn SectionCaption(children: Element, actions: Option<Element>) -> Element {
     rsx! {
-        p {
+        div {
             class: "section-caption",
-            "data-testid": "section-caption",
-            {children}
+            p { "data-testid": "section-caption", {children} }
+            if let Some(actions) = actions {
+                div { class: "is-flex is-align-items-center", {actions} }
+            }
         }
     }
 }
@@ -293,15 +295,19 @@ pub fn NotFound(element: String) -> Element {
     }
 }
 
+/// A note on missing data, carrying the test id `no-data` unless `attributes` set another one.
 #[component]
 pub fn NoData(
     #[props(default = "No data".to_string())] label: String,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
+    let lacks_testid = !attributes
+        .iter()
+        .any(|attribute| attribute.name == "data-testid");
     rsx! {
         div {
-            "data-testid": "no-data",
-            class: "block is-size-7 has-text-centered has-text-grey-light mb-6",
+            "data-testid": if lacks_testid { "no-data" },
+            class: "block is-size-7 has-text-centered has-text-weak mb-6",
             ..attributes,
             "{label}"
         }
@@ -951,5 +957,20 @@ mod tests {
 
         assert_eq!(all_text_of(&html, "menu-option"), vec!["Edit", "Delete"]);
         assert!(contains(&html, "options-menu-close"));
+    }
+
+    #[test]
+    fn test_no_data_carries_a_given_test_id_instead_of_the_default() {
+        let html = render(|| rsx! { NoData { "data-testid": "no-passkeys" } });
+
+        assert_eq!(text_of(&html, "no-passkeys"), "No data");
+        assert!(!contains(&html, "no-data"), "{html}");
+    }
+
+    #[test]
+    fn test_no_data_carries_the_default_test_id_without_a_given_one() {
+        let html = render(|| rsx! { NoData {} });
+
+        assert_eq!(text_of(&html, "no-data"), "No data");
     }
 }

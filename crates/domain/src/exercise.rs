@@ -1887,7 +1887,7 @@ mod tests {
     #[test]
     fn test_catalog_update_ignores_order_of_equipment() {
         let exercise = Exercise {
-            equipment: vec![Equipment::PullUpBar, Equipment::ResistanceBand],
+            equipment: vec![Equipment::ParallelBars, Equipment::ResistanceBand],
             ..catalog_exercise("Band-Assisted Dip", 1)
         };
 

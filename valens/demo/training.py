@@ -252,8 +252,7 @@ EXERCISES = {
         (
             (GLUTES, PRIMARY),
             (ERECTOR_SPINAE, PRIMARY),
-            (QUADS, SECONDARY),
-            (HAMSTRINGS, SECONDARY),
+            (HAMSTRINGS, PRIMARY),
             (ADDUCTORS, SECONDARY),
             (TRAPS, SECONDARY),
             (FOREARMS, SECONDARY),
@@ -396,7 +395,7 @@ EXERCISES = {
         ((SIDE_DELTS, PRIMARY), (FRONT_DELTS, SECONDARY)),
         SHORT_REST,
         force=PULL,
-        mechanic=COMPOUND,
+        mechanic=ISOLATION,
         laterality=BILATERAL,
         assistance=UNASSISTED,
         equipment=(DUMBBELL,),
@@ -434,6 +433,7 @@ EXERCISES = {
         ExerciseType(reps=True, phases=(), weight=True, rpe=True),
         (
             (LATS, PRIMARY),
+            (TRAPS, SECONDARY),
             (BICEPS, SECONDARY),
             (REAR_DELTS, SECONDARY),
             (FOREARMS, SECONDARY),

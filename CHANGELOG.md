@@ -94,6 +94,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Routines page: Error shown when opening the dialog for adding a routine
 - Exercises page:
     - Error shown when opening the dialog for adding an exercise
+    - Missing or wrong equipment of the hanging leg raise, the band-assisted dip, the step up and the inverted row in the catalog
+    - Wrong force of the good mornings and the reverse Nordic curl and wrong mechanic of the lateral raises in the catalog
+    - Wrong laterality of the dumbbell walking lunge and wrong muscles of the reverse plank, the Romanian and stiff-legged deadlifts, the lat pulldown, the hammer curls and the glute bridges in the catalog
+- Catalog exercise page:
+    - Missing or wrong equipment of the hanging leg raise, the band-assisted dip, the step up and the inverted row
+    - Wrong force of the good mornings and the reverse Nordic curl and wrong mechanic of the lateral raises
+    - Wrong laterality of the dumbbell walking lunge and wrong muscles of the reverse plank, the Romanian and stiff-legged deadlifts, the lat pulldown, the hammer curls and the glute bridges
 
 ## [0.9.0] - 2026-09-26
 

@@ -22,6 +22,10 @@ pub struct Settings {
     pub show_tut: bool,
     #[serde(default)]
     pub scroll_snapping: bool,
+    #[serde(default)]
+    pub show_estimated_pr: bool,
+    #[serde(default = "default_estimated_pr_months")]
+    pub estimated_pr_months: u32,
 }
 
 impl Default for Settings {
@@ -33,8 +37,14 @@ impl Default for Settings {
             show_rpe: true,
             show_tut: true,
             scroll_snapping: false,
+            show_estimated_pr: false,
+            estimated_pr_months: default_estimated_pr_months(),
         }
     }
+}
+
+fn default_estimated_pr_months() -> u32 {
+    3
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug, PartialEq)]

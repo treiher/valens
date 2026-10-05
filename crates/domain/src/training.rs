@@ -704,6 +704,18 @@ pub fn reps_for_percentage(percentage: f32) -> f32 {
     -((percentage - 48.8) / 53.8).ln() / 0.075
 }
 
+/// Returns the number of reps, rounded up, that `weight` is estimated to allow given the
+/// `one_rep_max`. Returns `None` if the weight is so light that the number of reps is out of range.
+#[must_use]
+pub fn estimated_reps(one_rep_max: f32, weight: Weight) -> Option<Reps> {
+    let reps = reps_for_percentage(100.0 * f32::from(weight) / one_rep_max).ceil();
+    if !reps.is_finite() {
+        return None;
+    }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    Reps::new(reps as u32).ok()
+}
+
 /// Rounds a drop `amount` up to the nearest multiple of `increment`, unless
 /// the remainder is at most 20% of the increment, in which case it rounds down.
 ///
@@ -1346,6 +1358,25 @@ mod tests {
     #[case(105.0)]
     fn test_reps_for_percentage_clamped_above_one_rep_max(#[case] percentage: f32) {
         assert_approx_eq!(reps_for_percentage(percentage), 1.0);
+    }
+
+    #[rstest]
+    #[case(100.0, 100.0, 1)]
+    #[case(100.0, 120.0, 1)]
+    #[case(100.0, 95.0, 3)]
+    #[case(100.0, 80.0, 9)]
+    #[case(100.0, 75.0, 12)]
+    #[case(200.0, 150.0, 12)]
+    fn test_estimated_reps(#[case] one_rep_max: f32, #[case] weight: f32, #[case] expected: u32) {
+        assert_eq!(
+            estimated_reps(one_rep_max, Weight::new(weight).unwrap()),
+            Some(Reps::new(expected).unwrap())
+        );
+    }
+
+    #[test]
+    fn test_estimated_reps_of_a_weight_beyond_the_range_of_the_formulas() {
+        assert_eq!(estimated_reps(100.0, Weight::new(40.0).unwrap()), None);
     }
 
     #[rstest]

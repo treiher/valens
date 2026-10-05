@@ -45,3 +45,21 @@ class SettingsDialog(BaseDialog):
     @property
     def rpe_button(self) -> Locator:
         return self.dialog.root.get_by_test_id("settings-rpe")
+
+    def toggle_estimated_pr(self) -> None:
+        self.estimated_pr_button.click()
+
+    def expect_estimated_pr(self, state: str) -> None:
+        expect(self.estimated_pr_button).to_have_text(state)
+
+    def choose_estimated_pr_horizon(self, horizon: str) -> None:
+        self.dialog.root.get_by_test_id(f"settings-estimated-pr-horizon-{horizon}").click()
+
+    def expect_estimated_pr_horizon(self, horizon: str) -> None:
+        expect(
+            self.dialog.root.get_by_test_id(f"settings-estimated-pr-horizon-{horizon}")
+        ).to_have_attribute("data-selected", "true")
+
+    @property
+    def estimated_pr_button(self) -> Locator:
+        return self.dialog.root.get_by_test_id("settings-estimated-pr")

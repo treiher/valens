@@ -42,13 +42,14 @@ pub use statistics::{
 };
 pub use training::{
     RIR, RPE, Reps, Side, SideError, Sides, SidesError, Tempo, TempoError, Time, TrainingStats,
-    Weight, drop_set_weights, one_rep_max, reps_for_percentage, round_drop_to_increment,
-    training_stats,
+    Weight, drop_set_weights, estimated_reps, one_rep_max, reps_for_percentage,
+    round_drop_to_increment, training_stats,
 };
 pub use training_session::{
     ElementGroup, ElementMap, ElementMove, OfferedSets, RecentSessionSets, Set, SetHistoryRow,
     TrainingSession, TrainingSessionElement, TrainingSessionID, TrainingSessionRepository,
-    TrainingSessionSection, TrainingSessionService, most_recent_best_set_for_one_rep_max,
+    TrainingSessionSection, TrainingSessionService, best_one_rep_max_within,
+    most_recent_best_set_for_one_rep_max,
 };
 pub use user::{Role, Sex, User, UserID, UserRepository, UserService};
 pub use version::{VersionRepository, VersionService};

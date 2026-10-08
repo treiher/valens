@@ -56,15 +56,21 @@ fn view_week(
 ) -> Element {
     rsx! {
         div {
-            class: "columns schedule-columns",
-            for weekday in domain::Weekday::iter() {
-                div {
-                    class: "column",
-                    "data-testid": "schedule-day-{u8::from(*weekday)}",
-                    "data-drop": "day-{u8::from(*weekday)}",
-                    Title {
-                        class: "is-size-6 is-nowrap".to_string(),
-                        actions: rsx! {
+            class: "block",
+            div {
+                class: "columns schedule-columns",
+                for weekday in domain::Weekday::iter() {
+                    div {
+                        class: "column",
+                        "data-testid": "schedule-day-{u8::from(*weekday)}",
+                        "data-drop": "day-{u8::from(*weekday)}",
+                        div {
+                            class: "is-flex is-justify-content-center is-align-items-center mb-3 is-relative",
+                            span {
+                                class: "has-text-weight-bold is-nowrap",
+                                "data-testid": "weekday-name",
+                                "{weekday}"
+                            }
                             a {
                                 class: "schedule-action schedule-title-action",
                                 "data-testid": "add-slot",
@@ -76,10 +82,9 @@ fn view_week(
                                 },
                                 Icon { name: "plus", is_small: true }
                             }
-                        },
-                        "{weekday}"
+                        }
+                        {view_slots(schedule, routines, *weekday, drag)}
                     }
-                    {view_slots(schedule, routines, *weekday, drag)}
                 }
             }
         }
@@ -143,6 +148,7 @@ fn view_rotations(
 ) -> Element {
     rsx! {
         div {
+            class: "block mt-6",
             "data-testid": "schedule-rotations",
             div {
                 class: "schedule-heading",
@@ -1020,6 +1026,12 @@ mod tests {
                 &format!("schedule-day-{}", u8::from(*weekday))
             ));
         }
+        assert_eq!(
+            all_text_of(&html, "weekday-name"),
+            domain::Weekday::iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]

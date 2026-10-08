@@ -780,7 +780,7 @@ $value-field-padding: 0.4em;
   }
 }
 
-// The titles of the weekdays fill their column on wide screens, leaving no room for the inset
+// The names of the weekdays fill their column on wide screens, leaving no room for the inset
 @include mx.tablet {
   .schedule-title-action {
     right: 0;

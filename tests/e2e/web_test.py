@@ -1535,6 +1535,31 @@ def test_training_session_measurement_and_notes_in_view_mode(page: Page) -> None
     assert p.get_session_exercise_notes() == "Updated note"
 
 
+def test_training_session_measurement_keeps_unsaved_set_values(page: Page) -> None:
+    workout = USER.workouts[-2]
+    new_values: tuple[int | None, int | None, float | None, float | None] = (1, 2, 3, 4)
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    stored_values = p.get_form()[0]
+    p.set_form(0, new_values)
+    p.open_session_exercise_notes_dialog()
+    p.session_exercise_notes_dialog.set_measurement("12.5")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    assert p.get_form()[0] == new_values
+
+    p.goto()
+    p.edit()
+
+    assert p.get_form()[0] == stored_values
+    assert p.get_session_exercise_measurement() == "12.5"
+
+
 def test_training_session_measurement_per_side(page: Page) -> None:
     workout = USER.workouts[0]
 

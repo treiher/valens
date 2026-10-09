@@ -278,10 +278,20 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     });
 
     let mut field_values = use_signal(HashMap::new);
+    let mut carried_inputs = use_signal(|| None::<CarriedInputs>);
+    let inputs = SetInputs {
+        values: field_values,
+        carried: carried_inputs,
+    };
     let mut expanded_history: Signal<HashSet<usize>> = use_signal(HashSet::new);
     use_memo(move || {
         if let Some(training_session) = training_session() {
             expanded_history.set(HashSet::new());
+            let carried = carried_inputs
+                .take()
+                .filter(|carried| carried.elements == training_session.elements)
+                .map(|carried| carried.values)
+                .unwrap_or_default();
             field_values.set(
                 training_session
                     .elements
@@ -298,14 +308,18 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                             ..
                         } = element
                         {
+                            let stored = SetFieldValues {
+                                reps: FieldValue::new_with_empty_default(reps),
+                                time: FieldValue::new_with_empty_default(time),
+                                weight: FieldValue::new_with_empty_default(weight),
+                                rpe: FieldValue::new_with_empty_default(rpe),
+                                side: FieldValue::new(side),
+                            };
                             Some((
                                 idx,
-                                SetFieldValues {
-                                    reps: FieldValue::new_with_empty_default(reps),
-                                    time: FieldValue::new_with_empty_default(time),
-                                    weight: FieldValue::new_with_empty_default(weight),
-                                    rpe: FieldValue::new_with_empty_default(rpe),
-                                    side: FieldValue::new(side),
+                                match carried.get(&idx) {
+                                    Some(previous) => stored.with_unstored_inputs_of(previous),
+                                    None => stored,
                                 },
                             ))
                         } else {
@@ -440,7 +454,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                                     &mut training_session,
                                     &field_values.read(),
                                 );
-                                save(training_session, cache, || {}).await;
+                                save(training_session, inputs, cache, || {}).await;
                             });
                         }
                     } else {
@@ -610,13 +624,13 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             };
             rsx! {
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
+                    {view_form(inputs, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
                     {view_list(edit_dialog, training_session, exercises)},
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
-                {view_edit_dialog(edit_dialog, exercise_dialog, field_values, drop_set_target, progress, phase_clock, training_sessions, cache)}
+                {view_edit_dialog(edit_dialog, exercise_dialog, inputs, drop_set_target, progress, phase_clock, training_sessions, cache)}
                 if drop_set_target.read().is_some() {
                     DropSetCalculator {
                         on_close: move |_| { drop_set_target.set(None); },
@@ -641,7 +655,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                             modify_training_session_elements(&mut training_session, &field_values.read());
                             training_session.notes = notes.read().as_ref().unwrap().validated.clone().unwrap();
                             spawn(async move {
-                                save(training_session.clone(), cache, || {}).await;
+                                save(training_session.clone(), inputs, cache, || {}).await;
                             });
                         } else {
                             edit.toggle();
@@ -750,6 +764,46 @@ fn OngoingSessionBar(
     }
 }
 
+/// The entered set values by element index, and the inputs held over a save of the session.
+#[derive(Clone, Copy)]
+struct SetInputs {
+    values: Signal<HashMap<usize, SetFieldValues>>,
+    carried: Signal<Option<CarriedInputs>>,
+}
+
+impl SetInputs {
+    /// Holds the entered values for the fields rebuilt from the stored session, moved by `map` if
+    /// the save changed the elements.
+    ///
+    /// The fields keep the inputs only if they are rebuilt from `elements`, so that a session
+    /// changed elsewhere does not receive inputs at the wrong elements.
+    fn carry_over(
+        mut self,
+        elements: Vec<domain::TrainingSessionElement>,
+        map: Option<&domain::ElementMap>,
+    ) {
+        let values = self
+            .values
+            .peek()
+            .iter()
+            .filter_map(|(element_idx, values)| {
+                let element_idx = match map.map(|map| map.get(*element_idx)) {
+                    None => *element_idx,
+                    Some(Some(domain::ElementMove::Kept(element_idx))) => *element_idx,
+                    Some(_) => return None,
+                };
+                Some((element_idx, values.clone()))
+            })
+            .collect();
+        self.carried.set(Some(CarriedInputs { elements, values }));
+    }
+}
+
+struct CarriedInputs {
+    elements: Vec<domain::TrainingSessionElement>,
+    values: HashMap<usize, SetFieldValues>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct SetFieldValues {
     reps: FieldValue<domain::Reps>,
@@ -760,6 +814,16 @@ struct SetFieldValues {
 }
 
 impl SetFieldValues {
+    /// The values of a stored set, keeping each input of `previous` that the set does not hold.
+    fn with_unstored_inputs_of(mut self, previous: &SetFieldValues) -> Self {
+        keep_unstored_input(&mut self.reps, &previous.reps);
+        keep_unstored_input(&mut self.time, &previous.time);
+        keep_unstored_input(&mut self.weight, &previous.weight);
+        keep_unstored_input(&mut self.rpe, &previous.rpe);
+        keep_unstored_input(&mut self.side, &previous.side);
+        self
+    }
+
     /// Fills the values a set is recorded with when its countdown runs out or it is confirmed.
     ///
     /// The rating is what the set felt like and is therefore left to the user.
@@ -840,6 +904,15 @@ fn fill_field<T: Default + PartialEq + ToString>(field: &mut FieldValue<T>, valu
     field.input.clone_from(&input);
     field.orig = input;
     field.validated = Ok(value);
+}
+
+/// Keeps a changed input of `previous` in a field rebuilt from a stored value, unless the input is
+/// the stored value.
+fn keep_unstored_input<T: Clone + PartialEq>(field: &mut FieldValue<T>, previous: &FieldValue<T>) {
+    if previous.changed() && previous.validated != field.validated {
+        field.input.clone_from(&previous.input);
+        field.validated.clone_from(&previous.validated);
+    }
 }
 
 /// The clock a set is guided by, and the state its bar and its countdown are read from.
@@ -1037,7 +1110,7 @@ impl SetFocus {
 
 #[allow(clippy::too_many_arguments)]
 fn view_form(
-    mut field_values: Signal<HashMap<usize, SetFieldValues>>,
+    inputs: SetInputs,
     mut progress: Store<Progress>,
     focus: SetFocus,
     mut edit_dialog: Signal<EditDialog>,
@@ -1051,6 +1124,7 @@ fn view_form(
     expanded_history: Signal<HashSet<usize>>,
     phase_clock: PhaseClock,
 ) -> Element {
+    let mut field_values = inputs.values;
     let sections = training_session.compute_sections();
     let section_element_offsets = sections
         .iter()
@@ -1416,7 +1490,7 @@ fn view_form(
                                                     progress.write().complete(element_idx);
                                                     modify_training_session_elements(&mut training_session, &field_values.read());
                                                     spawn(async move {
-                                                        save(training_session.clone(), cache, || {}).await;
+                                                        save(training_session.clone(), inputs, cache, || {}).await;
                                                     });
                                                 }
                                             }),
@@ -1495,7 +1569,7 @@ fn view_form(
                                                 }
                                                 modify_training_session_elements(&mut training_session, &field_values.read());
                                                 spawn(async move {
-                                                    save(training_session.clone(), cache, || {}).await;
+                                                    save(training_session.clone(), inputs, cache, || {}).await;
                                                 });
                                             } else {
                                                 focus.take_ownership();
@@ -2209,13 +2283,14 @@ fn view_muscles(
 fn view_edit_dialog(
     mut edit_dialog: Signal<EditDialog>,
     exercise_dialog: Signal<page::exercises::ExerciseDialog>,
-    field_values: Signal<HashMap<usize, SetFieldValues>>,
+    inputs: SetInputs,
     drop_set_target: Signal<Option<Vec<Vec<usize>>>>,
     progress: Store<Progress>,
     phase_clock: PhaseClock,
     training_sessions: &[domain::TrainingSession],
     cache: Cache,
 ) -> Element {
+    let field_values = inputs.values;
     let close_dialog = move || {
         *edit_dialog.write() = EditDialog::None;
     };
@@ -2309,7 +2384,7 @@ fn view_edit_dialog(
                                     on_click: eh!(mut training_session; element_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.add_set(element_idx);
-                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                        save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2319,7 +2394,7 @@ fn view_edit_dialog(
                                     on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
-                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                        save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2335,7 +2410,7 @@ fn view_edit_dialog(
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.move_section_up(section_idx);
-                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                        save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2344,7 +2419,7 @@ fn view_edit_dialog(
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.move_section_down(section_idx);
-                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                        save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2361,7 +2436,7 @@ fn view_edit_dialog(
                                     on_click: eh!(mut training_session; section_idx, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.remove_set(section_idx);
-                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                        save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                     })
                                 },
                                 MenuOption {
@@ -2371,7 +2446,7 @@ fn view_edit_dialog(
                                     on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.remove_exercise(section_idx, exercise_id);
-                                        save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                        save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                     })
                                 },
                             },
@@ -2402,7 +2477,7 @@ fn view_edit_dialog(
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
                                     let map = training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
-                                    save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                    save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                 }
                             },
                             on_catalog_click: |_| {}
@@ -2435,7 +2510,7 @@ fn view_edit_dialog(
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
                                     let map = training_session.replace_exercise(section_idx, exercise_id, replacement, cache.laterality(replacement));
-                                    save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                    save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                 }
                             },
                             on_catalog_click: |_| {}
@@ -2461,7 +2536,7 @@ fn view_edit_dialog(
                                     let mut training_session = training_session.clone();
                                     modify_training_session_elements(&mut training_session, &field_values.read());
                                     let map = training_session.append_exercise(exercise_id, cache.laterality(exercise_id));
-                                    save_moved(training_session, map, progress, phase_clock, cache, close_dialog)
+                                    save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
                                 }
                             },
                             on_catalog_click: |_| {}
@@ -2478,7 +2553,7 @@ fn view_edit_dialog(
                 SessionExerciseNotesDialog {
                     training_session: training_session.clone(),
                     exercise_id: *exercise_id,
-                    on_save: move |training_session| save(training_session, cache, close_dialog),
+                    on_save: move |training_session| save(training_session, inputs, cache, close_dialog),
                     on_close: eh!(mut close_dialog; { close_dialog(); }),
                 }
             }
@@ -2896,13 +2971,16 @@ fn modify_training_session_elements(
 
 async fn save(
     training_session: domain::TrainingSession,
+    inputs: SetInputs,
     cache: Cache,
     mut close_dialog: impl FnMut(),
 ) {
     let loading = LoadingFlag::set(&IS_LOADING);
+    let elements = training_session.elements.clone();
     let stored = store(training_session).await;
     drop(loading);
     if stored {
+        inputs.carry_over(elements, None);
         cache.refresh_training_sessions();
     }
     close_dialog();
@@ -2915,11 +2993,14 @@ async fn save_moved(
     map: domain::ElementMap,
     mut progress: Store<Progress>,
     mut phase_clock: PhaseClock,
+    inputs: SetInputs,
     cache: Cache,
     mut close_dialog: impl FnMut(),
 ) {
     let loading = LoadingFlag::set(&IS_LOADING);
+    let elements = training_session.elements.clone();
     if store(training_session).await {
+        inputs.carry_over(elements, Some(&map));
         cache.load_training_sessions().await;
         // Moved before the guide reacts to the reloaded session, as a position past its end would
         // end the ongoing training session.
@@ -4429,6 +4510,58 @@ mod tests {
         );
 
         assert_eq!(training_session.elements, vec![set(1, 0)]);
+    }
+
+    #[test]
+    fn test_rebuilt_set_keeps_invalid_input() {
+        let previous = SetFieldValues {
+            reps: invalid_reps("1000"),
+            ..set_field_values(10)
+        };
+
+        let values = set_field_values(5).with_unstored_inputs_of(&previous);
+
+        assert_eq!(values.reps.input, "1000");
+        assert!(!values.reps.valid());
+        assert!(values.reps.changed());
+    }
+
+    #[test]
+    fn test_rebuilt_set_keeps_unstored_input() {
+        let mut previous = set_field_values(5);
+        previous.reps.input = "10".to_string();
+        previous.reps.validated = Ok(domain::Reps::new(10).unwrap());
+
+        let values = set_field_values(5).with_unstored_inputs_of(&previous);
+
+        assert_eq!(values.reps.validated, Ok(domain::Reps::new(10).unwrap()));
+        assert!(values.reps.changed());
+    }
+
+    #[test]
+    fn test_rebuilt_set_shows_stored_value_instead_of_unchanged_input() {
+        let values = set_field_values(10).with_unstored_inputs_of(&set_field_values(5));
+
+        assert_eq!(values, set_field_values(10));
+    }
+
+    #[test]
+    fn test_rebuilt_set_shows_stored_input() {
+        let mut previous = set_field_values(5);
+        previous.reps.input = "010".to_string();
+        previous.reps.validated = Ok(domain::Reps::new(10).unwrap());
+
+        let values = set_field_values(10).with_unstored_inputs_of(&previous);
+
+        assert_eq!(values, set_field_values(10));
+    }
+
+    fn invalid_reps(input: &str) -> FieldValue<domain::Reps> {
+        FieldValue {
+            input: input.to_string(),
+            validated: domain::Reps::try_from(input).map_err(|err| err.to_string()),
+            orig: String::new(),
+        }
     }
 
     #[test]

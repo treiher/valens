@@ -31,6 +31,9 @@ class ExercisePage(BasePage):
             for row in self.page.get_by_test_id("set-history-sides").locator("tr").all()
         ]
 
+    def click_routine(self, name: str) -> None:
+        self.page.get_by_role("link", name=name, exact=True).click()
+
     def session_exercise_notes(self) -> Locator:
         return self.page.get_by_test_id("session-exercise-notes")
 

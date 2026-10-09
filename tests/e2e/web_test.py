@@ -357,6 +357,10 @@ NARROW_SCREEN_PAGES: list[tuple[str, Callable[[Page], BasePage]]] = [
         "exercise_sessions",
         goto_tab(lambda page: ExercisePage(page, USER.exercises[0].id), "sessions"),
     ),
+    (
+        "exercise_routines",
+        goto_tab(lambda page: ExercisePage(page, USER.exercises[0].id), "routines"),
+    ),
     ("exercise_charts", goto_tab(lambda page: ExercisePage(page, USER.exercises[0].id), "charts")),
     ("catalog", goto_page(lambda page: CatalogPage(page, "Barbell Bench Press"))),
     ("body_weight", goto_page(BodyWeightPage)),
@@ -4096,6 +4100,25 @@ def test_exercise_tabs(page: Page) -> None:
 
     p.expect_tab("charts")
     p.expect_chart_label("Set volume")
+
+
+def test_exercise_routines(page: Page) -> None:
+    routine = USER.routines[0]
+    assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
+    exercise = routine.sections[0].parts[0].exercise
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+    p.select_tab("routines")
+
+    assert [routine.name] in p.table.get_body()
+
+    p.click_routine(routine.name)
+
+    r = RoutinePage(page, routine.id)
+    r.expect_page()
+    r.expect_tab("routine")
 
 
 def test_exercise_delete_workout(page: Page) -> None:

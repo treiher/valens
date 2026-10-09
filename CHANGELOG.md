@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Measurement in the set history and a chart of the measurements
     - Updating of the exercise from the catalog through its options
     - Changing of the properties and the muscles of the exercise by tapping them
+    - Routines containing the exercise on a tab of their own, the archived ones listed separately
 - Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
 
 ### Changed

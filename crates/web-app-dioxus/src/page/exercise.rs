@@ -15,7 +15,7 @@ use crate::{
     settings::Settings,
     ui::element::{
         Caption, CenteredTags, ElementWithDescription, Error, ErrorPage, FloatingActionButton,
-        Loading, LoadingPage, NoData, NoWrap, Tabs,
+        Loading, LoadingPage, NoData, NoWrap, Table, Tabs, Title,
     },
 };
 
@@ -33,6 +33,7 @@ pub fn Exercise(id: domain::ExerciseID, tab: ExerciseTab) -> Element {
             if let Some(exercise) = exercise {
                 let content = match tab {
                     ExerciseTab::Exercise => view_exercise(exercise, exercise_dialog),
+                    ExerciseTab::Routines => view_routines(id, &cache),
                     ExerciseTab::Sessions | ExerciseTab::Charts => view_training_sessions(
                         exercise,
                         exercises,
@@ -45,7 +46,7 @@ pub fn Exercise(id: domain::ExerciseID, tab: ExerciseTab) -> Element {
                 };
                 rsx! {
                     Tabs {
-                        tabs: vec![("Exercise", ExerciseTab::Exercise), ("Sessions", ExerciseTab::Sessions), ("Charts", ExerciseTab::Charts)],
+                        tabs: vec![("Exercise", ExerciseTab::Exercise), ("Routines", ExerciseTab::Routines), ("Sessions", ExerciseTab::Sessions), ("Charts", ExerciseTab::Charts)],
                         selected: tab,
                         on_select: move |tab| {
                             navigator().replace_preserving_scroll(Route::Exercise { id, tab });
@@ -121,6 +122,51 @@ fn view_exercise(
             Some(&on_edit),
         )},
         {view_notes(exercise, exercise_dialog)}
+    }
+}
+
+/// Show the routines containing the exercise, the archived ones separately.
+fn view_routines(id: domain::ExerciseID, cache: &Cache) -> Element {
+    match (&*cache.routines.read(), &*cache.training_sessions.read()) {
+        (CacheState::Ready(routines), CacheState::Ready(training_sessions)) => {
+            let (archived_routines, current_routines): (Vec<_>, Vec<_>) =
+                domain::routines_sorted_by_last_use(routines, training_sessions, |r| {
+                    r.exercises().contains(&id)
+                })
+                .into_iter()
+                .partition(|r| r.archived);
+            let body = |routines: Vec<domain::Routine>| {
+                routines
+                    .into_iter()
+                    .map(|r| {
+                        vec![rsx! {
+                            Link {
+                                to: Route::Routine { id: r.id, tab: RoutineTab::Routine },
+                                "{r.name}"
+                            }
+                        }]
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let current_routines = body(current_routines);
+            let archived_routines = body(archived_routines);
+            if current_routines.is_empty() && archived_routines.is_empty() {
+                return rsx! { NoData {} };
+            }
+            rsx! {
+                if !current_routines.is_empty() {
+                    Table { body: current_routines }
+                }
+                if !archived_routines.is_empty() {
+                    Title { "Archive" }
+                    Table { body: archived_routines }
+                }
+            }
+        }
+        (CacheState::Error(err), _) | (_, CacheState::Error(err)) => {
+            rsx! { Error { message: "{err}" } }
+        }
+        (CacheState::Loading, _) | (_, CacheState::Loading) => rsx! { Loading {} },
     }
 }
 
@@ -798,7 +844,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, all_text_of, attribute_of, contains, provide_settings, render, rows_of, text_of,
+        TestCache, all_text_of, attribute_of, contains, provide_settings, render, rows_of,
+        rows_of_nth, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -986,6 +1033,86 @@ mod tests {
         assert!(contains(&html, "chart"));
         assert!(!contains(&html, "table"));
         assert!(!contains(&html, "muscle-tag"));
+    }
+
+    fn routine(id: u128, name: &str, archived: bool, exercise_id: u128) -> domain::Routine {
+        domain::Routine {
+            id: id.into(),
+            name: domain::Name::new(name).unwrap(),
+            notes: String::new(),
+            archived,
+            sections: vec![domain::RoutinePart::RoutineSection {
+                rounds: domain::Rounds::new(1).unwrap(),
+                parts: vec![domain::RoutinePart::RoutineSection {
+                    rounds: domain::Rounds::new(1).unwrap(),
+                    parts: vec![domain::RoutinePart::RoutineActivity {
+                        exercise_id: exercise_id.into(),
+                        reps: domain::Reps::default(),
+                        tempo: domain::Tempo::default(),
+                        weight: domain::Weight::default(),
+                        rpe: domain::RPE::ZERO,
+                        automatic: false,
+                        sides: domain::Sides::Combined,
+                    }],
+                }],
+            }],
+        }
+    }
+
+    #[test]
+    fn test_the_routines_tab_lists_the_routines_containing_the_exercise() {
+        let html = render_tab(1, ExerciseTab::Routines, || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Squat"), exercise(2, "Bench Press")])
+                .with_routines(vec![
+                    routine(1, "Legs", false, 1),
+                    routine(2, "Push", false, 2),
+                    routine(3, "Retired", true, 1),
+                    routine(4, "Retired Push", true, 2),
+                ])
+        });
+
+        assert_eq!(attribute_of(&html, "tab-routines", "data-selected"), "true");
+        assert_eq!(rows_of(&html, "table"), vec![vec!["Legs"]]);
+        assert_eq!(rows_of_nth(&html, "table", 1), vec![vec!["Retired"]]);
+        assert!(html.contains("Archive"), "{html}");
+        assert!(!contains(&html, "muscle-tag"));
+    }
+
+    #[test]
+    fn test_the_routines_tab_without_archived_routines_shows_no_archive() {
+        let html = render_tab(1, ExerciseTab::Routines, || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Squat")])
+                .with_routines(vec![routine(1, "Legs", false, 1)])
+        });
+
+        assert_eq!(rows_of(&html, "table"), vec![vec!["Legs"]]);
+        assert!(!html.contains("Archive"), "{html}");
+    }
+
+    #[test]
+    fn test_the_routines_tab_with_only_archived_routines_shows_only_the_archive() {
+        let html = render_tab(1, ExerciseTab::Routines, || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Squat")])
+                .with_routines(vec![routine(1, "Retired", true, 1)])
+        });
+
+        assert_eq!(all_text_of(&html, "title"), vec!["Archive"]);
+        assert_eq!(rows_of(&html, "table"), vec![vec!["Retired"]]);
+    }
+
+    #[test]
+    fn test_the_routines_tab_without_routines_containing_the_exercise_reports_no_data() {
+        let html = render_tab(1, ExerciseTab::Routines, || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Squat")])
+                .with_routines(vec![routine(1, "Push", false, 2)])
+        });
+
+        assert_eq!(text_of(&html, "no-data"), "No data");
+        assert!(!contains(&html, "table"));
     }
 
     fn performed_set(side: domain::Side, reps: u32) -> domain::TrainingSessionElement {

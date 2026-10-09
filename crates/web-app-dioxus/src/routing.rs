@@ -221,7 +221,7 @@ page_tabs!(
 
 page_tabs!(
     /// A tab of the exercise page.
-    ExerciseTab { Exercise, Sessions => "sessions", Charts => "charts" }
+    ExerciseTab { Exercise, Routines => "routines", Sessions => "sessions", Charts => "charts" }
 );
 
 pub trait NavigatorScrollExt {

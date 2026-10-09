@@ -138,6 +138,30 @@ class ExercisesPage(BasePage):
             f"from {source}"
         )
 
+    def catalog_choice(self, name: str) -> Locator:
+        return self.dialog.root.get_by_test_id("catalog-choice").filter(has_text=name)
+
+    def expect_catalog_choice(self, name: str) -> None:
+        expect(self.catalog_choice(name)).to_be_visible()
+
+    def expect_no_catalog_choice(self, name: str) -> None:
+        expect(self.catalog_choice(name)).to_have_count(0)
+
+    def open_catalog_picker(self, name: str) -> None:
+        self.catalog_update(name).or_(self.catalog_choice(name)).get_by_test_id(
+            "choose-catalog-exercise"
+        ).click()
+        self.nested_dialog.wait_until_open()
+
+    def expect_catalog_picker_search(self, search_term: str) -> None:
+        expect(self.nested_dialog.root.get_by_test_id("search")).to_have_value(search_term)
+
+    def pick_catalog_exercise(self, name: str) -> None:
+        self.nested_dialog.root.get_by_test_id("catalog-picker-item").filter(
+            has_text=re.compile(f"^{re.escape(name)}$")
+        ).click()
+        expect(self.page.get_by_test_id("dialog")).to_have_count(1)
+
     def toggle_catalog_update(self, name: str) -> None:
         self.catalog_update(name).get_by_test_id("catalog-update-toggle").click()
 
@@ -146,6 +170,3 @@ class ExercisesPage(BasePage):
 
     def confirm_catalog_updates(self) -> None:
         self.nested_dialog.root.get_by_test_id("dialog-yes").click()
-
-    def expect_catalog_update_dialog_closed(self) -> None:
-        expect(self.page.get_by_test_id("dialog")).to_have_count(0)

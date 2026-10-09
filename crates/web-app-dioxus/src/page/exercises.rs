@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE};
 use chrono::Duration;
@@ -673,6 +673,7 @@ pub fn view_dialog(
         ExerciseDialog::Options(exercise) => {
             let exercise = exercise.clone();
             let exercise_name = exercise.name.clone();
+            let exercise_id = exercise.id;
             rsx! {
                 OptionsMenu {
                     options: vec![
@@ -727,6 +728,12 @@ pub fn view_dialog(
                                 })
                             },
                             MenuOption {
+                                icon: "book-open".to_string(),
+                                text: "Update from catalog".to_string(),
+                                "data-testid": "options-update-from-catalog",
+                                on_click: move |_| { *dialog.write() = ExerciseDialog::UpdateFromCatalog(exercise_id); }
+                            },
+                            MenuOption {
                                 icon: "times".to_string(),
                                 text: "Delete exercise".to_string(),
                                 "data-testid": "options-delete",
@@ -761,6 +768,9 @@ pub fn view_dialog(
         },
         ExerciseDialog::ChangeProperties { exercise } => rsx! {
             ExercisePropertiesDialog { exercise: exercise.clone(), on_close: eh!(close_dialog; { close_dialog(); }) }
+        },
+        ExerciseDialog::UpdateFromCatalog(id) => rsx! {
+            CatalogUpdateDialog { exercise: *id, on_close: eh!(close_dialog; { close_dialog(); }) }
         },
         ExerciseDialog::Delete(exercise) => rsx! {
             DeleteConfirmationDialog {
@@ -1375,11 +1385,37 @@ fn view_filter_dialog(
 }
 
 #[component]
-fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
+fn CatalogUpdateDialog(
+    on_close: EventHandler<()>,
+    /// Limits the dialog to a single exercise.
+    #[props(default)]
+    exercise: Option<domain::ExerciseID>,
+) -> Element {
     let cache = consume_context::<Cache>();
     let mode = use_signal(|| domain::CatalogUpdateMode::FillMissing);
+    let mut chosen = use_signal(BTreeMap::<domain::ExerciseID, &'static domain::Name>::new);
     let updates = use_memo(move || match &*cache.exercises.read() {
-        CacheState::Ready(exercises) => domain::catalog_updates(exercises, mode()),
+        CacheState::Ready(exercises) => match exercise {
+            Some(id) => exercises
+                .iter()
+                .filter(|e| e.id == id)
+                .filter_map(|e| domain::catalog_update(e, mode(), chosen.read().get(&id).copied()))
+                .collect(),
+            None => domain::catalog_updates(exercises, mode(), &chosen.read()),
+        },
+        CacheState::Loading | CacheState::Error(_) => vec![],
+    });
+    let exercises_to_choose_for = use_memo(move || match &*cache.exercises.read() {
+        CacheState::Ready(exercises) => match exercise {
+            Some(id) if updates.read().is_empty() => {
+                exercises.iter().filter(|e| e.id == id).cloned().collect()
+            }
+            Some(_) => vec![],
+            None => domain::exercises_to_choose_for(exercises, &chosen.read())
+                .into_iter()
+                .cloned()
+                .collect(),
+        },
         CacheState::Loading | CacheState::Error(_) => vec![],
     });
     let mut selected = use_signal(|| default_selection(&updates.read()));
@@ -1388,6 +1424,7 @@ fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
     let mut confirmation_shown = use_signal(|| false);
     let mut is_updating = use_signal(|| false);
     let mut updated = use_signal(|| 0_usize);
+    let mut picker = use_signal(|| None::<CatalogPicker>);
 
     use_effect(move || {
         let selection = default_selection(&updates.read());
@@ -1403,7 +1440,7 @@ fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
         let exercises = updates
             .read()
             .iter()
-            .filter(|update| selected.read().contains(&update.exercise.id))
+            .filter(|update| is_selected_for_update(update, &selected.read()))
             .map(|update| update.exercise.clone())
             .collect::<Vec<_>>();
         let attempted = exercises.len();
@@ -1425,20 +1462,55 @@ fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
                 err,
             );
         }
-        if updates.read().is_empty() {
+        if !updates
+            .read()
+            .iter()
+            .any(domain::CatalogUpdate::has_changes)
+            && exercises_to_choose_for.read().is_empty()
+        {
             on_close(());
         }
     };
 
-    let rows = updates
+    let choose = move |id: domain::ExerciseID, catalog_name: &'static domain::Name| {
+        chosen.write().insert(id, catalog_name);
+        let has_changes = match &*cache.exercises.read() {
+            CacheState::Ready(exercises) => exercises.iter().any(|exercise| {
+                exercise.id == id
+                    && domain::catalog_update(exercise, mode(), Some(catalog_name))
+                        .is_some_and(|update| update.has_changes())
+            }),
+            CacheState::Loading | CacheState::Error(_) => false,
+        };
+        if has_changes {
+            selected.write().insert(id);
+        } else {
+            selected.write().remove(&id);
+        }
+        picker.set(None);
+    };
+
+    let mut rows = updates
         .read()
         .iter()
-        .map(|update| view_catalog_update(update, selected, touched, is_updating))
+        .map(|update| {
+            (
+                update.exercise.name.clone(),
+                view_catalog_update(update, selected, touched, is_updating, picker),
+            )
+        })
+        .chain(exercises_to_choose_for.read().iter().map(|exercise| {
+            (
+                exercise.name.clone(),
+                view_catalog_choice(exercise, is_updating, picker),
+            )
+        }))
         .collect::<Vec<_>>();
+    rows.sort_by(|(a, _), (b, _)| a.cmp(b));
     let selected_count = updates
         .read()
         .iter()
-        .filter(|update| selected.read().contains(&update.exercise.id))
+        .filter(|update| is_selected_for_update(update, &selected.read()))
         .count();
 
     rsx! {
@@ -1457,7 +1529,7 @@ fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
                     "No exercise can be updated from a catalog exercise with a matching name."
                 }
             } else {
-                for row in rows {
+                for (_, row) in rows {
                     {row}
                 }
                 div {
@@ -1516,6 +1588,106 @@ fn CatalogUpdateDialog(on_close: EventHandler<()>) -> Element {
                     }
                 }
             }
+            if picker.read().is_some() {
+                {view_catalog_picker(picker, choose)}
+            }
+        }
+    }
+}
+
+/// The exercise a catalog exercise is chosen for and the search term of the catalog exercises.
+#[derive(Clone, PartialEq)]
+struct CatalogPicker {
+    exercise: domain::ExerciseID,
+    search_term: String,
+}
+
+impl CatalogPicker {
+    fn new(exercise: domain::ExerciseID, name: &domain::Name) -> Self {
+        Self {
+            exercise,
+            search_term: domain::catalog_search_term(name),
+        }
+    }
+}
+
+fn is_selected_for_update(
+    update: &domain::CatalogUpdate,
+    selected: &HashSet<domain::ExerciseID>,
+) -> bool {
+    update.has_changes() && selected.contains(&update.exercise.id)
+}
+
+fn view_catalog_choice(
+    exercise: &domain::Exercise,
+    is_updating: Signal<bool>,
+    picker: Signal<Option<CatalogPicker>>,
+) -> Element {
+    let name = exercise.name.to_string();
+    rsx! {
+        div {
+            class: "block",
+            "data-testid": "catalog-choice",
+            div {
+                class: "is-flex is-align-items-center",
+                span { class: "icon" }
+                span { class: "has-text-weight-bold", {name} }
+            }
+            div {
+                class: "ml-5",
+                {view_catalog_source(None, exercise, is_updating, picker)}
+            }
+        }
+    }
+}
+
+fn view_catalog_picker(
+    mut picker: Signal<Option<CatalogPicker>>,
+    mut choose: impl FnMut(domain::ExerciseID, &'static domain::Name) + Copy + 'static,
+) -> Element {
+    let Some(CatalogPicker {
+        exercise,
+        search_term,
+    }) = picker.read().clone()
+    else {
+        return rsx! {};
+    };
+    let items = domain::ExerciseFilter {
+        name: search_term.clone(),
+        ..domain::ExerciseFilter::default()
+    }
+    .catalog()
+    .into_keys()
+    .map(|catalog_name| {
+        vec![rsx! {
+            span {
+                class: "has-text-link is-clickable",
+                "data-testid": "catalog-picker-item",
+                onclick: move |_| choose(exercise, catalog_name),
+                "{catalog_name}"
+            }
+        }]
+    })
+    .collect::<Vec<_>>();
+    rsx! {
+        Dialog {
+            title: rsx! { "Choose catalog exercise" },
+            on_close: move |_| picker.set(None),
+            no_horizontal_padding: true,
+            Block {
+                div {
+                    class: "field px-3",
+                    SearchBox {
+                        search_term,
+                        on_input: move |event: FormEvent| {
+                            if let Some(picker) = &mut *picker.write() {
+                                picker.search_term = event.value();
+                            }
+                        }
+                    }
+                }
+            }
+            Table { body: items }
         }
     }
 }
@@ -1562,16 +1734,12 @@ fn view_catalog_update(
     mut selected: Signal<HashSet<domain::ExerciseID>>,
     mut touched: Signal<bool>,
     is_updating: Signal<bool>,
+    picker: Signal<Option<CatalogPicker>>,
 ) -> Element {
     let id = update.exercise.id;
     let name = update.exercise.name.to_string();
-    let is_selected = selected.read().contains(&id);
-    let catalog_name = match update.catalog_match {
-        domain::CatalogMatch::Exact => None,
-        domain::CatalogMatch::Alias | domain::CatalogMatch::Prefix => {
-            Some(update.catalog_name.to_string())
-        }
-    };
+    let has_changes = update.has_changes();
+    let is_selected = is_selected_for_update(update, &selected.read());
     let changes = update
         .changes
         .iter()
@@ -1582,11 +1750,12 @@ fn view_catalog_update(
             class: "block",
             "data-testid": "catalog-update",
             div {
-                class: "is-flex is-align-items-center is-clickable",
+                class: "is-flex is-align-items-center",
+                class: if has_changes { "is-clickable" },
                 "data-testid": "catalog-update-toggle",
                 "data-selected": "{is_selected}",
                 onclick: move |_| {
-                    if !is_updating() {
+                    if has_changes && !is_updating() {
                         touched.set(true);
                         let mut selection = selected.write();
                         if !selection.remove(&id) {
@@ -1602,16 +1771,53 @@ fn view_catalog_update(
             }
             div {
                 class: "ml-5",
-                if let Some(catalog_name) = catalog_name {
+                {view_catalog_source(Some(update.catalog_name), &update.exercise, is_updating, picker)}
+                if has_changes {
+                    for change in changes {
+                        {change}
+                    }
+                } else {
                     div {
-                        class: "is-italic",
-                        "data-testid": "catalog-update-source",
-                        "from {catalog_name}"
+                        class: "has-text-muted",
+                        "data-testid": "catalog-update-no-changes",
+                        "No changes"
                     }
                 }
-                for change in changes {
-                    {change}
+            }
+        }
+    }
+}
+
+/// Show the catalog exercise an exercise is updated from and a button to choose another one.
+fn view_catalog_source(
+    catalog_name: Option<&domain::Name>,
+    exercise: &domain::Exercise,
+    is_updating: Signal<bool>,
+    mut picker: Signal<Option<CatalogPicker>>,
+) -> Element {
+    let id = exercise.id;
+    let name = exercise.name.clone();
+    rsx! {
+        div {
+            class: "is-flex is-align-items-center is-justify-content-space-between",
+            span {
+                class: "is-italic",
+                "data-testid": "catalog-update-source",
+                if let Some(catalog_name) = catalog_name {
+                    "from {catalog_name}"
+                } else {
+                    "No catalog exercise chosen"
                 }
+            }
+            a {
+                class: "has-text-link mx-2",
+                "data-testid": "choose-catalog-exercise",
+                onclick: move |_| {
+                    if !is_updating() {
+                        picker.set(Some(CatalogPicker::new(id, &name)));
+                    }
+                },
+                Icon { name: "right-left", is_small: true }
             }
         }
     }
@@ -1701,6 +1907,7 @@ pub enum ExerciseDialog {
     ChangeProperties {
         exercise: domain::Exercise,
     },
+    UpdateFromCatalog(domain::ExerciseID),
     Delete(domain::Exercise),
 }
 
@@ -2282,6 +2489,164 @@ mod tests {
             attribute_of(&html, "catalog-update-toggle", "data-selected"),
             "true"
         );
+    }
+
+    #[test]
+    fn test_exercises_missing_a_value_without_a_match_can_be_chosen_for() {
+        let html = render_catalog_update_dialog(vec![
+            complete_exercise(1, "Complete Exercise"),
+            exercise(2, "Russian Twist"),
+        ]);
+
+        assert_eq!(
+            all_text_of(&html, "catalog-choice"),
+            vec!["Russian TwistNo catalog exercise chosen"]
+        );
+    }
+
+    #[test]
+    fn test_exercises_to_choose_for_are_listed_with_the_updates_by_name() {
+        let html = render_catalog_update_dialog(vec![
+            exercise(1, "Squat"),
+            exercise(2, "Ab Roll"),
+            exercise(3, "Dip"),
+            exercise(4, "Russian Twist"),
+        ]);
+        let position = |name: &str| html.find(&format!(">{name}<")).unwrap();
+
+        assert!(position("Ab Roll") < position("Dip"));
+        assert!(position("Dip") < position("Russian Twist"));
+        assert!(position("Russian Twist") < position("Squat"));
+        assert!(position("Squat") < html.find("update-from-catalog").unwrap());
+    }
+
+    #[test]
+    fn test_exercises_to_choose_for_without_updates_show_the_update_button() {
+        let html = render_catalog_update_dialog(vec![exercise(1, "Russian Twist")]);
+
+        assert!(!contains(&html, "no-catalog-updates"));
+        assert_eq!(text_of(&html, "update-from-catalog"), "Update 0 exercises");
+    }
+
+    #[test]
+    fn test_no_exercise_to_update_or_choose_for_shows_a_message() {
+        let html = render_catalog_update_dialog(vec![complete_exercise(1, "Russian Twist")]);
+
+        assert!(contains(&html, "no-catalog-updates"));
+        assert!(!contains(&html, "update-from-catalog"));
+    }
+
+    #[test]
+    fn test_a_chosen_catalog_update_shows_its_source_and_is_selected() {
+        let html = render_catalog_update(exercise(1, "Russian Twist"), "Crunch");
+
+        assert_eq!(text_of(&html, "catalog-update-source"), "from Crunch");
+        assert_eq!(
+            attribute_of(&html, "catalog-update-toggle", "data-selected"),
+            "true"
+        );
+        assert!(contains(&html, "catalog-update-change"));
+    }
+
+    #[test]
+    fn test_a_chosen_catalog_update_without_changes_cannot_be_selected() {
+        let crunch = domain::catalog_update(
+            &exercise(1, "Crunch"),
+            domain::CatalogUpdateMode::FillMissing,
+            None,
+        )
+        .unwrap()
+        .exercise;
+        let html = render_catalog_update(crunch, "Crunch");
+
+        assert_eq!(
+            attribute_of(&html, "catalog-update-toggle", "data-selected"),
+            "false"
+        );
+        assert_eq!(text_of(&html, "catalog-update-no-changes"), "No changes");
+        assert!(!contains(&html, "catalog-update-change"));
+    }
+
+    #[test]
+    fn test_the_limited_catalog_update_dialog_lists_a_complete_exercise_matching_by_name() {
+        let dip = domain::catalog_update(
+            &exercise(1, "Dip"),
+            domain::CatalogUpdateMode::FillMissing,
+            None,
+        )
+        .unwrap()
+        .exercise;
+        let html = render(move || {
+            TestCache::default()
+                .with_exercises(vec![dip.clone(), exercise(2, "Squat")])
+                .provide();
+            rsx! { CatalogUpdateDialog { exercise: Some(1.into()), on_close: |()| {} } }
+        });
+
+        assert_eq!(all_text_of(&html, "catalog-update").len(), 1);
+        assert_eq!(text_of(&html, "catalog-update-source"), "from Dip");
+        assert_eq!(text_of(&html, "catalog-update-no-changes"), "No changes");
+        assert!(contains(&html, "choose-catalog-exercise"));
+        assert_eq!(text_of(&html, "update-from-catalog"), "Update 0 exercises");
+        assert!(!contains(&html, "catalog-choice"));
+    }
+
+    #[test]
+    fn test_the_limited_catalog_update_dialog_lists_a_complete_exercise_without_a_match_to_choose_for()
+     {
+        let html = render(move || {
+            TestCache::default()
+                .with_exercises(vec![
+                    complete_exercise(1, "Russian Twist"),
+                    exercise(2, "Ab Wheel"),
+                ])
+                .provide();
+            rsx! { CatalogUpdateDialog { exercise: Some(1.into()), on_close: |()| {} } }
+        });
+
+        assert_eq!(
+            all_text_of(&html, "catalog-choice"),
+            vec!["Russian TwistNo catalog exercise chosen"]
+        );
+    }
+
+    fn complete_exercise(id: u128, name: &str) -> domain::Exercise {
+        domain::Exercise {
+            force: Some(domain::Force::Push),
+            mechanic: Some(domain::Mechanic::Compound),
+            laterality: Some(domain::Laterality::Bilateral),
+            assistance: Some(domain::Assistance::Unassisted),
+            category: Some(domain::Category::Strength),
+            muscles: vec![domain::ExerciseMuscle {
+                muscle_id: domain::MuscleID::Pecs,
+                stimulus: domain::Stimulus::PRIMARY,
+                stretch: domain::Stimulus::NONE,
+            }],
+            ..exercise(id, name)
+        }
+    }
+
+    fn render_catalog_update(exercise: domain::Exercise, catalog_name: &'static str) -> String {
+        render(move || rsx! { ChosenCatalogUpdate { exercise: exercise.clone(), catalog_name } })
+    }
+
+    /// The update of an exercise from a chosen catalog exercise, selected as by default.
+    #[component]
+    fn ChosenCatalogUpdate(exercise: domain::Exercise, catalog_name: &'static str) -> Element {
+        let catalog_name = &domain::catalog::exercise(&domain::Name::new(catalog_name).unwrap())
+            .unwrap()
+            .name;
+        let update = domain::catalog_update(
+            &exercise,
+            domain::CatalogUpdateMode::FillMissing,
+            Some(catalog_name),
+        )
+        .unwrap();
+        let selected = use_signal(|| default_selection(std::slice::from_ref(&update)));
+        let touched = use_signal(|| false);
+        let is_updating = use_signal(|| false);
+        let picker = use_signal(|| None);
+        view_catalog_update(&update, selected, touched, is_updating, picker)
     }
 
     #[rstest::rstest]

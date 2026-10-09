@@ -3746,7 +3746,8 @@ def test_exercises_update_from_catalog(page: Page) -> None:
     p.expect_catalog_updates(variation)
     p.toggle_catalog_update(variation)
     p.apply_catalog_updates()
-    p.expect_catalog_update_dialog_closed()
+    p.expect_catalog_updates()
+    p.dialog.close()
 
     exercise_page = ExercisePage(page)
 
@@ -3772,13 +3773,118 @@ def test_exercises_update_from_catalog(page: Page) -> None:
     p.toggle_catalog_update(variation)
     p.apply_catalog_updates()
     p.confirm_catalog_updates()
-    p.expect_catalog_update_dialog_closed()
+    p.expect_catalog_updates()
+    p.dialog.close()
 
     p.search(variation)
     p.open_exercise(variation)
     exercise_page.expect_page()
 
     assert exercise_page.get_properties() == properties
+
+
+def test_exercises_update_from_chosen_catalog_exercise(page: Page) -> None:
+    name = "Weighted Chin-Up"
+    catalog_name = "Chin Up"
+
+    login(page)
+    catalog_page = CatalogPage(page, catalog_name)
+    catalog_page.goto()
+    properties = catalog_page.get_properties()
+    muscles = catalog_page.get_muscles()
+
+    assert properties
+    assert muscles
+
+    p = ExercisesPage(page)
+    p.goto()
+    p.add_exercise(name)
+
+    p.open_catalog_update()
+    p.expect_catalog_choice(name)
+    p.open_catalog_picker(name)
+    p.expect_catalog_picker_search(catalog_name)
+    p.pick_catalog_exercise(catalog_name)
+    p.expect_no_catalog_choice(name)
+    p.expect_catalog_updates(name)
+    p.expect_catalog_update_source(name, catalog_name)
+    p.expect_catalog_update_selected(name, selected=True)
+    p.apply_catalog_updates()
+    p.expect_catalog_update_selected(name, selected=False)
+    p.dialog.close()
+
+    p.search(name)
+    p.open_exercise(name)
+
+    exercise_page = ExercisePage(page)
+    exercise_page.expect_page()
+
+    assert exercise_page.get_properties() == properties
+    assert exercise_page.get_muscles() == muscles
+
+
+def test_exercises_choosing_a_catalog_exercise_selects_the_update(page: Page) -> None:
+    name = "Dip"
+    variation = "Dip (weighted)"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+    p.add_exercise(name)
+    p.add_exercise(variation)
+
+    p.open_catalog_update()
+    p.toggle_catalog_update(name)
+    p.expect_catalog_update_selected(name, selected=False)
+    p.expect_catalog_update_selected(variation, selected=False)
+    p.open_catalog_picker(variation)
+    p.pick_catalog_exercise("Ring Dip")
+    p.expect_catalog_update_source(variation, "Ring Dip")
+    p.expect_catalog_update_selected(variation, selected=True)
+    p.expect_catalog_update_selected(name, selected=False)
+
+
+def test_exercises_update_from_catalog_keeps_exercises_to_choose_for(page: Page) -> None:
+    name = "Dip"
+    unmatched = "Weighted Chin-Up"
+
+    login(page)
+    p = ExercisesPage(page)
+    p.goto()
+    p.add_exercise(name)
+    p.add_exercise(unmatched)
+
+    p.open_catalog_update()
+    p.expect_catalog_updates(name)
+    p.expect_catalog_choice(unmatched)
+    p.apply_catalog_updates()
+    p.expect_catalog_updates()
+    p.expect_catalog_choice(unmatched)
+
+
+def test_exercise_update_from_catalog_through_options(page: Page) -> None:
+    name = "Dip"
+
+    login(page)
+    catalog_page = CatalogPage(page, name)
+    catalog_page.goto()
+    properties = catalog_page.get_properties()
+    muscles = catalog_page.get_muscles()
+
+    p = ExercisesPage(page)
+    p.goto()
+    p.add_exercise(name)
+    p.search(name)
+    p.open_exercise(name)
+
+    exercise_page = ExercisePage(page)
+    exercise_page.expect_page()
+    exercise_page.open_catalog_update()
+    exercise_page.apply_catalog_updates()
+    exercise_page.expect_catalog_update_dialog_closed()
+
+    assert exercise_page.get_properties() == properties
+    assert exercise_page.get_muscles() == muscles
 
 
 def test_exercises_filter_by_property(page: Page) -> None:

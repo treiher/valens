@@ -21,10 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Pause before the second set of a pair
     - Stretch sets and time under stretch per muscle
     - Measurement of an exercise, per side for an exercise performed per side
+    - Updating of an exercise from the catalog through its options in the exercise list
 - Routine page:
     - Sides of an activity, which prescribe a unilateral exercise per side
     - Stretch sets and time under stretch per muscle
     - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
+    - Updating of an exercise from the catalog through its options in the exercise list
 - Exercises page:
     - Stretched muscles of an exercise, edited next to the worked muscles
     - Filtering of exercises by their stretched muscles
@@ -34,11 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Front, overhead and Zercher squats, close-grip bench press, sumo and trap bar deadlifts, barbell and one-arm dumbbell rows, triceps pushdowns, front raises, upright rows, reverse lunge, archer, diamond and pike push ups, chin up, straight-arm pulldown, sit up, reverse and bicycle crunches, hollow body hold, L-sit, Copenhagen plank, Pallof presses, wall sit and farmer's walks of the catalog
     - Updating of custom exercises from catalog exercises known under another name, such as the bench press, or spelled with hyphens, such as the pull-up
     - Finding of catalog exercises by another name, such as the overhead press
+    - Choosing of the catalog exercise a custom exercise is updated from, also for exercises whose name matches no catalog exercise
+    - Updating of an exercise from the catalog through its options
 - Exercise page:
     - Left and right column in the set history, showing the two sets of a pair side by side
     - Stretched muscles of the exercise, shown in a row of their own
     - Stretch sets of an exercise that only stretches, replacing its volume metrics, with the time of its sets shown even if the time under tension is hidden
     - Measurement in the set history and a chart of the measurements
+    - Updating of the exercise from the catalog through its options
 - Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
 
 ### Changed

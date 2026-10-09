@@ -18,7 +18,8 @@ pub use exercise::{
     ExerciseProperties, ExerciseProperty, ExerciseRepository, ExerciseService, Force, ForceError,
     Laterality, LateralityError, Mechanic, MechanicError, MuscleID, MuscleIDError, Property,
     PropertyChange, PropertyValue, Stimulus, StimulusError, StimulusLevel, StretchOnlyExercises,
-    catalog_update, catalog_updates, name_or_none, validate_exercise_name,
+    catalog_search_term, catalog_update, catalog_updates, exercises_to_choose_for, name_or_none,
+    validate_exercise_name,
 };
 pub use ffmi::ffmi;
 pub use name::{Name, NameError};

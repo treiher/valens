@@ -118,6 +118,22 @@ impl Exercise {
             .collect()
     }
 
+    /// Whether a property other than the equipment is unset or no muscle is worked or stretched.
+    ///
+    /// No equipment is a valid value of a bodyweight exercise.
+    #[must_use]
+    pub fn misses_value(&self) -> bool {
+        self.force.is_none()
+            || self.mechanic.is_none()
+            || self.laterality.is_none()
+            || self.assistance.is_none()
+            || self.category.is_none()
+            || self
+                .muscles
+                .iter()
+                .all(|m| m.stimulus == Stimulus::NONE && m.stretch == Stimulus::NONE)
+    }
+
     /// Whether the exercise stretches at least one muscle and works none.
     #[must_use]
     pub fn is_stretch_only(&self) -> bool {
@@ -255,7 +271,7 @@ fn merge_muscles(
     muscles.into_values().collect()
 }
 
-/// How the name of an exercise matched the name of a catalog exercise.
+/// How the catalog exercise of an update was determined.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CatalogMatch {
     Exact,
@@ -263,6 +279,8 @@ pub enum CatalogMatch {
     Alias,
     /// The name starts with the name or an alias of the catalog exercise, followed by a space.
     Prefix,
+    /// The catalog exercise was chosen explicitly instead of matched by name.
+    Chosen,
 }
 
 /// Which values of an exercise an update from the catalog writes.
@@ -294,7 +312,7 @@ pub struct PropertyChange {
     pub after: Vec<PropertyValue>,
 }
 
-/// An exercise updated from the catalog exercise its name matched.
+/// An exercise updated from a catalog exercise.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CatalogUpdate {
     pub exercise: Exercise,
@@ -308,37 +326,56 @@ impl CatalogUpdate {
     /// of the name.
     #[must_use]
     pub fn is_preselected(&self) -> bool {
-        matches!(
-            self.catalog_match,
-            CatalogMatch::Exact | CatalogMatch::Alias
-        )
+        self.has_changes()
+            && matches!(
+                self.catalog_match,
+                CatalogMatch::Exact | CatalogMatch::Alias | CatalogMatch::Chosen
+            )
+    }
+
+    #[must_use]
+    pub fn has_changes(&self) -> bool {
+        !self.changes.is_empty()
     }
 }
 
 /// Determine the updates from the catalog for all given exercises, sorted by exercise name.
+///
+/// The catalog exercise chosen for an exercise replaces the catalog exercise its name matches. An
+/// update without changes is only kept if its catalog exercise was chosen.
 #[must_use]
-pub fn catalog_updates(exercises: &[Exercise], mode: CatalogUpdateMode) -> Vec<CatalogUpdate> {
+pub fn catalog_updates(
+    exercises: &[Exercise],
+    mode: CatalogUpdateMode,
+    chosen: &BTreeMap<ExerciseID, &'static Name>,
+) -> Vec<CatalogUpdate> {
     let mut updates = exercises
         .iter()
-        .filter_map(|exercise| catalog_update(exercise, mode))
+        .filter_map(|exercise| catalog_update(exercise, mode, chosen.get(&exercise.id).copied()))
+        .filter(|update| update.catalog_match == CatalogMatch::Chosen || update.has_changes())
         .collect::<Vec<_>>();
     updates.sort_by(|a, b| a.exercise.name.cmp(&b.exercise.name));
     updates
 }
 
-/// Determine the update from the catalog for an exercise.
+/// Determine the update of an exercise from the chosen catalog exercise, or otherwise from the
+/// catalog exercise its name matches.
 ///
-/// Returns `None` if the name of the exercise matches no catalog exercise or if the update would
-/// change nothing.
+/// Returns `None` if no catalog exercise is chosen and the name of the exercise matches none.
 #[must_use]
-pub fn catalog_update(exercise: &Exercise, mode: CatalogUpdateMode) -> Option<CatalogUpdate> {
-    let (catalog_name, catalog_exercise, catalog_match) = match_catalog(&exercise.name)?;
+pub fn catalog_update(
+    exercise: &Exercise,
+    mode: CatalogUpdateMode,
+    chosen: Option<&'static Name>,
+) -> Option<CatalogUpdate> {
+    let (catalog_name, catalog_exercise, catalog_match) = match chosen
+        .and_then(|name| catalog::exercise(name).map(|e| (name, e, CatalogMatch::Chosen)))
+    {
+        Some(chosen) => chosen,
+        None => match_catalog(&exercise.name)?,
+    };
     let updated_exercise = updated_exercise(exercise, catalog_exercise, mode);
     let changes = changes(exercise, &updated_exercise);
-
-    if changes.is_empty() {
-        return None;
-    }
 
     Some(CatalogUpdate {
         exercise: updated_exercise,
@@ -348,29 +385,66 @@ pub fn catalog_update(exercise: &Exercise, mode: CatalogUpdateMode) -> Option<Ca
     })
 }
 
+/// Determine the exercises whose name matches no catalog exercise, for which no catalog exercise
+/// is chosen and which miss a value, sorted by name.
+#[must_use]
+pub fn exercises_to_choose_for<'a>(
+    exercises: &'a [Exercise],
+    chosen: &BTreeMap<ExerciseID, &'static Name>,
+) -> Vec<&'a Exercise> {
+    let mut exercises = exercises
+        .iter()
+        .filter(|exercise| {
+            !chosen.contains_key(&exercise.id)
+                && match_catalog(&exercise.name).is_none()
+                && exercise.misses_value()
+        })
+        .collect::<Vec<_>>();
+    exercises.sort_by(|a, b| a.name.cmp(&b.name));
+    exercises
+}
+
+/// Determine a search term for catalog exercises similar to an exercise of the given name.
+///
+/// This is the longest catalog name or alias the name ends with, following a space, or otherwise
+/// the catalog name or alias the name matches, each spelled as in the catalog.
+#[must_use]
+pub fn catalog_search_term(name: &Name) -> String {
+    let name = normalized_name(name.as_ref());
+    CATALOG_NAMES
+        .iter()
+        .filter(|candidate| {
+            name.strip_suffix(candidate.name.as_str())
+                .is_some_and(|rest| rest.ends_with(' '))
+        })
+        .max_by_key(|candidate| candidate.name.len())
+        .or_else(|| best_match(&name, &CATALOG_NAMES).map(|(candidate, _)| candidate))
+        .map(|candidate| candidate.spelling.to_string())
+        .unwrap_or_default()
+}
+
 /// Find the catalog exercise a name matches.
 fn match_catalog(name: &Name) -> Option<(&'static Name, &'static catalog::Exercise, CatalogMatch)> {
-    best_match(&normalized_name(name.as_ref()), &CATALOG_NAMES).map(
-        |((catalog_name, catalog_exercise), catalog_match)| {
-            (catalog_name, catalog_exercise, catalog_match)
-        },
-    )
+    best_match(&normalized_name(name.as_ref()), &CATALOG_NAMES).map(|(candidate, catalog_match)| {
+        let (catalog_name, catalog_exercise) = candidate.entry;
+        (catalog_name, catalog_exercise, catalog_match)
+    })
 }
 
 /// Find the best match of a normalized name among candidates of normalized names or aliases.
 ///
 /// An exact name or alias is preferred over the longest name or alias the name starts with,
 /// followed by a space.
-fn best_match<T: Copy>(
+fn best_match<'a, T>(
     name: &str,
-    candidates: &[CatalogCandidate<T>],
-) -> Option<(T, CatalogMatch)> {
-    let mut prefix_match: Option<(usize, T)> = None;
+    candidates: &'a [CatalogCandidate<T>],
+) -> Option<(&'a CatalogCandidate<T>, CatalogMatch)> {
+    let mut prefix_match: Option<&CatalogCandidate<T>> = None;
 
     for candidate in candidates {
         if name == candidate.name {
             return Some((
-                candidate.entry,
+                candidate,
                 if candidate.is_alias {
                     CatalogMatch::Alias
                 } else {
@@ -382,18 +456,19 @@ fn best_match<T: Copy>(
         if name
             .strip_prefix(candidate.name.as_str())
             .is_some_and(|rest| rest.starts_with(' '))
-            && prefix_match.is_none_or(|(len, _)| len < candidate.name.len())
+            && prefix_match.is_none_or(|best| best.name.len() < candidate.name.len())
         {
-            prefix_match = Some((candidate.name.len(), candidate.entry));
+            prefix_match = Some(candidate);
         }
     }
 
-    prefix_match.map(|(_, entry)| (entry, CatalogMatch::Prefix))
+    prefix_match.map(|candidate| (candidate, CatalogMatch::Prefix))
 }
 
-/// A normalized name or alias of a catalog exercise.
+/// A name or alias of a catalog exercise.
 struct CatalogCandidate<T> {
     name: String,
+    spelling: &'static str,
     is_alias: bool,
     entry: T,
 }
@@ -408,11 +483,13 @@ static CATALOG_NAMES: LazyLock<Vec<CatalogCandidate<CatalogEntry>>> = LazyLock::
         .flat_map(|(name, exercise)| {
             std::iter::once(CatalogCandidate {
                 name: normalized_name(name.as_ref()),
+                spelling: name.as_ref().as_str(),
                 is_alias: false,
                 entry: (name, exercise),
             })
             .chain(exercise.aliases.iter().map(move |alias| CatalogCandidate {
                 name: normalized_name(alias),
+                spelling: alias,
                 is_alias: true,
                 entry: (name, exercise),
             }))
@@ -1758,7 +1835,11 @@ mod tests {
         #[case] name: &str,
         #[case] expected: Option<(&str, CatalogMatch)>,
     ) {
-        let update = catalog_update(&exercise(1, name, vec![]), CatalogUpdateMode::FillMissing);
+        let update = catalog_update(
+            &exercise(1, name, vec![]),
+            CatalogUpdateMode::FillMissing,
+            None,
+        );
 
         assert_eq!(
             update
@@ -1773,8 +1854,12 @@ mod tests {
     #[case("Bench Press", true)]
     #[case("Dip (weighted)", false)]
     fn test_catalog_update_is_preselected(#[case] name: &str, #[case] expected: bool) {
-        let update =
-            catalog_update(&exercise(1, name, vec![]), CatalogUpdateMode::FillMissing).unwrap();
+        let update = catalog_update(
+            &exercise(1, name, vec![]),
+            CatalogUpdateMode::FillMissing,
+            None,
+        )
+        .unwrap();
 
         assert_eq!(update.is_preselected(), expected);
     }
@@ -1793,26 +1878,38 @@ mod tests {
             candidate("c d", true, "X"),
         ];
 
-        assert_eq!(best_match(name, &candidates), expected);
+        assert_eq!(
+            best_match(name, &candidates)
+                .map(|(candidate, catalog_match)| (candidate.entry, catalog_match)),
+            expected
+        );
     }
 
     fn candidate(
-        name: &str,
+        name: &'static str,
         is_alias: bool,
         entry: &'static str,
     ) -> CatalogCandidate<&'static str> {
         CatalogCandidate {
             name: name.to_string(),
+            spelling: name,
             is_alias,
             entry,
         }
+    }
+
+    fn catalog_name(name: &str) -> &'static Name {
+        catalog::EXERCISES
+            .get_key_value(&Name::new(name).unwrap())
+            .unwrap()
+            .0
     }
 
     #[rstest]
     #[case(CatalogUpdateMode::FillMissing)]
     #[case(CatalogUpdateMode::ReplaceAll)]
     fn test_catalog_update_of_exercise_without_properties(#[case] mode: CatalogUpdateMode) {
-        let update = catalog_update(&exercise(1, "Dip", vec![]), mode).unwrap();
+        let update = catalog_update(&exercise(1, "Dip", vec![]), mode, None).unwrap();
 
         assert_eq!(update.exercise, catalog_exercise("Dip", 1));
         assert_eq!(
@@ -1884,7 +1981,7 @@ mod tests {
             )
         };
 
-        let update = catalog_update(&exercise, CatalogUpdateMode::FillMissing).unwrap();
+        let update = catalog_update(&exercise, CatalogUpdateMode::FillMissing, None).unwrap();
 
         assert_eq!(
             update.exercise,
@@ -1929,12 +2026,14 @@ mod tests {
         let only_worked = catalog_update(
             &exercise(1, name, vec![worked.clone()]),
             CatalogUpdateMode::FillMissing,
+            None,
         )
         .unwrap()
         .exercise;
         let only_stretched = catalog_update(
             &exercise(1, name, vec![stretched.clone()]),
             CatalogUpdateMode::FillMissing,
+            None,
         )
         .unwrap()
         .exercise;
@@ -1958,7 +2057,7 @@ mod tests {
             ..catalog_exercise("Squat", 1)
         };
 
-        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll, None).unwrap();
 
         assert_eq!(update.exercise, catalog_exercise("Squat", 1));
         assert_eq!(
@@ -1973,15 +2072,15 @@ mod tests {
     }
 
     #[test]
-    fn test_catalog_update_ignores_order_of_equipment() {
+    fn test_catalog_updates_ignore_order_of_equipment() {
         let exercise = Exercise {
             equipment: vec![Equipment::ParallelBars, Equipment::ResistanceBand],
             ..catalog_exercise("Band-Assisted Dip", 1)
         };
 
         assert_eq!(
-            catalog_update(&exercise, CatalogUpdateMode::ReplaceAll),
-            None
+            catalog_updates(&[exercise], CatalogUpdateMode::ReplaceAll, &BTreeMap::new()),
+            vec![]
         );
     }
 
@@ -1990,7 +2089,7 @@ mod tests {
         let mut exercise = catalog_exercise("Dip", 1);
         exercise.muscles[0].stimulus = Stimulus::SECONDARY;
 
-        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll, None).unwrap();
 
         assert_eq!(update.exercise, catalog_exercise("Dip", 1));
         assert_eq!(
@@ -2020,7 +2119,7 @@ mod tests {
             .muscles
             .push(muscle(MuscleID::Biceps, Stimulus::NONE, Stimulus::PRIMARY));
 
-        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll, None).unwrap();
 
         assert_eq!(update.exercise, catalog_exercise("Dip", 1));
         assert_eq!(
@@ -2046,7 +2145,7 @@ mod tests {
         let mut exercise = catalog_exercise("Dip", 1);
         exercise.muscles[0] = muscle(MuscleID::Pecs, Stimulus::SECONDARY, Stimulus::PRIMARY);
 
-        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll).unwrap();
+        let update = catalog_update(&exercise, CatalogUpdateMode::ReplaceAll, None).unwrap();
 
         assert_eq!(
             update
@@ -2064,8 +2163,126 @@ mod tests {
     #[rstest]
     #[case(CatalogUpdateMode::FillMissing)]
     #[case(CatalogUpdateMode::ReplaceAll)]
-    fn test_catalog_update_of_unchanged_exercise(#[case] mode: CatalogUpdateMode) {
-        assert_eq!(catalog_update(&catalog_exercise("Dip", 1), mode), None);
+    fn test_catalog_updates_of_unchanged_exercise(#[case] mode: CatalogUpdateMode) {
+        assert_eq!(
+            catalog_updates(&[catalog_exercise("Dip", 1)], mode, &BTreeMap::new()),
+            vec![]
+        );
+    }
+
+    #[rstest]
+    #[case(CatalogUpdateMode::FillMissing)]
+    #[case(CatalogUpdateMode::ReplaceAll)]
+    fn test_catalog_update_of_unchanged_exercise_matching_by_name(#[case] mode: CatalogUpdateMode) {
+        let update = catalog_update(&catalog_exercise("Dip", 1), mode, None).unwrap();
+
+        assert_eq!(update.catalog_match, CatalogMatch::Exact);
+        assert!(!update.has_changes());
+        assert!(!update.is_preselected());
+    }
+
+    #[test]
+    fn test_catalog_update_without_match_or_choice() {
+        assert_eq!(
+            catalog_update(
+                &exercise(1, "Russian Twist", vec![]),
+                CatalogUpdateMode::FillMissing,
+                None
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn test_catalog_updates_choice_replaces_match_by_name() {
+        let updates = catalog_updates(
+            &[exercise(1, "Squat", vec![])],
+            CatalogUpdateMode::FillMissing,
+            &BTreeMap::from([(1.into(), catalog_name("Barbell Squat"))]),
+        );
+
+        assert_eq!(
+            updates
+                .iter()
+                .map(|update| (
+                    update.catalog_name.as_ref().as_str(),
+                    update.catalog_match,
+                    update.is_preselected()
+                ))
+                .collect::<Vec<_>>(),
+            vec![("Barbell Squat", CatalogMatch::Chosen, true)]
+        );
+        assert_eq!(updates[0].exercise.equipment, vec![Equipment::Barbell]);
+    }
+
+    #[test]
+    fn test_catalog_updates_keep_chosen_update_without_changes() {
+        let updates = catalog_updates(
+            &[catalog_exercise("Dip", 1)],
+            CatalogUpdateMode::ReplaceAll,
+            &BTreeMap::from([(1.into(), catalog_name("Dip"))]),
+        );
+
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].catalog_match, CatalogMatch::Chosen);
+        assert!(!updates[0].has_changes());
+        assert!(!updates[0].is_preselected());
+    }
+
+    #[test]
+    fn test_exercises_to_choose_for() {
+        let complete = Exercise {
+            name: Name::new("Complete").unwrap(),
+            ..catalog_exercise("Dip", 1)
+        };
+        let without_equipment = Exercise {
+            name: Name::new("Without Equipment").unwrap(),
+            equipment: vec![],
+            ..catalog_exercise("Dip", 2)
+        };
+        let without_muscles = Exercise {
+            name: Name::new("Without Muscles").unwrap(),
+            muscles: vec![],
+            ..catalog_exercise("Dip", 3)
+        };
+        let without_force = Exercise {
+            name: Name::new("Without Force").unwrap(),
+            force: None,
+            ..catalog_exercise("Dip", 4)
+        };
+        let chosen = exercise(5, "Chosen", vec![]);
+        let matching = exercise(6, "Squat", vec![]);
+        let exercises = [
+            without_muscles.clone(),
+            complete,
+            without_equipment,
+            without_force.clone(),
+            chosen,
+            matching,
+        ];
+
+        assert_eq!(
+            exercises_to_choose_for(
+                &exercises,
+                &BTreeMap::from([(5.into(), catalog_name("Dip"))])
+            ),
+            vec![&without_force, &without_muscles]
+        );
+    }
+
+    #[rstest]
+    #[case::ending_in_name("Front Squat", "Squat")]
+    #[case::ending_in_longest_name("Paused Barbell Squat", "Barbell Squat")]
+    #[case::ending_in_alias("Paused Bench Press", "Bench Press")]
+    #[case::exact_name("Squat", "Squat")]
+    #[case::prefix("Dip (weighted)", "Dip")]
+    #[case::hyphen("Weighted Chin-Up", "Chin Up")]
+    #[case::none("Russian Twist", "")]
+    fn test_catalog_search_term(#[case] exercise_name: &str, #[case] expected: &str) {
+        assert_eq!(
+            catalog_search_term(&Name::new(exercise_name).unwrap()),
+            expected
+        );
     }
 
     #[test]
@@ -2077,6 +2294,7 @@ mod tests {
                 exercise(3, "Lunge", vec![]),
             ],
             CatalogUpdateMode::FillMissing,
+            &BTreeMap::new(),
         );
 
         assert_eq!(

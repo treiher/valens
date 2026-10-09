@@ -97,6 +97,18 @@ class ExercisePage(BasePage):
         self.dialog.save()
         self.wait_until_idle()
 
+    def open_catalog_update(self) -> None:
+        self.fab().click()
+        self.page.get_by_test_id("options-menu").wait_for(state="visible")
+        self.page.get_by_test_id("options-update-from-catalog").click()
+        self.dialog.wait_until_open()
+
+    def apply_catalog_updates(self) -> None:
+        self.dialog.root.get_by_test_id("update-from-catalog").click()
+
+    def expect_catalog_update_dialog_closed(self) -> None:
+        expect(self.page.get_by_test_id("dialog")).to_have_count(0)
+
     def _open_properties_dialog(self) -> None:
         self.fab().click()
         self.page.get_by_test_id("options-menu").wait_for(state="visible")

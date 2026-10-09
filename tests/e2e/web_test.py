@@ -1560,6 +1560,52 @@ def test_training_session_measurement_keeps_unsaved_set_values(page: Page) -> No
     assert p.get_session_exercise_measurement() == "12.5"
 
 
+def test_training_session_save_keeps_invalid_set_values(page: Page) -> None:
+    workout = USER.workouts[-3]
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    stored_values = p.get_form()[0]
+    p.set_form_text(0, ("8.5",))
+    p.set_form_text(1, ("10",))
+    p.save()
+
+    assert p.get_form_text(0)[0] == "8.5"
+    p.expect_form_error("Reps must be an integer")
+
+    p.goto()
+    p.edit()
+
+    assert p.get_form()[0] == stored_values
+    assert p.get_form()[1][0] == 10
+
+
+def test_training_session_removing_exercise_keeps_invalid_set_values(page: Page) -> None:
+    workout = USER.workouts[-3]
+
+    login(page)
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.edit()
+
+    rows = p.count_form_rows()
+    stored_values = p.get_form()[3]
+    p.set_form_text(3, ("8.5",))
+    p.remove_exercise(0)
+
+    assert p.count_form_rows() == rows - 1
+    assert p.get_form_text(2)[0] == "8.5"
+    p.expect_form_error("Reps must be an integer")
+
+    p.goto()
+    p.edit()
+
+    assert p.get_form()[2] == stored_values
+
+
 def test_training_session_measurement_per_side(page: Page) -> None:
     workout = USER.workouts[0]
 

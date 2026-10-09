@@ -136,6 +136,9 @@ class TrainingSessionPage(BasePage):
         for inp, val in zip(self._form_inputs(index), values, strict=False):
             inp.fill(val)
 
+    def expect_form_error(self, error: str) -> None:
+        expect(self.page.get_by_text(error)).to_be_visible()
+
     def _form_inputs(self, index: int) -> list[Locator]:
         return [
             inputs_in_row

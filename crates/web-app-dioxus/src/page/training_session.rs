@@ -2941,6 +2941,8 @@ fn exercise_marker(number: u32) -> String {
     .unwrap_or_else(|| format!("({})", number + 1))
 }
 
+/// Writes the entered set values into the training session, leaving the stored value of an
+/// invalid input in place.
 fn modify_training_session_elements(
     training_session: &mut domain::TrainingSession,
     field_values: &HashMap<usize, SetFieldValues>,
@@ -2956,16 +2958,18 @@ fn modify_training_session_elements(
         } = element
             && let Some(set_field_values) = field_values.get(&element_idx)
         {
-            *side = set_field_values.side.validated.clone().unwrap_or_default();
-            *reps = set_field_values.reps.validated.clone().unwrap_or_default();
-            *time = set_field_values.time.validated.clone().unwrap_or_default();
-            *weight = set_field_values
-                .weight
-                .validated
-                .clone()
-                .unwrap_or_default();
-            *rpe = set_field_values.rpe.validated.clone().unwrap_or_default();
+            store_valid_input(side, &set_field_values.side);
+            store_valid_input(reps, &set_field_values.reps);
+            store_valid_input(time, &set_field_values.time);
+            store_valid_input(weight, &set_field_values.weight);
+            store_valid_input(rpe, &set_field_values.rpe);
         }
+    }
+}
+
+fn store_valid_input<T: Clone>(value: &mut T, field: &FieldValue<T>) {
+    if let Ok(input) = &field.validated {
+        value.clone_from(input);
     }
 }
 
@@ -4497,10 +4501,10 @@ mod tests {
     }
 
     #[test]
-    fn test_modify_training_session_elements_resets_invalid_values() {
+    fn test_modify_training_session_elements_keeps_stored_value_of_invalid_input() {
         let mut training_session = training_session(vec![set(1, 5)]);
         let field_values = SetFieldValues {
-            reps: FieldValue::default(),
+            reps: invalid_reps("1000"),
             ..set_field_values(10)
         };
 
@@ -4509,7 +4513,7 @@ mod tests {
             &HashMap::from([(0, field_values)]),
         );
 
-        assert_eq!(training_session.elements, vec![set(1, 0)]);
+        assert_eq!(training_session.elements, vec![set(1, 5)]);
     }
 
     #[test]

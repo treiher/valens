@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, collections::BTreeMap};
+use std::{borrow::Borrow, collections::BTreeMap, rc::Rc};
 
 use chrono::NaiveDate;
 use dioxus::prelude::*;
@@ -14,8 +14,8 @@ use crate::{
     routing::{ExerciseTab, NavigatorScrollExt, RoutineTab},
     settings::Settings,
     ui::element::{
-        Block, Caption, CenteredBlock, CenteredTags, ElementWithDescription, Error, ErrorPage,
-        FloatingActionButton, Loading, LoadingPage, NoData, NoWrap, Tabs,
+        Caption, CenteredTags, ElementWithDescription, Error, ErrorPage, FloatingActionButton,
+        Loading, LoadingPage, NoData, NoWrap, Tabs,
     },
 };
 
@@ -79,7 +79,7 @@ pub fn Exercise(id: domain::ExerciseID, tab: ExerciseTab) -> Element {
 /// Show the properties, the muscles and the notes of the exercise.
 fn view_exercise(
     exercise: &domain::Exercise,
-    exercise_dialog: Signal<page::exercises::ExerciseDialog>,
+    mut exercise_dialog: Signal<page::exercises::ExerciseDialog>,
 ) -> Element {
     let muscles = exercise.muscle_stimulus().into_iter().collect::<Vec<_>>();
     let stretch = exercise.muscle_stretch().into_iter().collect::<Vec<_>>();
@@ -91,8 +91,23 @@ fn view_exercise(
         || !exercise.equipment.is_empty();
     let has_muscles = !muscles.is_empty() || !stretch.is_empty();
     if !has_properties && !has_muscles && exercise.notes.is_empty() {
-        return rsx! { NoData {} };
+        return rsx! {
+            div {
+                class: "is-clickable",
+                onclick: eh!(exercise; {
+                    *exercise_dialog.write() = page::exercises::ExerciseDialog::ChangeProperties {
+                        exercise: exercise.clone(),
+                    };
+                }),
+                NoData {}
+            }
+        };
     }
+    let on_edit: Rc<dyn Fn(MouseEvent)> = Rc::new(eh!(mut exercise_dialog; exercise; {
+        *exercise_dialog.write() = page::exercises::ExerciseDialog::ChangeProperties {
+            exercise: exercise.clone(),
+        };
+    }));
     rsx! {
         {view_exercise_properties(
             exercise.force,
@@ -103,6 +118,7 @@ fn view_exercise(
             &muscles,
             &stretch,
             exercise.category,
+            Some(&on_edit),
         )},
         {view_notes(exercise, exercise_dialog)}
     }
@@ -197,6 +213,7 @@ pub fn view_exercise_properties(
     muscles: &[(domain::MuscleID, domain::Stimulus)],
     stretch: &[(domain::MuscleID, domain::Stimulus)],
     category: Option<domain::Category>,
+    on_edit: Option<&Rc<dyn Fn(MouseEvent)>>,
 ) -> Element {
     let names = domain::ExerciseProperty::iter()
         .filter_map(|property| match property {
@@ -211,36 +228,70 @@ pub fn view_exercise_properties(
     let equipment = equipment.to_vec();
     rsx! {
         if !muscles.is_empty() {
-            Block {
-                Caption { "Worked muscles" }
-                {view_muscles(muscles.iter().map(|(k, v)| (k, v)), "muscle-tag")}
-            }
+            {view_block(
+                "Worked muscles",
+                "exercise-worked-muscles",
+                on_edit.cloned(),
+                view_muscles(muscles.iter().map(|(k, v)| (k, v)), "muscle-tag"),
+            )}
         }
         if !stretch.is_empty() {
-            Block {
-                Caption { "Stretched muscles" }
-                {view_muscles(stretch.iter().map(|(k, v)| (k, v)), "stretch-tag")}
-            }
+            {view_block(
+                "Stretched muscles",
+                "exercise-stretched-muscles",
+                on_edit.cloned(),
+                view_muscles(stretch.iter().map(|(k, v)| (k, v)), "stretch-tag"),
+            )}
         }
         if !names.is_empty() {
-            Block {
-                Caption { "Properties" }
-                CenteredTags {
-                    for name in names {
-                        span { class: "tag", "data-testid": "property-tag", {name} }
+            {view_block(
+                "Properties",
+                "exercise-properties",
+                on_edit.cloned(),
+                rsx! {
+                    CenteredTags {
+                        for name in names {
+                            span { class: "tag", "data-testid": "property-tag", {name} }
+                        }
                     }
-                }
-            }
+                },
+            )}
         }
         if !equipment.is_empty() {
-            Block {
-                Caption { "Equipment" }
-                CenteredTags {
-                    for e in equipment {
-                        span { class: "tag", "data-testid": "property-tag", {e.name()} }
+            {view_block(
+                "Equipment",
+                "exercise-equipment",
+                on_edit.cloned(),
+                rsx! {
+                    CenteredTags {
+                        for e in equipment {
+                            span { class: "tag", "data-testid": "property-tag", {e.name()} }
+                        }
                     }
+                },
+            )}
+        }
+    }
+}
+
+fn view_block(
+    caption: &str,
+    test_id: &str,
+    on_edit: Option<Rc<dyn Fn(MouseEvent)>>,
+    content: Element,
+) -> Element {
+    rsx! {
+        div {
+            class: "block",
+            class: if on_edit.is_some() { "is-clickable" },
+            "data-testid": test_id,
+            onclick: move |event| {
+                if let Some(on_edit) = &on_edit {
+                    on_edit(event);
                 }
-            }
+            },
+            Caption { {caption} }
+            {content}
         }
     }
 }
@@ -265,12 +316,16 @@ where
     rsx! {
         CenteredTags {
             for (m, class) in muscles {
-                ElementWithDescription {
-                    description: (!m.description().is_empty()).then(|| rsx! { {m.description()} }),
-                    span {
-                        class: "tag {class}",
-                        "data-testid": test_id,
-                        {m.name()}
+                span {
+                    class: "is-flex",
+                    onclick: |event| event.stop_propagation(),
+                    ElementWithDescription {
+                        description: (!m.description().is_empty()).then(|| rsx! { {m.description()} }),
+                        span {
+                            class: "tag {class}",
+                            "data-testid": test_id,
+                            {m.name()}
+                        }
                     }
                 }
             }
@@ -597,16 +652,17 @@ fn view_notes(
     }
     let notes = exercise.notes.clone();
     rsx! {
-        CenteredBlock {
+        div {
+            class: "block has-text-centered is-clickable",
+            onclick: eh!(exercise; {
+                *exercise_dialog.write() = page::exercises::ExerciseDialog::EditNotes {
+                    exercise: exercise.clone(),
+                };
+            }),
             Caption { "Notes" }
             div {
-                class: "is-clickable is-italic has-text-centered is-preserving-line-breaks",
+                class: "is-italic has-text-centered is-preserving-line-breaks",
                 "data-testid": "exercise-notes",
-                onclick: eh!(exercise; {
-                    *exercise_dialog.write() = page::exercises::ExerciseDialog::EditNotes {
-                        exercise: exercise.clone(),
-                    };
-                }),
                 { notes.clone() }
             }
         }

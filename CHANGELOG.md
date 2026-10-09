@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Stretch sets of an exercise that only stretches, replacing its volume metrics, with the time of its sets shown even if the time under tension is hidden
     - Measurement in the set history and a chart of the measurements
     - Updating of the exercise from the catalog through its options
+    - Changing of the properties and the muscles of the exercise by tapping them
 - Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
 
 ### Changed

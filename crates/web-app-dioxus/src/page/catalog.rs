@@ -17,6 +17,7 @@ pub fn Catalog(name: String) -> Element {
                 exercise.muscles,
                 exercise.stretch,
                 Some(exercise.category),
+                None,
             )
         } else {
             rsx! { ErrorPage { message: "Exercise not found" } }

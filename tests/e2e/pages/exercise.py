@@ -90,12 +90,32 @@ class ExercisePage(BasePage):
 
     def toggle_properties(self, *names: str) -> None:
         self._open_properties_dialog()
+        self.toggle_properties_in_dialog(*names)
+
+    def toggle_properties_in_dialog(self, *names: str) -> None:
         for name in names:
             self.dialog.root.get_by_test_id("property-chip").filter(
                 has_text=re.compile(f"^{re.escape(name)}$")
             ).click()
         self.dialog.save()
         self.wait_until_idle()
+
+    def click_caption(self, caption: str) -> None:
+        self.page.get_by_test_id("caption").get_by_text(caption, exact=True).click()
+        self.dialog.wait_until_open()
+
+    def click_no_data(self) -> None:
+        self.page.get_by_test_id("no-data").click()
+        self.dialog.wait_until_open()
+
+    def expect_no_dialog(self) -> None:
+        # A dialog opened by a preceding click is only rendered after the click was handled.
+        self.page.evaluate(
+            "() => new Promise("
+            "resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))"
+            ")"
+        )
+        expect(self.page.get_by_test_id("dialog")).to_have_count(0)
 
     def open_catalog_update(self) -> None:
         self.fab().click()
@@ -105,9 +125,6 @@ class ExercisePage(BasePage):
 
     def apply_catalog_updates(self) -> None:
         self.dialog.root.get_by_test_id("update-from-catalog").click()
-
-    def expect_catalog_update_dialog_closed(self) -> None:
-        expect(self.page.get_by_test_id("dialog")).to_have_count(0)
 
     def _open_properties_dialog(self) -> None:
         self.fab().click()

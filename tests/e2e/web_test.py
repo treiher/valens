@@ -3881,7 +3881,7 @@ def test_exercise_update_from_catalog_through_options(page: Page) -> None:
     exercise_page.expect_page()
     exercise_page.open_catalog_update()
     exercise_page.apply_catalog_updates()
-    exercise_page.expect_catalog_update_dialog_closed()
+    exercise_page.expect_no_dialog()
 
     assert exercise_page.get_properties() == properties
     assert exercise_page.get_muscles() == muscles
@@ -4187,6 +4187,54 @@ def test_exercise_change_properties(page: Page) -> None:
     p.reload()
 
     assert p.get_properties() == []
+
+
+def test_exercise_change_properties_by_clicking_them(page: Page) -> None:
+    exercise = next(e for e in USER.exercises if e.equipment)
+
+    login(page)
+    p = ExercisePage(page, exercise.id)
+    p.goto()
+
+    properties = p.get_properties()
+    assert "Kettlebell" not in properties
+
+    p.click_caption("Worked muscles")
+    p.toggle_properties_in_dialog("Kettlebell")
+
+    assert p.get_properties() == [*properties, "Kettlebell"]
+
+    p.click_caption("Properties")
+    p.toggle_properties_in_dialog("Kettlebell")
+
+    assert p.get_properties() == properties
+
+    p.click_caption("Equipment")
+    p.toggle_properties_in_dialog("Kettlebell")
+
+    assert p.get_properties() == [*properties, "Kettlebell"]
+
+    p.muscle_tag(p.get_muscles()[0]).click()
+
+    p.expect_no_dialog()
+
+
+def test_exercise_change_properties_by_clicking_no_data(page: Page) -> None:
+    name = "Exercise Without Data"
+
+    login(page)
+    exercises_page = ExercisesPage(page)
+    exercises_page.goto()
+    exercises_page.add_exercise(name)
+    exercises_page.open_exercise(name)
+
+    p = ExercisePage(page)
+    p.expect_page()
+
+    p.click_no_data()
+    p.toggle_properties_in_dialog("Push")
+
+    assert p.get_properties() == ["Push"]
 
 
 def test_exercise_notes(page: Page) -> None:

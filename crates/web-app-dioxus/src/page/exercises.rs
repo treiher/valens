@@ -1568,7 +1568,9 @@ fn view_catalog_update(
     let is_selected = selected.read().contains(&id);
     let catalog_name = match update.catalog_match {
         domain::CatalogMatch::Exact => None,
-        domain::CatalogMatch::Prefix => Some(update.catalog_name.to_string()),
+        domain::CatalogMatch::Alias | domain::CatalogMatch::Prefix => {
+            Some(update.catalog_name.to_string())
+        }
     };
     let changes = update
         .changes
@@ -1673,7 +1675,7 @@ fn view_property_value(value: &domain::PropertyValue) -> Element {
 fn default_selection(updates: &[domain::CatalogUpdate]) -> HashSet<domain::ExerciseID> {
     updates
         .iter()
-        .filter(|update| update.is_exact_match())
+        .filter(|update| update.is_preselected())
         .map(|update| update.exercise.id)
         .collect()
 }
@@ -1875,7 +1877,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, all_attributes_of, all_text_of, contains, render, rows_of, rows_of_nth, text_of,
+        TestCache, all_attributes_of, all_text_of, attribute_of, contains, render, rows_of,
+        rows_of_nth, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -2256,6 +2259,29 @@ mod tests {
         let html = render_exercises(filter, TestCache::default);
 
         assert_eq!(all_text_of(&html, "filter-tag"), vec!["Not Set"]);
+    }
+
+    fn render_catalog_update_dialog(exercises: Vec<domain::Exercise>) -> String {
+        render(move || {
+            TestCache::default()
+                .with_exercises(exercises.clone())
+                .provide();
+            rsx! { CatalogUpdateDialog { on_close: |()| {} } }
+        })
+    }
+
+    #[test]
+    fn test_a_catalog_update_matched_by_an_alias_shows_its_source_and_is_selected() {
+        let html = render_catalog_update_dialog(vec![exercise(1, "Bench Press")]);
+
+        assert_eq!(
+            text_of(&html, "catalog-update-source"),
+            "from Barbell Bench Press"
+        );
+        assert_eq!(
+            attribute_of(&html, "catalog-update-toggle", "data-selected"),
+            "true"
+        );
     }
 
     #[rstest::rstest]

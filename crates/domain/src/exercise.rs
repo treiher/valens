@@ -259,6 +259,9 @@ fn merge_muscles(
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CatalogMatch {
     Exact,
+    /// The name equals an alias of the catalog exercise.
+    Alias,
+    /// The name starts with the name or an alias of the catalog exercise, followed by a space.
     Prefix,
 }
 
@@ -301,10 +304,14 @@ pub struct CatalogUpdate {
 }
 
 impl CatalogUpdate {
-    /// Returns whether the name of the exercise matched the name of the catalog exercise exactly.
+    /// Returns whether the update has changes and its catalog exercise was not matched by a prefix
+    /// of the name.
     #[must_use]
-    pub fn is_exact_match(&self) -> bool {
-        self.catalog_match == CatalogMatch::Exact
+    pub fn is_preselected(&self) -> bool {
+        matches!(
+            self.catalog_match,
+            CatalogMatch::Exact | CatalogMatch::Alias
+        )
     }
 }
 
@@ -341,38 +348,82 @@ pub fn catalog_update(exercise: &Exercise, mode: CatalogUpdateMode) -> Option<Ca
     })
 }
 
-/// Find the catalog exercise a name matches, preferring the exact name over the longest name the
-/// name starts with, followed by a space.
+/// Find the catalog exercise a name matches.
 fn match_catalog(name: &Name) -> Option<(&'static Name, &'static catalog::Exercise, CatalogMatch)> {
-    let name = name.as_ref().to_lowercase();
-    let mut prefix_match: Option<(usize, &'static Name, &'static catalog::Exercise)> = None;
+    best_match(&normalized_name(name.as_ref()), &CATALOG_NAMES).map(
+        |((catalog_name, catalog_exercise), catalog_match)| {
+            (catalog_name, catalog_exercise, catalog_match)
+        },
+    )
+}
 
-    for (candidate, catalog_name, catalog_exercise) in CATALOG_NAMES.iter() {
-        if name == *candidate {
-            return Some((catalog_name, catalog_exercise, CatalogMatch::Exact));
+/// Find the best match of a normalized name among candidates of normalized names or aliases.
+///
+/// An exact name or alias is preferred over the longest name or alias the name starts with,
+/// followed by a space.
+fn best_match<T: Copy>(
+    name: &str,
+    candidates: &[CatalogCandidate<T>],
+) -> Option<(T, CatalogMatch)> {
+    let mut prefix_match: Option<(usize, T)> = None;
+
+    for candidate in candidates {
+        if name == candidate.name {
+            return Some((
+                candidate.entry,
+                if candidate.is_alias {
+                    CatalogMatch::Alias
+                } else {
+                    CatalogMatch::Exact
+                },
+            ));
         }
 
         if name
-            .strip_prefix(candidate.as_str())
+            .strip_prefix(candidate.name.as_str())
             .is_some_and(|rest| rest.starts_with(' '))
-            && prefix_match.is_none_or(|(len, _, _)| len < candidate.len())
+            && prefix_match.is_none_or(|(len, _)| len < candidate.name.len())
         {
-            prefix_match = Some((candidate.len(), catalog_name, catalog_exercise));
+            prefix_match = Some((candidate.name.len(), candidate.entry));
         }
     }
 
-    prefix_match.map(|(_, name, exercise)| (name, exercise, CatalogMatch::Prefix))
+    prefix_match.map(|(_, entry)| (entry, CatalogMatch::Prefix))
 }
 
-/// Catalog names in lowercase, paired with the entry they belong to.
-static CATALOG_NAMES: LazyLock<Vec<(String, &'static Name, &'static catalog::Exercise)>> =
-    LazyLock::new(|| {
-        let exercises: &'static BTreeMap<Name, catalog::Exercise> = &catalog::EXERCISES;
-        exercises
-            .iter()
-            .map(|(name, exercise)| (name.as_ref().to_lowercase(), name, exercise))
-            .collect()
-    });
+/// A normalized name or alias of a catalog exercise.
+struct CatalogCandidate<T> {
+    name: String,
+    is_alias: bool,
+    entry: T,
+}
+
+type CatalogEntry = (&'static Name, &'static catalog::Exercise);
+
+/// Catalog names and aliases, normalized and paired with the entry they belong to.
+static CATALOG_NAMES: LazyLock<Vec<CatalogCandidate<CatalogEntry>>> = LazyLock::new(|| {
+    let exercises: &'static BTreeMap<Name, catalog::Exercise> = &catalog::EXERCISES;
+    exercises
+        .iter()
+        .flat_map(|(name, exercise)| {
+            std::iter::once(CatalogCandidate {
+                name: normalized_name(name.as_ref()),
+                is_alias: false,
+                entry: (name, exercise),
+            })
+            .chain(exercise.aliases.iter().map(move |alias| CatalogCandidate {
+                name: normalized_name(alias),
+                is_alias: true,
+                entry: (name, exercise),
+            }))
+        })
+        .collect()
+});
+
+/// Normalize a name for comparison, ignoring case and treating a hyphen like a space.
+pub(crate) fn normalized_name(name: &str) -> String {
+    name.to_lowercase().replace('-', " ")
+}
 
 fn updated_exercise(
     exercise: &Exercise,
@@ -1144,12 +1195,10 @@ impl ExerciseFilter {
         &self,
         exercises: impl Iterator<Item = &'a Exercise>,
     ) -> Vec<&'a Exercise> {
+        let search_term = normalized_name(self.name.trim());
         exercises
             .filter(|e| {
-                e.name
-                    .as_ref()
-                    .to_lowercase()
-                    .contains(self.name.to_lowercase().trim())
+                normalized_name(e.name.as_ref()).contains(&search_term)
                     && self.matches_muscles(
                         |muscle, level| {
                             e.muscles.iter().any(|em| {
@@ -1181,19 +1230,17 @@ impl ExerciseFilter {
 
     #[must_use]
     pub fn catalog(&self) -> BTreeMap<&'static Name, &'static catalog::Exercise> {
-        catalog::EXERCISES
-            .values()
+        let search_term = normalized_name(self.name.trim());
+        CATALOG_NAMES
+            .iter()
+            .filter(|candidate| candidate.name.contains(&search_term))
+            .map(|candidate| candidate.entry.1)
             .filter(|e| {
-                e.name
-                    .as_ref()
-                    .to_lowercase()
-                    .contains(self.name.to_lowercase().trim())
-                    && self.matches_muscles(
-                        |muscle, level| contains_muscle(e.muscles, muscle, level),
-                        |muscle, level| contains_muscle(e.stretch, muscle, level),
-                        e.muscles.is_empty() && e.stretch.is_empty(),
-                    )
-                    && (self.force.is_empty() || self.force.contains(&Some(e.force)))
+                self.matches_muscles(
+                    |muscle, level| contains_muscle(e.muscles, muscle, level),
+                    |muscle, level| contains_muscle(e.stretch, muscle, level),
+                    e.muscles.is_empty() && e.stretch.is_empty(),
+                ) && (self.force.is_empty() || self.force.contains(&Some(e.force)))
                     && (self.mechanic.is_empty() || self.mechanic.contains(&Some(e.mechanic)))
                     && (self.laterality.is_empty() || self.laterality.contains(&Some(e.laterality)))
                     && (self.assistance.is_empty() || self.assistance.contains(&Some(e.assistance)))
@@ -1695,7 +1742,18 @@ mod tests {
     #[case("Squat Jump", Some(("Squat Jump", CatalogMatch::Exact)))]
     #[case("Squat Jump (weighted)", Some(("Squat Jump", CatalogMatch::Prefix)))]
     #[case("Squat Twist", Some(("Squat", CatalogMatch::Prefix)))]
-    #[case("Sit Up", None)]
+    #[case("Russian Twist", None)]
+    #[case("Bench Press", Some(("Barbell Bench Press", CatalogMatch::Alias)))]
+    #[case("bench press", Some(("Barbell Bench Press", CatalogMatch::Alias)))]
+    #[case("Overhead Press", Some(("Barbell Shoulder Press", CatalogMatch::Alias)))]
+    #[case("Military Press", Some(("Barbell Shoulder Press", CatalogMatch::Alias)))]
+    #[case("Bench Press (paused)", Some(("Barbell Bench Press", CatalogMatch::Prefix)))]
+    #[case("Pull-Up", Some(("Pull Up", CatalogMatch::Exact)))]
+    #[case("Single Leg Glute Bridge", Some(("Single-Leg Glute Bridge", CatalogMatch::Exact)))]
+    #[case("Pull-Up (weighted)", Some(("Pull Up", CatalogMatch::Prefix)))]
+    #[case("Close Grip Bench Press", Some(("Barbell Close-Grip Bench Press", CatalogMatch::Alias)))]
+    #[case("Front Squat", Some(("Barbell Front Squat", CatalogMatch::Alias)))]
+    #[case("Pistol Squat", None)]
     fn test_catalog_update_match(
         #[case] name: &str,
         #[case] expected: Option<(&str, CatalogMatch)>,
@@ -1712,12 +1770,42 @@ mod tests {
 
     #[rstest]
     #[case("Dip", true)]
+    #[case("Bench Press", true)]
     #[case("Dip (weighted)", false)]
-    fn test_catalog_update_is_exact_match(#[case] name: &str, #[case] expected: bool) {
+    fn test_catalog_update_is_preselected(#[case] name: &str, #[case] expected: bool) {
         let update =
             catalog_update(&exercise(1, name, vec![]), CatalogUpdateMode::FillMissing).unwrap();
 
-        assert_eq!(update.is_exact_match(), expected);
+        assert_eq!(update.is_preselected(), expected);
+    }
+
+    #[rstest]
+    #[case::exact_name("a b", Some(("A B", CatalogMatch::Exact)))]
+    #[case::exact_alias_over_shorter_name("c d", Some(("X", CatalogMatch::Alias)))]
+    #[case::longest_prefix_of_name("a b e", Some(("A B", CatalogMatch::Prefix)))]
+    #[case::longest_prefix_of_alias("c d e", Some(("X", CatalogMatch::Prefix)))]
+    #[case::prefix_without_space("ab", None)]
+    fn test_best_match(#[case] name: &str, #[case] expected: Option<(&str, CatalogMatch)>) {
+        let candidates = [
+            candidate("a", false, "A"),
+            candidate("c", false, "C"),
+            candidate("a b", false, "A B"),
+            candidate("c d", true, "X"),
+        ];
+
+        assert_eq!(best_match(name, &candidates), expected);
+    }
+
+    fn candidate(
+        name: &str,
+        is_alias: bool,
+        entry: &'static str,
+    ) -> CatalogCandidate<&'static str> {
+        CatalogCandidate {
+            name: name.to_string(),
+            is_alias,
+            entry,
+        }
     }
 
     #[rstest]
@@ -2211,6 +2299,16 @@ mod tests {
         ],
         &[exercise(1, "B", vec![muscle(MuscleID::Hamstrings, Stimulus::PRIMARY, Stimulus::SECONDARY)])]
     )]
+    #[case::name_ignoring_case_and_hyphens(
+        ExerciseFilter { name: " pull up ".into(), ..ExerciseFilter::default() },
+        &[exercise(0, "Pull-Up", vec![]), exercise(1, "Push-Up", vec![])],
+        &[exercise(0, "Pull-Up", vec![])]
+    )]
+    #[case::name_with_hyphen(
+        ExerciseFilter { name: "Pull-up".into(), ..ExerciseFilter::default() },
+        &[exercise(0, "Pull Up", vec![]), exercise(1, "Push Up", vec![])],
+        &[exercise(0, "Pull Up", vec![])]
+    )]
     #[case::no_muscles_excludes_stretched_only_exercise(
         ExerciseFilter { muscles: [None].into(), ..ExerciseFilter::default() },
         &[
@@ -2272,11 +2370,11 @@ mod tests {
     #[rstest]
     #[case::name_lower_case(
         ExerciseFilter { name: "push".into(), ..ExerciseFilter::default() },
-        Some("Decline Push Up")
+        Some("Archer Push Up")
     )]
     #[case::name_upper_case(
         ExerciseFilter { name: "PUSH".into(), ..ExerciseFilter::default() },
-        Some("Decline Push Up")
+        Some("Archer Push Up")
     )]
     #[case::no_muscles(
         ExerciseFilter { muscles: [None].into(), ..ExerciseFilter::default() },
@@ -2329,6 +2427,24 @@ mod tests {
         assert_eq!(
             filter.catalog().first_entry().map(|e| (*e.key()).clone()),
             expected_first_name.map(|name| Name::new(name).unwrap()),
+        );
+    }
+
+    #[rstest]
+    #[case::alias("overhead press", "Barbell Shoulder Press")]
+    #[case::second_alias("Military", "Barbell Shoulder Press")]
+    #[case::hyphen("pull-up", "Pull Up")]
+    #[case::hyphen_of_catalog_name("single leg glute", "Single-Leg Glute Bridge")]
+    fn test_exercise_catalog_by_name(#[case] name: &str, #[case] expected_name: &str) {
+        let filter = ExerciseFilter {
+            name: name.into(),
+            ..ExerciseFilter::default()
+        };
+
+        assert!(
+            filter
+                .catalog()
+                .contains_key(&Name::new(expected_name).unwrap())
         );
     }
 

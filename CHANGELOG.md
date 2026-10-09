@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Flexibility category
     - Hip flexors and hip rotators
     - Stretches and mobility drills of the catalog
+    - Front, overhead and Zercher squats, close-grip bench press, sumo and trap bar deadlifts, barbell and one-arm dumbbell rows, triceps pushdowns, front raises, upright rows, reverse lunge, archer, diamond and pike push ups, chin up, straight-arm pulldown, sit up, reverse and bicycle crunches, hollow body hold, L-sit, Copenhagen plank, Pallof presses, wall sit and farmer's walks of the catalog
+    - Updating of custom exercises from catalog exercises known under another name, such as the bench press, or spelled with hyphens, such as the pull-up
+    - Finding of catalog exercises by another name, such as the overhead press
 - Exercise page:
     - Left and right column in the set history, showing the two sets of a pair side by side
     - Stretched muscles of the exercise, shown in a row of their own
@@ -66,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Hip flexors as a worked muscle and compound mechanic of the leg raises
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Muscles and properties of the exercise, each group under a caption of its own
+    - Name of the kneeling barbell ab rollout, which reads "Barbell Kneeling Ab Rollout"
 - Metronome dialog:
     - Captions of the metronome, the stopwatch and the timer, styled like the captions in the settings dialog
     - Tempo of the metronome, shown without a label

@@ -33,6 +33,9 @@ pub enum Call {
     ReadBodyFat,
     ReadPeriod,
     ReadUsers,
+    CreateExercise,
+    CreateRoutine,
+    ModifyRoutine,
     DeleteRoutine,
     ReplaceSchedule,
     RequestSession,
@@ -51,9 +54,11 @@ pub enum Call {
 
 /// Repository holding its collections in memory.
 ///
-/// Reads return the stored collection, writes return a value built from their arguments without
-/// changing the collections. Every operation of [`Call`] is appended to the call log and returns an
-/// error instead of its result while it is marked as failing.
+/// Reads return the stored collection. Creating an exercise or a routine stores it under an
+/// identifier following the highest stored one, modifying a routine merges the change into the
+/// stored routine and replacing the schedule stores it. Other writes return a value built from
+/// their arguments without changing the collections. Every operation of [`Call`] is appended to
+/// the call log and returns an error instead of its result while it is marked as failing.
 #[derive(Clone, Default)]
 pub struct FakeRepository {
     exercises: Arc<Mutex<Vec<Exercise>>>,
@@ -169,8 +174,12 @@ impl ExerciseRepository for FakeRepository {
         equipment: Vec<Equipment>,
         category: Option<Category>,
     ) -> Result<Exercise, CreateError> {
-        Ok(Exercise {
-            id: ExerciseID::nil(),
+        if self.called(Call::CreateExercise) {
+            return Err(CreateError::Other("create failed".into()));
+        }
+        let mut exercises = self.exercises.lock().unwrap();
+        let exercise = Exercise {
+            id: (exercises.iter().map(|e| e.id.as_u128()).max().unwrap_or(0) + 1).into(),
             name,
             notes,
             muscles,
@@ -180,7 +189,9 @@ impl ExerciseRepository for FakeRepository {
             assistance,
             equipment,
             category,
-        })
+        };
+        exercises.push(exercise.clone());
+        Ok(exercise)
     }
 
     async fn replace_exercise(&self, exercise: Exercise) -> Result<Exercise, UpdateError> {
@@ -207,13 +218,19 @@ impl RoutineRepository for FakeRepository {
         notes: String,
         sections: Vec<RoutinePart>,
     ) -> Result<Routine, CreateError> {
-        Ok(Routine {
-            id: RoutineID::nil(),
+        if self.called(Call::CreateRoutine) {
+            return Err(CreateError::Other("create failed".into()));
+        }
+        let mut routines = self.routines.lock().unwrap();
+        let routine = Routine {
+            id: (routines.iter().map(|r| r.id.as_u128()).max().unwrap_or(0) + 1).into(),
             name,
             notes,
             archived: false,
             sections,
-        })
+        };
+        routines.push(routine.clone());
+        Ok(routine)
     }
 
     async fn modify_routine(
@@ -224,13 +241,32 @@ impl RoutineRepository for FakeRepository {
         archived: Option<bool>,
         sections: Option<Vec<RoutinePart>>,
     ) -> Result<Routine, UpdateError> {
-        Ok(Routine {
-            id,
-            name: name.unwrap_or_else(|| Name::new("routine").unwrap()),
-            notes: notes.unwrap_or_default(),
-            archived: archived.unwrap_or_default(),
-            sections: sections.unwrap_or_default(),
-        })
+        if self.called(Call::ModifyRoutine) {
+            return Err(UpdateError::Other("modify failed".into()));
+        }
+        let mut routines = self.routines.lock().unwrap();
+        let Some(routine) = routines.iter_mut().find(|r| r.id == id) else {
+            return Ok(Routine {
+                id,
+                name: name.unwrap_or_else(|| Name::new("routine").unwrap()),
+                notes: notes.unwrap_or_default(),
+                archived: archived.unwrap_or_default(),
+                sections: sections.unwrap_or_default(),
+            });
+        };
+        if let Some(name) = name {
+            routine.name = name;
+        }
+        if let Some(notes) = notes {
+            routine.notes = notes;
+        }
+        if let Some(archived) = archived {
+            routine.archived = archived;
+        }
+        if let Some(sections) = sections {
+            routine.sections = sections;
+        }
+        Ok(routine.clone())
     }
 
     async fn delete_routine(&self, _: RoutineID) -> Result<(), DeleteError> {
@@ -260,6 +296,7 @@ impl ScheduleRepository for FakeRepository {
         if self.called(Call::ReplaceSchedule) {
             return Err(UpdateError::Other("replace failed".into()));
         }
+        *self.schedule.lock().unwrap() = schedule.clone();
         Ok(schedule)
     }
 }

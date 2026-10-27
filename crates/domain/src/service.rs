@@ -6,13 +6,14 @@ use crate::{
     Assistance, AuthMethod, AuthRepository, AuthService, BodyFat, BodyFatRepository,
     BodyFatService, BodyWeight, BodyWeightRepository, Category, CreateError, CurrentCycle, Cycle,
     DeleteError, Equipment, Exercise, ExerciseID, ExerciseMuscle, ExerciseRepository,
-    ExerciseService, Force, Laterality, Measurement, Mechanic, Name, Passkey, PasskeyID, Period,
-    PeriodRepository, PeriodService, ReadError, Role, Routine, RoutineID, RoutinePart,
-    RoutineRepository, RoutineService, Schedule, ScheduleRepository, ScheduleService,
-    SessionRepository, SessionService, Sex, Side, SignOut, SyncError, TrainingSession,
-    TrainingSessionElement, TrainingSessionID, TrainingSessionRepository, TrainingSessionService,
-    UpdateError, User, UserID, UserRepository, UserService, VersionRepository, VersionService,
-    body_weight::BodyWeightService, current_cycle, cycles,
+    ExerciseService, Force, ImportChoices, ImportError, ImportService, Laterality, Measurement,
+    Mechanic, Name, ParsedText, Passkey, PasskeyID, Period, PeriodRepository, PeriodService,
+    ReadError, Role, Routine, RoutineID, RoutinePart, RoutineRepository, RoutineService, Schedule,
+    ScheduleRepository, ScheduleService, SessionRepository, SessionService, Sex, Side, SignOut,
+    SyncError, TrainingSession, TrainingSessionElement, TrainingSessionID,
+    TrainingSessionRepository, TrainingSessionService, UpdateError, User, UserID, UserRepository,
+    UserService, VersionRepository, VersionService, body_weight::BodyWeightService, current_cycle,
+    cycles, text::ExercisePlan,
 };
 
 #[derive(Clone, Copy)]
@@ -266,6 +267,99 @@ impl<R: ScheduleRepository + RoutineRepository> ScheduleService for Service<R> {
             ));
         }
         self.repository.replace_schedule(schedule).await
+    }
+}
+
+impl<R: ExerciseRepository + RoutineRepository + ScheduleRepository> ImportService for Service<R> {
+    async fn import_text(
+        &self,
+        text: &ParsedText,
+        choices: &ImportChoices,
+    ) -> Result<(), ImportError> {
+        let exercises = self.repository.read_exercises().await?;
+        let routines = self.repository.read_routines().await?;
+        let existing_schedule = match text.schedule {
+            Some(_) => Some(self.repository.read_schedule().await?),
+            None => None,
+        };
+
+        let plan = ExercisePlan::new(
+            &text.exercise_names(),
+            &exercises,
+            choices,
+            (1..).map(ExerciseID::from),
+        );
+        let mut created_ids = BTreeMap::new();
+        for exercise in &plan.created {
+            let created = self
+                .repository
+                .create_exercise(
+                    exercise.name.clone(),
+                    exercise.notes.clone(),
+                    exercise.muscles.clone(),
+                    exercise.force,
+                    exercise.mechanic,
+                    exercise.laterality,
+                    exercise.assistance,
+                    exercise.equipment.clone(),
+                    exercise.category,
+                )
+                .await
+                .map_err(|err| ImportError::CreateExercise(exercise.name.clone(), err))?;
+            created_ids.insert(exercise.id, created.id);
+        }
+
+        let mut routine_ids = BTreeMap::new();
+        for routine in &text.routines {
+            let sections = routine.sections(&|name| {
+                let id = plan.exercise_id(name);
+                created_ids.get(&id).copied().unwrap_or(id)
+            });
+            let existing = routines.iter().find(|r| r.name == routine.name);
+            let id = match (existing, choices.copies.get(&routine.name)) {
+                (Some(existing), None) if routine.matches(existing, &sections) => existing.id,
+                (Some(existing), None) => {
+                    self.repository
+                        .modify_routine(
+                            existing.id,
+                            None,
+                            Some(routine.notes.clone()),
+                            None,
+                            Some(sections),
+                        )
+                        .await
+                        .map_err(|err| ImportError::ReplaceRoutine(routine.name.clone(), err))?;
+                    existing.id
+                }
+                (_, copy) => {
+                    let name = copy.unwrap_or(&routine.name).clone();
+                    self.repository
+                        .create_routine(name.clone(), routine.notes.clone(), sections)
+                        .await
+                        .map_err(|err| ImportError::CreateRoutine(name, err))?
+                        .id
+                }
+            };
+            routine_ids.insert(routine.name.clone(), id);
+        }
+
+        if let (Some(schedule), Some(existing_schedule)) = (&text.schedule, existing_schedule) {
+            let schedule = schedule.to_schedule(
+                |name| {
+                    routine_ids
+                        .get(name)
+                        .copied()
+                        .or_else(|| routines.iter().find(|r| r.name == *name).map(|r| r.id))
+                },
+                &existing_schedule,
+            )?;
+            self.repository
+                .replace_schedule(schedule)
+                .await
+                .map_err(ImportError::ReplaceSchedule)?;
+        }
+
+        Ok(())
     }
 }
 

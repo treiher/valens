@@ -22,7 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Stretch sets and time under stretch per muscle
     - Measurement of an exercise, per side for an exercise performed per side
     - Updating of an exercise from the catalog through its options in the exercise list
-- Schedule page: Showing and copying of the schedule with its routines as text
+- Schedule page:
+    - Showing and copying of the schedule with its routines as text
+    - Importing of the schedule and its routines from text, with a preview of the week, of the routines replaced or copied under a new name and of the unknown exercises
+- Routines page: Importing of routines from text, with a preview of the routines replaced or copied under a new name and of the unknown exercises
 - Routine page:
     - Sides of an activity, which prescribe a unilateral exercise per side
     - Stretch sets and time under stretch per muscle

@@ -19,6 +19,11 @@ class SchedulePage(BasePage):
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Schedule")
 
+    def open_import_dialog(self) -> None:
+        self.page.get_by_test_id("fab").click()
+        self.page.get_by_test_id("options-import-from-text").click()
+        self.import_dialog.root.get_by_test_id("import-text").wait_for(state="visible")
+
     def show_as_text(self) -> str:
         self.page.get_by_test_id("fab").click()
         self.page.get_by_test_id("options-show-as-text").click()

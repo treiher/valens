@@ -7,7 +7,10 @@ use valens_domain::{self as domain, ScheduleService};
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
-    dialog::text::view_exercise_text_dialog,
+    dialog::{
+        import::{ImportDialog, ImportTarget},
+        text::view_exercise_text_dialog,
+    },
     eh,
     loading::LoadingFlag,
     notification::{notify, notify_error},
@@ -347,6 +350,7 @@ fn view_dialog(
                 ScheduleDialog::None
                 | ScheduleDialog::Options
                 | ScheduleDialog::ShowText
+                | ScheduleDialog::Import
                 | ScheduleDialog::AddSlot { .. }
                 | ScheduleDialog::RotationOptions { .. }
                 | ScheduleDialog::AddRotationRoutine { .. } => None,
@@ -375,11 +379,25 @@ fn view_dialog(
                                 on_click: move |_| { *dialog.write() = ScheduleDialog::ShowText; },
                             }
                         },
+                        rsx! {
+                            MenuOption {
+                                icon: "file-import".to_string(),
+                                text: "Import from text".to_string(),
+                                "data-testid": "options-import-from-text",
+                                on_click: move |_| { *dialog.write() = ScheduleDialog::Import; },
+                            }
+                        },
                     ],
                     on_close: eh!(close_dialog; { close_dialog(); }),
                 }
             }
         }
+        ScheduleDialog::Import => rsx! {
+            ImportDialog {
+                target: ImportTarget::Schedule,
+                on_close: eh!(close_dialog; { close_dialog(); }),
+            }
+        },
         ScheduleDialog::ShowText => {
             let schedule = schedule.clone();
             let routines = routines.to_vec();
@@ -1018,6 +1036,7 @@ enum ScheduleDialog {
     None,
     Options,
     ShowText,
+    Import,
     AddSlot {
         weekday: domain::Weekday,
     },

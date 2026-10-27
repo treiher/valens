@@ -194,11 +194,15 @@ pub fn PhaseFields(
 #[component]
 pub fn TextAreaField(
     label: Option<String>,
+    help: Option<String>,
     value: String,
+    #[props(default)] errors: Vec<String>,
+    error_testid: Option<String>,
     has_changed: bool,
     /// Focus the text area on mount and place the caret at the end of the text.
     #[props(default)]
     autofocus: bool,
+    rows: Option<u32>,
     on_input: EventHandler<FormEvent>,
     #[props(default)] on_mounted: EventHandler<web_sys::HtmlTextAreaElement>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
@@ -211,7 +215,9 @@ pub fn TextAreaField(
                 class: "control",
                 textarea {
                     class: "textarea",
+                    class: if !errors.is_empty() { "is-danger" },
                     class: if has_changed { "is-info" },
+                    rows,
                     oninput: on_input,
                     onmounted: move |event: MountedEvent| async move {
                         if autofocus {
@@ -230,6 +236,19 @@ pub fn TextAreaField(
                     },
                     ..attributes,
                     { value }
+                }
+            }
+            if errors.is_empty() {
+                if let Some(help) = help {
+                    p { class: "help", "{help}" }
+                }
+            } else {
+                for error in &errors {
+                    p {
+                        class: "help is-danger",
+                        "data-testid": if let Some(ref error_testid) = error_testid { error_testid.clone() },
+                        {capitalized(error)}
+                    }
                 }
             }
         }
@@ -342,6 +361,7 @@ pub fn ButtonSelect<T: Clone + PartialEq + 'static>(
     /// Show only the icon of an option, keeping its text for screen readers and as a tooltip.
     #[props(default)]
     is_icon_only: bool,
+    #[props(default)] is_small: bool,
     on_click: EventHandler<(MouseEvent, T)>,
     #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
 ) -> Element {
@@ -355,6 +375,7 @@ pub fn ButtonSelect<T: Clone + PartialEq + 'static>(
                     class: if is_expanded { "is-expanded" },
                     div {
                         class: "button",
+                        class: if is_small { "is-small" },
                         class: if is_expanded { "is-fullwidth is-wrapping" },
                         class: if option.value == selected && has_error { "is-danger" },
                         class: if option.value == selected && !has_error { "is-link" },
@@ -577,7 +598,7 @@ pub fn MultiToggleTags(multi_toggle: Signal<MultiToggle>) -> Element {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use crate::test_render::{attribute_of, contains, render, text_of};
+    use crate::test_render::{all_text_of, attribute_of, contains, render, text_of};
 
     use super::*;
 
@@ -683,6 +704,56 @@ mod tests {
 
         assert!(
             !html.contains("Optionally split into the phases of a tempo"),
+            "{html}"
+        );
+    }
+
+    fn render_text_area_field(errors: Vec<String>) -> String {
+        render(move || {
+            let errors = errors.clone();
+            rsx! {
+                TextAreaField {
+                    help: "Use the format of the text",
+                    value: String::new(),
+                    errors,
+                    error_testid: "text-error",
+                    has_changed: false,
+                    on_input: move |_| {},
+                    "data-testid": "text",
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn test_text_area_field_shows_the_help_without_an_error() {
+        let html = render_text_area_field(vec![]);
+
+        assert!(html.contains("Use the format of the text"), "{html}");
+        assert!(!contains(&html, "text-error"), "{html}");
+        assert!(
+            !attribute_of(&html, "text", "class").contains("is-danger"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn test_text_area_field_replaces_the_help_by_its_errors() {
+        let html = render_text_area_field(vec![
+            "line 1: unknown routine \"A\"".into(),
+            "line 2: unknown routine \"B\"".into(),
+        ]);
+
+        assert_eq!(
+            all_text_of(&html, "text-error"),
+            vec![
+                "Line 1: unknown routine \"A\"",
+                "Line 2: unknown routine \"B\""
+            ]
+        );
+        assert!(!html.contains("Use the format of the text"), "{html}");
+        assert!(
+            attribute_of(&html, "text", "class").contains("is-danger"),
             "{html}"
         );
     }

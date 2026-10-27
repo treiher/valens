@@ -4,6 +4,9 @@ use derive_more::{AsRef, Display};
 pub struct Name(String);
 
 impl Name {
+    /// The maximum length of a name in bytes.
+    pub const MAX_LEN: usize = 64;
+
     pub fn new(name: &str) -> Result<Self, NameError> {
         let trimmed_name = name.trim();
 
@@ -13,7 +16,7 @@ impl Name {
 
         let len = trimmed_name.len();
 
-        if len > 64 {
+        if len > Self::MAX_LEN {
             return Err(NameError::TooLong(len));
         }
 

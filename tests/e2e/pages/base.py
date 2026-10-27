@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
@@ -34,6 +35,7 @@ class BasePage:
         self.navbar = Navbar(page)
         self.dialog = Dialog(page)
         self.text_dialog = TextDialog(page)
+        self.import_dialog = ImportDialog(page)
         self.unsaved_changes_dialog = UnsavedChangesDialog(page)
         self.table = Table(page)
         self.activity_bar = ActivityBar(page)
@@ -242,6 +244,57 @@ class TextDialog(Dialog):
         expect(
             self.root.get_by_test_id("show-text-copy").get_by_test_id("icon-check")
         ).to_be_visible()
+
+
+class ImportDialog(Dialog):
+    def set_text(self, text: str) -> None:
+        self.root.get_by_test_id("import-text").fill(text)
+
+    def expect_text(self, text: str) -> None:
+        expect(self.root.get_by_test_id("import-text")).to_have_value(text)
+
+    def read_text(self) -> None:
+        self.click_save()
+
+    def go_back(self) -> None:
+        self.root.get_by_test_id("dialog-back").click()
+
+    def expect_errors(self, errors: list[str]) -> None:
+        expect(self.root.get_by_test_id("import-error")).to_have_text(errors)
+
+    def expect_routines(self, names: list[str]) -> None:
+        expect(self.root.get_by_test_id("import-routine-name")).to_have_text(names)
+
+    def create_copy(self, index: int) -> None:
+        self.root.get_by_test_id("import-routine-choice").nth(index).get_by_text(
+            "Create copy"
+        ).click()
+
+    def expect_copy_name(self, index: int, name: str) -> None:
+        expect(self.root.get_by_test_id("import-copy-name").nth(index)).to_have_value(name)
+
+    def expect_added_lines(self, index: int, lines: list[str]) -> None:
+        changes = self.root.get_by_test_id("import-routine-changes").nth(index)
+        changes.locator("summary").click()
+        expect(changes.get_by_test_id("import-added-line")).to_contain_text(lines)
+
+    def choose_catalog_exercise(self, index: int, name: str) -> None:
+        self.root.get_by_test_id("import-exercise-change").nth(index).click()
+        picker = self.page.get_by_test_id("dialog").nth(1)
+        picker.get_by_test_id("search").fill(name)
+        picker.get_by_test_id("catalog-item").filter(
+            has_text=re.compile(f"^{re.escape(name)}$")
+        ).click()
+        expect(picker).to_have_count(0)
+
+    def expect_exercise_choices(self, choices: list[str]) -> None:
+        expect(self.root.get_by_test_id("import-exercise-choice")).to_have_text(choices)
+
+    def expect_unknown_exercises(self, count: int) -> None:
+        expect(self.root.get_by_test_id("import-exercise")).to_have_count(count)
+
+    def expect_slots(self, names: list[str]) -> None:
+        expect(self.root.get_by_test_id("import-slot")).to_have_text(names)
 
 
 class UnsavedChangesDialog(Dialog):

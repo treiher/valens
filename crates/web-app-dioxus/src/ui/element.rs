@@ -523,7 +523,14 @@ pub fn DeleteConfirmationDialog(
 pub fn SaveDialog(
     children: Element,
     title: Option<Element>,
+    /// The label of the save button, "Save" by default.
+    save_label: Option<String>,
     on_close: EventHandler<MouseEvent>,
+    /// Replaces the cancel button with a back button calling `on_back`.
+    #[props(default)]
+    has_back: bool,
+    // Not an `Option`, as Dioxus drops an optional handler of this dialog when it re-renders.
+    #[props(default)] on_back: EventHandler<MouseEvent>,
     on_save: EventHandler<()>,
     is_loading: bool,
     disabled: bool,
@@ -547,12 +554,22 @@ pub fn SaveDialog(
                         class: "field is-grouped is-grouped-centered",
                         div {
                             class: "control",
-                            onclick: on_close,
-                            button {
-                                class: "button is-light is-soft",
-                                "data-testid": "dialog-cancel",
-                                r#type: "button",
-                                "Cancel"
+                            if has_back {
+                                button {
+                                    class: "button is-light is-soft",
+                                    "data-testid": "dialog-back",
+                                    r#type: "button",
+                                    onclick: move |evt| on_back.call(evt),
+                                    "Back"
+                                }
+                            } else {
+                                button {
+                                    class: "button is-light is-soft",
+                                    "data-testid": "dialog-cancel",
+                                    r#type: "button",
+                                    onclick: on_close,
+                                    "Cancel"
+                                }
                             }
                         }
                         div {
@@ -563,7 +580,7 @@ pub fn SaveDialog(
                                 "data-testid": "dialog-save",
                                 r#type: "submit",
                                 disabled,
-                                "Save"
+                                {save_label.unwrap_or_else(|| "Save".to_string())}
                             }
                         }
                     }
@@ -921,6 +938,27 @@ mod tests {
         assert!(contains(&html, "dialog-close"));
         assert_eq!(text_of(&html, "dialog-cancel"), "Cancel");
         assert_eq!(text_of(&html, "dialog-save"), "Save");
+    }
+
+    #[test]
+    fn test_a_dialog_with_a_back_action_replaces_cancel_by_back() {
+        let html = render(|| {
+            rsx! {
+                SaveDialog {
+                    on_close: move |_| {},
+                    has_back: true,
+                    on_back: move |_| {},
+                    on_save: move |()| {},
+                    is_loading: false,
+                    disabled: false,
+                    "content"
+                }
+            }
+        });
+
+        assert!(contains(&html, "dialog-close"));
+        assert!(!contains(&html, "dialog-cancel"));
+        assert_eq!(text_of(&html, "dialog-back"), "Back");
     }
 
     #[test]

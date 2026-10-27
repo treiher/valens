@@ -15,6 +15,10 @@ class RoutinesPage(BasePage):
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Routines")
 
+    def open_import_dialog(self) -> None:
+        self.page.get_by_test_id("import-from-text").click()
+        self.import_dialog.root.get_by_test_id("import-text").wait_for(state="visible")
+
     def get_routine_id(self, name: str) -> int:
         href = self.page.get_by_role("link", name=name, exact=True).get_attribute("href")
         assert href is not None

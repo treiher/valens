@@ -2559,6 +2559,63 @@ def test_routines_options_menu_closed_with_escape_key(page: Page) -> None:
     p.close_options_menu_with_escape()
 
 
+def test_routines_import_from_text(page: Page) -> None:
+    routine = USER.routines[0]
+    exercise = USER.exercises[0].name
+    copy_name = f"{routine.name} (2)"
+
+    login(page)
+    p = RoutinesPage(page)
+    p.goto()
+    p.open_import_dialog()
+
+    p.import_dialog.set_text("Schedule\n\nMonday\n- A")
+    p.import_dialog.read_text()
+
+    p.import_dialog.expect_errors(["Line 1: schedule can only be imported on the schedule page"])
+
+    text = (
+        f"Routine \u2014 {routine.name}\n\n[A] 2 sets\n  A1 \u2014 {exercise} \u2014 5\n"
+        "  A2 \u2014 Mystery Move \u2014 8\n\n"
+        "Routine \u2014 Imported\n\n[A] 1 set\n  A1 \u2014 Mystery Move \u2014 10"
+    )
+    p.import_dialog.set_text(text)
+    p.import_dialog.read_text()
+    p.import_dialog.go_back()
+
+    p.import_dialog.expect_text(text)
+
+    p.import_dialog.read_text()
+
+    p.import_dialog.expect_routines([routine.name, "Imported"])
+    p.import_dialog.expect_added_lines(0, ["A2 \u2014 Mystery Move \u2014 8"])
+    p.import_dialog.expect_unknown_exercises(1)
+    p.import_dialog.expect_exercise_choices(["Create new exercise"])
+
+    p.import_dialog.choose_catalog_exercise(0, "Squat")
+
+    p.import_dialog.expect_exercise_choices(["Create from catalog: Squat"])
+
+    p.import_dialog.create_copy(0)
+
+    p.import_dialog.expect_copy_name(0, copy_name)
+
+    p.import_dialog.save()
+
+    routine_page = RoutinePage(page, p.get_routine_id("Imported"))
+    routine_page.goto()
+
+    assert "A1 \u2014 Squat \u2014 10" in routine_page.show_as_text()
+
+    p.goto()
+    routine_page = RoutinePage(page, p.get_routine_id(copy_name))
+    routine_page.goto()
+
+    text = routine_page.show_as_text()
+    assert f"A1 \u2014 {exercise} \u2014 5" in text
+    assert "A2 \u2014 Squat \u2014 8" in text
+
+
 def test_routines_edit(page: Page) -> None:
     name = routine_names_by_last_use()[0]
     new_name = "Changed Routine"
@@ -3376,6 +3433,31 @@ def test_schedule_copy_as_text(page: Page) -> None:
 
     p.text_dialog.expect_copied()
     assert page.evaluate("navigator.clipboard.readText()").strip() == text
+
+
+def test_schedule_import_from_text(page: Page) -> None:
+    routine_1 = str(USER.routines[0].name)
+    routine_2 = str(USER.routines[-1].name)
+    rotation = "A/B"
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+    p.open_import_dialog()
+
+    p.import_dialog.set_text(
+        f"Schedule\n\nMonday\n- Rotation \u2014 {rotation}\nWednesday\n- {routine_1}\n\n"
+        f"Rotation \u2014 {rotation}\n- {routine_1}\n- {routine_2}"
+    )
+    p.import_dialog.read_text()
+
+    p.import_dialog.expect_slots([rotation, routine_1])
+
+    p.import_dialog.save()
+
+    p.expect_slots(1, [rotation])
+    p.expect_slots(3, [routine_1])
+    p.expect_rotation(0, rotation, [routine_1, routine_2])
 
 
 def test_schedule_move_slot_by_drag_and_drop(page: Page) -> None:

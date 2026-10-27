@@ -468,6 +468,8 @@ fn best_match<'a, T>(
 /// A name or alias of a catalog exercise.
 struct CatalogCandidate<T> {
     name: String,
+    /// The name as normalized by [`singular_name`].
+    singular: String,
     spelling: &'static str,
     is_alias: bool,
     entry: T,
@@ -483,12 +485,14 @@ static CATALOG_NAMES: LazyLock<Vec<CatalogCandidate<CatalogEntry>>> = LazyLock::
         .flat_map(|(name, exercise)| {
             std::iter::once(CatalogCandidate {
                 name: normalized_name(name.as_ref()),
+                singular: singular_name(name.as_ref()),
                 spelling: name.as_ref().as_str(),
                 is_alias: false,
                 entry: (name, exercise),
             })
             .chain(exercise.aliases.iter().map(move |alias| CatalogCandidate {
                 name: normalized_name(alias),
+                singular: singular_name(alias),
                 spelling: alias,
                 is_alias: true,
                 entry: (name, exercise),
@@ -500,6 +504,34 @@ static CATALOG_NAMES: LazyLock<Vec<CatalogCandidate<CatalogEntry>>> = LazyLock::
 /// Normalize a name for comparison, ignoring case and treating a hyphen like a space.
 pub(crate) fn normalized_name(name: &str) -> String {
     name.to_lowercase().replace('-', " ")
+}
+
+/// Normalize a name for comparison like [`normalized_name`], also ignoring a plural on the last
+/// word.
+pub(crate) fn singular_name(name: &str) -> String {
+    let normalized = normalized_name(name);
+    match normalized.strip_suffix('s') {
+        Some(singular) if !singular.is_empty() => singular.to_string(),
+        _ => normalized,
+    }
+}
+
+/// Find the catalog exercise whose name or an alias equals a name, or otherwise equals it ignoring
+/// a plural on the last word, if this leaves a single catalog exercise.
+pub(crate) fn catalog_exercise_by_name(
+    name: &str,
+) -> Option<(&'static Name, &'static catalog::Exercise)> {
+    let normalized = normalized_name(name);
+    if let Some(candidate) = CATALOG_NAMES.iter().find(|c| c.name == normalized) {
+        return Some(candidate.entry);
+    }
+    let singular = singular_name(name);
+    let mut entries = CATALOG_NAMES
+        .iter()
+        .filter(|c| c.singular == singular)
+        .map(|c| c.entry);
+    let first = entries.next()?;
+    entries.all(|e| e.0 == first.0).then_some(first)
 }
 
 fn updated_exercise(
@@ -1892,6 +1924,7 @@ mod tests {
     ) -> CatalogCandidate<&'static str> {
         CatalogCandidate {
             name: name.to_string(),
+            singular: singular_name(name),
             spelling: name,
             is_alias,
             entry,

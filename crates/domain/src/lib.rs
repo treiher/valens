@@ -41,6 +41,11 @@ pub use statistics::{
     DefaultInterval, Interval, centered_moving_average, centered_moving_max, centered_moving_min,
     centered_moving_total, init_interval, value_based_centered_moving_average,
 };
+pub use text::{
+    ExerciseChoice, ImportChoices, ImportError, ImportService, LineChange, ParsedPart,
+    ParsedRotation, ParsedRoutine, ParsedSchedule, ParsedSlot, ParsedText, Reference,
+    RoutineChange, TextError, free_copy_name, parse_text, resolve_exercise, validate_copy_name,
+};
 pub use training::{
     Measurement, MeasurementError, RIR, RPE, Reps, Side, SideError, Sides, SidesError, Stretch,
     Tempo, TempoError, Time, TrainingStats, Weight, drop_set_weights, one_rep_max,

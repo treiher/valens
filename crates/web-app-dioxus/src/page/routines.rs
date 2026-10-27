@@ -5,13 +5,16 @@ use valens_domain::{self as domain, RoutineService};
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
-    dialog::text::view_exercise_text_dialog,
+    dialog::{
+        import::{ImportDialog, ImportTarget},
+        text::view_exercise_text_dialog,
+    },
     eh,
     notification::{notify, notify_error},
     routing::{NavigatorScrollExt, RoutineTab},
     ui::{
         element::{
-            DeleteConfirmationDialog, ErrorPage, FloatingActionButton, ItemOptionsButton,
+            DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, ItemOptionsButton,
             LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table, Title,
         },
         form::{FieldValue, FieldValueState, InputField, TextAreaField},
@@ -60,7 +63,7 @@ pub fn Routines(add: bool, search: String) -> Element {
     match (&*cache.routines.read(), &*cache.training_sessions.read()) {
         (CacheState::Ready(routines), CacheState::Ready(training_sessions)) => {
             rsx! {
-                {view_search_box(&search)},
+                {view_search_box(&search, dialog)},
                 {view_list(routines, training_sessions, &search, dialog)}
                 {view_dialog(dialog, Some(Route::Routines { add: false, search: search.clone() }))}
                 FloatingActionButton {
@@ -76,10 +79,10 @@ pub fn Routines(add: bool, search: String) -> Element {
     }
 }
 
-fn view_search_box(search_term: &str) -> Element {
+fn view_search_box(search_term: &str, mut dialog: Signal<RoutineDialog>) -> Element {
     rsx! {
         div {
-            class: "px-3",
+            class: "field is-grouped px-3",
             SearchBox {
                 search_term,
                 on_input: move |event: FormEvent| {
@@ -88,6 +91,12 @@ fn view_search_box(search_term: &str) -> Element {
                         search: event.value(),
                     });
                 }
+            }
+            button {
+                class: "button",
+                "data-testid": "import-from-text",
+                onclick: move |_| { *dialog.write() = RoutineDialog::Import; },
+                Icon { name: "file-import" }
             }
         }
     }
@@ -445,6 +454,12 @@ pub fn view_dialog(
                 is_loading: is_loading(),
             }
         },
+        RoutineDialog::Import => rsx! {
+            ImportDialog {
+                target: ImportTarget::Routines,
+                on_close: eh!(close_dialog; { close_dialog(); }),
+            }
+        },
         RoutineDialog::ShowText(routine) => {
             let routine = routine.clone();
             view_exercise_text_dialog(move |exercises| routine.to_text(exercises), close_dialog)
@@ -486,6 +501,7 @@ pub enum RoutineDialog {
     },
     Delete(domain::Routine),
     ShowText(domain::Routine),
+    Import,
 }
 
 #[cfg(test)]

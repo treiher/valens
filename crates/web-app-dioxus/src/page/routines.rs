@@ -5,15 +5,14 @@ use valens_domain::{self as domain, RoutineService};
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    dialog::text::view_exercise_text_dialog,
     eh,
     notification::{notify, notify_error},
     routing::{NavigatorScrollExt, RoutineTab},
-    settings::Settings,
     ui::{
         element::{
-            Block, DeleteConfirmationDialog, Dialog, ErrorPage, FloatingActionButton, Icon,
-            ItemOptionsButton, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
-            Title,
+            DeleteConfirmationDialog, ErrorPage, FloatingActionButton, ItemOptionsButton,
+            LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table, Title,
         },
         form::{FieldValue, FieldValueState, InputField, TextAreaField},
     },
@@ -171,7 +170,6 @@ pub fn view_dialog(
     closed_dialog_route: Option<Route>,
 ) -> Element {
     let mut is_loading = use_signal(|| false);
-    let mut copy_success = use_signal(|| false);
 
     macro_rules! is_loading {
         ($block:expr) => {
@@ -299,14 +297,7 @@ pub fn view_dialog(
                                 text: "Show as text".to_string(),
                                 "data-testid": "options-show-as-text",
                                 on_click: move |_| {
-                                    let settings = consume_context::<Settings>();
-                                    let text = match &*consume_context::<Cache>().exercises.read() {
-                                        CacheState::Ready(exercises) => {
-                                            routine_for_text.to_text(exercises, settings.show_rpe())
-                                        }
-                                        _ => routine_for_text.to_text(&[], settings.show_rpe()),
-                                    };
-                                    *dialog.write() = RoutineDialog::ShowText(text);
+                                    *dialog.write() = RoutineDialog::ShowText(routine_for_text.clone());
                                 }
                             },
                             MenuOption {
@@ -454,52 +445,9 @@ pub fn view_dialog(
                 is_loading: is_loading(),
             }
         },
-        RoutineDialog::ShowText(text) => {
-            rsx! {
-                Dialog {
-                    on_close: eh!(close_dialog; { close_dialog(); }),
-                    div {
-                        class: "is-relative",
-                        Block {
-                            pre {
-                                class: "has-text-text px-0 py-1",
-                                "data-testid": "show-text-content",
-                                "{text}"
-                            }
-                        }
-                        button {
-                            class: "button is-overlay-top-right p-0",
-                            "data-testid": "show-text-copy",
-                            onclick: eh!(text; {
-                                if let Some(window) = web_sys::window() {
-                                    let promise = window.navigator().clipboard().write_text(&text);
-                                    spawn(async move {
-                                        match wasm_bindgen_futures::JsFuture::from(promise).await {
-                                            Ok(_) => {
-                                                *copy_success.write() = true;
-                                                gloo_timers::future::TimeoutFuture::new(2_000).await;
-                                                *copy_success.write() = false;
-                                            }
-                                            Err(e) => {
-                                                log::error!("failed to copy to clipboard: {e:?}");
-                                                notify_error(
-                                                    "copy to clipboard",
-                                                    "clipboard is not available",
-                                                );
-                                            }
-                                        }
-                                    });
-                                }
-                            }),
-                            if copy_success() {
-                                Icon { name: "check".to_string() }
-                            } else {
-                                Icon { name: "copy".to_string() }
-                            }
-                        }
-                    }
-                }
-            }
+        RoutineDialog::ShowText(routine) => {
+            let routine = routine.clone();
+            view_exercise_text_dialog(move |exercises| routine.to_text(exercises), close_dialog)
         }
     }
 }
@@ -537,7 +485,7 @@ pub enum RoutineDialog {
         routine_id: domain::RoutineID,
     },
     Delete(domain::Routine),
-    ShowText(String),
+    ShowText(domain::Routine),
 }
 
 #[cfg(test)]

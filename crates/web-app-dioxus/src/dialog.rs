@@ -6,6 +6,7 @@ pub mod drop_set;
 pub mod one_rep_max;
 pub mod profile;
 pub mod settings;
+pub mod text;
 
 use dioxus::prelude::*;
 

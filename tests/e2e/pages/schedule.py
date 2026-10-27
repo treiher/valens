@@ -19,6 +19,12 @@ class SchedulePage(BasePage):
     def expect_page(self) -> None:
         expect(self.page.get_by_test_id("page-title")).to_have_text("Schedule")
 
+    def show_as_text(self) -> str:
+        self.page.get_by_test_id("fab").click()
+        self.page.get_by_test_id("options-show-as-text").click()
+        self.text_dialog.wait_until_open()
+        return self.text_dialog.text
+
     def add_slot(self, weekday: int, option: str) -> None:
         slots = self._day(weekday).get_by_test_id("schedule-slot")
         count = slots.count()

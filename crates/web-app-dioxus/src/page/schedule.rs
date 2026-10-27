@@ -7,6 +7,7 @@ use valens_domain::{self as domain, ScheduleService};
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    dialog::text::view_exercise_text_dialog,
     eh,
     loading::LoadingFlag,
     notification::{notify, notify_error},
@@ -14,8 +15,8 @@ use crate::{
     ui::{
         drag_and_drop,
         element::{
-            Dialog, ErrorPage, Icon, ItemOptionsButton, LoadingDialog, LoadingPage, MenuOption,
-            OptionsMenu, SaveDialog, Table, Title,
+            Dialog, ErrorPage, FloatingActionButton, Icon, ItemOptionsButton, LoadingDialog,
+            LoadingPage, MenuOption, OptionsMenu, SaveDialog, Table, Title,
         },
         form::{FieldValue, FieldValueState, InputField},
     },
@@ -26,7 +27,7 @@ static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 #[component]
 pub fn Schedule() -> Element {
     let cache = consume_context::<Cache>();
-    let dialog = use_signal(|| ScheduleDialog::None);
+    let mut dialog = use_signal(|| ScheduleDialog::None);
     let drag = use_signal(|| None::<Drag>);
 
     match (&*cache.schedule.read(), &*cache.routines.read()) {
@@ -38,6 +39,10 @@ pub fn Schedule() -> Element {
                 {view_dialog(dialog, schedule, routines)}
                 if IS_LOADING() && matches!(*dialog.read(), ScheduleDialog::None) {
                     LoadingDialog {}
+                }
+                FloatingActionButton {
+                    icon: "ellipsis-vertical",
+                    on_click: move |_| { *dialog.write() = ScheduleDialog::Options; },
                 }
             }
         }
@@ -340,6 +345,8 @@ fn view_dialog(
                         None => add_rotation(&schedule, name),
                     }),
                 ScheduleDialog::None
+                | ScheduleDialog::Options
+                | ScheduleDialog::ShowText
                 | ScheduleDialog::AddSlot { .. }
                 | ScheduleDialog::RotationOptions { .. }
                 | ScheduleDialog::AddRotationRoutine { .. } => None,
@@ -356,6 +363,31 @@ fn view_dialog(
 
     match &*dialog.read() {
         ScheduleDialog::None => rsx! {},
+        ScheduleDialog::Options => {
+            rsx! {
+                OptionsMenu {
+                    options: vec![
+                        rsx! {
+                            MenuOption {
+                                icon: "file-lines".to_string(),
+                                text: "Show as text".to_string(),
+                                "data-testid": "options-show-as-text",
+                                on_click: move |_| { *dialog.write() = ScheduleDialog::ShowText; },
+                            }
+                        },
+                    ],
+                    on_close: eh!(close_dialog; { close_dialog(); }),
+                }
+            }
+        }
+        ScheduleDialog::ShowText => {
+            let schedule = schedule.clone();
+            let routines = routines.to_vec();
+            view_exercise_text_dialog(
+                move |exercises| schedule.to_text(&routines, exercises),
+                close_dialog,
+            )
+        }
         ScheduleDialog::AddSlot { weekday } => {
             let weekday = *weekday;
             let mut options = sorted_rotations(schedule)
@@ -984,6 +1016,8 @@ impl drag_and_drop::DropTarget for DropTarget {
 
 enum ScheduleDialog {
     None,
+    Options,
+    ShowText,
     AddSlot {
         weekday: domain::Weekday,
     },
@@ -1065,6 +1099,30 @@ mod tests {
             all_text_of(&html, "rotation-routine-name"),
             vec!["Unknown routine", "Unknown routine"]
         );
+    }
+
+    #[test]
+    fn test_the_options_of_the_schedule_are_offered() {
+        let html = render_schedule(TestCache::default);
+
+        assert!(contains(&html, "fab"));
+        assert!(contains(&html, "icon-ellipsis-vertical"));
+    }
+
+    #[test]
+    fn test_the_options_offer_showing_the_schedule_as_text() {
+        let html = render(|| {
+            TestCache::default().provide();
+            rsx! { OptionsDialog {} }
+        });
+
+        assert_eq!(text_of(&html, "options-show-as-text"), "Show as text");
+    }
+
+    #[component]
+    fn OptionsDialog() -> Element {
+        let dialog = use_signal(|| ScheduleDialog::Options);
+        view_dialog(dialog, &schedule(), &[])
     }
 
     #[test]

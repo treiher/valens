@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Stretch sets and time under stretch per muscle
     - Measurement of an exercise, per side for an exercise performed per side
     - Updating of an exercise from the catalog through its options in the exercise list
+- Schedule page: Showing and copying of the schedule with its routines as text
 - Routine page:
     - Sides of an activity, which prescribe a unilateral exercise per side
     - Stretch sets and time under stretch per muscle
@@ -57,8 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Notes for this session of an exercise, removed with the exercise and moved to its replacement
     - Name of the session-specific notes of an exercise, which reads "Session notes"
     - Date of the session and name of the routine, linking to the routine, in the navigation bar, replacing the title of the page
+- Routines page: Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start of the timer where it differs from the default and the time per repetition with its unit
 - Routine page:
     - Label of the time of an activity without repetitions, which reads "Time"
+    - Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start of the timer where it differs from the default and the time per repetition with its unit
     - Sets per muscle, leaving out muscles without sets
     - Routine, its training sessions and their charts on a tab each
     - Name of the routine in the navigation bar, replacing the title of the page

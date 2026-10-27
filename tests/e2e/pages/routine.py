@@ -324,16 +324,8 @@ class RoutinePage(BasePage):
     def show_as_text(self) -> str:
         self.page.get_by_test_id("fab").click()
         self.page.get_by_test_id("options-show-as-text").click()
-        self.dialog.wait_until_open()
-        return self.page.get_by_test_id("show-text-content").inner_text().strip()
-
-    def copy_shown_text(self) -> None:
-        self.page.get_by_test_id("show-text-copy").click()
-
-    def expect_shown_text_copied(self) -> None:
-        expect(
-            self.page.get_by_test_id("show-text-copy").get_by_test_id("icon-check")
-        ).to_be_visible()
+        self.text_dialog.wait_until_open()
+        return self.text_dialog.text
 
 
 class RoutineNotesDialog(Dialog):

@@ -70,6 +70,7 @@ mod session;
 mod statistics;
 #[cfg(any(test, feature = "testing"))]
 pub mod tests;
+mod text;
 mod training;
 mod training_session;
 mod user;

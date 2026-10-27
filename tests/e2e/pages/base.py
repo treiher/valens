@@ -33,6 +33,7 @@ class BasePage:
 
         self.navbar = Navbar(page)
         self.dialog = Dialog(page)
+        self.text_dialog = TextDialog(page)
         self.unsaved_changes_dialog = UnsavedChangesDialog(page)
         self.table = Table(page)
         self.activity_bar = ActivityBar(page)
@@ -227,6 +228,20 @@ class Dialog(PageElement):
     def close_with_escape(self) -> None:
         self.page.keyboard.press("Escape")
         self.wait_until_closed()
+
+
+class TextDialog(Dialog):
+    @property
+    def text(self) -> str:
+        return self.root.get_by_test_id("show-text-content").inner_text().strip()
+
+    def copy(self) -> None:
+        self.root.get_by_test_id("show-text-copy").click()
+
+    def expect_copied(self) -> None:
+        expect(
+            self.root.get_by_test_id("show-text-copy").get_by_test_id("icon-check")
+        ).to_be_visible()
 
 
 class UnsavedChangesDialog(Dialog):

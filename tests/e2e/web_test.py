@@ -3227,7 +3227,7 @@ def test_routine_show_as_text(page: Page) -> None:
 
     text = p.show_as_text()
 
-    assert routine.name in text
+    assert text.startswith(f"Routine \u2014 {routine.name}\n")
     assert exercise_1 in text
     assert exercise_2 in text
 
@@ -3242,9 +3242,9 @@ def test_routine_copy_as_text(page: Page) -> None:
     p.goto()
 
     text = p.show_as_text()
-    p.copy_shown_text()
+    p.text_dialog.copy()
 
-    p.expect_shown_text_copied()
+    p.text_dialog.expect_copied()
     assert page.evaluate("navigator.clipboard.readText()").strip() == text
 
 
@@ -3346,6 +3346,36 @@ def test_schedule_plan_routine(page: Page) -> None:
     home_page.goto()
 
     home_page.expect_today_entries([routine])
+
+
+def test_schedule_show_as_text(page: Page) -> None:
+    routine = USER.routines[-1]
+    weekday = TODAY.isoweekday()
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    p.add_slot(weekday, str(routine.name))
+    text = p.show_as_text()
+
+    assert text.startswith(f"Schedule\n\n{TODAY:%A}\n- {routine.name}\n")
+    assert f"\n\nRoutine \u2014 {routine.name}\n" in text
+
+
+@pytest.mark.chromium_only
+def test_schedule_copy_as_text(page: Page) -> None:
+    page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+
+    login(page)
+    p = SchedulePage(page)
+    p.goto()
+
+    text = p.show_as_text()
+    p.text_dialog.copy()
+
+    p.text_dialog.expect_copied()
+    assert page.evaluate("navigator.clipboard.readText()").strip() == text
 
 
 def test_schedule_move_slot_by_drag_and_drop(page: Page) -> None:

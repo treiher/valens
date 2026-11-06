@@ -109,6 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Ongoing training session continuing at another set or rest after a set or an exercise is added, moved or removed
     - Progress bar of a set or rest briefly showing the time of the preceding set or rest
     - Unconfirmed set values discarded when the session notes of an exercise are saved
+    - Set values recorded by a countdown discarded when the session notes of an exercise, opened before, are saved
     - Recorded value of a set cleared when another change is saved while the input of the value is invalid
 - Routines page: Error shown when opening the dialog for adding a routine
 - Exercises page:

@@ -2276,6 +2276,42 @@ def test_training_session_set_countdown_records_the_target_time(page: Page) -> N
     assert p.get_sets()[0][1] == 2
 
 
+def test_training_session_notes_saved_after_a_countdown_keep_the_recorded_set(
+    page: Page,
+) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    # The set of this routine is automatic, so its countdown starts on its own
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_tempo(0, 0, "2")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown()
+    p.open_session_exercise_notes_dialog()
+
+    # The countdown runs out and records the set while the dialog is open
+    page.wait_for_timeout(3000)
+    p.wait_until_idle()
+    p.session_exercise_notes_dialog.set_note("Note")
+    p.session_exercise_notes_dialog.save()
+    p.wait_until_idle()
+
+    p.reload()
+    p.view()
+
+    assert p.get_sets()[0][1] == 2
+    assert p.get_session_exercise_notes() == "Note"
+
+
 def test_training_session_tempo_guides_a_set_with_input_fields(page: Page) -> None:
     routine = USER.routines[1]
 

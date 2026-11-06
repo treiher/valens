@@ -949,6 +949,22 @@ impl TrainingSession {
         measurements
     }
 
+    /// Replaces the note and the measurements of `exercise_id` by those of `other`, if the
+    /// session has a set of the exercise.
+    pub fn copy_exercise_entries_from(&mut self, other: &TrainingSession, exercise_id: ExerciseID) {
+        if !self.exercises().contains(&exercise_id) {
+            return;
+        }
+        self.exercise_notes.remove(&exercise_id);
+        self.exercise_measurements
+            .retain(|(id, _), _| *id != exercise_id);
+        self.add_exercise_entries(
+            exercise_id,
+            other.exercise_notes.get(&exercise_id).cloned(),
+            other.measurements_of(exercise_id),
+        );
+    }
+
     /// The measurements of an exercise by side.
     #[must_use]
     pub fn measurements_of(&self, exercise_id: ExerciseID) -> BTreeMap<Side, Measurement> {
@@ -3793,6 +3809,50 @@ mod tests {
                 rest(2),
             ])
         }
+    }
+
+    #[test]
+    fn test_training_session_copy_exercise_entries_from_replaces_only_entries_of_exercise() {
+        let mut training_session = session_with_entries();
+        let other = TrainingSession {
+            exercise_notes: BTreeMap::from([
+                (0.into(), "X".to_string()),
+                (2.into(), "Y".to_string()),
+            ]),
+            exercise_measurements: BTreeMap::from([
+                ((1.into(), Side::Left), measurement(4.0)),
+                ((2.into(), Side::Unset), measurement(5.0)),
+            ]),
+            ..session_with_entries()
+        };
+
+        training_session.copy_exercise_entries_from(&other, 1.into());
+
+        assert_eq!(
+            training_session.exercise_notes,
+            BTreeMap::from([(0.into(), "A".to_string())])
+        );
+        assert_eq!(
+            training_session.exercise_measurements,
+            BTreeMap::from([
+                ((0.into(), Side::Unset), measurement(1.0)),
+                ((1.into(), Side::Left), measurement(4.0)),
+            ])
+        );
+    }
+
+    #[test]
+    fn test_training_session_copy_exercise_entries_from_ignores_exercise_without_set() {
+        let mut training_session = session_with_entries();
+        let other = TrainingSession {
+            exercise_notes: BTreeMap::from([(3.into(), "X".to_string())]),
+            exercise_measurements: BTreeMap::from([((3.into(), Side::Unset), measurement(4.0))]),
+            ..session_with_entries()
+        };
+
+        training_session.copy_exercise_entries_from(&other, 3.into());
+
+        assert_eq!(training_session, session_with_entries());
     }
 
     #[test]

@@ -2381,7 +2381,8 @@ fn view_edit_dialog(
                                 MenuOption {
                                     icon: "plus".to_string(),
                                     text: "Add set".to_string(),
-                                    on_click: eh!(mut training_session; element_idx, close_dialog; {
+                                    on_click: eh!(training_session, element_idx, close_dialog; {
+                                        let mut training_session = latest(&training_session, cache);
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.add_set(element_idx);
                                         save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2391,7 +2392,8 @@ fn view_edit_dialog(
                                     icon: "plus".to_string(),
                                     text: "Add same exercise".to_string(),
                                     "data-testid": "options-add-same-exercise",
-                                    on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
+                                    on_click: eh!(training_session, section_idx, exercise_id, close_dialog; {
+                                        let mut training_session = latest(&training_session, cache);
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
                                         save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2407,7 +2409,8 @@ fn view_edit_dialog(
                                 MenuOption {
                                     icon: "arrow-up".to_string(),
                                     text: "Move up".to_string(),
-                                    on_click: eh!(mut training_session; section_idx, close_dialog; {
+                                    on_click: eh!(training_session, section_idx, close_dialog; {
+                                        let mut training_session = latest(&training_session, cache);
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.move_section_up(section_idx);
                                         save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2416,7 +2419,8 @@ fn view_edit_dialog(
                                 MenuOption {
                                     icon: "arrow-down".to_string(),
                                     text: "Move down".to_string(),
-                                    on_click: eh!(mut training_session; section_idx, close_dialog; {
+                                    on_click: eh!(training_session, section_idx, close_dialog; {
+                                        let mut training_session = latest(&training_session, cache);
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.move_section_down(section_idx);
                                         save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2433,7 +2437,8 @@ fn view_edit_dialog(
                                 MenuOption {
                                     icon: "times".to_string(),
                                     text: "Remove set".to_string(),
-                                    on_click: eh!(mut training_session; section_idx, close_dialog; {
+                                    on_click: eh!(training_session, section_idx, close_dialog; {
+                                        let mut training_session = latest(&training_session, cache);
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.remove_set(section_idx);
                                         save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2443,7 +2448,8 @@ fn view_edit_dialog(
                                     icon: "times".to_string(),
                                     text: "Remove exercise".to_string(),
                                     "data-testid": "options-remove-exercise",
-                                    on_click: eh!(mut training_session; section_idx, exercise_id, close_dialog; {
+                                    on_click: eh!(training_session, section_idx, exercise_id, close_dialog; {
+                                        let mut training_session = latest(&training_session, cache);
                                         modify_training_session_elements(&mut training_session, &field_values.read());
                                         let map = training_session.remove_exercise(section_idx, exercise_id);
                                         save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2474,7 +2480,7 @@ fn view_edit_dialog(
                                 let training_session = training_session.clone();
                                 let section_idx = *section_idx;
                                 move |(_, exercise_id)| {
-                                    let mut training_session = training_session.clone();
+                                    let mut training_session = latest(&training_session, cache);
                                     modify_training_session_elements(&mut training_session, &field_values.read());
                                     let map = training_session.add_exercise(section_idx, exercise_id, cache.laterality(exercise_id));
                                     save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2507,7 +2513,7 @@ fn view_edit_dialog(
                                 let section_idx = *section_idx;
                                 let exercise_id = *exercise_id;
                                 move |(_, replacement)| {
-                                    let mut training_session = training_session.clone();
+                                    let mut training_session = latest(&training_session, cache);
                                     modify_training_session_elements(&mut training_session, &field_values.read());
                                     let map = training_session.replace_exercise(section_idx, exercise_id, replacement, cache.laterality(replacement));
                                     save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2533,7 +2539,7 @@ fn view_edit_dialog(
                             on_exercise_click: {
                                 let training_session = training_session.clone();
                                 move |(_, exercise_id)| {
-                                    let mut training_session = training_session.clone();
+                                    let mut training_session = latest(&training_session, cache);
                                     modify_training_session_elements(&mut training_session, &field_values.read());
                                     let map = training_session.append_exercise(exercise_id, cache.laterality(exercise_id));
                                     save_moved(training_session, map, progress, phase_clock, inputs, cache, close_dialog)
@@ -2553,7 +2559,14 @@ fn view_edit_dialog(
                 SessionExerciseNotesDialog {
                     training_session: training_session.clone(),
                     exercise_id: *exercise_id,
-                    on_save: move |training_session| save(training_session, inputs, cache, close_dialog),
+                    on_save: {
+                        let exercise_id = *exercise_id;
+                        move |edited: domain::TrainingSession| {
+                            let mut training_session = latest(&edited, cache);
+                            training_session.copy_exercise_entries_from(&edited, exercise_id);
+                            save(training_session, inputs, cache, close_dialog)
+                        }
+                    },
                     on_close: eh!(mut close_dialog; { close_dialog(); }),
                 }
             }
@@ -2943,6 +2956,19 @@ fn exercise_marker(number: u32) -> String {
 
 /// Writes the entered set values into the training session, leaving the stored value of an
 /// invalid input in place.
+/// The training session as currently cached, falling back to `training_session`, so that a change
+/// made in a dialog keeps what was saved while the dialog was open.
+fn latest(training_session: &domain::TrainingSession, cache: Cache) -> domain::TrainingSession {
+    match &*cache.training_sessions.peek() {
+        CacheState::Ready(training_sessions) => training_sessions
+            .iter()
+            .find(|t| t.id == training_session.id)
+            .cloned(),
+        _ => None,
+    }
+    .unwrap_or_else(|| training_session.clone())
+}
+
 fn modify_training_session_elements(
     training_session: &mut domain::TrainingSession,
     field_values: &HashMap<usize, SetFieldValues>,

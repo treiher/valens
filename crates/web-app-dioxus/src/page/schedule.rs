@@ -432,21 +432,16 @@ fn view_dialog(
                     let schedule = schedule.clone();
                     (
                         label,
-                        EventHandler::new(eh!(close_dialog; {
+                        Rc::new(move || {
                             if let Some(modified) = add_slot(&schedule, weekday, slot) {
                                 spawn_save(modified);
                             }
                             close_dialog();
-                        })),
+                        }) as Rc<dyn Fn()>,
                     )
                 })
                 .collect();
-            view_selection_dialog(
-                rsx! { "{weekday}" },
-                "slot-option",
-                options,
-                EventHandler::new(eh!(close_dialog; { close_dialog(); })),
-            )
+            view_selection_dialog(rsx! { "{weekday}" }, "slot-option", options, close_dialog)
         }
         ScheduleDialog::EditRotationName { rotation_id, name } => {
             let rotation_id = *rotation_id;
@@ -498,14 +493,14 @@ fn view_dialog(
                     routines.push(routine_id);
                     (
                         rsx! { "{routine.name}" },
-                        EventHandler::new(eh!(close_dialog; {
+                        Rc::new(move || {
                             if let Some(modified) =
                                 rotation_with_routines(&schedule, rotation_id, routines.clone())
                             {
                                 spawn_save(modified);
                             }
                             close_dialog();
-                        })),
+                        }) as Rc<dyn Fn()>,
                     )
                 })
                 .collect();
@@ -513,7 +508,7 @@ fn view_dialog(
                 rsx! { "Add routine to rotation" },
                 "routine-option",
                 options,
-                EventHandler::new(eh!(close_dialog; { close_dialog(); })),
+                close_dialog,
             )
         }
         ScheduleDialog::RotationOptions { rotation_id } => {
@@ -573,8 +568,8 @@ fn view_dialog(
 fn view_selection_dialog(
     title: Element,
     option_testid: &'static str,
-    options: Vec<(Element, EventHandler<MouseEvent>)>,
-    on_close: EventHandler<MouseEvent>,
+    options: Vec<(Element, Rc<dyn Fn()>)>,
+    on_close: impl Fn() + 'static,
 ) -> Element {
     let body = options
         .into_iter()
@@ -583,7 +578,7 @@ fn view_selection_dialog(
                 span {
                     class: "has-text-link",
                     "data-testid": "{option_testid}",
-                    onclick: on_select,
+                    onclick: move |_| on_select(),
                     {label}
                 }
             }]
@@ -592,7 +587,7 @@ fn view_selection_dialog(
     rsx! {
         Dialog {
             title,
-            on_close,
+            on_close: move |_| on_close(),
             no_horizontal_padding: true,
             Table { body }
         }

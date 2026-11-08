@@ -321,6 +321,10 @@ class RoutinePage(BasePage):
         self.notes_dialog.save()
         self.wait_until_idle()
 
+    def start_training_session(self) -> None:
+        self.page.get_by_test_id("fab").click()
+        self.page.get_by_test_id("options-start-training-session").click()
+
     def show_as_text(self) -> str:
         self.page.get_by_test_id("fab").click()
         self.page.get_by_test_id("options-show-as-text").click()

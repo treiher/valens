@@ -5,17 +5,20 @@ use valens_domain::{self as domain, RoutineService};
 use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
+    current_date::current_date,
     dialog::{
         import::{ImportDialog, ImportTarget},
         text::view_exercise_text_dialog,
     },
     eh,
     notification::{notify, notify_error},
+    page::training_sessions::{IS_STARTING_TRAINING_SESSION, start_training_session_once},
     routing::{NavigatorScrollExt, RoutineTab},
     ui::{
         element::{
             DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, ItemOptionsButton,
-            LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table, Title,
+            LoadingDialog, LoadingPage, MenuOption, OptionsMenu, SaveDialog, SearchBox, Table,
+            Title,
         },
         form::{FieldValue, FieldValueState, InputField, TextAreaField},
     },
@@ -287,10 +290,15 @@ pub fn view_dialog(
         }
     });
 
+    if IS_STARTING_TRAINING_SESSION() {
+        return rsx! { LoadingDialog {} };
+    }
+
     match &*dialog.read() {
         RoutineDialog::None => rsx! {},
         RoutineDialog::Options(routine) => {
             let routine = routine.clone();
+            let routine_for_start = routine.clone();
             let routine_sections = routine.sections.clone();
             let routine_for_text = routine.clone();
             let routine_name_copy = routine.name.clone();
@@ -301,6 +309,18 @@ pub fn view_dialog(
                 OptionsMenu {
                     options: vec![
                         rsx! {
+                            MenuOption {
+                                icon: "play".to_string(),
+                                text: "Start training session".to_string(),
+                                "data-testid": "options-start-training-session",
+                                on_click: eh!(close_dialog; {
+                                    let routine = routine_for_start.clone();
+                                    async move {
+                                        close_dialog();
+                                        start_training_session_once(&routine, current_date()).await;
+                                    }
+                                })
+                            },
                             MenuOption {
                                 icon: "file-lines".to_string(),
                                 text: "Show as text".to_string(),

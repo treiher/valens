@@ -25,8 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Schedule page:
     - Showing and copying of the schedule with its routines as text
     - Importing of the schedule and its routines from text, with a preview of the week, of the routines replaced or copied under a new name and of the unknown exercises
-- Routines page: Importing of routines from text, with a preview of the routines replaced or copied under a new name and of the unknown exercises
+- Routines page:
+    - Importing of routines from text, with a preview of the routines replaced or copied under a new name and of the unknown exercises
+    - Starting of a training session through the options of a routine
 - Routine page:
+    - Starting of a training session through the options of the routine
     - Sides of an activity, which prescribe a unilateral exercise per side
     - Stretch sets and time under stretch per muscle
     - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE

@@ -2677,6 +2677,20 @@ def test_routines_edit(page: Page) -> None:
     p.table.expect_value(1, 1, 1, new_name)
 
 
+def test_routines_start_training_session(page: Page) -> None:
+    name = routine_names_by_last_use()[0]
+
+    login(page)
+    p = RoutinesPage(page)
+    p.goto()
+
+    p.start_training_session_of_item(0)
+
+    session_page = TrainingSessionPage(page, 0)
+    session_page.expect_page()
+    expect(session_page.page_title).to_have_text(f"{TODAY} · {name}")
+
+
 def test_routines_delete(page: Page) -> None:
     name_2, name_1 = routine_names_by_last_use()[:2]
 
@@ -2697,6 +2711,23 @@ def test_routines_delete(page: Page) -> None:
     p.dialog.delete()
 
     p.table.expect_value(1, 1, 1, name_1)
+
+
+def test_routine_start_training_session(page: Page) -> None:
+    routine = USER.routines[0]
+    assert isinstance(routine.sections[0].parts[0], models.RoutineActivity)
+    exercise = str(routine.sections[0].parts[0].exercise.name)
+
+    login(page)
+    p = RoutinePage(page, routine.id)
+    p.goto()
+
+    p.start_training_session()
+
+    session_page = TrainingSessionPage(page, 0)
+    session_page.expect_page()
+    expect(session_page.page_title).to_have_text(f"{TODAY} · {routine.name}")
+    expect(page.get_by_role("link", name=exercise, exact=True).first).to_be_visible()
 
 
 def test_routine_edit(page: Page) -> None:

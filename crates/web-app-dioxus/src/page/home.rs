@@ -6,14 +6,13 @@ use crate::{
     DOMAIN_SERVICE, Route,
     cache::{Cache, CacheState},
     current_date::current_date,
-    loading::LoadingFlag,
-    page::training_sessions::{start_training_session, stretch_only_exercises},
+    page::training_sessions::{
+        IS_STARTING_TRAINING_SESSION, start_training_session_once, stretch_only_exercises,
+    },
     routing::{RoutineTab, TrainingSessionsTab},
     session::Session,
     ui::element::{Block, Error, Icon, Loading, LoadingDialog, Title},
 };
-
-static IS_LOADING: GlobalSignal<bool> = Signal::global(|| false);
 
 #[component]
 pub fn Home() -> Element {
@@ -241,7 +240,7 @@ pub fn Home() -> Element {
                 }
             }
         }
-        if IS_LOADING() {
+        if IS_STARTING_TRAINING_SESSION() {
             LoadingDialog {}
         }
     }
@@ -284,7 +283,7 @@ fn view_today(pending: &[(domain::Routine, Option<String>)], today: chrono::Naiv
                                 move |_| {
                                     let routine = routine.clone();
                                     spawn(async move {
-                                        start_pending_training_session(routine, today).await;
+                                        start_training_session_once(&routine, today).await;
                                     });
                                 }
                             },
@@ -295,14 +294,6 @@ fn view_today(pending: &[(domain::Routine, Option<String>)], today: chrono::Naiv
             }
         }
     }
-}
-
-async fn start_pending_training_session(routine: domain::Routine, date: chrono::NaiveDate) {
-    if IS_LOADING() {
-        return;
-    }
-    let _loading = LoadingFlag::set(&IS_LOADING);
-    start_training_session(Some(&routine), date).await;
 }
 
 #[component]

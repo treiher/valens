@@ -115,6 +115,10 @@ class BasePage:
         self.page.get_by_test_id("options-copy").click()
         self.wait_until_idle()
 
+    def start_training_session_of_item(self, index: int) -> None:
+        self.open_item_options(index)
+        self.page.get_by_test_id("options-start-training-session").click()
+
     @property
     def page_title(self) -> Locator:
         return self.page.get_by_test_id("page-title")

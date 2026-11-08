@@ -11,6 +11,7 @@ use crate::{
     cache::{Cache, CacheState},
     chart::{Calendar, IntervalControl},
     eh,
+    loading::LoadingFlag,
     notification::{notify, notify_error},
     page::training_charts,
     routing::{NavigatorScrollExt, RoutineTab, TrainingSessionsTab},
@@ -23,6 +24,8 @@ use crate::{
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
 };
+
+pub static IS_STARTING_TRAINING_SESSION: GlobalSignal<bool> = Signal::global(|| false);
 
 #[component]
 pub fn TrainingSessions(tab: TrainingSessionsTab, muscle: Option<u8>, add: bool) -> Element {
@@ -524,9 +527,18 @@ pub fn view_dialog(
     }
 }
 
+/// Starts a training session of `routine`, unless a previous start is still in progress.
+pub async fn start_training_session_once(routine: &domain::Routine, date: NaiveDate) {
+    if IS_STARTING_TRAINING_SESSION() {
+        return;
+    }
+    let _loading = LoadingFlag::set(&IS_STARTING_TRAINING_SESSION);
+    start_training_session(Some(routine), date).await;
+}
+
 /// Creates a training session on `date`, prefilled with the elements of `routine`, and navigates
 /// to it.
-pub async fn start_training_session(routine: Option<&domain::Routine>, date: NaiveDate) {
+async fn start_training_session(routine: Option<&domain::Routine>, date: NaiveDate) {
     let elements = routine
         .map(|routine| {
             routine

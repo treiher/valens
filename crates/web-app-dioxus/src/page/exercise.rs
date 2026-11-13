@@ -1,4 +1,8 @@
-use std::{borrow::Borrow, collections::BTreeMap, rc::Rc};
+use std::{
+    borrow::Borrow,
+    collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+};
 
 use chrono::NaiveDate;
 use dioxus::prelude::*;
@@ -10,12 +14,13 @@ use crate::{
     Route,
     cache::{Cache, CacheState},
     chart::{Calendar, Chart, IntervalControl},
+    current_date::current_date,
     eh, page,
     routing::{ExerciseTab, NavigatorScrollExt, RoutineTab},
     settings::Settings,
     ui::element::{
         Caption, CenteredTags, ElementWithDescription, Error, ErrorPage, FloatingActionButton,
-        Loading, LoadingPage, NoData, NoWrap, Table, Tabs, Title,
+        Icon, Loading, LoadingPage, NoData, NoWrap, Table, Tabs, Title,
     },
 };
 
@@ -26,19 +31,41 @@ pub fn Exercise(id: domain::ExerciseID, tab: ExerciseTab) -> Element {
     let settings = use_context::<Settings>();
     let mut exercise_dialog = use_signal(|| page::exercises::ExerciseDialog::None);
     let training_dialog = use_signal(|| page::training_sessions::TrainingDialog::None);
+    let personal_records = use_memo(move || {
+        let (CacheState::Ready(training_sessions), CacheState::Ready(exercises)) =
+            (&*cache.training_sessions.read(), &*cache.exercises.read())
+        else {
+            return domain::PersonalRecords::default();
+        };
+        // Only the sessions are kept whole, as the record sets are indexed by their elements.
+        let training_sessions = training_sessions
+            .iter()
+            .filter(|t| t.exercises().contains(&id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let exercises = exercises
+            .iter()
+            .filter(|e| e.id == id)
+            .cloned()
+            .collect::<Vec<_>>();
+        domain::PersonalRecords::new(&training_sessions, &exercises)
+    });
 
     match &*cache.exercises.read() {
         CacheState::Ready(exercises) => {
             let exercise = exercises.iter().find(|e| e.id == id);
             if let Some(exercise) = exercise {
                 let content = match tab {
-                    ExerciseTab::Exercise => view_exercise(exercise, exercise_dialog),
+                    ExerciseTab::Exercise => {
+                        view_exercise(exercise, &personal_records.read(), exercise_dialog)
+                    }
                     ExerciseTab::Routines => view_routines(id, &cache),
                     ExerciseTab::Sessions | ExerciseTab::Charts => view_training_sessions(
                         exercise,
                         exercises,
                         tab,
                         &cache,
+                        &personal_records.read(),
                         current_interval,
                         training_dialog,
                         settings,
@@ -77,10 +104,11 @@ pub fn Exercise(id: domain::ExerciseID, tab: ExerciseTab) -> Element {
     }
 }
 
-/// Show the properties, the muscles and the notes of the exercise.
+/// Show the properties, the muscles, the notes and the personal records of the exercise.
 fn view_exercise(
     exercise: &domain::Exercise,
-    mut exercise_dialog: Signal<page::exercises::ExerciseDialog>,
+    personal_records: &domain::PersonalRecords,
+    exercise_dialog: Signal<page::exercises::ExerciseDialog>,
 ) -> Element {
     let muscles = exercise.muscle_stimulus().into_iter().collect::<Vec<_>>();
     let stretch = exercise.muscle_stretch().into_iter().collect::<Vec<_>>();
@@ -91,26 +119,15 @@ fn view_exercise(
         || exercise.category.is_some()
         || !exercise.equipment.is_empty();
     let has_muscles = !muscles.is_empty() || !stretch.is_empty();
-    if !has_properties && !has_muscles && exercise.notes.is_empty() {
-        return rsx! {
-            div {
-                class: "is-clickable",
-                onclick: eh!(exercise; {
-                    *exercise_dialog.write() = page::exercises::ExerciseDialog::ChangeProperties {
-                        exercise: exercise.clone(),
-                    };
-                }),
-                NoData {}
-            }
-        };
-    }
+    let records = personal_records.records(exercise.id, current_date());
+    let has_sides = records.keys().any(|(side, _)| *side != domain::Side::Unset);
     let on_edit: Rc<dyn Fn(MouseEvent)> = Rc::new(eh!(mut exercise_dialog; exercise; {
         *exercise_dialog.write() = page::exercises::ExerciseDialog::ChangeProperties {
             exercise: exercise.clone(),
         };
     }));
-    rsx! {
-        {view_exercise_properties(
+    let properties = if has_properties || has_muscles {
+        view_exercise_properties(
             exercise.force,
             exercise.mechanic,
             exercise.laterality,
@@ -120,8 +137,219 @@ fn view_exercise(
             &stretch,
             exercise.category,
             Some(&on_edit),
-        )},
+        )
+    } else {
+        let label = if exercise.notes.is_empty() && records.is_empty() {
+            "No data"
+        } else {
+            "No properties"
+        };
+        rsx! {
+            div {
+                class: "is-clickable",
+                onclick: move |event| on_edit(event),
+                NoData { label }
+            }
+        }
+    };
+    rsx! {
+        {properties}
         {view_notes(exercise, exercise_dialog)}
+        {view_personal_records(&records, has_sides)}
+    }
+}
+
+/// Show the all-time and the recent records in a row per value, holding the left and the right
+/// side in one cell for records per side.
+fn view_personal_records(
+    records: &BTreeMap<(domain::Side, domain::RecordValue), domain::Records>,
+    has_sides: bool,
+) -> Element {
+    if records.is_empty() {
+        return rsx! {};
+    }
+    let values = records
+        .keys()
+        .map(|(_, value)| *value)
+        .collect::<BTreeSet<_>>();
+    let groups = [
+        (
+            "Body weight",
+            [domain::RecordValue::Reps, domain::RecordValue::Time],
+        ),
+        (
+            "With weight",
+            [domain::RecordValue::Weight, domain::RecordValue::OneRepMax],
+        ),
+    ]
+    .map(|(label, group)| {
+        (
+            label,
+            group
+                .into_iter()
+                .filter(|value| values.contains(value))
+                .collect::<Vec<_>>(),
+        )
+    });
+    let is_grouped = groups.iter().all(|(_, group)| !group.is_empty());
+    let header_class = page::training_session::COLUMN_HEADER_CLASS;
+    rsx! {
+        div {
+            class: "block has-text-centered",
+            Caption { "Personal records" }
+            table {
+                class: "mx-auto",
+                "data-testid": "personal-records",
+                tr {
+                    class: if has_sides { "" } else { "has-border-bottom" },
+                    td {}
+                    for (kind, label) in [(domain::RecordKind::AllTime, "All-time"), (domain::RecordKind::Recent, "6 months")] {
+                        th {
+                            class: "px-2 pb-1 has-text-centered has-text-strong has-text-weight-bold",
+                            scope: "col",
+                            span {
+                                class: "icon-text is-flex-wrap-nowrap is-align-items-center",
+                                Icon {
+                                    name: "trophy",
+                                    is_small: true,
+                                    class: page::training_session::record_class(kind),
+                                }
+                                span { "{label}" }
+                            }
+                        }
+                    }
+                }
+                if has_sides {
+                    tr {
+                        class: "has-border-bottom",
+                        td {}
+                        td { class: "px-2 has-text-centered is-size-7 has-text-weak", "L / R" }
+                        td { class: "px-2 has-text-centered is-size-7 has-text-weak", "L / R" }
+                    }
+                }
+                for (i, (label, group)) in groups.into_iter().enumerate() {
+                    if is_grouped && !group.is_empty() {
+                        tr {
+                            class: if i > 0 { "has-border-top" },
+                            th {
+                                class: "{header_class} pt-2 has-text-left",
+                                colspan: 3,
+                                scope: "rowgroup",
+                                "{label}"
+                            }
+                        }
+                    }
+                    for value in group {
+                        tr {
+                            th {
+                                class: "px-2 has-text-left has-text-weight-normal",
+                                scope: "row",
+                                NoWrap { {value_label(value)} }
+                            }
+                            td {
+                                class: "px-2 has-text-centered",
+                                {view_record_cell(records, value, has_sides, |r| Some(r.all_time))}
+                            }
+                            td {
+                                class: "px-2 has-text-centered",
+                                {view_record_cell(records, value, has_sides, |r| r.recent)}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn value_label(value: domain::RecordValue) -> &'static str {
+    match value {
+        domain::RecordValue::Reps => "Reps",
+        domain::RecordValue::Time => "Time (s)",
+        domain::RecordValue::Weight => "Weight (kg)",
+        domain::RecordValue::OneRepMax => "Est. 1RM (kg)",
+    }
+}
+
+/// Show the record selected by `select` of each side, as a single value where the sides are
+/// equal, linking to the session that set it, with its date below.
+fn view_record_cell(
+    records: &BTreeMap<(domain::Side, domain::RecordValue), domain::Records>,
+    value: domain::RecordValue,
+    has_sides: bool,
+    select: impl Fn(&domain::Records) -> Option<domain::Record>,
+) -> Element {
+    let sides: &[domain::Side] = if has_sides {
+        &[domain::Side::Left, domain::Side::Right]
+    } else {
+        &[domain::Side::Unset]
+    };
+    let records = sides
+        .iter()
+        .map(|side| {
+            records
+                .get(&(*side, value))
+                .and_then(&select)
+                .map(|record| (record_to_string(value, record.value), record))
+        })
+        .collect::<Vec<_>>();
+    let link = |(text, record): &(String, domain::Record)| {
+        rsx! {
+            Link {
+                to: Route::TrainingSession { id: record.session_id },
+                "{text}"
+            }
+        }
+    };
+    let dash = rsx! { span { class: "has-text-weak", "–" } };
+    let held = records.iter().flatten().collect::<Vec<_>>();
+    let Some(latest) = held
+        .iter()
+        .max_by_key(|(_, record)| (record.date, record.session_id))
+    else {
+        return dash;
+    };
+    if held.len() == records.len() && held.iter().all(|(text, _)| *text == latest.0) {
+        // A single value links to the latest session reaching it.
+        return rsx! {
+            {link(latest)}
+            {view_record_date("", latest.1.date)}
+        };
+    }
+    rsx! {
+        NoWrap {
+            for (i, record) in records.iter().enumerate() {
+                if i > 0 { " / " }
+                match record {
+                    Some(record) => link(record),
+                    None => dash.clone(),
+                }
+            }
+        }
+        for (side, record) in sides.iter().zip(&records) {
+            if let Some((_, record)) = record {
+                {view_record_date(&format!("{side} "), record.date)}
+            }
+        }
+    }
+}
+
+fn view_record_date(prefix: &str, date: NaiveDate) -> Element {
+    rsx! {
+        div {
+            class: "is-size-8 has-text-weak",
+            "data-testid": "record-date",
+            NoWrap { "{prefix}{date}" }
+        }
+    }
+}
+
+fn record_to_string(value: domain::RecordValue, number: f32) -> String {
+    match value {
+        domain::RecordValue::OneRepMax => format!("{number:.1}"),
+        domain::RecordValue::Reps | domain::RecordValue::Time | domain::RecordValue::Weight => {
+            format!("{number}")
+        }
     }
 }
 
@@ -172,11 +400,13 @@ fn view_routines(id: domain::ExerciseID, cache: &Cache) -> Element {
 
 /// Show the sessions holding the exercise and its sets on the sessions tab, and their charts on
 /// the charts tab.
+#[allow(clippy::too_many_arguments)]
 fn view_training_sessions(
     exercise: &domain::Exercise,
     exercises: &[domain::Exercise],
     tab: ExerciseTab,
     cache: &Cache,
+    personal_records: &domain::PersonalRecords,
     mut current_interval: Signal<domain::Interval>,
     training_dialog: Signal<page::training_sessions::TrainingDialog>,
     settings: Settings,
@@ -233,7 +463,7 @@ fn view_training_sessions(
                 } else {
                     {view_calendar(id, &training_sessions, &stretch_only, interval)}
                     {page::training_sessions::view_table(&training_sessions, &stretch_only, stretch_metrics, show_time, routines, interval, training_dialog, settings)}
-                    {view_sets(id, &sessions_with_exercise, routines, show_time, settings)}
+                    {view_sets(id, &sessions_with_exercise, personal_records, routines, show_time, settings)}
                     {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                 }
             }
@@ -723,11 +953,13 @@ fn view_notes(
 fn view_sets(
     exercise_id: domain::ExerciseID,
     training_sessions: &[&domain::TrainingSession],
+    personal_records: &domain::PersonalRecords,
     routines: &[domain::Routine],
     show_time: bool,
     settings: Settings,
 ) -> Element {
     let blocks = training_sessions.iter().rev().flat_map(|t| {
+        let record_sets = personal_records.record_sets(t.id);
         let routine = routines.iter().find(|r| r.id == t.routine_id);
         let routine_id = routine.map(|r| r.id).unwrap_or_default();
         let note = t
@@ -740,10 +972,19 @@ fn view_sets(
         let has_sides = rows
             .iter()
             .any(|row| matches!(row, domain::SetHistoryRow::Sides { .. }));
-        let values = |set: &Option<domain::Set>| {
-            set.as_ref()
-                .map(|set| set.to_string(show_time, settings.show_rpe()))
-                .unwrap_or_default()
+        let values = |set: Option<&(usize, domain::Set)>| {
+            let Some((element_idx, set)) = set else {
+                return rsx! {};
+            };
+            rsx! {
+                span {
+                    class: "icon-text is-flex-wrap-nowrap is-align-items-center",
+                    NoWrap { {set.to_string(show_time, settings.show_rpe())} }
+                    if let Some(kind) = record_sets.get(element_idx) {
+                        {page::training_session::view_record_marker(*kind)}
+                    }
+                }
+            }
         };
         let sets = if has_sides {
             rsx! {
@@ -758,14 +999,14 @@ fn view_sets(
                         tr {
                             match row {
                                 domain::SetHistoryRow::Sides { left, right } => rsx! {
-                                    td { class: "px-2 has-text-centered", NoWrap { {values(&left)} } }
-                                    td { class: "px-2 has-text-centered", NoWrap { {values(&right)} } }
+                                    td { class: "px-2 has-text-centered", {values(left.as_ref())} }
+                                    td { class: "px-2 has-text-centered", {values(right.as_ref())} }
                                 },
-                                domain::SetHistoryRow::Combined(set) => rsx! {
+                                domain::SetHistoryRow::Combined(element_idx, set) => rsx! {
                                     td {
                                         class: "px-2 has-text-centered",
                                         colspan: 2,
-                                        NoWrap { {values(&Some(set))} }
+                                        {values(Some(&(element_idx, set)))}
                                     }
                                 },
                             }
@@ -776,10 +1017,10 @@ fn view_sets(
         } else {
             rsx! {
                 for row in rows {
-                    if let domain::SetHistoryRow::Combined(set) = row {
+                    if let domain::SetHistoryRow::Combined(element_idx, set) = row {
                         div {
                             "data-testid": "set-history-set",
-                            NoWrap { {values(&Some(set))} }
+                            {values(Some(&(element_idx, set)))}
                         }
                     }
                 }
@@ -844,8 +1085,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, all_text_of, attribute_of, contains, provide_settings, render, rows_of,
-        rows_of_nth, text_of,
+        TestCache, all_containing, all_text_of, attribute_of, contains, links_of, provide_settings,
+        render, rows_containing, rows_of, rows_of_excluding, rows_of_nth, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -1366,6 +1607,470 @@ mod tests {
                 .collect::<HashSet<_>>()
                 .len(),
             levels.len()
+        );
+    }
+
+    fn values(
+        side: domain::Side,
+        reps: u32,
+        time: u32,
+        weight: f32,
+    ) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            side,
+            reps: domain::Reps::new(reps).unwrap(),
+            time: domain::Time::new(time).unwrap(),
+            weight: domain::Weight::new(weight).unwrap(),
+            rpe: domain::RPE::ZERO,
+            target_reps: domain::Reps::default(),
+            target_tempo: domain::Tempo::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    fn reps(reps: u32) -> domain::TrainingSessionElement {
+        values(domain::Side::Unset, reps, 0, 0.0)
+    }
+
+    fn sided_reps(side: domain::Side, reps: u32) -> domain::TrainingSessionElement {
+        values(side, reps, 0, 0.0)
+    }
+
+    fn hold(time: u32) -> domain::TrainingSessionElement {
+        values(domain::Side::Unset, 0, time, 0.0)
+    }
+
+    fn lift(reps: u32, weight: f32) -> domain::TrainingSessionElement {
+        values(domain::Side::Unset, reps, 0, weight)
+    }
+
+    fn session(
+        id: u128,
+        days_ago: i64,
+        elements: Vec<domain::TrainingSessionElement>,
+    ) -> domain::TrainingSession {
+        domain::TrainingSession {
+            id: id.into(),
+            routine_id: domain::RoutineID::nil(),
+            date: chrono::Local::now().date_naive() - chrono::Duration::days(days_ago),
+            notes: String::new(),
+            elements,
+            exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
+        }
+    }
+
+    fn session_link(id: u128) -> String {
+        Route::TrainingSession { id: id.into() }.to_string()
+    }
+
+    fn render_records(
+        tab: ExerciseTab,
+        settings: web_app::Settings,
+        sessions: Vec<domain::TrainingSession>,
+    ) -> String {
+        render(move || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Pull Up")])
+                .with_training_sessions(sessions.clone())
+                .provide();
+            provide_settings(settings);
+            rsx! { Exercise { id: domain::ExerciseID::from(1), tab } }
+        })
+    }
+
+    fn records_table(sessions: Vec<domain::TrainingSession>) -> Vec<Vec<String>> {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            sessions,
+        );
+        rows_of_excluding(&html, "personal-records", "record-date")
+    }
+
+    fn set_history(sessions: Vec<domain::TrainingSession>) -> String {
+        render_records(
+            ExerciseTab::Sessions,
+            web_app::Settings::default(),
+            sessions,
+        )
+    }
+
+    #[test]
+    fn test_the_records_table_shows_a_value_per_kind_after_a_single_session() {
+        assert_eq!(
+            records_table(vec![session(
+                1,
+                0,
+                vec![reps(10), hold(30), lift(5, 100.0)]
+            )]),
+            [
+                vec!["", "All-time", "6 months"],
+                vec!["Body weight"],
+                vec!["Reps", "10", "10"],
+                vec!["Time (s)", "30", "30"],
+                vec!["With weight"],
+                vec!["Weight (kg)", "100", "100"],
+                vec!["Est. 1RM (kg)", "112.5", "112.5"],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_the_records_table_shows_a_recent_record_below_and_one_equal_to_the_all_time_record() {
+        assert_eq!(
+            records_table(vec![
+                session(1, 400, vec![reps(20), hold(30)]),
+                session(2, 10, vec![reps(12), hold(40)]),
+            ])[1..],
+            [vec!["Reps", "20", "12"], vec!["Time (s)", "40", "40"]]
+        );
+    }
+
+    #[test]
+    fn test_the_records_table_shows_a_dash_without_a_recent_record() {
+        assert_eq!(
+            records_table(vec![session(1, 400, vec![reps(20)])]),
+            [vec!["", "All-time", "6 months"], vec!["Reps", "20", "–"]]
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::body_weight(vec![reps(10), hold(30)], &["Reps", "Time (s)"])]
+    #[case::with_weight(vec![lift(5, 100.0)], &["Weight (kg)", "Est. 1RM (kg)"])]
+    fn test_the_records_table_has_no_group_headers_with_records_in_one_group(
+        #[case] elements: Vec<domain::TrainingSessionElement>,
+        #[case] expected: &[&str],
+    ) {
+        assert_eq!(
+            records_table(vec![session(1, 0, elements)])[1..]
+                .iter()
+                .map(|row| row[0].clone())
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_a_records_cell_shows_differing_sides_and_a_missing_side() {
+        assert_eq!(
+            records_table(vec![
+                session(1, 400, vec![sided_reps(domain::Side::Left, 11)]),
+                session(
+                    2,
+                    10,
+                    vec![
+                        sided_reps(domain::Side::Left, 10),
+                        sided_reps(domain::Side::Right, 12)
+                    ]
+                ),
+            ]),
+            [
+                vec!["", "All-time", "6 months"],
+                vec!["", "L / R", "L / R"],
+                vec!["Reps", "11 / 12", "10 / 12"],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_a_records_cell_shows_a_missing_side_as_a_dash() {
+        assert_eq!(
+            records_table(vec![session(
+                1,
+                0,
+                vec![sided_reps(domain::Side::Left, 10)]
+            )])[2],
+            ["Reps", "10 / –", "10 / –"]
+        );
+    }
+
+    #[test]
+    fn test_a_records_cell_shows_equal_sides_as_a_single_value_linking_to_the_later_session() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![
+                session(1, 20, vec![sided_reps(domain::Side::Left, 8)]),
+                session(2, 10, vec![sided_reps(domain::Side::Right, 8)]),
+            ],
+        );
+
+        assert_eq!(
+            rows_of_excluding(&html, "personal-records", "record-date")[2],
+            ["Reps", "8", "8"]
+        );
+        assert_eq!(
+            links_of(&html, "personal-records"),
+            [session_link(2), session_link(2)]
+        );
+    }
+
+    #[test]
+    fn test_records_without_a_side_count_for_both_sides_once_records_per_side_exist() {
+        assert_eq!(
+            records_table(vec![
+                session(1, 20, vec![reps(10), hold(30)]),
+                session(
+                    2,
+                    10,
+                    vec![
+                        sided_reps(domain::Side::Left, 12),
+                        sided_reps(domain::Side::Right, 9)
+                    ]
+                ),
+            ]),
+            [
+                vec!["", "All-time", "6 months"],
+                vec!["", "L / R", "L / R"],
+                vec!["Reps", "12 / 10", "12 / 10"],
+                vec!["Time (s)", "30", "30"],
+            ]
+        );
+    }
+
+    fn date(days_ago: i64) -> String {
+        (chrono::Local::now().date_naive() - chrono::Duration::days(days_ago)).to_string()
+    }
+
+    #[test]
+    fn test_the_date_of_a_record_is_shown_below_its_value() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![
+                session(1, 400, vec![reps(12)]),
+                session(2, 10, vec![reps(10)]),
+            ],
+        );
+
+        assert_eq!(all_text_of(&html, "record-date"), [date(400), date(10)]);
+    }
+
+    #[test]
+    fn test_the_records_per_side_show_the_date_of_each_side() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![
+                session(1, 20, vec![sided_reps(domain::Side::Left, 12)]),
+                session(2, 10, vec![sided_reps(domain::Side::Right, 10)]),
+            ],
+        );
+
+        let dates = [format!("L {}", date(20)), format!("R {}", date(10))];
+        assert_eq!(
+            all_text_of(&html, "record-date"),
+            [dates.clone(), dates].concat()
+        );
+    }
+
+    #[test]
+    fn test_an_equal_record_of_both_sides_shows_the_date_of_the_later_session() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![
+                session(1, 20, vec![sided_reps(domain::Side::Left, 10)]),
+                session(2, 10, vec![sided_reps(domain::Side::Right, 10)]),
+            ],
+        );
+
+        assert_eq!(all_text_of(&html, "record-date"), [date(10), date(10)]);
+    }
+
+    #[test]
+    fn test_an_equal_record_without_a_side_links_to_the_earlier_session() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![
+                session(1, 20, vec![reps(10)]),
+                session(2, 10, vec![sided_reps(domain::Side::Left, 10)]),
+            ],
+        );
+
+        assert_eq!(
+            rows_of_excluding(&html, "personal-records", "record-date")[2],
+            ["Reps", "10", "10"]
+        );
+        assert_eq!(
+            links_of(&html, "personal-records"),
+            [session_link(1), session_link(1)]
+        );
+    }
+
+    #[test]
+    fn test_a_recent_record_held_by_two_sessions_links_to_the_first() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![
+                session(1, 400, vec![reps(20)]),
+                session(2, 20, vec![reps(10)]),
+                session(3, 10, vec![reps(10)]),
+            ],
+        );
+
+        assert_eq!(
+            links_of(&html, "personal-records"),
+            [session_link(1), session_link(2)]
+        );
+    }
+
+    #[test]
+    fn test_estimated_one_rep_maxes_of_both_sides_rounding_to_the_same_value_show_a_single_value() {
+        let sided_lift = |side, weight| values(side, 5, 0, weight);
+        assert_eq!(
+            records_table(vec![session(
+                1,
+                0,
+                vec![
+                    sided_lift(domain::Side::Left, 100.0),
+                    sided_lift(domain::Side::Right, 100.01)
+                ]
+            )])[2..],
+            [
+                vec!["Weight (kg)", "100 / 100.01", "100 / 100.01"],
+                vec!["Est. 1RM (kg)", "112.5", "112.5"],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_the_records_table_shows_the_time_while_the_time_under_tension_is_hidden() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings {
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+            vec![session(1, 0, vec![hold(30)])],
+        );
+
+        assert_eq!(
+            rows_of_excluding(&html, "personal-records", "record-date")[1],
+            ["Time (s)", "30", "30"]
+        );
+    }
+
+    #[test]
+    fn test_the_records_table_is_shown_below_a_placeholder_for_missing_properties() {
+        let html = render(|| {
+            TestCache::default()
+                .with_exercises(vec![domain::Exercise {
+                    notes: String::new(),
+                    muscles: vec![],
+                    force: None,
+                    ..exercise(1, "Pull Up")
+                }])
+                .with_training_sessions(vec![session(1, 0, vec![reps(10)])])
+                .provide();
+            provide_settings(web_app::Settings::default());
+            rsx! { Exercise { id: domain::ExerciseID::from(1), tab: ExerciseTab::Exercise } }
+        });
+
+        assert!(contains(&html, "personal-records"));
+        assert_eq!(text_of(&html, "no-data"), "No properties");
+    }
+
+    #[test]
+    fn test_a_set_that_a_session_before_the_interval_beats_carries_no_marker() {
+        let html = set_history(vec![
+            session(1, 100, vec![reps(20)]),
+            session(2, 50, vec![reps(10)]),
+            session(3, 0, vec![reps(15)]),
+        ]);
+
+        assert_eq!(all_text_of(&html, "set-history-set"), ["15", "10"]);
+        assert!(!contains(&html, "personal-record"));
+        assert!(!contains(&html, "recent-personal-record"));
+    }
+
+    #[test]
+    fn test_the_marker_ends_the_line_of_the_record_set_only() {
+        let html = set_history(vec![
+            session(1, 10, vec![reps(10)]),
+            session(2, 0, vec![reps(12), reps(12)]),
+        ]);
+
+        assert_eq!(
+            all_containing(&html, "set-history-set", "personal-record"),
+            [true, false, false]
+        );
+    }
+
+    #[test]
+    fn test_a_recent_record_set_carries_the_recent_marker() {
+        let html = set_history(vec![
+            session(1, 400, vec![reps(20)]),
+            session(2, 20, vec![reps(10)]),
+            session(3, 0, vec![reps(12)]),
+        ]);
+
+        assert_eq!(
+            all_containing(&html, "set-history-set", "recent-personal-record"),
+            [true, false]
+        );
+        assert!(!contains(&html, "personal-record"));
+    }
+
+    #[test]
+    fn test_the_marker_of_a_pair_is_in_the_cell_of_its_side() {
+        let html = set_history(vec![
+            session(
+                1,
+                10,
+                vec![
+                    sided_reps(domain::Side::Left, 10),
+                    sided_reps(domain::Side::Right, 10),
+                ],
+            ),
+            session(
+                2,
+                0,
+                vec![
+                    sided_reps(domain::Side::Right, 12),
+                    sided_reps(domain::Side::Left, 10),
+                ],
+            ),
+        ]);
+
+        assert_eq!(
+            rows_containing(&html, "set-history-sides", "personal-record")[1],
+            [false, true]
+        );
+    }
+
+    #[test]
+    fn test_the_marker_is_found_after_another_exercise_and_a_rest() {
+        let mut other_exercise = reps(5);
+        if let domain::TrainingSessionElement::Set { exercise_id, .. } = &mut other_exercise {
+            *exercise_id = 2.into();
+        }
+        let html = set_history(vec![
+            session(1, 10, vec![reps(10)]),
+            session(
+                2,
+                0,
+                vec![
+                    other_exercise,
+                    domain::TrainingSessionElement::Rest {
+                        target_time: domain::Time::default(),
+                        automatic: false,
+                    },
+                    reps(9),
+                    reps(12),
+                ],
+            ),
+        ]);
+
+        assert_eq!(
+            all_containing(&html, "set-history-set", "personal-record"),
+            [false, true, false]
         );
     }
 }

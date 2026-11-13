@@ -131,6 +131,14 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         }
     });
     // Kept apart from the form, which is rendered anew with every tick of the timer.
+    let personal_records = use_memo(move || {
+        let (CacheState::Ready(training_sessions), CacheState::Ready(exercises)) =
+            (&*cache.training_sessions.read(), &*cache.exercises.read())
+        else {
+            return domain::PersonalRecords::default();
+        };
+        domain::PersonalRecords::new(training_sessions, exercises)
+    });
     let recent_sessions_by_element = use_memo(move || {
         let (CacheState::Ready(training_sessions), Some(training_session)) =
             (&*cache.training_sessions.read(), &*training_session.read())
@@ -622,11 +630,12 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 ongoing,
                 show_active_focus,
             };
+            let record_sets = personal_records.read().record_sets(training_session.id);
             rsx! {
                 if edit() {
-                    {view_form(inputs, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
+                    {view_form(inputs, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), &record_sets, exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
-                    {view_list(edit_dialog, training_session, exercises)},
+                    {view_list(edit_dialog, training_session, &record_sets, exercises)},
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
@@ -1117,6 +1126,7 @@ fn view_form(
     exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     training_session: &domain::TrainingSession,
     recent_sessions_by_element: &HashMap<(usize, domain::Side), Vec<RecentSession>>,
+    record_sets: &BTreeMap<usize, domain::RecordKind>,
     exercises: &[domain::Exercise],
     settings: Settings,
     cache: Cache,
@@ -1126,14 +1136,7 @@ fn view_form(
 ) -> Element {
     let mut field_values = inputs.values;
     let sections = training_session.compute_sections();
-    let section_element_offsets = sections
-        .iter()
-        .scan(0, |offset, section| {
-            let first_element_idx = *offset;
-            *offset += section.elements().len();
-            Some(first_element_idx)
-        })
-        .collect::<Vec<_>>();
+    let section_element_offsets = first_element_indices(&sections);
     let progress_element_idx = progress.read().element_idx;
     let progress_section_idx = training_session.section_idx(progress_element_idx);
     let progress_section_idx_lookahead =
@@ -1308,6 +1311,7 @@ fn view_form(
 
                     let show_set_buttons = is_current_section && set_field_values.offers_values();
                     let entered_side = set_field_values.side.validated.clone().unwrap_or_default();
+                    let set_record = saved_record(record_sets, element_idx, set_field_values);
 
                     let history: &[RecentSession] = if show_set_buttons {
                         recent_sessions_by_element.get(&(element_idx, entered_side)).map_or(&[], Vec::as_slice)
@@ -1344,29 +1348,30 @@ fn view_form(
                     let cycles_side = is_unilateral || *side != domain::Side::Unset || entered_side != domain::Side::Unset;
                     let set_marker = rsx! {
                         td {
-                            class: "p-1",
+                            class: "p-1 is-beside-fields",
                             class: if cycles_side { "is-clickable" },
-                            style: "vertical-align: middle",
                             "data-testid": "set-number",
                             onclick: move |_| {
                                 if cycles_side && let Some(set_field_values) = field_values.write().get_mut(&element_idx) {
                                     set_field_values.cycle_side();
                                 }
                             },
-                            if let Some(number) = number {
-                                "{exercise_marker(number)}"
-                            }
-                            if entered_side != domain::Side::Unset {
-                                span {
-                                    class: if side_changed { "has-text-info" },
-                                    "data-testid": "set-side",
-                                    "{entered_side}"
+                            div {
+                                if let Some(number) = number {
+                                    "{exercise_marker(number)}"
                                 }
-                            } else if is_unilateral || side_changed {
-                                span {
-                                    class: if side_changed { "has-text-info" } else { "has-text-weak" },
-                                    "data-testid": "set-side",
-                                    "–"
+                                if entered_side != domain::Side::Unset {
+                                    span {
+                                        class: if side_changed { "has-text-info" },
+                                        "data-testid": "set-side",
+                                        "{entered_side}"
+                                    }
+                                } else if is_unilateral || side_changed {
+                                    span {
+                                        class: if side_changed { "has-text-info" } else { "has-text-weak" },
+                                        "data-testid": "set-side",
+                                        "–"
+                                    }
                                 }
                             }
                         }
@@ -1375,6 +1380,7 @@ fn view_form(
                     match countdown_total(*target_reps, *target_tempo, *automatic, set_field_values, focus) {
                         None => rsx! {
                             tr {
+                                class: "has-fields",
                                 class: if is_current_section { "" } else { "is-semitransparent" },
                                 {set_marker.clone()}
                                 td {
@@ -1474,27 +1480,39 @@ fn view_form(
                                     }
                                 }
                                 td {
-                                    class: "p-1",
-                                    style: "vertical-align: middle",
-                                    if set_field_values.valid() && !(set_field_values.is_unperformed() && focus.is_focused(element_idx)) {
-                                        button {
-                                            class: "button is-small",
-                                            class: if set_field_values.has_pending_save() { "is-link is-outlined" } else if !set_field_values.is_empty() { "is-ghost" },
-                                            "data-testid": "set-action",
-                                            disabled: focus.other_session_running() && set_field_values.is_unperformed(),
-                                            onclick: eh!(mut training_session; field_values, set_field_values; {
+                                    class: "p-1 is-beside-fields",
+                                    div {
+                                        if set_field_values.valid() && !(set_field_values.is_unperformed() && focus.is_focused(element_idx)) {
+                                            button {
+                                                class: "button is-small",
+                                                class: if set_field_values.has_pending_save() { "is-link is-outlined" } else if !set_field_values.is_empty() { "is-ghost" },
+                                                "data-testid": "set-action",
+                                                "aria-label": match (set_field_values.is_unperformed(), set_record) {
+                                                    (true, _) => None,
+                                                    (false, Some(kind)) => Some(format!("Complete set ({})", record_label(kind).to_lowercase())),
+                                                    (false, None) => Some("Complete set".to_string()),
+                                                },
+                                                disabled: focus.other_session_running() && set_field_values.is_unperformed(),
+                                                onclick: eh!(mut training_session; field_values, set_field_values; {
+                                                    if set_field_values.is_unperformed() {
+                                                        focus.take_ownership();
+                                                        progress.write().set_element_idx(element_idx);
+                                                    } else {
+                                                        progress.write().complete(element_idx);
+                                                        modify_training_session_elements(&mut training_session, &field_values.read());
+                                                        spawn(async move {
+                                                            save(training_session.clone(), inputs, cache, || {}).await;
+                                                        });
+                                                    }
+                                                }),
                                                 if set_field_values.is_unperformed() {
-                                                    focus.take_ownership();
-                                                    progress.write().set_element_idx(element_idx);
+                                                    Icon { name: "angles-left" }
+                                                } else if let Some(kind) = set_record {
+                                                    {view_record_marker(kind)}
                                                 } else {
-                                                    progress.write().complete(element_idx);
-                                                    modify_training_session_elements(&mut training_session, &field_values.read());
-                                                    spawn(async move {
-                                                        save(training_session.clone(), inputs, cache, || {}).await;
-                                                    });
+                                                    Icon { name: "check" }
                                                 }
-                                            }),
-                                            Icon { name: if set_field_values.is_unperformed() { "angles-left" } else { "check" } }
+                                            }
                                         }
                                     }
                                 }
@@ -2041,10 +2059,17 @@ fn Notes(notes: Signal<Option<FieldValue<String>>>, edit: ReadSignal<bool>) -> E
 fn view_list(
     edit_dialog: Signal<EditDialog>,
     training_session: &domain::TrainingSession,
+    record_sets: &BTreeMap<usize, domain::RecordKind>,
     exercises: &[domain::Exercise],
 ) -> Element {
     let sections = training_session.compute_sections();
-    let rows = sections.iter().map(|section| {
+    let section_element_offsets = first_element_indices(&sections);
+    let record_marker = |element_idx: usize| {
+        record_sets
+            .get(&element_idx)
+            .map(|kind| view_record_marker(*kind))
+    };
+    let rows = sections.iter().zip(section_element_offsets).map(|(section, first_element_idx)| {
         let exercise_ids = unique(section.exercise_ids());
         let exercise_ids_len = exercise_ids.len();
         let exercise_names = exercise_ids.clone().into_iter().enumerate().map(|(i, id)| {
@@ -2061,7 +2086,7 @@ fn view_list(
                         class: "has-text-centered has-text-weight-bold",
                         class: if i == 0 { "pt-2" },
                         class: if is_last_row_before_note && measurements_are_empty { "pb-1" },
-                        colspan: 5,
+                        colspan: 6,
                         if let Some(number) = number {
                             span{
                                 class: "px-1",
@@ -2081,7 +2106,7 @@ fn view_list(
                         td {
                             class: "px-2",
                             class: if is_last_row_before_note { "pb-1" },
-                            colspan: 5,
+                            colspan: 6,
                             {view_measurement_row(&measurements, Some(eh!(mut edit_dialog; training_session; {
                                 *edit_dialog.write() = EditDialog::SessionExerciseNotes {
                                     training_session,
@@ -2096,7 +2121,7 @@ fn view_list(
                         td {
                             class: "px-2",
                             class: if i == exercise_ids_len - 1 { "pb-1" },
-                            colspan: 5,
+                            colspan: 6,
                             div {
                                 class: "is-clickable is-italic has-text-centered",
                                 "data-testid": "session-exercise-notes",
@@ -2119,11 +2144,11 @@ fn view_list(
             .iter()
             .position(|group| matches!(group, domain::ElementGroup::Sides { .. }));
         let sets = groups.into_iter().enumerate().map(|(group_idx, group)| {
-            let element = match group {
+            let (element_idx, element) = match group {
                 domain::ElementGroup::Sides { left, right } => {
                     let number = left
                         .or(right)
-                        .and_then(|element| match element {
+                        .and_then(|(_, element)| match element {
                             domain::TrainingSessionElement::Set { exercise_id, .. } => {
                                 exercise_number(exercise_id, &exercise_ids)
                             }
@@ -2136,6 +2161,7 @@ fn view_list(
                                 td {}
                                 th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Left" }
                                 th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Right" }
+                                td {}
                             }
                         }
                         tr {
@@ -2151,13 +2177,20 @@ fn view_list(
                                     class: "px-2 has-text-centered",
                                     colspan: 2,
                                     "data-testid": "set-side-values",
-                                    {element.map(side_cell).unwrap_or_default()}
+                                    if let Some((element_idx, element)) = element {
+                                        span {
+                                            class: "icon-text is-flex-wrap-nowrap is-align-items-center",
+                                            span { {side_cell(element)} }
+                                            {record_marker(first_element_idx + element_idx)}
+                                        }
+                                    }
                                 }
                             }
+                            td {}
                         }
                     };
                 }
-                domain::ElementGroup::Single(element) => element,
+                domain::ElementGroup::Single(element_idx, element) => (element_idx, element),
             };
             rsx! {
                 match element {
@@ -2168,7 +2201,7 @@ fn view_list(
                                 if *reps == domain::Reps::default() && *time == domain::Time::default() && *weight == domain::Weight::default() && *rpe == domain::RPE::ZERO {
                                     td {
                                         class: "px-2 has-text-centered",
-                                        colspan: 5,
+                                        colspan: 6,
                                         if let Some(number) = number {
                                             span {
                                                 class: "pr-2",
@@ -2211,6 +2244,10 @@ fn view_list(
                                             " @ {rpe}"
                                         }
                                     }
+                                    td {
+                                        class: "px-1",
+                                        {record_marker(first_element_idx + element_idx)}
+                                    }
                                 }
                             }
                         }
@@ -2248,6 +2285,18 @@ fn view_list(
             }
         }
     }
+}
+
+/// The session index of the first element of each section.
+fn first_element_indices(sections: &[domain::TrainingSessionSection]) -> Vec<usize> {
+    sections
+        .iter()
+        .scan(0, |offset, section| {
+            let first_element_idx = *offset;
+            *offset += section.elements().len();
+            Some(first_element_idx)
+        })
+        .collect()
 }
 
 /// The values of a set with a side, stating the time and the rating whenever they are set.
@@ -2880,6 +2929,51 @@ fn reuse_measurements(
     }
 }
 
+/// The kind of record set of a set whose changes are saved, so that the marker follows the saved
+/// values.
+fn saved_record(
+    record_sets: &BTreeMap<usize, domain::RecordKind>,
+    element_idx: usize,
+    values: &SetFieldValues,
+) -> Option<domain::RecordKind> {
+    record_sets
+        .get(&element_idx)
+        .copied()
+        .filter(|_| !values.has_pending_save())
+}
+
+/// Show the trophy marking a record set of `kind`.
+pub fn view_record_marker(kind: domain::RecordKind) -> Element {
+    let test_id = match kind {
+        domain::RecordKind::AllTime => "personal-record",
+        domain::RecordKind::Recent => "recent-personal-record",
+    };
+    rsx! {
+        Icon {
+            name: "trophy",
+            is_small: true,
+            class: record_class(kind),
+            role: "img",
+            "aria-label": record_label(kind),
+            "data-testid": test_id,
+        }
+    }
+}
+
+fn record_label(kind: domain::RecordKind) -> &'static str {
+    match kind {
+        domain::RecordKind::AllTime => "Personal record",
+        domain::RecordKind::Recent => "Recent personal record",
+    }
+}
+
+pub fn record_class(kind: domain::RecordKind) -> &'static str {
+    match kind {
+        domain::RecordKind::AllTime => "has-text-gold",
+        domain::RecordKind::Recent => "has-text-weak",
+    }
+}
+
 /// Show the measurement of an exercise, opening the dialog of `on_click` when clicked.
 pub fn view_measurement_row(
     values: &BTreeMap<domain::Side, domain::Measurement>,
@@ -2954,8 +3048,6 @@ fn exercise_marker(number: u32) -> String {
     .unwrap_or_else(|| format!("({})", number + 1))
 }
 
-/// Writes the entered set values into the training session, leaving the stored value of an
-/// invalid input in place.
 /// The training session as currently cached, falling back to `training_session`, so that a change
 /// made in a dialog keeps what was saved while the dialog was open.
 fn latest(training_session: &domain::TrainingSession, cache: Cache) -> domain::TrainingSession {
@@ -2969,6 +3061,8 @@ fn latest(training_session: &domain::TrainingSession, cache: Cache) -> domain::T
     .unwrap_or_else(|| training_session.clone())
 }
 
+/// Writes the entered set values into the training session, leaving the stored value of an
+/// invalid input in place.
 fn modify_training_session_elements(
     training_session: &mut domain::TrainingSession,
     field_values: &HashMap<usize, SetFieldValues>,
@@ -3180,7 +3274,8 @@ mod tests {
         ongoing_training_session::State,
         test_render::{
             TestCache, all_attributes_of, all_text_of, attribute_of, cells_of, contains,
-            provide_ongoing_training_session, provide_settings, render, rows_of, text_of,
+            provide_ongoing_training_session, provide_settings, render, rows_containing, rows_of,
+            text_of,
         },
     };
 
@@ -3286,7 +3381,7 @@ mod tests {
         assert_eq!(all_text_of(&html, "exercise-name"), vec!["Squat"]);
         assert_eq!(
             rows_of(&html, "session")[1],
-            vec!["", "10 ×", "30 s", "50 kg", "@ 8"]
+            vec!["", "10 ×", "30 s", "50 kg", "@ 8", ""]
         );
     }
 
@@ -3320,11 +3415,11 @@ mod tests {
         assert_eq!(
             rows_of(&html, "session")[1..],
             [
-                vec!["", "Left", "Right"],
-                vec!["", "10 × 50 kg @ 8 (30 s)", "10 × 50 kg @ 8 (30 s)"],
-                vec!["", "10 × 50 kg @ 8 (30 s)", ""],
-                vec!["", "10 ×", "30 s", "50 kg", "@ 8"],
-                vec!["", "", "10 × 50 kg @ 8 (30 s)"],
+                vec!["", "Left", "Right", ""],
+                vec!["", "10 × 50 kg @ 8 (30 s)", "10 × 50 kg @ 8 (30 s)", ""],
+                vec!["", "10 × 50 kg @ 8 (30 s)", "", ""],
+                vec!["", "10 ×", "30 s", "50 kg", "@ 8", ""],
+                vec!["", "", "10 × 50 kg @ 8 (30 s)", ""],
             ]
         );
     }
@@ -3362,8 +3457,8 @@ mod tests {
         assert_eq!(
             rows_of(&html, "session")[1..],
             [
-                vec!["", "Left", "Right"],
-                vec!["", "12 × 50 kg @ 8 (30 s)", "11 × 50 kg @ 8 (30 s)"]
+                vec!["", "Left", "Right", ""],
+                vec!["", "12 × 50 kg @ 8 (30 s)", "11 × 50 kg @ 8 (30 s)", ""]
             ]
         );
     }
@@ -3382,7 +3477,7 @@ mod tests {
 
         assert_eq!(
             rows_of(&html, "session")[1],
-            vec!["", "10 ×", "30 s", "50 kg", "@ 8"]
+            vec!["", "10 ×", "30 s", "50 kg", "@ 8", ""]
         );
     }
 
@@ -4867,6 +4962,117 @@ mod tests {
                 .into_iter()
                 .map(|(side, value)| (side, value.to_string(), Ok(Some(value))))
                 .collect::<Vec<_>>()
+        );
+    }
+
+    /// Render session 1 holding `elements` after `earlier_sessions`.
+    fn render_after(
+        earlier_sessions: Vec<domain::TrainingSession>,
+        elements: Vec<domain::TrainingSessionElement>,
+    ) -> String {
+        render(move || {
+            let mut training_sessions = earlier_sessions.clone();
+            training_sessions.push(earlier_session(1, 0, elements.clone()));
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Pull Up")])
+                .with_training_sessions(training_sessions)
+                .provide();
+            provide_settings(web_app::Settings::default());
+            provide_ongoing_training_session(State::None);
+            rsx! { TrainingSession { id: domain::TrainingSessionID::from(1) } }
+        })
+    }
+
+    fn sided_set(side: domain::Side, reps: u32) -> domain::TrainingSessionElement {
+        let mut element = set(1, reps);
+        if let domain::TrainingSessionElement::Set { side: s, .. } = &mut element {
+            *s = side;
+        }
+        element
+    }
+
+    #[rstest::rstest]
+    #[case::all_time(21, Some("personal-record"))]
+    #[case::recent(11, Some("recent-personal-record"))]
+    #[case::equal(10, None)]
+    fn test_a_record_set_carries_its_marker_at_the_end_of_its_row(
+        #[case] reps: u32,
+        #[case] expected: Option<&str>,
+    ) {
+        let html = render_after(
+            vec![
+                earlier_session(2, 400, vec![set(1, 20)]),
+                earlier_session(3, 10, vec![set(1, 10)]),
+            ],
+            vec![set(1, reps)],
+        );
+
+        for marker in ["personal-record", "recent-personal-record"] {
+            let rows = rows_containing(&html, "session", marker);
+            assert_eq!(
+                rows.iter().any(|row| row.len() == 6 && row[5]),
+                expected == Some(marker),
+                "{marker}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_a_record_set_with_unsaved_changes_shows_the_check() {
+        let record_sets = BTreeMap::from([(0, domain::RecordKind::AllTime)]);
+        let mut values = set_field_values(21);
+
+        assert_eq!(
+            saved_record(&record_sets, 0, &values),
+            Some(domain::RecordKind::AllTime)
+        );
+
+        values.reps.input = "22".to_string();
+        values.reps.validated = Ok(domain::Reps::new(22).unwrap());
+
+        assert_eq!(saved_record(&record_sets, 0, &values), None);
+    }
+
+    #[test]
+    fn test_the_right_set_of_a_pair_carries_the_marker_of_its_record() {
+        let html = render_after(
+            vec![earlier_session(
+                2,
+                10,
+                vec![
+                    sided_set(domain::Side::Left, 10),
+                    sided_set(domain::Side::Right, 10),
+                ],
+            )],
+            vec![
+                sided_set(domain::Side::Right, 12),
+                sided_set(domain::Side::Left, 9),
+            ],
+        );
+
+        assert_eq!(
+            rows_containing(&html, "session", "personal-record")
+                .into_iter()
+                .filter(|row| row.contains(&true))
+                .collect::<Vec<_>>(),
+            [vec![false, false, true, false]]
+        );
+    }
+
+    #[test]
+    fn test_only_the_first_of_two_equal_record_sets_carries_the_marker() {
+        let html = render_after(
+            vec![earlier_session(2, 10, vec![set(1, 20)])],
+            vec![set(1, 21), set(1, 21)],
+        );
+
+        assert_eq!(
+            rows_containing(&html, "session", "personal-record")
+                .into_iter()
+                .filter(|row| row.len() == 6)
+                .map(|row| row[5])
+                .collect::<Vec<_>>(),
+            [true, false]
         );
     }
 }

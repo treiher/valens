@@ -596,6 +596,15 @@ $value-field-padding: 0.4em;
     color: var(--bulma-text-weak) !important;
 }
 
+// Gold in both themes, lighter than the warning color Bulma uses on a light background
+.has-text-gold {
+    color: hsl(
+        var(--bulma-warning-h),
+        var(--bulma-warning-s),
+        max(var(--bulma-warning-on-scheme-l), 45%)
+    ) !important;
+}
+
 // Muted in both themes, where the fixed Bulma greys are legible in only one of them
 .has-text-muted {
     color: var(--bulma-border);
@@ -921,4 +930,35 @@ tbody.element-snap-current > tr:first-child > td {
 
 tbody.element-snap-current > tr:last-child > td {
   padding-bottom: 9vh !important;
+}
+
+// Cells beside the input fields of a row, centered on the fields rather than on the row, which a
+// help line below a field makes taller
+
+td.is-beside-fields {
+  vertical-align: middle;
+}
+
+tr.has-fields > td.is-beside-fields {
+  vertical-align: top;
+
+  > div {
+    display: flex;
+    align-items: center;
+    min-height: var(--bulma-control-height);
+  }
+}
+
+// Personal records
+
+.is-size-8 {
+  font-size: 0.625rem !important;
+}
+
+.has-border-top {
+  border-top: 1px solid var(--bulma-border);
+}
+
+.has-border-bottom {
+  border-bottom: 1px solid var(--bulma-border);
 }

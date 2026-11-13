@@ -2084,6 +2084,44 @@ def test_training_session_side_of_a_recorded_set(page: Page) -> None:
     assert len(rows[1]) == 2
 
 
+def test_training_session_personal_record(page: Page) -> None:
+    workout = next(w for w in USER.workouts if w.id == 4)
+    first_set = workout.elements[0]
+    assert isinstance(first_set, models.WorkoutSet)
+    assert first_set.reps is not None
+    reps = first_set.reps + 1
+
+    login(page)
+
+    p = TrainingSessionPage(page, workout.id)
+    p.goto()
+    p.expect_page()
+    p.edit()
+
+    expect(p.personal_record()).to_have_count(1)
+
+    p.set_form(0, (reps, first_set.time, None, first_set.rpe))
+    p.save()
+    p.view()
+
+    expect(p.personal_record()).to_have_count(1)
+    expect(p.recent_personal_record()).to_have_count(0)
+
+    exercise_page = ExercisePage(page, first_set.exercise.id)
+    exercise_page.goto()
+    exercise_page.expect_page()
+
+    assert exercise_page.get_personal_records() == [
+        ["", "All-time", "6 months"],
+        ["Reps", str(reps), str(reps)],
+    ]
+    assert exercise_page.get_personal_record_dates() == [workout.date.isoformat()] * 2
+
+    exercise_page.select_tab("sessions")
+
+    expect(exercise_page.personal_record()).to_have_count(1)
+
+
 def test_training_session_offered_values_follow_the_side_on_screen(page: Page) -> None:
     workout = USER.workouts[0]
 

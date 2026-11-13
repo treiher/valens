@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Stretch sets and time under stretch per muscle
     - Measurement of an exercise, per side for an exercise performed per side
     - Updating of an exercise from the catalog through its options in the exercise list
+    - Marker on a set that sets a personal record, all-time or of the last 6 months
 - Schedule page:
     - Showing and copying of the schedule with its routines as text
     - Importing of the schedule and its routines from text, with a preview of the week, of the routines replaced or copied under a new name and of the unknown exercises
@@ -53,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Updating of the exercise from the catalog through its options
     - Changing of the properties and the muscles of the exercise by tapping them
     - Routines containing the exercise on a tab of their own, the archived ones listed separately
+    - Personal records of the exercise, all-time and of the last 6 months, with a marker on the record sets of the set history
 - Catalog exercise page: Stretched muscles of the exercise, shown in a row of their own
 
 ### Changed

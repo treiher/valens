@@ -1285,17 +1285,20 @@ impl TrainingSession {
     /// Returns the sets of `exercise_id` as rows of a history, grouped as by `groups`.
     #[must_use]
     pub fn set_history_rows(&self, exercise_id: ExerciseID) -> Vec<SetHistoryRow> {
+        let set = |(idx, element): (usize, &TrainingSessionElement)| Some((idx, element.set()?));
         self.paired_sets()
             .into_iter()
             .filter(|group| {
-                matches!(group[0], TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id)
+                matches!(self.elements[group.start], TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id)
             })
-            .filter_map(|group| match ElementGroup::of(group) {
+            .filter_map(|group| match ElementGroup::of(&self.elements, group) {
                 ElementGroup::Sides { left, right } => Some(SetHistoryRow::Sides {
-                    left: left.and_then(TrainingSessionElement::set),
-                    right: right.and_then(TrainingSessionElement::set),
+                    left: left.and_then(set),
+                    right: right.and_then(set),
                 }),
-                ElementGroup::Single(element) => element.set().map(SetHistoryRow::Combined),
+                ElementGroup::Single(idx, element) => {
+                    element.set().map(|set| SetHistoryRow::Combined(idx, set))
+                }
             })
             .collect()
     }
@@ -1308,12 +1311,16 @@ impl TrainingSession {
             .any(|group| group.len() == 2 && group.end == element_idx + 1)
     }
 
-    /// Returns the sets in order, grouped as by `groups`.
-    fn paired_sets(&self) -> Vec<&[TrainingSessionElement]> {
+    /// Returns the ranges of the sets in order, grouped as by `groups`.
+    fn paired_sets(&self) -> Vec<Range<usize>> {
         groups(&self.elements)
             .into_iter()
-            .map(|group| &self.elements[group])
-            .filter(|group| matches!(group[0], TrainingSessionElement::Set { .. }))
+            .filter(|group| {
+                matches!(
+                    self.elements[group.start],
+                    TrainingSessionElement::Set { .. }
+                )
+            })
             .collect()
     }
 
@@ -1600,46 +1607,48 @@ impl Set {
     }
 }
 
-/// A row of the set history of an exercise.
+/// A row of the set history of an exercise, each set with its element index in the session.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SetHistoryRow {
     /// The sets of a pair, or a set with a side whose other side is missing.
     Sides {
-        left: Option<Set>,
-        right: Option<Set>,
+        left: Option<(usize, Set)>,
+        right: Option<(usize, Set)>,
     },
     /// A set without a side.
-    Combined(Set),
+    Combined(usize, Set),
 }
 
-/// A group of elements as formed by `groups`.
+/// A group of elements as formed by `groups`, each element with its index in the elements grouped.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ElementGroup<'a> {
     /// The sets of a pair, or a set with a side whose other side is missing.
     Sides {
-        left: Option<&'a TrainingSessionElement>,
-        right: Option<&'a TrainingSessionElement>,
+        left: Option<(usize, &'a TrainingSessionElement)>,
+        right: Option<(usize, &'a TrainingSessionElement)>,
     },
     /// A set without a side, or a rest.
-    Single(&'a TrainingSessionElement),
+    Single(usize, &'a TrainingSessionElement),
 }
 
 impl<'a> ElementGroup<'a> {
-    fn of(group: &'a [TrainingSessionElement]) -> Self {
-        match group[0] {
+    fn of(elements: &'a [TrainingSessionElement], group: Range<usize>) -> Self {
+        let first = Some((group.start, &elements[group.start]));
+        let second = (group.len() == 2).then(|| (group.start + 1, &elements[group.start + 1]));
+        match elements[group.start] {
             TrainingSessionElement::Set {
                 side: Side::Left, ..
             } => Self::Sides {
-                left: group.first(),
-                right: group.get(1),
+                left: first,
+                right: second,
             },
             TrainingSessionElement::Set {
                 side: Side::Right, ..
             } => Self::Sides {
-                left: group.get(1),
-                right: group.first(),
+                left: second,
+                right: first,
             },
-            _ => Self::Single(&group[0]),
+            _ => Self::Single(group.start, &elements[group.start]),
         }
     }
 }
@@ -1663,7 +1672,7 @@ impl TrainingSessionSection {
     pub fn groups(&self) -> Vec<ElementGroup<'_>> {
         groups(&self.0)
             .into_iter()
-            .map(|group| ElementGroup::of(&self.0[group]))
+            .map(|group| ElementGroup::of(&self.0, group))
             .collect()
     }
 
@@ -1737,7 +1746,7 @@ fn is_set_of(element: &TrainingSessionElement, exercise_ids: &HashSet<ExerciseID
 }
 
 /// Whether a set records reps or a time.
-fn is_recorded(element: &TrainingSessionElement) -> bool {
+pub(crate) fn is_recorded(element: &TrainingSessionElement) -> bool {
     match element {
         TrainingSessionElement::Set { reps, time, .. } => {
             reps.non_zero().is_some() || time.non_zero().is_some()
@@ -4983,15 +4992,8 @@ mod tests {
         assert_eq!(
             session
                 .paired_sets()
-                .iter()
-                .map(|group| group
-                    .iter()
-                    .map(|set| session
-                        .elements
-                        .iter()
-                        .position(|element| std::ptr::eq(element, set))
-                        .unwrap())
-                    .collect::<Vec<_>>())
+                .into_iter()
+                .map(Iterator::collect::<Vec<_>>)
                 .collect::<Vec<_>>(),
             expected
         );
@@ -5454,21 +5456,21 @@ mod tests {
             section(&elements).groups(),
             [
                 ElementGroup::Sides {
-                    left: Some(&elements[1]),
-                    right: Some(&elements[0])
+                    left: Some((1, &elements[1])),
+                    right: Some((0, &elements[0]))
                 },
                 ElementGroup::Sides {
-                    left: Some(&elements[2]),
+                    left: Some((2, &elements[2])),
                     right: None
                 },
-                ElementGroup::Single(&elements[3]),
+                ElementGroup::Single(3, &elements[3]),
                 ElementGroup::Sides {
                     left: None,
-                    right: Some(&elements[4])
+                    right: Some((4, &elements[4]))
                 },
-                ElementGroup::Single(&elements[5]),
-                ElementGroup::Single(&elements[6]),
-                ElementGroup::Single(&elements[7]),
+                ElementGroup::Single(5, &elements[5]),
+                ElementGroup::Single(6, &elements[6]),
+                ElementGroup::Single(7, &elements[7]),
             ]
         );
     }
@@ -5518,21 +5520,21 @@ mod tests {
             session.set_history_rows(1.into()),
             vec![
                 SetHistoryRow::Sides {
-                    left: Some(values(5)),
-                    right: Some(values(6)),
+                    left: Some((0, values(5))),
+                    right: Some((1, values(6))),
                 },
                 SetHistoryRow::Sides {
-                    left: Some(values(7)),
+                    left: Some((4, values(7))),
                     right: None,
                 },
                 SetHistoryRow::Sides {
                     left: None,
-                    right: Some(values(8)),
+                    right: Some((8, values(8))),
                 },
-                SetHistoryRow::Combined(values(9)),
+                SetHistoryRow::Combined(10, values(9)),
                 SetHistoryRow::Sides {
-                    left: Some(values(11)),
-                    right: Some(values(10)),
+                    left: Some((13, values(11))),
+                    right: Some((12, values(10))),
                 },
             ]
         );

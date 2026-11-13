@@ -31,6 +31,31 @@ class ExercisePage(BasePage):
             for row in self.page.get_by_test_id("set-history-sides").locator("tr").all()
         ]
 
+    def get_personal_records(self) -> list[list[str]]:
+        """Return the cells of the personal records without the dates of the records."""
+        return [
+            [
+                cell.evaluate(
+                    """cell => {
+                        const copy = cell.cloneNode(true);
+                        const dates = copy.querySelectorAll('[data-testid="record-date"]');
+                        dates.forEach(d => d.remove());
+                        return copy.textContent.trim();
+                    }"""
+                )
+                for cell in row.locator("th, td").all()
+            ]
+            for row in self.page.get_by_test_id("personal-records").locator("tr").all()
+        ]
+
+    def get_personal_record_dates(self) -> list[str]:
+        return [
+            get_text(date)
+            for date in self.page.get_by_test_id("personal-records")
+            .get_by_test_id("record-date")
+            .all()
+        ]
+
     def click_routine(self, name: str) -> None:
         self.page.get_by_role("link", name=name, exact=True).click()
 

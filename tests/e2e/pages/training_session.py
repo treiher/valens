@@ -82,7 +82,7 @@ class TrainingSessionPage(BasePage):
                 sets.extend(parse_set(text) for text in texts if text not in {"", "\u2013"})
                 continue
             tds = [td.inner_text().strip() for td in row.locator("td").all()]
-            if len(tds) == 5:
+            if len(tds) == 6:
                 sets.append(
                     (parse_int(tds[1]), parse_int(tds[2]), parse_float(tds[3]), parse_float(tds[4]))
                 )

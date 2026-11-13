@@ -72,6 +72,12 @@ class BasePage:
     def expect_tab(self, tab: str) -> None:
         expect(self.page.get_by_test_id(f"tab-{tab}")).to_have_attribute("data-selected", "true")
 
+    def personal_record(self) -> Locator:
+        return self.page.get_by_test_id("personal-record")
+
+    def recent_personal_record(self) -> Locator:
+        return self.page.get_by_test_id("recent-personal-record")
+
     def expect_chart_label(self, label: str) -> None:
         expect(self.page.get_by_text(label, exact=True).first).to_be_visible()
 

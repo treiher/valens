@@ -19,6 +19,7 @@ Plan your training, follow it and see what it does to your body. A web app you h
 - Follow the current exercise and rest time in notifications
 - Calculate a one-repetition maximum (1RM) or the weights of a drop set
 - Assess the progress for each routine, exercise and muscle
+- Follow your personal records per exercise, all-time and of the last 6 months
 - Keep track of your body weight
 - Calculate and log your body fat based on the 3-site or 7-site caliper method
 - Follow your fat-free mass index (FFMI)

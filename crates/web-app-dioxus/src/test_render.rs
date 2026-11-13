@@ -336,6 +336,26 @@ pub fn rows_of(html: &str, test_id: &str) -> Vec<Vec<String>> {
     rows_of_nth(html, test_id, 0)
 }
 
+/// The rows and cells of the element carrying `test_id`, leaving out the text of the elements
+/// carrying `excluded_test_id`.
+///
+/// # Panics
+///
+/// Panics if no element carries `test_id`.
+pub fn rows_of_excluding(html: &str, test_id: &str, excluded_test_id: &str) -> Vec<Vec<String>> {
+    let document = scraper::Html::parse_fragment(html);
+    let row_selector = scraper::Selector::parse("tr").unwrap();
+    let cell_selector = scraper::Selector::parse("th, td").unwrap();
+    element(&document, test_id, 0)
+        .select(&row_selector)
+        .map(|row| {
+            row.select(&cell_selector)
+                .map(|cell| text_excluding(&cell, excluded_test_id))
+                .collect()
+        })
+        .collect()
+}
+
 /// The rows and cells of the `index`th element carrying `test_id`, counted in document order.
 ///
 /// # Panics
@@ -348,6 +368,56 @@ pub fn rows_of_nth(html: &str, test_id: &str, index: usize) -> Vec<Vec<String>> 
     element(&document, test_id, index)
         .select(&row_selector)
         .map(|row| row.select(&cell_selector).map(|cell| text(&cell)).collect())
+        .collect()
+}
+
+/// Whether each cell of each row of the element carrying `test_id` contains an element carrying
+/// `inner_test_id`.
+///
+/// # Panics
+///
+/// Panics if no element carries `test_id`.
+pub fn rows_containing(html: &str, test_id: &str, inner_test_id: &str) -> Vec<Vec<bool>> {
+    let document = scraper::Html::parse_fragment(html);
+    let row_selector = scraper::Selector::parse("tr").unwrap();
+    let cell_selector = scraper::Selector::parse("th, td").unwrap();
+    let inner_selector =
+        scraper::Selector::parse(&format!("[data-testid=\"{inner_test_id}\"]")).unwrap();
+    element(&document, test_id, 0)
+        .select(&row_selector)
+        .map(|row| {
+            row.select(&cell_selector)
+                .map(|cell| cell.select(&inner_selector).next().is_some())
+                .collect()
+        })
+        .collect()
+}
+
+/// Whether each element carrying `test_id`, in document order, contains an element carrying
+/// `inner_test_id`.
+#[must_use]
+pub fn all_containing(html: &str, test_id: &str, inner_test_id: &str) -> Vec<bool> {
+    let document = scraper::Html::parse_fragment(html);
+    let selector = scraper::Selector::parse(&format!("[data-testid=\"{test_id}\"]")).unwrap();
+    let inner_selector =
+        scraper::Selector::parse(&format!("[data-testid=\"{inner_test_id}\"]")).unwrap();
+    document
+        .select(&selector)
+        .map(|e| e.select(&inner_selector).next().is_some())
+        .collect()
+}
+
+/// The link targets inside the element carrying `test_id`, in document order.
+///
+/// # Panics
+///
+/// Panics if no element carries `test_id`.
+pub fn links_of(html: &str, test_id: &str) -> Vec<String> {
+    let document = scraper::Html::parse_fragment(html);
+    let selector = scraper::Selector::parse("a[href]").unwrap();
+    element(&document, test_id, 0)
+        .select(&selector)
+        .filter_map(|a| a.value().attr("href").map(ToString::to_string))
         .collect()
 }
 
@@ -412,6 +482,28 @@ pub fn contains(html: &str, test_id: &str) -> bool {
 fn text(element: &scraper::ElementRef) -> String {
     element
         .text()
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn text_excluding(element: &scraper::ElementRef, excluded_test_id: &str) -> String {
+    element
+        .descendants()
+        .filter(|node| {
+            !node
+                .ancestors()
+                .take_while(|ancestor| ancestor.id() != element.id())
+                .any(|ancestor| {
+                    ancestor
+                        .value()
+                        .as_element()
+                        .and_then(|e| e.attr("data-testid"))
+                        == Some(excluded_test_id)
+                })
+        })
+        .filter_map(|node| node.value().as_text().map(|text| &**text))
         .collect::<String>()
         .split_whitespace()
         .collect::<Vec<_>>()

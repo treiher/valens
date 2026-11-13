@@ -2122,6 +2122,66 @@ def test_training_session_personal_record(page: Page) -> None:
     expect(exercise_page.personal_record()).to_have_count(1)
 
 
+def test_training_session_record_target(page: Page) -> None:
+    login(page)
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session("R1")
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_edit_mode()
+    p.replace_exercise("Exercise 6")
+
+    expect(p.record_target(0)).to_have_text("7")
+
+    p.set_form_text(0, ("", "", "100"))
+
+    expect(p.record_target(0)).to_have_text("11")
+
+    row = p.set_row(0).bounding_box()
+    assert row
+
+    p.set_form_text(0, ("11", "", "100"))
+
+    expect(p.record_target(0)).to_have_count(0)
+    expect(p.set_action(0)).to_be_visible()
+    row_after = p.set_row(0).bounding_box()
+    field = p.first_field(0).bounding_box()
+    action = p.set_action(0).bounding_box()
+    assert row_after
+    assert field
+    assert action
+    assert row_after["height"] == row["height"]
+    assert abs((field["y"] + field["height"] / 2) - (action["y"] + action["height"] / 2)) <= 1
+
+
+def test_training_session_record_target_keeps_its_space_without_a_target(page: Page) -> None:
+    login(page)
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session("R1")
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_edit_mode()
+    p.replace_exercise("Exercise 3")
+
+    expect(p.record_target(0).first).to_be_visible()
+
+    row = p.set_row(0).bounding_box()
+    assert row
+
+    p.set_form_text(0, ("", "", "10"))
+
+    expect(p.record_target(0)).to_have_count(0)
+    row_after = p.set_row(0).bounding_box()
+    assert row_after
+    assert row_after["height"] == row["height"]
+
+
 def test_training_session_offered_values_follow_the_side_on_screen(page: Page) -> None:
     workout = USER.workouts[0]
 

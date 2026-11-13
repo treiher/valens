@@ -147,6 +147,20 @@ class TrainingSessionPage(BasePage):
             if len(inputs_in_row) == 4
         ][index]
 
+    def set_row(self, index: int) -> Locator:
+        """Return the row holding the fields of the set at `index`."""
+        return self._form_inputs(index)[0].locator("xpath=ancestor::tr[1]")
+
+    def first_field(self, index: int) -> Locator:
+        return self._form_inputs(index)[0]
+
+    def set_action(self, index: int) -> Locator:
+        return self.set_row(index).get_by_test_id("set-action")
+
+    def record_target(self, index: int) -> Locator:
+        """Return the value needed for a recent record below a field of the set at `index`."""
+        return self.set_row(index).get_by_test_id("record-target")
+
     def get_set_numbers(self, count: int) -> list[str]:
         expect(self.page.get_by_test_id("set-number").nth(count - 1)).to_be_visible()
         return [

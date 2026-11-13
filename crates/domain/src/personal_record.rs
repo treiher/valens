@@ -6,8 +6,9 @@ use std::{
 use chrono::{Duration, NaiveDate};
 
 use crate::{
-    Assistance, Exercise, ExerciseID, Side, TrainingSession, TrainingSessionElement,
-    TrainingSessionID, training_session::is_recorded,
+    Assistance, Exercise, ExerciseID, RPE, Reps, Side, Time, TrainingSession,
+    TrainingSessionElement, TrainingSessionID, Weight, training::fewest_reps_for_one_rep_max,
+    training_session::is_recorded,
 };
 
 /// The number of days before the date of a session within which earlier sessions count for a
@@ -45,6 +46,13 @@ pub struct Records {
     pub recent: Option<Record>,
 }
 
+/// The values a set needs for a recent record.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct RecordTargets {
+    pub reps: Option<Reps>,
+    pub time: Option<Time>,
+}
+
 /// The records and the record sets of all exercises, a set without a side counting for both
 /// sides.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -52,57 +60,31 @@ pub struct PersonalRecords {
     /// The records of the left and the right side.
     records: HashMap<(ExerciseID, Side, RecordValue), History>,
     record_sets: BTreeMap<TrainingSessionID, BTreeMap<usize, RecordKind>>,
+    exclusions: HashMap<ExerciseID, Exclusion>,
     /// The exercises with a recorded set on a side.
     sided: HashSet<ExerciseID>,
+    /// The session whose sets have targets, with the greatest value per value of the earlier
+    /// sessions within its window per exercise and side.
+    recent_records_before: Option<(TrainingSessionID, RecentRecordsBefore)>,
 }
+
+type RecentRecordsBefore = BTreeMap<(ExerciseID, Side), BTreeMap<RecordValue, f32>>;
 
 impl PersonalRecords {
     #[must_use]
     pub fn new(training_sessions: &[TrainingSession], exercises: &[Exercise]) -> Self {
-        let exclusions = exercises
-            .iter()
-            .map(|e| (e.id, Exclusion::of(e)))
-            .collect::<HashMap<_, _>>();
-        let mut sessions = training_sessions.iter().collect::<Vec<_>>();
-        sessions.sort_by_key(|s| (s.date, s.id));
+        Self::build(training_sessions, exercises, None)
+    }
 
-        let mut result = Self::default();
-        for session in sessions {
-            let window_start = session.date - Duration::days(RECENT_RECORD_DAYS);
-            for element in &session.elements {
-                if let TrainingSessionElement::Set {
-                    exercise_id, side, ..
-                } = element
-                    && *side != Side::Unset
-                    && !values(
-                        element,
-                        exclusions.get(exercise_id).copied().unwrap_or_default(),
-                    )
-                    .is_empty()
-                {
-                    result.sided.insert(*exercise_id);
-                }
-            }
-            let mut record_sets = BTreeMap::new();
-            for (key, (value, element_idx)) in session_bests(session, &exclusions) {
-                let record = Record {
-                    value,
-                    session_id: session.id,
-                    date: session.date,
-                };
-                let history = result.records.entry(key).or_default();
-                if let Some(kind) = history.add(record, window_start) {
-                    record_sets
-                        .entry(element_idx)
-                        .and_modify(|k: &mut RecordKind| *k = (*k).max(kind))
-                        .or_insert(kind);
-                }
-            }
-            if !record_sets.is_empty() {
-                result.record_sets.insert(session.id, record_sets);
-            }
-        }
-        result
+    /// The records like [`PersonalRecords::new`], providing the targets of the sets of the session
+    /// with `session_id`.
+    #[must_use]
+    pub fn with_targets(
+        training_sessions: &[TrainingSession],
+        exercises: &[Exercise],
+        session_id: TrainingSessionID,
+    ) -> Self {
+        Self::build(training_sessions, exercises, Some(session_id))
     }
 
     /// The all-time and the recent records of an exercise per side and value, the recent records
@@ -132,12 +114,165 @@ impl PersonalRecords {
             .collect()
     }
 
+    /// The values the set at `element_idx` of `session` needs on its side with its weight and RPE
+    /// for a recent record.
+    ///
+    /// A target beats the recent records before the session and the sets of the session before
+    /// the set, and reaches the sets after it. A set without a side takes the smaller target of
+    /// both sides. A recorded set and the sets of any session other than the one given to
+    /// [`PersonalRecords::with_targets`] have no targets.
+    #[must_use]
+    pub fn targets(&self, session: &TrainingSession, element_idx: usize) -> RecordTargets {
+        let Some(
+            element @ TrainingSessionElement::Set {
+                exercise_id,
+                side,
+                weight,
+                rpe,
+                ..
+            },
+        ) = session.elements.get(element_idx)
+        else {
+            return RecordTargets::default();
+        };
+        let Some((session_id, recent_records_before)) = &self.recent_records_before else {
+            return RecordTargets::default();
+        };
+        if *session_id != session.id || is_recorded(element) {
+            return RecordTargets::default();
+        }
+        let exclusion = self.exclusion(*exercise_id);
+        record_sides(*side)
+            .iter()
+            .map(|record_side| {
+                let mut to_beat = recent_records_before
+                    .get(&(*exercise_id, *record_side))
+                    .cloned()
+                    .unwrap_or_default();
+                let mut to_reach: BTreeMap<RecordValue, f32> = BTreeMap::new();
+                for (idx, other) in session.elements.iter().enumerate() {
+                    if idx == element_idx
+                        || !matches!(
+                            other,
+                            TrainingSessionElement::Set { exercise_id: id, side: s, .. }
+                                if id == exercise_id && record_sides(*s).contains(record_side)
+                        )
+                    {
+                        continue;
+                    }
+                    for (record_value, value) in values(other, exclusion) {
+                        if idx > element_idx {
+                            let to_reach = to_reach.entry(record_value).or_insert(value);
+                            *to_reach = to_reach.max(value);
+                        } else if let Some(to_beat) = to_beat.get_mut(&record_value) {
+                            *to_beat = to_beat.max(value);
+                        }
+                    }
+                }
+                record_targets(&to_beat, &to_reach, *weight, *rpe)
+            })
+            .reduce(|a, b| RecordTargets {
+                reps: smaller(a.reps, b.reps),
+                time: smaller(a.time, b.time),
+            })
+            .unwrap_or_default()
+    }
+
     /// The record sets of a session as element indices with their kind.
     #[must_use]
     pub fn record_sets(&self, session_id: TrainingSessionID) -> BTreeMap<usize, RecordKind> {
         self.record_sets
             .get(&session_id)
             .cloned()
+            .unwrap_or_default()
+    }
+}
+
+impl PersonalRecords {
+    fn build(
+        training_sessions: &[TrainingSession],
+        exercises: &[Exercise],
+        target_session_id: Option<TrainingSessionID>,
+    ) -> Self {
+        let mut sessions = training_sessions.iter().collect::<Vec<_>>();
+        sessions.sort_by_key(|s| (s.date, s.id));
+
+        let mut result = Self {
+            exclusions: exercises.iter().map(|e| (e.id, Exclusion::of(e))).collect(),
+            ..Self::default()
+        };
+        for session in sessions {
+            let window_start = session.date - Duration::days(RECENT_RECORD_DAYS);
+            if Some(session.id) == target_session_id {
+                result.recent_records_before =
+                    Some((session.id, result.recent_records(session, window_start)));
+            }
+            for element in &session.elements {
+                if let TrainingSessionElement::Set {
+                    exercise_id, side, ..
+                } = element
+                    && *side != Side::Unset
+                    && !values(element, result.exclusion(*exercise_id)).is_empty()
+                {
+                    result.sided.insert(*exercise_id);
+                }
+            }
+            let mut record_sets = BTreeMap::new();
+            for (key, (value, element_idx)) in session_bests(session, &result.exclusions) {
+                let record = Record {
+                    value,
+                    session_id: session.id,
+                    date: session.date,
+                };
+                let history = result.records.entry(key).or_default();
+                if let Some(kind) = history.add(record, window_start) {
+                    record_sets
+                        .entry(element_idx)
+                        .and_modify(|k: &mut RecordKind| *k = (*k).max(kind))
+                        .or_insert(kind);
+                }
+            }
+            if !record_sets.is_empty() {
+                result.record_sets.insert(session.id, record_sets);
+            }
+        }
+        result
+    }
+
+    /// The greatest value per value of the sessions added within the window starting at
+    /// `window_start` per exercise of `session` and side.
+    fn recent_records(
+        &self,
+        session: &TrainingSession,
+        window_start: NaiveDate,
+    ) -> RecentRecordsBefore {
+        let mut result = BTreeMap::new();
+        for exercise_id in session.exercises() {
+            for side in [Side::Left, Side::Right] {
+                let records = [
+                    RecordValue::Reps,
+                    RecordValue::Time,
+                    RecordValue::Weight,
+                    RecordValue::OneRepMax,
+                ]
+                .into_iter()
+                .filter_map(|value| {
+                    let history = self.records.get(&(exercise_id, side, value))?;
+                    Some((value, history.recent(window_start)?.value))
+                })
+                .collect::<BTreeMap<_, _>>();
+                if !records.is_empty() {
+                    result.insert((exercise_id, side), records);
+                }
+            }
+        }
+        result
+    }
+
+    fn exclusion(&self, exercise_id: ExerciseID) -> Exclusion {
+        self.exclusions
+            .get(&exercise_id)
+            .copied()
             .unwrap_or_default()
     }
 }
@@ -151,8 +286,52 @@ fn record_sides(side: Side) -> &'static [Side] {
     }
 }
 
+fn smaller<T: PartialOrd>(a: Option<T>, b: Option<T>) -> Option<T> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(if b < a { b } else { a }),
+        (a, b) => a.or(b),
+    }
+}
+
+/// The targets of a set that has to beat `to_beat` and reach `to_reach`, holding only values with
+/// a recent record in `to_beat`.
+fn record_targets(
+    to_beat: &BTreeMap<RecordValue, f32>,
+    to_reach: &BTreeMap<RecordValue, f32>,
+    weight: Weight,
+    rpe: RPE,
+) -> RecordTargets {
+    let is_record = |record_value: RecordValue, value: f32| {
+        to_beat.get(&record_value).is_some_and(|b| value > *b)
+            && to_reach.get(&record_value).is_none_or(|r| value >= *r)
+    };
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let next = |record_value: RecordValue| {
+        let to_beat = to_beat.get(&record_value)?;
+        let to_reach = to_reach.get(&record_value).copied().unwrap_or_default();
+        Some((to_beat + 1.).max(to_reach) as u32)
+    };
+    match weight.non_zero() {
+        Some(_) if !to_beat.contains_key(&RecordValue::OneRepMax) => RecordTargets::default(),
+        Some(weight) if is_record(RecordValue::Weight, f32::from(weight)) => RecordTargets {
+            reps: Reps::new(1).ok(),
+            time: None,
+        },
+        Some(weight) => RecordTargets {
+            reps: fewest_reps_for_one_rep_max(weight, rpe, |one_rep_max| {
+                is_record(RecordValue::OneRepMax, one_rep_max)
+            }),
+            time: None,
+        },
+        None => RecordTargets {
+            reps: next(RecordValue::Reps).and_then(|reps| Reps::new(reps).ok()),
+            time: next(RecordValue::Time).and_then(|time| Time::new(time).ok()),
+        },
+    }
+}
+
 /// The values an exercise has no records of.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 struct Exclusion {
     weighted: bool,
     all: bool,
@@ -181,9 +360,7 @@ impl History {
     /// Adds the best of a session, which follows all sessions added before, and returns the kind
     /// of record it sets.
     fn add(&mut self, record: Record, window_start: NaiveDate) -> Option<RecordKind> {
-        while self.window.front().is_some_and(|r| r.date < window_start) {
-            self.window.pop_front();
-        }
+        self.expire(window_start);
         let kind = match (self.all_time, self.window.front()) {
             (Some(all_time), _) if record.value > all_time.value => Some(RecordKind::AllTime),
             (_, Some(recent)) if record.value > recent.value => Some(RecordKind::Recent),
@@ -197,6 +374,13 @@ impl History {
         }
         self.window.push_back(record);
         kind
+    }
+
+    /// Removes the sessions before `window_start`, which no later window holds.
+    fn expire(&mut self, window_start: NaiveDate) {
+        while self.window.front().is_some_and(|r| r.date < window_start) {
+            self.window.pop_front();
+        }
     }
 
     fn recent(&self, window_start: NaiveDate) -> Option<Record> {
@@ -801,6 +985,327 @@ mod tests {
 
         assert_eq!(keys(&records, 1), []);
         assert_eq!(records.record_sets(2.into()), BTreeMap::new());
+    }
+
+    /// The targets of the set at `element_idx` of a session 10 days after `earlier`, holding
+    /// `elements` with the set entered on `side` with `weight` and `rpe`.
+    fn targets(
+        earlier: &[TrainingSessionElement],
+        elements: &[TrainingSessionElement],
+        element_idx: usize,
+        side: Side,
+        weight: f32,
+        rpe: RPE,
+    ) -> RecordTargets {
+        targets_with(earlier, elements, element_idx, side, weight, rpe, &[])
+    }
+
+    fn targets_with(
+        earlier: &[TrainingSessionElement],
+        elements: &[TrainingSessionElement],
+        element_idx: usize,
+        side: Side,
+        weight: f32,
+        rpe: RPE,
+        exercises: &[Exercise],
+    ) -> RecordTargets {
+        let mut elements = elements.to_vec();
+        if let TrainingSessionElement::Set {
+            side: s,
+            weight: w,
+            rpe: r,
+            ..
+        } = &mut elements[element_idx]
+        {
+            *s = side;
+            *w = Weight::new(weight).unwrap();
+            *r = rpe;
+        }
+        let current = session(2, 10, &elements);
+        PersonalRecords::with_targets(
+            &[session(1, 0, earlier), current.clone()],
+            exercises,
+            current.id,
+        )
+        .targets(&current, element_idx)
+    }
+
+    fn reps_target(reps: u32) -> RecordTargets {
+        RecordTargets {
+            reps: Some(Reps::new(reps).unwrap()),
+            time: None,
+        }
+    }
+
+    fn empty() -> TrainingSessionElement {
+        set(Side::Unset, 0, 0, 0.0, RPE::ZERO)
+    }
+
+    #[rstest]
+    #[case::without_an_rpe(RPE::ZERO, 6)]
+    #[case::with_an_rpe(RPE::EIGHT, 4)]
+    fn test_reps_target_of_an_estimated_one_rep_max(#[case] rpe: RPE, #[case] expected: u32) {
+        assert_eq!(
+            targets(&[lift(5, 100.0)], &[empty()], 0, Side::Unset, 100.0, rpe),
+            reps_target(expected)
+        );
+    }
+
+    #[test]
+    fn test_weight_too_light_for_any_number_of_reps_has_no_target() {
+        assert_eq!(
+            targets(
+                &[lift(5, 100.0)],
+                &[empty()],
+                0,
+                Side::Unset,
+                10.0,
+                RPE::ZERO
+            ),
+            RecordTargets::default()
+        );
+    }
+
+    #[test]
+    fn test_reps_and_time_targets_are_the_record_plus_one() {
+        assert_eq!(
+            targets(
+                &[reps(10), hold(30)],
+                &[empty()],
+                0,
+                Side::Unset,
+                0.0,
+                RPE::ZERO
+            ),
+            RecordTargets {
+                reps: Some(Reps::new(11).unwrap()),
+                time: Some(Time::new(31).unwrap()),
+            }
+        );
+    }
+
+    #[rstest]
+    #[case::beating_a_set_before(&[reps(12), empty()], 1, 13)]
+    #[case::reaching_a_set_after(&[empty(), reps(12)], 0, 12)]
+    #[case::beating_before_and_reaching_after(&[reps(12), empty(), reps(14)], 1, 14)]
+    #[case::below_the_recent_record(&[reps(8), empty()], 1, 11)]
+    fn test_saved_sets_of_the_session(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] element_idx: usize,
+        #[case] expected: u32,
+    ) {
+        assert_eq!(
+            targets(
+                &[reps(10)],
+                elements,
+                element_idx,
+                Side::Unset,
+                0.0,
+                RPE::ZERO
+            )
+            .reps,
+            Some(Reps::new(expected).unwrap())
+        );
+    }
+
+    #[rstest]
+    #[case::left(Side::Left, Some(11))]
+    #[case::right(Side::Right, Some(9))]
+    #[case::without_a_side(Side::Unset, Some(9))]
+    fn test_target_follows_the_side_of_the_set(#[case] side: Side, #[case] expected: Option<u32>) {
+        assert_eq!(
+            targets(
+                &[sided_reps(Side::Left, 10), sided_reps(Side::Right, 8)],
+                &[empty(), sided_reps(Side::Left, 5)],
+                0,
+                side,
+                0.0,
+                RPE::ZERO
+            )
+            .reps,
+            expected.map(|reps| Reps::new(reps).unwrap())
+        );
+    }
+
+    #[rstest]
+    #[case::earlier_session(&[reps(10)], &[empty()], 0, 11)]
+    #[case::set_before(
+        &[sided_reps(Side::Left, 10), sided_reps(Side::Right, 10)],
+        &[reps(12), empty()],
+        1,
+        13
+    )]
+    fn test_target_of_a_side_counts_the_sets_without_a_side(
+        #[case] earlier: &[TrainingSessionElement],
+        #[case] elements: &[TrainingSessionElement],
+        #[case] element_idx: usize,
+        #[case] expected: u32,
+    ) {
+        assert_eq!(
+            targets(earlier, elements, element_idx, Side::Left, 0.0, RPE::ZERO),
+            RecordTargets {
+                reps: Some(Reps::new(expected).unwrap()),
+                time: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_no_target_without_a_recent_record() {
+        let current = session(2, 200, &[empty()]);
+        let records = PersonalRecords::with_targets(
+            &[session(1, 0, &[reps(10)]), current.clone()],
+            &[],
+            current.id,
+        );
+
+        assert_eq!(records.targets(&current, 0), RecordTargets::default());
+    }
+
+    #[test]
+    fn test_no_target_in_another_session() {
+        let current = session(2, 10, &[empty()]);
+        let other = session(3, 10, &[empty()]);
+        let sessions = [session(1, 0, &[reps(10)]), current.clone(), other.clone()];
+
+        assert_eq!(
+            PersonalRecords::with_targets(&sessions, &[], current.id).targets(&other, 0),
+            RecordTargets::default()
+        );
+        assert_eq!(
+            PersonalRecords::new(&sessions, &[]).targets(&current, 0),
+            RecordTargets::default()
+        );
+    }
+
+    #[test]
+    fn test_targets_of_a_later_session_keep_the_recent_records_of_an_earlier_day() {
+        let current = session(2, 190, &[empty()]);
+        let records = PersonalRecords::with_targets(
+            &[session(1, 0, &[reps(10)]), current.clone()],
+            &[],
+            current.id,
+        );
+
+        assert_eq!(
+            values(&records, 100),
+            BTreeMap::from([((Side::Unset, RecordValue::Reps), (10.0, Some(10.0)))])
+        );
+    }
+
+    #[test]
+    fn test_no_target_for_a_set_whose_saved_values_are_recorded() {
+        assert_eq!(
+            targets(&[reps(10)], &[hold(30)], 0, Side::Unset, 0.0, RPE::ZERO),
+            RecordTargets::default()
+        );
+    }
+
+    #[test]
+    fn test_no_weighted_target_of_an_assisted_exercise() {
+        let mut exercise = exercise(vec![]);
+        exercise.assistance = Some(Assistance::Assisted);
+
+        assert_eq!(
+            targets_with(
+                &[lift(5, 20.0)],
+                &[empty()],
+                0,
+                Side::Unset,
+                30.0,
+                RPE::ZERO,
+                &[exercise]
+            ),
+            RecordTargets::default()
+        );
+    }
+
+    #[test]
+    fn test_no_target_of_a_stretch_only_exercise() {
+        let exercise = exercise(vec![ExerciseMuscle {
+            muscle_id: MuscleID::Pecs,
+            stimulus: Stimulus::NONE,
+            stretch: Stimulus::PRIMARY,
+        }]);
+
+        assert_eq!(
+            targets_with(
+                &[hold(30)],
+                &[empty()],
+                0,
+                Side::Unset,
+                0.0,
+                RPE::ZERO,
+                &[exercise]
+            ),
+            RecordTargets::default()
+        );
+    }
+
+    #[test]
+    fn test_no_target_above_the_largest_reps_or_time() {
+        assert_eq!(
+            targets(
+                &[reps(999), hold(999)],
+                &[empty()],
+                0,
+                Side::Unset,
+                0.0,
+                RPE::ZERO
+            ),
+            RecordTargets::default()
+        );
+    }
+
+    #[test]
+    fn test_weight_above_the_recent_weight_record_gives_a_reps_target_of_one() {
+        assert_eq!(
+            targets(
+                &[lift(5, 100.0)],
+                &[empty()],
+                0,
+                Side::Unset,
+                105.0,
+                RPE::ZERO
+            ),
+            reps_target(1)
+        );
+    }
+
+    #[rstest]
+    #[case::saved_set_before(&[lift(3, 105.0), empty()], 1, 4)]
+    #[case::saved_set_after(&[empty(), lift(3, 105.0)], 0, 1)]
+    fn test_weight_equal_to_that_of_a_saved_set(
+        #[case] elements: &[TrainingSessionElement],
+        #[case] element_idx: usize,
+        #[case] expected: u32,
+    ) {
+        assert_eq!(
+            targets(
+                &[lift(5, 100.0)],
+                elements,
+                element_idx,
+                Side::Unset,
+                105.0,
+                RPE::ZERO
+            ),
+            reps_target(expected)
+        );
+    }
+
+    #[test]
+    fn test_weight_above_the_weight_record_of_a_weighted_hold_has_no_target() {
+        assert_eq!(
+            targets(
+                &[set(Side::Unset, 0, 30, 20.0, RPE::ZERO)],
+                &[empty()],
+                0,
+                Side::Unset,
+                25.0,
+                RPE::ZERO
+            ),
+            RecordTargets::default()
+        );
     }
 
     fn personal_records(sessions: &[TrainingSession], exercises: &[Exercise]) -> PersonalRecords {

@@ -130,14 +130,15 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             None
         }
     });
-    // Kept apart from the form, which is rendered anew with every tick of the timer.
+    // The records, their targets and the recent sessions are kept apart from the form, which is
+    // rendered anew with every tick of the timer.
     let personal_records = use_memo(move || {
         let (CacheState::Ready(training_sessions), CacheState::Ready(exercises)) =
             (&*cache.training_sessions.read(), &*cache.exercises.read())
         else {
             return domain::PersonalRecords::default();
         };
-        domain::PersonalRecords::new(training_sessions, exercises)
+        domain::PersonalRecords::with_targets(training_sessions, exercises, id)
     });
     let recent_sessions_by_element = use_memo(move || {
         let (CacheState::Ready(training_sessions), Some(training_session)) =
@@ -291,6 +292,16 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         values: field_values,
         carried: carried_inputs,
     };
+    let record_targets = use_memo(move || {
+        let Some(training_session) = &*training_session.read() else {
+            return HashMap::new();
+        };
+        record_targets(
+            &personal_records.read(),
+            training_session,
+            &field_values.read(),
+        )
+    });
     let mut expanded_history: Signal<HashSet<usize>> = use_signal(HashSet::new);
     use_memo(move || {
         if let Some(training_session) = training_session() {
@@ -630,12 +641,12 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 ongoing,
                 show_active_focus,
             };
-            let record_sets = personal_records.read().record_sets(training_session.id);
+            let personal_records = personal_records.read();
             rsx! {
                 if edit() {
-                    {view_form(inputs, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), &record_sets, exercises, settings, cache, element_elements, expanded_history, phase_clock)},
+                    {view_form(inputs, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), &personal_records.record_sets(training_session.id), &record_targets.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
-                    {view_list(edit_dialog, training_session, &record_sets, exercises)},
+                    {view_list(edit_dialog, training_session, &personal_records.record_sets(training_session.id), exercises)},
                     {view_muscles(training_session, exercises)}
                 }
                 Notes { notes, edit },
@@ -1127,6 +1138,7 @@ fn view_form(
     training_session: &domain::TrainingSession,
     recent_sessions_by_element: &HashMap<(usize, domain::Side), Vec<RecentSession>>,
     record_sets: &BTreeMap<usize, domain::RecordKind>,
+    record_targets: &HashMap<usize, SetRecordTargets>,
     exercises: &[domain::Exercise],
     settings: Settings,
     cache: Cache,
@@ -1311,6 +1323,14 @@ fn view_form(
 
                     let show_set_buttons = is_current_section && set_field_values.offers_values();
                     let entered_side = set_field_values.side.validated.clone().unwrap_or_default();
+                    let set_targets = record_targets.get(&element_idx).copied().filter(|_| is_current_section).unwrap_or_default();
+                    let targets = shown_targets(set_targets.entered, set_field_values);
+                    // The help line stays while the saved set has targets, so that entering a value does not shift the rows below.
+                    let reps_help = match (targets.reps, targets.time) {
+                        (Some(reps), _) => Some(view_record_target(reps)),
+                        (None, None) if set_targets.saved != domain::RecordTargets::default() => Some(view_record_target_placeholder()),
+                        (None, _) => None,
+                    };
                     let set_record = saved_record(record_sets, element_idx, set_field_values);
 
                     let history: &[RecentSession] = if show_set_buttons {
@@ -1388,6 +1408,7 @@ fn view_form(
                                     InputField {
                                         inputmode: "numeric",
                                         "aria-label": "Reps",
+                                        help: reps_help,
                                         value: set_field_values.reps.input.clone(),
                                         error: if let Err(err) = &set_field_values.reps.validated { err.clone() },
                                         has_changed: set_field_values.reps.changed(),
@@ -1412,6 +1433,7 @@ fn view_form(
                                         InputField {
                                             inputmode: "numeric",
                                             "aria-label": "Time (s)",
+                                            help: if let Some(time) = targets.time { view_record_target(time) },
                                             value: set_field_values.time.input.clone(),
                                             error: if let Err(err) = &set_field_values.time.validated { err.clone() },
                                             has_changed: set_field_values.time.changed(),
@@ -2964,6 +2986,115 @@ fn record_label(kind: domain::RecordKind) -> &'static str {
     match kind {
         domain::RecordKind::AllTime => "Personal record",
         domain::RecordKind::Recent => "Recent personal record",
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+struct SetRecordTargets {
+    /// The targets following the entered values of all sets.
+    entered: domain::RecordTargets,
+    /// The targets following the saved values of all sets.
+    saved: domain::RecordTargets,
+}
+
+/// The targets of the sets per element index.
+fn record_targets(
+    personal_records: &domain::PersonalRecords,
+    training_session: &domain::TrainingSession,
+    field_values: &HashMap<usize, SetFieldValues>,
+) -> HashMap<usize, SetRecordTargets> {
+    let mut entered = training_session.clone();
+    modify_training_session_elements(&mut entered, field_values);
+    field_values
+        .iter()
+        .map(|(element_idx, values)| {
+            let targets = SetRecordTargets {
+                entered: field_targets(
+                    personal_records,
+                    training_session,
+                    &entered,
+                    *element_idx,
+                    values,
+                ),
+                saved: personal_records.targets(training_session, *element_idx),
+            };
+            (*element_idx, targets)
+        })
+        .collect()
+}
+
+/// The targets of a set with valid weight, RPE and side.
+///
+/// Whether the set is recorded follows its saved values, so that entering a value of the set
+/// keeps its targets.
+fn field_targets(
+    personal_records: &domain::PersonalRecords,
+    training_session: &domain::TrainingSession,
+    entered: &domain::TrainingSession,
+    element_idx: usize,
+    values: &SetFieldValues,
+) -> domain::RecordTargets {
+    let (Ok(_), Ok(_), Ok(_)) = (
+        &values.weight.validated,
+        &values.rpe.validated,
+        &values.side.validated,
+    ) else {
+        return domain::RecordTargets::default();
+    };
+    let mut session = entered.clone();
+    if let (
+        Some(domain::TrainingSessionElement::Set { reps, time, .. }),
+        Some(domain::TrainingSessionElement::Set {
+            reps: saved_reps,
+            time: saved_time,
+            ..
+        }),
+    ) = (
+        session.elements.get_mut(element_idx),
+        training_session.elements.get(element_idx),
+    ) {
+        *reps = *saved_reps;
+        *time = *saved_time;
+    }
+    personal_records.targets(&session, element_idx)
+}
+
+/// The targets shown below the empty reps and time fields of a set.
+fn shown_targets(targets: domain::RecordTargets, values: &SetFieldValues) -> domain::RecordTargets {
+    let reps_is_empty = values.reps.input.is_empty();
+    domain::RecordTargets {
+        reps: targets.reps.filter(|_| reps_is_empty),
+        time: targets
+            .time
+            .filter(|_| reps_is_empty && values.time.input.is_empty()),
+    }
+}
+
+/// Show the value a set needs for a recent record.
+fn view_record_target(value: impl std::fmt::Display) -> Element {
+    rsx! {
+        span {
+            class: "icon-text is-flex-wrap-nowrap is-align-items-center has-text-weak",
+            Icon {
+                name: "trophy",
+                is_small: true,
+                class: record_class(domain::RecordKind::Recent),
+            }
+            span { class: "is-sr-only", "Needed for a recent personal record: " }
+            span { "data-testid": "record-target", "{value}" }
+        }
+    }
+}
+
+/// Keep the height of a record target.
+fn view_record_target_placeholder() -> Element {
+    rsx! {
+        span {
+            class: "icon-text is-align-items-center is-invisible",
+            "aria-hidden": "true",
+            Icon { name: "trophy", is_small: true }
+            span { "\u{a0}" }
+        }
     }
 }
 
@@ -5073,6 +5204,186 @@ mod tests {
                 .map(|row| row[5])
                 .collect::<Vec<_>>(),
             [true, false]
+        );
+    }
+
+    /// The targets of the set of a session after one 10 days ago holding `earlier`.
+    fn targets_after(
+        earlier: Vec<domain::TrainingSessionElement>,
+        element: domain::TrainingSessionElement,
+        values: &SetFieldValues,
+    ) -> domain::RecordTargets {
+        targets_of_sets_after(earlier, vec![(element, values.clone())])[&0].entered
+    }
+
+    /// The targets of the sets of a session after one 10 days ago holding `earlier`.
+    fn targets_of_sets_after(
+        earlier: Vec<domain::TrainingSessionElement>,
+        sets: Vec<(domain::TrainingSessionElement, SetFieldValues)>,
+    ) -> HashMap<usize, SetRecordTargets> {
+        let (elements, values): (Vec<_>, Vec<_>) = sets.into_iter().unzip();
+        let current = earlier_session(1, 0, elements);
+        let personal_records = domain::PersonalRecords::with_targets(
+            &[earlier_session(2, 10, earlier), current.clone()],
+            &[],
+            current.id,
+        );
+        record_targets(
+            &personal_records,
+            &current,
+            &values.into_iter().enumerate().collect(),
+        )
+    }
+
+    fn element(
+        reps: u32,
+        time: u32,
+        weight: f32,
+        target_tempo: &[u32],
+    ) -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            side: domain::Side::Unset,
+            reps: domain::Reps::new(reps).unwrap(),
+            time: domain::Time::new(time).unwrap(),
+            weight: domain::Weight::new(weight).unwrap(),
+            rpe: domain::RPE::ZERO,
+            target_reps: domain::Reps::default(),
+            target_tempo: domain::Tempo::new(target_tempo).unwrap(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::ZERO,
+            automatic: false,
+        }
+    }
+
+    fn weighted_set(reps: u32, weight: f32) -> domain::TrainingSessionElement {
+        element(reps, 0, weight, &[])
+    }
+
+    fn hold(time: u32) -> domain::TrainingSessionElement {
+        element(0, time, 0.0, &[])
+    }
+
+    #[test]
+    fn test_the_reps_target_of_a_weighted_set() {
+        let mut values = unperformed_set_field_values();
+        values.weight.input = "100".to_string();
+        values.weight.validated = Ok(domain::Weight::new(100.0).unwrap());
+
+        assert_eq!(
+            targets_after(vec![weighted_set(5, 100.0)], planned_set(1), &values).reps,
+            Some(domain::Reps::new(6).unwrap())
+        );
+    }
+
+    #[test]
+    fn test_the_reps_and_the_time_target_of_an_unweighted_set_are_shown() {
+        let html = render_training_session(1, web_app::Settings::default(), || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Plank")])
+                .with_training_sessions(vec![
+                    earlier_session(2, 10, vec![set(1, 10), hold(30)]),
+                    earlier_session(1, 0, vec![planned_set(1)]),
+                ])
+        });
+
+        assert_eq!(all_text_of(&html, "record-target"), ["11", "31"]);
+    }
+
+    #[rstest::rstest]
+    #[case::reps_entered("5", "", None, None)]
+    #[case::time_entered("", "20", Some(11), None)]
+    #[case::nothing_entered("", "", Some(11), Some(31))]
+    fn test_a_target_is_shown_only_below_an_empty_field(
+        #[case] reps: &str,
+        #[case] time: &str,
+        #[case] reps_target: Option<u32>,
+        #[case] time_target: Option<u32>,
+    ) {
+        let mut values = unperformed_set_field_values();
+        values.reps.input = reps.to_string();
+        values.reps.validated = Ok(domain::Reps::try_from(reps).unwrap_or_default());
+        values.time.input = time.to_string();
+        values.time.validated = Ok(domain::Time::try_from(time).unwrap_or_default());
+
+        assert_eq!(
+            shown_targets(
+                targets_after(vec![set(1, 10), hold(30)], planned_set(1), &values),
+                &values
+            ),
+            domain::RecordTargets {
+                reps: reps_target.map(|reps| domain::Reps::new(reps).unwrap()),
+                time: time_target.map(|time| domain::Time::new(time).unwrap()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_the_target_beats_the_unsaved_values_of_an_earlier_set() {
+        let mut entered = unperformed_set_field_values();
+        entered.reps = FieldValue::new(domain::Reps::new(12).unwrap());
+
+        assert_eq!(
+            targets_of_sets_after(
+                vec![set(1, 10)],
+                vec![
+                    (planned_set(1), entered),
+                    (planned_set(1), unperformed_set_field_values()),
+                ],
+            )[&1]
+                .entered
+                .reps,
+            Some(domain::Reps::new(13).unwrap())
+        );
+    }
+
+    #[test]
+    fn test_the_saved_target_ignores_an_entered_weight_without_a_weight_record() {
+        let mut values = unperformed_set_field_values();
+        values.weight.input = "10".to_string();
+        values.weight.validated = Ok(domain::Weight::new(10.0).unwrap());
+
+        let targets = targets_of_sets_after(vec![set(1, 10)], vec![(planned_set(1), values)])[&0];
+
+        assert_eq!(targets.entered, domain::RecordTargets::default());
+        assert_eq!(targets.saved.reps, Some(domain::Reps::new(11).unwrap()));
+    }
+
+    #[test]
+    fn test_no_target_without_a_recent_record() {
+        let html = render_training_session(1, web_app::Settings::default(), || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Squat")])
+                .with_training_sessions(vec![earlier_session(1, 0, vec![planned_set(1)])])
+        });
+
+        assert!(contains(&html, "column-header"));
+        assert!(!contains(&html, "record-target"));
+    }
+
+    #[test]
+    fn test_no_target_for_a_countdown() {
+        let html = render_training_session(1, web_app::Settings::default(), || {
+            TestCache::default()
+                .with_exercises(vec![exercise(1, "Plank")])
+                .with_training_sessions(vec![
+                    earlier_session(2, 10, vec![hold(30)]),
+                    earlier_session(1, 0, vec![element(0, 0, 0.0, &[60])]),
+                ])
+        });
+
+        assert!(contains(&html, "countdown"));
+        assert!(!contains(&html, "record-target"));
+    }
+
+    #[test]
+    fn test_no_target_on_a_saved_hold_of_an_exercise_with_a_reps_record() {
+        let mut values = unperformed_set_field_values();
+        values.time = FieldValue::new(domain::Time::new(30).unwrap());
+
+        assert_eq!(
+            targets_after(vec![set(1, 10)], hold(30), &values),
+            domain::RecordTargets::default()
         );
     }
 }

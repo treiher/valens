@@ -37,7 +37,7 @@ pub fn Field(children: Element, label: String, info: Option<Element>) -> Element
 #[component]
 pub fn InputField(
     label: Option<String>,
-    help: Option<String>,
+    help: Option<Element>,
     left_icon: Option<Element>,
     right_icon: Option<Element>,
     r#type: Option<String>,
@@ -119,7 +119,7 @@ pub fn InputField(
                     "{error}"
                 }
             } else if let Some(ref help) = help {
-                p { class: "help", "{help}" }
+                p { class: "help", {help} }
             }
         }
     }
@@ -706,6 +706,36 @@ mod tests {
             !html.contains("Optionally split into the phases of a tempo"),
             "{html}"
         );
+    }
+
+    fn render_input_field(error: Option<String>) -> String {
+        render(move || {
+            let error = error.clone();
+            rsx! {
+                InputField {
+                    help: rsx! { span { "data-testid": "help-content", "7" } },
+                    value: String::new(),
+                    error,
+                    has_changed: false,
+                    on_input: |_| {},
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn test_input_field_shows_the_help_without_an_error() {
+        let html = render_input_field(None);
+
+        assert_eq!(text_of(&html, "help-content"), "7");
+    }
+
+    #[test]
+    fn test_input_field_replaces_the_help_by_an_error() {
+        let html = render_input_field(Some("invalid".to_string()));
+
+        assert!(!contains(&html, "help-content"));
+        assert!(html.contains("Invalid"));
     }
 
     fn render_text_area_field(errors: Vec<String>) -> String {

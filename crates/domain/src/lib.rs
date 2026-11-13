@@ -27,7 +27,9 @@ pub use period::{
     CurrentCycle, Cycle, Intensity, IntensityError, Period, PeriodRepository, PeriodService,
     current_cycle, cycle_stats, cycles,
 };
-pub use personal_record::{PersonalRecords, Record, RecordKind, RecordValue, Records};
+pub use personal_record::{
+    PersonalRecords, Record, RecordKind, RecordTargets, RecordValue, Records,
+};
 pub use routine::{
     Rounds, Routine, RoutineID, RoutinePart, RoutinePartPath, RoutineRepository, RoutineService,
     routines_sorted_by_last_use, validate_routine_name,

@@ -367,7 +367,7 @@ fn view_dialog(mut dialog: Signal<BodyFatDialog>, sex: domain::Sex) -> Element {
                 InputField {
                     label: skinfold_name!($name).to_string(),
                     "data-testid": "caliper",
-                    help: skinfold_description!($name).to_string(),
+                    help: rsx! { {skinfold_description!($name)} },
                     right_icon: rsx! { "mm" },
                     inputmode: "numeric".to_string(),
                     value: $name.input.clone(),

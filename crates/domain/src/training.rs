@@ -786,6 +786,36 @@ pub fn reps_for_percentage(percentage: f32) -> f32 {
     -((percentage - 48.8) / 53.8).ln() / 0.075
 }
 
+/// Returns the fewest reps with `weight` and `rpe` whose estimated one-rep max satisfies
+/// `is_enough`, an unset RPE counting as a set taken to failure.
+///
+/// Returns `None` if no number of reps up to the largest one suffices, as the estimate of a light
+/// weight levels off.
+#[must_use]
+pub(crate) fn fewest_reps_for_one_rep_max(
+    weight: Weight,
+    rpe: RPE,
+    is_enough: impl Fn(f32) -> bool,
+) -> Option<Reps> {
+    let rpe = rpe.non_zero().unwrap_or(RPE::TEN);
+    let is_enough = |reps: u32| {
+        Reps::new(reps)
+            .is_ok_and(|reps| is_enough(one_rep_max(reps.including_rir(rpe), f32::from(weight))))
+    };
+    // The estimate does not decrease with the reps, so the reps that are enough form a suffix of
+    // the range.
+    let (mut low, mut high) = (1, 999);
+    while low < high {
+        let mid = u32::midpoint(low, high);
+        if is_enough(mid) {
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
+    Reps::new(low).ok().filter(|_| is_enough(low))
+}
+
 /// Rounds a drop `amount` up to the nearest multiple of `increment`, unless
 /// the remainder is at most 20% of the increment, in which case it rounds down.
 ///
@@ -1453,6 +1483,23 @@ mod tests {
     }
 
     #[rstest]
+    #[case::without_an_rpe(100.0, RPE::ZERO, Some(6))]
+    #[case::with_an_rpe(100.0, RPE::EIGHT, Some(4))]
+    #[case::too_light(10.0, RPE::ZERO, None)]
+    fn test_fewest_reps_for_one_rep_max(
+        #[case] weight: f32,
+        #[case] rpe: RPE,
+        #[case] expected: Option<u32>,
+    ) {
+        assert_eq!(
+            fewest_reps_for_one_rep_max(Weight::new(weight).unwrap(), rpe, |one_rep_max| {
+                one_rep_max > 112.5
+            }),
+            expected.map(|reps| Reps::new(reps).unwrap())
+        );
+    }
+
+    #[rstest]
     #[case(100.0, 1.0)]
     #[case(97.2, 2.0)]
     #[case(86.1, 6.0)]
@@ -1616,6 +1663,18 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn test_one_rep_max_does_not_decrease_with_the_reps(
+            reps in 1u32..999,
+            half_rir in 0u32..=20,
+            weight in 1.0f32..1000.0,
+        ) {
+            #[allow(clippy::cast_precision_loss)]
+            let reps = reps as f32 + half_rir as f32 / 2.;
+
+            prop_assert!(one_rep_max(reps + 1., weight) >= one_rep_max(reps, weight));
+        }
 
         #[test]
         fn test_round_drop_to_increment_is_a_multiple_of_the_increment(

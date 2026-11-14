@@ -147,6 +147,8 @@ mod tests {
                 show_rpe: false,
                 show_tut: false,
                 scroll_snapping: true,
+                show_estimated_pr: true,
+                estimated_pr_months: 6,
             };
 
             LocalStorage.write_settings(settings).await.unwrap();

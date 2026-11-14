@@ -234,6 +234,21 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
     });
 
     let settings = use_context::<Settings>();
+    let one_rep_max_by_exercise = use_memo(move || {
+        let (CacheState::Ready(training_sessions), Some(training_session)) =
+            (&*cache.training_sessions.read(), &*training_session.read())
+        else {
+            return HashMap::new();
+        };
+        if !settings.show_estimated_pr() {
+            return HashMap::new();
+        }
+        best_one_rep_maxes(
+            training_sessions,
+            training_session,
+            settings.estimated_pr_months(),
+        )
+    });
     let mut metronome = use_store(MetronomeService::new);
     let phase_clock = PhaseClock {
         bar: use_signal(|| None),
@@ -635,7 +650,7 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     }
                 }
                 if edit() {
-                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
+                    {view_form(field_values, progress, focus, edit_dialog, exercise_dialog, training_session, &recent_sessions_by_element.read(), &one_rep_max_by_exercise.read(), exercises, settings, cache, element_elements, expanded_history, phase_clock)},
                 } else {
                     {view_list(training_session, exercises)},
                     {view_muscles(training_session, exercises)}
@@ -855,6 +870,57 @@ impl SetFieldValues {
     }
 }
 
+/// The highest estimated 1RM of each exercise of `training_session`, taken over the sessions from
+/// `months` months before its date up to its date, itself included.
+fn best_one_rep_maxes(
+    training_sessions: &[domain::TrainingSession],
+    training_session: &domain::TrainingSession,
+    months: u32,
+) -> HashMap<domain::ExerciseID, f32> {
+    let date = training_session.date;
+    let Some(since) = date.checked_sub_months(chrono::Months::new(months)) else {
+        return HashMap::new();
+    };
+    unique(
+        training_session
+            .elements
+            .iter()
+            .filter_map(|element| match element {
+                domain::TrainingSessionElement::Set { exercise_id, .. } => Some(*exercise_id),
+                domain::TrainingSessionElement::Rest { .. } => None,
+            })
+            .collect(),
+    )
+    .into_iter()
+    .filter_map(|exercise_id| {
+        Some((
+            exercise_id,
+            domain::best_one_rep_max_within(training_sessions, exercise_id, since..=date)?,
+        ))
+    })
+    .collect()
+}
+
+/// The reps the entered weight is estimated to allow, as long as no reps are entered.
+fn estimated_pr(
+    set_field_values: &SetFieldValues,
+    one_rep_max: Option<f32>,
+) -> Option<domain::Reps> {
+    let Ok(reps) = &set_field_values.reps.validated else {
+        return None;
+    };
+    if reps.non_zero().is_some() {
+        return None;
+    }
+    let weight = set_field_values
+        .weight
+        .validated
+        .as_ref()
+        .ok()?
+        .non_zero()?;
+    domain::estimated_reps(one_rep_max?, weight)
+}
+
 /// Writes a value into a field as if the user had entered and saved it.
 fn fill_field<T: Default + PartialEq + ToString>(field: &mut FieldValue<T>, value: T) {
     let input = if value == T::default() {
@@ -1069,6 +1135,7 @@ fn view_form(
     exercise_dialog: Signal<page::exercises::ExerciseDialog>,
     training_session: &domain::TrainingSession,
     recent_sessions_by_element: &HashMap<(usize, domain::Side), Vec<RecentSession>>,
+    one_rep_max_by_exercise: &HashMap<domain::ExerciseID, f32>,
     exercises: &[domain::Exercise],
     settings: Settings,
     cache: Cache,
@@ -1439,6 +1506,17 @@ fn view_form(
                                         }
                                     }
                                     td {}
+                                }
+                            }
+                            if is_current_section && let Some(reps) = estimated_pr(set_field_values, one_rep_max_by_exercise.get(exercise_id).copied()) {
+                                tr {
+                                    td {
+                                        class: "p-1 has-text-centered",
+                                        colspan: 6,
+                                        "data-testid": "estimated-pr",
+                                        Icon { name: "trophy", is_small: true }
+                                        span { class: "ml-1", "{reps}" }
+                                    }
                                 }
                             }
                             if is_current_section {
@@ -3440,6 +3518,68 @@ mod tests {
                 "10 @ 9 (3\u{00b7}1\u{00b7}1\u{00b7}0)"
             ]
         );
+    }
+
+    #[test]
+    fn test_the_estimated_pr_is_not_shown_without_an_entered_weight() {
+        let html = render_training_session(
+            1,
+            web_app::Settings {
+                show_estimated_pr: true,
+                ..web_app::Settings::default()
+            },
+            planned_session_with_history(vec![earlier_session(
+                2,
+                7,
+                vec![performed_set(1, 100.0)],
+            )]),
+        );
+
+        assert!(contains(&html, "set-value"), "{html}");
+        assert!(!contains(&html, "estimated-pr"), "{html}");
+    }
+
+    #[test]
+    fn test_the_best_one_rep_maxes_range_from_the_horizon_to_the_session_itself() {
+        let session = |id, month, day, weight| {
+            let mut session = earlier_session(id, 0, vec![performed_set(1, weight)]);
+            session.date = chrono::NaiveDate::from_ymd_opt(2026, month, day).unwrap();
+            session
+        };
+        let current = session(1, 10, 4, 150.0);
+        let sessions = [
+            current.clone(),
+            session(2, 7, 4, 120.0),
+            session(3, 7, 3, 200.0),
+            session(4, 10, 5, 300.0),
+        ];
+
+        let one_rep_maxes = best_one_rep_maxes(&sessions, &current, 3);
+
+        assert_eq!(one_rep_maxes.len(), 1);
+        assert!(
+            (one_rep_maxes[&1.into()] - 193.7).abs() < 0.1,
+            "{one_rep_maxes:?}"
+        );
+    }
+
+    #[test]
+    fn test_the_estimated_pr_requires_reps_to_be_empty_and_weight_to_be_valid() {
+        let mut values = unperformed_set_field_values();
+        assert_eq!(estimated_pr(&values, Some(129.2)), None);
+
+        values.weight.validated = domain::Weight::new(90.0).map_err(|err| err.to_string());
+        assert_eq!(
+            estimated_pr(&values, Some(129.2)),
+            Some(domain::Reps::new(15).unwrap())
+        );
+        assert_eq!(estimated_pr(&values, None), None);
+
+        values.reps.validated = Ok(domain::Reps::new(5).unwrap());
+        assert_eq!(estimated_pr(&values, Some(129.2)), None);
+
+        values.reps.validated = Err("invalid".to_string());
+        assert_eq!(estimated_pr(&values, Some(129.2)), None);
     }
 
     fn planned_session_with_history(

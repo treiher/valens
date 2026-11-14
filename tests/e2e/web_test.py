@@ -640,6 +640,32 @@ def test_settings_dialog_rpe_survives_a_reload(page: Page) -> None:
     settings.expect_rpe("Disabled")
 
 
+def test_training_session_estimated_pr(page: Page) -> None:
+    login(page)
+    settings = SettingsDialog(page)
+    settings.open()
+    settings.expect_estimated_pr("Disabled")
+    settings.toggle_estimated_pr()
+    settings.expect_estimated_pr("Enabled")
+    settings.expect_estimated_pr_horizon("3M")
+    settings.choose_estimated_pr_horizon("6M")
+    settings.expect_estimated_pr_horizon("6M")
+    settings.close()
+
+    p = TrainingSessionPage(page, USER.workouts[-1].id)
+    p.goto()
+    p.edit()
+
+    index, weight = next(
+        (i, weight) for i, (_, _, weight, _) in enumerate(p.get_form()) if weight is not None
+    )
+    p.set_form_text(index, ("", "", str(weight), ""))
+    p.expect_estimated_pr(visible=True)
+
+    p.set_form_text(index, ("5", "", str(weight), ""))
+    p.expect_estimated_pr(visible=False)
+
+
 def test_settings_dialog_theme_survives_a_reload(page: Page) -> None:
     login(page)
     p = HomePage(page)

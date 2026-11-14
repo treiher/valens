@@ -155,6 +155,52 @@ pub fn SettingsDialog(on_close: EventHandler<MouseEvent>) -> Element {
                 onclick: {
                     move |_| {
                         let mut settings = settings;
+                        settings.set_show_estimated_pr(!settings.show_estimated_pr());
+                        async move {
+                            settings.save().await;
+                        }
+                    }
+                },
+                h1 { class: "subtitle", "Estimated personal record (PR)" }
+                if settings.show_estimated_pr() {
+                    button { class: "button is-link", "data-testid": "settings-estimated-pr", "Enabled" }
+                } else {
+                    button { class: "button", "data-testid": "settings-estimated-pr", "Disabled" }
+                }
+            }
+            if settings.show_estimated_pr() {
+                p {
+                    class: "mb-5",
+                    h1 { class: "subtitle", "Horizon of the estimated PR" }
+                    div {
+                        class: "field has-addons",
+                        for (name, months) in [("1M", 1), ("3M", 3), ("6M", 6), ("1Y", 12)] {
+                            p {
+                                class: "control",
+                                button {
+                                    class: "button is-small",
+                                    class: if settings.estimated_pr_months() == months { "is-link" },
+                                    "data-selected": "{settings.estimated_pr_months() == months}",
+                                    "data-testid": "settings-estimated-pr-horizon-{name}",
+                                    onclick: move |_| {
+                                        let mut settings = settings;
+                                        settings.set_estimated_pr_months(months);
+                                        async move {
+                                            settings.save().await;
+                                        }
+                                    },
+                                    "{name}"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            p {
+                class: "mb-5",
+                onclick: {
+                    move |_| {
+                        let mut settings = settings;
                         settings.set_scroll_snapping(!settings.scroll_snapping());
                         async move {
                             settings.save().await;
@@ -259,6 +305,43 @@ mod tests {
         assert_eq!(text_of(&html, "settings-rpe"), "Enabled");
         assert_eq!(text_of(&html, "settings-tut"), "Disabled");
         assert_eq!(text_of(&html, "settings-scroll-snapping"), "Enabled");
+    }
+
+    #[test]
+    fn test_the_estimated_pr_horizon_is_only_offered_when_enabled() {
+        let html = render_settings(web_app::Settings::default());
+
+        assert_eq!(text_of(&html, "settings-estimated-pr"), "Disabled");
+        assert!(
+            !contains(&html, "settings-estimated-pr-horizon-3M"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn test_the_chosen_estimated_pr_horizon_is_marked_as_selected() {
+        let html = render_settings(web_app::Settings {
+            show_estimated_pr: true,
+            estimated_pr_months: 6,
+            ..web_app::Settings::default()
+        });
+
+        assert_eq!(text_of(&html, "settings-estimated-pr"), "Enabled");
+        for (name, selected) in [
+            ("1M", "false"),
+            ("3M", "false"),
+            ("6M", "true"),
+            ("1Y", "false"),
+        ] {
+            assert_eq!(
+                attribute_of(
+                    &html,
+                    &format!("settings-estimated-pr-horizon-{name}"),
+                    "data-selected"
+                ),
+                selected
+            );
+        }
     }
 
     #[test]

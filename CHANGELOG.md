@@ -14,8 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set and changed by tapping it
     - Left and right column of the sets, a left and a right set directly following each other sharing one row
     - Pause before the second set of a pair
+    - Estimated personal record, shown as the number of reps the entered weight is estimated to allow, as long as no reps are entered
 - Routine page: Sides of an activity, which prescribe a unilateral exercise per side
 - Exercise page: Left and right column in the set history, showing the two sets of a pair side by side
+- Settings dialog: Estimated personal record, which is off by default, and the time span of the sessions it is based on
 
 ### Fixed
 

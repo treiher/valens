@@ -268,6 +268,13 @@ class TrainingSessionPage(BasePage):
             "set-value"
         ).nth(set_index).click()
 
+    def expect_estimated_pr(self, *, visible: bool) -> None:
+        estimated_pr = self.page.get_by_test_id("estimated-pr")
+        if visible:
+            expect(estimated_pr.first).to_be_visible()
+        else:
+            expect(estimated_pr).to_have_count(0)
+
     def count_form_rows(self) -> int:
         return len(self.get_form())
 

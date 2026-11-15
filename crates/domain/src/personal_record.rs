@@ -1398,6 +1398,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
+            countdown: false,
         }
     }
 }

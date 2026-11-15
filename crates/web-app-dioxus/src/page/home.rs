@@ -469,6 +469,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::ZERO,
                 automatic: false,
+                countdown: false,
             }],
             exercise_notes: std::collections::BTreeMap::new(),
             exercise_measurements: std::collections::BTreeMap::new(),

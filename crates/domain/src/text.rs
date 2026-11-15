@@ -8,8 +8,8 @@ use std::{
 use crate::{
     CreateError, Exercise, ExerciseID, ExerciseProperties, Name, RPE, ReadError, Recoverable, Reps,
     Rotation, RotationID, Rounds, Routine, RoutineID, RoutinePart, Schedule, ScheduleError,
-    ScheduleSlot, Sides, Tempo, Time, Unreachable, UpdateError, ValidationError, Weekday, Weight,
-    catalog,
+    ScheduleSlot, SetPacing, Sides, Tempo, Time, Unreachable, UpdateError, ValidationError,
+    Weekday, Weight, catalog,
     exercise::{catalog_exercise_by_name, normalized_name, singular_name},
     training::values_to_string,
     validate_routine_name,
@@ -199,6 +199,7 @@ fn part_lines(
             weight,
             rpe,
             automatic,
+            countdown,
             sides,
         } => {
             let line = if exercise_id.is_nil() {
@@ -224,6 +225,9 @@ fn part_lines(
                 }
                 if *sides == Sides::PerSide {
                     let _ = write!(line, "{SEPARATOR}per side");
+                }
+                if *countdown && SetPacing::countdown_applies(*tempo) {
+                    let _ = write!(line, "{SEPARATOR}{COUNTDOWN}");
                 }
                 if *automatic {
                     let _ = write!(line, "{SEPARATOR}auto-start");
@@ -480,6 +484,7 @@ pub enum ParsedPart {
         weight: Weight,
         rpe: RPE,
         automatic: bool,
+        countdown: bool,
         sides: Sides,
     },
 }
@@ -520,6 +525,7 @@ impl ParsedPart {
                 weight,
                 rpe,
                 automatic,
+                countdown,
                 sides,
             } => RoutinePart::RoutineActivity {
                 exercise_id: exercise.as_ref().map_or_else(ExerciseID::nil, exercise_id),
@@ -528,6 +534,8 @@ impl ParsedPart {
                 weight: *weight,
                 rpe: *rpe,
                 automatic: *automatic,
+                // The flag is kept only where it takes effect, as in `Routine::update_activity`.
+                countdown: *countdown && exercise.is_some() && SetPacing::countdown_applies(*tempo),
                 sides: *sides,
             },
         }
@@ -1102,22 +1110,26 @@ fn rest(tempo: Tempo, automatic: bool) -> ParsedPart {
         weight: Weight::default(),
         rpe: RPE::ZERO,
         automatic,
+        countdown: false,
         sides: Sides::Combined,
     }
 }
 
 const PER_SIDE: &str = "per side";
+const COUNTDOWN: &str = "countdown";
 
 /// Parses an activity line, reading its segments from the right: the suffixes, then the values if
 /// an exercise name precedes them, and the remainder as the exercise name.
 fn parse_activity(line: &str, segments: &[Segment]) -> Result<ParsedPart, String> {
     let mut automatic = false;
+    let mut countdown = false;
     let mut sides = Sides::Combined;
     let mut end = segments.len();
     while end > 1 {
         match segments[end - 1].text(line) {
             "auto-start" => automatic = true,
             "manual" => {}
+            COUNTDOWN => countdown = true,
             PER_SIDE => sides = Sides::PerSide,
             _ => break,
         }
@@ -1150,6 +1162,7 @@ fn parse_activity(line: &str, segments: &[Segment]) -> Result<ParsedPart, String
         weight: values.weight.unwrap_or_default(),
         rpe: values.rpe.unwrap_or_default(),
         automatic,
+        countdown,
         sides,
     })
 }
@@ -1866,6 +1879,7 @@ mod tests {
                     weight: Weight::new(weight).unwrap(),
                     rpe: RPE::ZERO,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }],
             )],
@@ -1892,6 +1906,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::EIGHT,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }],
             )],
@@ -1919,6 +1934,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                     rest(&[], true),
@@ -1963,19 +1979,63 @@ mod tests {
     }
 
     #[rstest]
-    #[case::per_side_without_values(0, Sides::PerSide, false, "A \u{2014} per side")]
-    #[case::per_side_with_values(10, Sides::PerSide, false, "A \u{2014} 10 \u{2014} per side")]
-    #[case::auto_start(10, Sides::Combined, true, "A \u{2014} 10 \u{2014} auto-start")]
+    #[case::per_side_without_values(0, &[], Sides::PerSide, false, false, "A \u{2014} per side")]
+    #[case::per_side_with_values(
+        10,
+        &[],
+        Sides::PerSide,
+        false,
+        false,
+        "A \u{2014} 10 \u{2014} per side"
+    )]
+    #[case::auto_start(10, &[], Sides::Combined, true, false, "A \u{2014} 10 \u{2014} auto-start")]
     #[case::per_side_and_auto_start(
         0,
+        &[],
         Sides::PerSide,
         true,
+        false,
         "A \u{2014} per side \u{2014} auto-start"
     )]
+    #[case::auto_start_without_countdown(
+        10,
+        &[3],
+        Sides::Combined,
+        true,
+        false,
+        "A \u{2014} 10 (3 s/rep) \u{2014} auto-start"
+    )]
+    #[case::countdown(
+        10,
+        &[3],
+        Sides::Combined,
+        false,
+        true,
+        "A \u{2014} 10 (3 s/rep) \u{2014} countdown"
+    )]
+    #[case::per_side_countdown_and_auto_start(
+        10,
+        &[3],
+        Sides::PerSide,
+        true,
+        true,
+        "A \u{2014} 10 (3 s/rep) \u{2014} per side \u{2014} countdown \u{2014} auto-start"
+    )]
+    #[case::hold_with_the_flag(
+        0,
+        &[30],
+        Sides::Combined,
+        false,
+        true,
+        "A \u{2014} 30 s \u{2014} countdown"
+    )]
+    #[case::hold_without_the_flag(0, &[30], Sides::Combined, false, false, "A \u{2014} 30 s")]
     fn test_routine_to_text_suffixes_of_activity(
         #[case] reps: u32,
+        #[case] phases: &[u32],
         #[case] sides: Sides,
         #[case] automatic: bool,
+        #[case] countdown: bool,
         #[case] expected: &str,
     ) {
         let routine = routine(
@@ -1987,10 +2047,11 @@ mod tests {
                 vec![RoutinePart::RoutineActivity {
                     exercise_id: 1.into(),
                     reps: Reps::new(reps).unwrap(),
-                    tempo: Tempo::default(),
+                    tempo: Tempo::new(phases).unwrap(),
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic,
+                    countdown,
                     sides,
                 }],
             )],
@@ -2446,6 +2507,38 @@ mod tests {
     }
 
     #[rstest]
+    #[case::auto_start("10 (3 s/rep) — auto-start", 10, &[3], true, false)]
+    #[case::countdown("10 (3 s/rep) — countdown", 10, &[3], false, true)]
+    #[case::countdown_and_auto_start("10 (3 s/rep) — countdown — auto-start", 10, &[3], true, true)]
+    #[case::auto_start_and_countdown("10 (3 s/rep) — auto-start — countdown", 10, &[3], true, true)]
+    #[case::countdown_of_a_hold("30 s — countdown", 0, &[30], false, true)]
+    #[case::countdown_without_a_tempo("10 — countdown", 10, &[], false, false)]
+    fn test_parse_suffixes_of_activity(
+        #[case] values: &str,
+        #[case] reps: u32,
+        #[case] phases: &[u32],
+        #[case] automatic: bool,
+        #[case] countdown: bool,
+    ) {
+        assert_eq!(
+            sections(&format!("Routine — X\n\n[A] 1 set\n  A1 — A — {values}")),
+            vec![section(
+                1,
+                vec![RoutinePart::RoutineActivity {
+                    exercise_id: 1.into(),
+                    reps: Reps::new(reps).unwrap(),
+                    tempo: Tempo::new(phases).unwrap(),
+                    weight: Weight::default(),
+                    rpe: RPE::ZERO,
+                    automatic,
+                    countdown,
+                    sides: Sides::Combined,
+                }]
+            )]
+        );
+    }
+
+    #[rstest]
     #[case::without_time("Rest", rest(&[], true))]
     #[case::manual_without_time("Rest — manual", rest(&[], false))]
     #[case::automatic("Rest — 60 s — auto-start", rest(&[60], true))]
@@ -2494,6 +2587,10 @@ mod tests {
     #[case::rest_with_tempo("Rest — 5·10", "rest must have no values other than a time")]
     #[case::rest_with_text("Rest — as needed", "rest must have no values other than a time")]
     #[case::rest_per_side("Rest — 60 s — per side", "rest must not be performed per side")]
+    #[case::rest_with_countdown(
+        "Rest — 60 s — countdown",
+        "rest must have no values other than a time"
+    )]
     #[case::rest_with_label("A2 — Rest — 60 s", "rest must not have a label")]
     #[case::rest_with_label_without_time("A2 — rest", "rest must not have a label")]
     #[case::part_outside_section("A — A — 5", "activity outside of a section")]
@@ -3631,16 +3728,20 @@ mod tests {
                 any_tempo(),
                 any::<bool>(),
                 any::<bool>(),
+                any::<bool>(),
             )
                 .prop_map(
-                    |(exercise_id, reps, weight, rpe, tempo, automatic, per_side)| {
+                    |(exercise_id, reps, weight, rpe, tempo, automatic, countdown, per_side)| {
+                        let reps = Reps::new(reps).unwrap();
                         RoutinePart::RoutineActivity {
                             exercise_id: exercise_id.into(),
-                            reps: Reps::new(reps).unwrap(),
+                            reps,
                             tempo,
                             weight: Weight::new(weight).unwrap(),
                             rpe: RPE::new(rpe).unwrap(),
                             automatic,
+                            // The text keeps the flag only where it takes effect.
+                            countdown: countdown && SetPacing::countdown_applies(tempo),
                             sides: if per_side {
                                 Sides::PerSide
                             } else {
@@ -3743,6 +3844,7 @@ mod tests {
             weight: Weight::new(weight).unwrap(),
             rpe: RPE::new(rpe).unwrap(),
             automatic,
+            countdown: false,
             sides,
         }
     }
@@ -3799,6 +3901,7 @@ mod tests {
                         weight: Weight::new(30.0).unwrap(),
                         rpe: RPE::TEN,
                         automatic: false,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                     rest(&[60], true),
@@ -3814,6 +3917,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                     rest(&[30], true),
@@ -3837,6 +3941,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         }
     }
@@ -3849,6 +3954,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic,
+            countdown: false,
             sides: Sides::Combined,
         }
     }

@@ -55,6 +55,7 @@ STRETCH_ROUTINE: dict[str, object] = {
                     "weight": 0.0,
                     "rpe": 0.0,
                     "automatic": False,
+                    "countdown": True,
                     "sides": 1,
                 },
             ],
@@ -81,6 +82,7 @@ STRETCH_WORKOUT: dict[str, object] = {
             "target_weight": None,
             "target_rpe": None,
             "automatic": False,
+            "countdown": False,
             "side": None,
         }
         for time in (60, 90)
@@ -125,6 +127,8 @@ INVALID_ROUTINE_ACTIVITY_FIELDS: list[dict[str, object]] = [
     {"sides": "1"},
     {"sides": 0},
     {"sides": 3},
+    {"countdown": 1},
+    {"countdown": True},
 ]
 
 INVALID_WORKOUT_FIELDS: list[dict[str, object]] = [
@@ -153,6 +157,9 @@ INVALID_WORKOUT_SET_FIELDS: list[dict[str, object]] = [
     {"side": "1"},
     {"side": 0},
     {"side": 3},
+    {"countdown": "yes"},
+    {"countdown": True},
+    {"countdown": True, "target_reps": 5},
 ]
 
 
@@ -507,6 +514,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                     **invalid_activity_field,
                                 }
@@ -535,6 +543,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             }
                         ],
@@ -560,6 +569,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 2,
                             }
                         ],
@@ -702,6 +712,7 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                             **invalid_set_field,
                         }
@@ -1261,6 +1272,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -1270,6 +1282,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -1284,6 +1297,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -1293,6 +1307,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -1305,6 +1320,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                         {
@@ -1314,6 +1330,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -1330,6 +1347,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -1339,6 +1357,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -1361,6 +1380,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -1370,6 +1390,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -1400,6 +1421,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -1413,6 +1435,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -1426,6 +1449,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -1449,6 +1473,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -1462,6 +1487,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -1475,6 +1501,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -1488,6 +1515,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -1501,6 +1529,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -1524,6 +1553,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -1549,6 +1579,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -1562,6 +1593,7 @@ def test_delete_user_last_admin(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -1730,6 +1762,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 2,
                             },
                             {
@@ -1742,6 +1775,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": True,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                     {
@@ -1751,6 +1785,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": True,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -1767,6 +1802,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -1776,6 +1812,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -1799,6 +1836,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 2,
                                 },
                                 {
@@ -1811,6 +1849,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": True,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                         {
@@ -1820,6 +1859,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": True,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -1836,6 +1876,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -1845,6 +1886,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -1867,6 +1909,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -1876,6 +1919,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -1890,6 +1934,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -1899,6 +1944,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -1911,6 +1957,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                         {
@@ -1920,6 +1967,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -1936,6 +1984,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -1945,6 +1994,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -1967,6 +2017,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -1976,6 +2027,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -2030,6 +2082,7 @@ def test_create(
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -2047,6 +2100,7 @@ def test_create(
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": 1,
                     },
                     {
@@ -2064,6 +2118,7 @@ def test_create(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": 2,
                     },
                 ],
@@ -2100,6 +2155,7 @@ def test_create(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     }
                 ],
@@ -2142,6 +2198,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
                 {
@@ -2155,6 +2212,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
                 {
@@ -2168,6 +2226,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
             ],
@@ -2191,6 +2250,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
                 {
@@ -2204,6 +2264,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
                 {
@@ -2217,6 +2278,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
                 {
@@ -2230,6 +2292,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
                 {
@@ -2243,6 +2306,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
             ],
@@ -2266,6 +2330,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
             ],
@@ -2289,6 +2354,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
                 {
@@ -2302,6 +2368,7 @@ def test_create_workout(
                     "target_weight": None,
                     "target_rpe": None,
                     "automatic": False,
+                    "countdown": False,
                     "side": None,
                 },
             ],
@@ -2342,6 +2409,7 @@ def _workout_with_exercises(*exercise_ids: int) -> dict[str, object]:
                 "target_weight": None,
                 "target_rpe": None,
                 "automatic": False,
+                "countdown": False,
                 "side": None,
             }
             for exercise_id in exercise_ids
@@ -2504,12 +2572,126 @@ def _routine_with_exercise(exercise_id: int) -> dict[str, object]:
                         "weight": 0.0,
                         "rpe": 0.0,
                         "automatic": False,
+                        "countdown": False,
                         "sides": 1,
                     }
                 ],
             }
         ],
     }
+
+
+@pytest.mark.parametrize("reps", [10, 0])
+def test_create_routine_with_countdown(client: Client, reps: int) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+    routine = _routine_with_exercise(1)
+    activity = routine["sections"][0]["parts"][0]  # type: ignore[index]
+    activity.update({"reps": reps, "tempo": [3], "countdown": True})
+
+    resp = client.post("/api/routines", json=routine)
+
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.json is not None
+    assert resp.json["sections"][0]["parts"][0]["countdown"] is True
+
+
+@pytest.mark.parametrize("target_reps", [5, None])
+def test_create_workout_with_countdown(client: Client, target_reps: int | None) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+    workout = _workout_with_exercises(1)
+    workout["elements"][0].update(  # type: ignore[index]
+        {"target_reps": target_reps, "target_tempo": [3], "countdown": True}
+    )
+
+    resp = client.post("/api/workouts", json=workout)
+
+    assert resp.status_code == HTTPStatus.CREATED
+    assert resp.json is not None
+    assert resp.json["elements"][0]["countdown"] is True
+
+
+@pytest.mark.parametrize(
+    ("route", "data"),
+    [
+        (
+            "/api/routines",
+            {
+                **_routine_with_exercise(1),
+                "sections": [
+                    {
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "exercise_id": None,
+                                "reps": 10,
+                                "tempo": [60],
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                                "countdown": True,
+                                "sides": 1,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ),
+        (
+            "/api/routines",
+            {
+                **_routine_with_exercise(1),
+                "sections": [
+                    {
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "exercise_id": 1,
+                                "reps": 10,
+                                "tempo": [3],
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                                "sides": 1,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ),
+        (
+            "/api/workouts",
+            {
+                **_workout_with_exercises(),
+                "elements": [
+                    {
+                        "exercise_id": 1,
+                        "reps": None,
+                        "time": None,
+                        "weight": None,
+                        "rpe": None,
+                        "target_reps": 5,
+                        "target_tempo": [3],
+                        "target_weight": None,
+                        "target_rpe": None,
+                        "automatic": False,
+                        "side": None,
+                    }
+                ],
+            },
+        ),
+    ],
+)
+def test_create_rejects_invalid_countdown(client: Client, route: str, data: object) -> None:
+    tests.utils.init_db_data()
+    assert create_session(client).status_code == HTTPStatus.OK
+
+    resp = client.post(route, json=data)
+
+    assert resp.status_code == HTTPStatus.BAD_REQUEST
+    assert resp.json is not None
+    assert "countdown" in str(resp.json["details"])
 
 
 # Exercise 2 belongs to Bob, exercise 999 does not exist; Alice must be able to reference neither
@@ -2835,6 +3017,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -2847,6 +3030,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -2863,6 +3047,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -2872,6 +3057,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -2894,6 +3080,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -2906,6 +3093,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -2922,6 +3110,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -2931,6 +3120,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -2954,6 +3144,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -2966,6 +3157,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -2982,6 +3174,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -2991,6 +3184,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -3013,6 +3207,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -3022,6 +3217,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -3055,6 +3251,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -3068,6 +3265,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -3093,6 +3291,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -3106,6 +3305,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -3128,6 +3328,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": 8,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3141,6 +3342,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": 10,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3164,6 +3366,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3177,6 +3380,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3190,6 +3394,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3203,6 +3408,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3216,6 +3422,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3239,6 +3446,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3264,6 +3472,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3277,6 +3486,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3302,6 +3512,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -3315,6 +3526,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -3328,6 +3540,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -3353,6 +3566,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -3366,6 +3580,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -3379,6 +3594,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -3403,6 +3619,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3416,6 +3633,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3429,6 +3647,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3450,6 +3669,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3463,6 +3683,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3476,6 +3697,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3489,6 +3711,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3502,6 +3725,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3525,6 +3749,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3550,6 +3775,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -3563,6 +3789,7 @@ def test_create_workout_allows_own_unused_exercise(client: Client) -> None:
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -3631,6 +3858,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -3640,6 +3868,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -3654,6 +3883,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -3663,6 +3893,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -3675,6 +3906,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                     {
@@ -3684,6 +3916,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -3700,6 +3933,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -3709,6 +3943,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -3732,6 +3967,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -3741,6 +3977,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -3755,6 +3992,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -3764,6 +4002,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -3776,6 +4015,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                         {
@@ -3785,6 +4025,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -3801,6 +4042,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -3810,6 +4052,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -3832,6 +4075,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -3841,6 +4085,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -3874,6 +4119,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -3883,6 +4129,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -3897,6 +4144,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -3906,6 +4154,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -3918,6 +4167,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                     {
@@ -3927,6 +4177,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -3943,6 +4194,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -3952,6 +4204,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -3975,6 +4228,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -3984,6 +4238,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -3998,6 +4253,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -4007,6 +4263,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -4019,6 +4276,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                         {
@@ -4028,6 +4286,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -4044,6 +4303,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -4053,6 +4313,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -4075,6 +4336,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -4084,6 +4346,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -4118,6 +4381,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -4127,6 +4391,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -4141,6 +4406,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -4150,6 +4416,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -4162,6 +4429,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                     {
@@ -4171,6 +4439,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -4187,6 +4456,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -4196,6 +4466,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -4219,6 +4490,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -4228,6 +4500,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -4242,6 +4515,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -4251,6 +4525,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -4263,6 +4538,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                         {
@@ -4272,6 +4548,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -4288,6 +4565,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -4297,6 +4575,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -4319,6 +4598,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -4328,6 +4608,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -4354,6 +4635,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -4366,6 +4648,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -4382,6 +4665,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -4391,6 +4675,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -4413,6 +4698,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": False,
+                                "countdown": False,
                                 "sides": 1,
                             },
                             {
@@ -4425,6 +4711,7 @@ def test_replace(
                                         "weight": 0.0,
                                         "rpe": 0.0,
                                         "automatic": False,
+                                        "countdown": False,
                                         "sides": 1,
                                     },
                                 ],
@@ -4441,6 +4728,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": True,
                                 "sides": 1,
                             },
                             {
@@ -4450,6 +4738,7 @@ def test_replace(
                                 "weight": 0.0,
                                 "rpe": 0.0,
                                 "automatic": True,
+                                "countdown": False,
                                 "sides": 1,
                             },
                         ],
@@ -4473,6 +4762,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -4485,6 +4775,7 @@ def test_replace(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -4501,6 +4792,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -4510,6 +4802,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -4532,6 +4825,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -4541,6 +4835,7 @@ def test_replace(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -4575,6 +4870,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -4588,6 +4884,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -4601,6 +4898,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -4623,6 +4921,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4636,6 +4935,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4649,6 +4949,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -4672,6 +4973,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4685,6 +4987,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4698,6 +5001,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4711,6 +5015,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4724,6 +5029,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -4747,6 +5053,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -4772,6 +5079,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4785,6 +5093,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -4817,6 +5126,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -4830,6 +5140,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -4843,6 +5154,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -4865,6 +5177,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4878,6 +5191,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4891,6 +5205,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -4914,6 +5229,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4927,6 +5243,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4940,6 +5257,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4953,6 +5271,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -4966,6 +5285,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -4989,6 +5309,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5014,6 +5335,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5027,6 +5349,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5050,6 +5373,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -5067,6 +5391,7 @@ def test_replace(
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -5091,6 +5416,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": 8,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -5108,6 +5434,7 @@ def test_replace(
                         "target_weight": 10,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -5130,6 +5457,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": 8,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5147,6 +5475,7 @@ def test_replace(
                             "target_weight": 10,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5170,6 +5499,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5183,6 +5513,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5196,6 +5527,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5209,6 +5541,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5222,6 +5555,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5245,6 +5579,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5270,6 +5605,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5283,6 +5619,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5316,6 +5653,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -5329,6 +5667,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -5342,6 +5681,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -5366,6 +5706,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5379,6 +5720,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5392,6 +5734,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5413,6 +5756,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5426,6 +5770,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5439,6 +5784,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5452,6 +5798,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5465,6 +5812,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5488,6 +5836,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5513,6 +5862,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5526,6 +5876,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5559,6 +5910,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -5572,6 +5924,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                     {
@@ -5585,6 +5938,7 @@ def test_replace(
                         "target_weight": None,
                         "target_rpe": None,
                         "automatic": False,
+                        "countdown": False,
                         "side": None,
                     },
                 ],
@@ -5609,6 +5963,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5622,6 +5977,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5635,6 +5991,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5656,6 +6013,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5669,6 +6027,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5682,6 +6041,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5695,6 +6055,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5708,6 +6069,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5731,6 +6093,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5756,6 +6119,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5769,6 +6133,7 @@ def test_replace(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -5878,6 +6243,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -5887,6 +6253,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -5901,6 +6268,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -5910,6 +6278,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": False,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                                 {
@@ -5922,6 +6291,7 @@ def test_modify(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                         {
@@ -5931,6 +6301,7 @@ def test_modify(
                                             "weight": 0.0,
                                             "rpe": 0.0,
                                             "automatic": False,
+                                            "countdown": False,
                                             "sides": 1,
                                         },
                                     ],
@@ -5947,6 +6318,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": True,
                                     "sides": 1,
                                 },
                                 {
@@ -5956,6 +6328,7 @@ def test_modify(
                                     "weight": 0.0,
                                     "rpe": 0.0,
                                     "automatic": True,
+                                    "countdown": False,
                                     "sides": 1,
                                 },
                             ],
@@ -5985,6 +6358,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -5998,6 +6372,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -6011,6 +6386,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -6034,6 +6410,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],
@@ -6059,6 +6436,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                         {
@@ -6072,6 +6450,7 @@ def test_modify(
                             "target_weight": None,
                             "target_rpe": None,
                             "automatic": False,
+                            "countdown": False,
                             "side": None,
                         },
                     ],

@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Updating of an exercise from the catalog through its options in the exercise list
     - Marker on a set that sets a personal record, all-time or of the last 6 months
     - Value needed for a personal record of the last 6 months, shown below the empty fields of a set
+    - Automatic start of the tempo bar of a set with input fields
+    - Countdown of a set with repetitions started by a tap
+    - Tempo bar and input fields of a hold that is not counted down
 - Schedule page:
     - Showing and copying of the schedule with its routines as text
     - Importing of the schedule and its routines from text, with a preview of the week, of the routines replaced or copied under a new name and of the unknown exercises
@@ -36,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Stretch sets and time under stretch per muscle
     - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
     - Updating of an exercise from the catalog through its options in the exercise list
+    - Choice between a countdown and input fields for an activity that prescribes a tempo
+    - Marker of an activity that is counted down
 - Exercises page:
     - Stretched muscles of an exercise, edited next to the worked muscles
     - Filtering of exercises by their stretched muscles
@@ -67,13 +72,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Notes for this session of an exercise, removed with the exercise and moved to its replacement
     - Name of the session-specific notes of an exercise, which reads "Session notes"
     - Date of the session and name of the routine, linking to the routine, in the navigation bar, replacing the title of the page
-- Routines page: Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start of the timer where it differs from the default and the time per repetition with its unit
+- Routines page: Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start and the countdown of an activity where they differ from the default and the time per repetition with its unit
 - Routine page:
     - Label of the time of an activity without repetitions, which reads "Time"
-    - Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start of the timer where it differs from the default and the time per repetition with its unit
+    - Automatic start of an activity without a tempo, which is disabled in the activity dialog instead of rejected with an error
+    - Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start and the countdown of an activity where they differ from the default and the time per repetition with its unit
     - Sets per muscle, leaving out muscles without sets
     - Routine, its training sessions and their charts on a tab each
     - Name of the routine in the navigation bar, replacing the title of the page
+    - Automatic start of an activity that prescribes repetitions, which no longer implies a countdown
+    - Label of the start of an activity, which reads "Start"
 - Exercises page:
     - Legend of the primary and secondary muscles in the add, filter and properties dialogs, shown as the order in which tapping a muscle changes its level in a tooltip of a help icon next to the worked and the stretched muscles
     - Labels of the muscles and properties in the add, filter and properties dialogs, styled like the labels of other input fields

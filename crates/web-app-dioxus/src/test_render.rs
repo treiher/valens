@@ -313,6 +313,20 @@ pub fn selected_text_of(html: &str, test_id: &str) -> String {
         .map_or_else(|| text(&option), ToString::to_string)
 }
 
+/// The text of the disabled options inside the element carrying `test_id`, in document order.
+///
+/// # Panics
+///
+/// Panics if no element carries `test_id`.
+pub fn disabled_texts_of(html: &str, test_id: &str) -> Vec<String> {
+    let document = scraper::Html::parse_fragment(html);
+    let selector = scraper::Selector::parse("[disabled]").unwrap();
+    element(&document, test_id, 0)
+        .select(&selector)
+        .map(|option| text(&option))
+        .collect()
+}
+
 /// The cells of the table row carrying `test_id`.
 ///
 /// # Panics

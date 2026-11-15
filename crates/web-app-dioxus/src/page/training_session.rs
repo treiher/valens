@@ -256,18 +256,13 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
         let mut interval = IntervalStream::new(TICK_INTERVAL_MS);
         while interval.next().await.is_some() {
             let mut timer = progress.timer_service();
-            let mut start_delay = phase_clock.start_delay;
-            let delay = *start_delay.peek();
-            if let Some(delay) = delay {
-                let remaining = delay.remaining_at(chrono::Utc::now());
-                if remaining <= 0. {
-                    start_delay.set(None);
-                    if timer.peek().is_set() {
-                        timer.write().start();
-                    }
-                } else {
-                    start_delay.set(Some(StartDelay { remaining, ..delay }));
-                }
+            let mut phase_clock = phase_clock;
+            if phase_clock.tick_start_delay(
+                *progress.element_idx().peek(),
+                timer.peek().is_set(),
+                chrono::Utc::now(),
+            ) {
+                timer.write().start();
             }
             timer.peek().sync();
             // Writing on every tick would re-run the effects reading the timer ten times a second.
@@ -373,16 +368,23 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
             .read()
             .as_ref()
             .and_then(|training_session| training_session.elements.get(element_idx).cloned())
+            // The countdown of a single-phase hold gives its cues by itself.
             .and_then(|element| match element {
                 domain::TrainingSessionElement::Set {
                     target_reps,
                     target_tempo,
-                    automatic,
+                    countdown,
                     ..
-                } if target_reps.non_zero().is_some() || target_tempo.phases().len() > 1 => Some((
-                    target_tempo.non_zero()?,
-                    countdown_seconds(target_reps, target_tempo, automatic),
-                )),
+                } if target_reps.non_zero().is_some()
+                    || target_tempo.phases().len() > 1
+                    || !countdown =>
+                {
+                    Some((
+                        target_tempo.non_zero()?,
+                        domain::SetPacing::new(target_reps, target_tempo, countdown)
+                            .countdown_seconds(),
+                    ))
+                }
                 _ => None,
             })
             .filter(|_| !other_session_running());
@@ -418,17 +420,11 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
 
     use_effect(move || {
         let element_idx = progress.read().element_idx;
-        // Only a set counted down automatically waits for its delayed start, which is started anew
-        // for the element that has become current.
-        let set_start_delay = move |kind: Option<StartDelayKind>| {
+        // Only a set starting automatically waits for its delayed start.
+        let set_start_delay = move |delay: Option<StartDelay>| {
             let mut start_delay = phase_clock.start_delay;
-            match kind {
-                Some(kind) => start_delay.set(Some(StartDelay::new(kind, chrono::Utc::now()))),
-                None => {
-                    if start_delay.peek().is_some() {
-                        start_delay.set(None);
-                    }
-                }
+            if *start_delay.peek() != delay {
+                start_delay.set(delay);
             }
         };
         if let Some(training_session) = training_session()
@@ -440,13 +436,38 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                     target_tempo,
                     target_weight,
                     automatic,
+                    countdown,
                     ..
                 } => {
-                    let Some(total) = countdown_seconds(*target_reps, *target_tempo, *automatic)
-                    else {
-                        set_start_delay(None);
-                        return;
+                    let kind = || {
+                        start_delay_kind(
+                            progress.peek().completed_preceding,
+                            training_session.completes_pair(element_idx),
+                        )
                     };
+                    let total =
+                        match domain::SetPacing::new(*target_reps, *target_tempo, *countdown) {
+                            domain::SetPacing::Untimed => {
+                                set_start_delay(None);
+                                return;
+                            }
+                            domain::SetPacing::Tempo => {
+                                let awaits_start = current_values_are_unperformed()
+                                    && !phase_clock.has_bar_clock(element_idx)
+                                    && !other_session_running();
+                                set_start_delay(automatic.then(|| {
+                                    tempo_bar_start_delay(
+                                        *phase_clock.start_delay.peek(),
+                                        element_idx,
+                                        awaits_start,
+                                        kind,
+                                        chrono::Utc::now(),
+                                    )
+                                }));
+                                return;
+                            }
+                            domain::SetPacing::Countdown(total) => total,
+                        };
                     if !current_values_are_unperformed() {
                         set_start_delay(None);
                         // Filling a set by hand takes it out of its countdown.
@@ -481,15 +502,10 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                         let mut bar = phase_clock.bar;
                         bar.set(None);
                         progress.timer_service().write().set(i64::from(total));
-                        set_start_delay(automatic.then(|| {
-                            if progress.peek().completed_preceding
-                                && training_session.completes_pair(element_idx)
-                            {
-                                StartDelayKind::SideSwitch
-                            } else {
-                                StartDelayKind::LeadIn
-                            }
-                        }));
+                        set_start_delay(
+                            automatic
+                                .then(|| StartDelay::new(element_idx, kind(), chrono::Utc::now())),
+                        );
                     }
                 }
                 domain::TrainingSessionElement::Rest {
@@ -945,7 +961,7 @@ struct PhaseClock {
     /// They lag behind a change of the element until the next tick, so they are only read to
     /// render anew, see `elapsed`.
     elapsed: Signal<f64>,
-    /// The wait of the countdown of the current element before it starts on its own.
+    /// The wait of the current element before it starts on its own.
     start_delay: Signal<Option<StartDelay>>,
 }
 
@@ -975,7 +991,8 @@ impl PhaseClock {
             .is_some_and(|bar| bar.element_idx == element_idx && bar.is_running())
     }
 
-    /// Moves the bar clock along with its element, which it does not outlive.
+    /// Moves the bar clock and the start delay along with their element, which they do not
+    /// outlive.
     fn follow(&mut self, map: &domain::ElementMap) {
         let bar = *self.bar.peek();
         if let Some(bar) = bar {
@@ -987,6 +1004,78 @@ impl PhaseClock {
                 _ => None,
             });
         }
+        let delay = *self.start_delay.peek();
+        if let Some(delay) = delay {
+            self.start_delay.set(match map.get(delay.element_idx) {
+                Some(domain::ElementMove::Kept(element_idx)) => Some(StartDelay {
+                    element_idx: *element_idx,
+                    ..delay
+                }),
+                _ => None,
+            });
+        }
+    }
+
+    /// The pending start delay of `element_idx`, rendered anew when it changes.
+    fn pending_start_delay(&self, element_idx: usize) -> Option<PendingStartDelay> {
+        self.start_delay
+            .read()
+            .filter(|delay| delay.element_idx == element_idx)
+            .and_then(|delay| delay.pending)
+    }
+
+    fn end_start_delay(&mut self, element_idx: usize) {
+        let delay = *self.start_delay.peek();
+        if let Some(delay) = delay
+            && delay.element_idx == element_idx
+            && delay.pending.is_some()
+        {
+            self.start_delay.set(Some(delay.ended()));
+        }
+    }
+
+    /// Advances the start delay to `now` and returns whether the set timer of the current
+    /// `element_idx` is to be started.
+    ///
+    /// The end of the delay of the current element starts its bar clock unless it has a set timer.
+    fn tick_start_delay(
+        &mut self,
+        element_idx: usize,
+        timer_is_set: bool,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> bool {
+        let Some(delay) = *self.start_delay.peek() else {
+            return false;
+        };
+        let Some(pending) = delay.pending else {
+            return false;
+        };
+        let remaining = pending.remaining_at(now);
+        if remaining > 0. {
+            self.start_delay.set(Some(StartDelay {
+                pending: Some(PendingStartDelay {
+                    remaining,
+                    ..pending
+                }),
+                ..delay
+            }));
+            return false;
+        }
+        self.start_delay.set(Some(delay.ended()));
+        if delay.element_idx != element_idx {
+            return false;
+        }
+        if !timer_is_set && !self.has_bar_clock(element_idx) {
+            self.bar.set(Some(BarClock::started(element_idx)));
+        }
+        timer_is_set
+    }
+
+    /// Starts the bar clock of `element_idx` at once if it awaits its start, or holds it where it
+    /// stands.
+    fn tap_bar(&mut self, element_idx: usize) {
+        self.end_start_delay(element_idx);
+        self.toggle_bar(element_idx);
     }
 
     /// Starts the bar clock of `element_idx`, or holds it where it stands.
@@ -1048,9 +1137,34 @@ impl BarClock {
     }
 }
 
-/// The wait of a countdown before it starts on its own, which a tap on the countdown cuts short.
+/// The start delay of an element, which is kept once it has ended, so that it is started only
+/// once while its element is current.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct StartDelay {
+    element_idx: usize,
+    /// `None` once the delay has ended.
+    pending: Option<PendingStartDelay>,
+}
+
+impl StartDelay {
+    fn new(element_idx: usize, kind: StartDelayKind, now: chrono::DateTime<chrono::Utc>) -> Self {
+        Self {
+            element_idx,
+            pending: Some(PendingStartDelay::new(kind, now)),
+        }
+    }
+
+    fn ended(self) -> Self {
+        Self {
+            pending: None,
+            ..self
+        }
+    }
+}
+
+/// The wait of a set before it starts on its own, which a tap on the set cuts short.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PendingStartDelay {
     kind: StartDelayKind,
     ends_at: chrono::DateTime<chrono::Utc>,
     /// The seconds left, written on every tick.
@@ -1059,13 +1173,13 @@ struct StartDelay {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum StartDelayKind {
-    /// The countdown starts with the first beep.
+    /// The set starts with the first beep.
     LeadIn,
     /// The second side of a pair leaves the time to change position.
     SideSwitch,
 }
 
-impl StartDelay {
+impl PendingStartDelay {
     #[allow(clippy::cast_possible_truncation)]
     fn new(kind: StartDelayKind, now: chrono::DateTime<chrono::Utc>) -> Self {
         let seconds = match kind {
@@ -1090,6 +1204,41 @@ impl StartDelay {
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn remaining_seconds(&self) -> u32 {
         self.remaining.ceil() as u32
+    }
+}
+
+/// The second side of a pair reached by completing the first one leaves the time to change
+/// position.
+fn start_delay_kind(completed_preceding: bool, completes_pair: bool) -> StartDelayKind {
+    if completed_preceding && completes_pair {
+        StartDelayKind::SideSwitch
+    } else {
+        StartDelayKind::LeadIn
+    }
+}
+
+/// The start delay of the set with a tempo bar at `element_idx`, which is started once while the
+/// set is current and ends without starting the bar once the set no longer awaits its start.
+fn tempo_bar_start_delay(
+    delay: Option<StartDelay>,
+    element_idx: usize,
+    awaits_start: bool,
+    kind: impl FnOnce() -> StartDelayKind,
+    now: chrono::DateTime<chrono::Utc>,
+) -> StartDelay {
+    match delay {
+        Some(delay) if delay.element_idx == element_idx => {
+            if awaits_start {
+                delay
+            } else {
+                delay.ended()
+            }
+        }
+        _ if awaits_start => StartDelay::new(element_idx, kind(), now),
+        _ => StartDelay {
+            element_idx,
+            pending: None,
+        },
     }
 }
 
@@ -1293,7 +1442,7 @@ fn view_form(
                 let domain::TrainingSessionElement::Set {
                     target_reps,
                     target_tempo,
-                    automatic,
+                    countdown,
                     ..
                 } = element
                 else {
@@ -1305,7 +1454,7 @@ fn view_form(
                         countdown_total(
                             *target_reps,
                             *target_tempo,
-                            *automatic,
+                            *countdown,
                             set_field_values,
                             focus,
                         )
@@ -1317,7 +1466,7 @@ fn view_form(
         let sets = section.elements().iter().enumerate().map(|(i, element)| {
             let element_idx = first_element_idx + i;
             let set = match element {
-                domain::TrainingSessionElement::Set { exercise_id, side, target_reps, target_tempo, target_weight, target_rpe, automatic, .. } => {
+                domain::TrainingSessionElement::Set { exercise_id, side, target_reps, target_tempo, target_weight, target_rpe, countdown, .. } => {
                     let set_index = set_indices[&element_idx];
                     let set_field_values = &field_values.read()[&element_idx];
 
@@ -1397,7 +1546,7 @@ fn view_form(
                         }
                     };
 
-                    match countdown_total(*target_reps, *target_tempo, *automatic, set_field_values, focus) {
+                    match countdown_total(*target_reps, *target_tempo, *countdown, set_field_values, focus) {
                         None => rsx! {
                             tr {
                                 class: "has-fields",
@@ -1547,6 +1696,7 @@ fn view_form(
                                         colspan: 4,
                                         SetTempoBar {
                                             element_idx,
+                                            side: *side,
                                             target_tempo: *target_tempo,
                                             progress,
                                             phase_clock,
@@ -1771,29 +1921,14 @@ fn side_name(side: domain::Side) -> Option<&'static str> {
 fn countdown_total(
     target_reps: domain::Reps,
     target_tempo: domain::Tempo,
-    automatic: bool,
+    countdown: bool,
     set_field_values: &SetFieldValues,
     focus: SetFocus,
 ) -> Option<u32> {
     if !set_field_values.is_unperformed() || focus.other_session_running() {
         return None;
     }
-    countdown_seconds(target_reps, target_tempo, automatic)
-}
-
-/// The seconds a countdown of a set runs for, whatever the set already carries.
-///
-/// A set that prescribes repetitions is counted down only when it starts automatically.
-fn countdown_seconds(
-    target_reps: domain::Reps,
-    target_tempo: domain::Tempo,
-    automatic: bool,
-) -> Option<u32> {
-    let seconds_per_rep = u32::from(target_tempo.seconds_per_rep().non_zero()?);
-    match target_reps.non_zero() {
-        Some(reps) => automatic.then(|| u32::from(reps) * seconds_per_rep),
-        None => Some(seconds_per_rep),
-    }
+    domain::SetPacing::new(target_reps, target_tempo, countdown).countdown_seconds()
 }
 
 /// The countdown of a set, showing the phase it is in and how far it has got.
@@ -1807,8 +1942,9 @@ fn SetCountdown(
     phase_clock: PhaseClock,
 ) -> Element {
     let timer = progress.timer_service();
+    let element_idx = *progress.element_idx().read();
     // A countdown about to start automatically is not waiting for a tap.
-    let start_delay = *phase_clock.start_delay.read();
+    let start_delay = phase_clock.pending_start_delay(element_idx);
     let is_running = timer.read().is_active() || start_delay.is_some();
     let side_switch = start_delay.filter(|delay| delay.kind == StartDelayKind::SideSwitch);
     // The countdown is set after the set has become current, so the total stands in until then.
@@ -1827,10 +1963,11 @@ fn SetCountdown(
     rsx! {
         div {
             "data-testid": "countdown",
+            "data-state": if is_running { "running" } else { "waiting" },
             class: if is_running { "" } else { "is-blinking" },
             onclick: move |_| {
-                let mut start_delay = phase_clock.start_delay;
-                start_delay.set(None);
+                let mut phase_clock = phase_clock;
+                phase_clock.end_start_delay(element_idx);
                 progress.timer_service().write().start_pause();
             },
             div { "{phase.map_or(remaining, |(_, _, remaining)| remaining.ceil() as i64)} s" }
@@ -1851,7 +1988,7 @@ fn SetCountdown(
                 class: "phase-bar-pinned",
                 phases: target_tempo.phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
                 position: target_tempo
-                    .phase_at(phase_clock.elapsed(*progress.element_idx().read(), &timer.peek()).max(0.))
+                    .phase_at(phase_clock.elapsed(element_idx, &timer.peek()).max(0.))
                     .map(|(_, index, remaining)| (index, remaining)),
             }
         }
@@ -1859,14 +1996,18 @@ fn SetCountdown(
 }
 
 /// The tempo bar of a set performed with its input fields, which the user starts and holds by
-/// tapping.
+/// tapping, and which a set starting automatically starts after its start delay.
 #[component]
 fn SetTempoBar(
     element_idx: usize,
+    side: domain::Side,
     target_tempo: domain::Tempo,
     progress: Store<Progress>,
     phase_clock: PhaseClock,
 ) -> Element {
+    let side_switch = phase_clock
+        .pending_start_delay(element_idx)
+        .filter(|delay| delay.kind == StartDelayKind::SideSwitch);
     let is_running = phase_clock.bar_is_running(element_idx);
     let has_started = phase_clock
         .bar
@@ -1878,19 +2019,32 @@ fn SetTempoBar(
     rsx! {
         div {
             "data-testid": "set-tempo-bar",
+            "data-state": match (has_started, is_running) {
+                (_, true) => "running",
+                (true, false) => "paused",
+                (false, false) => "stopped",
+            },
             // Vertical padding, so the thin bar can be hit with a finger
             class: "py-2",
             class: if has_started && !is_running { "is-blinking" },
             onclick: move |_| {
                 let mut phase_clock = phase_clock;
-                phase_clock.toggle_bar(element_idx);
+                phase_clock.tap_bar(element_idx);
             },
-            PhaseBar {
-                phases: target_tempo.phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
-                position: has_started
-                    .then(|| target_tempo.phase_at(phase_clock.elapsed(element_idx, &progress.timer_service().peek()).max(0.)))
-                    .flatten()
-                    .map(|(_, index, remaining)| (index, remaining)),
+            if let Some(delay) = side_switch {
+                div { class: "is-size-7 has-text-centered", "data-testid": "tempo-bar-detail", "{side_name(side).unwrap_or_default()} side in {delay.remaining_seconds()} s" }
+                PhaseBar {
+                    phases: vec![SIDE_SWITCH_SECONDS],
+                    position: Some((0, delay.remaining)),
+                }
+            } else {
+                PhaseBar {
+                    phases: target_tempo.phases().iter().copied().map(u32::from).collect::<Vec<_>>(),
+                    position: has_started
+                        .then(|| target_tempo.phase_at(phase_clock.elapsed(element_idx, &progress.timer_service().peek()).max(0.)))
+                        .flatten()
+                        .map(|(_, index, remaining)| (index, remaining)),
+                }
             }
         }
     }
@@ -3423,6 +3577,7 @@ mod tests {
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -3460,6 +3615,7 @@ mod tests {
                     target_weight: domain::Weight::default(),
                     target_rpe: domain::RPE::ZERO,
                     automatic: false,
+                    countdown: false,
                 }],
                 exercise_notes: std::collections::BTreeMap::new(),
                 exercise_measurements: std::collections::BTreeMap::new(),
@@ -3486,6 +3642,7 @@ mod tests {
                     target_weight: domain::Weight::default(),
                     target_rpe: domain::RPE::ZERO,
                     automatic: false,
+                    countdown: true,
                 }],
                 exercise_notes: std::collections::BTreeMap::new(),
                 exercise_measurements: std::collections::BTreeMap::new(),
@@ -3651,6 +3808,7 @@ mod tests {
         phases: &'static [u32],
         target_reps: u32,
         automatic: bool,
+        countdown: bool,
         recorded: bool,
     ) -> impl Fn() -> TestCache + 'static {
         move || {
@@ -3677,6 +3835,7 @@ mod tests {
                         target_weight: domain::Weight::default(),
                         target_rpe: domain::RPE::ZERO,
                         automatic,
+                        countdown,
                     }],
                     exercise_notes: std::collections::BTreeMap::new(),
                     exercise_measurements: std::collections::BTreeMap::new(),
@@ -3684,12 +3843,17 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_a_set_with_a_tempo_shows_the_bar_and_keeps_its_input_fields() {
+    #[rstest]
+    #[case::reps(&[3, 1, 1, 0], 8)]
+    #[case::hold(&[30], 0)]
+    fn test_a_set_with_a_tempo_shows_the_bar_and_keeps_its_input_fields(
+        #[case] phases: &'static [u32],
+        #[case] target_reps: u32,
+    ) {
         let html = render_training_session(
             1,
             web_app::Settings::default(),
-            tempo_session(&[3, 1, 1, 0], 8, false, false),
+            tempo_session(phases, target_reps, false, false, false),
         );
 
         assert!(contains(&html, "set-tempo-bar"), "{html}");
@@ -3702,7 +3866,7 @@ mod tests {
         let html = render_training_session(
             1,
             web_app::Settings::default(),
-            tempo_session(&[3, 1, 1, 0], 8, true, false),
+            tempo_session(&[3, 1, 1, 0], 8, true, true, false),
         );
 
         assert_eq!(text_of(&html, "countdown-detail"), "1/8");
@@ -3714,7 +3878,7 @@ mod tests {
         let html = render_training_session(
             1,
             web_app::Settings::default(),
-            tempo_session(&[3, 1, 1, 0], 0, true, false),
+            tempo_session(&[3, 1, 1, 0], 0, true, true, false),
         );
 
         assert!(contains(&html, "countdown"), "{html}");
@@ -3722,24 +3886,24 @@ mod tests {
     }
 
     #[test]
-    fn test_a_countdown_awaiting_its_automatic_start_does_not_blink() {
-        assert_eq!(countdown_class(true), "");
-        assert_eq!(countdown_class(false), "is-blinking");
+    fn test_a_countdown_awaiting_its_automatic_start_does_not_wait_for_a_tap() {
+        assert_eq!(countdown_state(true), "running");
+        assert_eq!(countdown_state(false), "waiting");
     }
 
-    /// Renders a countdown that has not been started and returns its class.
-    fn countdown_class(start_pending: bool) -> String {
+    /// Renders a countdown that has not been started and returns its state.
+    fn countdown_state(start_pending: bool) -> String {
         let html = render(move || {
             rsx! { UnstartedCountdown { side: domain::Side::Unset, start_delay: start_pending.then_some(StartDelayKind::LeadIn), remaining: 0.5 } }
         });
 
-        attribute_of(&html, "countdown", "class")
+        attribute_of(&html, "countdown", "data-state")
     }
 
     #[rstest]
     #[case::right(domain::Side::Right, "Right side in 3 s")]
     #[case::left(domain::Side::Left, "Left side in 3 s")]
-    fn test_a_side_awaiting_its_start_names_the_side_and_does_not_blink(
+    fn test_a_side_awaiting_its_start_names_the_side_and_does_not_wait_for_a_tap(
         #[case] side: domain::Side,
         #[case] detail: &str,
     ) {
@@ -3747,14 +3911,14 @@ mod tests {
             rsx! { UnstartedCountdown { side, start_delay: Some(StartDelayKind::SideSwitch), remaining: 2.5 } }
         });
 
-        assert_eq!(attribute_of(&html, "countdown", "class"), "");
+        assert_eq!(attribute_of(&html, "countdown", "data-state"), "running");
         assert_eq!(text_of(&html, "countdown-detail"), detail);
     }
 
     #[test]
     fn test_a_start_delay_counts_down_to_its_end() {
         let now = chrono::Utc::now();
-        let delay = StartDelay::new(StartDelayKind::SideSwitch, now);
+        let delay = PendingStartDelay::new(StartDelayKind::SideSwitch, now);
 
         assert_approx_eq!(
             delay.remaining_at(now),
@@ -3773,20 +3937,265 @@ mod tests {
         );
     }
 
+    #[rstest]
+    #[case::manual(false)]
+    #[case::automatic(true)]
+    fn test_a_set_with_reps_and_the_countdown_is_counted_down_with_either_start(
+        #[case] automatic: bool,
+    ) {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            tempo_session(&[3, 1, 1, 0], 8, automatic, true, false),
+        );
+
+        assert_eq!(text_of(&html, "countdown-detail"), "1/8");
+        assert!(!contains(&html, "set-tempo-bar"), "{html}");
+    }
+
+    #[test]
+    fn test_an_automatic_set_with_input_fields_shows_its_bar() {
+        let html = render_training_session(
+            1,
+            web_app::Settings::default(),
+            tempo_session(&[3, 1, 1, 0], 8, true, false, false),
+        );
+
+        assert!(contains(&html, "set-tempo-bar"), "{html}");
+        assert!(!contains(&html, "countdown"), "{html}");
+    }
+
+    #[test]
+    fn test_a_tempo_bar_is_not_running_during_its_start_delay() {
+        let html = render(|| {
+            rsx! { DelayedTempoBar { side: domain::Side::Unset, kind: StartDelayKind::LeadIn } }
+        });
+
+        assert_eq!(
+            attribute_of(&html, "set-tempo-bar", "data-state"),
+            "stopped"
+        );
+        assert!(!contains(&html, "tempo-bar-detail"), "{html}");
+    }
+
+    #[test]
+    fn test_a_tempo_bar_during_a_side_switch_names_the_side() {
+        let html = render(|| {
+            rsx! { DelayedTempoBar { side: domain::Side::Left, kind: StartDelayKind::SideSwitch } }
+        });
+
+        assert_eq!(text_of(&html, "tempo-bar-detail"), "Left side in 3 s");
+    }
+
+    #[component]
+    fn DelayedTempoBar(side: domain::Side, kind: StartDelayKind) -> Element {
+        let progress = use_store(|| Progress::new(1.into()));
+        let phase_clock = PhaseClock {
+            bar: use_signal(|| None),
+            elapsed: use_signal(|| 0.),
+            start_delay: use_signal(|| {
+                Some(StartDelay {
+                    element_idx: 0,
+                    pending: Some(PendingStartDelay {
+                        remaining: 2.5,
+                        ..PendingStartDelay::new(kind, chrono::Utc::now())
+                    }),
+                })
+            }),
+        };
+
+        rsx! {
+            SetTempoBar {
+                element_idx: 0,
+                side,
+                target_tempo: domain::Tempo::new(&[3, 1, 1, 0]).unwrap(),
+                progress,
+                phase_clock,
+            }
+        }
+    }
+
+    #[test]
+    fn test_a_change_of_the_session_during_a_start_delay_keeps_the_delay() {
+        let now = chrono::Utc::now();
+        let delay = StartDelay::new(2, StartDelayKind::SideSwitch, now);
+        let later = now + chrono::Duration::seconds(1);
+
+        assert_eq!(
+            tempo_bar_start_delay(Some(delay), 2, true, || StartDelayKind::LeadIn, later),
+            delay
+        );
+
+        let mut training_session = training_session(vec![planned_set(1), rest(), planned_set(2)]);
+        let map = training_session.add_set(0);
+        let followed = on_phase_clock(move |phase_clock| {
+            phase_clock.start_delay.set(Some(delay));
+            phase_clock.follow(&map);
+            *phase_clock.start_delay.peek()
+        });
+
+        assert_eq!(
+            followed,
+            Some(StartDelay {
+                element_idx: 4,
+                ..delay
+            })
+        );
+        assert_eq!(
+            tempo_bar_start_delay(followed, 4, true, || StartDelayKind::LeadIn, later),
+            followed.unwrap()
+        );
+    }
+
+    #[test]
+    fn test_a_tap_on_the_tempo_bar_during_its_start_delay_starts_the_bar() {
+        let (delay, is_running) = on_phase_clock(|phase_clock| {
+            phase_clock.start_delay.set(Some(StartDelay::new(
+                0,
+                StartDelayKind::LeadIn,
+                chrono::Utc::now(),
+            )));
+            phase_clock.tap_bar(0);
+            (
+                *phase_clock.start_delay.peek(),
+                phase_clock.bar_is_running(0),
+            )
+        });
+
+        assert_eq!(delay.map(|delay| delay.pending), Some(None));
+        assert!(is_running);
+    }
+
+    #[test]
+    fn test_input_during_a_start_delay_ends_it_for_good() {
+        let now = chrono::Utc::now();
+        let delay = StartDelay::new(0, StartDelayKind::LeadIn, now);
+
+        let ended = tempo_bar_start_delay(Some(delay), 0, false, || StartDelayKind::LeadIn, now);
+        assert_eq!(ended, delay.ended());
+
+        // Clearing the entered value lets the set await its start again.
+        assert_eq!(
+            tempo_bar_start_delay(Some(ended), 0, true, || StartDelayKind::LeadIn, now),
+            ended
+        );
+    }
+
+    #[test]
+    fn test_a_start_delay_is_started_for_a_set_that_has_become_current() {
+        let now = chrono::Utc::now();
+        let previous = StartDelay::new(0, StartDelayKind::LeadIn, now).ended();
+
+        assert_eq!(
+            tempo_bar_start_delay(Some(previous), 2, true, || StartDelayKind::SideSwitch, now),
+            StartDelay::new(2, StartDelayKind::SideSwitch, now)
+        );
+    }
+
+    #[test]
+    fn test_a_resumed_session_starts_the_delay_of_a_pair_with_the_lead_in() {
+        let mut progress = Progress::new(1.into());
+        progress.set_element_idx(0);
+        progress.complete(0);
+        let resumed = Progress::from(web_app::OngoingTrainingSession::from(progress));
+
+        assert_eq!(
+            start_delay_kind(resumed.completed_preceding, true),
+            StartDelayKind::LeadIn
+        );
+    }
+
+    #[test]
+    fn test_the_end_of_a_start_delay_starts_the_bar_of_its_current_set() {
+        let now = chrono::Utc::now();
+        let ended = now + chrono::Duration::seconds(1);
+        let (starts_timer, is_running) = on_phase_clock(move |phase_clock| {
+            phase_clock
+                .start_delay
+                .set(Some(StartDelay::new(0, StartDelayKind::LeadIn, now)));
+            let starts_timer = phase_clock.tick_start_delay(0, false, ended);
+            (starts_timer, phase_clock.bar_is_running(0))
+        });
+
+        assert!(!starts_timer);
+        assert!(is_running);
+    }
+
+    #[test]
+    fn test_a_start_delay_ending_after_another_element_has_become_current_starts_no_bar() {
+        let now = chrono::Utc::now();
+        let ended = now + chrono::Duration::seconds(1);
+        let (starts_timer, has_bar) = on_phase_clock(move |phase_clock| {
+            phase_clock
+                .start_delay
+                .set(Some(StartDelay::new(0, StartDelayKind::LeadIn, now)));
+            let starts_timer = phase_clock.tick_start_delay(1, true, ended);
+            (
+                starts_timer,
+                phase_clock.has_bar_clock(0) || phase_clock.has_bar_clock(1),
+            )
+        });
+
+        assert!(!starts_timer);
+        assert!(!has_bar);
+    }
+
+    #[test]
+    fn test_a_countdown_after_its_side_switch_shows_its_repetition() {
+        let html = render(|| {
+            rsx! { UnstartedCountdown { side: domain::Side::Right, start_delay: None, remaining: 0. } }
+        });
+
+        assert_eq!(text_of(&html, "countdown-detail"), "1/8");
+    }
+
+    /// Runs `scenario` on a phase clock inside a rendered component and returns its result.
+    fn on_phase_clock<T: 'static>(scenario: impl Fn(&mut PhaseClock) -> T + 'static) -> T {
+        let result = Rc::new(RefCell::new(None));
+        let output = Rc::clone(&result);
+        let scenario: Rc<dyn Fn(&mut PhaseClock)> = Rc::new(move |phase_clock| {
+            *output.borrow_mut() = Some(scenario(phase_clock));
+        });
+        render(move || {
+            provide_context(Rc::clone(&scenario));
+            rsx! { PhaseClockScenario {} }
+        });
+        result.borrow_mut().take().unwrap()
+    }
+
+    #[component]
+    fn PhaseClockScenario() -> Element {
+        let scenario = use_context::<Rc<dyn Fn(&mut PhaseClock)>>();
+        let mut phase_clock = PhaseClock {
+            bar: use_signal(|| None),
+            elapsed: use_signal(|| 0.),
+            start_delay: use_signal(|| None),
+        };
+        use_hook(|| scenario(&mut phase_clock));
+        rsx! { div {} }
+    }
+
     #[component]
     fn UnstartedCountdown(
         side: domain::Side,
         start_delay: Option<StartDelayKind>,
         remaining: f64,
     ) -> Element {
-        let progress = use_store(|| Progress::new(1.into()));
+        let progress = use_store(|| {
+            let mut progress = Progress::new(1.into());
+            progress.set_element_idx(0);
+            progress
+        });
         let phase_clock = PhaseClock {
             bar: use_signal(|| None),
             elapsed: use_signal(|| 0.),
             start_delay: use_signal(|| {
-                start_delay.map(|kind| StartDelay {
-                    remaining,
-                    ..StartDelay::new(kind, chrono::Utc::now())
+                Some(StartDelay {
+                    element_idx: 0,
+                    pending: start_delay.map(|kind| PendingStartDelay {
+                        remaining,
+                        ..PendingStartDelay::new(kind, chrono::Utc::now())
+                    }),
                 })
             }),
         };
@@ -3834,7 +4243,7 @@ mod tests {
         let html = render_training_session(
             1,
             web_app::Settings::default(),
-            tempo_session(&[], 8, true, false),
+            tempo_session(&[], 8, true, true, false),
         );
 
         assert!(!contains(&html, "countdown"), "{html}");
@@ -3846,7 +4255,7 @@ mod tests {
         let html = render_training_session(
             1,
             web_app::Settings::default(),
-            tempo_session(&[3, 1, 1, 0], 8, true, true),
+            tempo_session(&[3, 1, 1, 0], 8, true, true, true),
         );
 
         assert!(!contains(&html, "countdown"), "{html}");
@@ -3862,7 +4271,7 @@ mod tests {
                     show_tut: false,
                     ..web_app::Settings::default()
                 },
-                tempo_session(&[3, 1, 1, 0], target_reps, true, false),
+                tempo_session(&[3, 1, 1, 0], target_reps, true, true, false),
             );
 
             assert!(contains(&html, "countdown"), "{html}");
@@ -3877,7 +4286,7 @@ mod tests {
                 show_tut: false,
                 ..web_app::Settings::default()
             },
-            tempo_session(&[3, 1, 1, 0], 8, false, false),
+            tempo_session(&[3, 1, 1, 0], 8, false, false, false),
         );
 
         assert_eq!(
@@ -3913,6 +4322,7 @@ mod tests {
                         target_weight: domain::Weight::default(),
                         target_rpe: domain::RPE::ZERO,
                         automatic: false,
+                        countdown: false,
                     }],
                     exercise_notes: std::collections::BTreeMap::new(),
                     exercise_measurements: std::collections::BTreeMap::new(),
@@ -4028,6 +4438,7 @@ mod tests {
                             target_weight: domain::Weight::default(),
                             target_rpe: domain::RPE::NINE,
                             automatic: false,
+                            countdown: false,
                         }],
                         exercise_notes: std::collections::BTreeMap::new(),
                         exercise_measurements: std::collections::BTreeMap::new(),
@@ -4081,6 +4492,7 @@ mod tests {
                     target_weight: domain::Weight::default(),
                     target_rpe: domain::RPE::NINE,
                     automatic: false,
+                    countdown: false,
                 };
                 let recorded_set = domain::TrainingSessionElement::Set {
                     exercise_id: 1.into(),
@@ -4094,6 +4506,7 @@ mod tests {
                     target_weight: domain::Weight::default(),
                     target_rpe: domain::RPE::ZERO,
                     automatic: false,
+                    countdown: false,
                 };
                 TestCache::default()
                     .with_exercises(vec![exercise(1, "Squat"), exercise(2, "Bench Press")])
@@ -4154,6 +4567,7 @@ mod tests {
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -4186,6 +4600,7 @@ mod tests {
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -4422,6 +4837,7 @@ mod tests {
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::default(),
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -4441,6 +4857,7 @@ mod tests {
             target_weight: domain::Weight::new(target_weight).unwrap(),
             target_rpe: domain::RPE::default(),
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -5253,6 +5670,7 @@ mod tests {
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: !target_tempo.is_empty(),
         }
     }
 

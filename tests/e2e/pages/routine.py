@@ -266,6 +266,48 @@ class RoutinePage(BasePage):
         ).click()
         self.dialog.save()
 
+    def set_recording(self, section_idx: int, activity_idx: int, *, countdown: bool = True) -> None:
+        dialog = self._open_edit_dialog(section_idx, activity_idx)
+        dialog.get_by_test_id("button-select-countdown").get_by_text(
+            "Countdown" if countdown else "Input fields", exact=True
+        ).click()
+        self.dialog.save()
+
+    def enter_tempo(self, *phases: str) -> None:
+        dialog = self.page.get_by_test_id("dialog")
+        for index, phase in enumerate(phases):
+            dialog.get_by_test_id(f"input-tempo-{index}").fill(phase)
+
+    def click_start(self, *, automatic: bool) -> None:
+        # A disabled option must ignore the click, so the click skips the actionability checks.
+        self.page.get_by_test_id("dialog").get_by_test_id("button-select-automatic").get_by_text(
+            "Automatic" if automatic else "Manual", exact=True
+        ).click(force=True)
+
+    def expect_start(self, *, automatic: bool, disabled: bool) -> None:
+        option = (
+            self.page.get_by_test_id("dialog")
+            .get_by_test_id("button-select-automatic")
+            .get_by_text("Automatic", exact=True)
+        )
+        expect(option).to_have_attribute("data-selected", str(automatic).lower())
+        if disabled:
+            expect(option).to_have_attribute("disabled", "true")
+        else:
+            expect(option).not_to_have_attribute("disabled", "true")
+
+    def expect_recording(self, *, countdown: bool, disabled: bool) -> None:
+        option = (
+            self.page.get_by_test_id("dialog")
+            .get_by_test_id("button-select-countdown")
+            .get_by_text("Countdown", exact=True)
+        )
+        expect(option).to_have_attribute("data-selected", str(countdown).lower())
+        if disabled:
+            expect(option).to_have_attribute("disabled", "true")
+        else:
+            expect(option).not_to_have_attribute("disabled", "true")
+
     def set_sides(self, section_idx: int, activity_idx: int, *, per_side: bool = True) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)
         dialog.get_by_test_id("button-select-sides").get_by_text(

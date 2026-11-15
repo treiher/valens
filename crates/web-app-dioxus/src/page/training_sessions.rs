@@ -605,6 +605,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::ZERO,
                 automatic: false,
+                countdown: false,
             }],
             exercise_notes: BTreeMap::new(),
             exercise_measurements: std::collections::BTreeMap::new(),
@@ -790,6 +791,7 @@ mod tests {
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
         });
         session
     }

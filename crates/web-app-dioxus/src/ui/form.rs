@@ -382,10 +382,17 @@ pub fn ButtonSelect<T: Clone + PartialEq + 'static>(
                         class: if option.value != selected && has_changed { "is-link is-outlined" },
                         title: if is_icon_only { "{option.text}" },
                         aria_label: if is_icon_only { "{option.text}" },
+                        "disabled": if option.is_disabled { "true" },
+                        aria_disabled: if option.is_disabled { "true" },
                         "data-selected": "{option.value == selected}",
                         onclick: {
                             let value = option.value.clone();
-                            move |event| on_click((event, value.clone()))
+                            let is_disabled = option.is_disabled;
+                            move |event| {
+                                if !is_disabled {
+                                    on_click((event, value.clone()));
+                                }
+                            }
                         },
                         if let Some(icon) = option.icon {
                             Icon { name: icon, is_small: true }
@@ -455,6 +462,7 @@ pub struct ButtonSelectOption<T> {
     pub text: String,
     pub icon: Option<&'static str>,
     pub value: T,
+    pub is_disabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -213,6 +213,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                                     weight=0.0,
                                     rpe=0.0,
                                     automatic=True,
+                                    countdown=True,
                                     sides=1,
                                 ),
                                 RoutineActivity(
@@ -247,6 +248,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                                     weight=0.0,
                                     rpe=0.0,
                                     automatic=True,
+                                    countdown=True,
                                     sides=1,
                                 ),
                                 RoutineActivity(
@@ -281,6 +283,7 @@ def users(today: datetime.date = datetime.date(2002, 3, 12)) -> list[User]:
                                     weight=0.0,
                                     rpe=0.0,
                                     automatic=False,
+                                    countdown=True,
                                     sides=1,
                                 ),
                             ],

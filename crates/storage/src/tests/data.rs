@@ -136,6 +136,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::new(30.0).unwrap(),
                         rpe: domain::RPE::TEN,
                         automatic: false,
+                        countdown: false,
                         sides: domain::Sides::Combined,
                     },
                     domain::RoutinePart::RoutineActivity {
@@ -145,6 +146,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::default(),
                         rpe: domain::RPE::ZERO,
                         automatic: true,
+                        countdown: false,
                         sides: domain::Sides::Combined,
                     },
                 ],
@@ -159,6 +161,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::default(),
                         rpe: domain::RPE::ZERO,
                         automatic: false,
+                        countdown: false,
                         sides: domain::Sides::Combined,
                     },
                     domain::RoutinePart::RoutineActivity {
@@ -168,6 +171,7 @@ pub static ROUTINE: std::sync::LazyLock<domain::Routine> =
                         weight: domain::Weight::default(),
                         rpe: domain::RPE::ZERO,
                         automatic: true,
+                        countdown: false,
                         sides: domain::Sides::Combined,
                     },
                 ],
@@ -191,6 +195,7 @@ pub static ROUTINE_2: std::sync::LazyLock<domain::Routine> =
                     weight: domain::Weight::default(),
                     rpe: domain::RPE::ZERO,
                     automatic: false,
+                    countdown: false,
                     sides: domain::Sides::PerSide,
                 },
                 domain::RoutinePart::RoutineActivity {
@@ -200,6 +205,7 @@ pub static ROUTINE_2: std::sync::LazyLock<domain::Routine> =
                     weight: domain::Weight::default(),
                     rpe: domain::RPE::ZERO,
                     automatic: false,
+                    countdown: false,
                     sides: domain::Sides::Combined,
                 },
             ],
@@ -255,6 +261,7 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
                 target_weight: domain::Weight::new(40.0).unwrap(),
                 target_rpe: domain::RPE::NINE,
                 automatic: false,
+                countdown: false,
             },
             domain::TrainingSessionElement::Rest {
                 target_time: domain::Time::new(60).unwrap(),
@@ -272,6 +279,7 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             },
             domain::TrainingSessionElement::Rest {
                 target_time: domain::Time::new(60).unwrap(),
@@ -289,6 +297,7 @@ pub static TRAINING_SESSION: std::sync::LazyLock<domain::TrainingSession> =
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             },
             domain::TrainingSessionElement::Rest {
                 target_time: domain::Time::new(60).unwrap(),
@@ -327,6 +336,7 @@ pub static TRAINING_SESSION_2: std::sync::LazyLock<domain::TrainingSession> =
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             },
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
@@ -340,6 +350,7 @@ pub static TRAINING_SESSION_2: std::sync::LazyLock<domain::TrainingSession> =
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             },
             domain::TrainingSessionElement::Rest {
                 target_time: domain::Time::default(),

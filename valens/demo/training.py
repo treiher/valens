@@ -873,6 +873,8 @@ def _activity(
         weight=progress.load if definition.type.weight else 0.0,
         rpe=config.target_rpe if definition.type.rpe else 0.0,
         automatic=False,
+        # A hold is counted down by default.
+        countdown=not definition.type.reps,
         sides=_sides(definition),
     )
 
@@ -953,6 +955,7 @@ def _elements(record: _Record, exercises: dict[str, Exercise]) -> list[WorkoutEl
                 target_tempo=performed.target_tempo or None,
                 target_weight=performed.target_weight,
                 target_rpe=performed.target_rpe,
+                countdown=performed.target_reps is None and bool(performed.target_tempo),
                 side=side,
             )
             for offset, side in enumerate((LEFT, RIGHT) if per_side else (None,))

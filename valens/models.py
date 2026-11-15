@@ -424,6 +424,9 @@ class RoutineActivity(RoutinePart):
         # Bounds mirror `Sides` in `crates/domain/src/training.rs`
         CheckConstraint(column("sides") >= 1, name="sides_ge_1"),
         CheckConstraint(column("sides") <= 2, name="sides_le_2"),
+        CheckConstraint("typeof(countdown) = 'integer'", name="countdown_type_integer"),
+        CheckConstraint(column("countdown") >= 0, name="countdown_ge_0"),
+        CheckConstraint(column("countdown") <= 1, name="countdown_le_1"),
     )
 
     id: Mapped[int] = mapped_column(Integer, ForeignKey("routine_part.id"), primary_key=True)
@@ -433,6 +436,7 @@ class RoutineActivity(RoutinePart):
     weight: Mapped[float]
     rpe: Mapped[float]
     automatic: Mapped[bool]
+    countdown: Mapped[bool] = mapped_column(default=False)
     sides: Mapped[int] = mapped_column(default=1)
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="routine_activities")
@@ -669,6 +673,9 @@ class WorkoutSet(WorkoutElement):
         # NULL
         CheckConstraint(column("side") >= 1, name="side_ge_1"),
         CheckConstraint(column("side") <= 2, name="side_le_2"),
+        CheckConstraint("typeof(countdown) = 'integer'", name="countdown_type_integer"),
+        CheckConstraint(column("countdown") >= 0, name="countdown_ge_0"),
+        CheckConstraint(column("countdown") <= 1, name="countdown_le_1"),
         ForeignKeyConstraint(
             ["workout_id", "position"],
             [WorkoutElement.workout_id, WorkoutElement.position],
@@ -690,6 +697,7 @@ class WorkoutSet(WorkoutElement):
     target_weight: Mapped[float | None]
     target_rpe: Mapped[float | None]
     side: Mapped[int | None]
+    countdown: Mapped[bool] = mapped_column(default=False)
 
     exercise: Mapped[Exercise] = relationship("Exercise", back_populates="sets")
 

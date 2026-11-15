@@ -132,8 +132,8 @@ fn view_preview(
                         "data-testid": "import-routine-choice",
                         is_small: true,
                         options: vec![
-                            ButtonSelectOption { text: "Replace".to_string(), icon: None, value: false },
-                            ButtonSelectOption { text: "Create copy".to_string(), icon: None, value: true },
+                            ButtonSelectOption { text: "Replace".to_string(), icon: None, value: false, is_disabled: false },
+                            ButtonSelectOption { text: "Create copy".to_string(), icon: None, value: true, is_disabled: false },
                         ],
                         selected: copy_name.is_some(),
                         on_click: {

@@ -1286,6 +1286,9 @@ pub enum RoutinePart {
         weight: f32,
         rpe: f32,
         automatic: bool,
+        /// Missing in records stored before the flag existed.
+        #[serde(default)]
+        countdown: Option<bool>,
         #[serde(default = "combined")]
         sides: u8,
     },
@@ -1309,6 +1312,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                countdown,
                 sides,
             } => RoutinePart::RoutineActivity {
                 #[allow(clippy::cast_possible_truncation)]
@@ -1322,6 +1326,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight: f32::from(weight),
                 rpe: f32::from(rpe),
                 automatic,
+                countdown: Some(countdown),
                 sides: sides as u8,
             },
         }
@@ -1345,29 +1350,46 @@ impl From<RoutinePart> for domain::RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                countdown,
                 sides,
-            } => domain::RoutinePart::RoutineActivity {
-                exercise_id: exercise_id
-                    .map(domain::ExerciseID::from)
-                    .unwrap_or_default(),
-                reps: unwrap_or_default_warn(
+            } => {
+                let reps = unwrap_or_default_warn(
                     domain::Reps::new(reps),
                     "invalid reps in stored routine",
-                ),
-                tempo: to_tempo(&tempo, "invalid tempo in stored routine"),
-                weight: unwrap_or_default_warn(
-                    domain::Weight::new(weight),
-                    "invalid weight in stored routine",
-                ),
-                rpe: unwrap_or_default_warn(domain::RPE::new(rpe), "invalid RPE in stored routine"),
-                automatic,
-                sides: unwrap_or_default_warn(
-                    domain::Sides::try_from(sides),
-                    "invalid sides in stored routine",
-                ),
-            },
+                );
+                let tempo = to_tempo(&tempo, "invalid tempo in stored routine");
+                domain::RoutinePart::RoutineActivity {
+                    countdown: countdown.unwrap_or_else(|| {
+                        exercise_id.is_some() && derived_countdown(reps, tempo, automatic)
+                    }),
+                    exercise_id: exercise_id
+                        .map(domain::ExerciseID::from)
+                        .unwrap_or_default(),
+                    reps,
+                    tempo,
+                    weight: unwrap_or_default_warn(
+                        domain::Weight::new(weight),
+                        "invalid weight in stored routine",
+                    ),
+                    rpe: unwrap_or_default_warn(
+                        domain::RPE::new(rpe),
+                        "invalid RPE in stored routine",
+                    ),
+                    automatic,
+                    sides: unwrap_or_default_warn(
+                        domain::Sides::try_from(sides),
+                        "invalid sides in stored routine",
+                    ),
+                }
+            }
         }
     }
+}
+
+/// The flag of a record without one, which is set for a hold and for an automatic set with reps
+/// and a tempo, as both were counted down.
+fn derived_countdown(reps: domain::Reps, tempo: domain::Tempo, automatic: bool) -> bool {
+    domain::SetPacing::countdown_applies(tempo) && (automatic || reps.non_zero().is_none())
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
@@ -1635,6 +1657,9 @@ pub enum TrainingSessionElement {
         target_weight: Option<f32>,
         target_rpe: Option<f32>,
         automatic: bool,
+        /// Missing in records stored before the flag existed.
+        #[serde(default)]
+        countdown: Option<bool>,
     },
     Rest {
         target_time: Option<u32>,
@@ -1657,6 +1682,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 target_weight,
                 target_rpe,
                 automatic,
+                countdown,
             } => TrainingSessionElement::Set {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: *exercise_id,
@@ -1672,6 +1698,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 target_weight: target_weight.non_zero().map(From::from),
                 target_rpe: target_rpe.non_zero().map(From::from),
                 automatic,
+                countdown: Some(countdown),
             },
             domain::TrainingSessionElement::Rest {
                 target_time,
@@ -1699,46 +1726,57 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 target_weight,
                 target_rpe,
                 automatic,
-            } => domain::TrainingSessionElement::Set {
-                exercise_id: exercise_id.into(),
-                side: side
-                    .and_then(|s| ok_warn(domain::Side::try_from(s), "invalid side in stored set"))
-                    .unwrap_or_default(),
-                reps: reps
-                    .and_then(|r| ok_warn(domain::Reps::new(r), "invalid reps in stored set"))
-                    .unwrap_or_default(),
-                time: time
-                    .and_then(|t| ok_warn(domain::Time::new(t), "invalid time in stored set"))
-                    .unwrap_or_default(),
-                weight: weight
-                    .and_then(|w| ok_warn(domain::Weight::new(w), "invalid weight in stored set"))
-                    .unwrap_or_default(),
-                rpe: rpe
-                    .and_then(|rpe| ok_warn(domain::RPE::new(rpe), "invalid RPE in stored set"))
-                    .unwrap_or_default(),
-                target_reps: target_reps
+                countdown,
+            } => {
+                let target_reps = target_reps
                     .and_then(|r| {
                         ok_warn(domain::Reps::new(r), "invalid target reps in stored set")
                     })
-                    .unwrap_or_default(),
-                target_tempo: target_tempo
+                    .unwrap_or_default();
+                let target_tempo = target_tempo
                     .map(|tempo| to_tempo(&tempo, "invalid target tempo in stored set"))
-                    .unwrap_or_default(),
-                target_weight: target_weight
-                    .and_then(|w| {
-                        ok_warn(
-                            domain::Weight::new(w),
-                            "invalid target weight in stored set",
-                        )
-                    })
-                    .unwrap_or_default(),
-                target_rpe: target_rpe
-                    .and_then(|rpe| {
-                        ok_warn(domain::RPE::new(rpe), "invalid target RPE in stored set")
-                    })
-                    .unwrap_or_default(),
-                automatic,
-            },
+                    .unwrap_or_default();
+                domain::TrainingSessionElement::Set {
+                    exercise_id: exercise_id.into(),
+                    side: side
+                        .and_then(|s| {
+                            ok_warn(domain::Side::try_from(s), "invalid side in stored set")
+                        })
+                        .unwrap_or_default(),
+                    reps: reps
+                        .and_then(|r| ok_warn(domain::Reps::new(r), "invalid reps in stored set"))
+                        .unwrap_or_default(),
+                    time: time
+                        .and_then(|t| ok_warn(domain::Time::new(t), "invalid time in stored set"))
+                        .unwrap_or_default(),
+                    weight: weight
+                        .and_then(|w| {
+                            ok_warn(domain::Weight::new(w), "invalid weight in stored set")
+                        })
+                        .unwrap_or_default(),
+                    rpe: rpe
+                        .and_then(|rpe| ok_warn(domain::RPE::new(rpe), "invalid RPE in stored set"))
+                        .unwrap_or_default(),
+                    target_reps,
+                    target_tempo,
+                    target_weight: target_weight
+                        .and_then(|w| {
+                            ok_warn(
+                                domain::Weight::new(w),
+                                "invalid target weight in stored set",
+                            )
+                        })
+                        .unwrap_or_default(),
+                    target_rpe: target_rpe
+                        .and_then(|rpe| {
+                            ok_warn(domain::RPE::new(rpe), "invalid target RPE in stored set")
+                        })
+                        .unwrap_or_default(),
+                    automatic,
+                    countdown: countdown
+                        .unwrap_or_else(|| derived_countdown(target_reps, target_tempo, automatic)),
+                }
+            }
             TrainingSessionElement::Rest {
                 target_time,
                 automatic,
@@ -2097,6 +2135,7 @@ mod tests {
                 weight: 0.0,
                 rpe: 0.0,
                 automatic: false,
+                countdown: Some(false),
                 sides: 1,
             })
         else {
@@ -2127,6 +2166,7 @@ mod tests {
                 weight: 0.0,
                 rpe: 0.0,
                 automatic: false,
+                countdown: Some(false),
                 sides,
             })
         else {
@@ -2196,6 +2236,74 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[rstest]
+    #[case::automatic_with_reps_and_tempo(Some(1), 10, vec![3], true, true)]
+    #[case::manual_with_reps_and_tempo(Some(1), 10, vec![3], false, false)]
+    #[case::automatic_with_reps_without_tempo(Some(1), 10, vec![], true, false)]
+    #[case::automatic_hold(Some(1), 0, vec![30], true, true)]
+    #[case::manual_hold(Some(1), 0, vec![30], false, true)]
+    #[case::manual_without_reps_and_tempo(Some(1), 0, vec![], false, false)]
+    #[case::rest(None, 10, vec![60], true, false)]
+    fn test_routine_part_stored_without_countdown(
+        #[case] exercise_id: Option<u128>,
+        #[case] reps: u32,
+        #[case] tempo: Vec<u32>,
+        #[case] automatic: bool,
+        #[case] expected: bool,
+    ) {
+        let stored = json!({
+            "exercise_id": exercise_id.map(Uuid::from_u128),
+            "reps": reps,
+            "tempo": tempo,
+            "weight": 0.0,
+            "rpe": 0.0,
+            "automatic": automatic,
+        });
+
+        let domain::RoutinePart::RoutineActivity { countdown, .. } =
+            domain::RoutinePart::from(serde_json::from_value::<RoutinePart>(stored).unwrap())
+        else {
+            unreachable!()
+        };
+        assert_eq!(countdown, expected);
+    }
+
+    #[rstest]
+    #[case::automatic_with_reps_and_tempo(Some(10), Some(vec![3]), true, true)]
+    #[case::manual_with_reps_and_tempo(Some(10), Some(vec![3]), false, false)]
+    #[case::automatic_with_reps_without_tempo(Some(10), None, true, false)]
+    #[case::automatic_hold(None, Some(vec![30]), true, true)]
+    #[case::manual_hold(None, Some(vec![30]), false, true)]
+    #[case::manual_without_reps_and_tempo(None, None, false, false)]
+    fn test_training_session_element_stored_without_countdown(
+        #[case] target_reps: Option<u32>,
+        #[case] target_tempo: Option<Vec<u32>>,
+        #[case] automatic: bool,
+        #[case] expected: bool,
+    ) {
+        let stored = json!({
+            "exercise_id": Uuid::from_u128(1),
+            "reps": null,
+            "time": null,
+            "weight": null,
+            "rpe": null,
+            "target_reps": target_reps,
+            "target_tempo": target_tempo,
+            "target_weight": null,
+            "target_rpe": null,
+            "automatic": automatic,
+        });
+
+        let domain::TrainingSessionElement::Set { countdown, .. } =
+            domain::TrainingSessionElement::from(
+                serde_json::from_value::<TrainingSessionElement>(stored).unwrap(),
+            )
+        else {
+            unreachable!()
+        };
+        assert_eq!(countdown, expected);
     }
 
     #[test]
@@ -2271,6 +2379,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             }),
             TrainingSessionElement::Set {
                 exercise_id: Uuid::from_u128(1),
@@ -2284,6 +2393,7 @@ mod tests {
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
+                countdown: Some(false),
             }
         );
         assert_eq!(
@@ -2313,6 +2423,7 @@ mod tests {
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
+                countdown: Some(false),
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
@@ -2326,6 +2437,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             }
         );
         assert_eq!(
@@ -2355,6 +2467,7 @@ mod tests {
                 target_weight: Some(1000.0),
                 target_rpe: Some(10.5),
                 automatic: false,
+                countdown: Some(false),
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
@@ -2368,6 +2481,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             }
         );
         assert_eq!(

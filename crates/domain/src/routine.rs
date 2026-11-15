@@ -9,8 +9,8 @@ use uuid::Uuid;
 
 use crate::{
     CreateError, DeleteError, Exercise, ExerciseID, Laterality, MuscleID, Name, Property, RPE,
-    ReadError, Reps, Sides, Stimulus, Stretch, StretchOnlyExercises, SyncError, Tempo, Time,
-    TrainingSession, TrainingSessionElement, UpdateError, ValidationError, Weight,
+    ReadError, Reps, SetPacing, Sides, Stimulus, Stretch, StretchOnlyExercises, SyncError, Tempo,
+    Time, TrainingSession, TrainingSessionElement, UpdateError, ValidationError, Weight,
 };
 
 #[allow(async_fn_in_trait)]
@@ -216,6 +216,7 @@ impl Routine {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: exercise_id.is_nil(),
+            countdown: false,
             sides: if exercise_id.is_nil() {
                 Sides::Combined
             } else {
@@ -238,6 +239,7 @@ impl Routine {
         weight: Option<Weight>,
         rpe: Option<RPE>,
         automatic: Option<bool>,
+        countdown: Option<bool>,
         sides: Option<Sides>,
         path: &RoutinePartPath,
     ) {
@@ -247,6 +249,7 @@ impl Routine {
         let new_weight = weight;
         let new_rpe = rpe;
         let new_automatic = automatic;
+        let new_countdown = countdown;
         let new_sides = sides;
         if let Some(RoutinePart::RoutineActivity {
             exercise_id,
@@ -255,6 +258,7 @@ impl Routine {
             weight,
             rpe,
             automatic,
+            countdown,
             sides,
         }) = Self::get_mut_part(&mut self.sections, path)
         {
@@ -280,6 +284,11 @@ impl Routine {
             if let Some(new_automatic) = new_automatic {
                 *automatic = new_automatic;
             }
+            // The flag is kept only where it takes effect, so that each pacing has one
+            // representation.
+            *countdown = new_countdown.unwrap_or(*countdown)
+                && !exercise_id.is_nil()
+                && SetPacing::countdown_applies(*tempo);
             // A rest has no sides.
             if let Some(new_sides) = new_sides
                 && !exercise_id.is_nil()
@@ -503,6 +512,8 @@ pub enum RoutinePart {
         weight: Weight,
         rpe: RPE,
         automatic: bool,
+        /// Whether a set with a tempo is paced by a countdown instead of its tempo.
+        countdown: bool,
         sides: Sides,
     },
 }
@@ -645,6 +656,7 @@ impl RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                countdown,
                 sides,
             } => {
                 if exercise_id.is_nil() {
@@ -666,6 +678,7 @@ impl RoutinePart {
                             target_weight: *weight,
                             target_rpe: *rpe,
                             automatic: *automatic,
+                            countdown: *countdown,
                         });
                     }
                 }
@@ -775,6 +788,7 @@ mod tests {
                         weight: Weight::new(30.0).unwrap(),
                         rpe: RPE::TEN,
                         automatic: false,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                     RoutinePart::RoutineActivity {
@@ -784,6 +798,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: true,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                 ],
@@ -798,6 +813,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: false,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                     RoutinePart::RoutineActivity {
@@ -807,6 +823,7 @@ mod tests {
                         weight: Weight::default(),
                         rpe: RPE::ZERO,
                         automatic: true,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                 ],
@@ -862,6 +879,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         };
 
@@ -896,6 +914,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: true,
+            countdown: false,
             sides: Sides::Combined,
         };
         let routine =
@@ -948,6 +967,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides,
         }
     }
@@ -994,6 +1014,7 @@ mod tests {
                 weight: Weight::default(),
                 rpe: RPE::ZERO,
                 automatic: false,
+                countdown: false,
                 sides: Sides::Combined,
             },
             hold(1, 60, Sides::Combined),
@@ -1115,6 +1136,7 @@ mod tests {
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
+                    countdown: false,
                 })
                 .collect(),
             ..training_session(1, routine_id, NaiveDate::default())
@@ -1133,6 +1155,7 @@ mod tests {
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }],
             },
@@ -1145,6 +1168,7 @@ mod tests {
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }],
             },
@@ -1160,6 +1184,7 @@ mod tests {
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }],
             }
@@ -1175,6 +1200,7 @@ mod tests {
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }],
             }
@@ -1189,6 +1215,7 @@ mod tests {
                 weight: Weight::new(4.0).unwrap(),
                 rpe: RPE::FIVE,
                 automatic: false,
+                countdown: false,
                 sides: Sides::Combined,
             },
         );
@@ -1202,6 +1229,7 @@ mod tests {
                 weight: Weight::new(5.0).unwrap(),
                 rpe: RPE::SIX,
                 automatic: false,
+                countdown: false,
                 sides: Sides::Combined,
             },
         );
@@ -1209,6 +1237,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_routine_get_part_in_nested_sections() {
         let mut sections = vec![RoutinePart::RoutineSection {
             rounds: Rounds::new(1).unwrap(),
@@ -1220,6 +1249,7 @@ mod tests {
                     weight: Weight::new(4.0).unwrap(),
                     rpe: RPE::FIVE,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 },
                 RoutinePart::RoutineSection {
@@ -1231,6 +1261,7 @@ mod tests {
                         weight: Weight::new(5.0).unwrap(),
                         rpe: RPE::SIX,
                         automatic: false,
+                        countdown: false,
                         sides: Sides::Combined,
                     }],
                 },
@@ -1248,6 +1279,7 @@ mod tests {
                         weight: Weight::new(4.0).unwrap(),
                         rpe: RPE::FIVE,
                         automatic: false,
+                        countdown: false,
                         sides: Sides::Combined,
                     },
                     RoutinePart::RoutineSection {
@@ -1259,6 +1291,7 @@ mod tests {
                             weight: Weight::new(5.0).unwrap(),
                             rpe: RPE::SIX,
                             automatic: false,
+                            countdown: false,
                             sides: Sides::Combined,
                         }],
                     },
@@ -1275,6 +1308,7 @@ mod tests {
                 weight: Weight::new(4.0).unwrap(),
                 rpe: RPE::FIVE,
                 automatic: false,
+                countdown: false,
                 sides: Sides::Combined,
             },
         );
@@ -1289,6 +1323,7 @@ mod tests {
                     weight: Weight::new(5.0).unwrap(),
                     rpe: RPE::SIX,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }],
             },
@@ -1304,6 +1339,7 @@ mod tests {
                 weight: Weight::new(5.0).unwrap(),
                 rpe: RPE::SIX,
                 automatic: false,
+                countdown: false,
                 sides: Sides::Combined,
             },
         );
@@ -1336,6 +1372,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         }
     }
@@ -1348,6 +1385,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides: Sides::PerSide,
         }
     }
@@ -1722,6 +1760,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: false,
+                    countdown: false,
                     sides: Sides::Combined,
                 }]
             )]
@@ -1767,6 +1806,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
+                    countdown: false,
                     sides: Sides::Combined,
                 }]
             )]
@@ -1796,6 +1836,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         },
     )]
@@ -1808,6 +1849,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         },
     )]
@@ -1820,6 +1862,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         },
     )]
@@ -1832,6 +1875,7 @@ mod tests {
             weight: Weight::new(7.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         },
     )]
@@ -1844,6 +1888,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::EIGHT,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         },
     )]
@@ -1856,6 +1901,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: true,
+            countdown: false,
             sides: Sides::Combined,
         },
     )]
@@ -1868,6 +1914,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         },
     )]
@@ -1890,6 +1937,7 @@ mod tests {
             rpe,
             automatic,
             None,
+            None,
             &vec![0, 0].into(),
         );
 
@@ -1907,6 +1955,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some(Sides::PerSide),
             &vec![0, 0].into(),
         );
@@ -1918,13 +1967,87 @@ mod tests {
     }
 
     #[rstest]
+    #[case::set_with_reps_and_a_tempo(full_activity(), None, None, Some(true), true)]
+    #[case::unchanged(countdown_activity(), None, None, None, true)]
+    #[case::unset(countdown_activity(), None, None, Some(false), false)]
+    #[case::rest(rest(), None, None, Some(true), false)]
+    #[case::cleared_reps(countdown_activity(), Some(Reps::default()), None, None, true)]
+    #[case::cleared_tempo(countdown_activity(), None, Some(Tempo::default()), None, false)]
+    #[case::set_with_cleared_reps(full_activity(), Some(Reps::default()), None, Some(true), true)]
+    #[case::set_with_cleared_tempo(
+        full_activity(),
+        None,
+        Some(Tempo::default()),
+        Some(true),
+        false
+    )]
+    fn test_routine_update_activity_countdown(
+        #[case] activity: RoutinePart,
+        #[case] reps: Option<Reps>,
+        #[case] tempo: Option<Tempo>,
+        #[case] countdown: Option<bool>,
+        #[case] expected: bool,
+    ) {
+        let mut routine = routine_with_sections(vec![section(1, vec![activity])]);
+
+        routine.update_activity(
+            None,
+            reps,
+            tempo,
+            None,
+            None,
+            None,
+            countdown,
+            None,
+            &vec![0, 0].into(),
+        );
+
+        let Some(RoutinePart::RoutineActivity { countdown, .. }) = routine.part(&vec![0, 0].into())
+        else {
+            unreachable!()
+        };
+        assert_eq!(*countdown, expected);
+    }
+
+    fn countdown_activity() -> RoutinePart {
+        let mut activity = full_activity();
+        if let RoutinePart::RoutineActivity { countdown, .. } = &mut activity {
+            *countdown = true;
+        }
+        activity
+    }
+
+    fn rest() -> RoutinePart {
+        RoutinePart::RoutineActivity {
+            exercise_id: ExerciseID::nil(),
+            reps: Reps::new(1).unwrap(),
+            tempo: Tempo::new(&[60]).unwrap(),
+            weight: Weight::default(),
+            rpe: RPE::ZERO,
+            automatic: true,
+            countdown: false,
+            sides: Sides::Combined,
+        }
+    }
+
+    #[rstest]
     #[case::unknown_activity(vec![1, 0].into())]
     #[case::section(vec![0].into())]
     fn test_routine_update_activity_with_unresolvable_path(#[case] path: RoutinePartPath) {
         let sections = vec![section(1, vec![full_activity()])];
         let mut routine = routine_with_sections(sections.clone());
 
-        routine.update_activity(Some(2.into()), None, None, None, None, None, None, &path);
+        routine.update_activity(
+            Some(2.into()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            &path,
+        );
 
         assert_eq!(routine.sections, sections);
     }
@@ -1940,6 +2063,7 @@ mod tests {
             weight: Weight::default(),
             rpe: RPE::ZERO,
             automatic: true,
+            countdown: false,
             sides: Sides::Combined,
         };
         let mut routine = routine_with_sections(vec![section(1, vec![rest])]);
@@ -1948,6 +2072,7 @@ mod tests {
             None,
             None,
             Some(Tempo::new(tempo).unwrap()),
+            None,
             None,
             None,
             None,
@@ -1966,6 +2091,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
+                    countdown: false,
                     sides: Sides::Combined,
                 }]
             )]
@@ -1980,6 +2106,7 @@ mod tests {
             weight: Weight::new(3.0).unwrap(),
             rpe: RPE::FOUR,
             automatic: false,
+            countdown: false,
             sides: Sides::Combined,
         }
     }
@@ -2063,6 +2190,7 @@ mod tests {
                     weight: Weight::default(),
                     rpe: RPE::ZERO,
                     automatic: true,
+                    countdown: false,
                     sides: Sides::Combined,
                 },
             ],
@@ -2080,6 +2208,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::ZERO,
             automatic: false,
+            countdown: false,
         };
         let rest = TrainingSessionElement::Rest {
             target_time: Time::new(60).unwrap(),
@@ -2115,6 +2244,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::ZERO,
             automatic: false,
+            countdown: false,
         };
 
         assert_eq!(
@@ -2125,6 +2255,26 @@ mod tests {
                 set(Side::Left),
                 set(Side::Right),
             ]
+        );
+    }
+
+    #[rstest]
+    #[case::countdown(true)]
+    #[case::input_fields(false)]
+    fn test_routine_part_to_training_session_elements_countdown(#[case] countdown: bool) {
+        let part = if countdown {
+            countdown_activity()
+        } else {
+            full_activity()
+        };
+
+        assert!(
+            part.to_training_session_elements()
+                .iter()
+                .all(|element| matches!(
+                    element,
+                    TrainingSessionElement::Set { countdown: c, .. } if *c == countdown
+                ))
         );
     }
 

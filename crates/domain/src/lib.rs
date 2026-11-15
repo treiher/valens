@@ -50,8 +50,8 @@ pub use text::{
     RoutineChange, TextError, free_copy_name, parse_text, resolve_exercise, validate_copy_name,
 };
 pub use training::{
-    Measurement, MeasurementError, RIR, RPE, Reps, Side, SideError, Sides, SidesError, Stretch,
-    Tempo, TempoError, Time, TrainingStats, Weight, drop_set_weights, one_rep_max,
+    Measurement, MeasurementError, RIR, RPE, Reps, SetPacing, Side, SideError, Sides, SidesError,
+    Stretch, Tempo, TempoError, Time, TrainingStats, Weight, drop_set_weights, one_rep_max,
     reps_for_percentage, round_drop_to_increment, training_stats,
 };
 pub use training_session::{

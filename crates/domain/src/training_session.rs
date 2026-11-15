@@ -667,6 +667,7 @@ impl TrainingSession {
                     target_weight,
                     target_rpe,
                     automatic,
+                    countdown,
                     ..
                 } => {
                     sets.push(TrainingSessionElement::Set {
@@ -681,6 +682,7 @@ impl TrainingSession {
                         target_weight: *target_weight,
                         target_rpe: *target_rpe,
                         automatic: *automatic,
+                        countdown: *countdown,
                     });
                 }
                 TrainingSessionElement::Rest { .. } => {
@@ -1490,6 +1492,8 @@ pub enum TrainingSessionElement {
         target_weight: Weight,
         target_rpe: RPE,
         automatic: bool,
+        /// Whether a set with a tempo is paced by a countdown instead of its tempo.
+        countdown: bool,
     },
     Rest {
         target_time: Time,
@@ -1915,6 +1919,7 @@ fn new_sets(exercise_id: ExerciseID, sides: Sides) -> Vec<TrainingSessionElement
         target_weight: Weight::default(),
         target_rpe: RPE::default(),
         automatic: false,
+        countdown: false,
     };
     sides.sides().iter().map(|side| set(*side)).collect()
 }
@@ -1966,6 +1971,7 @@ mod tests {
                     target_weight: Weight::new(40.0).unwrap(),
                     target_rpe: RPE::NINE,
                     automatic: false,
+                    countdown: false,
                 },
                 TrainingSessionElement::Rest {
                     target_time: Time::new(60).unwrap(),
@@ -1983,6 +1989,7 @@ mod tests {
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
+                    countdown: false,
                 },
                 TrainingSessionElement::Rest {
                     target_time: Time::new(60).unwrap(),
@@ -2000,6 +2007,7 @@ mod tests {
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
+                    countdown: false,
                 },
                 TrainingSessionElement::Rest {
                     target_time: Time::new(60).unwrap(),
@@ -2037,6 +2045,7 @@ mod tests {
                         target_weight: *target_weight,
                         target_rpe: *target_rpe,
                         automatic: *automatic,
+                        countdown: false,
                     },
                     TrainingSessionElement::Rest { .. } => e.clone(),
                 })
@@ -2197,6 +2206,7 @@ mod tests {
                 target_weight,
                 target_rpe,
                 automatic,
+                countdown: false,
             },
         ]);
 
@@ -2240,6 +2250,7 @@ mod tests {
                 target_weight,
                 target_rpe,
                 automatic,
+                countdown: false,
             },
         ]);
 
@@ -2285,6 +2296,7 @@ mod tests {
                 target_weight: Weight::default(),
                 target_rpe: RPE::default(),
                 automatic: false,
+                countdown: false,
             }],
             exercise_notes: BTreeMap::new(),
             exercise_measurements: BTreeMap::new(),
@@ -2317,6 +2329,7 @@ mod tests {
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
+                    countdown: false,
                 },
                 TrainingSessionElement::Set {
                     exercise_id: 1.into(),
@@ -2330,6 +2343,7 @@ mod tests {
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
+                    countdown: false,
                 },
             ],
             exercise_notes: BTreeMap::new(),
@@ -5077,6 +5091,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
+            countdown: false,
         };
         let session =
             training_session(&[timed(Side::Left, left_time), timed(Side::Right, right_time)]);
@@ -5186,6 +5201,7 @@ mod tests {
             target_weight: Weight::new(22.5).unwrap(),
             target_rpe: RPE::NINE,
             automatic: true,
+            countdown: false,
         };
         let mut session = training_session(&[target(1, Side::Unset), rest(60)]);
 
@@ -5394,6 +5410,24 @@ mod tests {
         session.remove_exercise(1, 1.into());
 
         assert_eq!(session.elements, [set(2, 5, 0.0, RPE::ZERO), rest(60)]);
+    }
+
+    #[rstest]
+    #[case::countdown(true)]
+    #[case::input_fields(false)]
+    fn test_training_session_add_set_carries_the_countdown(#[case] countdown: bool) {
+        let mut set = set(1, 5, 0.0, RPE::ZERO);
+        if let TrainingSessionElement::Set { countdown: c, .. } = &mut set {
+            *c = countdown;
+        }
+        let mut session = training_session(&[set, rest(60)]);
+
+        session.add_set(0);
+
+        assert!(matches!(
+            session.elements[2],
+            TrainingSessionElement::Set { countdown: c, .. } if c == countdown
+        ));
     }
 
     #[test]
@@ -5612,6 +5646,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -5635,6 +5670,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -5651,6 +5687,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -5673,6 +5710,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -6058,6 +6096,7 @@ mod tests {
             target_weight: Weight::new(40.0).unwrap(),
             target_rpe: RPE::NINE,
             automatic: false,
+            countdown: false,
         };
 
         assert_eq!(element.to_string(true, true), "10 × 30 kg @ 8 (3 s)");
@@ -6078,6 +6117,7 @@ mod tests {
             target_weight: Weight::new(40.0).unwrap(),
             target_rpe: RPE::NINE,
             automatic: false,
+            countdown: false,
         };
 
         assert_eq!(element.target_to_string(true), "8 × 40 kg @ 9 (3·1·1·0)");

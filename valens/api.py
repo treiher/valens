@@ -254,16 +254,21 @@ def to_routine_section(json: dict[str, Any], position: int) -> RoutineSection:  
 def to_routine_activity(  # type: ignore[explicit-any]
     json: dict[str, Any], position: int
 ) -> RoutineActivity:
+    reps = to_int(json["reps"], "reps", 0, REPS_MAX)
+    tempo = to_tempo(
+        json["tempo"], "tempo", TEMPO_PHASES_MAX if json["exercise_id"] is not None else 1
+    )
     return RoutineActivity(
         position=position,
         exercise_id=to_optional_id(json["exercise_id"], "exercise_id"),
-        reps=to_int(json["reps"], "reps", 0, REPS_MAX),
-        tempo=to_tempo(
-            json["tempo"], "tempo", TEMPO_PHASES_MAX if json["exercise_id"] is not None else 1
-        ),
+        reps=reps,
+        tempo=tempo,
         weight=to_weight(json["weight"], "weight", 0.0),
         rpe=to_rpe(json["rpe"], "rpe"),
         automatic=to_bool(json["automatic"], "automatic"),
+        countdown=to_countdown(
+            json["countdown"], applies=json["exercise_id"] is not None and bool(tempo)
+        ),
         sides=to_property_id(
             json["sides"],
             "sides",
@@ -275,22 +280,7 @@ def to_routine_activity(  # type: ignore[explicit-any]
 def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # type: ignore[explicit-any]
     return [
         (
-            WorkoutSet(
-                position=position,
-                exercise_id=to_id(element["exercise_id"], "exercise_id"),
-                reps=to_optional_int(element["reps"], "reps", 1, REPS_MAX),
-                time=to_optional_int(element["time"], "time", 1, TIME_MAX),
-                weight=to_optional_weight(element["weight"], "weight", WEIGHT_RESOLUTION),
-                rpe=to_optional_rpe(element["rpe"], "rpe"),
-                target_reps=to_optional_int(element["target_reps"], "target_reps", 1, REPS_MAX),
-                target_tempo=to_optional_tempo(element["target_tempo"], "target_tempo"),
-                target_weight=to_optional_weight(
-                    element["target_weight"], "target_weight", WEIGHT_RESOLUTION
-                ),
-                target_rpe=to_optional_rpe(element["target_rpe"], "target_rpe"),
-                side=to_optional_property_id(element["side"], "side", SIDE_IDS),
-                automatic=to_bool(element["automatic"], "automatic"),
-            )
+            to_workout_set(element, position)
             if "exercise_id" in element
             else WorkoutRest(
                 position=position,
@@ -300,6 +290,40 @@ def to_workout_elements(json: list[dict[str, Any]]) -> list[WorkoutElement]:  # 
         )
         for position, element in enumerate(json, start=1)
     ]
+
+
+def to_workout_set(element: dict[str, Any], position: int) -> WorkoutSet:  # type: ignore[explicit-any]
+    target_reps = to_optional_int(element["target_reps"], "target_reps", 1, REPS_MAX)
+    target_tempo = to_optional_tempo(element["target_tempo"], "target_tempo")
+    return WorkoutSet(
+        position=position,
+        exercise_id=to_id(element["exercise_id"], "exercise_id"),
+        reps=to_optional_int(element["reps"], "reps", 1, REPS_MAX),
+        time=to_optional_int(element["time"], "time", 1, TIME_MAX),
+        weight=to_optional_weight(element["weight"], "weight", WEIGHT_RESOLUTION),
+        rpe=to_optional_rpe(element["rpe"], "rpe"),
+        target_reps=target_reps,
+        target_tempo=target_tempo,
+        target_weight=to_optional_weight(
+            element["target_weight"], "target_weight", WEIGHT_RESOLUTION
+        ),
+        target_rpe=to_optional_rpe(element["target_rpe"], "target_rpe"),
+        side=to_optional_property_id(element["side"], "side", SIDE_IDS),
+        automatic=to_bool(element["automatic"], "automatic"),
+        countdown=to_countdown(element["countdown"], applies=target_tempo is not None),
+    )
+
+
+def to_countdown(json: object, *, applies: bool) -> bool:
+    """
+    Check a countdown flag against whether it applies to the set.
+
+    `applies` is the result of `SetPacing::countdown_applies` in `crates/domain/src/training.rs`.
+    """
+    countdown = to_bool(json, "countdown")
+    if countdown and not applies:
+        raise DeserializationError("countdown must only be set for a set with a tempo")
+    return countdown
 
 
 def to_workout_exercise_notes(json: list[dict[str, Any]]) -> list[WorkoutExerciseNote]:  # type: ignore[explicit-any]

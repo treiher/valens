@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from playwright.sync_api import expect
 
@@ -199,6 +199,12 @@ class TrainingSessionPage(BasePage):
     def expect_set_tempo_bar(self) -> None:
         expect(self.page.get_by_test_id("set-tempo-bar")).to_be_visible()
 
+    def expect_no_set_tempo_bar(self) -> None:
+        expect(self.page.get_by_test_id("set-tempo-bar")).to_have_count(0)
+
+    def expect_no_countdown(self) -> None:
+        expect(self.countdown).to_have_count(0)
+
     def get_phase_bar_fills(self) -> list[float]:
         return phase_bar_fills(self.page)
 
@@ -245,12 +251,11 @@ class TrainingSessionPage(BasePage):
         expect(bar).to_be_visible()
         expect(bar.locator("> div")).to_have_count(segments)
 
-    def expect_set_tempo_bar_running(self, *, running: bool) -> None:
-        bar = self.page.get_by_test_id("set-tempo-bar")
-        if running:
-            expect(bar).not_to_have_class(re.compile(r"is-blinking"))
-        else:
-            expect(bar).to_have_class(re.compile(r"is-blinking"))
+    def expect_countdown_running(self, *, running: bool) -> None:
+        expect(self.countdown).to_have_attribute("data-state", "running" if running else "waiting")
+
+    def expect_set_tempo_bar_state(self, state: Literal["stopped", "running", "paused"]) -> None:
+        expect(self.page.get_by_test_id("set-tempo-bar")).to_have_attribute("data-state", state)
 
     def get_set_values(self) -> list[str]:
         return [get_text(value) for value in self.page.get_by_test_id("set-value").all()]

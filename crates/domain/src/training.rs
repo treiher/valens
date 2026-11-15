@@ -268,6 +268,54 @@ pub enum TempoError {
     OutOfRange,
 }
 
+/// How a set is guided in a training session.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetPacing {
+    /// Neither a countdown nor a tempo.
+    Untimed,
+    /// A countdown of the given seconds, recording the target at its end.
+    Countdown(u32),
+    /// A tempo without an end, so the performed values are not derived from the target.
+    Tempo,
+}
+
+impl SetPacing {
+    /// The seconds are a `u32`, as reps times the seconds per repetition can exceed `Time`.
+    #[must_use]
+    pub fn new(reps: Reps, tempo: Tempo, countdown: bool) -> Self {
+        let Some(tempo) = tempo.non_zero() else {
+            return SetPacing::Untimed;
+        };
+        if !countdown {
+            return SetPacing::Tempo;
+        }
+        // Without reps, the single repetition is a hold.
+        let reps = reps.non_zero().map_or(1, u32::from);
+        SetPacing::Countdown(reps * u32::from(tempo.seconds_per_rep()))
+    }
+
+    #[must_use]
+    pub fn countdown_seconds(self) -> Option<u32> {
+        match self {
+            SetPacing::Countdown(seconds) => Some(seconds),
+            SetPacing::Untimed | SetPacing::Tempo => None,
+        }
+    }
+
+    /// Whether `countdown` changes the pacing of a set with `tempo`.
+    #[must_use]
+    pub fn countdown_applies(tempo: Tempo) -> bool {
+        tempo.non_zero().is_some()
+    }
+
+    /// The flag of a set with `reps` whose recording has not been chosen: a hold is counted down,
+    /// a set with reps is entered.
+    #[must_use]
+    pub fn default_countdown(reps: Reps) -> bool {
+        reps.non_zero().is_none()
+    }
+}
+
 /// How an activity is performed: with both sides at once or with each side in a set of its own.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Sides {
@@ -944,6 +992,7 @@ mod tests {
                     target_weight: Weight(40.0),
                     target_rpe: RPE::NINE,
                     automatic: false,
+                    countdown: false,
                 },
                 TrainingSessionElement::Rest {
                     target_time: Time(60),
@@ -961,6 +1010,7 @@ mod tests {
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
+                    countdown: false,
                 },
                 TrainingSessionElement::Rest {
                     target_time: Time(60),
@@ -978,6 +1028,7 @@ mod tests {
                     target_weight: Weight::default(),
                     target_rpe: RPE::default(),
                     automatic: false,
+                    countdown: false,
                 },
                 TrainingSessionElement::Rest {
                     target_time: Time(60),
@@ -1172,6 +1223,27 @@ mod tests {
     ) {
         assert_eq!(
             Tempo::new(phases).unwrap().beat_near(elapsed, tolerance),
+            expected
+        );
+    }
+
+    #[rstest]
+    #[case::no_tempo(10, &[], true, SetPacing::Untimed)]
+    #[case::no_tempo_without_the_flag(10, &[], false, SetPacing::Untimed)]
+    #[case::hold_with_the_flag(0, &[30], true, SetPacing::Countdown(30))]
+    #[case::hold_without_the_flag(0, &[30], false, SetPacing::Tempo)]
+    #[case::reps_with_the_flag(10, &[3, 1], true, SetPacing::Countdown(40))]
+    #[case::reps_without_the_flag(10, &[3, 1], false, SetPacing::Tempo)]
+    #[case::phases_without_reps(0, &[3, 1, 2, 0], true, SetPacing::Countdown(6))]
+    #[case::beyond_the_bounds_of_time(999, &[999], true, SetPacing::Countdown(998_001))]
+    fn test_set_pacing_new(
+        #[case] reps: u32,
+        #[case] tempo: &[u32],
+        #[case] countdown: bool,
+        #[case] expected: SetPacing,
+    ) {
+        assert_eq!(
+            SetPacing::new(Reps(reps), Tempo::new(tempo).unwrap(), countdown),
             expected
         );
     }
@@ -1423,6 +1495,7 @@ mod tests {
             target_weight: Weight::default(),
             target_rpe: RPE::default(),
             automatic: false,
+            countdown: false,
         };
         let pair = TrainingSession {
             elements: vec![set(Side::Left, RPE::NINE), set(Side::Right, RPE::NINE)],

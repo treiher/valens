@@ -2374,6 +2374,35 @@ def test_training_session_set_countdown_records_the_target_time(page: Page) -> N
     assert p.get_sets()[0][1] == 2
 
 
+def test_training_session_hold_with_input_fields_plays_its_tempo_bar(page: Page) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    # The first set of this routine is an automatic hold
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_recording(0, 0, countdown=False)
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_set_tempo_bar_state("running")
+    p.expect_no_countdown()
+
+    p.set_form_text(0, ("", "15"))
+    p.activate_set_action(0)
+    p.wait_until_idle()
+    p.reload()
+    p.view()
+
+    assert p.get_sets()[0][:2] == (None, 15)
+
+
 def test_training_session_notes_saved_after_a_countdown_keep_the_recorded_set(
     page: Page,
 ) -> None:
@@ -2437,15 +2466,14 @@ def test_training_session_tempo_guides_a_set_with_input_fields(page: Page) -> No
     p.expect_set_tempo_bar()
     p.expect_phase_bar(4)
     p.click_set_tempo_bar()
-    p.expect_set_tempo_bar_running(running=True)
+    p.expect_set_tempo_bar_state("running")
     p.click_set_tempo_bar()
-    p.expect_set_tempo_bar_running(running=False)
+    p.expect_set_tempo_bar_state("paused")
 
     # The bar of a set is reset when another element becomes current
     p.activate_set_action(1)
     p.activate_set_action(0)
-    p.expect_set_tempo_bar()
-    p.expect_set_tempo_bar_running(running=True)
+    p.expect_set_tempo_bar_state("stopped")
     assert p.get_phase_bar_fills() == [0.0, 0.0, 0.0, 0.0]
 
     # The bar of a running set advances through the phases
@@ -2468,6 +2496,7 @@ def test_training_session_automatic_tempo_set_records_the_prescribed_values(
     r.goto()
     r.set_reps(0, 0, "2")
     r.set_tempo(0, 0, "1")
+    r.set_recording(0, 0)
     r.set_weight(0, 0, "20")
     r.wait_until_idle()
 
@@ -2489,6 +2518,73 @@ def test_training_session_automatic_tempo_set_records_the_prescribed_values(
     assert p.get_sets()[0] == (2, 1, 20.0, None)
 
 
+def test_training_session_automatic_set_with_input_fields_starts_its_tempo_bar(
+    page: Page,
+) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    # The set of this routine is automatic and keeps its input fields
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_reps(0, 0, "2")
+    r.set_tempo(0, 0, "1")
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_set_tempo_bar_state("running")
+
+    p.set_form_text(0, ("2",))
+    p.activate_set_action(0)
+    p.wait_until_idle()
+    p.expect_no_set_tempo_bar()
+
+
+def test_training_session_manual_countdown_of_a_set_with_reps_waits_for_a_tap(
+    page: Page,
+) -> None:
+    routine = USER.routines[1]
+
+    login(page)
+
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_automatic(0, 0, automatic=False)
+    r.set_reps(0, 0, "2")
+    r.set_tempo(0, 0, "1")
+    r.set_recording(0, 0)
+    r.wait_until_idle()
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+    p.expect_countdown()
+
+    # Without a tap the countdown does not start
+    page.wait_for_timeout(1500)
+    p.expect_countdown_running(running=False)
+    assert p.get_phase_bar_fills()[0] == 0
+
+    p.start_pause_countdown()
+
+    # The countdown records the target and moves on to the rest that follows
+    p.expect_countdown_seconds(9)
+    p.wait_until_idle()
+    p.reload()
+    p.view()
+
+    assert p.get_sets()[0][:2] == (2, 1)
+
+
 def test_training_session_countdown_holds_its_position_while_paused(page: Page) -> None:
     routine = USER.routines[1]
 
@@ -2498,6 +2594,7 @@ def test_training_session_countdown_holds_its_position_while_paused(page: Page) 
     r.goto()
     r.set_reps(0, 0, "5")
     r.set_tempo(0, 0, "3", "1", "1", "0")
+    r.set_recording(0, 0)
     r.wait_until_idle()
 
     training_sessions = TrainingSessionsPage(page)
@@ -2871,6 +2968,32 @@ def test_routine_edit(page: Page) -> None:
     assert section.rounds == 8
     assert section.get_set_at(0) == RoutineSet(exercise_1, None, "60 s", 5.5, 8.5)
     assert section.get_rest_at(1) == RoutineRest(30)
+
+
+def test_routine_activity_dialog_disables_the_options_that_need_a_tempo(page: Page) -> None:
+    routine = USER.routines[0]
+
+    login(page)
+
+    p = RoutinePage(page, routine.id)
+    p.goto()
+    p.set_reps(0, 0, "5")
+    p.set_tempo(0, 0, "3")
+    p.set_automatic(0, 0)
+    p.set_recording(0, 0)
+    p.wait_until_idle()
+
+    p.open_activity_edit_dialog(0, 0)
+    p.enter_tempo("")
+    p.expect_start(automatic=False, disabled=True)
+    p.expect_recording(countdown=False, disabled=True)
+
+    p.click_start(automatic=True)
+    p.expect_start(automatic=False, disabled=True)
+
+    p.enter_tempo("3")
+    p.expect_start(automatic=True, disabled=False)
+    p.expect_recording(countdown=True, disabled=False)
 
 
 def test_routine_edit_dialog_selection(page: Page) -> None:

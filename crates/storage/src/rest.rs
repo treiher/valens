@@ -1548,6 +1548,7 @@ pub enum RoutinePart {
         weight: f32,
         rpe: f32,
         automatic: bool,
+        countdown: bool,
         sides: u8,
     },
 }
@@ -1566,6 +1567,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                countdown,
                 sides,
             } => RoutinePart::RoutineActivity {
                 #[allow(clippy::cast_possible_truncation)]
@@ -1579,6 +1581,7 @@ impl From<domain::RoutinePart> for RoutinePart {
                 weight: f32::from(weight),
                 rpe: f32::from(rpe),
                 automatic,
+                countdown,
                 sides: sides as u8,
             },
         }
@@ -1599,6 +1602,7 @@ impl From<RoutinePart> for domain::RoutinePart {
                 weight,
                 rpe,
                 automatic,
+                countdown,
                 sides,
             } => domain::RoutinePart::RoutineActivity {
                 exercise_id: exercise_id
@@ -1610,6 +1614,7 @@ impl From<RoutinePart> for domain::RoutinePart {
                 weight: domain::Weight::new(weight).unwrap_or_default(),
                 rpe: domain::RPE::new(rpe).unwrap_or_default(),
                 automatic,
+                countdown,
                 sides: domain::Sides::try_from(sides).unwrap_or_default(),
             },
         }
@@ -1904,6 +1909,7 @@ pub enum TrainingSessionElement {
         target_weight: Option<f32>,
         target_rpe: Option<f32>,
         automatic: bool,
+        countdown: bool,
     },
     Rest {
         target_time: Option<u32>,
@@ -1926,6 +1932,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 target_weight,
                 target_rpe,
                 automatic,
+                countdown,
             } => TrainingSessionElement::Set {
                 #[allow(clippy::cast_possible_truncation)]
                 exercise_id: exercise_id.as_u128() as u64,
@@ -1941,6 +1948,7 @@ impl From<domain::TrainingSessionElement> for TrainingSessionElement {
                 target_weight: target_weight.non_zero().map(From::from),
                 target_rpe: target_rpe.non_zero().map(From::from),
                 automatic,
+                countdown,
             },
             domain::TrainingSessionElement::Rest {
                 target_time,
@@ -1968,6 +1976,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                 target_weight,
                 target_rpe,
                 automatic,
+                countdown,
             } => domain::TrainingSessionElement::Set {
                 exercise_id: u128::from(exercise_id).into(),
                 side: side
@@ -1998,6 +2007,7 @@ impl From<TrainingSessionElement> for domain::TrainingSessionElement {
                     .and_then(|rpe| domain::RPE::new(rpe).ok())
                     .unwrap_or_default(),
                 automatic,
+                countdown,
             },
             TrainingSessionElement::Rest {
                 target_time,
@@ -2482,6 +2492,7 @@ mod tests {
                 weight: 0.0,
                 rpe: 0.0,
                 automatic: false,
+                countdown: false,
                 sides: 1,
             })
         else {
@@ -2512,6 +2523,7 @@ mod tests {
                 weight: 0.0,
                 rpe: 0.0,
                 automatic: false,
+                countdown: false,
                 sides,
             })
         else {
@@ -2593,6 +2605,7 @@ mod tests {
                 target_weight: Some(1000.0),
                 target_rpe: Some(10.5),
                 automatic: false,
+                countdown: false,
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
@@ -2606,6 +2619,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             }
         );
     }
@@ -2625,6 +2639,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             }),
             TrainingSessionElement::Set {
                 exercise_id: 1,
@@ -2638,6 +2653,7 @@ mod tests {
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
+                countdown: false,
             }
         );
         assert_eq!(
@@ -2667,6 +2683,7 @@ mod tests {
                 target_weight: None,
                 target_rpe: None,
                 automatic: false,
+                countdown: false,
             }),
             domain::TrainingSessionElement::Set {
                 exercise_id: 1.into(),
@@ -2680,6 +2697,7 @@ mod tests {
                 target_weight: domain::Weight::default(),
                 target_rpe: domain::RPE::default(),
                 automatic: false,
+                countdown: false,
             }
         );
         assert_eq!(

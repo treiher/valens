@@ -347,9 +347,13 @@ fn view_routine_part(
             weight,
             rpe,
             automatic,
+            countdown,
             sides,
         } => {
             let laterality = cache::laterality(exercises, *exercise_id);
+            let counted_down = domain::SetPacing::new(*reps, *tempo, *countdown)
+                .countdown_seconds()
+                .is_some();
             rsx! {
                 div {
                     class: "message mb-0",
@@ -469,9 +473,16 @@ fn view_routine_part(
                                         }
                                     }
                                 }
+                                if counted_down {
+                                    span {
+                                        class: "icon-text mr-4",
+                                        "data-testid": "set-countdown",
+                                        Icon { name: "hourglass-half" }
+                                    }
+                                }
                                 if *automatic {
                                     span {
-                                        class: "icon mr-4",
+                                        class: "icon-text mr-4",
                                         {automatic_icon()}
                                     }
                                 }
@@ -957,7 +968,7 @@ fn view_edit_dialog(
                                     let mut routine = routine.clone();
                                     let path = path.clone();
                                     let sides = replacement_sides(cache.laterality(id));
-                                    routine.update_activity(Some(id), None, None, None, None, None, sides, &path);
+                                    routine.update_activity(Some(id), None, None, None, None, None, None, sides, &path);
                                     modify_routine_sections(routine, cache, close_dialog)
                                 }
                             },
@@ -1025,51 +1036,76 @@ fn view_edit_dialog(
             weight: weight_field,
             rpe: rpe_field,
             automatic: automatic_field,
+            countdown: chosen_countdown,
             sides: sides_field,
             show_sides,
         } => {
-            fn validate_automatic(
-                automatic: bool,
-                exercise_id: domain::ExerciseID,
-                tempo: Option<domain::Tempo>,
-            ) -> Result<bool, String> {
-                if !exercise_id.is_nil()
-                    && automatic
-                    && tempo.unwrap_or_default() == domain::Tempo::default()
-                {
-                    Err("tempo must be set to enable automatic start of timer".to_string())
-                } else {
-                    Ok(automatic)
-                }
-            }
-
             let validated_tempo = validate_tempo(tempo_fields);
             // Without reps, the single repetition is a hold.
             let is_hold = reps_field
                 .validated
                 .as_ref()
                 .is_ok_and(|reps| reps.non_zero().is_none());
-            let save = eh!(mut routine; path, reps_field, validated_tempo, weight_field, rpe_field, automatic_field, sides_field, close_dialog; {
-                routine.update_activity(None, reps_field.validated.ok(), validated_tempo.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), automatic_field.validated.ok(), sides_field.validated.ok(), &path);
+            let is_rest = matches!(
+                routine.part(path),
+                Some(domain::RoutinePart::RoutineActivity { exercise_id, .. }) if exercise_id.is_nil()
+            );
+            // The automatic start and the countdown of a set take effect only with a tempo.
+            let needs_tempo = !is_rest
+                && !validated_tempo
+                    .as_ref()
+                    .is_ok_and(|tempo| domain::SetPacing::countdown_applies(*tempo));
+            let automatic = automatic_field.input == true.to_string() && !needs_tempo;
+            let effective_automatic_field = FieldValue {
+                input: automatic.to_string(),
+                validated: Ok(automatic),
+                orig: automatic_field.orig.clone(),
+            };
+            let stored_countdown = match routine.part(path) {
+                Some(domain::RoutinePart::RoutineActivity { countdown, .. }) => *countdown,
+                _ => false,
+            };
+            let countdown = edited_countdown(
+                routine.part(path),
+                reps_field.validated.clone().unwrap_or_default(),
+                *chosen_countdown,
+            );
+            let countdown_field = FieldValue {
+                input: countdown.to_string(),
+                validated: Ok(countdown),
+                orig: stored_countdown.to_string(),
+            };
+            let save = eh!(mut routine; path, reps_field, validated_tempo, weight_field, rpe_field, sides_field, close_dialog; {
+                routine.update_activity(None, reps_field.validated.ok(), validated_tempo.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), Some(automatic), Some(countdown), sides_field.validated.ok(), &path);
                 modify_routine_sections(routine, cache, close_dialog)
             });
             match routine.part(path) {
                 Some(domain::RoutinePart::RoutineActivity { exercise_id, .. }) => {
-                    let validated_automatic = validate_automatic(
-                        automatic_field.input == true.to_string(),
-                        *exercise_id,
-                        validated_tempo.clone().ok(),
-                    );
-                    let tempo_field_states = tempo_fields
-                        .iter()
-                        .map(|field| field as &dyn FieldValueState)
-                        .collect::<Vec<_>>();
+                    // A countdown without effect does not count as a change.
+                    let field_states = [
+                        reps_field as &dyn FieldValueState,
+                        weight_field,
+                        rpe_field,
+                        &effective_automatic_field,
+                        sides_field,
+                    ]
+                    .into_iter()
+                    .chain(
+                        (!is_rest && !needs_tempo)
+                            .then_some(&countdown_field as &dyn FieldValueState),
+                    )
+                    .chain(
+                        tempo_fields
+                            .iter()
+                            .map(|field| field as &dyn FieldValueState),
+                    )
+                    .collect::<Vec<_>>();
                     rsx! {
                         SaveDialog {
                             on_close: eh!(mut close_dialog; { close_dialog(); }),
                             on_save: save,
                             is_loading: IS_LOADING(),
-                            disabled: !FieldValue::has_valid_changes(&[&[reps_field as &dyn FieldValueState, weight_field, rpe_field, automatic_field, sides_field], &tempo_field_states[..]].concat()) || validated_automatic.is_err() || validated_tempo.is_err(),
+                            disabled: !FieldValue::has_valid_changes(&field_states) || validated_tempo.is_err(),
                             if !exercise_id.is_nil() {
                                 InputField {
                                     label: "Reps",
@@ -1140,11 +1176,13 @@ fn view_edit_dialog(
                                             text: "Combined".to_string(),
                                             icon: None,
                                             value: domain::Sides::Combined,
+                                            is_disabled: false,
                                         },
                                         ButtonSelectOption {
                                             text: "Per side".to_string(),
                                             icon: None,
                                             value: domain::Sides::PerSide,
+                                            is_disabled: false,
                                         },
                                     ],
                                     selected: sides_field.validated.clone().unwrap_or_default(),
@@ -1210,22 +1248,23 @@ fn view_edit_dialog(
                                 }
                             }
                             ButtonSelectField {
-                                label: if exercise_id.is_nil() { "Transition to next part" } else { "Start of timer" },
+                                label: if exercise_id.is_nil() { "Transition to next part" } else { "Start" },
                                 options: vec![
                                     ButtonSelectOption {
                                         text: "Automatic".to_string(),
                                         icon: None,
                                         value: true,
+                                        is_disabled: needs_tempo,
                                     },
                                     ButtonSelectOption {
                                         text: "Manual".to_string(),
                                         icon: None,
                                         value: false,
+                                        is_disabled: false,
                                     },
                                 ],
-                                selected: automatic_field.input == true.to_string(),
-                                error: if let Err(err) = &validated_automatic { err.clone() },
-                                has_changed: automatic_field.changed(),
+                                selected: automatic,
+                                has_changed: effective_automatic_field.changed(),
                                 on_click: {
                                     move |(_, value): (_, bool)| {
                                         async move {
@@ -1238,6 +1277,37 @@ fn view_edit_dialog(
                                 },
                                 "data-testid": "button-select-automatic",
                             }
+                            if !is_rest {
+                                ButtonSelectField {
+                                    label: "Recording",
+                                    options: vec![
+                                        ButtonSelectOption {
+                                            text: "Countdown".to_string(),
+                                            icon: None,
+                                            value: true,
+                                            is_disabled: needs_tempo,
+                                        },
+                                        ButtonSelectOption {
+                                            text: "Input fields".to_string(),
+                                            icon: None,
+                                            value: false,
+                                            is_disabled: false,
+                                        },
+                                    ],
+                                    selected: countdown && !needs_tempo,
+                                    has_changed: countdown_field.changed() && !needs_tempo,
+                                    on_click: {
+                                        move |(_, value): (_, bool)| {
+                                            async move {
+                                                if let EditDialog::EditActivity { countdown, .. } =  &mut *edit_dialog.write() {
+                                                    *countdown = Some(value);
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "data-testid": "button-select-countdown",
+                                }
+                            }
                         }
                     }
                 }
@@ -1248,6 +1318,31 @@ fn view_edit_dialog(
                 }
             }
         }
+    }
+}
+
+/// The recording of an activity edited to `reps`: the tapped one, otherwise the stored one while the
+/// activity stays a hold or a set with reps, otherwise the default of its kind.
+fn edited_countdown(
+    stored: Option<&domain::RoutinePart>,
+    reps: domain::Reps,
+    chosen: Option<bool>,
+) -> bool {
+    if let Some(chosen) = chosen {
+        return chosen;
+    }
+    match stored {
+        Some(domain::RoutinePart::RoutineActivity {
+            reps: stored_reps,
+            tempo,
+            countdown,
+            ..
+        }) if domain::SetPacing::countdown_applies(*tempo)
+            && stored_reps.non_zero().is_some() == reps.non_zero().is_some() =>
+        {
+            *countdown
+        }
+        _ => domain::SetPacing::default_countdown(reps),
     }
 }
 
@@ -1264,6 +1359,7 @@ fn edit_activity_dialog(
         rpe,
         automatic,
         sides,
+        ..
     }) = routine.part(path)
     else {
         return EditDialog::None;
@@ -1276,6 +1372,7 @@ fn edit_activity_dialog(
         weight: FieldValue::new_with_empty_default(*weight),
         rpe: FieldValue::new_with_empty_default(*rpe),
         automatic: FieldValue::new(*automatic),
+        countdown: None,
         sides: sides_field_value(*sides, &(*sides as u8).to_string()),
         // A per-side activity keeps the field, so that it can be reset after the laterality of
         // its exercise changed.
@@ -1430,6 +1527,8 @@ pub enum EditDialog {
         weight: FieldValue<domain::Weight>,
         rpe: FieldValue<domain::RPE>,
         automatic: FieldValue<bool>,
+        /// The tapped recording, `None` until one is tapped.
+        countdown: Option<bool>,
         sides: FieldValue<domain::Sides>,
         show_sides: bool,
     },
@@ -1444,7 +1543,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, all_text_of, attribute_of, contains, provide_settings, render, rows_of, text_of,
+        TestCache, all_attributes_of, all_text_of, attribute_of, contains, disabled_texts_of,
+        provide_settings, render, rows_of, selected_text_of, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -1712,6 +1812,7 @@ mod tests {
             weight,
             rpe,
             automatic,
+            countdown: false,
             sides,
         }
     }
@@ -1735,6 +1836,7 @@ mod tests {
             weight,
             rpe,
             automatic,
+            countdown: false,
             sides,
         }
     }
@@ -1747,6 +1849,7 @@ mod tests {
             weight: domain::Weight::default(),
             rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides,
         }
     }
@@ -1759,6 +1862,7 @@ mod tests {
             weight: domain::Weight::default(),
             rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides: domain::Sides::Combined,
         }
     }
@@ -1782,6 +1886,7 @@ mod tests {
             weight: domain::Weight::default(),
             rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
             sides: domain::Sides::Combined,
         }
     }
@@ -1799,6 +1904,7 @@ mod tests {
             target_weight: domain::Weight::default(),
             target_rpe: domain::RPE::ZERO,
             automatic: false,
+            countdown: false,
         }
     }
 
@@ -1897,6 +2003,188 @@ mod tests {
         assert_eq!(html.contains("Optionally split"), has_help);
     }
 
+    #[rstest::rstest]
+    #[case::reps_and_tempo(activity_with_tempo(5, &[3]), false)]
+    #[case::hold(activity_with_tempo(0, &[30]), false)]
+    #[case::reps_without_tempo(activity_with_tempo(5, &[]), true)]
+    fn test_the_options_of_a_set_that_need_a_tempo_are_disabled_without_one(
+        #[case] part: domain::RoutinePart,
+        #[case] disabled: bool,
+    ) {
+        let html = render_activity_dialog(part, |_| {});
+
+        assert_eq!(
+            disabled_texts_of(&html, "button-select-automatic"),
+            if disabled { vec!["Automatic"] } else { vec![] }
+        );
+        assert_eq!(
+            disabled_texts_of(&html, "button-select-countdown"),
+            if disabled { vec!["Countdown"] } else { vec![] }
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::with_time(rest(&[60]))]
+    #[case::without_time(rest(&[]))]
+    fn test_a_rest_can_move_on_automatically_and_has_no_recording(
+        #[case] part: domain::RoutinePart,
+    ) {
+        let html = render_activity_dialog(part, |_| {});
+
+        assert!(disabled_texts_of(&html, "button-select-automatic").is_empty());
+        assert!(!contains(&html, "button-select-countdown"));
+    }
+
+    #[test]
+    fn test_an_invalid_tempo_disables_the_options_that_need_a_tempo() {
+        let html = render_activity_dialog(activity_with_tempo(5, &[3]), |dialog| {
+            if let EditDialog::EditActivity { tempo, .. } = dialog {
+                tempo[0].input = "x".to_string();
+                tempo[0].validated = Err("time must be an integer".to_string());
+            }
+        });
+
+        assert_eq!(
+            disabled_texts_of(&html, "button-select-automatic"),
+            ["Automatic"]
+        );
+        assert_eq!(
+            disabled_texts_of(&html, "button-select-countdown"),
+            ["Countdown"]
+        );
+    }
+
+    #[test]
+    fn test_a_set_without_a_tempo_shows_its_effective_start_and_recording() {
+        let html =
+            render_activity_dialog(with_countdown(with_automatic(activity(5), true)), |_| {});
+
+        assert_eq!(selected_text_of(&html, "button-select-automatic"), "Manual");
+        assert_eq!(
+            selected_text_of(&html, "button-select-countdown"),
+            "Input fields"
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::with_tempo(activity_with_tempo(5, &[3]), true)]
+    #[case::without_tempo(activity(5), false)]
+    fn test_a_stored_automatic_start_without_effect_can_be_saved_as_manual(
+        #[case] part: domain::RoutinePart,
+        #[case] disabled: bool,
+    ) {
+        let html = render_activity_dialog(with_automatic(part, true), |_| {});
+
+        assert_eq!(
+            all_attributes_of(&html, "dialog-save", "disabled") == vec!["true"],
+            disabled
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::reps_and_tempo(activity_with_tempo(5, &[3]), false)]
+    #[case::reps_without_tempo(activity_with_tempo(5, &[]), true)]
+    fn test_a_change_of_a_countdown_without_effect_cannot_be_saved(
+        #[case] part: domain::RoutinePart,
+        #[case] disabled: bool,
+    ) {
+        let html = render_activity_dialog(part, |dialog| {
+            if let EditDialog::EditActivity { countdown, .. } = dialog {
+                *countdown = Some(true);
+            }
+        });
+
+        assert_eq!(
+            all_attributes_of(&html, "dialog-save", "disabled") == vec!["true"],
+            disabled
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::tapped(with_countdown(activity_with_tempo(5, &[3])), 5, Some(false), false)]
+    #[case::stored_hold(activity_with_tempo(0, &[30]), 0, None, false)]
+    #[case::stored_set_with_reps(with_countdown(activity_with_tempo(5, &[3])), 5, None, true)]
+    #[case::new_hold(activity(0), 0, None, true)]
+    #[case::new_set_with_reps(activity(0), 5, None, false)]
+    #[case::cleared_reps(activity_with_tempo(5, &[3]), 0, None, true)]
+    #[case::entered_reps(with_countdown(activity_with_tempo(0, &[30])), 5, None, false)]
+    fn test_an_untapped_recording_follows_the_kind_of_the_activity(
+        #[case] stored: domain::RoutinePart,
+        #[case] reps: u32,
+        #[case] chosen: Option<bool>,
+        #[case] expected: bool,
+    ) {
+        assert_eq!(
+            edited_countdown(Some(&stored), domain::Reps::new(reps).unwrap(), chosen),
+            expected
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::countdown_with_reps(with_countdown(activity_with_tempo(5, &[3])), true)]
+    #[case::hold(with_countdown(activity_with_tempo(0, &[30])), true)]
+    #[case::hold_with_input_fields(activity_with_tempo(0, &[30]), false)]
+    #[case::input_fields(activity_with_tempo(5, &[3]), false)]
+    #[case::untimed(with_countdown(activity(5)), false)]
+    fn test_only_a_counted_down_activity_is_marked(
+        #[case] part: domain::RoutinePart,
+        #[case] expected: bool,
+    ) {
+        let html = render_routine(1, move || {
+            with_routine().with_routines(vec![domain::Routine {
+                sections: vec![section(vec![part.clone()])],
+                ..routine()
+            }])
+        });
+
+        assert_eq!(contains(&html, "set-countdown"), expected);
+    }
+
+    fn render_activity_dialog(part: domain::RoutinePart, modify: fn(&mut EditDialog)) -> String {
+        render(move || {
+            with_routine()
+                .with_routines(vec![domain::Routine {
+                    sections: vec![section(vec![part.clone()])],
+                    ..routine()
+                }])
+                .provide();
+            provide_settings(web_app::Settings::default());
+            provide_context(DialogChange(modify));
+            rsx! { ActivityDialog {} }
+        })
+    }
+
+    /// A change applied to the dialog of [`ActivityDialog`] before it is rendered.
+    #[derive(Clone, Copy)]
+    struct DialogChange(fn(&mut EditDialog));
+
+    fn with_countdown(mut part: domain::RoutinePart) -> domain::RoutinePart {
+        if let domain::RoutinePart::RoutineActivity { countdown, .. } = &mut part {
+            *countdown = true;
+        }
+        part
+    }
+
+    fn with_automatic(mut part: domain::RoutinePart, value: bool) -> domain::RoutinePart {
+        if let domain::RoutinePart::RoutineActivity { automatic, .. } = &mut part {
+            *automatic = value;
+        }
+        part
+    }
+
+    fn rest(phases: &[u32]) -> domain::RoutinePart {
+        domain::RoutinePart::RoutineActivity {
+            exercise_id: domain::ExerciseID::nil(),
+            reps: domain::Reps::default(),
+            tempo: domain::Tempo::new(phases).unwrap(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::ZERO,
+            automatic: true,
+            countdown: false,
+            sides: domain::Sides::Combined,
+        }
+    }
+
     #[component]
     fn ActivityDialog() -> Element {
         let cache = consume_context::<Cache>();
@@ -1904,7 +2192,14 @@ mod tests {
             CacheState::Ready(routines) => routines[0].clone(),
             CacheState::Loading | CacheState::Error(_) => unreachable!(),
         };
-        let dialog = use_signal(|| edit_activity_dialog(&routine, &vec![0, 0].into(), None));
+        let change = try_consume_context::<DialogChange>();
+        let dialog = use_signal(|| {
+            let mut dialog = edit_activity_dialog(&routine, &vec![0, 0].into(), None);
+            if let Some(DialogChange(change)) = change {
+                change(&mut dialog);
+            }
+            dialog
+        });
         view_edit_dialog(dialog, cache, use_context::<Settings>())
     }
 

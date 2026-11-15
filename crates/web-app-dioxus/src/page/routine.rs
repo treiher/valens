@@ -1046,15 +1046,18 @@ fn view_edit_dialog(
                 .validated
                 .as_ref()
                 .is_ok_and(|reps| reps.non_zero().is_none());
+            // An invalid phase counts as zero in the validated tempo.
+            let valid_tempo = validated_tempo
+                .as_ref()
+                .ok()
+                .filter(|_| tempo_fields.iter().all(|field| field.validated.is_ok()));
             let is_rest = matches!(
                 routine.part(path),
                 Some(domain::RoutinePart::RoutineActivity { exercise_id, .. }) if exercise_id.is_nil()
             );
             // The automatic start and the countdown of a set take effect only with a tempo.
             let needs_tempo = !is_rest
-                && !validated_tempo
-                    .as_ref()
-                    .is_ok_and(|tempo| domain::SetPacing::countdown_applies(*tempo));
+                && !valid_tempo.is_some_and(|tempo| domain::SetPacing::countdown_applies(*tempo));
             let automatic = automatic_field.input == true.to_string() && !needs_tempo;
             let effective_automatic_field = FieldValue {
                 input: automatic.to_string(),
@@ -1074,6 +1077,12 @@ fn view_edit_dialog(
                 input: countdown.to_string(),
                 validated: Ok(countdown),
                 orig: stored_countdown.to_string(),
+            };
+            let behavior = match (&reps_field.validated, valid_tempo) {
+                (Ok(reps), Some(tempo)) => {
+                    session_behavior(is_rest, *reps, *tempo, countdown, automatic)
+                }
+                _ => None,
             };
             let save = eh!(mut routine; path, reps_field, validated_tempo, weight_field, rpe_field, sides_field, close_dialog; {
                 routine.update_activity(None, reps_field.validated.ok(), validated_tempo.ok(), weight_field.validated.ok(), rpe_field.validated.ok(), Some(automatic), Some(countdown), sides_field.validated.ok(), &path);
@@ -1264,6 +1273,13 @@ fn view_edit_dialog(
                                     },
                                 ],
                                 selected: automatic,
+                                help: if is_rest {
+                                    behavior.clone()
+                                } else if needs_tempo {
+                                    Some("Automatic start requires a tempo".to_string())
+                                } else {
+                                    None
+                                },
                                 has_changed: effective_automatic_field.changed(),
                                 on_click: {
                                     move |(_, value): (_, bool)| {
@@ -1295,6 +1311,11 @@ fn view_edit_dialog(
                                         },
                                     ],
                                     selected: countdown && !needs_tempo,
+                                    help: if needs_tempo {
+                                        Some("Countdown requires a tempo".to_string())
+                                    } else {
+                                        behavior
+                                    },
                                     has_changed: countdown_field.changed() && !needs_tempo,
                                     on_click: {
                                         move |(_, value): (_, bool)| {
@@ -1319,6 +1340,47 @@ fn view_edit_dialog(
             }
         }
     }
+}
+
+/// What an activity does in a training session, or `None` for a set without a tempo.
+fn session_behavior(
+    is_rest: bool,
+    reps: domain::Reps,
+    tempo: domain::Tempo,
+    countdown: bool,
+    automatic: bool,
+) -> Option<String> {
+    if is_rest {
+        return Some(match (tempo.non_zero(), automatic) {
+            (Some(tempo), false) => format!(
+                "Counts down {} s and waits for a tap",
+                tempo.seconds_per_rep()
+            ),
+            (Some(tempo), true) => {
+                format!("Counts down {} s and moves on", tempo.seconds_per_rep())
+            }
+            (None, false) => "Waits for a tap".to_string(),
+            (None, true) => "Is skipped".to_string(),
+        });
+    }
+    // "A short pause" covers the lead-in and the pause before the second set of a pair.
+    Some(
+        match (domain::SetPacing::new(reps, tempo, countdown), automatic) {
+            (domain::SetPacing::Untimed, _) => return None,
+            (domain::SetPacing::Countdown(seconds), false) => {
+                format!("Counts down {seconds} s after a tap and records the target")
+            }
+            (domain::SetPacing::Countdown(seconds), true) => {
+                format!("Counts down {seconds} s after a short pause and records the target")
+            }
+            (domain::SetPacing::Tempo, false) => {
+                "Plays the tempo from a tap on the bar until the set is recorded".to_string()
+            }
+            (domain::SetPacing::Tempo, true) => {
+                "Plays the tempo after a short pause until the set is recorded".to_string()
+            }
+        },
+    )
 }
 
 /// The recording of an activity edited to `reps`: the tapped one, otherwise the stored one while the
@@ -2035,22 +2097,26 @@ mod tests {
         assert!(!contains(&html, "button-select-countdown"));
     }
 
-    #[test]
-    fn test_an_invalid_tempo_disables_the_options_that_need_a_tempo() {
-        let html = render_activity_dialog(activity_with_tempo(5, &[3]), |dialog| {
-            if let EditDialog::EditActivity { tempo, .. } = dialog {
-                tempo[0].input = "x".to_string();
-                tempo[0].validated = Err("time must be an integer".to_string());
-            }
-        });
+    #[rstest::rstest]
+    #[case::without_tempo(activity(5), |_: &mut EditDialog| {})]
+    #[case::invalid_tempo(activity_with_tempo(5, &[3]), |dialog: &mut EditDialog| {
+        if let EditDialog::EditActivity { tempo, .. } = dialog {
+            tempo[0].input = "x".to_string();
+            tempo[0].validated = Err("time must be an integer".to_string());
+        }
+    })]
+    fn test_the_disabled_options_are_explained(
+        #[case] part: domain::RoutinePart,
+        #[case] modify: fn(&mut EditDialog),
+    ) {
+        let html = render_activity_dialog(part, modify);
 
         assert_eq!(
-            disabled_texts_of(&html, "button-select-automatic"),
-            ["Automatic"]
-        );
-        assert_eq!(
-            disabled_texts_of(&html, "button-select-countdown"),
-            ["Countdown"]
+            all_text_of(&html, "field-help"),
+            [
+                "Automatic start requires a tempo",
+                "Countdown requires a tempo"
+            ]
         );
     }
 
@@ -2098,6 +2164,93 @@ mod tests {
             all_attributes_of(&html, "dialog-save", "disabled") == vec!["true"],
             disabled
         );
+    }
+
+    #[test]
+    fn test_invalid_reps_hide_the_description() {
+        let html = render_activity_dialog(activity_with_tempo(5, &[3]), |dialog| {
+            if let EditDialog::EditActivity { reps, .. } = dialog {
+                reps.input = "x".to_string();
+                reps.validated = Err("reps must be an integer".to_string());
+            }
+        });
+
+        assert!(!contains(&html, "field-help"), "{html}");
+    }
+
+    #[rstest::rstest]
+    #[case::countdown_manual(
+        with_countdown(activity_with_tempo(5, &[3])),
+        false,
+        Some("Counts down 15 s after a tap and records the target")
+    )]
+    #[case::countdown_automatic(
+        with_countdown(activity_with_tempo(5, &[3])),
+        true,
+        Some("Counts down 15 s after a short pause and records the target")
+    )]
+    #[case::hold_manual(
+        with_countdown(activity_with_tempo(0, &[30])),
+        false,
+        Some("Counts down 30 s after a tap and records the target")
+    )]
+    #[case::hold_with_input_fields_manual(
+        activity_with_tempo(0, &[30]),
+        false,
+        Some("Plays the tempo from a tap on the bar until the set is recorded")
+    )]
+    #[case::tempo_manual(
+        activity_with_tempo(5, &[3]),
+        false,
+        Some("Plays the tempo from a tap on the bar until the set is recorded")
+    )]
+    #[case::tempo_automatic(
+        activity_with_tempo(5, &[3]),
+        true,
+        Some("Plays the tempo after a short pause until the set is recorded")
+    )]
+    #[case::rest_with_time_manual(
+        rest(&[60]),
+        false,
+        Some("Counts down 60 s and waits for a tap")
+    )]
+    #[case::rest_with_time_automatic(rest(&[60]), true, Some("Counts down 60 s and moves on"))]
+    #[case::rest_without_time_manual(rest(&[]), false, Some("Waits for a tap"))]
+    #[case::rest_without_time_automatic(rest(&[]), true, Some("Is skipped"))]
+    fn test_the_dialog_describes_the_activity_in_the_session(
+        #[case] part: domain::RoutinePart,
+        #[case] automatic: bool,
+        #[case] expected: Option<&str>,
+    ) {
+        let html = render_activity_dialog(with_automatic(part, automatic), |_| {});
+
+        assert_eq!(
+            contains(&html, "field-help").then(|| text_of(&html, "field-help")),
+            expected.map(str::to_string),
+            "{html}"
+        );
+    }
+
+    #[rstest::rstest]
+    #[case::reps(|dialog: &mut EditDialog| {
+        if let EditDialog::EditActivity { reps, .. } = dialog {
+            reps.input = "5".to_string();
+            reps.validated = Ok(domain::Reps::new(5).unwrap());
+        }
+    }, "Plays the tempo from a tap on the bar until the set is recorded")]
+    #[case::start(|dialog: &mut EditDialog| {
+        if let EditDialog::EditActivity { automatic, .. } = dialog {
+            automatic.input = true.to_string();
+            automatic.validated = Ok(true);
+        }
+    }, "Counts down 3 s after a short pause and records the target")]
+    fn test_the_description_follows_an_edit_of_the_dialog(
+        #[case] modify: fn(&mut EditDialog),
+        #[case] expected: &str,
+    ) {
+        let html = render_activity_dialog(with_countdown(activity_with_tempo(0, &[3])), modify);
+
+        assert_eq!(text_of(&html, "field-help"), expected);
     }
 
     #[rstest::rstest]

@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Updating of an exercise from the catalog through its options in the exercise list
     - Choice between a countdown and input fields for an activity that prescribes a tempo
     - Marker of an activity that is counted down
+    - Description of the behavior of an activity in the training session, shown in the activity dialog
 - Exercises page:
     - Stretched muscles of an exercise, edited next to the worked muscles
     - Filtering of exercises by their stretched muscles
@@ -75,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Routines page: Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start and the countdown of an activity where they differ from the default and the time per repetition with its unit
 - Routine page:
     - Label of the time of an activity without repetitions, which reads "Time"
-    - Automatic start of an activity without a tempo, which is disabled in the activity dialog instead of rejected with an error
+    - Automatic start of an activity without a tempo, which is disabled and explained in the activity dialog instead of rejected with an error
     - Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start and the countdown of an activity where they differ from the default and the time per repetition with its unit
     - Sets per muscle, leaving out muscles without sets
     - Routine, its training sessions and their charts on a tab each

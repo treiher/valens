@@ -2970,6 +2970,24 @@ def test_routine_edit(page: Page) -> None:
     assert section.get_rest_at(1) == RoutineRest(30)
 
 
+def test_routine_activity_dialog_describes_the_session_behavior(page: Page) -> None:
+    routine = USER.routines[0]
+
+    login(page)
+
+    p = RoutinePage(page, routine.id)
+    p.goto()
+    p.set_reps(0, 0, "5")
+    p.set_tempo(0, 0, "3")
+    p.wait_until_idle()
+
+    p.open_activity_edit_dialog(0, 0)
+    p.expect_activity_description("Plays the tempo from a tap on the bar until the set is recorded")
+
+    p.select_recording(countdown=True)
+    p.expect_activity_description("Counts down 15 s after a tap and records the target")
+
+
 def test_routine_activity_dialog_disables_the_options_that_need_a_tempo(page: Page) -> None:
     routine = USER.routines[0]
 
@@ -2987,6 +3005,7 @@ def test_routine_activity_dialog_disables_the_options_that_need_a_tempo(page: Pa
     p.enter_tempo("")
     p.expect_start(automatic=False, disabled=True)
     p.expect_recording(countdown=False, disabled=True)
+    p.expect_activity_hints("Automatic start requires a tempo", "Countdown requires a tempo")
 
     p.click_start(automatic=True)
     p.expect_start(automatic=False, disabled=True)

@@ -314,6 +314,8 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
     options: Vec<ButtonSelectOption<T>>,
     selected: T,
     error: Option<String>,
+    /// Shown while there is no error.
+    help: Option<String>,
     has_changed: bool,
     /// Distribute the options over the full width, wrapping labels that do not fit.
     #[props(default)]
@@ -343,6 +345,8 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
             }
             if let Some(ref error) = error {
                 p { class: "help is-danger", "{error}" }
+            } else if let Some(ref help) = help {
+                p { class: "help", "data-testid": "field-help", "{help}" }
             }
         }
     }
@@ -744,6 +748,43 @@ mod tests {
 
         assert!(!contains(&html, "help-content"));
         assert!(html.contains("Invalid"));
+    }
+
+    fn render_button_select_field(error: Option<String>) -> String {
+        render(move || {
+            let error = error.clone();
+            rsx! {
+                ButtonSelectField {
+                    label: "Start",
+                    options: vec![ButtonSelectOption {
+                        text: "Automatic".to_string(),
+                        icon: None,
+                        value: true,
+                        is_disabled: false,
+                    }],
+                    selected: true,
+                    error,
+                    help: "Is skipped",
+                    has_changed: false,
+                    on_click: |_| {},
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn test_button_select_field_shows_the_help_without_an_error() {
+        let html = render_button_select_field(None);
+
+        assert_eq!(text_of(&html, "field-help"), "Is skipped");
+    }
+
+    #[test]
+    fn test_button_select_field_replaces_the_help_by_an_error() {
+        let html = render_button_select_field(Some("invalid".to_string()));
+
+        assert!(!contains(&html, "field-help"), "{html}");
+        assert!(html.contains("Invalid"), "{html}");
     }
 
     fn render_text_area_field(errors: Vec<String>) -> String {

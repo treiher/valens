@@ -267,11 +267,14 @@ class RoutinePage(BasePage):
         self.dialog.save()
 
     def set_recording(self, section_idx: int, activity_idx: int, *, countdown: bool = True) -> None:
-        dialog = self._open_edit_dialog(section_idx, activity_idx)
-        dialog.get_by_test_id("button-select-countdown").get_by_text(
+        self._open_edit_dialog(section_idx, activity_idx)
+        self.select_recording(countdown=countdown)
+        self.dialog.save()
+
+    def select_recording(self, *, countdown: bool = True) -> None:
+        self.page.get_by_test_id("dialog").get_by_test_id("button-select-countdown").get_by_text(
             "Countdown" if countdown else "Input fields", exact=True
         ).click()
-        self.dialog.save()
 
     def enter_tempo(self, *phases: str) -> None:
         dialog = self.page.get_by_test_id("dialog")
@@ -307,6 +310,16 @@ class RoutinePage(BasePage):
             expect(option).to_have_attribute("disabled", "true")
         else:
             expect(option).not_to_have_attribute("disabled", "true")
+
+    def expect_activity_hints(self, *hints: str) -> None:
+        expect(self.page.get_by_test_id("dialog").get_by_test_id("field-help")).to_have_text(
+            list(hints)
+        )
+
+    def expect_activity_description(self, description: str) -> None:
+        expect(self.page.get_by_test_id("dialog").get_by_test_id("field-help")).to_have_text(
+            description
+        )
 
     def set_sides(self, section_idx: int, activity_idx: int, *, per_side: bool = True) -> None:
         dialog = self._open_edit_dialog(section_idx, activity_idx)

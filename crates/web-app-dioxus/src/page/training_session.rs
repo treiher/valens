@@ -1404,7 +1404,7 @@ fn view_form(
                     tr {
                         class: if is_current_section { "" } else { "is-semitransparent" },
                         td {
-                            class: "px-2",
+                            class: "px-2 has-text-centered",
                             class: if is_last_row_before_note { "pb-1" },
                             colspan: 6,
                             {view_measurement_row(&measurements, Some(eh!(mut edit_dialog; training_session; {
@@ -2246,11 +2246,6 @@ fn view_list(
 ) -> Element {
     let sections = training_session.compute_sections();
     let section_element_offsets = first_element_indices(&sections);
-    let record_marker = |element_idx: usize| {
-        record_sets
-            .get(&element_idx)
-            .map(|kind| view_record_marker(*kind))
-    };
     let rows = sections.iter().zip(section_element_offsets).map(|(section, first_element_idx)| {
         let exercise_ids = unique(section.exercise_ids());
         let exercise_ids_len = exercise_ids.len();
@@ -2286,7 +2281,7 @@ fn view_list(
                 if !measurements_are_empty {
                     tr {
                         td {
-                            class: "px-2",
+                            class: "px-2 has-text-centered",
                             class: if is_last_row_before_note { "pb-1" },
                             colspan: 6,
                             {view_measurement_row(&measurements, Some(eh!(mut edit_dialog; training_session; {
@@ -2321,154 +2316,13 @@ fn view_list(
             }
         });
 
-        let groups = section.groups();
-        let first_sides_group = groups
-            .iter()
-            .position(|group| matches!(group, domain::ElementGroup::Sides { .. }));
-        let sets = groups.into_iter().enumerate().map(|(group_idx, group)| {
-            let (element_idx, element) = match group {
-                domain::ElementGroup::Sides { left, right } => {
-                    let number = left
-                        .or(right)
-                        .and_then(|(_, element)| match element {
-                            domain::TrainingSessionElement::Set { exercise_id, .. } => {
-                                exercise_number(exercise_id, &exercise_ids)
-                            }
-                            domain::TrainingSessionElement::Rest { .. } => None,
-                        });
-                    return rsx! {
-                        if first_sides_group == Some(group_idx) {
-                            tr {
-                                "data-testid": "side-header",
-                                td {}
-                                th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Left" }
-                                th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Right" }
-                                td {}
-                            }
-                        }
-                        tr {
-                            "data-testid": "set-sides-row",
-                            td {
-                                class: "px-2 has-text-centered",
-                                if let Some(number) = number {
-                                    "{exercise_marker(number)}"
-                                }
-                            }
-                            for element in [left, right] {
-                                td {
-                                    class: "px-2 has-text-centered",
-                                    colspan: 2,
-                                    "data-testid": "set-side-values",
-                                    if let Some((element_idx, element)) = element {
-                                        span {
-                                            class: "icon-text is-flex-wrap-nowrap is-align-items-center",
-                                            span { {side_cell(element)} }
-                                            {record_marker(first_element_idx + element_idx)}
-                                        }
-                                    }
-                                }
-                            }
-                            td {}
-                        }
-                    };
-                }
-                domain::ElementGroup::Single(element_idx, element) => (element_idx, element),
-            };
-            rsx! {
-                match element {
-                    domain::TrainingSessionElement::Set { exercise_id, side, reps, time, weight, rpe, .. } => {
-                        let number = exercise_number(exercise_id, &exercise_ids);
-                        let alternating = *side == domain::Side::Alternating;
-                        rsx! {
-                            tr {
-                                if *reps == domain::Reps::default() && *time == domain::Time::default() && *weight == domain::Weight::default() && *rpe == domain::RPE::ZERO {
-                                    td {
-                                        class: "px-2 has-text-centered",
-                                        colspan: 6,
-                                        if number.is_some() || alternating {
-                                            span {
-                                                class: "pr-2",
-                                                if let Some(number) = number {
-                                                    "{exercise_marker(number)}"
-                                                }
-                                                if alternating {
-                                                    span { "data-testid": "set-side", "{side}" }
-                                                }
-                                                " "
-                                            }
-                                        }
-                                        span {
-                                            class: if number.is_some() || alternating { "pr-5" },
-                                            "–"
-                                        }
-                                    }
-                                } else {
-                                    td {
-                                        class: "px-2 has-text-centered",
-                                        if let Some(number) = number {
-                                            "{exercise_marker(number)}"
-                                        }
-                                        if alternating {
-                                            span { "data-testid": "set-side", "{side}" }
-                                        }
-                                    }
-                                    td {
-                                        class: "px-2 has-text-right",
-                                        if *reps > domain::Reps::default() {
-                                            if *weight > domain::Weight::default()
-                                                || *time > domain::Time::default()
-                                            {
-                                                "{reps} ×"
-                                            } else {
-                                                "{reps}"
-                                            }
-                                        }
-                                    }
-                                    td {
-                                        class: "px-2 has-text-right",
-                                        if *time > domain::Time::default() {
-                                            "{time} s"
-                                        }
-                                    }
-                                    td {
-                                        class: "px-2 has-text-right",
-                                        if *weight > domain::Weight::default() {
-                                            "{weight} kg"
-                                        }
-                                    }
-                                    td {
-                                        class: "px-2",
-                                        if *rpe > domain::RPE::ZERO {
-                                            " @ {rpe}"
-                                        }
-                                    }
-                                    td {
-                                        class: "px-1",
-                                        {record_marker(first_element_idx + element_idx)}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    domain::TrainingSessionElement::Rest { .. } => {
-                        rsx! {
-                            tr {
-                                td {
-                                    class: "p-1",
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        let groups = section_groups(section, first_element_idx);
+        let sets = view_set_rows(&groups, &exercise_ids, record_sets, true, true);
         rsx! {
             for name in exercise_names {
                 {name}
             }
-            for set in sets {
-                {set}
-            }
+            {sets}
         }
     });
 
@@ -2485,6 +2339,192 @@ fn view_list(
     }
 }
 
+/// The groups of `section`, their indices offset to those of the session by `first_element_idx`
+fn section_groups(
+    section: &domain::TrainingSessionSection,
+    first_element_idx: usize,
+) -> Vec<domain::ElementGroup<'_>> {
+    let offset = |element: Option<(usize, _)>| {
+        element.map(|(idx, element)| (first_element_idx + idx, element))
+    };
+    section
+        .groups()
+        .into_iter()
+        .map(|group| match group {
+            domain::ElementGroup::Sides { left, right } => domain::ElementGroup::Sides {
+                left: offset(left),
+                right: offset(right),
+            },
+            domain::ElementGroup::Single(idx, element) => {
+                domain::ElementGroup::Single(first_element_idx + idx, element)
+            }
+        })
+        .collect()
+}
+
+/// The rows of the sets and rests of `groups`, whose indices are those of the session, with a
+/// Left/Right header before the first pair
+///
+/// The rows have six columns: the exercise marker or side, the reps, the time, the weight, the RPE
+/// and the record marker.
+pub fn view_set_rows(
+    groups: &[domain::ElementGroup<'_>],
+    exercise_ids: &[domain::ExerciseID],
+    record_sets: &BTreeMap<usize, domain::RecordKind>,
+    show_time: bool,
+    show_rpe: bool,
+) -> Element {
+    let record_marker = |element_idx: usize| {
+        record_sets
+            .get(&element_idx)
+            .map(|kind| view_record_marker(*kind))
+    };
+    let first_sides_group = groups
+        .iter()
+        .position(|group| matches!(group, domain::ElementGroup::Sides { .. }));
+    let rows = groups.iter().enumerate().map(|(group_idx, group)| {
+        let (element_idx, element) = match *group {
+            domain::ElementGroup::Sides { left, right } => {
+                let number = left
+                    .or(right)
+                    .and_then(|(_, element)| match element {
+                        domain::TrainingSessionElement::Set { exercise_id, .. } => {
+                            exercise_number(exercise_id, exercise_ids)
+                        }
+                        domain::TrainingSessionElement::Rest { .. } => None,
+                    });
+                return rsx! {
+                    if first_sides_group == Some(group_idx) {
+                        tr {
+                            "data-testid": "side-header",
+                            td {}
+                            th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Left" }
+                            th { class: COLUMN_HEADER_CLASS, colspan: 2, scope: "col", "Right" }
+                            td {}
+                        }
+                    }
+                    tr {
+                        "data-testid": "set-sides-row",
+                        td {
+                            class: "px-2 has-text-centered",
+                            if let Some(number) = number {
+                                "{exercise_marker(number)}"
+                            }
+                        }
+                        for element in [left, right] {
+                            td {
+                                class: "px-2 has-text-centered",
+                                colspan: 2,
+                                "data-testid": "set-side-values",
+                                if let Some((element_idx, element)) = element {
+                                    span {
+                                        class: "icon-text is-flex-wrap-nowrap is-align-items-center",
+                                        span { {side_cell(element, show_time, show_rpe)} }
+                                        {record_marker(element_idx)}
+                                    }
+                                }
+                            }
+                        }
+                        td {}
+                    }
+                };
+            }
+            domain::ElementGroup::Single(element_idx, element) => (element_idx, element),
+        };
+        match element {
+            domain::TrainingSessionElement::Set { exercise_id, side, reps, time, weight, rpe, .. } => {
+                let number = exercise_number(exercise_id, exercise_ids);
+                let alternating = *side == domain::Side::Alternating;
+                rsx! {
+                    tr {
+                        "data-testid": "set-row",
+                        if !element.to_string(show_time, show_rpe).is_empty() {
+                            td {
+                                class: "px-2 has-text-centered",
+                                if let Some(number) = number {
+                                    "{exercise_marker(number)}"
+                                }
+                                if alternating {
+                                    span { "data-testid": "set-side", "{side}" }
+                                }
+                            }
+                            td {
+                                class: "px-2 has-text-right",
+                                if *reps > domain::Reps::default() {
+                                    if *weight > domain::Weight::default()
+                                        || (show_time && *time > domain::Time::default())
+                                    {
+                                        "{reps} ×"
+                                    } else {
+                                        "{reps}"
+                                    }
+                                }
+                            }
+                            td {
+                                class: "px-2 has-text-right",
+                                if show_time && *time > domain::Time::default() {
+                                    "{time} s"
+                                }
+                            }
+                            td {
+                                class: "px-2 has-text-right",
+                                if *weight > domain::Weight::default() {
+                                    "{weight} kg"
+                                }
+                            }
+                            td {
+                                class: "px-2",
+                                if show_rpe && *rpe > domain::RPE::ZERO {
+                                    " @ {rpe}"
+                                }
+                            }
+                            td {
+                                class: "px-1",
+                                {record_marker(element_idx)}
+                            }
+                        } else {
+                            td {
+                                class: "px-2 has-text-centered",
+                                colspan: 6,
+                                if number.is_some() || alternating {
+                                    span {
+                                        class: "pr-2",
+                                        if let Some(number) = number {
+                                            "{exercise_marker(number)}"
+                                        }
+                                        if alternating {
+                                            span { "data-testid": "set-side", "{side}" }
+                                        }
+                                        " "
+                                    }
+                                }
+                                span {
+                                    class: if number.is_some() || alternating { "pr-5" },
+                                    "–"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            domain::TrainingSessionElement::Rest { .. } => {
+                rsx! {
+                    tr {
+                        td {
+                            class: "p-1",
+                        }
+                    }
+                }
+            }
+        }
+    });
+    rsx! {
+        for row in rows {
+            {row}
+        }
+    }
+}
+
 /// The session index of the first element of each section.
 fn first_element_indices(sections: &[domain::TrainingSessionSection]) -> Vec<usize> {
     sections
@@ -2497,9 +2537,10 @@ fn first_element_indices(sections: &[domain::TrainingSessionSection]) -> Vec<usi
         .collect()
 }
 
-/// The values of a set with a side, stating the time and the rating whenever they are set.
-fn side_cell(element: &domain::TrainingSessionElement) -> String {
-    let values = element.to_string(true, true);
+/// The values of a set with a side, stating the time and the rating whenever they are set and
+/// shown
+fn side_cell(element: &domain::TrainingSessionElement, show_time: bool, show_rpe: bool) -> String {
+    let values = element.to_string(show_time, show_rpe);
     if values.is_empty() {
         "–".to_string()
     } else {
@@ -3289,7 +3330,6 @@ pub fn view_measurement_row(
     let text = measurement_values_to_string(values);
     rsx! {
         div {
-            class: "has-text-centered",
             class: if on_click.is_some() { "is-clickable" },
             "data-testid": "session-exercise-measurement",
             "aria-label": "Measurement",
@@ -3732,6 +3772,44 @@ mod tests {
                 vec!["", "", "10 × 50 kg @ 8 (30 s)", ""],
             ]
         );
+    }
+
+    #[test]
+    fn test_each_section_with_a_pair_has_a_side_header() {
+        let set = |exercise_id: u128, side| {
+            let mut set = recorded_set(1);
+            if let domain::TrainingSessionElement::Set {
+                exercise_id: set_exercise_id,
+                side: set_side,
+                ..
+            } = &mut set
+            {
+                *set_exercise_id = exercise_id.into();
+                *set_side = side;
+            }
+            set
+        };
+        let html = render_training_session(1, web_app::Settings::default(), move || {
+            recorded_session().with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![
+                    set(1, domain::Side::Left),
+                    set(1, domain::Side::Right),
+                    rest(),
+                    set(2, domain::Side::Unset),
+                    rest(),
+                    set(1, domain::Side::Left),
+                    set(1, domain::Side::Right),
+                ],
+                exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
+            }])
+        });
+
+        assert_eq!(all_text_of(&html, "side-header").len(), 2);
     }
 
     #[test]

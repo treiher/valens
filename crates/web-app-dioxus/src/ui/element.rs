@@ -663,11 +663,13 @@ pub fn Tabs<T: Clone + PartialEq + 'static>(
 
 #[component]
 pub fn Table(head: Option<Vec<Element>>, body: Vec<Vec<Element>>) -> Element {
+    let is_list = head.is_none();
     rsx! {
         div {
             class: "table-container mt-4",
             table {
                 class: "table is-fullwidth is-hoverable",
+                class: if is_list { "is-list" },
                 "data-testid": "table",
                 if let Some(head) = head {
                     thead {

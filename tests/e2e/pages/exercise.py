@@ -28,7 +28,9 @@ class ExercisePage(BasePage):
     def get_set_history_sides(self) -> list[list[str]]:
         return [
             [get_text(cell) for cell in row.locator("th, td").all()]
-            for row in self.page.get_by_test_id("set-history-sides").locator("tr").all()
+            for row in self.page.get_by_test_id("side-header")
+            .or_(self.page.get_by_test_id("set-sides-row"))
+            .all()
         ]
 
     def get_personal_records(self) -> list[list[str]]:

@@ -375,7 +375,7 @@ pub fn view_table(
                 a {
                     class: "mx-2",
                     "data-testid": "item-delete",
-                    onclick: move |_| { *dialog.write() = TrainingDialog::Delete(t.clone()); },
+                    onclick: move |_| { *dialog.write() = TrainingDialog::Delete { id: t.id, date: t.date }; },
                     Icon { name: "xmark"}
                 }
             });
@@ -386,6 +386,58 @@ pub fn view_table(
     rsx! {
         Table { head, body }
     }
+}
+
+/// The cells of a session in a `Table`: the date and the routine of the session above `body`, and
+/// a delete icon
+///
+/// The routine is shown if it is one of `routines`.
+pub fn view_session_item(
+    training_session: &domain::TrainingSession,
+    routines: &[domain::Routine],
+    mut dialog: Signal<TrainingDialog>,
+    body: Element,
+) -> Vec<Element> {
+    let id = training_session.id;
+    let date = training_session.date;
+    let routine = routines
+        .iter()
+        .find(|r| r.id == training_session.routine_id);
+    vec![
+        rsx! {
+            div {
+                class: "has-text-left",
+                "data-testid": "session-item",
+                div {
+                    class: "has-text-weight-bold",
+                    "data-testid": "session-title",
+                    Link {
+                        to: Route::TrainingSession { id },
+                        NoWrap { "{date}" }
+                    }
+                    if let Some(routine) = routine {
+                        " · "
+                        Link {
+                            to: Route::Routine { id: routine.id, tab: RoutineTab::Routine },
+                            "{routine.name}"
+                        }
+                    }
+                }
+                {body}
+            }
+        },
+        rsx! {
+            div {
+                class: "has-text-right",
+                a {
+                    class: "mx-2",
+                    "data-testid": "item-delete",
+                    onclick: move |_| { *dialog.write() = TrainingDialog::Delete { id, date }; },
+                    Icon { name: "xmark"}
+                }
+            }
+        },
+    ]
 }
 
 pub fn view_dialog(
@@ -435,8 +487,7 @@ pub fn view_dialog(
         async move {
             let mut deleted = false;
             is_loading! {
-                if let TrainingDialog::Delete(training_session) = &*dialog.read() {
-                    let id = training_session.id;
+                if let TrainingDialog::Delete { id, .. } = *dialog.read() {
                     match DOMAIN_SERVICE().delete_training_session(id).await {
                         Ok(()) => {
                             deleted = true;
@@ -515,10 +566,10 @@ pub fn view_dialog(
                 }
             }
         }
-        TrainingDialog::Delete(training_session) => rsx! {
+        TrainingDialog::Delete { date, .. } => rsx! {
             DeleteConfirmationDialog {
                 element_type: "training session".to_string(),
-                element_name: rsx! { span { "of " NoWrap { "{training_session.date}" } } },
+                element_name: rsx! { span { "of " NoWrap { "{date}" } } },
                 on_delete: delete,
                 on_cancel: close,
                 is_loading: is_loading(),
@@ -574,7 +625,10 @@ pub enum TrainingDialog {
         date: FieldValue<NaiveDate>,
         routine_id: FieldValue<domain::RoutineID>,
     },
-    Delete(domain::TrainingSession),
+    Delete {
+        id: domain::TrainingSessionID,
+        date: NaiveDate,
+    },
 }
 
 #[cfg(test)]

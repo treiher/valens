@@ -2110,8 +2110,8 @@ def test_training_session_side_of_a_recorded_set(page: Page) -> None:
     exercise_page.select_tab("sessions")
 
     rows = exercise_page.get_set_history_sides()
-    assert rows[0] == ["Left", "Right"]
-    assert len(rows[1]) == 2
+    assert rows[0] == ["", "Left", "Right", ""]
+    assert len(rows[1]) == 4
 
 
 def test_training_session_personal_record(page: Page) -> None:

@@ -496,7 +496,7 @@ fn view_training_sessions(
                 } else {
                     {view_calendar(id, &training_sessions, &stretch_only, interval)}
                     {page::training_sessions::view_table(&training_sessions, &stretch_only, stretch_metrics, show_time, routines, interval, training_dialog, settings)}
-                    {view_sets(id, &sessions_with_exercise, personal_records, routines, show_time, settings)}
+                    {view_sets(id, &sessions_with_exercise, personal_records, routines, show_time, settings, training_dialog)}
                     {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                 }
             }
@@ -987,11 +987,12 @@ fn view_notes(
     }
 }
 
-/// Renders the sets of an exercise per training session, the sets of a session holding sets of the
-/// left or the right side in a left and a right column, and an alternating set preceded by "L+R".
+/// Renders the performed sets of an exercise as a list of its training sessions.
 ///
 /// The training sessions carry all their elements, since a left and a right set form a pair only
-/// where they directly follow each other in the whole session.
+/// where they directly follow each other in the whole session, and the record sets are indexed by
+/// the elements of the whole session.
+#[allow(clippy::too_many_arguments)]
 fn view_sets(
     exercise_id: domain::ExerciseID,
     training_sessions: &[&domain::TrainingSession],
@@ -999,137 +1000,80 @@ fn view_sets(
     routines: &[domain::Routine],
     show_time: bool,
     settings: Settings,
+    training_dialog: Signal<page::training_sessions::TrainingDialog>,
 ) -> Element {
-    let blocks = training_sessions.iter().rev().flat_map(|t| {
-        let record_sets = personal_records.record_sets(t.id);
-        let routine = routines.iter().find(|r| r.id == t.routine_id);
-        let routine_id = routine.map(|r| r.id).unwrap_or_default();
-        let note = t
-            .exercise_notes
-            .get(&exercise_id)
-            .cloned()
-            .unwrap_or_default();
-        let measurements = t.measurements_of(exercise_id);
-        let rows = t
-            .set_history_rows(exercise_id)
-            .into_iter()
-            .map(|row| (matches!(row, domain::SetHistoryRow::Alternating(..)), row))
-            .collect::<Vec<_>>();
-        let has_sides = rows
-            .iter()
-            .any(|(_, row)| matches!(row, domain::SetHistoryRow::Sides { .. }));
-        let values = |set: Option<&(usize, domain::Set)>, alternating: bool| {
-            let Some((element_idx, set)) = set else {
-                return rsx! {};
-            };
-            let prefix = if alternating {
-                format!("{} ", domain::Side::Alternating)
-            } else {
-                String::new()
-            };
-            rsx! {
-                span {
-                    class: "icon-text is-flex-wrap-nowrap is-align-items-center",
-                    NoWrap { "{prefix}{set.to_string(show_time, settings.show_rpe())}" }
-                    if let Some(kind) = record_sets.get(element_idx) {
-                        {page::training_session::view_record_marker(*kind)}
-                    }
-                }
-            }
-        };
-        let sets = if has_sides {
-            rsx! {
-                table {
-                    class: "mx-auto",
-                    "data-testid": "set-history-sides",
-                    tr {
-                        th { class: page::training_session::COLUMN_HEADER_CLASS, "Left" }
-                        th { class: page::training_session::COLUMN_HEADER_CLASS, "Right" }
-                    }
-                    for (alternating, row) in rows {
-                        tr {
-                            match row {
-                                domain::SetHistoryRow::Sides { left, right } => rsx! {
-                                    td { class: "px-2 has-text-centered", {values(left.as_ref(), false)} }
-                                    td { class: "px-2 has-text-centered", {values(right.as_ref(), false)} }
-                                },
-                                domain::SetHistoryRow::Combined(element_idx, set)
-                                | domain::SetHistoryRow::Alternating(element_idx, set) => rsx! {
-                                    td {
-                                        class: "px-2 has-text-centered",
-                                        colspan: 2,
-                                        {values(Some(&(element_idx, set)), alternating)}
-                                    }
-                                },
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            rsx! {
-                for (alternating, row) in rows {
-                    if let domain::SetHistoryRow::Combined(element_idx, set)
-                    | domain::SetHistoryRow::Alternating(element_idx, set) = row
-                    {
-                        div {
-                            "data-testid": "set-history-set",
-                            {values(Some(&(element_idx, set)), alternating)}
-                        }
-                    }
-                }
-            }
-        };
-        [
-            rsx! {
-                div {
-                    class: "block has-text-centered has-text-weight-bold mb-2",
-                    Link {
-                        to: Route::TrainingSession { id: t.id },
-                        NoWrap { "{t.date}" }
-                    }
-                    " "
-                    if routine_id.is_nil() {
-                        "-"
-                    } else {
-                        Link {
-                            to: Route::Routine { id: routine_id, tab: RoutineTab::Routine },
-                            match routine {
-                                Some(routine) => rsx! { {routine.name.to_string()} },
-                                None => rsx! { "-" }
-                            }
-                        }
-                    }
-                }
-                if !measurements.is_empty() {
-                    div {
-                        class: "mb-2",
+    let body = training_sessions
+        .iter()
+        .rev()
+        .map(|t| {
+            let record_sets = personal_records.record_sets(t.id);
+            let note = t
+                .exercise_notes
+                .get(&exercise_id)
+                .cloned()
+                .unwrap_or_default();
+            let measurements = t.measurements_of(exercise_id);
+            let groups = t
+                .groups()
+                .into_iter()
+                .filter_map(|group| performed_sets_of(group, exercise_id))
+                .collect::<Vec<_>>();
+            page::training_sessions::view_session_item(
+                t,
+                routines,
+                training_dialog,
+                rsx! {
+                    if !measurements.is_empty() {
                         {page::training_session::view_measurement_row(
                             &measurements,
                             None::<fn(MouseEvent)>,
                         )}
                     }
-                }
-                if !note.is_empty() {
-                    div {
-                        class: "is-italic has-text-centered mb-2",
-                        "data-testid": "session-exercise-notes",
-                        { note.clone() }
+                    if !note.is_empty() {
+                        div {
+                            class: "is-italic",
+                            "data-testid": "session-exercise-notes",
+                            {note}
+                        }
                     }
-                }
-            },
-            rsx! {
-                div {
-                    class: "block has-text-centered",
-                    {sets}
-                }
-            },
-        ]
-    });
+                    table {
+                        "data-testid": "set-history-sets",
+                        {page::training_session::view_set_rows(
+                            &groups,
+                            &[],
+                            &record_sets,
+                            show_time,
+                            settings.show_rpe(),
+                        )}
+                    }
+                },
+            )
+        })
+        .collect::<Vec<_>>();
 
     rsx! {
-        for b in blocks {
-            {b}
+        Table { body }
+    }
+}
+
+/// The performed sets of `exercise_id` in `group`, if any
+fn performed_sets_of(
+    group: domain::ElementGroup<'_>,
+    exercise_id: domain::ExerciseID,
+) -> Option<domain::ElementGroup<'_>> {
+    let is_performed_set = |(_, element): &(usize, &domain::TrainingSessionElement)| {
+        matches!(element, domain::TrainingSessionElement::Set { exercise_id: id, .. } if *id == exercise_id)
+            && !element.is_empty()
+    };
+    match group {
+        domain::ElementGroup::Sides { left, right } => {
+            let left = left.filter(is_performed_set);
+            let right = right.filter(is_performed_set);
+            (left.is_some() || right.is_some())
+                .then_some(domain::ElementGroup::Sides { left, right })
+        }
+        domain::ElementGroup::Single(idx, element) => {
+            is_performed_set(&(idx, element)).then_some(group)
         }
     }
 }
@@ -1315,7 +1259,7 @@ mod tests {
 
         assert_eq!(attribute_of(&html, "tab-sessions", "data-selected"), "true");
         assert!(contains(&html, "table"));
-        assert!(contains(&html, "set-history-set"));
+        assert!(contains(&html, "set-row"));
         assert!(!contains(&html, "chart"));
         assert!(!contains(&html, "muscle-tag"));
     }
@@ -1429,19 +1373,44 @@ mod tests {
     }
 
     fn render_exercise_with_sets(elements: Vec<domain::TrainingSessionElement>) -> String {
-        render_tab(1, ExerciseTab::Sessions, move || {
+        render_exercise_with_sets_and_settings(elements, web_app::Settings::default())
+    }
+
+    fn render_exercise_with_sets_and_settings(
+        elements: Vec<domain::TrainingSessionElement>,
+        settings: web_app::Settings,
+    ) -> String {
+        render(move || {
             TestCache::default()
-                .with_exercises(vec![exercise(1, "Lunge")])
+                .with_exercises(vec![exercise(1, "Lunge"), exercise(2, "Squat")])
                 .with_training_sessions(vec![domain::TrainingSession {
                     id: 1.into(),
                     routine_id: domain::RoutineID::nil(),
-                    date: chrono::Local::now().date_naive(),
+                    date: chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap(),
                     notes: String::new(),
                     elements: elements.clone(),
                     exercise_notes: BTreeMap::new(),
                     exercise_measurements: std::collections::BTreeMap::new(),
                 }])
+                .provide();
+            provide_settings(settings);
+            rsx! { Exercise { id: domain::ExerciseID::from(1), tab: ExerciseTab::Sessions } }
         })
+    }
+
+    fn set_of_other_exercise() -> domain::TrainingSessionElement {
+        let mut set = performed_set(domain::Side::Unset, 5);
+        if let domain::TrainingSessionElement::Set { exercise_id, .. } = &mut set {
+            *exercise_id = 2.into();
+        }
+        set
+    }
+
+    fn rest() -> domain::TrainingSessionElement {
+        domain::TrainingSessionElement::Rest {
+            target_time: domain::Time::default(),
+            automatic: false,
+        }
     }
 
     #[test]
@@ -1454,12 +1423,12 @@ mod tests {
         ]);
 
         assert_eq!(
-            rows_of(&html, "set-history-sides"),
+            rows_of(&html, "set-history-sets"),
             vec![
-                vec!["Left", "Right"],
-                vec!["10", "9"],
-                vec!["", "8"],
-                vec!["7"],
+                vec!["", "Left", "Right", ""],
+                vec!["", "10", "9", ""],
+                vec!["", "", "8", ""],
+                vec!["", "7", "", "", "", ""],
             ]
         );
     }
@@ -1489,18 +1458,24 @@ mod tests {
     }
 
     #[test]
-    fn test_the_set_history_of_alternating_sets_only_is_a_single_column() {
+    fn test_the_set_history_of_alternating_sets_only_has_no_side_header() {
         let html = render_exercise_with_sets(vec![
             performed_set(domain::Side::Alternating, 20),
             performed_set(domain::Side::Unset, 10),
         ]);
 
-        assert!(!contains(&html, "set-history-sides"));
-        assert_eq!(all_text_of(&html, "set-history-set"), vec!["L+R 20", "10"]);
+        assert!(!contains(&html, "side-header"));
+        assert_eq!(
+            rows_of(&html, "set-history-sets"),
+            vec![
+                vec!["L+R", "20", "", "", "", ""],
+                vec!["", "10", "", "", "", ""],
+            ]
+        );
     }
 
     #[test]
-    fn test_the_set_history_spans_an_alternating_set_over_both_columns() {
+    fn test_the_set_history_shows_an_alternating_set_after_a_pair_like_a_set_without_a_side() {
         let html = render_exercise_with_sets(vec![
             performed_set(domain::Side::Left, 10),
             performed_set(domain::Side::Right, 9),
@@ -1508,20 +1483,156 @@ mod tests {
         ]);
 
         assert_eq!(
-            rows_of(&html, "set-history-sides"),
-            vec![vec!["Left", "Right"], vec!["10", "9"], vec!["L+R 20"]]
+            rows_of(&html, "set-history-sets"),
+            vec![
+                vec!["", "Left", "Right", ""],
+                vec!["", "10", "9", ""],
+                vec!["L+R", "20", "", "", "", ""],
+            ]
         );
     }
 
     #[test]
-    fn test_the_set_history_without_sides_is_a_single_column() {
+    fn test_the_set_history_without_sides_has_no_side_header() {
         let html = render_exercise_with_sets(vec![
             performed_set(domain::Side::Unset, 10),
             performed_set(domain::Side::Unset, 9),
         ]);
 
-        assert!(!contains(&html, "set-history-sides"));
-        assert_eq!(all_text_of(&html, "set-history-set"), vec!["10", "9"]);
+        assert!(!contains(&html, "side-header"));
+        assert_eq!(
+            rows_of(&html, "set-history-sets"),
+            vec![
+                vec!["", "10", "", "", "", ""],
+                vec!["", "9", "", "", "", ""],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_a_row_of_the_set_history_has_the_date_and_a_delete_icon() {
+        let html = render_exercise_with_sets(vec![performed_set(domain::Side::Unset, 10)]);
+
+        assert_eq!(text_of(&html, "session-title"), "2026-11-02");
+        assert!(contains(&html, "item-delete"));
+    }
+
+    #[rstest::rstest]
+    #[case::shown(true, vec!["", "10 ×", "30 s", "", "@ 8", ""])]
+    #[case::hidden(false, vec!["", "10", "", "", "", ""])]
+    fn test_the_set_history_shows_the_time_and_the_rpe_following_the_settings(
+        #[case] shown: bool,
+        #[case] expected: Vec<&str>,
+    ) {
+        let mut set = performed_set(domain::Side::Unset, 10);
+        if let domain::TrainingSessionElement::Set { time, rpe, .. } = &mut set {
+            *time = domain::Time::new(30).unwrap();
+            *rpe = domain::RPE::EIGHT;
+        }
+        let html = render_exercise_with_sets_and_settings(
+            vec![set],
+            web_app::Settings {
+                show_rpe: shown,
+                show_tut: shown,
+                ..web_app::Settings::default()
+            },
+        );
+
+        assert_eq!(rows_of(&html, "set-history-sets"), vec![expected]);
+    }
+
+    #[test]
+    fn test_a_set_whose_values_are_all_hidden_shows_a_dash() {
+        let sets = [domain::Side::Unset, domain::Side::Left].map(|side| {
+            let mut set = performed_set(side, 0);
+            if let domain::TrainingSessionElement::Set { time, rpe, .. } = &mut set {
+                *time = domain::Time::new(30).unwrap();
+                *rpe = domain::RPE::EIGHT;
+            }
+            set
+        });
+        let html = render_exercise_with_sets_and_settings(
+            sets.to_vec(),
+            web_app::Settings {
+                show_rpe: false,
+                show_tut: false,
+                ..web_app::Settings::default()
+            },
+        );
+
+        assert_eq!(
+            rows_of(&html, "set-history-sets"),
+            vec![
+                vec!["–"],
+                vec!["", "Left", "Right", ""],
+                vec!["", "–", "", ""],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_the_set_history_leaves_out_rests_and_unperformed_sets() {
+        let html = render_exercise_with_sets(vec![
+            performed_set(domain::Side::Unset, 10),
+            rest(),
+            performed_set(domain::Side::Unset, 0),
+            performed_set(domain::Side::Left, 0),
+            performed_set(domain::Side::Right, 8),
+            performed_set(domain::Side::Left, 0),
+            performed_set(domain::Side::Right, 0),
+        ]);
+
+        assert_eq!(
+            rows_of(&html, "set-history-sets"),
+            vec![
+                vec!["", "10", "", "", "", ""],
+                vec!["", "Left", "Right", ""],
+                vec!["", "", "8", ""],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_sides_separated_by_another_exercise_or_a_rest_stay_in_rows_of_their_own() {
+        let html = render_exercise_with_sets(vec![
+            performed_set(domain::Side::Left, 10),
+            set_of_other_exercise(),
+            performed_set(domain::Side::Right, 9),
+            rest(),
+            performed_set(domain::Side::Left, 8),
+        ]);
+
+        assert_eq!(
+            rows_of(&html, "set-history-sets"),
+            vec![
+                vec!["", "Left", "Right", ""],
+                vec!["", "10", "", ""],
+                vec!["", "", "9", ""],
+                vec!["", "8", "", ""],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_a_session_with_pairs_in_two_sections_shows_one_side_header() {
+        let html = render_exercise_with_sets(vec![
+            performed_set(domain::Side::Left, 10),
+            performed_set(domain::Side::Right, 9),
+            rest(),
+            set_of_other_exercise(),
+            rest(),
+            performed_set(domain::Side::Left, 8),
+            performed_set(domain::Side::Right, 7),
+        ]);
+
+        assert_eq!(
+            rows_of(&html, "set-history-sets"),
+            vec![
+                vec!["", "Left", "Right", ""],
+                vec!["", "10", "9", ""],
+                vec!["", "8", "7", ""],
+            ]
+        );
     }
 
     /// Render `tab` of the page of an exercise stretching the hamstrings and working them at
@@ -1579,7 +1690,7 @@ mod tests {
         let charts = render_stretch(stimulus, ExerciseTab::Charts);
         let head = &rows_of(&html, "table")[0];
 
-        assert_eq!(text_of(&html, "set-history-set").contains("60 s"), expected);
+        assert_eq!(text_of(&html, "set-row").contains("60 s"), expected);
         assert_eq!(charts.contains("Time under tension (s)"), expected);
         assert_eq!(head.contains(&"TUT".to_string()), expected);
         assert_eq!(head.contains(&"Time (s)".to_string()), expected);
@@ -2172,7 +2283,7 @@ mod tests {
             session(3, 0, vec![reps(15)]),
         ]);
 
-        assert_eq!(all_text_of(&html, "set-history-set"), ["15", "10"]);
+        assert_eq!(all_text_of(&html, "set-row"), ["15", "10"]);
         assert!(!contains(&html, "personal-record"));
         assert!(!contains(&html, "recent-personal-record"));
     }
@@ -2185,7 +2296,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            all_containing(&html, "set-history-set", "personal-record"),
+            all_containing(&html, "set-row", "personal-record"),
             [true, false, false]
         );
     }
@@ -2199,7 +2310,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            all_containing(&html, "set-history-set", "recent-personal-record"),
+            all_containing(&html, "set-row", "recent-personal-record"),
             [true, false]
         );
         assert!(!contains(&html, "personal-record"));
@@ -2227,8 +2338,8 @@ mod tests {
         ]);
 
         assert_eq!(
-            rows_containing(&html, "set-history-sides", "personal-record")[1],
-            [false, true]
+            rows_containing(&html, "set-history-sets", "personal-record")[1],
+            [false, false, true, false]
         );
     }
 
@@ -2256,7 +2367,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            all_containing(&html, "set-history-set", "personal-record"),
+            all_containing(&html, "set-row", "personal-record"),
             [false, true, false]
         );
     }

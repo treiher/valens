@@ -56,8 +56,8 @@ pub use training::{
 };
 pub use training_session::{
     ElementGroup, ElementMap, ElementMove, OfferedSets, PreviousExerciseMeasurement,
-    RecentSessionSets, Set, SetHistoryRow, TrainingSession, TrainingSessionElement,
-    TrainingSessionID, TrainingSessionRepository, TrainingSessionSection, TrainingSessionService,
+    RecentSessionSets, Set, TrainingSession, TrainingSessionElement, TrainingSessionID,
+    TrainingSessionRepository, TrainingSessionSection, TrainingSessionService,
     most_recent_best_set_for_one_rep_max,
 };
 pub use user::{Role, Sex, User, UserID, UserRepository, UserService};

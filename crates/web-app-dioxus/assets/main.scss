@@ -545,6 +545,20 @@ div.is-calendar {
     border: 0;
 }
 
+// A table without a head is a list, whose text has the normal colour of the page.
+.table.is-list {
+    --bulma-table-color: var(--bulma-text);
+}
+
+// Bulma styles the cells of `.table` by descendant selectors, which would also reach the cells
+// of a table nested in a cell.
+.table table td,
+.table table th {
+    border: 0;
+    padding: 0;
+    vertical-align: inherit;
+}
+
 // Equally wide value fields, so that the columns of the sets line up with their labels. The
 // width follows the character width of the font, so that the longest value fits into a field
 // whatever font the browser uses. The horizontal padding is reduced to keep the fields narrow.

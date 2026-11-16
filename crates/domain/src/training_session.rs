@@ -1285,34 +1285,12 @@ impl TrainingSession {
         }
     }
 
-    /// Returns the sets of `exercise_id` as rows of a history, grouped as by `groups`.
+    /// Returns the groups of the elements, each element with its index in the session.
     #[must_use]
-    pub fn set_history_rows(&self, exercise_id: ExerciseID) -> Vec<SetHistoryRow> {
-        let set = |(idx, element): (usize, &TrainingSessionElement)| Some((idx, element.set()?));
-        self.paired_sets()
+    pub fn groups(&self) -> Vec<ElementGroup<'_>> {
+        groups(&self.elements)
             .into_iter()
-            .filter(|group| {
-                matches!(self.elements[group.start], TrainingSessionElement::Set { exercise_id: id, .. } if id == exercise_id)
-            })
-            .filter_map(|group| match ElementGroup::of(&self.elements, group) {
-                ElementGroup::Sides { left, right } => Some(SetHistoryRow::Sides {
-                    left: left.and_then(set),
-                    right: right.and_then(set),
-                }),
-                ElementGroup::Single(idx, element) => element.set().map(|set| {
-                    if matches!(
-                        element,
-                        TrainingSessionElement::Set {
-                            side: Side::Alternating,
-                            ..
-                        }
-                    ) {
-                        SetHistoryRow::Alternating(idx, set)
-                    } else {
-                        SetHistoryRow::Combined(idx, set)
-                    }
-                }),
-            })
+            .map(|group| ElementGroup::of(&self.elements, group))
             .collect()
     }
 
@@ -1322,19 +1300,6 @@ impl TrainingSession {
         groups(&self.elements)
             .iter()
             .any(|group| group.len() == 2 && group.end == element_idx + 1)
-    }
-
-    /// Returns the ranges of the sets in order, grouped as by `groups`.
-    fn paired_sets(&self) -> Vec<Range<usize>> {
-        groups(&self.elements)
-            .into_iter()
-            .filter(|group| {
-                matches!(
-                    self.elements[group.start],
-                    TrainingSessionElement::Set { .. }
-                )
-            })
-            .collect()
     }
 
     #[must_use]
@@ -1631,20 +1596,6 @@ impl Set {
             },
         )
     }
-}
-
-/// A row of the set history of an exercise, each set with its element index in the session.
-#[derive(Debug, Clone, PartialEq)]
-pub enum SetHistoryRow {
-    /// The sets of a pair, or a set with a side whose other side is missing.
-    Sides {
-        left: Option<(usize, Set)>,
-        right: Option<(usize, Set)>,
-    },
-    /// A set without a side.
-    Combined(usize, Set),
-    /// An alternating set.
-    Alternating(usize, Set),
 }
 
 /// A group of elements as formed by `groups`, each element with its index in the elements grouped.
@@ -5039,7 +4990,7 @@ mod tests {
     )]
     #[case::sides_split_by_a_rest(
         &[sided_set(1, Side::Left, 5, RPE::ZERO), rest(60), sided_set(1, Side::Right, 5, RPE::ZERO)],
-        vec![vec![0], vec![2]]
+        vec![vec![0], vec![1], vec![2]]
     )]
     #[case::two_left_sets_followed_by_two_right_sets(
         &[
@@ -5058,13 +5009,13 @@ mod tests {
             sided_set(1, Side::Left, 5, RPE::ZERO),
             sided_set(1, Side::Right, 5, RPE::ZERO),
         ],
-        vec![vec![0], vec![1], vec![3, 4]]
+        vec![vec![0], vec![1], vec![2], vec![3, 4]]
     )]
     #[case::side_less_sets(
         &[set(1, 5, 0.0, RPE::ZERO), set(1, 5, 0.0, RPE::ZERO)],
         vec![vec![0], vec![1]]
     )]
-    fn test_training_session_paired_sets(
+    fn test_training_session_groups(
         #[case] elements: &[TrainingSessionElement],
         #[case] expected: Vec<Vec<usize>>,
     ) {
@@ -5072,11 +5023,42 @@ mod tests {
 
         assert_eq!(
             session
-                .paired_sets()
+                .groups()
                 .into_iter()
-                .map(Iterator::collect::<Vec<_>>)
+                .map(|group| {
+                    let mut indices = match group {
+                        ElementGroup::Sides { left, right } => [left, right]
+                            .into_iter()
+                            .flatten()
+                            .map(|(idx, _)| idx)
+                            .collect(),
+                        ElementGroup::Single(idx, _) => vec![idx],
+                    };
+                    indices.sort_unstable();
+                    indices
+                })
                 .collect::<Vec<_>>(),
             expected
+        );
+    }
+
+    #[test]
+    fn test_training_session_groups_place_each_set_by_its_side() {
+        let session = training_session(&[
+            sided_set(1, Side::Right, 5, RPE::ZERO),
+            sided_set(1, Side::Left, 6, RPE::ZERO),
+            sided_set(1, Side::Alternating, 7, RPE::ZERO),
+        ]);
+
+        assert_eq!(
+            session.groups(),
+            [
+                ElementGroup::Sides {
+                    left: Some((1, &session.elements[1])),
+                    right: Some((0, &session.elements[0])),
+                },
+                ElementGroup::Single(2, &session.elements[2]),
+            ]
         );
     }
 
@@ -5720,58 +5702,6 @@ mod tests {
         ]);
 
         assert_eq!(session.completes_pair(element_idx), expected);
-    }
-
-    #[test]
-    fn test_training_session_set_history_rows() {
-        let session = training_session(&[
-            sided_set(1, Side::Left, 5, RPE::ZERO),
-            sided_set(1, Side::Right, 6, RPE::ZERO),
-            set(2, 5, 0.0, RPE::ZERO),
-            rest(60),
-            sided_set(1, Side::Left, 7, RPE::ZERO),
-            rest(60),
-            set(3, 5, 0.0, RPE::ZERO),
-            rest(60),
-            sided_set(1, Side::Right, 8, RPE::ZERO),
-            rest(60),
-            set(1, 9, 0.0, RPE::ZERO),
-            rest(60),
-            sided_set(1, Side::Right, 10, RPE::ZERO),
-            sided_set(1, Side::Left, 11, RPE::ZERO),
-            rest(60),
-            sided_set(1, Side::Alternating, 12, RPE::ZERO),
-        ]);
-        let values = |reps| Set {
-            reps: Reps::new(reps).unwrap(),
-            time: Time::default(),
-            weight: Weight::default(),
-            rpe: RPE::ZERO,
-        };
-
-        assert_eq!(
-            session.set_history_rows(1.into()),
-            vec![
-                SetHistoryRow::Sides {
-                    left: Some((0, values(5))),
-                    right: Some((1, values(6))),
-                },
-                SetHistoryRow::Sides {
-                    left: Some((4, values(7))),
-                    right: None,
-                },
-                SetHistoryRow::Sides {
-                    left: None,
-                    right: Some((8, values(8))),
-                },
-                SetHistoryRow::Combined(10, values(9)),
-                SetHistoryRow::Sides {
-                    left: Some((13, values(11))),
-                    right: Some((12, values(10))),
-                },
-                SetHistoryRow::Alternating(15, values(12)),
-            ]
-        );
     }
 
     #[test]

@@ -92,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Properties, muscles and notes of the exercise, each group under a caption of its own, its training sessions and their charts on a tab each
     - Name of the exercise in the navigation bar, replacing the title of the page
     - Shading of the days in the calendar by the set volume instead of the volume load, or by the stretch sets for an exercise that only stretches
+    - Set history as a list of sessions with a delete icon each, its sets shown as on the training session page
 - Catalog exercise page:
     - Stretched muscles of the catalog exercises that stretch a muscle under load
     - Hip flexors as a worked muscle and compound mechanic of the leg raises

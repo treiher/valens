@@ -168,6 +168,9 @@ class TrainingSessionPage(BasePage):
             for element in self.page.get_by_test_id("set-number").all()[:count]
         ]
 
+    def expect_set_count(self, count: int) -> None:
+        expect(self.page.get_by_test_id("set-number")).to_have_count(count)
+
     def get_set_sides(self) -> list[str]:
         return [
             get_text(number.get_by_test_id("set-side"))

@@ -223,8 +223,14 @@ fn part_lines(
                 if !targets.is_empty() {
                     let _ = write!(line, "{SEPARATOR}{targets}");
                 }
-                if *sides == Sides::PerSide {
-                    let _ = write!(line, "{SEPARATOR}per side");
+                match sides {
+                    Sides::Combined => {}
+                    Sides::PerSide => {
+                        let _ = write!(line, "{SEPARATOR}{PER_SIDE}");
+                    }
+                    Sides::Alternating => {
+                        let _ = write!(line, "{SEPARATOR}{ALTERNATING}");
+                    }
                 }
                 if *countdown && SetPacing::countdown_applies(*tempo) {
                     let _ = write!(line, "{SEPARATOR}{COUNTDOWN}");
@@ -1080,6 +1086,7 @@ fn parse_rest(line: &str, segments: &[Segment]) -> Result<PartKind, String> {
             "manual" => automatic = false,
             "auto-start" => {}
             PER_SIDE => return Err("rest must not be performed per side".to_string()),
+            ALTERNATING => return Err("rest must not be performed alternating".to_string()),
             _ => break,
         }
         end -= 1;
@@ -1116,6 +1123,7 @@ fn rest(tempo: Tempo, automatic: bool) -> ParsedPart {
 }
 
 const PER_SIDE: &str = "per side";
+const ALTERNATING: &str = "alternating";
 const COUNTDOWN: &str = "countdown";
 
 /// Parses an activity line, reading its segments from the right: the suffixes, then the values if
@@ -1130,7 +1138,8 @@ fn parse_activity(line: &str, segments: &[Segment]) -> Result<ParsedPart, String
             "auto-start" => automatic = true,
             "manual" => {}
             COUNTDOWN => countdown = true,
-            PER_SIDE => sides = Sides::PerSide,
+            PER_SIDE => sides = marked_sides(sides, Sides::PerSide)?,
+            ALTERNATING => sides = marked_sides(sides, Sides::Alternating)?,
             _ => break,
         }
         end -= 1;
@@ -1165,6 +1174,14 @@ fn parse_activity(line: &str, segments: &[Segment]) -> Result<ParsedPart, String
         countdown,
         sides,
     })
+}
+
+/// The sides of an activity marked `marked` after the markers read so far gave `sides`.
+fn marked_sides(sides: Sides, marked: Sides) -> Result<Sides, String> {
+    if sides != Sides::Combined && sides != marked {
+        return Err("activity must not be both per side and alternating".to_string());
+    }
+    Ok(marked)
 }
 
 /// The text between two separators, as a byte range of the line.
@@ -2021,6 +2038,22 @@ mod tests {
         true,
         "A \u{2014} 10 (3 s/rep) \u{2014} per side \u{2014} countdown \u{2014} auto-start"
     )]
+    #[case::alternating(
+        10,
+        &[],
+        Sides::Alternating,
+        false,
+        false,
+        "A \u{2014} 10 \u{2014} alternating"
+    )]
+    #[case::alternating_countdown_and_auto_start(
+        10,
+        &[3],
+        Sides::Alternating,
+        true,
+        true,
+        "A \u{2014} 10 (3 s/rep) \u{2014} alternating \u{2014} countdown \u{2014} auto-start"
+    )]
     #[case::hold_with_the_flag(
         0,
         &[30],
@@ -2587,6 +2620,15 @@ mod tests {
     #[case::rest_with_tempo("Rest — 5·10", "rest must have no values other than a time")]
     #[case::rest_with_text("Rest — as needed", "rest must have no values other than a time")]
     #[case::rest_per_side("Rest — 60 s — per side", "rest must not be performed per side")]
+    #[case::rest_alternating("Rest — 60 s — alternating", "rest must not be performed alternating")]
+    #[case::per_side_and_alternating(
+        "A1 — A — 10 — per side — alternating",
+        "activity must not be both per side and alternating"
+    )]
+    #[case::alternating_and_per_side(
+        "A1 — A — 10 — alternating — per side",
+        "activity must not be both per side and alternating"
+    )]
     #[case::rest_with_countdown(
         "Rest — 60 s — countdown",
         "rest must have no values other than a time"
@@ -3728,10 +3770,10 @@ mod tests {
                 any_tempo(),
                 any::<bool>(),
                 any::<bool>(),
-                any::<bool>(),
+                1u8..=3,
             )
                 .prop_map(
-                    |(exercise_id, reps, weight, rpe, tempo, automatic, countdown, per_side)| {
+                    |(exercise_id, reps, weight, rpe, tempo, automatic, countdown, sides)| {
                         let reps = Reps::new(reps).unwrap();
                         RoutinePart::RoutineActivity {
                             exercise_id: exercise_id.into(),
@@ -3742,11 +3784,7 @@ mod tests {
                             automatic,
                             // The text keeps the flag only where it takes effect.
                             countdown: countdown && SetPacing::countdown_applies(tempo),
-                            sides: if per_side {
-                                Sides::PerSide
-                            } else {
-                                Sides::Combined
-                            },
+                            sides: Sides::try_from(sides).unwrap(),
                         }
                     }
                 ),

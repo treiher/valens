@@ -14,21 +14,28 @@ pub fn Field(children: Element, label: String, info: Option<Element>) -> Element
     rsx! {
         div {
             class: "field",
-            label {
-                class: "label",
-                if let Some(info) = info {
-                    ElementWithDescription {
-                        description: info,
-                        span { "{label}" }
-                        Icon { name: "circle-question", is_small: true, class: "ml-2" }
-                    }
-                } else {
-                    "{label}"
-                }
-            }
+            {field_label(&label, info)}
             div {
                 class: "control",
                 {children}
+            }
+        }
+    }
+}
+
+/// The label of a field, where `info` is shown when hovering or tapping it.
+fn field_label(label: &str, info: Option<Element>) -> Element {
+    rsx! {
+        label {
+            class: "label",
+            if let Some(info) = info {
+                ElementWithDescription {
+                    description: info,
+                    span { "{label}" }
+                    Icon { name: "circle-question", is_small: true, class: "ml-2" }
+                }
+            } else {
+                "{label}"
             }
         }
     }
@@ -311,6 +318,7 @@ pub fn SelectOption(text: String, value: String, selected: bool) -> Element {
 #[component]
 pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
     label: String,
+    info: Option<Element>,
     options: Vec<ButtonSelectOption<T>>,
     selected: T,
     error: Option<String>,
@@ -334,7 +342,7 @@ pub fn ButtonSelectField<T: Clone + PartialEq + 'static>(
         div {
             class: "field",
             ..attributes,
-            label { class: "label", "{label}" }
+            {field_label(&label, info)}
             ButtonSelect {
                 options,
                 selected,

@@ -9,18 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Counting of a set with a side as half a set in the load, the set volume and the time under tension
+- Counting of a left or right set as half a set in the load, the set volume and the time under tension, and of the time and reps of an alternating set as half in the time under tension, the time under stretch, the volume load with a weight, the average reps, the estimated maximum reps and the estimated 1RM
 - Saving of dialogs by pressing Enter
 - Closing of dialogs and menus by pressing Escape
 - Training sessions page:
     - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
     - Charts of a single muscle, including its stretch sets and time under stretch
 - Training session page:
-    - Left and right set of an activity prescribed per side, with the side shown next to the marker of the set and changed by tapping it
+    - Left and right set of an activity prescribed per side and "L+R" set of an activity prescribed alternating, with the side shown next to the marker of the set and changed by tapping it
     - Left and right column of the sets, a left and a right set directly following each other sharing one row
     - Pause before the second set of a pair
     - Stretch sets and time under stretch per muscle
-    - Measurement of an exercise, per side for an exercise performed per side
+    - Measurement of an exercise, per side for an exercise performed per side or alternating
     - Updating of an exercise from the catalog through its options in the exercise list
     - Marker on a set that sets a personal record, all-time or of the last 6 months
     - Value needed for a personal record of the last 6 months, shown below the empty fields of a set
@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Starting of a training session through the options of a routine
 - Routine page:
     - Starting of a training session through the options of the routine
-    - Sides of an activity, which prescribe a unilateral exercise per side
+    - Sides of an activity, which prescribe an exercise per side or alternating, with both sides in one set
     - Stretch sets and time under stretch per muscle
     - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
     - Updating of an exercise from the catalog through its options in the exercise list
@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Choosing of the catalog exercise a custom exercise is updated from, also for exercises whose name matches no catalog exercise
     - Updating of an exercise from the catalog through its options
 - Exercise page:
-    - Left and right column in the set history, showing the two sets of a pair side by side
+    - Left and right column in the set history, showing the two sets of a pair side by side, and an "L+R" row of an alternating set
     - Stretched muscles of the exercise, shown in a row of their own
     - Stretch sets of an exercise that only stretches, replacing its volume metrics, with the time of its sets shown even if the time under tension is hidden
     - Measurement in the set history and a chart of the measurements

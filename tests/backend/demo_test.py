@@ -101,6 +101,30 @@ def test_measurements_are_recorded_with_and_without_side() -> None:
     assert sides == {0, 1, 2}
 
 
+def test_curl_of_alice_is_alternating() -> None:
+    users = demo.users(TODAY, seed=0)
+    alice = next(user for user in users if user.name == "Alice")
+
+    activities = {
+        part.sides
+        for routine in alice.routines
+        for section in routine.sections
+        for part in section.parts
+        if isinstance(part, RoutineActivity)
+        and part.exercise is not None
+        and part.exercise.name == "Dumbbell Curl"
+    }
+    sides = {
+        element.side
+        for workout in alice.workouts
+        for element in workout.elements
+        if isinstance(element, WorkoutSet) and element.exercise.name == "Dumbbell Curl"
+    }
+
+    assert activities == {demo_training.ALTERNATING}
+    assert sides == {demo_training.ALTERNATING_SIDE}
+
+
 def test_body_weight_is_plausible() -> None:
     users = demo.users(TODAY, seed=0)
 

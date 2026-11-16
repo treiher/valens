@@ -118,8 +118,8 @@ impl Routine {
     /// stretch.
     ///
     /// The time of an activity is its reps multiplied by the seconds per rep of its tempo, counted
-    /// once for a per-side activity. An activity without a tempo has no time. Only muscles with a
-    /// stretch are included.
+    /// once for a per-side activity and half for an alternating one. An activity without a tempo
+    /// has no time. Only muscles with a stretch are included.
     #[must_use]
     pub fn stretch_per_muscle(&self, exercises: &[Exercise]) -> BTreeMap<MuscleID, Stretch> {
         let mut result = BTreeMap::new();
@@ -536,7 +536,7 @@ impl RoutinePart {
                         .map_or(Time::new(4).unwrap(), |tempo| tempo.seconds_per_rep()),
                 );
                 let s = match sides {
-                    Sides::Combined => 1,
+                    Sides::Combined | Sides::Alternating => 1,
                     Sides::PerSide => 2,
                 };
                 Duration::seconds(i64::from(r * t * s))
@@ -572,6 +572,7 @@ impl RoutinePart {
                 exercise_id,
                 reps,
                 tempo,
+                sides,
                 ..
             } => {
                 let Some(exercise) = exercises.iter().find(|e| e.id == *exercise_id) else {
@@ -582,7 +583,8 @@ impl RoutinePart {
                 let seconds = tempo
                     .non_zero()
                     .map_or(0, |tempo| r * u32::from(tempo.seconds_per_rep()))
-                    as f32;
+                    as f32
+                    / if *sides == Sides::Alternating { 2. } else { 1. };
                 let activity = Stretch { sets: 1., seconds };
                 exercise
                     .muscle_stretch()
@@ -894,6 +896,14 @@ mod tests {
     }
 
     #[test]
+    fn test_routine_part_duration_alternating_equals_that_of_combined() {
+        assert_eq!(
+            hold(1, 30, Sides::Alternating).duration(),
+            hold(1, 30, Sides::Combined).duration()
+        );
+    }
+
+    #[test]
     fn test_routine_num_sets() {
         assert_eq!(ROUTINE.num_sets(), 4);
     }
@@ -1038,6 +1048,19 @@ mod tests {
                     }
                 ),
             ])
+        );
+    }
+
+    #[test]
+    fn test_routine_stretch_per_muscle_of_an_alternating_activity() {
+        let routine = routine_with_sections(vec![hold(2, 60, Sides::Alternating)]);
+
+        assert_eq!(
+            routine.stretch_per_muscle(&STRETCH_EXERCISES)[&MuscleID::Hamstrings],
+            Stretch {
+                sets: 1.,
+                seconds: 30.
+            }
         );
     }
 
@@ -2255,6 +2278,29 @@ mod tests {
                 set(Side::Left),
                 set(Side::Right),
             ]
+        );
+    }
+
+    #[test]
+    fn test_routine_part_to_training_session_elements_alternating() {
+        let part = hold(1, 30, Sides::Alternating);
+
+        assert_eq!(
+            part.to_training_session_elements(),
+            vec![TrainingSessionElement::Set {
+                exercise_id: 1.into(),
+                side: Side::Alternating,
+                reps: Reps::default(),
+                time: Time::default(),
+                weight: Weight::default(),
+                rpe: RPE::default(),
+                target_reps: Reps::default(),
+                target_tempo: Tempo::new(&[30]).unwrap(),
+                target_weight: Weight::default(),
+                target_rpe: RPE::ZERO,
+                automatic: false,
+                countdown: false,
+            }]
         );
     }
 

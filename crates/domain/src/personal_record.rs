@@ -53,15 +53,15 @@ pub struct RecordTargets {
     pub time: Option<Time>,
 }
 
-/// The records and the record sets of all exercises, a set without a side counting for both
-/// sides.
+/// The records and the record sets of all exercises, a set without a side counting for the left
+/// and the right side and an alternating set for the alternating side only.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PersonalRecords {
-    /// The records of the left and the right side.
+    /// The records of the left, the right and the alternating side.
     records: HashMap<(ExerciseID, Side, RecordValue), History>,
     record_sets: BTreeMap<TrainingSessionID, BTreeMap<usize, RecordKind>>,
     exclusions: HashMap<ExerciseID, Exclusion>,
-    /// The exercises with a recorded set on a side.
+    /// The exercises with a recorded set on the left or the right side.
     sided: HashSet<ExerciseID>,
     /// The session whose sets have targets, with the greatest value per value of the earlier
     /// sessions within its window per exercise and side.
@@ -90,7 +90,9 @@ impl PersonalRecords {
     /// The all-time and the recent records of an exercise per side and value, the recent records
     /// including the sessions of `today`.
     ///
-    /// The records are without a side if the exercise has no recorded set on a side.
+    /// The records of the left and the right side are without a side if the exercise has no
+    /// recorded set on the left or the right side. The records of the alternating side are always
+    /// kept under [`Side::Alternating`].
     #[must_use]
     pub fn records(
         &self,
@@ -101,10 +103,19 @@ impl PersonalRecords {
         let has_sides = self.sided.contains(&exercise_id);
         self.records
             .iter()
-            .filter(|((id, side, _), _)| *id == exercise_id && (has_sides || *side == Side::Left))
+            .filter(|((id, side, _), _)| {
+                *id == exercise_id && (has_sides || matches!(side, Side::Left | Side::Alternating))
+            })
             .filter_map(|((_, side, value), history)| {
                 Some((
-                    (if has_sides { *side } else { Side::Unset }, *value),
+                    (
+                        if has_sides || *side == Side::Alternating {
+                            *side
+                        } else {
+                            Side::Unset
+                        },
+                        *value,
+                    ),
                     Records {
                         all_time: history.all_time?,
                         recent: history.recent(window_start),
@@ -169,7 +180,7 @@ impl PersonalRecords {
                         }
                     }
                 }
-                record_targets(&to_beat, &to_reach, *weight, *rpe)
+                record_targets(&to_beat, &to_reach, *weight, *rpe, *side)
             })
             .reduce(|a, b| RecordTargets {
                 reps: smaller(a.reps, b.reps),
@@ -211,7 +222,7 @@ impl PersonalRecords {
                 if let TrainingSessionElement::Set {
                     exercise_id, side, ..
                 } = element
-                    && *side != Side::Unset
+                    && side.is_left_or_right()
                     && !values(element, result.exclusion(*exercise_id)).is_empty()
                 {
                     result.sided.insert(*exercise_id);
@@ -248,7 +259,7 @@ impl PersonalRecords {
     ) -> RecentRecordsBefore {
         let mut result = BTreeMap::new();
         for exercise_id in session.exercises() {
-            for side in [Side::Left, Side::Right] {
+            for side in [Side::Left, Side::Right, Side::Alternating] {
                 let records = [
                     RecordValue::Reps,
                     RecordValue::Time,
@@ -283,6 +294,7 @@ fn record_sides(side: Side) -> &'static [Side] {
         Side::Unset => &[Side::Left, Side::Right],
         Side::Left => &[Side::Left],
         Side::Right => &[Side::Right],
+        Side::Alternating => &[Side::Alternating],
     }
 }
 
@@ -300,6 +312,7 @@ fn record_targets(
     to_reach: &BTreeMap<RecordValue, f32>,
     weight: Weight,
     rpe: RPE,
+    side: Side,
 ) -> RecordTargets {
     let is_record = |record_value: RecordValue, value: f32| {
         to_beat.get(&record_value).is_some_and(|b| value > *b)
@@ -318,7 +331,7 @@ fn record_targets(
             time: None,
         },
         Some(weight) => RecordTargets {
-            reps: fewest_reps_for_one_rep_max(weight, rpe, |one_rep_max| {
+            reps: fewest_reps_for_one_rep_max(weight, rpe, side, |one_rep_max| {
                 is_record(RecordValue::OneRepMax, one_rep_max)
             }),
             time: None,
@@ -655,6 +668,64 @@ mod tests {
                 ((Side::Left, RecordValue::Reps), (10.0, Some(10.0))),
                 ((Side::Right, RecordValue::Reps), (9.0, Some(9.0))),
             ])
+        );
+    }
+
+    #[test]
+    fn test_alternating_sets_are_kept_apart_from_the_sides() {
+        let records = personal_records(
+            &[
+                session(
+                    1,
+                    0,
+                    &[sided_reps(Side::Left, 10), sided_reps(Side::Right, 10)],
+                ),
+                session(2, 1, &[sided_reps(Side::Alternating, 18)]),
+                session(3, 2, &[sided_reps(Side::Alternating, 20)]),
+            ],
+            &[],
+        );
+
+        assert_eq!(records.record_sets(2.into()), BTreeMap::new());
+        assert_eq!(
+            records.record_sets(3.into()),
+            BTreeMap::from([(0, RecordKind::AllTime)])
+        );
+        assert_eq!(
+            values(&records, 2),
+            BTreeMap::from([
+                ((Side::Left, RecordValue::Reps), (10.0, Some(10.0))),
+                ((Side::Right, RecordValue::Reps), (10.0, Some(10.0))),
+                ((Side::Alternating, RecordValue::Reps), (20.0, Some(20.0))),
+            ])
+        );
+    }
+
+    #[rstest]
+    #[case::without_a_side(&[reps(10)], &[Side::Unset, Side::Alternating])]
+    #[case::per_side(
+        &[sided_reps(Side::Left, 10), sided_reps(Side::Right, 10)],
+        &[Side::Left, Side::Right, Side::Alternating]
+    )]
+    #[case::alternating_only(&[], &[Side::Alternating])]
+    fn test_records_of_the_alternating_side_are_kept_under_their_side(
+        #[case] earlier: &[TrainingSessionElement],
+        #[case] expected: &[Side],
+    ) {
+        let records = personal_records(
+            &[
+                session(1, 0, earlier),
+                session(2, 1, &[sided_reps(Side::Alternating, 18)]),
+            ],
+            &[],
+        );
+
+        assert_eq!(
+            keys(&records, 1),
+            expected
+                .iter()
+                .map(|side| (*side, RecordValue::Reps))
+                .collect::<Vec<_>>()
         );
     }
 
@@ -1124,6 +1195,39 @@ mod tests {
             )
             .reps,
             expected.map(|reps| Reps::new(reps).unwrap())
+        );
+    }
+
+    #[rstest]
+    #[case::alternating(&[sided_reps(Side::Alternating, 18), set(Side::Alternating, 0, 30, 0.0, RPE::ZERO)], Some(19), Some(31))]
+    #[case::without_a_side(&[reps(10), hold(30)], None, None)]
+    #[case::left(&[sided_reps(Side::Left, 10)], None, None)]
+    fn test_targets_of_an_alternating_set_come_from_alternating_sets(
+        #[case] earlier: &[TrainingSessionElement],
+        #[case] reps: Option<u32>,
+        #[case] time: Option<u32>,
+    ) {
+        assert_eq!(
+            targets(earlier, &[empty()], 0, Side::Alternating, 0.0, RPE::ZERO),
+            RecordTargets {
+                reps: reps.map(|reps| Reps::new(reps).unwrap()),
+                time: time.map(|time| Time::new(time).unwrap()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_reps_target_of_an_estimated_one_rep_max_of_an_alternating_set_counts_both_sides() {
+        assert_eq!(
+            targets(
+                &[set(Side::Alternating, 10, 0, 100.0, RPE::ZERO)],
+                &[empty()],
+                0,
+                Side::Alternating,
+                100.0,
+                RPE::ZERO
+            ),
+            reps_target(11)
         );
     }
 

@@ -8,7 +8,7 @@ use valens_web_app as web_app;
 
 use crate::{
     DOMAIN_SERVICE, Route,
-    cache::{self, Cache, CacheState},
+    cache::{Cache, CacheState},
     chart::{Chart, IntervalControl, view_stretch_charts},
     eh,
     loading::LoadingFlag,
@@ -350,7 +350,6 @@ fn view_routine_part(
             countdown,
             sides,
         } => {
-            let laterality = cache::laterality(exercises, *exercise_id);
             let counted_down = domain::SetPacing::new(*reps, *tempo, *countdown)
                 .countdown_seconds()
                 .is_some();
@@ -393,7 +392,7 @@ fn view_routine_part(
                                 class: "is-flex is-justify-content-space-between",
                                 div {
                                     onclick: eh!(mut edit_dialog; routine, path; {
-                                        *edit_dialog.write() = edit_activity_dialog(&routine, &path, laterality);
+                                        *edit_dialog.write() = edit_activity_dialog(&routine, &path);
                                     }),
                                     span {
                                         class: "icon-text has-text-weight-bold mr-5",
@@ -428,7 +427,7 @@ fn view_routine_part(
                         if !exercise_id.is_nil() {
                             div {
                                 onclick: eh!(mut edit_dialog; routine, path; {
-                                    *edit_dialog.write() = edit_activity_dialog(&routine, &path, laterality);
+                                    *edit_dialog.write() = edit_activity_dialog(&routine, &path);
                                 }),
                                 if *reps != domain::Reps::default() {
                                     span {
@@ -486,11 +485,11 @@ fn view_routine_part(
                                         {automatic_icon()}
                                     }
                                 }
-                                if *sides == domain::Sides::PerSide {
+                                if let Some(marker) = sides_marker(*sides) {
                                     span {
                                         class: "icon-text",
                                         "data-testid": "set-sides",
-                                        "per side"
+                                        "{marker}"
                                     }
                                 }
                             }
@@ -892,10 +891,8 @@ fn view_edit_dialog(
                                                 let rounds = FieldValue::new_with_empty_default(*rounds);
                                                 *edit_dialog.write() = EditDialog::EditSection { routine, path, rounds };
                                             }
-                                            Some(domain::RoutinePart::RoutineActivity {
-                                                exercise_id, ..
-                                            }) => {
-                                                *edit_dialog.write() = edit_activity_dialog(&routine, &path, cache.laterality(*exercise_id));
+                                            Some(domain::RoutinePart::RoutineActivity { .. }) => {
+                                                *edit_dialog.write() = edit_activity_dialog(&routine, &path);
                                             }
                                             _ => {}
                                         }
@@ -967,7 +964,12 @@ fn view_edit_dialog(
                                 move |(_, id)| {
                                     let mut routine = routine.clone();
                                     let path = path.clone();
-                                    let sides = replacement_sides(cache.laterality(id));
+                                    let sides = match routine.part(&path) {
+                                        Some(domain::RoutinePart::RoutineActivity { sides, .. }) => {
+                                            replacement_sides(*sides, cache.laterality(id))
+                                        }
+                                        _ => None,
+                                    };
                                     routine.update_activity(Some(id), None, None, None, None, None, None, sides, &path);
                                     modify_routine_sections(routine, cache, close_dialog)
                                 }
@@ -1180,6 +1182,7 @@ fn view_edit_dialog(
                             if *show_sides {
                                 ButtonSelectField {
                                     label: "Sides",
+                                    info: rsx! { {SIDES_INFO} },
                                     options: vec![
                                         ButtonSelectOption {
                                             text: "Combined".to_string(),
@@ -1191,6 +1194,12 @@ fn view_edit_dialog(
                                             text: "Per side".to_string(),
                                             icon: None,
                                             value: domain::Sides::PerSide,
+                                            is_disabled: false,
+                                        },
+                                        ButtonSelectOption {
+                                            text: "Alternating".to_string(),
+                                            icon: None,
+                                            value: domain::Sides::Alternating,
                                             is_disabled: false,
                                         },
                                     ],
@@ -1408,11 +1417,7 @@ fn edited_countdown(
     }
 }
 
-fn edit_activity_dialog(
-    routine: &domain::Routine,
-    path: &domain::RoutinePartPath,
-    laterality: Option<domain::Laterality>,
-) -> EditDialog {
+fn edit_activity_dialog(routine: &domain::Routine, path: &domain::RoutinePartPath) -> EditDialog {
     let Some(domain::RoutinePart::RoutineActivity {
         exercise_id,
         reps,
@@ -1436,17 +1441,29 @@ fn edit_activity_dialog(
         automatic: FieldValue::new(*automatic),
         countdown: None,
         sides: sides_field_value(*sides, &(*sides as u8).to_string()),
-        // A per-side activity keeps the field, so that it can be reset after the laterality of
-        // its exercise changed.
-        show_sides: !exercise_id.is_nil()
-            && (laterality == Some(domain::Laterality::Unilateral)
-                || *sides == domain::Sides::PerSide),
+        show_sides: !exercise_id.is_nil(),
     }
 }
 
-/// The sides of an activity whose exercise is replaced by one of `laterality`, `None` keeping the
-/// sides of the activity if the laterality is unknown.
-fn replacement_sides(laterality: Option<domain::Laterality>) -> Option<domain::Sides> {
+const SIDES_INFO: &str = "Combined: both sides at once in each set. Per side: a set for each side, with the values of one side. Alternating: both sides one after the other in each set, with the reps of both sides added up, or the time of a set without reps, and the weight as for both sides at once.";
+
+fn sides_marker(sides: domain::Sides) -> Option<&'static str> {
+    match sides {
+        domain::Sides::Combined => None,
+        domain::Sides::PerSide => Some("per side"),
+        domain::Sides::Alternating => Some("alternating"),
+    }
+}
+
+/// The sides of an activity with `sides` whose exercise is replaced by one of `laterality`, `None`
+/// keeping the sides of the activity if it is alternating or the laterality is unknown.
+fn replacement_sides(
+    sides: domain::Sides,
+    laterality: Option<domain::Laterality>,
+) -> Option<domain::Sides> {
+    if sides == domain::Sides::Alternating {
+        return None;
+    }
     laterality.map(|laterality| domain::Sides::for_laterality(Some(laterality)))
 }
 
@@ -1605,8 +1622,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, all_attributes_of, all_text_of, attribute_of, contains, disabled_texts_of,
-        provide_settings, render, rows_of, selected_text_of, text_of,
+        TestCache, all_attributes_of, all_containing, all_text_of, attribute_of, contains,
+        disabled_texts_of, provide_settings, render, rows_of, selected_text_of, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -1711,49 +1728,73 @@ mod tests {
                 sections: vec![section(vec![
                     activity(1),
                     activity_with_sides(2, domain::Sides::PerSide),
+                    activity_with_sides(3, domain::Sides::Alternating),
                 ])],
                 ..routine()
             }])
         });
 
-        assert_eq!(all_text_of(&html, "set-sides"), vec!["per side"]);
+        assert_eq!(
+            all_text_of(&html, "set-sides"),
+            vec!["per side", "alternating"]
+        );
     }
 
     #[rstest::rstest]
-    #[case::unilateral(Some(domain::Laterality::Unilateral), domain::Sides::Combined, true)]
-    #[case::without_laterality(None, domain::Sides::Combined, false)]
-    #[case::without_laterality_already_per_side(None, domain::Sides::PerSide, true)]
-    #[case::bilateral(Some(domain::Laterality::Bilateral), domain::Sides::Combined, false)]
-    #[case::bilateral_already_per_side(
-        Some(domain::Laterality::Bilateral),
-        domain::Sides::PerSide,
-        true
-    )]
-    fn test_the_sides_are_asked_for_a_unilateral_exercise_or_a_per_side_activity(
-        #[case] laterality: Option<domain::Laterality>,
-        #[case] sides: domain::Sides,
+    #[case::exercise(1, true)]
+    #[case::rest(0, false)]
+    fn test_the_sides_are_asked_for_an_activity_with_an_exercise(
+        #[case] exercise_id: u128,
         #[case] expected: bool,
     ) {
         let routine = domain::Routine {
-            sections: vec![section(vec![activity_with_sides(1, sides)])],
+            sections: vec![section(vec![domain::RoutinePart::RoutineActivity {
+                exercise_id: exercise_id.into(),
+                reps: domain::Reps::default(),
+                tempo: domain::Tempo::default(),
+                weight: domain::Weight::default(),
+                rpe: domain::RPE::ZERO,
+                automatic: false,
+                countdown: false,
+                sides: domain::Sides::Combined,
+            }])],
             ..routine()
         };
 
         assert!(matches!(
-            edit_activity_dialog(&routine, &vec![0, 0].into(), laterality),
+            edit_activity_dialog(&routine, &vec![0, 0].into()),
             EditDialog::EditActivity { show_sides, .. } if show_sides == expected
         ));
     }
 
     #[rstest::rstest]
-    #[case::unilateral(Some(domain::Laterality::Unilateral), Some(domain::Sides::PerSide))]
-    #[case::bilateral(Some(domain::Laterality::Bilateral), Some(domain::Sides::Combined))]
-    #[case::unknown(None, None)]
-    fn test_a_replacement_keeps_the_sides_only_without_a_laterality(
+    #[case::unilateral(
+        domain::Sides::Combined,
+        Some(domain::Laterality::Unilateral),
+        Some(domain::Sides::PerSide)
+    )]
+    #[case::bilateral(
+        domain::Sides::PerSide,
+        Some(domain::Laterality::Bilateral),
+        Some(domain::Sides::Combined)
+    )]
+    #[case::unknown(domain::Sides::PerSide, None, None)]
+    #[case::alternating_by_unilateral(
+        domain::Sides::Alternating,
+        Some(domain::Laterality::Unilateral),
+        None
+    )]
+    #[case::alternating_by_bilateral(
+        domain::Sides::Alternating,
+        Some(domain::Laterality::Bilateral),
+        None
+    )]
+    fn test_a_replacement_keeps_the_sides_only_if_alternating_or_without_a_laterality(
+        #[case] sides: domain::Sides,
         #[case] laterality: Option<domain::Laterality>,
         #[case] expected: Option<domain::Sides>,
     ) {
-        assert_eq!(replacement_sides(laterality), expected);
+        assert_eq!(replacement_sides(sides, laterality), expected);
     }
 
     #[test]
@@ -2293,6 +2334,16 @@ mod tests {
         assert_eq!(contains(&html, "set-countdown"), expected);
     }
 
+    #[test]
+    fn test_the_sides_label_carries_an_explanation() {
+        let html = render_activity_dialog(activity(1), |_| {});
+
+        assert_eq!(
+            all_containing(&html, "button-select-sides", "icon-circle-question"),
+            [true]
+        );
+    }
+
     fn render_activity_dialog(part: domain::RoutinePart, modify: fn(&mut EditDialog)) -> String {
         render(move || {
             with_routine()
@@ -2347,7 +2398,7 @@ mod tests {
         };
         let change = try_consume_context::<DialogChange>();
         let dialog = use_signal(|| {
-            let mut dialog = edit_activity_dialog(&routine, &vec![0, 0].into(), None);
+            let mut dialog = edit_activity_dialog(&routine, &vec![0, 0].into());
             if let Some(DialogChange(change)) = change {
                 change(&mut dialog);
             }

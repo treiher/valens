@@ -63,14 +63,14 @@ RPE_MAX = 10
 RPE_RESOLUTION = 0.5
 
 # Mirrors `Sides` in `crates/domain/src/training.rs`
-SIDES_IDS = frozenset({1, 2})
+SIDES_IDS = frozenset({1, 2, 3})
 SIDES_COMBINED = 1
 
 # Mirrors `Side` in `crates/domain/src/training.rs`, whose unset value is the absent value
-SIDE_IDS = frozenset({1, 2})
+SIDE_IDS = frozenset({1, 2, 3})
 
-# Mirrors `Side` in `crates/domain/src/training.rs`, whose unset value keys the measurement of a
-# bilateral exercise
+# Mirrors the unset, left and right `Side` in `crates/domain/src/training.rs`, the unset value
+# keying the measurement of a bilateral exercise; no measurement is taken for the alternating side
 MEASUREMENT_SIDE_IDS = frozenset({0, 1, 2})
 
 # Mirrors `Measurement` in `crates/domain/src/training.rs`

@@ -120,7 +120,7 @@ fn view_exercise(
         || !exercise.equipment.is_empty();
     let has_muscles = !muscles.is_empty() || !stretch.is_empty();
     let records = personal_records.records(exercise.id, current_date());
-    let has_sides = records.keys().any(|(side, _)| *side != domain::Side::Unset);
+    let sides = record_sides(&records);
     let on_edit: Rc<dyn Fn(MouseEvent)> = Rc::new(eh!(mut exercise_dialog; exercise; {
         *exercise_dialog.write() = page::exercises::ExerciseDialog::ChangeProperties {
             exercise: exercise.clone(),
@@ -155,15 +155,42 @@ fn view_exercise(
     rsx! {
         {properties}
         {view_notes(exercise, exercise_dialog)}
-        {view_personal_records(&records, has_sides)}
+        {view_personal_records(&records, &sides)}
     }
 }
 
-/// Show the all-time and the recent records in a row per value, holding the left and the right
-/// side in one cell for records per side.
+/// The sides of the records table: the left and the right side if any record has one of them,
+/// otherwise no side if any record has none, followed by the alternating side if any record has
+/// it.
+fn record_sides(
+    records: &BTreeMap<(domain::Side, domain::RecordValue), domain::Records>,
+) -> Vec<domain::Side> {
+    let has = |side| records.keys().any(|(s, _)| *s == side);
+    let mut sides = if has(domain::Side::Left) || has(domain::Side::Right) {
+        vec![domain::Side::Left, domain::Side::Right]
+    } else if has(domain::Side::Unset) {
+        vec![domain::Side::Unset]
+    } else {
+        vec![]
+    };
+    if has(domain::Side::Alternating) {
+        sides.push(domain::Side::Alternating);
+    }
+    sides
+}
+
+fn side_label(side: domain::Side) -> String {
+    match side {
+        domain::Side::Unset => "Combined".to_string(),
+        side => side.to_string(),
+    }
+}
+
+/// Show the all-time and the recent records in a row per value, holding the records of all
+/// `sides` in one cell, in the order named below the column headers unless the only side is none.
 fn view_personal_records(
     records: &BTreeMap<(domain::Side, domain::RecordValue), domain::Records>,
-    has_sides: bool,
+    sides: &[domain::Side],
 ) -> Element {
     if records.is_empty() {
         return rsx! {};
@@ -193,6 +220,13 @@ fn view_personal_records(
     });
     let is_grouped = groups.iter().all(|(_, group)| !group.is_empty());
     let header_class = page::training_session::COLUMN_HEADER_CLASS;
+    let side_order = (sides != [domain::Side::Unset]).then(|| {
+        sides
+            .iter()
+            .map(|side| side_label(*side))
+            .collect::<Vec<_>>()
+            .join(" / ")
+    });
     rsx! {
         div {
             class: "block has-text-centered",
@@ -201,7 +235,7 @@ fn view_personal_records(
                 class: "mx-auto",
                 "data-testid": "personal-records",
                 tr {
-                    class: if has_sides { "" } else { "has-border-bottom" },
+                    class: if side_order.is_some() { "" } else { "has-border-bottom" },
                     td {}
                     for (kind, label) in [(domain::RecordKind::AllTime, "All-time"), (domain::RecordKind::Recent, "6 months")] {
                         th {
@@ -219,12 +253,12 @@ fn view_personal_records(
                         }
                     }
                 }
-                if has_sides {
+                if let Some(side_order) = &side_order {
                     tr {
                         class: "has-border-bottom",
                         td {}
-                        td { class: "px-2 has-text-centered is-size-7 has-text-weak", "L / R" }
-                        td { class: "px-2 has-text-centered is-size-7 has-text-weak", "L / R" }
+                        td { class: "px-2 has-text-centered is-size-7 has-text-weak", "{side_order}" }
+                        td { class: "px-2 has-text-centered is-size-7 has-text-weak", "{side_order}" }
                     }
                 }
                 for (i, (label, group)) in groups.into_iter().enumerate() {
@@ -248,11 +282,11 @@ fn view_personal_records(
                             }
                             td {
                                 class: "px-2 has-text-centered",
-                                {view_record_cell(records, value, has_sides, |r| Some(r.all_time))}
+                                {view_record_cell(records, value, sides, |r| Some(r.all_time))}
                             }
                             td {
                                 class: "px-2 has-text-centered",
-                                {view_record_cell(records, value, has_sides, |r| r.recent)}
+                                {view_record_cell(records, value, sides, |r| r.recent)}
                             }
                         }
                     }
@@ -271,19 +305,18 @@ fn value_label(value: domain::RecordValue) -> &'static str {
     }
 }
 
-/// Show the record selected by `select` of each side, as a single value where the sides are
-/// equal, linking to the session that set it, with its date below.
+/// Show the record selected by `select` of each side, linking to the session that set it, with
+/// its date below.
+///
+/// The records are a single value where the sides are equal, unless one of them is the alternating
+/// side, as a single value would read as a record of one kind only.
 fn view_record_cell(
     records: &BTreeMap<(domain::Side, domain::RecordValue), domain::Records>,
     value: domain::RecordValue,
-    has_sides: bool,
+    sides: &[domain::Side],
     select: impl Fn(&domain::Records) -> Option<domain::Record>,
 ) -> Element {
-    let sides: &[domain::Side] = if has_sides {
-        &[domain::Side::Left, domain::Side::Right]
-    } else {
-        &[domain::Side::Unset]
-    };
+    let mergeable = sides.len() == 1 || !sides.contains(&domain::Side::Alternating);
     let records = sides
         .iter()
         .map(|side| {
@@ -309,7 +342,7 @@ fn view_record_cell(
     else {
         return dash;
     };
-    if held.len() == records.len() && held.iter().all(|(text, _)| *text == latest.0) {
+    if mergeable && held.len() == records.len() && held.iter().all(|(text, _)| *text == latest.0) {
         // A single value links to the latest session reaching it.
         return rsx! {
             {link(latest)}
@@ -328,7 +361,7 @@ fn view_record_cell(
         }
         for (side, record) in sides.iter().zip(&records) {
             if let Some((_, record)) = record {
-                {view_record_date(&format!("{side} "), record.date)}
+                {view_record_date(&format!("{} ", side_label(*side)), record.date)}
             }
         }
     }
@@ -635,7 +668,7 @@ fn view_charts(
     let mut sets: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut volume_load: BTreeMap<NaiveDate, f32> = BTreeMap::new();
     let mut tut: BTreeMap<NaiveDate, f32> = BTreeMap::new();
-    let mut reps_values: Vec<(NaiveDate, f32)> = vec![];
+    let reps_values = reps_values(training_sessions);
     let mut weight_values: Vec<(NaiveDate, f32)> = vec![];
     let mut time_values: Vec<(NaiveDate, f32)> = vec![];
     let mut estimated_max_reps_by_date: BTreeMap<NaiveDate, f32> = BTreeMap::new();
@@ -673,14 +706,7 @@ fn view_charts(
                 .or_insert(v);
         }
         for element in &training_session.elements {
-            if let domain::TrainingSessionElement::Set {
-                reps, weight, time, ..
-            } = element
-            {
-                if let Some(reps) = reps.non_zero() {
-                    #[allow(clippy::cast_precision_loss)]
-                    reps_values.push((training_session.date, u32::from(reps) as f32));
-                }
+            if let domain::TrainingSessionElement::Set { weight, time, .. } = element {
                 if let Some(weight) = weight.non_zero() {
                     weight_values.push((training_session.date, f32::from(weight)));
                 }
@@ -823,6 +849,20 @@ fn view_charts(
     }
 }
 
+/// The reps of each set by date, half of them for an alternating set, so that they compare to the
+/// estimated maximum reps.
+fn reps_values(training_sessions: &[domain::TrainingSession]) -> Vec<(NaiveDate, f32)> {
+    training_sessions
+        .iter()
+        .flat_map(|training_session| {
+            training_session
+                .elements
+                .iter()
+                .filter_map(|element| Some((training_session.date, element.reps_per_side()?)))
+        })
+        .collect()
+}
+
 /// A series per side of the measurements, the value of a date taken from its session with the
 /// greatest ID, which is the last created one.
 fn measurement_series(
@@ -845,7 +885,9 @@ fn measurement_series(
         .into_iter()
         .map(|(side, values)| {
             let (name, color) = match side {
-                domain::Side::Unset => ("Measurement", web_app::chart::COLOR_MEASUREMENT),
+                domain::Side::Unset | domain::Side::Alternating => {
+                    ("Measurement", web_app::chart::COLOR_MEASUREMENT)
+                }
                 domain::Side::Left => ("Left", web_app::chart::COLOR_MEASUREMENT_LEFT),
                 domain::Side::Right => ("Right", web_app::chart::COLOR_MEASUREMENT_RIGHT),
             };
@@ -945,8 +987,8 @@ fn view_notes(
     }
 }
 
-/// Renders the sets of an exercise per training session, the sets of a session holding sets with
-/// a side in a left and a right column.
+/// Renders the sets of an exercise per training session, the sets of a session holding sets of the
+/// left or the right side in a left and a right column, and an alternating set preceded by "L+R".
 ///
 /// The training sessions carry all their elements, since a left and a right set form a pair only
 /// where they directly follow each other in the whole session.
@@ -968,18 +1010,27 @@ fn view_sets(
             .cloned()
             .unwrap_or_default();
         let measurements = t.measurements_of(exercise_id);
-        let rows = t.set_history_rows(exercise_id);
+        let rows = t
+            .set_history_rows(exercise_id)
+            .into_iter()
+            .map(|row| (matches!(row, domain::SetHistoryRow::Alternating(..)), row))
+            .collect::<Vec<_>>();
         let has_sides = rows
             .iter()
-            .any(|row| matches!(row, domain::SetHistoryRow::Sides { .. }));
-        let values = |set: Option<&(usize, domain::Set)>| {
+            .any(|(_, row)| matches!(row, domain::SetHistoryRow::Sides { .. }));
+        let values = |set: Option<&(usize, domain::Set)>, alternating: bool| {
             let Some((element_idx, set)) = set else {
                 return rsx! {};
+            };
+            let prefix = if alternating {
+                format!("{} ", domain::Side::Alternating)
+            } else {
+                String::new()
             };
             rsx! {
                 span {
                     class: "icon-text is-flex-wrap-nowrap is-align-items-center",
-                    NoWrap { {set.to_string(show_time, settings.show_rpe())} }
+                    NoWrap { "{prefix}{set.to_string(show_time, settings.show_rpe())}" }
                     if let Some(kind) = record_sets.get(element_idx) {
                         {page::training_session::view_record_marker(*kind)}
                     }
@@ -995,18 +1046,19 @@ fn view_sets(
                         th { class: page::training_session::COLUMN_HEADER_CLASS, "Left" }
                         th { class: page::training_session::COLUMN_HEADER_CLASS, "Right" }
                     }
-                    for row in rows {
+                    for (alternating, row) in rows {
                         tr {
                             match row {
                                 domain::SetHistoryRow::Sides { left, right } => rsx! {
-                                    td { class: "px-2 has-text-centered", {values(left.as_ref())} }
-                                    td { class: "px-2 has-text-centered", {values(right.as_ref())} }
+                                    td { class: "px-2 has-text-centered", {values(left.as_ref(), false)} }
+                                    td { class: "px-2 has-text-centered", {values(right.as_ref(), false)} }
                                 },
-                                domain::SetHistoryRow::Combined(element_idx, set) => rsx! {
+                                domain::SetHistoryRow::Combined(element_idx, set)
+                                | domain::SetHistoryRow::Alternating(element_idx, set) => rsx! {
                                     td {
                                         class: "px-2 has-text-centered",
                                         colspan: 2,
-                                        {values(Some(&(element_idx, set)))}
+                                        {values(Some(&(element_idx, set)), alternating)}
                                     }
                                 },
                             }
@@ -1016,11 +1068,13 @@ fn view_sets(
             }
         } else {
             rsx! {
-                for row in rows {
-                    if let domain::SetHistoryRow::Combined(element_idx, set) = row {
+                for (alternating, row) in rows {
+                    if let domain::SetHistoryRow::Combined(element_idx, set)
+                    | domain::SetHistoryRow::Alternating(element_idx, set) = row
+                    {
                         div {
                             "data-testid": "set-history-set",
-                            {values(Some(&(element_idx, set)))}
+                            {values(Some(&(element_idx, set)), alternating)}
                         }
                     }
                 }
@@ -1407,6 +1461,55 @@ mod tests {
                 vec!["", "8"],
                 vec!["7"],
             ]
+        );
+    }
+
+    #[test]
+    fn test_the_reps_chart_plots_half_the_reps_of_an_alternating_set() {
+        let session = domain::TrainingSession {
+            id: 1.into(),
+            routine_id: domain::RoutineID::nil(),
+            date: chrono::Local::now().date_naive(),
+            notes: String::new(),
+            elements: vec![
+                performed_set(domain::Side::Alternating, 11),
+                performed_set(domain::Side::Unset, 6),
+            ],
+            exercise_notes: BTreeMap::new(),
+            exercise_measurements: BTreeMap::new(),
+        };
+
+        assert_eq!(
+            reps_values(&[session])
+                .into_iter()
+                .map(|(_, reps)| reps)
+                .collect::<Vec<_>>(),
+            [5.5, 6.0]
+        );
+    }
+
+    #[test]
+    fn test_the_set_history_of_alternating_sets_only_is_a_single_column() {
+        let html = render_exercise_with_sets(vec![
+            performed_set(domain::Side::Alternating, 20),
+            performed_set(domain::Side::Unset, 10),
+        ]);
+
+        assert!(!contains(&html, "set-history-sides"));
+        assert_eq!(all_text_of(&html, "set-history-set"), vec!["L+R 20", "10"]);
+    }
+
+    #[test]
+    fn test_the_set_history_spans_an_alternating_set_over_both_columns() {
+        let html = render_exercise_with_sets(vec![
+            performed_set(domain::Side::Left, 10),
+            performed_set(domain::Side::Right, 9),
+            performed_set(domain::Side::Alternating, 20),
+        ]);
+
+        assert_eq!(
+            rows_of(&html, "set-history-sides"),
+            vec![vec!["Left", "Right"], vec!["10", "9"], vec!["L+R 20"]]
         );
     }
 
@@ -1834,6 +1937,86 @@ mod tests {
                 vec!["Time (s)", "30", "30"],
             ]
         );
+    }
+
+    #[test]
+    fn test_a_records_cell_adds_the_alternating_record_to_the_records_per_side_unmerged() {
+        assert_eq!(
+            records_table(vec![session(
+                1,
+                0,
+                vec![
+                    sided_reps(domain::Side::Left, 10),
+                    sided_reps(domain::Side::Right, 10),
+                    sided_reps(domain::Side::Alternating, 22),
+                ]
+            )]),
+            [
+                vec!["", "All-time", "6 months"],
+                vec!["", "L / R / L+R", "L / R / L+R"],
+                vec!["Reps", "10 / 10 / 22", "10 / 10 / 22"],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_a_records_cell_adds_the_alternating_record_to_the_record_without_a_side_unmerged() {
+        assert_eq!(
+            records_table(vec![session(
+                1,
+                0,
+                vec![reps(20), sided_reps(domain::Side::Alternating, 20),]
+            )]),
+            [
+                vec!["", "All-time", "6 months"],
+                vec!["", "Combined / L+R", "Combined / L+R"],
+                vec!["Reps", "20 / 20", "20 / 20"],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_the_dates_of_a_combined_and_an_alternating_record_are_labelled() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![
+                session(1, 20, vec![reps(20)]),
+                session(2, 10, vec![sided_reps(domain::Side::Alternating, 22)]),
+            ],
+        );
+
+        let dates = [
+            format!("Combined {}", date(20)),
+            format!("L+R {}", date(10)),
+        ];
+        assert_eq!(
+            all_text_of(&html, "record-date"),
+            [dates.clone(), dates].concat()
+        );
+    }
+
+    #[test]
+    fn test_the_records_table_of_alternating_records_only_shows_single_values() {
+        let html = render_records(
+            ExerciseTab::Exercise,
+            web_app::Settings::default(),
+            vec![session(
+                1,
+                10,
+                vec![sided_reps(domain::Side::Alternating, 22)],
+            )],
+        );
+
+        assert_eq!(
+            rows_of_excluding(&html, "personal-records", "record-date"),
+            [
+                vec!["", "All-time", "6 months"],
+                vec!["", "L+R", "L+R"],
+                vec!["Reps", "22", "22"],
+            ]
+        );
+        assert_eq!(all_text_of(&html, "record-date"), [date(10), date(10)]);
     }
 
     fn date(days_ago: i64) -> String {

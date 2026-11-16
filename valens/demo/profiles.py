@@ -14,7 +14,8 @@ class ExerciseConfig:
     Training parameters of one exercise of one persona.
 
     `rep_range` and `rep_step` are given in seconds for exercises that are tracked by time only.
-    An `increment` of zero marks an exercise whose progression is limited to reps.
+    An `increment` of zero marks an exercise whose progression is limited to reps. An `alternating`
+    exercise is performed with both sides in one set, its reps and load counting both sides.
     """
 
     name: str
@@ -24,6 +25,7 @@ class ExerciseConfig:
     rep_step: int = 1
     target_rpe: float = 8.0
     alternative: str | None = None
+    alternating: bool = False
 
 
 @dataclass(frozen=True)
@@ -158,7 +160,14 @@ ALICE = Profile(
         ExerciseConfig(
             "Machine Standing Calf Raise", start_load=50.0, increment=2.0, rep_range=(10, 15)
         ),
-        ExerciseConfig("Dumbbell Curl", start_load=10.0, increment=1.0),
+        ExerciseConfig(
+            "Dumbbell Curl",
+            start_load=20.0,
+            increment=2.0,
+            rep_range=(16, 24),
+            rep_step=2,
+            alternating=True,
+        ),
         ExerciseConfig("Barbell Skull Crusher", start_load=20.0, increment=1.25),
         ExerciseConfig("Dumbbell Lateral Raise", start_load=6.0, increment=1.0, rep_range=(10, 15)),
         ExerciseConfig("Cable Rope Face Pull", start_load=20.0, increment=2.5, rep_range=(12, 15)),

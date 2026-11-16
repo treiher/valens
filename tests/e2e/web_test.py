@@ -2031,7 +2031,7 @@ def test_training_session_of_a_per_side_activity(page: Page) -> None:
     # not nested in a further section.
     r = RoutinePage(page, routine.id)
     r.goto()
-    r.set_sides(1, 0)
+    r.set_sides(1, 0, "Per side")
     r.wait_until_idle()
 
     assert r.get_sides_markers() == ["per side"]
@@ -2043,8 +2043,33 @@ def test_training_session_of_a_per_side_activity(page: Page) -> None:
     p = TrainingSessionPage(page, 0)
     p.expect_page()
 
-    expect(page.get_by_test_id("set-number")).to_have_count(12)
+    p.expect_set_count(12)
     assert p.get_set_sides() == ["", *["L", "R", "\u2013", "\u2013"] * 2, "", "", ""]
+
+
+def test_training_session_of_an_alternating_activity(page: Page) -> None:
+    routine = USER.routines[0]
+
+    login(page)
+
+    # The first activity is of an exercise without a laterality, which is performed like a
+    # bilateral one.
+    r = RoutinePage(page, routine.id)
+    r.goto()
+    r.set_sides(0, 0, "Alternating")
+    r.wait_until_idle()
+
+    assert r.get_sides_markers() == ["alternating"]
+
+    training_sessions = TrainingSessionsPage(page)
+    training_sessions.goto()
+    training_sessions.add_training_session(routine.name)
+
+    p = TrainingSessionPage(page, 0)
+    p.expect_page()
+
+    p.expect_set_count(10)
+    assert p.get_set_sides()[0] == "L+R"
 
 
 def test_training_session_side_of_a_recorded_set(page: Page) -> None:
@@ -2062,11 +2087,16 @@ def test_training_session_side_of_a_recorded_set(page: Page) -> None:
     p.edit()
 
     # A side-less set of a unilateral exercise shows a placeholder, which cycles through the sides.
-    expect(page.get_by_test_id("set-number")).to_have_count(set_count)
+    p.expect_set_count(set_count)
     assert p.get_set_sides() == ["", "\u2013", "\u2013"]
     p.tap_set_marker(1)
     p.tap_set_marker(2)
     p.tap_set_marker(2)
+    assert p.get_set_sides() == ["", "L", "R"]
+    p.tap_set_marker(2)
+    assert p.get_set_sides() == ["", "L", "L+R"]
+    for _ in range(3):
+        p.tap_set_marker(2)
     assert p.get_set_sides() == ["", "L", "R"]
     p.save()
     p.view()
@@ -2230,7 +2260,7 @@ def test_training_session_replace_exercise_by_a_unilateral_exercise(page: Page) 
 
     # The side-less set of the replaced exercise becomes a pair whose sides take its values.
     p.replace_exercise(str(exercise.name))
-    expect(page.get_by_test_id("set-number")).to_have_count(4)
+    p.expect_set_count(4)
     assert p.get_set_sides() == ["L", "R", "\u2013", "\u2013"]
     p.view()
 

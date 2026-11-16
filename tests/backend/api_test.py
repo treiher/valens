@@ -126,7 +126,7 @@ INVALID_ROUTINE_ACTIVITY_FIELDS: list[dict[str, object]] = [
     {"automatic": 1},
     {"sides": "1"},
     {"sides": 0},
-    {"sides": 3},
+    {"sides": 4},
     {"countdown": 1},
     {"countdown": True},
 ]
@@ -156,7 +156,7 @@ INVALID_WORKOUT_SET_FIELDS: list[dict[str, object]] = [
     {"target_tempo": [0, 0]},
     {"side": "1"},
     {"side": 0},
-    {"side": 3},
+    {"side": 4},
     {"countdown": "yes"},
     {"countdown": True},
     {"countdown": True, "target_reps": 5},
@@ -571,6 +571,32 @@ def test_json_required(client: Client, method: str, route: str) -> None:
                                 "automatic": False,
                                 "countdown": False,
                                 "sides": 2,
+                            }
+                        ],
+                    }
+                ],
+            },
+        ),
+        (
+            "post",
+            "/api/routines",
+            {
+                "name": "R",
+                "notes": None,
+                "archived": False,
+                "sections": [
+                    {
+                        "rounds": 1,
+                        "parts": [
+                            {
+                                "exercise_id": None,
+                                "reps": 0,
+                                "tempo": [60],
+                                "weight": 0.0,
+                                "rpe": 0.0,
+                                "automatic": False,
+                                "countdown": False,
+                                "sides": 3,
                             }
                         ],
                     }
@@ -1803,7 +1829,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                 "rpe": 0.0,
                                 "automatic": True,
                                 "countdown": True,
-                                "sides": 1,
+                                "sides": 3,
                             },
                             {
                                 "exercise_id": None,
@@ -1877,7 +1903,7 @@ def test_read_all(client: Client, user_id: int, route: str, data: list[dict[str,
                                     "rpe": 0.0,
                                     "automatic": True,
                                     "countdown": True,
-                                    "sides": 1,
+                                    "sides": 3,
                                 },
                                 {
                                     "exercise_id": None,
@@ -2120,6 +2146,24 @@ def test_create(
                         "automatic": False,
                         "countdown": False,
                         "side": 2,
+                    },
+                    {
+                        "target_time": 60,
+                        "automatic": False,
+                    },
+                    {
+                        "exercise_id": 1,
+                        "reps": 20,
+                        "time": None,
+                        "weight": 20,
+                        "rpe": None,
+                        "target_reps": None,
+                        "target_tempo": None,
+                        "target_weight": None,
+                        "target_rpe": None,
+                        "automatic": False,
+                        "countdown": False,
+                        "side": 3,
                     },
                 ],
                 "exercise_notes": [],

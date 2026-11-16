@@ -163,7 +163,12 @@ fn TrainingSessionInner(id: domain::TrainingSessionID) -> Element {
                 continue;
             };
             // The side entered for the set can differ from its stored side.
-            for side in [domain::Side::Unset, domain::Side::Left, domain::Side::Right] {
+            for side in [
+                domain::Side::Unset,
+                domain::Side::Left,
+                domain::Side::Right,
+                domain::Side::Alternating,
+            ] {
                 let sessions = offered_sets
                     .entry((*exercise_id, side))
                     .or_insert_with(|| {
@@ -869,12 +874,13 @@ impl SetFieldValues {
         fill_field(&mut self.weight, weight);
     }
 
-    /// Advances the side through none, left and right.
+    /// Advances the side through none, left, right and alternating.
     fn cycle_side(&mut self) {
         let side = match self.side.validated.clone().unwrap_or_default() {
             domain::Side::Unset => domain::Side::Left,
             domain::Side::Left => domain::Side::Right,
-            domain::Side::Right => domain::Side::Unset,
+            domain::Side::Right => domain::Side::Alternating,
+            domain::Side::Alternating => domain::Side::Unset,
         };
         self.side.input = side.to_string();
         self.side.validated = Ok(side);
@@ -1908,10 +1914,10 @@ fn view_form(
     }
 }
 
-/// The name of a side in a notification, `None` for a set without a side.
+/// The name of a side in a notification, `None` for a set without a side or an alternating set.
 fn side_name(side: domain::Side) -> Option<&'static str> {
     match side {
-        domain::Side::Unset => None,
+        domain::Side::Unset | domain::Side::Alternating => None,
         domain::Side::Left => Some("Left"),
         domain::Side::Right => Some("Right"),
     }
@@ -2370,22 +2376,29 @@ fn view_list(
             };
             rsx! {
                 match element {
-                    domain::TrainingSessionElement::Set { exercise_id, reps, time, weight, rpe, .. } => {
+                    domain::TrainingSessionElement::Set { exercise_id, side, reps, time, weight, rpe, .. } => {
                         let number = exercise_number(exercise_id, &exercise_ids);
+                        let alternating = *side == domain::Side::Alternating;
                         rsx! {
                             tr {
                                 if *reps == domain::Reps::default() && *time == domain::Time::default() && *weight == domain::Weight::default() && *rpe == domain::RPE::ZERO {
                                     td {
                                         class: "px-2 has-text-centered",
                                         colspan: 6,
-                                        if let Some(number) = number {
+                                        if number.is_some() || alternating {
                                             span {
                                                 class: "pr-2",
-                                                "{exercise_marker(number)} "
+                                                if let Some(number) = number {
+                                                    "{exercise_marker(number)}"
+                                                }
+                                                if alternating {
+                                                    span { "data-testid": "set-side", "{side}" }
+                                                }
+                                                " "
                                             }
                                         }
                                         span {
-                                            class: if number.is_some() { "pr-5" },
+                                            class: if number.is_some() || alternating { "pr-5" },
                                             "–"
                                         }
                                     }
@@ -2394,6 +2407,9 @@ fn view_list(
                                         class: "px-2 has-text-centered",
                                         if let Some(number) = number {
                                             "{exercise_marker(number)}"
+                                        }
+                                        if alternating {
+                                            span { "data-testid": "set-side", "{side}" }
                                         }
                                     }
                                     td {
@@ -3063,7 +3079,7 @@ fn SessionExerciseNotesDialog(
 
 fn measurement_label(side: domain::Side) -> &'static str {
     match side {
-        domain::Side::Unset => "Measurement",
+        domain::Side::Unset | domain::Side::Alternating => "Measurement",
         domain::Side::Left => "Left",
         domain::Side::Right => "Right",
     }
@@ -3288,7 +3304,7 @@ pub fn measurement_values_to_string(
     values
         .iter()
         .map(|(side, value)| match side {
-            domain::Side::Unset => value.to_string(),
+            domain::Side::Unset | domain::Side::Alternating => value.to_string(),
             domain::Side::Left | domain::Side::Right => format!("{side} {value}"),
         })
         .collect::<Vec<_>>()
@@ -3710,6 +3726,37 @@ mod tests {
                 vec!["", "", "10 × 50 kg @ 8 (30 s)", ""],
             ]
         );
+    }
+
+    #[test]
+    fn test_an_alternating_set_is_shown_like_a_set_without_a_side_marked_by_its_side() {
+        let alternating = || {
+            let mut set = recorded_set(1);
+            if let domain::TrainingSessionElement::Set { side, .. } = &mut set {
+                *side = domain::Side::Alternating;
+            }
+            set
+        };
+        let html = render_training_session(1, web_app::Settings::default(), move || {
+            recorded_session().with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![alternating(), alternating()],
+                exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
+            }])
+        });
+
+        assert_eq!(
+            rows_of(&html, "session")[1..],
+            [
+                vec!["L+R", "10 ×", "30 s", "50 kg", "@ 8", ""],
+                vec!["L+R", "10 ×", "30 s", "50 kg", "@ 8", ""],
+            ]
+        );
+        assert!(!contains(&html, "side-header"));
     }
 
     #[test]
@@ -4901,10 +4948,10 @@ mod tests {
     }
 
     #[test]
-    fn test_the_side_cycles_through_none_left_and_right() {
+    fn test_the_side_cycles_through_none_left_right_and_alternating() {
         let mut values = unperformed_set_field_values();
 
-        let sides = (0..3)
+        let sides = (0..4)
             .map(|_| {
                 values.cycle_side();
                 values.side.validated.clone().unwrap()
@@ -4913,7 +4960,12 @@ mod tests {
 
         assert_eq!(
             sides,
-            [domain::Side::Left, domain::Side::Right, domain::Side::Unset]
+            [
+                domain::Side::Left,
+                domain::Side::Right,
+                domain::Side::Alternating,
+                domain::Side::Unset
+            ]
         );
         assert!(!values.changed());
     }

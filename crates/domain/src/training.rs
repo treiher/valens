@@ -28,10 +28,9 @@ impl Reps {
         (self > Self::default()).then_some(self)
     }
 
+    /// The fractional `reps` plus the reps in reserve of `rpe`.
     #[must_use]
-    pub fn including_rir(self, rpe: RPE) -> f32 {
-        #[allow(clippy::cast_precision_loss)]
-        let reps = self.0 as f32;
+    pub fn including_rir(reps: f32, rpe: RPE) -> f32 {
         reps + f32::from(RIR::from(rpe))
     }
 }
@@ -316,12 +315,14 @@ impl SetPacing {
     }
 }
 
-/// How an activity is performed: with both sides at once or with each side in a set of its own.
+/// How an activity is performed: with both sides at once, with each side in a set of its own, or
+/// with both sides in one set, one after the other.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Sides {
     #[default]
     Combined = 1,
     PerSide = 2,
+    Alternating = 3,
 }
 
 impl Sides {
@@ -339,6 +340,7 @@ impl Sides {
         match self {
             Sides::Combined => &[Side::Unset],
             Sides::PerSide => &[Side::Left, Side::Right],
+            Sides::Alternating => &[Side::Alternating],
         }
     }
 }
@@ -347,7 +349,7 @@ impl TryFrom<u8> for Sides {
     type Error = SidesError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        [Sides::Combined, Sides::PerSide]
+        [Sides::Combined, Sides::PerSide, Sides::Alternating]
             .into_iter()
             .find(|sides| *sides as u8 == value)
             .ok_or(SidesError::Invalid)
@@ -360,13 +362,14 @@ pub enum SidesError {
     Invalid,
 }
 
-/// The side a set belongs to.
+/// The side a set belongs to, `Alternating` for a set holding both sides one after the other.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Side {
     #[default]
     Unset = 0,
     Left = 1,
     Right = 2,
+    Alternating = 3,
 }
 
 impl Side {
@@ -374,6 +377,23 @@ impl Side {
     #[must_use]
     pub fn non_zero(self) -> Option<Self> {
         (self != Self::Unset).then_some(self)
+    }
+
+    /// Whether the side is the left or the right side.
+    #[must_use]
+    pub fn is_left_or_right(self) -> bool {
+        matches!(self, Self::Left | Self::Right)
+    }
+
+    /// The reps of one side among `reps` recorded on the side, half of them for an alternating set,
+    /// which holds the reps of both sides.
+    #[must_use]
+    pub fn reps_per_side(self, reps: f32) -> f32 {
+        if self == Self::Alternating {
+            reps / 2.
+        } else {
+            reps
+        }
     }
 
     /// Whether the sides are the left and the right side, in either order.
@@ -390,7 +410,7 @@ impl TryFrom<u8> for Side {
     type Error = SideError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        [Side::Left, Side::Right]
+        [Side::Left, Side::Right, Side::Alternating]
             .into_iter()
             .find(|side| *side as u8 == value)
             .ok_or(SideError::Invalid)
@@ -403,6 +423,7 @@ impl fmt::Display for Side {
             Side::Unset => Ok(()),
             Side::Left => write!(f, "L"),
             Side::Right => write!(f, "R"),
+            Side::Alternating => write!(f, "L+R"),
         }
     }
 }
@@ -834,8 +855,9 @@ pub fn reps_for_percentage(percentage: f32) -> f32 {
     -((percentage - 48.8) / 53.8).ln() / 0.075
 }
 
-/// Returns the fewest reps with `weight` and `rpe` whose estimated one-rep max satisfies
-/// `is_enough`, an unset RPE counting as a set taken to failure.
+/// Returns the fewest reps of a set on `side` with `weight` and `rpe` whose estimated one-rep max
+/// satisfies `is_enough`, an unset RPE counting as a set taken to failure and the reps of an
+/// alternating set counting half.
 ///
 /// Returns `None` if no number of reps up to the largest one suffices, as the estimate of a light
 /// weight levels off.
@@ -843,12 +865,19 @@ pub fn reps_for_percentage(percentage: f32) -> f32 {
 pub(crate) fn fewest_reps_for_one_rep_max(
     weight: Weight,
     rpe: RPE,
+    side: Side,
     is_enough: impl Fn(f32) -> bool,
 ) -> Option<Reps> {
     let rpe = rpe.non_zero().unwrap_or(RPE::TEN);
     let is_enough = |reps: u32| {
-        Reps::new(reps)
-            .is_ok_and(|reps| is_enough(one_rep_max(reps.including_rir(rpe), f32::from(weight))))
+        Reps::new(reps).is_ok_and(|reps| {
+            #[allow(clippy::cast_precision_loss)]
+            let reps = side.reps_per_side(u32::from(reps) as f32);
+            is_enough(one_rep_max(
+                Reps::including_rir(reps, rpe),
+                f32::from(weight),
+            ))
+        })
     };
     // The estimate does not decrease with the reps, so the reps that are enough form a suffix of
     // the range.
@@ -1076,11 +1105,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case(Reps(5), RPE::TEN, 5.0)]
-    #[case(Reps(5), RPE::EIGHT, 7.0)]
-    #[case(Reps(5), RPE::ZERO, 15.0)]
-    fn test_reps_including_rir(#[case] reps: Reps, #[case] rpe: RPE, #[case] expected: f32) {
-        assert_approx_eq!(reps.including_rir(rpe), expected);
+    #[case(5.0, RPE::TEN, 5.0)]
+    #[case(5.0, RPE::EIGHT, 7.0)]
+    #[case(5.0, RPE::ZERO, 15.0)]
+    #[case(5.5, RPE::EIGHT, 7.5)]
+    fn test_reps_including_rir(#[case] reps: f32, #[case] rpe: RPE, #[case] expected: f32) {
+        assert_approx_eq!(Reps::including_rir(reps, rpe), expected);
     }
 
     #[rstest]
@@ -1328,11 +1358,19 @@ mod tests {
 
     #[test]
     fn test_sides_try_from_u8() {
-        for sides in [Sides::Combined, Sides::PerSide] {
+        for sides in [Sides::Combined, Sides::PerSide, Sides::Alternating] {
             assert_eq!(Sides::try_from(sides as u8), Ok(sides));
         }
         assert_eq!(Sides::try_from(0), Err(SidesError::Invalid));
-        assert_eq!(Sides::try_from(3), Err(SidesError::Invalid));
+        assert_eq!(Sides::try_from(4), Err(SidesError::Invalid));
+    }
+
+    #[rstest]
+    #[case::combined(Sides::Combined, &[Side::Unset])]
+    #[case::per_side(Sides::PerSide, &[Side::Left, Side::Right])]
+    #[case::alternating(Sides::Alternating, &[Side::Alternating])]
+    fn test_sides_sides(#[case] sides: Sides, #[case] expected: &[Side]) {
+        assert_eq!(sides.sides(), expected);
     }
 
     #[test]
@@ -1350,17 +1388,18 @@ mod tests {
 
     #[test]
     fn test_side_try_from_u8() {
-        for side in [Side::Left, Side::Right] {
+        for side in [Side::Left, Side::Right, Side::Alternating] {
             assert_eq!(Side::try_from(side as u8), Ok(side));
         }
         assert_eq!(Side::try_from(0), Err(SideError::Invalid));
-        assert_eq!(Side::try_from(3), Err(SideError::Invalid));
+        assert_eq!(Side::try_from(4), Err(SideError::Invalid));
     }
 
     #[rstest]
     #[case::unset(Side::Unset, "", None)]
     #[case::left(Side::Left, "L", Some(Side::Left))]
     #[case::right(Side::Right, "R", Some(Side::Right))]
+    #[case::alternating(Side::Alternating, "L+R", Some(Side::Alternating))]
     fn test_side(#[case] side: Side, #[case] text: &str, #[case] non_zero: Option<Side>) {
         assert_eq!(side.to_string(), text);
         assert_eq!(side.non_zero(), non_zero);
@@ -1374,8 +1413,25 @@ mod tests {
     #[case::unset_left(Side::Unset, Side::Left, false)]
     #[case::right_unset(Side::Right, Side::Unset, false)]
     #[case::unset_unset(Side::Unset, Side::Unset, false)]
+    #[case::alternating_left(Side::Alternating, Side::Left, false)]
+    #[case::right_alternating(Side::Right, Side::Alternating, false)]
+    #[case::alternating_alternating(Side::Alternating, Side::Alternating, false)]
     fn test_side_opposes(#[case] side: Side, #[case] other: Side, #[case] expected: bool) {
         assert_eq!(side.opposes(other), expected);
+    }
+
+    #[rstest]
+    #[case::unset(Side::Unset, false, 11.0)]
+    #[case::left(Side::Left, true, 11.0)]
+    #[case::right(Side::Right, true, 11.0)]
+    #[case::alternating(Side::Alternating, false, 5.5)]
+    fn test_side_left_or_right_and_reps_per_side(
+        #[case] side: Side,
+        #[case] is_left_or_right: bool,
+        #[case] reps_per_side: f32,
+    ) {
+        assert_eq!(side.is_left_or_right(), is_left_or_right);
+        assert_approx_eq!(side.reps_per_side(11.0), reps_per_side);
     }
 
     #[test]
@@ -1556,16 +1612,19 @@ mod tests {
     }
 
     #[rstest]
-    #[case::without_an_rpe(100.0, RPE::ZERO, Some(6))]
-    #[case::with_an_rpe(100.0, RPE::EIGHT, Some(4))]
-    #[case::too_light(10.0, RPE::ZERO, None)]
+    #[case::without_an_rpe(100.0, RPE::ZERO, Side::Unset, Some(6))]
+    #[case::with_an_rpe(100.0, RPE::EIGHT, Side::Unset, Some(4))]
+    #[case::too_light(10.0, RPE::ZERO, Side::Unset, None)]
+    #[case::left(100.0, RPE::ZERO, Side::Left, Some(6))]
+    #[case::alternating(100.0, RPE::ZERO, Side::Alternating, Some(11))]
     fn test_fewest_reps_for_one_rep_max(
         #[case] weight: f32,
         #[case] rpe: RPE,
+        #[case] side: Side,
         #[case] expected: Option<u32>,
     ) {
         assert_eq!(
-            fewest_reps_for_one_rep_max(Weight::new(weight).unwrap(), rpe, |one_rep_max| {
+            fewest_reps_for_one_rep_max(Weight::new(weight).unwrap(), rpe, side, |one_rep_max| {
                 one_rep_max > 112.5
             }),
             expected.map(|reps| Reps::new(reps).unwrap())

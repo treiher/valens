@@ -1616,7 +1616,12 @@ fn decode_measurements(
             let side = if m.side == domain::Side::Unset as u8 {
                 domain::Side::Unset
             } else {
+                // A measurement is never taken for the alternating side.
                 domain::Side::try_from(m.side)
+                    .and_then(|side| match side {
+                        domain::Side::Alternating => Err(domain::SideError::Invalid),
+                        side => Ok(side),
+                    })
                     .inspect_err(|e| warn!("invalid side in stored measurement: {e}"))
                     .ok()?
             };
@@ -2156,7 +2161,8 @@ mod tests {
     #[rstest]
     #[case::combined(1, domain::Sides::Combined)]
     #[case::per_side(2, domain::Sides::PerSide)]
-    #[case::rejected_by_the_domain(3, domain::Sides::Combined)]
+    #[case::alternating(3, domain::Sides::Alternating)]
+    #[case::rejected_by_the_domain(4, domain::Sides::Combined)]
     fn test_routine_activity_sides_from(#[case] sides: u8, #[case] expected: domain::Sides) {
         let domain::RoutinePart::RoutineActivity { sides, .. } =
             domain::RoutinePart::from(RoutinePart::RoutineActivity {
@@ -2210,6 +2216,29 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn test_training_session_element_alternating_side_round_trip() {
+        let element = domain::TrainingSessionElement::Set {
+            exercise_id: 1.into(),
+            side: domain::Side::Alternating,
+            reps: domain::Reps::new(10).unwrap(),
+            time: domain::Time::default(),
+            weight: domain::Weight::default(),
+            rpe: domain::RPE::default(),
+            target_reps: domain::Reps::default(),
+            target_tempo: domain::Tempo::default(),
+            target_weight: domain::Weight::default(),
+            target_rpe: domain::RPE::default(),
+            automatic: false,
+            countdown: false,
+        };
+
+        assert_eq!(
+            domain::TrainingSessionElement::from(TrainingSessionElement::from(element.clone())),
+            element
+        );
     }
 
     #[test]
@@ -2326,6 +2355,7 @@ mod tests {
                 measurement(0, 1.5),
                 measurement(1, -2.0),
                 measurement(3, 1.0),
+                measurement(4, 1.0),
                 measurement(2, 1.005),
                 measurement(2, 10_000.0),
             ],
@@ -2457,7 +2487,7 @@ mod tests {
         assert_eq!(
             domain::TrainingSessionElement::from(TrainingSessionElement::Set {
                 exercise_id: Uuid::from_u128(1),
-                side: Some(3),
+                side: Some(4),
                 reps: Some(1000),
                 time: Some(1000),
                 weight: Some(1000.0),

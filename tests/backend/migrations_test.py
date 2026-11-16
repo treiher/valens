@@ -404,6 +404,55 @@ def test_upgrade_adds_countdown(tmp_path: Path) -> None:
         ).fetchall() == [(1, "routines", 1), (1, "workouts", 1)]
 
 
+ALTERNATING_DATA = """
+INSERT INTO user (id, name, sex, role)
+    VALUES (1, 'Alice', 'FEMALE', 'USER'), (2, 'Bob', 'MALE', 'USER');
+INSERT INTO exercise (id, user_id, name) VALUES (1, 1, 'Curl'), (2, 2, 'Curl');
+INSERT INTO routine (id, user_id, name, archived) VALUES (1, 1, 'A', 0), (2, 2, 'B', 0);
+INSERT INTO routine_part (id, type, routine_section_id, position)
+    VALUES (1, 'routine_section', NULL, 1), (2, 'routine_activity', 1, 1),
+    (3, 'routine_section', NULL, 1), (4, 'routine_activity', 3, 1);
+INSERT INTO routine_section (id, routine_id, rounds) VALUES (1, 1, 1), (3, 2, 1);
+INSERT INTO routine_activity (id, exercise_id, reps, tempo, weight, rpe, automatic, sides)
+    VALUES (2, 1, 20, '[]', 0.0, 0.0, 0, 3), (4, 2, 10, '[]', 0.0, 0.0, 0, 1);
+INSERT INTO workout (id, user_id, date) VALUES (1, 1, '2002-02-20'), (2, 2, '2002-02-20');
+INSERT INTO workout_element (workout_id, position, type, automatic)
+    VALUES (1, 1, 'workout_set', 0), (2, 1, 'workout_set', 0);
+INSERT INTO workout_set (workout_id, position, exercise_id, reps, side)
+    VALUES (1, 1, 1, 20, 3), (2, 1, 2, 10, NULL);
+INSERT INTO data_version (user_id, collection, version) VALUES (1, 'routines', 2);
+"""
+
+
+def test_downgrade_removes_alternating_sides(tmp_path: Path) -> None:
+    cfg = Config("alembic.ini")
+    test_db = tmp_path / "test.db"
+    app.config["DATABASE"] = f"sqlite:///{test_db}"
+
+    with closing(sqlite3.connect(test_db)) as connection:
+        connection.executescript(BASE_SCHEMA.read_text(encoding="utf-8"))
+        connection.commit()
+
+        with app.app_context():
+            upgrade(cfg, "e062925203fd")
+
+        connection.executescript(ALTERNATING_DATA)
+        connection.commit()
+
+        with app.app_context():
+            downgrade(cfg, "e4bce08a4bf6")
+
+        assert connection.execute(
+            "SELECT id, sides FROM routine_activity ORDER BY id"
+        ).fetchall() == [(2, 1), (4, 1)]
+        assert connection.execute(
+            "SELECT workout_id, side FROM workout_set ORDER BY workout_id"
+        ).fetchall() == [(1, None), (2, None)]
+        assert connection.execute(
+            "SELECT user_id, collection, version FROM data_version ORDER BY user_id, collection"
+        ).fetchall() == [(1, "routines", 3), (1, "workouts", 1)]
+
+
 def test_completeness(tmp_path: Path) -> None:
     """Ensure that all constraints defined in the model are added during the upgrade."""
     # Based on alembic-autogen-check (https://github.com/4Catalyzer/alembic-autogen-check)

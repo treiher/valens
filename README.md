@@ -12,7 +12,7 @@ Plan your training, follow it and see what it does to your body. A web app you h
 - Choose from more than 200 exercises or create your own, and filter them by muscles, equipment and other properties
 - Plan your training days
 - Log repetitions, weight, time and rating of perceived exertion (RPE) for each set
-- Prescribe a unilateral exercise per side and log each side separately
+- Prescribe an exercise per side and log each side separately, or alternating with both sides in one set
 - Train flexibility, with the muscles an exercise stretches and the stretch sets and time per muscle, session, routine and week
 - Record a measurement per exercise, side and session, such as a reach, a jump or a distance, and follow it per exercise
 - Keep the tempo of your repetitions with a metronome and time your training with a stopwatch or timer

@@ -63,10 +63,19 @@ UNILATERAL = 2
 # Sides values mirror `Sides` in `crates/domain/src/training.rs`
 COMBINED = 1
 PER_SIDE = 2
+ALTERNATING = 3
 
 # Side values mirror `Side` in `crates/domain/src/training.rs`
 LEFT = 1
 RIGHT = 2
+ALTERNATING_SIDE = 3
+
+# The sides of the sets of an activity, mirroring `Sides::sides`, `None` storing the unset side
+SET_SIDES: dict[int, tuple[int | None, ...]] = {
+    COMBINED: (None,),
+    PER_SIDE: (LEFT, RIGHT),
+    ALTERNATING: (ALTERNATING_SIDE,),
+}
 
 # Assistance values mirror `Assistance` in `crates/domain/src/exercise.rs`
 UNASSISTED = 1
@@ -875,12 +884,19 @@ def _activity(
         automatic=False,
         # A hold is counted down by default.
         countdown=not definition.type.reps,
-        sides=_sides(definition),
+        sides=_sides(definition, config),
     )
 
 
-def _sides(definition: ExerciseDefinition) -> int:
-    """Mirror `Sides::for_laterality` in `crates/domain/src/training.rs`."""
+def _sides(definition: ExerciseDefinition, config: ExerciseConfig) -> int:
+    """
+    Return the sides of an exercise of a persona.
+
+    An exercise the persona alternates is alternating, the sides of any other exercise mirror
+    `Sides::for_laterality` in `crates/domain/src/training.rs`.
+    """
+    if config.alternating:
+        return ALTERNATING
     return PER_SIDE if definition.laterality == UNILATERAL else COMBINED
 
 
@@ -901,6 +917,7 @@ def _workouts(
     routines: dict[str, Routine],
     exercises: dict[str, Exercise],
 ) -> list[Workout]:
+    config = {c.name: c for c in profile.exercises}
     measured: dict[str, int] = {}
     workouts = []
     for record in records:
@@ -913,7 +930,7 @@ def _workouts(
             measured[name] = measured.get(name, 0) + 1
             sides = (
                 [(LEFT, value), (RIGHT, round(value + RIGHT_MEASUREMENT_OFFSET, 2))]
-                if _sides(EXERCISES[name]) == PER_SIDE
+                if _sides(EXERCISES[name], config[name]) != COMBINED
                 else [(0, value)]
             )
             measurements.extend(
@@ -926,7 +943,7 @@ def _workouts(
                 date=record.date,
                 notes=record.notes,
                 routine=routines[record.routine],
-                elements=_elements(record, exercises),
+                elements=_elements(record, config, exercises),
                 exercise_notes=[
                     WorkoutExerciseNote(exercise=exercises[name], notes=notes)
                     for name, notes in record.exercise_notes
@@ -937,11 +954,13 @@ def _workouts(
     return workouts
 
 
-def _elements(record: _Record, exercises: dict[str, Exercise]) -> list[WorkoutElement]:
+def _elements(
+    record: _Record, config: dict[str, ExerciseConfig], exercises: dict[str, Exercise]
+) -> list[WorkoutElement]:
     elements: list[WorkoutElement] = []
 
     for performed in record.sets:
-        per_side = _sides(EXERCISES[performed.exercise]) == PER_SIDE
+        sides = _sides(EXERCISES[performed.exercise], config[performed.exercise])
         position = len(elements) + 1
         elements.extend(
             WorkoutSet(
@@ -958,7 +977,7 @@ def _elements(record: _Record, exercises: dict[str, Exercise]) -> list[WorkoutEl
                 countdown=performed.target_reps is None and bool(performed.target_tempo),
                 side=side,
             )
-            for offset, side in enumerate((LEFT, RIGHT) if per_side else (None,))
+            for offset, side in enumerate(SET_SIDES[sides])
         )
         if record.rests:
             elements.append(

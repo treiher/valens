@@ -423,7 +423,7 @@ class RoutineActivity(RoutinePart):
         CheckConstraint("typeof(sides) = 'integer'", name="sides_type_integer"),
         # Bounds mirror `Sides` in `crates/domain/src/training.rs`
         CheckConstraint(column("sides") >= 1, name="sides_ge_1"),
-        CheckConstraint(column("sides") <= 2, name="sides_le_2"),
+        CheckConstraint(column("sides") <= 3, name="sides_le_3"),
         CheckConstraint("typeof(countdown) = 'integer'", name="countdown_type_integer"),
         CheckConstraint(column("countdown") >= 0, name="countdown_ge_0"),
         CheckConstraint(column("countdown") <= 1, name="countdown_le_1"),
@@ -558,7 +558,8 @@ class WorkoutExerciseMeasurement(Base):
     __table_args__ = (
         CheckConstraint("typeof(side) = 'integer'", name="side_type_integer"),
         CheckConstraint("typeof(value) = 'real'", name="value_type_real"),
-        # Bounds mirror `Side` and `Measurement` in `crates/domain/src/training.rs`
+        # Bounds mirror the unset, left and right `Side` and `Measurement` in
+        # `crates/domain/src/training.rs`
         CheckConstraint(column("side") >= 0, name="side_ge_0"),
         CheckConstraint(column("side") <= 2, name="side_le_2"),
         CheckConstraint(column("value") >= -9999.99, name="value_ge_min"),
@@ -672,7 +673,7 @@ class WorkoutSet(WorkoutElement):
         # Bounds mirror `Side` in `crates/domain/src/training.rs`, whose unset value is stored as
         # NULL
         CheckConstraint(column("side") >= 1, name="side_ge_1"),
-        CheckConstraint(column("side") <= 2, name="side_le_2"),
+        CheckConstraint(column("side") <= 3, name="side_le_3"),
         CheckConstraint("typeof(countdown) = 'integer'", name="countdown_type_integer"),
         CheckConstraint(column("countdown") >= 0, name="countdown_ge_0"),
         CheckConstraint(column("countdown") <= 1, name="countdown_le_1"),

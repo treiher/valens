@@ -2415,7 +2415,13 @@ fn view_list(
                                     td {
                                         class: "px-2 has-text-right",
                                         if *reps > domain::Reps::default() {
-                                            "{reps} ×"
+                                            if *weight > domain::Weight::default()
+                                                || *time > domain::Time::default()
+                                            {
+                                                "{reps} ×"
+                                            } else {
+                                                "{reps}"
+                                            }
                                         }
                                     }
                                     td {
@@ -3814,6 +3820,40 @@ mod tests {
             rows_of(&html, "session")[1],
             vec!["", "10 ×", "30 s", "50 kg", "@ 8", ""]
         );
+    }
+
+    #[rstest]
+    #[case::reps_only(0, 0.0, vec!["", "10", "", "", "@ 8", ""])]
+    #[case::with_time(30, 0.0, vec!["", "10 ×", "30 s", "", "@ 8", ""])]
+    #[case::with_weight(0, 50.0, vec!["", "10 ×", "", "50 kg", "@ 8", ""])]
+    fn test_the_reps_are_followed_by_a_multiplication_sign_only_before_a_time_or_weight(
+        #[case] time: u32,
+        #[case] weight: f32,
+        #[case] expected: Vec<&'static str>,
+    ) {
+        let html = render_training_session(1, web_app::Settings::default(), move || {
+            let mut set = recorded_set(1);
+            if let domain::TrainingSessionElement::Set {
+                time: set_time,
+                weight: set_weight,
+                ..
+            } = &mut set
+            {
+                *set_time = domain::Time::new(time).unwrap();
+                *set_weight = domain::Weight::new(weight).unwrap();
+            }
+            recorded_session().with_training_sessions(vec![domain::TrainingSession {
+                id: 1.into(),
+                routine_id: 1.into(),
+                date: chrono::Local::now().date_naive(),
+                notes: String::new(),
+                elements: vec![set],
+                exercise_notes: std::collections::BTreeMap::new(),
+                exercise_measurements: std::collections::BTreeMap::new(),
+            }])
+        });
+
+        assert_eq!(rows_of(&html, "session")[1], expected);
     }
 
     #[test]

@@ -624,18 +624,6 @@ impl RPE {
     pub fn non_zero(self) -> Option<Self> {
         (self > Self::default()).then_some(self)
     }
-
-    #[must_use]
-    pub fn avg(values: &[RPE]) -> Option<RPE> {
-        if values.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_possible_truncation)]
-            Some(RPE(
-                (values.iter().map(|rpe| rpe.0 as usize).sum::<usize>() / values.len()) as u8,
-            ))
-        }
-    }
 }
 
 impl From<RPE> for f32 {

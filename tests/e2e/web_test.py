@@ -1020,8 +1020,7 @@ def test_training_sessions_add(page: Page) -> None:
     date = training_sessions_page.dialog.get_date()
     training_sessions_page.dialog.cancel()
 
-    assert training_sessions_page.table.get_value(1, 1, 1) != date
-    assert training_sessions_page.table.get_value(1, 1, 2) != routine
+    assert training_sessions_page.get_item(0) != f"{date} · {routine}"
 
     training_sessions_page.add_training_session(routine)
 
@@ -1031,8 +1030,7 @@ def test_training_sessions_add(page: Page) -> None:
     session_page.navbar.go_back()
 
     training_sessions_page.expect_page()
-    assert training_sessions_page.table.get_value(1, 1, 1) == date
-    assert training_sessions_page.table.get_value(1, 1, 2) == routine
+    training_sessions_page.expect_item(0, date, routine)
 
 
 def stretching_workout() -> models.Workout:
@@ -1045,33 +1043,21 @@ def stretching_workout() -> models.Workout:
     return workout
 
 
-def test_training_sessions_stretch_columns(page: Page) -> None:
+def test_training_sessions_stretching_session(page: Page) -> None:
     workout = stretching_workout()
-    row = sorted((w.date for w in USER.workouts), reverse=True).index(workout.date)
+    index = sorted((w.date for w in USER.workouts), reverse=True).index(workout.date)
 
     login(page)
     p = TrainingSessionsPage(page)
     p.goto()
 
-    p.table.expect_value(1, row + 1, 1, str(workout.date))
-
-    assert p.get_column("Set volume")[row] == "0"
-    assert p.get_column("Stretch sets")[row] == "2"
-    assert p.get_column("Stretch (min)")[row] == "2.5"
-    assert p.get_column("Stretch sets")[row - 1] == "0"
+    p.expect_item(index, str(workout.date), "Stretching")
+    p.expect_summary(index, "Load 2 · Set volume 0")
 
 
 def test_exercise_stretch_sets(page: Page) -> None:
     workout = stretching_workout()
     exercise = next(s.exercise for s in workout.elements if isinstance(s, models.WorkoutSet))
-    row = sorted(
-        (
-            w.date
-            for w in USER.workouts
-            if any(isinstance(s, models.WorkoutSet) and s.exercise == exercise for s in w.elements)
-        ),
-        reverse=True,
-    ).index(workout.date)
 
     login(page)
     p = ExercisePage(page, exercise.id)
@@ -1079,10 +1065,6 @@ def test_exercise_stretch_sets(page: Page) -> None:
 
     p.select_tab("charts")
     p.expect_chart_label("Stretch sets")
-    p.select_tab("sessions")
-    assert p.table.get_column("Stretch sets")[row] == "2"
-    assert "Set volume" not in p.table.get_headers()
-    assert "Volume load" not in p.table.get_headers()
 
 
 def test_training_session_stretch_per_muscle(page: Page) -> None:
@@ -1154,27 +1136,30 @@ def test_training_sessions_delete(page: Page) -> None:
     routine = (
         next(r.name for r in USER.routines if r.id == workout.routine_id)
         if workout.routine_id
-        else "-"
+        else None
     )
     date_2 = str(USER.workouts[-2].date)
+    routine_2 = (
+        next(r.name for r in USER.routines if r.id == USER.workouts[-2].routine_id)
+        if USER.workouts[-2].routine_id
+        else None
+    )
 
     login(page)
     p = TrainingSessionsPage(page)
     p.goto()
 
-    p.table.expect_value(1, 1, 1, date_1)
-    p.table.expect_value(1, 1, 2, routine)
+    p.expect_item(0, date_1, routine)
 
     p.delete_item(0)
     p.dialog.no()
 
-    p.table.expect_value(1, 1, 1, date_1)
-    p.table.expect_value(1, 1, 2, routine)
+    p.expect_item(0, date_1, routine)
 
     p.delete_item(0)
     p.dialog.delete()
 
-    p.table.expect_value(1, 1, 1, date_2)
+    p.expect_item(0, date_2, routine_2)
 
 
 def test_training_session_change_entries(page: Page) -> None:
@@ -3684,7 +3669,7 @@ def test_routine_tabs(page: Page) -> None:
     assert p.get_sections()
 
     p.select_tab("sessions")
-    assert "Load" in p.table.get_headers()
+    p.expect_session_items()
 
     p.select_tab("charts")
     p.expect_chart_label("Set volume")
@@ -4540,7 +4525,7 @@ def test_exercise_tabs(page: Page) -> None:
     assert p.get_muscles()
 
     p.select_tab("sessions")
-    assert "Load" in p.table.get_headers()
+    p.expect_session_items()
 
     p.select_tab("charts")
     p.expect_chart_label("Set volume")

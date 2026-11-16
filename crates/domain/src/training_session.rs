@@ -258,70 +258,6 @@ impl TrainingSession {
     }
 
     #[must_use]
-    pub fn avg_reps(&self) -> Option<f32> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(TrainingSessionElement::reps_per_side)
-            .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().sum::<f32>() / sets.len() as f32)
-        }
-    }
-
-    #[must_use]
-    pub fn avg_time(&self) -> Option<f32> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { time, .. } => time.non_zero(),
-                TrainingSessionElement::Rest { .. } => None,
-            })
-            .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().map(|t| u32::from(*t)).sum::<u32>() as f32 / sets.len() as f32)
-        }
-    }
-
-    #[must_use]
-    pub fn avg_weight(&self) -> Option<f32> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { weight, .. } => weight.non_zero(),
-                TrainingSessionElement::Rest { .. } => None,
-            })
-            .collect::<Vec<_>>();
-        if sets.is_empty() {
-            None
-        } else {
-            #[allow(clippy::cast_precision_loss)]
-            Some(sets.iter().map(|w| f32::from(*w)).sum::<f32>() / sets.len() as f32)
-        }
-    }
-
-    #[must_use]
-    pub fn avg_rpe(&self) -> Option<RPE> {
-        let sets = &self
-            .elements
-            .iter()
-            .filter_map(|e| match e {
-                TrainingSessionElement::Set { rpe, .. } => rpe.non_zero(),
-                TrainingSessionElement::Rest { .. } => None,
-            })
-            .collect::<Vec<_>>();
-        RPE::avg(sets)
-    }
-
-    #[must_use]
     pub fn estimated_max_reps(&self) -> Option<f32> {
         self.elements
             .iter()
@@ -2055,54 +1991,6 @@ mod tests {
             TRAINING_SESSION.exercises(),
             BTreeSet::from([1.into(), 2.into()])
         );
-    }
-
-    #[rstest]
-    #[case(&*TRAINING_SESSION, Some(7.5))]
-    #[case(&*EMPTY_TRAINING_SESSION, None)]
-    fn test_training_session_avg_reps(
-        #[case] training_session: &TrainingSession,
-        #[case] expected: Option<f32>,
-    ) {
-        assert_eq!(training_session.avg_reps(), expected);
-    }
-
-    #[rstest]
-    #[case(&*TRAINING_SESSION, Some(22.333_334))]
-    #[case(&*EMPTY_TRAINING_SESSION, None)]
-    fn test_training_session_avg_time(
-        #[case] training_session: &TrainingSession,
-        #[case] expected: Option<f32>,
-    ) {
-        assert_eq!(training_session.avg_time(), expected);
-    }
-
-    #[rstest]
-    #[case(&*TRAINING_SESSION, Some(30.0))]
-    #[case(&training_session(&[set(1, 5, 30.0, RPE::ZERO), set(1, 5, 50.0, RPE::ZERO)]), Some(40.0))]
-    #[case(&*EMPTY_TRAINING_SESSION, None)]
-    fn test_training_session_avg_weight(
-        #[case] training_session: &TrainingSession,
-        #[case] expected: Option<f32>,
-    ) {
-        assert_eq!(training_session.avg_weight(), expected);
-    }
-
-    #[rstest]
-    #[case(&*TRAINING_SESSION, Some(RPE::SIX))]
-    #[case(&*EMPTY_TRAINING_SESSION, None)]
-    fn test_training_session_avg_rpe(
-        #[case] training_session: &TrainingSession,
-        #[case] expected: Option<RPE>,
-    ) {
-        assert_eq!(training_session.avg_rpe(), expected);
-    }
-
-    #[test]
-    fn test_training_session_avg_rpe_excludes_unset_rpe() {
-        let training_session =
-            training_session(&[set(1, 5, 100.0, RPE::ZERO), set(1, 5, 100.0, RPE::EIGHT)]);
-        assert_eq!(training_session.avg_rpe(), Some(RPE::EIGHT));
     }
 
     #[rstest]
@@ -5217,7 +5105,6 @@ mod tests {
     fn test_training_session_reps_statistics_of_an_alternating_set_take_half_its_reps() {
         let session = training_session(&[alternating_set(11, 100.0, RPE::EIGHT)]);
 
-        assert_eq!(session.avg_reps(), Some(5.5));
         assert_eq!(session.estimated_max_reps(), Some(7.5));
         assert_eq!(session.one_rep_max(1.into()), Some(one_rep_max(7.5, 100.0)));
         assert_eq!(

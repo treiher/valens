@@ -161,7 +161,7 @@ fn view_training_sessions(
                         {view_charts(&training_sessions, &metric_sessions, stretch_only, interval, settings)}
                     } else {
                         {page::training_sessions::view_calendar(&training_sessions, stretch_only, interval)}
-                        {page::training_sessions::view_table(&training_sessions, stretch_only, page::training_sessions::StretchMetrics::Exclude(&metric_sessions), settings.show_tut(), routines, interval, training_dialog, settings)}
+                        {page::training_sessions::view_list(&training_sessions, stretch_only, &[], training_dialog)}
                         {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                     }
                 }
@@ -1623,7 +1623,7 @@ mod tests {
 
     use crate::test_render::{
         TestCache, all_attributes_of, all_containing, all_text_of, attribute_of, contains,
-        disabled_texts_of, provide_settings, render, rows_of, selected_text_of, text_of,
+        disabled_texts_of, provide_settings, render, selected_text_of, text_of,
     };
 
     fn exercise(id: u128, name: &str) -> domain::Exercise {
@@ -2055,18 +2055,11 @@ mod tests {
     }
 
     #[test]
-    fn test_the_stretch_sets_of_the_sessions_are_shown_in_columns_and_a_chart() {
-        let cache = || with_stretching_routine(vec![timed_set(2, 0, 60), timed_set(1, 5, 0)]);
-        let html = render_tab(1, RoutineTab::Sessions, cache);
-        let charts = render_tab(1, RoutineTab::Charts, cache);
-        let rows = rows_of(&html, "table");
+    fn test_the_stretch_of_the_sessions_is_shown_in_a_chart() {
+        let charts = render_tab(1, RoutineTab::Charts, || {
+            with_stretching_routine(vec![timed_set(2, 0, 60), timed_set(1, 5, 0)])
+        });
 
-        assert_eq!(
-            rows[0][rows[0].len() - 3..],
-            ["Stretch sets", "Stretch (min)", ""]
-        );
-        assert_eq!(rows[1][2..4], ["2", "1"]);
-        assert_eq!(rows[1][rows[1].len() - 3..rows[1].len() - 1], ["1", "1"]);
         assert!(
             charts.contains("Time under stretch (min)</span>"),
             "{charts}"
@@ -2074,13 +2067,24 @@ mod tests {
     }
 
     #[test]
-    fn test_without_stretch_sets_no_stretch_columns_and_chart_are_shown() {
-        let cache = || with_stretching_routine(vec![timed_set(1, 5, 0)]);
-        let html = render_tab(1, RoutineTab::Sessions, cache);
-        let charts = render_tab(1, RoutineTab::Charts, cache);
+    fn test_without_stretch_sets_no_stretch_chart_is_shown() {
+        let charts = render_tab(1, RoutineTab::Charts, || {
+            with_stretching_routine(vec![timed_set(1, 5, 0)])
+        });
 
-        assert!(!rows_of(&html, "table")[0].contains(&"Stretch sets".to_string()));
         assert!(!charts.contains("Time under stretch (min)"));
+    }
+
+    #[test]
+    fn test_the_list_of_sessions_shows_no_routine_name() {
+        let html = render_tab(1, RoutineTab::Sessions, || {
+            with_stretching_routine(vec![timed_set(1, 5, 0)])
+        });
+
+        assert_eq!(
+            all_text_of(&html, "session-title"),
+            [chrono::Local::now().date_naive().to_string()]
+        );
     }
 
     #[rstest::rstest]

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import Locator, expect
 
 from .base import BasePage, Dialog
-from .utils import MUSCLE_SECTIONS, get_text
+from .utils import MUSCLE_SECTIONS, expect_session_items, get_text
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -24,6 +24,9 @@ class ExercisePage(BasePage):
     def path(self) -> str:
         assert self.exercise_id is not None
         return f"/exercise/{uuid.UUID(int=self.exercise_id)}"
+
+    def expect_session_items(self) -> None:
+        expect_session_items(self.page)
 
     def get_set_history_sides(self) -> list[list[str]]:
         return [

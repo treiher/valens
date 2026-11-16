@@ -11,6 +11,7 @@ from .base import BasePage, Dialog
 from .exercises import ExerciseListDialog
 from .utils import (
     drop_on_remove_zone,
+    expect_session_items,
     expect_stretch_per_muscle,
     get_focused_selection,
     get_text,
@@ -41,6 +42,9 @@ class RoutinePage(BasePage):
 
     def expect_page(self) -> None:
         expect(self.page).to_have_url(re.compile(r"/routine/[^/]+(/[a-z]+)?$"))
+
+    def expect_session_items(self) -> None:
+        expect_session_items(self.page)
 
     def expect_stretch_per_muscle(self, muscle: str, sets: str, minutes: str) -> None:
         expect_stretch_per_muscle(self.page, muscle, sets, minutes)

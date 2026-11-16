@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from playwright.sync_api import expect
 
 from .base import BasePage, Dialog
+from .utils import get_text
 
 if TYPE_CHECKING:
     from playwright.sync_api import Page
@@ -30,9 +31,17 @@ class TrainingSessionsPage(BasePage):
         self.dialog.set_routine(name)
         self.dialog.save()
 
-    def get_column(self, header: str) -> list[str]:
-        """Return the values of a column of the table, newest session first."""
-        return self.table.get_column(header)
+    def get_item(self, index: int) -> str:
+        """Return the date and the routine of a session, newest session first."""
+        return get_text(self.page.get_by_test_id("session-title").nth(index))
+
+    def expect_item(self, index: int, date: str, routine: str | None) -> None:
+        expect(self.page.get_by_test_id("session-title").nth(index)).to_have_text(
+            date if routine is None else f"{date} · {routine}"
+        )
+
+    def expect_summary(self, index: int, text: str) -> None:
+        expect(self.page.get_by_test_id("session-summary").nth(index)).to_have_text(text)
 
     def delete_training_session(self, index: int) -> None:
         self.delete_item(index)

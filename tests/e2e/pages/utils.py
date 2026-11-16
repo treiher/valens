@@ -122,6 +122,10 @@ def scroll_to_center(locator: Locator) -> None:
     locator.evaluate("element => element.scrollIntoView({block: 'center', behavior: 'instant'})")
 
 
+def expect_session_items(page: Page) -> None:
+    expect(page.get_by_test_id("session-item").first).to_be_visible()
+
+
 def expect_stretch_per_muscle(page: Page, muscle: str, sets: str, minutes: str) -> None:
     """Expect the stretch blocks to state the sets and the minutes of a stretched muscle."""
     expect(page.get_by_test_id("stretch-sets-per-muscle")).to_contain_text(

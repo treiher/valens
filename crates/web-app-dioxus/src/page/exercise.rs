@@ -448,11 +448,6 @@ fn view_training_sessions(
     // A hold without its time reads as an empty set.
     let show_time = settings.show_tut() || exercise.is_stretch_only();
     let stretch_only = domain::StretchOnlyExercises::new(exercises);
-    let stretch_metrics = if exercise.is_stretch_only() {
-        page::training_sessions::StretchMetrics::Only
-    } else {
-        page::training_sessions::StretchMetrics::Include
-    };
     match (&*cache.training_sessions.read(), &*cache.routines.read()) {
         (CacheState::Ready(training_sessions), CacheState::Ready(routines)) => {
             let sessions_with_exercise = training_sessions
@@ -495,7 +490,6 @@ fn view_training_sessions(
                     {view_charts(id, &training_sessions, &stretch_only, interval, show_time, settings)}
                 } else {
                     {view_calendar(id, &training_sessions, &stretch_only, interval)}
-                    {page::training_sessions::view_table(&training_sessions, &stretch_only, stretch_metrics, show_time, routines, interval, training_dialog, settings)}
                     {view_sets(id, &sessions_with_exercise, personal_records, routines, show_time, settings, training_dialog)}
                     {page::training_sessions::view_dialog(training_dialog, &training_sessions, routines, None)}
                 }
@@ -1258,8 +1252,8 @@ mod tests {
         let html = render_tab(1, ExerciseTab::Sessions, with_a_set);
 
         assert_eq!(attribute_of(&html, "tab-sessions", "data-selected"), "true");
-        assert!(contains(&html, "table"));
-        assert!(contains(&html, "set-row"));
+        assert!(contains(&html, "set-history-sets"));
+        assert!(!html.contains("<thead"));
         assert!(!contains(&html, "chart"));
         assert!(!contains(&html, "muscle-tag"));
     }
@@ -1688,12 +1682,9 @@ mod tests {
     ) {
         let html = render_stretch(stimulus, ExerciseTab::Sessions);
         let charts = render_stretch(stimulus, ExerciseTab::Charts);
-        let head = &rows_of(&html, "table")[0];
 
         assert_eq!(text_of(&html, "set-row").contains("60 s"), expected);
         assert_eq!(charts.contains("Time under tension (s)"), expected);
-        assert_eq!(head.contains(&"TUT".to_string()), expected);
-        assert_eq!(head.contains(&"Time (s)".to_string()), expected);
     }
 
     #[rstest::rstest]
@@ -1703,17 +1694,14 @@ mod tests {
         #[case] stimulus: domain::Stimulus,
         #[case] is_stretch_only: bool,
     ) {
-        let html = render_stretch(stimulus, ExerciseTab::Sessions);
-        let table = rows_of(&html, "table");
-        let column = |name: &str| table[0].iter().position(|h| h == name);
+        let html = render_stretch(stimulus, ExerciseTab::Charts);
 
         assert_eq!(html.contains("Stretch sets"), is_stretch_only);
         assert_eq!(html.contains("Set volume"), !is_stretch_only);
-        assert_eq!(html.contains("Volume load"), !is_stretch_only);
-        assert!(!html.contains("Time under stretch (min)"));
         if is_stretch_only {
-            assert_eq!(table[1][column("Stretch sets").unwrap()], "1");
+            assert!(!html.contains("Volume load"));
         }
+        assert!(!html.contains("Time under stretch (min)"));
     }
 
     fn session_with_measurements(

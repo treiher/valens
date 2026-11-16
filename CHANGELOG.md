@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Counting of a left or right set as half a set in the load, the set volume and the time under tension, and of the time and reps of an alternating set as half in the time under tension, the time under stretch, the volume load with a weight, the average reps, the estimated maximum reps and the estimated 1RM
+- Counting of a left or right set as half a set in the load, the set volume and the time under tension, and of the time and reps of an alternating set as half in the time under tension, the time under stretch, the volume load with a weight, the reps of the reps chart of the exercise page, the estimated maximum reps and the estimated 1RM
 - Saving of dialogs by pressing Enter
 - Closing of dialogs and menus by pressing Escape
 - Training sessions page:
-    - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
+    - Stretch sets and time under stretch of a session in charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
     - Charts of a single muscle, including its stretch sets and time under stretch
 - Training session page:
     - Left and right set of an activity prescribed per side and "L+R" set of an activity prescribed alternating, with the side shown next to the marker of the set and changed by tapping it
@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Starting of a training session through the options of the routine
     - Sides of an activity, which prescribe an exercise per side or alternating, with both sides in one set
     - Stretch sets and time under stretch per muscle
-    - Stretch sets and time under stretch of a session in columns and charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
+    - Stretch sets and time under stretch of a session in charts of their own, replacing the volume metrics for exercises that only stretch and counting their sets as one towards the load, whatever their RPE
     - Updating of an exercise from the catalog through its options in the exercise list
     - Choice between a countdown and input fields for an activity that prescribes a tempo
     - Marker of an activity that is counted down
@@ -68,7 +68,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Navigation bar: Page title that scrolls sideways if it is too long for the screen
 - Home page: Training load, counting the sets of exercises that only stretch as one, whatever their RPE
-- Training sessions page: Charts on a tab of their own, next to the calendar and the list of sessions
+- Training sessions page:
+    - Charts on a tab of their own, next to the calendar and the list of sessions
+    - List of sessions with their load and set volume, replacing the table of sessions
 - Training session page:
     - Notes for this session of an exercise, removed with the exercise and moved to its replacement
     - Name of the session-specific notes of an exercise, which reads "Session notes"
@@ -80,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Text of a routine, with a first line naming the routine, the RPE regardless of the RPE setting, the start and the countdown of an activity where they differ from the default and the time per repetition with its unit
     - Sets per muscle, leaving out muscles without sets
     - Routine, its training sessions and their charts on a tab each
+    - List of sessions with their load and set volume, replacing the table of sessions
     - Name of the routine in the navigation bar, replacing the title of the page
     - Automatic start of an activity that prescribes repetitions, which no longer implies a countdown
     - Label of the start of an activity, which reads "Start"
@@ -117,6 +120,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Muscles page, replaced by the charts of a single muscle on the training sessions page
 - Support for Python 3.10
+- Training sessions page: RPE, volume load, time under tension, reps, reps+RIR, weight and time of a session
+- Routine page: RPE, volume load, time under tension, reps, reps+RIR, weight and time of a session
+- Exercise page: Table of training sessions, whose sessions the set history lists, with the load, set volume, RPE, volume load, time under tension, reps, reps+RIR, weight, time, stretch sets and stretch time of a session
 
 ### Fixed
 

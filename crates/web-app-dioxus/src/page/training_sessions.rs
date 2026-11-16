@@ -19,7 +19,7 @@ use crate::{
     ui::{
         element::{
             DeleteConfirmationDialog, ErrorPage, FloatingActionButton, Icon, LoadingPage, NoWrap,
-            SaveDialog, Table, Tabs, count_to_string, minutes_to_string, value_or_dash,
+            SaveDialog, Table, Tabs, count_to_string,
         },
         form::{FieldValue, FieldValueState, InputField, SelectField, SelectOption},
     },
@@ -93,10 +93,9 @@ pub fn TrainingSessions(tab: TrainingSessionsTab, muscle: Option<u8>, add: bool)
             let content = match tab {
                 TrainingSessionsTab::Sessions => {
                     let shown_sessions = sessions_in(training_sessions, interval);
-                    let metric_sessions = without_stretch_only_sets(shown_sessions, &stretch_only);
                     rsx! {
                         {view_calendar(training_sessions, &stretch_only, interval)}
-                        {view_table(shown_sessions, &stretch_only, StretchMetrics::Exclude(&metric_sessions), settings.show_tut(), routines, interval, dialog, settings)}
+                        {view_list(shown_sessions, &stretch_only, routines, dialog)}
                     }
                 }
                 TrainingSessionsTab::Charts => training_charts::view_charts(
@@ -212,179 +211,39 @@ pub fn view_calendar(
     }
 }
 
-/// How the session table treats the sets of stretch-only exercises.
-#[derive(Clone, Copy)]
-pub enum StretchMetrics<'a> {
-    /// The volume metrics are taken from the given sessions, which leave out the sets and
-    /// correspond to the shown sessions. The sets are shown in stretch columns instead.
-    Exclude(&'a [Cow<'a, domain::TrainingSession>]),
-    /// The sets count like any other set.
-    Include,
-    /// The sets are all stretch-only, so a stretch sets column replaces the volume metrics.
-    Only,
-}
-
-/// Show a row per training session.
+/// Show an item per training session, newest first, with a summary of its load and set volume.
 ///
-/// `show_time` decides whether the TUT and the time columns are shown.
-#[allow(clippy::too_many_arguments)]
-pub fn view_table(
+/// The set volume leaves out the sets of stretch-only exercises.
+pub fn view_list(
     training_sessions: &[domain::TrainingSession],
     stretch_only: &domain::StretchOnlyExercises,
-    stretch_metrics: StretchMetrics<'_>,
-    show_time: bool,
     routines: &[domain::Routine],
-    interval: domain::Interval,
-    mut dialog: Signal<TrainingDialog>,
-    settings: Settings,
+    dialog: Signal<TrainingDialog>,
 ) -> Element {
-    let borrowed_sessions;
-    let metric_sessions = if let StretchMetrics::Exclude(metric_sessions) = stretch_metrics {
-        metric_sessions
-    } else {
-        borrowed_sessions = training_sessions
-            .iter()
-            .map(Cow::Borrowed)
-            .collect::<Vec<_>>();
-        &borrowed_sessions
-    };
-    let shows_volume = !matches!(stretch_metrics, StretchMetrics::Only);
-    let shows_stretch_sets = match stretch_metrics {
-        StretchMetrics::Exclude(_) => training_sessions.iter().any(|t| {
-            (interval.first..=interval.last).contains(&t.date) && t.stretch_sets(stretch_only) > 0.
-        }),
-        StretchMetrics::Include => false,
-        StretchMetrics::Only => true,
-    };
-    let shows_stretch_time =
-        matches!(stretch_metrics, StretchMetrics::Exclude(_)) && shows_stretch_sets;
-    let (has_avg_rpe_data, has_tut_data, has_avg_reps_data, has_avg_weight_data, has_avg_time_data) =
-        metric_sessions
-            .iter()
-            .fold((false, false, false, false, false), |r, t| {
-                (
-                    r.0 || t.avg_rpe().is_some(),
-                    r.1 || t.tut().is_some(),
-                    r.2 || t.avg_reps().is_some(),
-                    r.3 || t.avg_weight().is_some(),
-                    r.4 || t.avg_time().is_some(),
-                )
-            });
-
-    let mut head = Vec::with_capacity(12);
-    head.extend_from_slice(&[rsx! {"Date"}, rsx! {"Routine"}, rsx! {"Load"}]);
-    if shows_volume {
-        head.push(rsx! {"Set volume"});
-    }
-    if settings.show_rpe() && has_avg_rpe_data {
-        head.push(rsx! {"RPE"});
-    }
-    if shows_volume {
-        head.push(rsx! {"Volume load"});
-    }
-    if show_time && has_tut_data {
-        head.push(rsx! {"TUT"});
-    }
-    if has_avg_reps_data {
-        head.push(rsx! {"Reps"});
-    }
-    if settings.show_rpe() && has_avg_reps_data && has_avg_rpe_data {
-        head.push(rsx! {"Reps+RIR"});
-    }
-    if has_avg_weight_data {
-        head.push(rsx! {"Weight (kg)"});
-    }
-    if show_time && has_avg_time_data {
-        head.push(rsx! {"Time (s)"});
-    }
-    if shows_stretch_sets {
-        head.push(rsx! {"Stretch sets"});
-    }
-    if shows_stretch_time {
-        head.push(rsx! {"Stretch (min)"});
-    }
-    head.push(rsx! {});
-
     let body = training_sessions
         .iter()
-        .zip(metric_sessions)
         .rev()
-        .filter(|(p, _)| p.date >= interval.first && p.date <= interval.last)
-        .map(|(t, m)| {
-            let t = t.clone();
-            let routine = routines.iter().find(|r| r.id == t.routine_id);
-            let routine_id = routine.map(|r| r.id).unwrap_or_default();
-            let mut data = Vec::with_capacity(12);
-            data.push(rsx! {
-                Link {
-                    to: Route::TrainingSession { id: t.id },
-                    NoWrap { "{t.date}" }
-                }
-            });
-            data.push(rsx! {
-                if routine_id.is_nil() {
-                    "-"
-                } else {
-                    Link {
-                        to: Route::Routine { id: routine_id, tab: RoutineTab::Routine },
-                        match routine {
-                            Some(routine) => rsx! { {routine.name.to_string()} },
-                            None => rsx! { "-" }
-                        }
+        .map(|t| {
+            let load = count_to_string(f64::from(t.load(stretch_only)));
+            let set_volume = count_to_string(f64::from(
+                t.without_stretch_only_sets(stretch_only).set_volume(),
+            ));
+            view_session_item(
+                t,
+                routines,
+                dialog,
+                rsx! {
+                    div {
+                        "data-testid": "session-summary",
+                        "Load {load} · Set volume {set_volume}"
                     }
-                }
-            });
-            data.push(rsx! { {count_to_string(f64::from(t.load(stretch_only)))} });
-            if shows_volume {
-                data.push(rsx! { {count_to_string(f64::from(m.set_volume()))} });
-            }
-            if settings.show_rpe() && has_avg_rpe_data {
-                data.push(rsx! { {value_or_dash(m.avg_rpe())} });
-            }
-            if shows_volume {
-                data.push(rsx! { "{m.volume_load()}" });
-            }
-            if show_time && has_tut_data {
-                data.push(rsx! { {value_or_dash(m.tut())} });
-            }
-            if has_avg_reps_data {
-                data.push(rsx! { {value_or_dash(m.avg_reps())} });
-            }
-            if settings.show_rpe() && has_avg_reps_data && has_avg_rpe_data {
-                data.push(rsx! {
-                    if let (Some(avg_reps), Some(avg_rpe)) = (m.avg_reps(), m.avg_rpe()) {
-                        {format!("{:.1}", avg_reps + f32::from(domain::RIR::from(avg_rpe)))}
-                    } else {
-                        "-"
-                    }
-                });
-            }
-            if has_avg_weight_data {
-                data.push(rsx! { {value_or_dash(m.avg_weight())} });
-            }
-            if show_time && has_avg_time_data {
-                data.push(rsx! { {value_or_dash(m.avg_time())} });
-            }
-            if shows_stretch_sets {
-                data.push(rsx! { {count_to_string(f64::from(t.stretch_sets(stretch_only)))} });
-            }
-            if shows_stretch_time {
-                data.push(rsx! { {minutes_to_string(t.stretch_time(stretch_only))} });
-            }
-            data.push(rsx! {
-                a {
-                    class: "mx-2",
-                    "data-testid": "item-delete",
-                    onclick: move |_| { *dialog.write() = TrainingDialog::Delete { id: t.id, date: t.date }; },
-                    Icon { name: "xmark"}
-                }
-            });
-            data
+                },
+            )
         })
         .collect::<Vec<_>>();
 
     rsx! {
-        Table { head, body }
+        Table { body }
     }
 }
 
@@ -636,7 +495,8 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::test_render::{
-        TestCache, attribute_of, contains, provide_settings, render, rows_of, text_of,
+        TestCache, all_text_of, attribute_of, contains, links_of, provide_settings, render,
+        rows_of, text_of,
     };
 
     use super::*;
@@ -771,32 +631,54 @@ mod tests {
     }
 
     #[test]
-    fn test_sessions_are_tabulated_newest_first_with_their_routine() {
+    fn test_sessions_are_listed_newest_first_with_their_date_and_routine_links() {
         let html = render_training_sessions(web_app::Settings::default(), sessions);
         let today = Local::now().date_naive();
 
-        let rows = rows_of(&html, "table");
-        assert_eq!(rows[1][0], today.to_string());
-        assert_eq!(rows[1][1], "A");
-        assert_eq!(rows[2][0], (today - chrono::Duration::days(1)).to_string());
+        assert_eq!(
+            all_text_of(&html, "session-title"),
+            [
+                format!("{today} · A"),
+                format!("{} · A", today - chrono::Duration::days(1))
+            ]
+        );
+        assert_eq!(
+            links_of(&html, "session-title"),
+            [
+                Route::TrainingSession { id: 2.into() }.to_string(),
+                Route::Routine {
+                    id: 1.into(),
+                    tab: RoutineTab::Routine
+                }
+                .to_string()
+            ]
+        );
     }
 
     #[test]
-    fn test_the_rpe_and_tut_columns_follow_the_settings() {
-        let with_both = render_training_sessions(web_app::Settings::default(), sessions);
-        let without = render_training_sessions(
-            web_app::Settings {
-                show_rpe: false,
-                show_tut: false,
-                ..web_app::Settings::default()
-            },
-            sessions,
-        );
+    fn test_a_session_without_a_routine_shows_its_date_alone() {
+        let today = Local::now().date_naive();
+        let html = render_training_sessions(web_app::Settings::default(), move || {
+            TestCache::default()
+                .with_routines(vec![routine()])
+                .with_training_sessions(vec![domain::TrainingSession {
+                    routine_id: domain::RoutineID::nil(),
+                    ..training_session(1, today)
+                }])
+        });
 
-        assert!(rows_of(&with_both, "table")[0].contains(&"RPE".to_string()));
-        assert!(rows_of(&with_both, "table")[0].contains(&"TUT".to_string()));
-        assert!(!rows_of(&without, "table")[0].contains(&"RPE".to_string()));
-        assert!(!rows_of(&without, "table")[0].contains(&"TUT".to_string()));
+        assert_eq!(text_of(&html, "session-title"), today.to_string());
+        assert_eq!(
+            links_of(&html, "session-title"),
+            [Route::TrainingSession { id: 1.into() }.to_string()]
+        );
+    }
+
+    #[test]
+    fn test_an_item_shows_the_load_and_the_set_volume_of_its_session() {
+        let html = render_training_sessions(web_app::Settings::default(), sessions);
+
+        assert_eq!(text_of(&html, "session-summary"), "Load 8 · Set volume 1");
     }
 
     fn exercise(id: u128, muscles: Vec<domain::ExerciseMuscle>) -> domain::Exercise {
@@ -883,34 +765,14 @@ mod tests {
     }
 
     #[test]
-    fn test_a_stretch_leaves_the_volume_metrics_for_stretch_columns() {
-        let html = render_training_sessions(web_app::Settings::default(), sessions_with_stretch);
-        let rows = rows_of(&html, "table");
+    fn test_a_session_of_stretches_alone_shows_its_load_and_a_set_volume_of_0() {
+        let html = render_training_sessions(web_app::Settings::default(), || {
+            let mut session = session_with_stretch(1, Local::now().date_naive());
+            session.elements.remove(0);
+            stretch_cache(vec![session])
+        });
 
-        assert_eq!(
-            rows[0],
-            vec![
-                "Date",
-                "Routine",
-                "Load",
-                "Set volume",
-                "RPE",
-                "Volume load",
-                "TUT",
-                "Reps",
-                "Reps+RIR",
-                "Time (s)",
-                "Stretch sets",
-                "Stretch (min)",
-                "",
-            ]
-        );
-        assert_eq!(
-            rows[1][2..],
-            [
-                "9", "1", "8", "10", "300", "10.0", "12.0", "30.0", "1", "1.5", ""
-            ]
-        );
+        assert_eq!(text_of(&html, "session-summary"), "Load 1 · Set volume 0");
     }
 
     #[test]
@@ -929,12 +791,9 @@ mod tests {
     }
 
     #[test]
-    fn test_a_stretch_outside_the_interval_shows_no_stretch_columns_and_charts() {
-        let list =
-            render_training_sessions(web_app::Settings::default(), stretch_outside_the_interval);
+    fn test_a_stretch_outside_the_interval_shows_no_stretch_charts() {
         let charts = render_charts(stretch_outside_the_interval);
 
-        assert!(!rows_of(&list, "table")[0].contains(&"Stretch sets".to_string()));
         assert!(!charts.contains("7-day stretch"));
     }
 
@@ -943,27 +802,23 @@ mod tests {
         let html = render_training_sessions(web_app::Settings::default(), || {
             sessions_with_stretch().with_unreadable_exercises()
         });
-        let rows = rows_of(&html, "table");
 
-        assert!(!rows[0].contains(&"Stretch sets".to_string()));
-        assert_eq!(rows[1][3], "2");
+        assert_eq!(text_of(&html, "session-summary"), "Load 24 · Set volume 2");
     }
 
     #[test]
-    fn test_without_stretch_sets_no_stretch_columns_and_charts_are_shown() {
-        let list = render_training_sessions(web_app::Settings::default(), sessions);
+    fn test_without_stretch_sets_no_stretch_charts_are_shown() {
         let charts = render_charts(sessions);
 
-        assert!(!rows_of(&list, "table")[0].contains(&"Stretch sets".to_string()));
         assert!(!charts.contains("7-day stretch"));
     }
 
     #[test]
-    fn test_without_sessions_no_chart_and_an_empty_table_are_shown() {
+    fn test_without_sessions_no_chart_and_an_empty_list_are_shown() {
         let list = render_training_sessions(web_app::Settings::default(), TestCache::default);
         let charts = render_charts(TestCache::default);
 
-        assert_eq!(rows_of(&list, "table").len(), 1);
+        assert!(rows_of(&list, "table").is_empty());
         assert!(!contains(&charts, "chart"));
     }
 
